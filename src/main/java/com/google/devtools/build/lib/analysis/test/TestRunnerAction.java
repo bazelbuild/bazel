@@ -99,6 +99,12 @@ import javax.annotation.Nullable;
 public class TestRunnerAction extends AbstractAction
     implements NotifyOnActionCacheHit, CommandAction {
 
+  // Whether the test.xml is a declared output of this action rather than just an output of the test
+  // spawn. True for Bazel so that it behaves properly with Build without the Bytes (i.e.,
+  // --remote_download_regex), but patched to false for Blaze since not all its test actions
+  // generate a test.xml.
+  private static final boolean TEST_XML_IS_ACTION_OUTPUT = true;
+
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   private static final String UNDECLARED_OUTPUTS_ZIP_NAME = "outputs.zip";
@@ -221,7 +227,7 @@ public class TestRunnerAction extends AbstractAction
         inputs,
         nonNullAsSet(
             testLog,
-            testXml,
+            TEST_XML_IS_ACTION_OUTPUT ? testXml : null,
             cacheStatus,
             coverageArtifact,
             coverageDirectory,
