@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
 import static com.google.devtools.build.lib.skyframe.SkyfocusExecutor.toFileStateKey;
 import static com.google.devtools.build.lib.skyframe.SkyfocusState.DISABLED;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
 
@@ -312,9 +313,12 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -525,6 +529,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final AtomicInteger analysisCount = new AtomicInteger();
 
+  private final Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions;
+
+  private boolean isCleanBuild = true;
+
   /** Returns how many times analysis has been run during the life of this bazel server instance. */
   public int getAndIncrementAnalysisCount() {
     return analysisCount.getAndIncrement();
@@ -674,7 +682,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       @Nullable RecordingDifferencer recordingDiffer,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
-      boolean globUnderSingleDep) {
+      boolean globUnderSingleDep,
+      Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
@@ -733,6 +742,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.recordingDiffer = recordingDiffer;
     this.repositoryHelpersHolder = repositoryHelpersHolder;
     this.globUnderSingleDep = globUnderSingleDep;
+    this.diffCheckNotificationOptions = diffCheckNotificationOptions;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
@@ -1096,6 +1106,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     progressReceiver = newSkyframeProgressReceiver();
     memoizingEvaluator = createEvaluator(skyFunctions(), progressReceiver, emittedEventState);
     skyframeExecutorConsumerOnInit.accept(this);
+    isCleanBuild = true;
   }
 
   @ForOverride
@@ -3552,6 +3563,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Profiler.instance().profile("handleDiffsWithCompleteDiffInformation")) {
       handleDiffsWithCompleteDiffInformation(tsgm, modifiedFilesByPathEntry, fsvcThreads);
     }
+
+    ScheduledExecutorService scheduledExecutorService = null;
+    ScheduledFuture<?> diffCheckNotificationFuture = null;
+    if (!isCleanBuild && diffCheckNotificationOptions.isPresent()) {
+      DiffCheckNotificationOptions diffCheckNotificationOptions =
+          this.diffCheckNotificationOptions.get();
+      scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+      diffCheckNotificationFuture =
+          scheduledExecutorService.schedule(
+              () ->
+                  eventHandler.handle(Event.info(diffCheckNotificationOptions.getStatusMessage())),
+              diffCheckNotificationOptions.getStatusUpdateDelay().toMillis(),
+              MILLISECONDS);
+    }
+
     RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
     try (SilentCloseable c = Profiler.instance().profile("handleDiffsWithMissingDiffInformation")) {
       PackageOptions packageOptions = options.getOptions(PackageOptions.class);
@@ -3563,8 +3589,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           repoOptions != null && repoOptions.checkExternalRepositoryFiles,
           packageOptions.checkExternalOtherFiles,
           fsvcThreads);
+    } finally {
+      if (scheduledExecutorService != null && diffCheckNotificationFuture != null) {
+        diffCheckNotificationFuture.cancel(false);
+        scheduledExecutorService.shutdown();
+      }
     }
     handleClientEnvironmentChanges();
+    isCleanBuild = false;
     return workspaceInfo;
   }
 
@@ -4572,5 +4604,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Multiset<SkyFunctionName> counts = ConcurrentHashMultiset.create();
     graph.parallelForEach(entry -> counts.add(entry.getKey().functionName()));
     return Multisets.copyHighestCountFirst(counts);
+  }
+
+  /** Defines configuration for the progress message shown during a slow diff check. */
+  public interface DiffCheckNotificationOptions {
+    String getStatusMessage();
+
+    Duration getStatusUpdateDelay();
   }
 }
