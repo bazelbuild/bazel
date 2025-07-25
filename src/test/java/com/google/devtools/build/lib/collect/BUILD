@@ -10,6 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/collect/compacthashset:srcs",
         "//src/test/java/com/google/devtools/build/lib/collect/nestedset:srcs",
     ],
     visibility = ["//src:__subpackages__"],
