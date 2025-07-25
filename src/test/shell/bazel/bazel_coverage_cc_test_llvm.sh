@@ -64,6 +64,7 @@ function setup_llvm_coverage_tools_for_lcov() {
   add_to_bazelrc "common --repo_env=BAZEL_LLVM_PROFDATA=${llvm_profdata}"
   add_to_bazelrc "common --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1"
   add_to_bazelrc "common --repo_env=CC=${clang}"
+  add_to_bazelrc "common --repo_env=GCOV_COVERAGE=0"
   add_to_bazelrc "common --experimental_generate_llvm_lcov"
 }
 
