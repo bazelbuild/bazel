@@ -341,7 +341,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         // The built-in module does not depend on itself.
         continue;
       }
-      deps.put(builtinModule, DepSpec.create(builtinModule, Version.EMPTY, -1));
+      deps.put(builtinModule, new DepSpec(builtinModule, Version.EMPTY, -1));
       try {
         addRepoNameUsage(builtinModule, "as a built-in dependency", ImmutableList.of());
       } catch (EvalException e) {
