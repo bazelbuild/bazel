@@ -14,28 +14,50 @@
 
 package com.google.devtools.build.buildjar.instrumentation;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.newBufferedReader;
+import static java.nio.file.Files.newBufferedWriter;
+import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.JavaLibraryBuildRequest;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
-import java.io.BufferedInputStream;
+import com.google.testing.coverage.BranchCoverageDetail;
+import com.google.testing.coverage.BranchDetailAnalyzer;
+import com.google.testing.coverage.JacocoLCOVFormatter;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.Reader;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
+import java.util.Map;
+import javax.annotation.Nullable;
+import org.jacoco.core.analysis.Analyzer;
+import org.jacoco.core.analysis.CoverageBuilder;
+import org.jacoco.core.analysis.IBundleCoverage;
+import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.instr.Instrumenter;
 import org.jacoco.core.runtime.OfflineInstrumentationAccessGenerator;
+import org.jacoco.report.ISourceFileLocator;
 
-/** Instruments compiled java classes using Jacoco instrumentation library. */
+/**
+ * Instruments compiled java classes using Jacoco instrumentation library and optionally analyzes
+ * them to generate a baseline coverage report.
+ */
 public final class JacocoInstrumentationProcessor {
 
   public static JacocoInstrumentationProcessor create(List<String> args)
@@ -45,17 +67,25 @@ public final class JacocoInstrumentationProcessor {
       throw new InvalidCommandLineException(
           "Number of arguments for Jacoco instrumentation should be 1+ (given "
               + args.size()
-              + ": pathsForCoverageFile");
+              + ": pathsForCoverageFile [baselineCoverageFile].");
+    }
+    Path pathsForCoverageFile = Path.of(args.get(0));
+    Path baselineCoverageFile = null;
+    if (args.size() > 1) {
+      baselineCoverageFile = Path.of(args.get(1));
     }
 
-    return new JacocoInstrumentationProcessor(args.get(0));
+    return new JacocoInstrumentationProcessor(pathsForCoverageFile, baselineCoverageFile);
   }
 
   private Path instrumentedClassesDirectory;
-  private final String coverageInformation;
+  private final Path pathsForCoverageFile;
+  @Nullable private final Path baselineCoverageFile;
 
-  private JacocoInstrumentationProcessor(String coverageInfo) {
-    this.coverageInformation = coverageInfo;
+  private JacocoInstrumentationProcessor(
+      Path pathsForCoverageFile, @Nullable Path baselineCoverageFile) {
+    this.pathsForCoverageFile = pathsForCoverageFile;
+    this.baselineCoverageFile = baselineCoverageFile;
   }
 
   /**
@@ -72,7 +102,7 @@ public final class JacocoInstrumentationProcessor {
     Instrumenter instr = new Instrumenter(new OfflineInstrumentationAccessGenerator());
     instrumentRecursively(instr, build.getClassDir());
     jar.addDirectory(instrumentedClassesDirectory);
-    jar.addEntry(coverageInformation, coverageInformation);
+    jar.addEntry(pathsForCoverageFile.toString(), pathsForCoverageFile);
   }
 
   public void cleanup() throws IOException {
@@ -91,9 +121,14 @@ public final class JacocoInstrumentationProcessor {
    * Runs Jacoco instrumentation processor over all .class files recursively, starting with root.
    */
   private void instrumentRecursively(Instrumenter instr, Path root) throws IOException {
+    var emptyExecutionDataStore = new ExecutionDataStore();
+    var baselineCoverageBuilder = new CoverageBuilder();
+    var baselineCoverageAnalyzer = new Analyzer(emptyExecutionDataStore, baselineCoverageBuilder);
+    var baselineBranchDetailAnalyzer = new BranchDetailAnalyzer(emptyExecutionDataStore);
+
     Files.walkFileTree(
         root,
-        new SimpleFileVisitor<Path>() {
+        new SimpleFileVisitor<>() {
           @Override
           public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
               throws IOException {
@@ -115,15 +150,61 @@ public final class JacocoInstrumentationProcessor {
                 instrumentedClassesDirectory.resolve(root.relativize(absoluteUninstrumentedCopy));
             Files.createDirectories(uninstrumentedCopy.getParent());
             Files.copy(file, uninstrumentedCopy);
-            try (InputStream input =
-                    new BufferedInputStream(Files.newInputStream(uninstrumentedCopy));
+
+            byte[] uninstrumentedBytes = Files.readAllBytes(uninstrumentedCopy);
+            String location = file.toString();
+            try (InputStream input = new ByteArrayInputStream(uninstrumentedBytes);
                 OutputStream output =
                     new BufferedOutputStream(
                         Files.newOutputStream(instrumentedCopy, TRUNCATE_EXISTING))) {
-              instr.instrument(input, output, file.toString());
+              instr.instrument(input, output, location);
             }
+            if (baselineCoverageFile != null) {
+              baselineCoverageAnalyzer.analyzeClass(uninstrumentedBytes, location);
+              baselineBranchDetailAnalyzer.analyzeClass(uninstrumentedBytes, location);
+            }
+
             return FileVisitResult.CONTINUE;
           }
         });
+
+    if (baselineCoverageFile != null) {
+      generateBaselineCoverageReport(
+          baselineCoverageFile,
+          baselineCoverageBuilder.getBundle("isthisevenused"),
+          baselineBranchDetailAnalyzer.getBranchDetails());
+    }
+  }
+
+  private void generateBaselineCoverageReport(
+      Path report, IBundleCoverage bundleCoverage, Map<String, BranchCoverageDetail> branchDetails)
+      throws IOException {
+    ImmutableSet<String> execPathsSet;
+    try (var reader = newBufferedReader(pathsForCoverageFile)) {
+      execPathsSet = reader.lines().collect(toImmutableSet());
+    }
+
+    var formatter = new JacocoLCOVFormatter(execPathsSet);
+    try (var writer = new PrintWriter(newBufferedWriter(report, UTF_8, CREATE_NEW))) {
+      var visitor = formatter.createVisitor(writer, branchDetails);
+      visitor.visitInfo(ImmutableList.of(), ImmutableList.of());
+      // Note the API requires a sourceFileLocator because the HTML and XML formatters display a
+      // page of code annotated with coverage information. Having the source files is not actually
+      // needed for generating the lcov report.
+      visitor.visitBundle(
+          bundleCoverage,
+          new ISourceFileLocator() {
+            @Override
+            public Reader getSourceFile(String packageName, String fileName) {
+              return null;
+            }
+
+            @Override
+            public int getTabWidth() {
+              return 0;
+            }
+          });
+      visitor.visitEnd();
+    }
   }
 }
