@@ -42,10 +42,12 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "Specifies the cache location of the downloaded values obtained "
-              + "during the fetching of external repositories. An empty string "
-              + "as argument requests the cache to be disabled, "
-              + "otherwise the default of '<--output_user_root>/cache/repos/v1' is used")
+          """
+          Specifies the cache location of the downloaded values obtained
+          during the fetching of external repositories. An empty string
+          as argument requests the cache to be disabled,
+          otherwise the default of `<--output_user_root>/cache/repos/v1` is used.
+          """)
   public PathFragment repositoryCache;
 
   @Option(
@@ -58,11 +60,11 @@ public class RepositoryOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           """
-          Specifies the location of the repo contents cache, which contains fetched repo \
-          directories shareable across workspaces. An empty string as argument requests the repo \
-          contents cache to be disabled, otherwise the default of '<--repository_cache>/contents' \
-          is used. Note that this means setting '--repository_cache=' would by default disable the \
-          repo contents cache as well, unless '--repo_contents_cache=<some_path>' is also set.
+          Specifies the location of the repo contents cache, which contains fetched repo
+          directories shareable across workspaces. An empty string as argument requests the repo
+          contents cache to be disabled, otherwise the default of `<--repository_cache>/contents`
+          is used. Note that this means setting `--repository_cache=` would by default disable the
+          repo contents cache as well, unless `--repo_contents_cache=<some_path>` is also set.
           """)
   public PathFragment repoContentsCache;
 
@@ -74,7 +76,7 @@ public class RepositoryOptions extends OptionsBase {
       converter = DurationConverter.class,
       help =
           """
-          Specifies the amount of time an entry in the repo contents cache can stay unused before \
+          Specifies the amount of time an entry in the repo contents cache can stay unused before
           it's garbage collected. If set to zero, garbage collection is disabled.
           """)
   public Duration repoContentsCacheGcMaxAge;
@@ -111,13 +113,16 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
-          "Specified the module versions in the form of"
-              + " `<module1>@<version1>,<module2>@<version2>` that will be allowed in the resolved"
-              + " dependency graph even if they are declared yanked in the registry where they come"
-              + " from (if they are not coming from a NonRegistryOverride). Otherwise, yanked"
-              + " versions will cause the resolution to fail. You can also define allowed yanked"
-              + " version with the `BZLMOD_ALLOW_YANKED_VERSIONS` environment variable. You can"
-              + " disable this check by using the keyword 'all' (not recommended).")
+          """
+          Specified the module versions in the form of
+          `<module1>@<version1>,<module2>@<version2>` that will be allowed in the resolved
+          dependency graph even if they are declared yanked in the registry where they come
+          from (if they are not coming from a [`NonRegistryOverride`]). Otherwise, yanked
+          versions will cause the resolution to fail. You can also define allowed yanked
+          version with the `BZLMOD_ALLOW_YANKED_VERSIONS` environment variable. You can
+          disable this check by using the keyword `all` (not recommended).
+          [`NonRegistryOverride`]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/bzlmod/NonRegistryOverride.java
+          """)
   public List<String> allowedYankedVersions;
 
   @Option(
@@ -137,9 +142,11 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
-          "If set, downloading using ctx.download{,_and_extract} is not allowed during repository"
-              + " fetching. Note that network access is not completely disabled; ctx.execute could"
-              + " still run an arbitrary executable that accesses the Internet.")
+          """
+          If set, downloading using `ctx.download{,_and_extract}` is not allowed during repository
+          fetching. Note that network access is not completely disabled; ctx.execute could
+          still run an arbitrary executable that accesses the Internet.
+          """)
   public boolean disableDownload;
 
   @Option(
@@ -174,12 +181,14 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Override a repository with a local path in the form of <repository name>=<path>. If the"
-              + " given path is an absolute path, it will be used as it is. If the given path is a"
-              + " relative path, it is relative to the current working directory. If the given path"
-              + " starts with '%workspace%, it is relative to the workspace root, which is the"
-              + " output of `bazel info workspace`. If the given path is empty, then remove any"
-              + " previous overrides.")
+          """
+          Override a repository with a local path in the form of `<repository name>=<path>`. If the
+          given path is an absolute path, it will be used as it is. If the given path is a
+          relative path, it is relative to the current working directory. If the given path
+          starts with `%workspace%`, it is relative to the workspace root, which is the
+          output of `bazel info workspace`. If the given path is empty, then remove any
+          previous overrides.
+          """)
   public List<RepositoryOverride> repositoryOverrides;
 
   @Option(
@@ -190,14 +199,16 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Adds a new repository with a local path in the form of <repository name>=<path>. This"
-              + " only takes effect with --enable_bzlmod and is equivalent to adding a"
-              + " corresponding `local_repository` to the root module's MODULE.bazel file via"
-              + " `use_repo_rule`. If the given path is an absolute path, it will be used as it is."
-              + " If the given path is a relative path, it is relative to the current working"
-              + " directory. If the given path starts with '%workspace%', it is relative to the"
-              + " workspace root, which is the output of `bazel info workspace`. If the given path"
-              + " is empty, then remove any previous injections.")
+          """
+          Adds a new repository with a local path in the form of `<repository name>=<path>`. This
+          only takes effect with `--enable_bzlmod` and is equivalent to adding a
+          corresponding `local_repository` to the root module's `MODULE.bazel` file via
+          `use_repo_rule`. If the given path is an absolute path, it will be used as it is.
+          If the given path is a relative path, it is relative to the current working
+          directory. If the given path starts with `%workspace%`, it is relative to the
+          workspace root, which is the output of `bazel info workspace`. If the given path
+          is empty, then remove any previous injections.
+          """)
   public List<RepositoryInjection> repositoryInjections;
 
   @Option(
@@ -208,12 +219,14 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Override a module with a local path in the form of <module name>=<path>. If the given"
-              + " path is an absolute path, it will be used as it is. If the given path is a"
-              + " relative path, it is relative to the current working directory. If the given path"
-              + " starts with '%workspace%, it is relative to the workspace root, which is the"
-              + " output of `bazel info workspace`. If the given path is empty, then remove any"
-              + " previous overrides.")
+          """
+          Override a module with a local path in the form of `<module name>=<path>`. If the given
+          path is an absolute path, it will be used as it is. If the given path is a
+          relative path, it is relative to the current working directory. If the given path
+          starts with `%workspace%`, it is relative to the workspace root, which is the
+          output of `bazel info workspace`. If the given path is empty, then remove any
+          previous overrides.
+          """)
   public List<ModuleOverride> moduleOverrides;
 
   @Option(
@@ -251,10 +264,12 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
-          "If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in "
-              + "the MODULE.bazel of the root module. Note that, those dev dependencies are always "
-              + "ignored in the MODULE.bazel if it's not the root module regardless of the value "
-              + "of this flag.")
+          """
+          If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in
+          the `MODULE.bazel` of the root module. Note that, those dev dependencies are always
+          ignored in the `MODULE.bazel` if it's not the root module regardless of the value
+          of this flag.
+          """)
   public boolean ignoreDevDependency;
 
   @Option(

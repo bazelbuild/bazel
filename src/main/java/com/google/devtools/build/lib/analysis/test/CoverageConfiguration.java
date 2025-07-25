@@ -48,8 +48,10 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
           OptionEffectTag.LOADING_AND_ANALYSIS
         },
         help =
-            "Location of the binary that is used to postprocess raw coverage reports. This must "
-                + "be a binary target. Defaults to '//tools/test:lcov_merger'.")
+            """
+            Location of the binary that is used to postprocess raw coverage reports. This must
+            be a binary target. Defaults to `@bazel_tools//tools/test:lcov_merger`.
+            """)
     public Label coverageOutputGenerator;
 
     @Option(
@@ -63,8 +65,10 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
           OptionEffectTag.LOADING_AND_ANALYSIS
         },
         help =
-            "Location of the binary that is used to generate coverage reports. This must "
-                + "be a binary target. Defaults to '//tools/test:coverage_report_generator'.")
+            """
+            Location of the binary that is used to generate coverage reports. This must
+            be a binary target. Defaults to `@bazel_tools//tools/test:coverage_report_generator`.
+            """)
     public Label coverageReportGenerator;
   }
 

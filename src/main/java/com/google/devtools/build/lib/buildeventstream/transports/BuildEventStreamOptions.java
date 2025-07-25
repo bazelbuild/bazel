@@ -49,9 +49,11 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "If non-empty, write a varint delimited binary representation of representation of the"
-              + " build event protocol to that file. This option implies"
-              + " --bes_upload_mode=wait_for_upload_complete.")
+          """
+          If non-empty, write a varint delimited binary representation of representation of the
+          build event protocol to that file. This option implies
+          `--bes_upload_mode=wait_for_upload_complete`.
+          """)
   public String buildEventBinaryFile;
 
   @Option(
@@ -60,8 +62,10 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "If non-empty, write a JSON serialisation of the build event protocol to that file."
-              + " This option implies --bes_upload_mode=wait_for_upload_complete.")
+          """
+          If non-empty, write a JSON serialisation of the build event protocol to that file.
+          This option implies `--bes_upload_mode=wait_for_upload_complete`.
+          """)
   public String buildEventJsonFile;
 
   @Option(
@@ -71,10 +75,12 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
-          "Specifies whether the Build Event Service upload for --build_event_text_file should"
-              + " block the build completion or should end the invocation immediately and finish"
-              + " the upload in the background. Either 'wait_for_upload_complete' (default),"
-              + " 'nowait_for_upload_complete', or 'fully_async'.")
+          """
+          Specifies whether the Build Event Service upload for `--build_event_text_file` should
+          block the build completion or should end the invocation immediately and finish
+          the upload in the background. Either `wait_for_upload_complete` (default),
+          `nowait_for_upload_complete`, or `fully_async`.
+          """)
   public BesUploadMode buildEventTextFileUploadMode;
 
   @Option(
@@ -84,10 +90,12 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
-          "Specifies whether the Build Event Service upload for --build_event_binary_file should"
-              + " block the build completion or should end the invocation immediately and finish"
-              + " the upload in the background. Either 'wait_for_upload_complete' (default),"
-              + " 'nowait_for_upload_complete', or 'fully_async'.")
+          """
+          Specifies whether the Build Event Service upload for `--build_event_binary_file` should
+          block the build completion or should end the invocation immediately and finish
+          the upload in the background. Either `wait_for_upload_complete` (default),
+          `nowait_for_upload_complete`, or `fully_async`.
+          """)
   public BesUploadMode buildEventBinaryFileUploadMode;
 
   @Option(
@@ -97,10 +105,12 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
-          "Specifies whether the Build Event Service upload for --build_event_json_file should"
-              + " block the build completion or should end the invocation immediately and finish"
-              + " the upload in the background. Either 'wait_for_upload_complete' (default),"
-              + " 'nowait_for_upload_complete', or 'fully_async'.")
+          """
+          Specifies whether the Build Event Service upload for `--build_event_json_file` should
+          block the build completion or should end the invocation immediately and finish
+          the upload in the background. Either `wait_for_upload_complete` (default),
+          `nowait_for_upload_complete`, or `fully_async`.
+          """)
   public BesUploadMode buildEventJsonFileUploadMode;
 
   @Option(
@@ -110,9 +120,11 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Convert paths in the text file representation of the build event protocol to more "
-              + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
-              + "always be used")
+          """
+          Convert paths in the text file representation of the build event protocol to more
+            globally valid URIs whenever possible; if disabled, the `file://` uri scheme will
+            always be used
+          """)
   public boolean buildEventTextFilePathConversion;
 
   @Option(
@@ -122,9 +134,11 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Convert paths in the binary file representation of the build event protocol to more "
-              + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
-              + "always be used")
+          """
+          Convert paths in the binary file representation of the build event protocol to more
+          globally valid URIs whenever possible; if disabled, the `file://` uri scheme will
+          always be used
+          """)
   public boolean buildEventBinaryFilePathConversion;
 
   @Option(
@@ -134,9 +148,11 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Convert paths in the json file representation of the build event protocol to more "
-              + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
-              + "always be used")
+          """
+          Convert paths in the json file representation of the build event protocol to more
+          globally valid URIs whenever possible; if disabled, the `file://` uri scheme will
+          always be used
+          """)
   public boolean buildEventJsonFilePathConversion;
 
   @Option(
@@ -153,11 +169,13 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "The maximum number of entries for a single named_set_of_files event; values smaller "
-              + "than 2 are ignored and no event splitting is performed. This is intended for "
-              + "limiting the maximum event size in the build event protocol, although it does not "
-              + "directly control event size. The total event size is a function of the structure "
-              + "of the set as well as the file and uri lengths, which may in turn depend on the "
-              + "hash function.")
+          """
+          The maximum number of entries for a single `named_set_of_files` event; values smaller
+          than 2 are ignored and no event splitting is performed. This is intended for
+          limiting the maximum event size in the build event protocol, although it does not
+          directly control event size. The total event size is a function of the structure
+          of the set as well as the file and uri lengths, which may in turn depend on the
+          hash function.
+          """)
   public int maxNamedSetEntries;
 }

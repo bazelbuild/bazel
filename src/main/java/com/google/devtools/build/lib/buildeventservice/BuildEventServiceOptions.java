@@ -34,10 +34,12 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Specifies the build event service (BES) backend endpoint in the form"
-              + " [SCHEME://]HOST[:PORT]. The default is to disable BES uploads. Supported schemes"
-              + " are grpc and grpcs (grpc with TLS enabled). If no scheme is provided, Bazel"
-              + " assumes grpcs.")
+          """
+          Specifies the build event service (BES) backend endpoint in the form
+          `[SCHEME://]HOST[:PORT]`. The default is to disable BES uploads. Supported schemes
+          are `grpc` and `grpcs` (grpc with TLS enabled). If no scheme is provided, Bazel
+          assumes `grpcs`.
+          """)
   public String besBackend;
 
   @Option(
@@ -46,11 +48,12 @@ public class BuildEventServiceOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
-        "Specifies how long bazel should wait for the BES/BEP upload to complete after the "
-            + "build and tests have finished. A valid timeout is a natural number followed by a "
-            + "unit: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). The "
-            + "default value is '0' which means that there is no timeout."
-  )
+        """
+        Specifies how long bazel should wait for the BES/BEP upload to complete after the
+        build and tests have finished. A valid timeout is a natural number followed by a
+        unit: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). The
+        default value is `0` which means that there is no timeout.
+        """)
   public Duration besTimeout;
 
   @Option(
@@ -60,9 +63,11 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Specify a header in NAME=VALUE form that will be included in BES requests. "
-              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
-              + "values for the same name will be converted to a comma-separated list.",
+          """
+          Specify a header in `NAME=VALUE` form that will be included in BES requests.
+          Multiple headers can be passed by specifying the flag multiple times. Multiple
+          values for the same name will be converted to a comma-separated list.
+          """,
       allowMultiple = true)
   public List<Map.Entry<String, String>> besHeaders;
 
@@ -94,9 +99,11 @@ public class BuildEventServiceOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       allowMultiple = true,
       help =
-          "Specifies a list of notification keywords to be added the default set of keywords "
-              + "published to BES (\"command_name=<command_name> \", \"protocol_name=BEP\"). "
-              + "Defaults to none.")
+          """
+          Specifies a list of notification keywords to be added the default set of keywords
+          published to BES (`command_name=<command_name>`, `protocol_name=BEP`).
+          Defaults to none.
+          """)
   public List<String> besKeywords;
 
   @Option(
@@ -107,11 +114,13 @@ public class BuildEventServiceOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       allowMultiple = true,
       help =
-          "Specifies a list of notification keywords to be included directly, without the "
-              + "\"user_keyword=\" prefix included for keywords supplied via --bes_keywords. "
-              + "Intended for Build service operators that set --bes_lifecycle_events=false and "
-              + "include keywords when calling PublishLifecycleEvent. Build service operators "
-              + "using this flag should prevent users from overriding the flag value.")
+          """
+          Specifies a list of notification keywords to be included directly, without the
+          `user_keyword=` prefix included for keywords supplied via `--bes_keywords`.
+          Intended for Build service operators that set `--bes_lifecycle_events=false` and
+          include keywords when calling `PublishLifecycleEvent`. Build service operators
+          using this flag should prevent users from overriding the flag value.
+          """)
   public List<String> besSystemKeywords;
 
   @Option(
@@ -120,9 +129,11 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Specifies the maximal size of stdout or stderr to be buffered in BEP, before it is "
-              + "reported as a progress event. Individual writes are still reported in a single "
-              + "event, even if larger than the specified value up to --bes_outerr_chunk_size.")
+          """
+          Specifies the maximal size of stdout or stderr to be buffered in BEP, before it is
+          reported as a progress event. Individual writes are still reported in a single
+          event, even if larger than the specified value up to `--bes_outerr_chunk_size`.
+          """)
   public int besOuterrBufferSize;
 
   @Option(
@@ -152,20 +163,22 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
-          "Specifies whether the Build Event Service upload should block the build completion or"
-              + " should end the invocation immediately and finish the upload in the"
-              + " background.\n\n"
-              + "  - `wait_for_upload_complete`: blocks at the end of the current invocation until"
-              + " all events (including lifecycle events if applicable) are uploaded and"
-              + " acknowledged by the backend.\n"
-              + "  - `nowait_for_upload_complete`: blocks at the beginning of the next invocation"
-              + " until all events (including lifecycle events if applicable) are uploaded and"
-              + " acknowledged by the backend.\n"
-              + "  - `fully_async`: blocks at the beginning of the next invocation until all events"
-              + " are uploaded but does not wait for acknowledgements. Events may be lost in case"
-              + " of (transient) failures and backends may report streams as incomplete in this"
-              + " mode. There is no guarantee that `FinishInvocationAttempt` or `FinishBuild`"
-              + " lifecycle events are sent.")
+          """
+          Specifies whether the Build Event Service upload should block the build completion or
+          should end the invocation immediately and finish the upload in the
+          background.
+          - `wait_for_upload_complete`: blocks at the end of the current invocation until
+            all events (including lifecycle events if applicable) are uploaded and
+            acknowledged by the backend.
+          - `nowait_for_upload_complete`: blocks at the beginning of the next invocation
+            until all events (including lifecycle events if applicable) are uploaded and
+            acknowledged by the backend.
+          - `fully_async`: blocks at the beginning of the next invocation until all events
+            are uploaded but does not wait for acknowledgements. Events may be lost in case
+            of (transient) failures and backends may report streams as incomplete in this
+            mode. There is no guarantee that `FinishInvocationAttempt` or `FinishBuild`
+            lifecycle events are sent.
+          """)
   public BesUploadMode besUploadMode;
 
   @Option(
@@ -174,8 +187,10 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Connect to the Build Event Service through a proxy. Currently this flag can only be"
-              + " used to configure a Unix domain socket (unix:/path/to/socket).")
+          """
+          Connect to the Build Event Service through a proxy. Currently this flag can only be
+          used to configure a Unix domain socket (`unix:/path/to/socket`).
+          """)
   public String besProxy;
 
   @Option(
@@ -184,10 +199,12 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Sets the field check_preceding_lifecycle_events_present on"
-              + " PublishBuildToolEventStreamRequest which tells BES to check whether it previously"
-              + " received InvocationAttemptStarted and BuildEnqueued events matching the current"
-              + " tool event.")
+          """
+          Sets the field `check_preceding_lifecycle_events_present` on
+          `PublishBuildToolEventStreamRequest` which tells BES to check whether it previously
+          received `InvocationAttemptStarted` and `BuildEnqueued` events matching the current
+          tool event.
+          """)
   public boolean besCheckPrecedingLifecycleEvents;
 
   @Option(
