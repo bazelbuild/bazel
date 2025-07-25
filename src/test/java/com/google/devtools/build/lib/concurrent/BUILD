@@ -37,6 +37,9 @@ java_library(
 java_test(
     name = "ConcurrentTests",
     size = "medium",
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     tags = [
         "foundations",
     ],
