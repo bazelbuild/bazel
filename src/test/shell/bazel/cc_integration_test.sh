@@ -2147,7 +2147,18 @@ export void f() {
 }
 EOF
 
-  bazel build //:main --repo_env=CC=clang --experimental_cpp_modules || fail "Expected build C++20 Modules success with compiler 'clang'"
+  cat > MODULE.bazel <<'EOF'
+bazel_dep(name = "rules_cc", version = "0.1.2")
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+git_override(
+    module_name = "rules_cc",
+    remote = "https://github.com/PikachuHyA/rules_cc.git",
+    commit = "ea54473341df503ebc93aa34b7162622cf391a2f"
+)
+EOF
+
+  bazel build //:main --repo_env=BAZEL_CXXOPTS=-std=c++20 --repo_env=CC=clang --experimental_cpp_modules || fail "Expected build C++20 Modules success with compiler 'clang'"
 }
 
 run_suite "cc_integration_test"
