@@ -285,7 +285,7 @@ public class RemoteOutputChecker implements OutputChecker {
     checkState(
         !(output instanceof Artifact artifact && artifact.isTreeArtifact()),
         "shouldDownloadOutput should not be called on a tree artifact");
-    return metadata.isRemote()
+    return metadata.isLazy()
         && shouldDownloadOutput(
             output.getExecPath(),
             output instanceof TreeFileArtifact artifact
@@ -309,8 +309,8 @@ public class RemoteOutputChecker implements OutputChecker {
 
   @Override
   public boolean shouldTrustMetadata(ActionInput file, FileArtifactValue metadata) {
-    // Local metadata is always trusted.
-    if (!metadata.isRemote()) {
+    // Eager metadata is always trusted.
+    if (!metadata.isLazy()) {
       return true;
     }
 
