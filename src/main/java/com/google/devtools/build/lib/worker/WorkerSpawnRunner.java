@@ -195,9 +195,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
             SandboxHelpers.processInputFiles(
-                context.getInputMapping(
-                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-                execRoot);
+                context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot);
       }
       SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
