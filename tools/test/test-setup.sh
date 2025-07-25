@@ -251,11 +251,33 @@ start=$(date +%s)
 # watches for us to be killed, and then chain-kills the test's process group.
 # Aren't processes fun?
 set -m
-if [ -z "$COVERAGE_DIR" ]; then
-  ("${TEST_PATH}" "$@" 2>&1) <&0 &
-else
-  ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
-fi
+# Additionally we would want to obtain exit code in more reliable way. First,
+# PIDs may overlap often on some systems. Also, we can confuse exit codes of
+# different children (we have two of them now!). And finally, we may miss exit
+# code at all. It may happen if process ends too fast and the worst here is that
+# another process with the same PID will be occasionally spawned by somebody.
+# We can reuse one of signals to notify parent process that child exited.
+# However, custom signals may interfere with user logic, so let's reuse "safe"
+# SIGCHLD signal for that (we don't propagate it to children anyway, and as
+# we are doing all the job by ourselves, we don't need it anymore).
+# Aren't races cool?
+targetExited=0
+targetExitCodeFile="${TEST_TMPDIR}/_target_exit_code"
+trap "targetExited=1" SIGCHLD
+(
+  # Let's call her Eve.
+  if [ -z "$COVERAGE_DIR" ]; then
+    "${TEST_PATH}" "$@" 2>&1
+  else
+    "$1" "$TEST_PATH" "${@:3}" 2>&1
+  fi
+  exitCode=$?
+  echo "exitCode=$exitCode" > "${targetExitCodeFile}"
+  kill -SIGCHLD $PPID
+  while [[ 1 ]]; do sleep 1; done # Stasis.
+) <&0 &
+
+# **Don't rely on that PID if it is allowed to end early.**
 childPid=$!
 
 # Cleanup helper
@@ -280,15 +302,16 @@ cleanupPid=$!
 
 set +m
 
-# Wait until $childPid fully exits.
+# Wait until child process fully exits.
 # We need to wait in a loop because wait is interrupted by any incoming trapped
 # signal (https://www.gnu.org/software/bash/manual/bash.html#Signals).
 while kill -0 $childPid 2>/dev/null; do
+  if [[ "$targetExited" == "1" ]]; then
+    . "${targetExitCodeFile}"
+    break
+  fi
   wait $childPid
 done
-# Wait one more time to retrieve the exit code.
-wait $childPid
-exitCode=$?
 
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.
