@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -57,6 +58,13 @@ import javax.annotation.Nullable;
 
 /** Helper class to create test actions. */
 public final class TestActionBuilder {
+
+  // Whether the test.xml is a declared output of this action rather than just an output of the test
+  // spawn. True for Bazel so that it behaves properly with Build without the Bytes (i.e.,
+  // --remote_download_regex), but patched to false for Blaze since not all its test actions
+  // generate a test.xml.
+  private static final boolean TEST_XML_IS_ACTION_OUTPUT = true;
+
   private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
   private static final String LCOV_MERGER = "LCOV_MERGER";
   // The coverage tool Bazel uses to generate a code coverage report for C++.
@@ -385,8 +393,11 @@ public final class TestActionBuilder {
 
         Artifact.DerivedArtifact testLog =
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.log"), root);
-        Artifact.DerivedArtifact testXml =
-            ruleContext.getPackageRelativeArtifact(dir.getRelative("test.xml"), root);
+        var testXmlPath = dir.getRelative("test.xml");
+        ActionInput testXml =
+            TEST_XML_IS_ACTION_OUTPUT
+                ? ruleContext.getPackageRelativeArtifact(testXmlPath, root)
+                : ActionInputHelper.fromPath(testXmlPath);
         Artifact.DerivedArtifact cacheStatus =
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.cache_status"), root);
 

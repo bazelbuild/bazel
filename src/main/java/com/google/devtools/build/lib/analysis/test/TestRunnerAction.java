@@ -99,12 +99,6 @@ import javax.annotation.Nullable;
 public class TestRunnerAction extends AbstractAction
     implements NotifyOnActionCacheHit, CommandAction {
 
-  // Whether the test.xml is a declared output of this action rather than just an output of the test
-  // spawn. True for Bazel so that it behaves properly with Build without the Bytes (i.e.,
-  // --remote_download_regex), but patched to false for Blaze since not all its test actions
-  // generate a test.xml.
-  private static final boolean TEST_XML_IS_ACTION_OUTPUT = true;
-
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   private static final String UNDECLARED_OUTPUTS_ZIP_NAME = "outputs.zip";
@@ -124,7 +118,7 @@ public class TestRunnerAction extends AbstractAction
   private final BuildConfigurationValue configuration;
   private final TestConfiguration testConfiguration;
   private final Artifact testLog;
-  private final Artifact testXml;
+  private final ActionInput testXml;
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
   private final PathFragment unusedRunfilesLogPath;
@@ -204,7 +198,7 @@ public class TestRunnerAction extends AbstractAction
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
-      Artifact testXml,
+      ActionInput testXml,
       Artifact cacheStatus,
       Artifact coverageArtifact,
       @Nullable Artifact coverageDirectory,
@@ -227,7 +221,8 @@ public class TestRunnerAction extends AbstractAction
         inputs,
         nonNullAsSet(
             testLog,
-            TEST_XML_IS_ACTION_OUTPUT ? testXml : null,
+            // See TestActionBuilder.TEST_XML_IS_ACTION_OUTPUT for details.
+            testXml instanceof Artifact testXmlArtifact ? testXmlArtifact : null,
             cacheStatus,
             coverageArtifact,
             coverageDirectory,
@@ -304,7 +299,7 @@ public class TestRunnerAction extends AbstractAction
                 // instead.
                 baseDir.getChild("coverage.dat"),
                 baseDir.getChild("test.zip")); // Delete files fetched from remote execution.
-    if (!TEST_XML_IS_ACTION_OUTPUT) {
+    if (!(testXml instanceof Artifact)) {
       filesToDeleteBuilder.add(testXml.getExecPath());
     }
     if (testShard != null) {
@@ -846,7 +841,7 @@ public class TestRunnerAction extends AbstractAction
     return testLog;
   }
 
-  public Artifact getTestXml() {
+  public ActionInput getTestXml() {
     return testXml;
   }
 
