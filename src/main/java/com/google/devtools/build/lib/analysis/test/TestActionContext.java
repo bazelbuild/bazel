@@ -28,18 +28,17 @@ import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * A context for the execution of test actions ({@link TestRunnerAction}).
- */
+/** A context for the execution of test actions ({@link TestRunnerAction}). */
 public interface TestActionContext extends ActionContext {
 
   /**
    * A group of attempts for a single test shard, ran either sequentially or in parallel.
    *
-   * <p>When one attempt succeeds, threads running the other attempts get an {@link
-   * InterruptedException} and {@link #cancelled()} will in the future return true. When a thread
-   * joins an attempt group that is already cancelled, {@link InterruptedException} will be thrown
-   * on the call to {@link #register()}.
+   * <p>When one attempt matches the result specified by {@link
+   * com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests},
+   * threads running the other attempts get an {@link InterruptedException} and {@link #cancelled()}
+   * will in the future return true. When a thread joins an attempt group that is already cancelled,
+   * {@link InterruptedException} will be thrown on the call to {@link #register()}.
    */
   interface AttemptGroup {
 
@@ -53,7 +52,9 @@ public interface TestActionContext extends ActionContext {
     /** Unregisters a thread from the attempt group. */
     void unregister();
 
-    /** Signal that the attempt run by this thread has succeeded and cancel all the others. */
+    /**
+     * Signal that the attempt run by this thread has the desired result and cancel all the others.
+     */
     void cancelOthers();
 
     /** Whether the attempt group has been cancelled. */

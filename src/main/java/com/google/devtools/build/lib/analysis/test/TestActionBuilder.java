@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams.CoverageParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -403,9 +404,10 @@ public final class TestActionBuilder {
         Artifact undeclaredOutputsDir =
             ruleContext.getPackageRelativeTreeArtifact(dir.getRelative("test.outputs"), root);
 
-        boolean cancelConcurrentTests =
+        CancelConcurrentTests cancelConcurrentTests =
             testConfiguration.runsPerTestDetectsFlakes()
-                && testConfiguration.cancelConcurrentTests();
+                ? testConfiguration.cancelConcurrentTests()
+                : CancelConcurrentTests.NEVER;
 
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
         TestRunnerAction testRunnerAction =
