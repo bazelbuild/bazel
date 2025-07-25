@@ -307,17 +307,6 @@ public class TestConfiguration extends Fragment {
     public boolean fetchAllCoverageOutputs;
 
     @Option(
-        name = "incompatible_exclusive_test_sandboxed",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If true, exclusive tests will run with sandboxed strategy. Add 'local' tag to force "
-                + "an exclusive test run locally")
-    public boolean incompatibleExclusiveTestSandboxed;
-
-    @Option(
         name = "experimental_split_coverage_postprocessing",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -452,10 +441,6 @@ public class TestConfiguration extends Fragment {
 
   public boolean fetchAllCoverageOutputs() {
     return options.fetchAllCoverageOutputs;
-  }
-
-  public boolean incompatibleExclusiveTestSandboxed() {
-    return options.incompatibleExclusiveTestSandboxed;
   }
 
   public boolean splitCoveragePostProcessing() {
