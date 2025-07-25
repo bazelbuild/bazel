@@ -18,7 +18,7 @@ load(
     _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
-load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo", "create_linking_context", "merge_linking_contexts")
+load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo", "create_debug_context", "create_linking_context", "merge_debug_context", "merge_linking_contexts")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
@@ -346,7 +346,7 @@ def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
     return CcInfo(
         compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
         linking_context = merge_linking_contexts(linking_contexts = cc_linking_contexts),
-        debug_context = cc_common_internal.merge_debug_context(cc_debug_info_contexts),
+        debug_context = merge_debug_context(cc_debug_info_contexts),
         cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(order = "topological", transitive = transitive_native_cc_libraries)),
     )
 
@@ -577,14 +577,6 @@ def _create_module_map(*, file, name):
         file = file,
         name = name,
     )
-
-def _create_debug_context(compilation_outputs = []):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.create_debug_context(compilation_outputs)
-
-def _merge_debug_context(debug_contexts = []):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.merge_debug_context(debug_contexts)
 
 def _get_tool_requirement_for_action(*, feature_configuration, action_name):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -877,8 +869,8 @@ cc_common = struct(
     merge_linking_contexts = merge_linking_contexts,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     create_module_map = _create_module_map,
-    create_debug_context = _create_debug_context,
-    merge_debug_context = _merge_debug_context,
+    create_debug_context = create_debug_context,
+    merge_debug_context = merge_debug_context,
     get_tool_requirement_for_action = _get_tool_requirement_for_action,
     create_extra_link_time_library = _create_extra_link_time_library,
     register_linkstamp_compile_action = _register_linkstamp_compile_action,

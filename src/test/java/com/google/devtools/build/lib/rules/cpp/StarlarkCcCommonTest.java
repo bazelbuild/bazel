@@ -7493,13 +7493,17 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             target
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
-                .getTransitiveDwoFiles()
-                .toList()
+                .getValue("files", Depset.class)
+                .toList(Artifact.class)
                 .stream()
                 .map(Artifact::getFilename))
         .containsExactly("b_lib.dwo");
     assertThat(
-            target.get(CcInfo.PROVIDER).getCcDebugInfoContext().getTransitivePicDwoFiles().toList())
+            target
+                .get(CcInfo.PROVIDER)
+                .getCcDebugInfoContext()
+                .getValue("pic_files", Depset.class)
+                .toList())
         .isEmpty();
   }
 

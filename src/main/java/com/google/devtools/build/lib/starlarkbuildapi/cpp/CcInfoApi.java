@@ -58,7 +58,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       documented = false,
       doc = "Returns the <code>DebugContext</code>",
       useStarlarkThread = true)
-  CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread)
+  StarlarkInfo /* CcDebugInfoContextApi */ getCcDebugInfoContextFromStarlark(StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -109,7 +109,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               named = true,
               defaultValue = "None",
               allowedTypes = {
-                @ParamType(type = CcDebugInfoContextApi.class),
+                @ParamType(type = StarlarkInfo.class), /* CcDebugInfoContextApi */
                 @ParamType(type = NoneType.class)
               }),
           @Param(

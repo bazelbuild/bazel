@@ -56,7 +56,6 @@ public interface CcModuleApi<
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
-        DebugInfoT extends CcDebugInfoContextApi,
         CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
 
@@ -2089,30 +2088,6 @@ public interface CcModuleApi<
       throws InterruptedException, EvalException {
     throw new UnsupportedOperationException();
   }
-
-  @StarlarkMethod(
-      name = "create_debug_context",
-      doc = "Create debug context",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "compilation_outputs", positional = true, named = false, defaultValue = "[]"),
-      })
-  DebugInfoT createCcDebugInfoFromStarlark(
-      CompilationOutputsT compilationOutputs, StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "merge_debug_context",
-      doc = "Merge debug contexts",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "debug_contexts", defaultValue = "[]"),
-      })
-  DebugInfoT mergeCcDebugInfoFromStarlark(
-      Sequence<?> debugInfos, // <DebugInfoT> expected
-      StarlarkThread thread)
-      throws EvalException;
 
   @StarlarkMethod(
       name = "create_lto_backend_artifacts",
