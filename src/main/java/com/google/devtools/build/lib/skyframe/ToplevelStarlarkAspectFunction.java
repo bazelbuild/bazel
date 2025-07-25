@@ -236,9 +236,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
                 aspects, target.getLabel(), target.getLocation());
       }
     } catch (InconsistentAspectOrderException e) {
-      // This exception should never happen because aspects duplicates are not allowed in top-level
-      // aspects and their existence should have been caught and reported by
-      // LoadAspectsFunction.
+      // This is very unlikely, because AspectCollection should have deduplicated top level aspects.
       env.getListener().handle(Event.error(e.getMessage()));
       throw new TopLevelStarlarkAspectFunctionException(
           new TopLevelAspectsDetailsBuildFailedException(
