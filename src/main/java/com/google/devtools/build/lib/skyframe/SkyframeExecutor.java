@@ -1030,7 +1030,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Inform this SkyframeExecutor that a new command is starting. */
-  public void noteCommandStart() {}
+  public void noteCommandStart() {
+    // Prevent stale Skycache configuration from persisting between builds.
+    remoteAnalysisCachingDependenciesProvider =
+        RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider.INSTANCE;
+  }
 
   /**
    * Notify listeners about changed files, and release any associated memory afterwards.
@@ -1155,7 +1159,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     analysisCount.set(0);
     emittedEventState.clear();
     skyframeBuildView.reset();
+    // Prevent stale Skycache configuration from persisting between cleans.
     remoteAnalysisCachingState = RemoteAnalysisCachingState.EMPTY;
+    remoteAnalysisCachingDependenciesProvider =
+        RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider.INSTANCE;
     skyfocusState = DISABLED;
     // cleanupInterningPools must be called before init(), since init() initializes a new graph,
     // losing all references to the SkyKeyInterners that must be cleaned up.
