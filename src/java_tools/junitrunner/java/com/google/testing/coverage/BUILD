@@ -40,7 +40,6 @@ java_library(
         "CovExp.java",
         "JacocoLCOVFormatter.java",
         "MethodProbesMapper.java",
-        "NullExp.java",
         "ProbeExp.java",
     ],
     deps = [

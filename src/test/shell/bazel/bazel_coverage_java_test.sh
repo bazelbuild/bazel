@@ -496,10 +496,6 @@ EOF
 }
 
 function test_runtime_and_data_deploy_jars() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
@@ -612,8 +608,8 @@ FNDA:0,cov/Cov::<init> ()V
 FNDA:2,cov/Cov::main ([Ljava/lang/String;)V
 FNF:2
 FNH:1
-BRDA:4,0,0,2
-BRDA:4,0,1,0
+BRDA:4,0,0,0
+BRDA:4,0,1,2
 BRDA:5,0,0,1
 BRDA:5,0,1,1
 BRF:4
@@ -815,10 +811,6 @@ LF:2"
 }
 
 function test_java_string_switch_coverage() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
   # Verify that Jacoco's filtering is being applied.
   # Switches on strings generate over double the number of expected branches
   # (because a switch on String::hashCode is made first) - these branches should
@@ -893,9 +885,9 @@ FNDA:0,com/example/Switch::<init> ()V
 FNDA:1,com/example/Switch::switchString (Ljava/lang/String;)I
 FNF:2
 FNH:1
-BRDA:6,0,0,1
+BRDA:6,0,0,0
 BRDA:6,0,1,0
-BRDA:6,0,2,0
+BRDA:6,0,2,1
 BRDA:6,0,3,1
 BRF:4
 BRH:2
@@ -914,10 +906,6 @@ end_of_record"
 
 
 function test_finally_block_branch_coverage() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
   # Verify branches in finally blocks are handled correctly.
   # The java compiler duplicates finally blocks for the various code paths that
   # may enter them (e.g. via an exception handler or when no exception is
@@ -1015,11 +1003,10 @@ EOF
     --test_filter=TestFinally.testNegativeException \
    || echo "Coverage for //:test failed"
 
-  # if (x == 1 || x == -1) is a "jump if eq" followed by a "jump if not eq", so
-  # the branch ordering is reversed for the second comparison
+    #--test_filter=".*(testNegativeException)" \
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,1
-BRDA:9,0,1,0
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
 BRDA:9,0,2,1
 BRDA:9,0,3,0
 BRDA:12,0,0,-
@@ -1037,12 +1024,12 @@ BRH:3"
    || echo "Coverage for //:test failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,1
-BRDA:9,0,1,0
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
 BRDA:9,0,2,0
 BRDA:9,0,3,1
-BRDA:12,0,0,0
-BRDA:12,0,1,1
+BRDA:12,0,0,1
+BRDA:12,0,1,0
 BRDA:18,0,0,1
 BRDA:18,0,1,1
 BRF:8
@@ -1056,8 +1043,8 @@ BRH:5"
    || echo "Coverage for //:test failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,1
-BRDA:9,0,1,0
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
 BRDA:9,0,2,0
 BRDA:9,0,3,1
 BRDA:12,0,0,1
@@ -1079,8 +1066,8 @@ BRH:6"
 BRDA:9,0,1,1
 BRDA:9,0,2,0
 BRDA:9,0,3,1
-BRDA:12,0,0,1
-BRDA:12,0,1,0
+BRDA:12,0,0,0
+BRDA:12,0,1,1
 BRDA:18,0,0,1
 BRDA:18,0,1,1
 BRF:8
@@ -1094,8 +1081,8 @@ BRH:6"
    || echo "Coverage for //:test failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,1
-BRDA:9,0,1,0
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
 BRDA:9,0,2,0
 BRDA:9,0,3,1
 BRDA:12,0,0,1
@@ -1117,8 +1104,8 @@ BRH:5"
 BRDA:9,0,1,1
 BRDA:9,0,2,0
 BRDA:9,0,3,1
-BRDA:12,0,0,0
-BRDA:12,0,1,1
+BRDA:12,0,0,1
+BRDA:12,0,1,0
 BRDA:18,0,0,1
 BRDA:18,0,1,0
 BRF:8

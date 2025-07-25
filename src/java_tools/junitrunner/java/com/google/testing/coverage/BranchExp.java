@@ -16,23 +16,15 @@ package com.google.testing.coverage;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
-/** A branch coverage expression that must be evaluated as a combination of probes. */
+/** A branch coverage that must be evaluated as a combination of probes. */
 public class BranchExp implements CovExp {
   private final List<CovExp> branches;
 
   private boolean hasValue;
   private boolean[] probesUsed;
   private boolean value;
-
-  /** Create a BranchExp for a known number of branches, but with no expression data. */
-  public static BranchExp initializeEmptyBranches(int size) {
-    List<CovExp> branches = new ArrayList<>(size);
-    branches.addAll(Collections.nCopies(size, NullExp.NULL_EXP));
-    return new BranchExp(branches);
-  }
 
   public BranchExp(List<CovExp> branches) {
     this.branches = branches;
@@ -51,11 +43,6 @@ public class BranchExp implements CovExp {
     return branches;
   }
 
-  /** Set the expression at a given index for this branch. */
-  public void setBranchAtIndex(int index, CovExp exp) {
-    branches.set(index, exp);
-  }
-
   /**
    * Add an expression to a branch expression.
    *
@@ -64,6 +51,11 @@ public class BranchExp implements CovExp {
   public int add(CovExp exp) {
     branches.add(exp);
     return branches.size() - 1;
+  }
+
+  /** Update an existing branch expression. */
+  public void update(int idx, CovExp exp) {
+    branches.set(idx, exp);
   }
 
   /** Make a new BranchExp representing the concatenation of branches in inputs. */
