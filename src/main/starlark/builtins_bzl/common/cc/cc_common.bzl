@@ -78,7 +78,7 @@ def _link(
         additional_linkstamp_defines = _UNBOUND,
         always_link = _UNBOUND,
         link_artifact_name_suffix = _UNBOUND,
-        main_output = _UNBOUND,
+        main_output = None,
         use_shareable_artifact_factory = _UNBOUND,
         build_config = _UNBOUND,
         emit_interface_shared_library = _UNBOUND):
@@ -96,7 +96,6 @@ def _link(
        additional_linkstamp_defines != _UNBOUND or \
        always_link != _UNBOUND or \
        link_artifact_name_suffix != _UNBOUND or \
-       main_output != _UNBOUND or \
        use_shareable_artifact_factory != _UNBOUND or \
        build_config != _UNBOUND or \
        emit_interface_shared_library != _UNBOUND:
@@ -118,8 +117,6 @@ def _link(
         always_link = False
     if link_artifact_name_suffix == _UNBOUND:
         link_artifact_name_suffix = ""
-    if main_output == _UNBOUND:
-        main_output = None
     if use_shareable_artifact_factory == _UNBOUND:
         use_shareable_artifact_factory = False
     if build_config == _UNBOUND:
