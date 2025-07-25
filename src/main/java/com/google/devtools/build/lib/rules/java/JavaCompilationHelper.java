@@ -292,7 +292,7 @@ public final class JavaCompilationHelper {
     builder.setUtf8Environment(semantics.utf8Environment(ruleContext.getExecutionPlatform()));
     builder.setJavacExecutionInfo(executionInfoInterner.intern(getExecutionInfo()));
     builder.setCompressJar(true);
-    builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
+    builder.setExtraData(computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
@@ -326,6 +326,19 @@ public final class JavaCompilationHelper {
           javaToolchain.getBytecodeOptimizer().tool(),
           optimizerLabel.name());
     }
+  }
+
+  /** Returns the per-package configured runfiles. */
+  private static NestedSet<Artifact> computePerPackageData(
+      RuleContext ruleContext, JavaToolchainProvider toolchain) throws RuleErrorException {
+    // Do not use streams here as they create excessive garbage.
+    NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
+    for (JavaPackageConfigurationProvider provider : toolchain.packageConfiguration()) {
+      if (provider.matches(ruleContext.getLabel())) {
+        data.addTransitive(provider.data());
+      }
+    }
+    return data.build();
   }
 
   /**
@@ -452,7 +465,7 @@ public final class JavaCompilationHelper {
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(getBootclasspathOrDefault().bootclasspath());
-    // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
+    // Exclude any per-package configured data (see computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
     builder.setJavacOpts(customJavacOpts);
@@ -486,7 +499,7 @@ public final class JavaCompilationHelper {
                 .addOutput(genClassJar)
                 .addTransitiveInputs(hostJavabase.javaBaseInputs())
                 .setJarExecutable(
-                    JavaCommon.getHostJavaExecutable(hostJavabase),
+                    hostJavabase.javaBinaryExecPathFragment(),
                     getGenClassJar(ruleContext),
                     javaToolchain.getJvmOptions())
                 .addCommandLine(

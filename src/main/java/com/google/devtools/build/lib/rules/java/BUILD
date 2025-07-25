@@ -16,7 +16,6 @@ java_library(
     srcs = [
         "BootClassPathInfo.java",
         "JavaCcInfoProvider.java",
-        "JavaCommon.java",
         "JavaCompilationArgsProvider.java",
         "JavaCompilationHelper.java",
         "JavaCompilationInfoProvider.java",
@@ -93,7 +92,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
