@@ -152,15 +152,14 @@ final class Discovery {
      */
     DepSpec applyOverrides(DepSpec depSpec) {
       if (root.module().getName().equals(depSpec.name())) {
-        return DepSpec.fromModuleKey(ModuleKey.ROOT);
+        return DepSpec.ROOT_MODULE;
       }
-      Version newVersion =
+      return depSpec.withVersion(
           switch (root.overrides().get(depSpec.name())) {
-            case NonRegistryOverride nro -> Version.EMPTY;
+            case NonRegistryOverride ignored -> Version.EMPTY;
             case SingleVersionOverride svo when !svo.version().isEmpty() -> svo.version();
             case null, default -> depSpec.version();
-          };
-      return new DepSpec(depSpec.name(), newVersion, depSpec.maxCompatibilityLevel());
+          });
     }
 
     /**
