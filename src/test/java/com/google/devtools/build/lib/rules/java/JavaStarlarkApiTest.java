@@ -1100,7 +1100,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(target.getInstrumentedFiles())).containsExactly("java/jni.cc");
     assertThat(prettyArtifactNames(target.getInstrumentationMetadataFiles()))
-        .containsExactly("java/_objs/libjni.so/jni.gcno");
+        .containsExactly(
+            "java/libjni.soruntime_objects_list.txt",
+            "java/libjni.so",
+            "java/_objs/libjni.so/jni.gcno");
   }
 
   @Test
