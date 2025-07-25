@@ -107,6 +107,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -126,6 +127,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @VisibleForTesting static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
 
   @Nullable private final Artifact gcnoFile;
+  @Nullable private final Artifact dotdFile;
   private final Artifact sourceFile;
   private final BuildConfigurationValue configuration;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -180,6 +182,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   private Set<DerivedArtifact> usedModules;
 
+  private Set<Artifact> usedCpp20Modules;
+
   private boolean inputsDiscovered = false;
 
   /**
@@ -204,6 +208,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private ParamFileActionInput paramFileActionInput;
   @Nullable private final PathFragment paramFilePath;
+
+  private final NestedSet<Artifact> moduleFiles;
+  private final Artifact modmapInputFile;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -260,7 +267,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       CppSemantics cppSemantics,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable Artifact grepIncludes,
-      ImmutableList<Artifact> additionalOutputs) {
+      ImmutableList<Artifact> additionalOutputs,
+      NestedSet<Artifact> moduleFiles,
+      Artifact modmapInputFile) {
     super(
         owner,
         mandatoryInputs,
@@ -271,8 +280,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             gcnoFile,
             dwoFile,
             ltoIndexingFile,
-            additionalOutputs));
+            additionalOutputs,
+            featureConfiguration,
+            actionName));
     this.gcnoFile = gcnoFile;
+    this.dotdFile = dotdFile;
     this.sourceFile = sourceFile;
     this.shareable = shareable;
     this.configuration = configuration;
@@ -320,7 +332,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (separateModule != null && !separateModule.equals(getPrimaryOutput())) {
       allowedDerivedInputsBuilder.add(separateModule);
     }
+    if (moduleFiles != null) {
+      allowedDerivedInputsBuilder.addTransitive(moduleFiles);
+    }
     this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
+    this.moduleFiles = moduleFiles;
+    this.modmapInputFile = modmapInputFile;
   }
 
   /** Constructor for serialization. */
@@ -331,6 +348,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<Artifact> mandatoryInputs,
       Object rawOutputs,
       @Nullable Artifact gcnoFile,
+      Artifact dotdFile,
       Artifact sourceFile,
       BuildConfigurationValue configuration,
       NestedSet<Artifact> mandatorySpawnInputs,
@@ -350,9 +368,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       String actionName,
       FeatureConfiguration featureConfiguration,
       ImmutableList<PathFragment> builtInIncludeDirectories,
-      @Nullable PathFragment paramFilePath) {
+      @Nullable PathFragment paramFilePath,
+      NestedSet<Artifact> moduleFiles,
+      Artifact modmapInputFile) {
     super(owner, mandatoryInputs, rawOutputs);
     this.gcnoFile = gcnoFile;
+    this.dotdFile = dotdFile;
     this.sourceFile = sourceFile;
     this.configuration = configuration;
     this.mandatoryInputs = mandatoryInputs;
@@ -374,6 +395,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.featureConfiguration = featureConfiguration;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.paramFilePath = paramFilePath;
+    this.moduleFiles = moduleFiles;
+    this.modmapInputFile = modmapInputFile;
   }
 
   private static ImmutableSet<Artifact> collectOutputs(
@@ -383,7 +406,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
-      ImmutableList<Artifact> additionalOutputs) {
+      ImmutableList<Artifact> additionalOutputs,
+      FeatureConfiguration featureConfiguration,
+      String actionName) {
     ImmutableSet.Builder<Artifact> outputs = ImmutableSet.builder();
     outputs.add(outputFile);
     if (gcnoFile != null) {
@@ -493,7 +518,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public boolean discoversInputs() {
-    return shouldScanIncludes || getDotdFile() != null || shouldParseShowIncludes();
+    return isCpp20ModuleCompilationAction(actionName)
+        || shouldScanIncludes
+        || getDotdFile() != null
+        || shouldParseShowIncludes();
   }
 
   @Override
@@ -615,7 +643,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Preconditions.checkArgument(!sourceFile.isFileType(CppFileTypes.CPP_MODULE));
+    Preconditions.checkArgument(
+        !sourceFile.isFileType(CppFileTypes.CPP_MODULE)
+            || isCpp20ModuleCompilationAction(actionName));
 
     if (additionalInputs == null) {
       List<String> options;
@@ -637,6 +667,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .getOptions(BuildLanguageOptions.class)
               .experimentalSiblingRepositoryLayout;
       if (!shouldScanIncludes) {
+        usedCpp20Modules = computeUsedCpp20Modules(actionExecutionContext);
         // When not actually doing include scanning, add all prunable headers to additionalInputs.
         // This is necessary because the inputs that can be pruned by .d file parsing must be
         // returned from discoverInputs() and they cannot be in mandatoryInputs. Thus, even with
@@ -644,6 +675,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         additionalInputs =
             NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
                 .addTransitive(additionalPrunableHeaders)
+                .addAll(usedCpp20Modules)
                 .build();
         if (needsIncludeValidation) {
           verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
@@ -696,7 +728,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         NestedSetBuilder.fromNestedSet(additionalInputs)
             .addTransitive(requiredModules.transitivelyUsed())
             .build();
-    if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)) {
+    if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
+        && !isCpp20ModuleCompilationAction(actionName)) {
       this.discoveredModules = requiredModules.transitivelyUsed();
     }
     usedModules = null;
@@ -966,7 +999,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // of getcwd() into the debug info. Not applicable to Darwin or Windows, which have no /proc.
       environment.put("PWD", "/proc/self/cwd");
     }
-
     environment.putAll(compileCommandLine.getEnvironment(pathMapper));
     return ImmutableMap.copyOf(environment);
   }
@@ -1258,7 +1290,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public synchronized void updateInputs(NestedSet<Artifact> inputs) {
     super.updateInputs(inputs);
-    if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)) {
+    if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
+        && !isCpp20ModuleCompilationAction(actionName)) {
       discoveredModules =
           NestedSetBuilder.wrap(
               Order.STABLE_ORDER,
@@ -1269,9 +1302,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   protected String getRawProgressMessage() {
-    return (actionName.equals(CppActionNames.CPP_HEADER_ANALYSIS)
-            ? "Header analysis for "
-            : "Compiling ")
+    return switch (actionName) {
+          case CppActionNames.CPP_HEADER_ANALYSIS -> "Header analysis for ";
+          case CppActionNames.CPP_MODULE_DEPS_SCANNING -> "Deps scanning for ";
+          default -> "Compiling ";
+        }
         + getSourceFile().prettyPrint();
   }
 
@@ -1540,6 +1575,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             pathMapper);
     dotDContents = null; // Garbage collect in-memory .d contents.
 
+    if (usedCpp20Modules != null) {
+      discoveredInputs =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addAll(usedCpp20Modules)
+              .addTransitive(discoveredInputs)
+              .build();
+    }
     updateActionInputs(discoveredInputs);
 
     // hdrs_check: This cannot be switched off for C++ build actions,
@@ -1596,6 +1638,41 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private boolean shouldParseShowIncludes() {
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
+  }
+
+  /** Dynamically compute the dependencies of a compilation using C++20 modules. */
+  private ImmutableSet<Artifact> computeUsedCpp20Modules(
+      ActionExecutionContext actionExecutionContext) throws ActionExecutionException {
+    if (!featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES)) {
+      return ImmutableSet.of();
+    }
+    // Module dependency scanning only needs source and header files.
+    if (actionName.equals(CppActionNames.CPP_MODULE_DEPS_SCANNING)) {
+      return ImmutableSet.of();
+    }
+    if (!isCpp20ModuleCompilationAction(actionName)
+        && !CppFileTypes.CPP_SOURCE.matches(sourceFile.getExecPath())) {
+      return ImmutableSet.of();
+    }
+    ImmutableSet<String> usedModulePaths;
+    try {
+      // Read the file paths as raw bytes, which matches Bazel's internal encoding of path strings
+      // (see StringEncoding).
+      usedModulePaths =
+          ImmutableSet.copyOf(
+              FileSystemUtils.readLinesAsLatin1(
+                  actionExecutionContext.getInputPath(modmapInputFile)));
+    } catch (IOException e) {
+      String message =
+          String.format("failed to read modmap input: %s", modmapInputFile.getExecPathString());
+      DetailedExitCode code = createDetailedExitCode(message, Code.MODMAP_INPUT_FILE_READ_FAILURE);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
+    }
+    // All module files referenced in the modmap input file are expected to be known modules. We
+    // delegate error reporting to the compiler by silently skipping over unknown files.
+    return moduleFiles.toList().stream()
+        .filter(moduleFile -> usedModulePaths.contains(moduleFile.getExecPathString()))
+        .collect(toImmutableSet());
   }
 
   Spawn createSpawn(Path execRoot, Map<String, String> clientEnv, PathMapper pathMapper)
@@ -1900,6 +1977,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             : CPP_COMPILE_MNEMONIC + suffix;
       case CppActionNames.CPP_HEADER_ANALYSIS:
         return "CppHeaderAnalysis";
+      case CppActionNames.CPP_MODULE_DEPS_SCANNING:
+        return "CppDepsScanning";
       default:
         return CPP_COMPILE_MNEMONIC;
     }
@@ -1992,5 +2071,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         .setMessage(message)
         .setCppCompile(CppCompile.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  public static boolean isCpp20ModuleCompilationAction(String actionName) {
+    return actionName.equals(CppActionNames.CPP20_MODULE_COMPILE)
+        || actionName.equals(CppActionNames.CPP20_MODULE_CODEGEN);
   }
 }

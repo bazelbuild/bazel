@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -224,6 +225,10 @@ public final class CcToolchainProvider {
 
   public ImmutableList<PathFragment> getBuiltInIncludeDirectories() throws EvalException {
     return convertStarlarkListToPathFragments(value, "built_in_include_directories");
+  }
+
+  public String getCompiler() throws EvalException {
+    return value.getValue("compiler", String.class);
   }
 
   /** Returns the identifier of the toolchain as specified in the {@code CToolchain} proto. */
@@ -434,6 +439,18 @@ public final class CcToolchainProvider {
   @Nullable
   public Artifact getGrepIncludes() throws EvalException {
     return value.getNoneableValue("_grep_includes", Artifact.class);
+  }
+
+  /** Returns the tool that aggregates all .ddi files to .CXXModules.json file. */
+  @Nullable
+  public Artifact getAggregateDdi() throws EvalException {
+    return value.getNoneableValue("_aggregate_ddi", Artifact.class);
+  }
+
+  /** Returns the tool that generates .modmap file according to .CXXModules.json and .ddi file. */
+  @Nullable
+  public FilesToRunProvider getGenerateModmap() throws EvalException {
+    return value.getNoneableValue("generate_modmap_wrapper", FilesToRunProvider.class);
   }
 
   /** Returns the tool that builds interface libraries from dynamic libraries. */
