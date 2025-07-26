@@ -494,7 +494,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       List<ActionInput> expandedCoverageDir,
       Path tmpDirRoot) {
     ImmutableList<String> args =
-        ImmutableList.of(action.getCollectCoverageScript().getExecPathString());
+        ImmutableList.of(action.getCollectCoverageScript().getExecutable().getExecPathString());
 
     Map<String, String> testEnvironment =
         createEnvironment(actionExecutionContext, action, tmpDirRoot);
@@ -513,13 +513,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
-            .add(action.getCollectCoverageScript())
             .add(action.getCoverageManifest())
-            .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(
-            ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
