@@ -438,7 +438,6 @@ More info:
     return error;
   }
 
-
   @Override
   public <T> T get(String attributeName, Type<T> type) {
     try {
