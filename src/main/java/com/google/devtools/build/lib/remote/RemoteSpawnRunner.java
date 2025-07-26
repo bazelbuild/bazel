@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
@@ -95,9 +94,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static final SpawnExecutingEvent SPAWN_EXECUTING_EVENT =
       SpawnExecutingEvent.create("remote");
 
-  private final Path execRoot;
   private final RemoteOptions remoteOptions;
-  private final ExecutionOptions executionOptions;
   private final boolean verboseFailures;
   @Nullable private final Reporter cmdlineReporter;
   private final RemoteRetrier retrier;
@@ -109,18 +106,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final AtomicBoolean warningReported = new AtomicBoolean();
 
   RemoteSpawnRunner(
-      Path execRoot,
       RemoteOptions remoteOptions,
-      ExecutionOptions executionOptions,
       boolean verboseFailures,
       @Nullable Reporter cmdlineReporter,
       ListeningScheduledExecutorService retryService,
       Path logDir,
       RemoteExecutionService remoteExecutionService,
       DigestUtil digestUtil) {
-    this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
-    this.executionOptions = executionOptions;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
     this.retrier = createExecuteRetrier(remoteOptions, retryService);
@@ -139,7 +132,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return "remote";
   }
 
-  class ExecutingStatusReporter implements OperationObserver {
+  static class ExecutingStatusReporter implements OperationObserver {
     private boolean reportedExecuting = false;
     private final SpawnExecutionContext context;
 
