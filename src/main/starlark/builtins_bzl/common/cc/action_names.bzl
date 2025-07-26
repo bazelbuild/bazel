@@ -51,7 +51,10 @@ ASSEMBLE_ACTION_NAME = "assemble"
 # Name of the assembly preprocessing action.
 PREPROCESS_ASSEMBLE_ACTION_NAME = "preprocess-assemble"
 
+# Name of the coverage action.
 LLVM_COV = "llvm-cov"
+# Name of the DWARF packaging utility action.
+DWP = "dwp"
 
 # Name of the action producing ThinLto index.
 LTO_INDEXING_ACTION_NAME = "lto-indexing"
@@ -118,6 +121,7 @@ ACTION_NAMES = struct(
     assemble = ASSEMBLE_ACTION_NAME,
     preprocess_assemble = PREPROCESS_ASSEMBLE_ACTION_NAME,
     llvm_cov = LLVM_COV,
+    dwp = DWP,
     lto_indexing = LTO_INDEXING_ACTION_NAME,
     lto_backend = LTO_BACKEND_ACTION_NAME,
     lto_index_for_executable = LTO_INDEX_FOR_EXECUTABLE_ACTION_NAME,
