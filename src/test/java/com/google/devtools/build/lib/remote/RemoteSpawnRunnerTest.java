@@ -1181,9 +1181,7 @@ public class RemoteSpawnRunnerTest {
             Sets.newConcurrentHashSet());
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
-            execRoot,
             remoteOptions,
-            executionOptions,
             /* verboseFailures= */ true,
             /* cmdlineReporter= */ null,
             retryService,
@@ -1719,9 +1717,7 @@ public class RemoteSpawnRunnerTest {
                 Sets.newConcurrentHashSet()));
 
     return new RemoteSpawnRunner(
-        execRoot,
         remoteOptions,
-        Options.getDefaults(ExecutionOptions.class),
         /* verboseFailures= */ false,
         reporter,
         retryService,

@@ -1238,8 +1238,7 @@ public final class RemoteModule extends BlazeModule {
             authAndTlsOptions);
 
     try {
-      if (credentials != null
-          && remoteOptions.remoteCache != null
+      if (remoteOptions.remoteCache != null
           && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
           && !credentials.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
         // TODO(yannic): Make this a error aborting the build.

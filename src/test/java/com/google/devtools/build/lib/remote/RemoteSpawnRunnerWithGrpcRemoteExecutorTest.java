@@ -357,9 +357,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             Sets.newConcurrentHashSet());
     client =
         new RemoteSpawnRunner(
-            execRoot,
             remoteOptions,
-            Options.getDefaults(ExecutionOptions.class),
             /* verboseFailures= */ true,
             /* cmdlineReporter= */ null,
             retryService,
