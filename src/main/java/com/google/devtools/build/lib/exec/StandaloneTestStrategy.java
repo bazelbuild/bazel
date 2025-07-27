@@ -504,6 +504,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
     testEnvironment.put(TEST_NAME_ENV, action.getTestName());
     testEnvironment.put("IS_COVERAGE_SPAWN", "1");
+    // Let the coverage script locate its own runfiles tree, which is separate from the test
+    // runfiles.
+    testEnvironment.remove("RUNFILES_DIR");
+    testEnvironment.remove("JAVA_RUNFILES");
+    testEnvironment.remove("PYTHON_RUNFILES");
 
     return new SimpleSpawn(
         action,

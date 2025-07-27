@@ -485,7 +485,7 @@ end_of_record"
     assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
 }
 
-function test_starlark_rule_custom_baseline_coverage() {
+function do_test_starlark_rule_custom_baseline_coverage() {
   mkdir -p test
   cat <<EOF > test/rules.bzl
 def _my_library_impl(ctx):
@@ -709,6 +709,16 @@ end_of_record"
 
     assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
     assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
+}
+
+function test_starlark_rule_custom_baseline_coverage() {
+  do_test_starlark_rule_custom_baseline_coverage
+}
+
+function test_starlark_rule_custom_baseline_coverage_with_split_postprocessing() {
+  add_to_bazelrc "common --experimental_fetch_all_coverage_outputs"
+  add_to_bazelrc "common --experimental_split_coverage_postprocessing"
+  do_test_starlark_rule_custom_baseline_coverage
 }
 
 run_suite "test tests"
