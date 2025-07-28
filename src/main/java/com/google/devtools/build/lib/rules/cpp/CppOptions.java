@@ -1033,7 +1033,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_starlark_compiling",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
