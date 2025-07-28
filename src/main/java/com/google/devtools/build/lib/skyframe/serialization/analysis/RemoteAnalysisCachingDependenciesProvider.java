@@ -31,7 +31,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   RemoteAnalysisCacheMode mode();
 
-  default boolean isRemoteFetchEnabled() {
+  default boolean isRetrievalEnabled() {
     return mode() == RemoteAnalysisCacheMode.DOWNLOAD;
   }
 

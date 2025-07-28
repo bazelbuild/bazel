@@ -290,7 +290,7 @@ public final class SkyframeActionExecutor {
    *
    * <p>The absence of an {@link ActionLookupValue} implies that the action has not been rewound,
    * without needing to declare a Skyframe dependency. This is useful in the case where the values
-   * can be fetched remotely.
+   * can be retrieved remotely.
    */
   static interface ExistingActionLookupValuePeeker {
     @Nullable // null if the value is not in Skyframe
@@ -501,13 +501,13 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * True if remote fetch should be skipped for this {@code lookupData} because it was rewound.
+   * True if remote retrieval should be skipped for this {@code lookupData} because it was rewound.
    *
    * <p>This happens when an action fails to execute because one of its inputs was lost. It usually
-   * indicates that the remotely fetched {@code ActionExecutionValue} references remote data that is
-   * inaccessible.
+   * indicates that the remotely retrieved {@code ActionExecutionValue} references remote data that
+   * is inaccessible.
    */
-  public boolean shouldSkipRemoteFetch(ActionLookupData lookupData) throws InterruptedException {
+  public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
     ActionLookupValue lookupValue =
         actionLookupValuePeeker.getExistingActionLookupValue(lookupData.getActionLookupKey());
     if (lookupValue == null) {

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retrieveRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Joiner;
@@ -178,9 +178,9 @@ public final class ActionExecutionFunction implements SkyFunction {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRemoteFetchEnabled()
-        && !skyframeActionExecutor.shouldSkipRemoteFetch(actionLookupData)) {
-      switch (fetchRemoteSkyValue(
+    if (remoteCachingDependencies.isRetrievalEnabled()
+        && !skyframeActionExecutor.shouldSkipRetrieval(actionLookupData)) {
+      switch (retrieveRemoteSkyValue(
           actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
@@ -194,7 +194,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         ActionUtils.getActionForLookupData(
             env,
             actionLookupData,
-            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRemoteFetchEnabled());
+            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRetrievalEnabled());
     if (action == null) {
       return null;
     }

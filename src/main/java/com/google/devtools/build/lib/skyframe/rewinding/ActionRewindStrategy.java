@@ -909,7 +909,7 @@ public final class ActionRewindStrategy {
   }
 
   private boolean allowSkyframeRestarts() {
-    return cachingDependenciesSupplier.get().isRemoteFetchEnabled();
+    return cachingDependenciesSupplier.get().isRetrievalEnabled();
   }
 
   private static ActionRewindEvent createLostOutputRewindEvent(
