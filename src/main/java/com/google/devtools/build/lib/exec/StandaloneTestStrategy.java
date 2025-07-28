@@ -785,8 +785,6 @@ public class StandaloneTestStrategy extends TestStrategy {
               .withFileOutErr(coverageOutErr)
               .withOutputsAsInputs(coverageSpawnMetadata);
 
-      writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
-      appendCoverageLog(coverageOutErr, fileOutErr);
       try {
         spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
       } catch (SpawnExecException e) {
@@ -810,6 +808,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         closeSuppressed(e, fileOutErr);
         throw e;
       }
+
+      // Append all output from the coverage spawn to the test log.
+      writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
+      appendCoverageLog(coverageOutErr, fileOutErr);
     }
 
     Verify.verify(
