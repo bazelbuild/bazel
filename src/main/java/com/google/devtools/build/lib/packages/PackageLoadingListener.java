@@ -20,7 +20,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 /** Listener for package-loading events. */
 public interface PackageLoadingListener {
 
-  PackageLoadingListener NOOP_LISTENER = (pkg, semantics, loadTimeNanos) -> {};
+  PackageLoadingListener NOOP_LISTENER = (pkg, semantics, metrics) -> {};
 
   /** Returns a {@link PackageLoadingListener} from a composed of the input listeners. */
   static PackageLoadingListener create(List<PackageLoadingListener> listeners) {
@@ -28,13 +28,28 @@ public interface PackageLoadingListener {
       case 0 -> NOOP_LISTENER;
       case 1 -> listeners.get(0);
       default ->
-          (pkg, semantics, loadTimeNanos) -> {
+          (pkg, semantics, metrics) -> {
             for (PackageLoadingListener listener : listeners) {
-              listener.onLoadingCompleteAndSuccessful(pkg, semantics, loadTimeNanos);
+              listener.onLoadingCompleteAndSuccessful(pkg, semantics, metrics);
             }
           };
     };
   }
+
+  /**
+   * Metrics about loading a single package.
+   *
+   * @param loadTimeNanos the wall time, in ns, that it took to load the package. More precisely,
+   *     this is the wall time of the call to {@link PackageFactory#createPackageFromAst}. Notably,
+   *     this does not include the time to read and parse the package's BUILD file, nor the time to
+   *     read, parse, or evaluate any of the transitively loaded .bzl files, and it includes time
+   *     the OS thread is runnable but not running.
+   * @param globFilesystemOperationCost cost of the filesystem operations performed across all
+   *     <code>glob</code> calls while loading the package. <code>stat</code> operations cost <code>
+   *     1</code> and <code>readdir</code> operations cost <code>1 + D</code>, where <code>D</code>
+   *     is the number of dirents.
+   */
+  record Metrics(long loadTimeNanos, long globFilesystemOperationCost) {}
 
   /**
    * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} has successfully
@@ -42,12 +57,7 @@ public interface PackageLoadingListener {
    *
    * @param pkg the loaded {@link Package}
    * @param starlarkSemantics are the semantics used to load the package
-   * @param loadTimeNanos the wall time, in ns, that it took to load the package. More precisely,
-   *     this is the wall time of the call to {@link PackageFactory#createPackageFromAst}. Notably,
-   *     this does not include the time to read and parse the package's BUILD file, nor the time to
-   *     read, parse, or evaluate any of the transitively loaded .bzl files, and it includes time
-   *     the OS thread is runnable but not running.
    */
   void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
+      Package pkg, StarlarkSemantics starlarkSemantics, Metrics metrics);
 }

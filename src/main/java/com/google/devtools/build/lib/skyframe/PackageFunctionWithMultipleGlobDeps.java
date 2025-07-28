@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.GlobberUtils;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -139,8 +140,8 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
     private final Set<SkyKey> globDepKeys;
 
     private LoadedPackageWithGlobDeps(
-        Package.AbstractBuilder builder, long loadTimeNanos, Set<SkyKey> globDepKeys) {
-      super(builder, loadTimeNanos);
+        Package.AbstractBuilder builder, Metrics metrics, Set<SkyKey> globDepKeys) {
+      super(builder, metrics);
       this.globDepKeys = globDepKeys;
     }
   }
@@ -401,11 +402,11 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
 
   @Override
   protected LoadedPackage newLoadedPackage(
-      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
+      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, Metrics metrics) {
     Set<SkyKey> globDepKeys = ImmutableSet.of();
     if (globber != null) {
       globDepKeys = ((SkyframeHybridGlobber) globber).getGlobDepsRequested();
     }
-    return new LoadedPackageWithGlobDeps(packageBuilder, loadTimeNanos, globDepKeys);
+    return new LoadedPackageWithGlobDeps(packageBuilder, metrics, globDepKeys);
   }
 }

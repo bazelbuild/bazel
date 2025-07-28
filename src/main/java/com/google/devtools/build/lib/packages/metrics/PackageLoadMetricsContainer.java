@@ -26,12 +26,19 @@ public abstract class PackageLoadMetricsContainer {
   public static final Comparator<PackageLoadMetricsContainer> LOAD_TIMES_COMP =
       Comparator.comparing(
           c -> c.getPackageLoadMetricsInternal().getLoadDuration(), Durations.comparator());
+
+  /** Sorts by Glob Filesystem Operation Cost. */
+  public static final Comparator<PackageLoadMetricsContainer> GLOB_FILESYSTEM_OPERATION_COST_COMP =
+      Comparator.comparing(c -> c.getPackageLoadMetricsInternal().getGlobFilesystemOperationCost());
+
   /** Sorts by Num Target count . */
   public static final Comparator<PackageLoadMetricsContainer> NUM_TARGETS_COMP =
       Comparator.comparingLong(c -> c.getPackageLoadMetricsInternal().getNumTargets());
-  /** Sorts by Comutation Steps count. */
+
+  /** Sorts by Computation Steps count. */
   public static final Comparator<PackageLoadMetricsContainer> COMPUTATION_STEPS_COMP =
       Comparator.comparingLong(c -> c.getPackageLoadMetricsInternal().getComputationSteps());
+
   /** Sorts by Transitive Load Count. */
   public static final Comparator<PackageLoadMetricsContainer> TRANSITIVE_LOADS_COMP =
       Comparator.comparingLong(c -> c.getPackageLoadMetricsInternal().getNumTransitiveLoads());

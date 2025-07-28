@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -336,7 +337,7 @@ public final class PackageFactory {
   public void afterDoneLoadingPackage(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
+      Metrics metrics,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
 
@@ -363,7 +364,7 @@ public final class PackageFactory {
                   .build()));
     }
 
-    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, metrics);
   }
 
   /**
@@ -375,7 +376,7 @@ public final class PackageFactory {
   public void afterDoneLoadingPackagePiece(
       PackagePiece pkgPiece,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
+      Metrics metrics,
       ExtendedEventHandler eventHandler)
       throws InvalidPackagePieceException {
     // TODO(https://github.com/bazelbuild/bazel/issues/23852): add package piece validation.

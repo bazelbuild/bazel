@@ -48,6 +48,8 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
@@ -341,11 +343,11 @@ public abstract class PackageFunction implements SkyFunction {
    */
   protected abstract static class LoadedPackage {
     final Package.AbstractBuilder builder;
-    final long loadTimeNanos;
+    final Metrics metrics;
 
-    LoadedPackage(Package.AbstractBuilder builder, long loadTimeNanos) {
+    LoadedPackage(Package.AbstractBuilder builder, Metrics metrics) {
       this.builder = builder;
-      this.loadTimeNanos = loadTimeNanos;
+      this.metrics = metrics;
     }
   }
 
@@ -582,7 +584,7 @@ public abstract class PackageFunction implements SkyFunction {
         packageFactory.afterDoneLoadingPackage(
             pkg,
             starlarkBuiltinsValue.starlarkSemantics,
-            state.loadedPackage.loadTimeNanos,
+            state.loadedPackage.metrics,
             env.getListener());
       } catch (InvalidPackageException e) {
         throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -592,7 +594,7 @@ public abstract class PackageFunction implements SkyFunction {
         packageFactory.afterDoneLoadingPackagePiece(
             (PackagePiece.ForBuildFile) packageoid,
             starlarkBuiltinsValue.starlarkSemantics,
-            state.loadedPackage.loadTimeNanos,
+            state.loadedPackage.metrics,
             env.getListener());
       } catch (InvalidPackagePieceException e) {
         throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -1144,17 +1146,14 @@ public abstract class PackageFunction implements SkyFunction {
 
       long startTimeNanos = BlazeClock.nanoTime();
 
-      Globber globber =
-          makeGlobber(
-              packageFactory.createNonSkyframeGlobber(
-                  buildFileRootedPath.asPath().getParentDirectory(),
-                  packageId,
-                  repositoryIgnoredSubdirectories.asIgnoredSubdirectories(),
-                  packageLocator,
-                  threadStateReceiverFactoryForMetrics.apply(keyForMetrics)),
+      NonSkyframeGlobber nonSkyframeGlobber =
+          packageFactory.createNonSkyframeGlobber(
+              buildFileRootedPath.asPath().getParentDirectory(),
               packageId,
-              packageRoot,
-              env);
+              repositoryIgnoredSubdirectories.asIgnoredSubdirectories(),
+              packageLocator,
+              threadStateReceiverFactoryForMetrics.apply(keyForMetrics));
+      Globber globber = makeGlobber(nonSkyframeGlobber, packageId, packageRoot, env);
 
       // Create the package,
       // even if it will be empty because we cannot attempt execution.
@@ -1222,7 +1221,10 @@ public abstract class PackageFunction implements SkyFunction {
       }
 
       long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
-      return newLoadedPackage(pkgBuilder, globber, loadTimeNanos);
+      return newLoadedPackage(
+          pkgBuilder,
+          globber,
+          new Metrics(loadTimeNanos, nonSkyframeGlobber.getGlobFilesystemOperationCost()));
     } finally {
       if (committed) {
         // We're done executing the BUILD file. Therefore, we can discard the compiled BUILD file...
@@ -1237,7 +1239,9 @@ public abstract class PackageFunction implements SkyFunction {
 
   @ForOverride
   protected abstract LoadedPackage newLoadedPackage(
-      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, long loadTimeNanos);
+      Package.AbstractBuilder packageBuilder,
+      @Nullable Globber globber,
+      PackageLoadingListener.Metrics metrics);
 
   // Reads, parses, resolves, and compiles a BUILD file.
   // A read error is reported as PackageFunctionException.

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
@@ -200,7 +201,10 @@ final class EvalMacroFunction implements SkyFunction {
       packageFactory.afterDoneLoadingPackagePiece(
           packagePiece,
           packageDeclarationsValue.starlarkSemantics(),
-          loadTimeNanos,
+          new Metrics(
+              loadTimeNanos,
+              // Symbolic macros don't use `native.glob`.
+              /* globFilesystemOperationCost= */ 0L),
           env.getListener());
     } catch (InvalidPackagePieceException e) {
       throw new EvalMacroFunctionException(e);

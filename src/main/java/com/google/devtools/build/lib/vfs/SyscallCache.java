@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * methods in this interface on files that may change <em>during</em> a build, like outputs or
  * external repository files. Calling these methods on source files is allowed.
  */
-public interface SyscallCache extends XattrProvider {
+public interface SyscallCache extends XattrProvider, UnixGlob.FilesystemOps {
   SyscallCache NO_CACHE =
       new SyscallCache() {
         @Override
@@ -56,8 +56,11 @@ public interface SyscallCache extends XattrProvider {
         public void clear() {}
       };
 
-  /** Gets directory entries and their types. Does not follow symlinks. */
-  Collection<Dirent> readdir(Path path) throws IOException;
+  @Override
+  @Nullable
+  default FileStatus statIfFound(Path path) throws IOException {
+    return statIfFound(path, Symlinks.FOLLOW);
+  }
 
   /** Returns the stat() for the given path, or null. */
   @Nullable

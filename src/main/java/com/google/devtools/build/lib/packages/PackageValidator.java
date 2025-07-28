@@ -59,5 +59,6 @@ public interface PackageValidator {
    * Validates a loaded package. Throws {@link InvalidPackageException} if the package is deemed
    * invalid.
    */
+  // TODO(b/169694978): Support glob metrics.
   void validate(Package pkg, ExtendedEventHandler eventHandler) throws InvalidPackageException;
 }

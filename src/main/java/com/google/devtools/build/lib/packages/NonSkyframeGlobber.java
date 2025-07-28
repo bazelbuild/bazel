@@ -77,4 +77,8 @@ public class NonSkyframeGlobber implements Globber {
   public void onCompletion() {
     globCache.finishBackgroundTasks();
   }
+
+  public long getGlobFilesystemOperationCost() {
+    return globCache.getGlobFilesystemOperationCost();
+  }
 }
