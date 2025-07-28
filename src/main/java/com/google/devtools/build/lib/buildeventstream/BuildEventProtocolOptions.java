@@ -39,9 +39,11 @@ public class BuildEventProtocolOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Use this to suppress generation of the legacy important_outputs field in the "
-              + "TargetComplete event. important_outputs are required for Bazel to ResultStore/BTX "
-              + "integration.")
+          """
+          Use this to suppress generation of the legacy `important_outputs` field in the
+          `TargetComplete` event. `important_outputs` are required for Bazel to ResultStore/BTX
+          integration.
+          """)
   public boolean legacyImportantOutputs;
 
   @Option(
@@ -50,8 +52,10 @@ public class BuildEventProtocolOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Selects how to upload artifacts referenced in the build event protocol. In Bazel "
-              + "the valid options include 'local' and 'remote'. The default value is 'local'.")
+          """
+          Selects how to upload artifacts referenced in the build event protocol. In Bazel
+          the valid options include `local` and `remote`. The default value is `local`.
+          """)
   public String buildEventUploadStrategy;
 
   @Option(
@@ -105,7 +109,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to publish TargetSummary events.")
+      help = "Whether to publish `TargetSummary` events.")
   public boolean publishTargetSummary;
 
   @Option(
@@ -187,11 +191,13 @@ public class BuildEventProtocolOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Specify how an output group's files will be represented in TargetComplete/AspectComplete"
-              + " BEP events. Values are an assignment of an output group name to one of"
-              + " 'NAMED_SET_OF_FILES_ONLY', 'INLINE_ONLY', or 'BOTH'. The default value is"
-              + " 'NAMED_SET_OF_FILES_ONLY'. If an output group is repeated, the final value to"
-              + " appear is used. The default value sets the mode for coverage artifacts to BOTH: "
-              + "--experimental_build_event_output_group_mode=baseline.lcov=both")
+          """
+          Specify how an output group's files will be represented in `TargetComplete`/`AspectComplete`
+          BEP events. Values are an assignment of an output group name to one of
+          `NAMED_SET_OF_FILES_ONLY`, `INLINE_ONLY`, or `BOTH`. The default value is
+          `NAMED_SET_OF_FILES_ONLY`. If an output group is repeated, the final value to
+          appear is used. The default value sets the mode for coverage artifacts to BOTH:
+          `--experimental_build_event_output_group_mode=baseline.lcov=both`
+          """)
   public List<Map.Entry<String, OutputGroupFileMode>> outputGroupFileModes;
 }

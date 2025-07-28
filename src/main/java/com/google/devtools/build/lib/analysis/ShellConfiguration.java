@@ -73,13 +73,17 @@ public class ShellConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help =
-            "Absolute path to the shell executable for Bazel to use. If this is unset, but the "
-                + "BAZEL_SH environment variable is set on the first Bazel invocation (that starts "
-                + "up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded "
-                + "default path depending on the operating system it runs on (Windows: "
-                + "c:/msys64/usr/bin/bash.exe, FreeBSD: /usr/local/bin/bash, all others: "
-                + "/bin/bash). Note that using a shell that is not compatible with bash may lead "
-                + "to build failures or runtime failures of the generated binaries.")
+            """
+            Absolute path to the shell executable for Bazel to use. If this is unset, but the
+            `BAZEL_SH` environment variable is set on the first Bazel invocation (that starts
+            up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded
+            default path depending on the operating system it runs on;
+            - Windows: `c:/msys64/usr/bin/bash.exe`
+            - FreeBSD: `/usr/local/bin/bash`
+            - All others: `/bin/bash`.
+            Note that using a shell that is not compatible with `bash` may lead
+            to build failures or runtime failures of the generated binaries.
+            """)
     public PathFragment shellExecutable;
   }
 }

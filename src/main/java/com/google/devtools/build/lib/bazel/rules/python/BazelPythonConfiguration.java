@@ -50,9 +50,11 @@ public class BazelPythonConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         help =
-            "The label of a py_runtime representing the Python interpreter invoked to run Python "
-                + "targets on the target platform. Deprecated; disabled by "
-                + "--incompatible_use_python_toolchains.")
+            """
+            The label of a py_runtime representing the Python interpreter invoked to run Python
+            targets on the target platform. Deprecated; disabled by
+            `--incompatible_use_python_toolchains`.
+            """)
     public Label pythonTop;
 
     @Option(
@@ -61,8 +63,10 @@ public class BazelPythonConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         help =
-            "The absolute path of the Python interpreter invoked to run Python targets on the "
-                + "target platform. Deprecated; disabled by --incompatible_use_python_toolchains.")
+            """
+            The absolute path of the Python interpreter invoked to run Python targets on the
+            target platform. Deprecated; disabled by `--incompatible_use_python_toolchains`.
+            """)
     public String pythonPath;
 
     @Option(
@@ -72,12 +76,14 @@ public class BazelPythonConfiguration extends Fragment {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "If true, the roots of repositories in the runfiles tree are added to PYTHONPATH, so "
-                + "that imports like `import mytoplevelpackage.package.module` are valid."
-                + " Regardless of whether this flag is true, the runfiles root itself is also"
-                + " added to the PYTHONPATH, so "
-                + "`import myreponame.mytoplevelpackage.package.module` is valid. The latter form "
-                + "is less likely to experience import name collisions.")
+            """
+            If true, the roots of repositories in the runfiles tree are added to `PYTHONPATH`, so
+            that imports like `import mytoplevelpackage.package.module` are valid.
+            Regardless of whether this flag is true, the runfiles root itself is also
+            added to the `PYTHONPATH`, so
+            `import myreponame.mytoplevelpackage.package.module` is valid. The latter form
+            is less likely to experience import name collisions.
+            """)
     public boolean experimentalPythonImportAllRepositories;
   }
 

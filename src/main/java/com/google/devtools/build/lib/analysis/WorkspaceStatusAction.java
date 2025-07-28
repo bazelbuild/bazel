@@ -85,10 +85,13 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "A command invoked at the beginning of the build to provide status "
-                + "information about the workspace in the form of key/value pairs.  "
-                + "See the User's Manual for the full specification. Also see "
-                + "tools/buildstamp/get_workspace_status for an example.")
+            """
+            A command invoked at the beginning of the build to provide status
+            information about the workspace in the form of key/value pairs.
+            See the User's Manual for the full specification. Also see
+            [`tools/buildstamp/get_workspace_status`][wksp-stat] for an example.
+            [wksp-stat]: https://github.com/bazelbuild/bazel/blob/master/tools/buildstamp/get_workspace_status
+            """)
     public PathFragment workspaceStatusCommand;
   }
 

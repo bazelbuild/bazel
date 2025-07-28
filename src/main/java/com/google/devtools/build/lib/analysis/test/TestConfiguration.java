@@ -93,13 +93,15 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.TEST_RUNNER},
         help =
-            "Specifies additional environment variables to be injected into the test runner "
-                + "environment. Variables can be either specified by <code>name</code>, in which "
-                + "case its value will be read from the Bazel client environment, or by the "
-                + "<code>name=value</code> pair. "
-                + "Previously set variables can be unset via <code>=name</code>. "
-                + "This option can be used multiple times to specify several variables. "
-                + "Used only by the 'bazel test' command.")
+            """
+            Specifies additional environment variables to be injected into the test runner
+            environment. Variables can be either specified by `name`, in which
+            case its value will be read from the Bazel client environment, or by the
+            `name=value` pair.
+            Previously set variables can be unset via `=name`.
+            This option can be used multiple times to specify several variables.
+            Used only by the 'bazel test' command.
+            """)
     public List<Converters.EnvVar> testEnvironment;
 
     @Option(
@@ -109,11 +111,13 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Override the default test timeout values for test timeouts (in secs). If a single "
-                + "positive integer value is specified it will override all categories.  If 4 "
-                + "comma-separated integers are specified, they will override the timeouts for "
-                + "short, moderate, long and eternal (in that order). In either form, a value of "
-                + "-1 tells blaze to use its default timeouts for that category.")
+            """
+            Override the default test timeout values for test timeouts (in secs). If a single
+            positive integer value is specified it will override all categories.  If 4
+            comma-separated integers are specified, they will override the timeouts for
+            `short`, `moderate`, `long` and `eternal` (in that order). In either form, a value of
+            -1 tells blaze to use its default timeouts for that category.
+            """)
     public Map<TestTimeout, Duration> testTimeout;
 
     @Option(
@@ -124,15 +128,17 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Override the default resources amount for tests. The expected format is"
-                + " <resource>=<value>. If a single positive number is specified as <value>"
-                + " it will override the default resources for all test sizes. If 4"
-                + " comma-separated numbers are specified, they will override the resource"
-                + " amount for respectively the small, medium, large, enormous test sizes."
-                + " Values can also be HOST_RAM/HOST_CPU, optionally followed"
-                + " by [-|*]<float> (eg. memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4)."
-                + " The default test resources specified by this flag are overridden by explicit"
-                + " resources specified in tags.")
+            """
+            Override the default resources amount for tests. The expected format is
+            `<resource>=<value>`. If a single positive number is specified as `<value>`
+            it will override the default resources for all test sizes. If 4
+            comma-separated numbers are specified, they will override the resource
+            amount for respectively the `small`, `medium`, `large`, `enormous` test sizes.
+            Values can also be `HOST_RAM`/`HOST_CPU`, optionally followed
+            by `[-|*]<float>` (eg. `memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4`).
+            The default test resources specified by this flag are overridden by explicit
+            resources specified in tags.
+            """)
     // We need to store these as Pair(s) instead of Map.Entry(s) so that they are serializable.
     public List<Pair<String, Map<TestSize, Double>>> testResources;
 
@@ -164,13 +170,15 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "If set to 'auto', Bazel reruns a test if and only if: "
-                + "(1) Bazel detects changes in the test or its dependencies, "
-                + "(2) the test is marked as external, "
-                + "(3) multiple test runs were requested with --runs_per_test, or"
-                + "(4) the test previously failed. "
-                + "If set to 'yes', Bazel caches all test results except for tests marked as "
-                + "external. If set to 'no', Bazel does not cache any test results.")
+            """
+            If set to `auto`, Bazel reruns a test if and only if:
+            1. Bazel detects changes in the test or its dependencies,
+            2. The test is marked as `external`,
+            3. Multiple test runs were requested with `--runs_per_test`, or
+            4. The test previously failed.
+            If set to `yes`, Bazel caches all test results except for tests marked as
+            `external`. If set to `no`, Bazel does not cache any test results.
+            """)
     public TriState cacheTestResults;
 
     @Deprecated
@@ -207,10 +215,12 @@ public class TestConfiguration extends Fragment {
         },
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "When enabled, --trim_test_configuration will not trim the test configuration for rules"
-                + " marked testonly=1. This is meant to reduce action conflict issues when non-test"
-                + " rules depend on cc_test rules. No effect if --trim_test_configuration is"
-                + " false.")
+            """
+            When enabled, `--trim_test_configuration` will not trim the test configuration for rules
+            marked testonly=1. This is meant to reduce action conflict issues when non-test
+            rules depend on `cc_test` rules. No effect if `--trim_test_configuration` is
+            false.
+            """)
     public boolean experimentalRetainTestConfigurationAcrossTestonly;
 
     @Option(
@@ -220,10 +230,12 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Specifies additional options and arguments that should be passed to the test "
-                + "executable. Can be used multiple times to specify several arguments. "
-                + "If multiple tests are executed, each of them will receive identical arguments. "
-                + "Used only by the 'bazel test' command.")
+            """
+            Specifies additional options and arguments that should be passed to the test
+            executable. Can be used multiple times to specify several arguments.
+            If multiple tests are executed, each of them will receive identical arguments.
+            Used only by the `bazel test` command.
+            """)
     public List<String> testArguments;
 
     @Option(
@@ -233,10 +245,14 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Specify strategy for test sharding: "
-                + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is "
-                + "present. 'disabled' to never use test sharding. 'forced=k' to enforce 'k' "
-                + "shards for testing regardless of the 'shard_count' BUILD attribute.")
+            """
+            Specify strategy for test sharding:
+            - `explicit` to only use sharding if the `shard_count` `BUILD` attribute is
+              present.
+            - `disabled` to never use test sharding.
+            - `forced=k` to enforce `k` shards for testing regardless of the `shard_count` `BUILD`
+              attribute.
+            """)
     public TestShardingStrategy testShardingStrategy;
 
     @Option(
@@ -247,16 +263,22 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Specifies number of times to run each test. If any of those attempts fail for any"
-                + " reason, the whole test is considered failed. Normally the value specified is"
-                + " just an integer. Example: --runs_per_test=3 will run all tests 3 times."
-                + " Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for"
-                + " an integer value and regex_filter stands for a list of include and exclude"
-                + " regular expression patterns (Also see --instrumentation_filter). Example:"
-                + " --runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ except those"
-                + " under foo/bar three times. This option can be passed multiple times. The most"
-                + " recently passed argument that matches takes precedence. If nothing matches,"
-                + " the test is only run once.")
+            """
+            Specifies number of times to run each test. If any of those attempts fail for any
+            reason, the whole test is considered failed. Normally the value specified is
+            just an integer.
+
+            Example: `--runs_per_test=3` will run all tests 3 times.
+
+            Alternate syntax: `regex_filter@runs_per_test`. Where `runs_per_test` stands for
+            an integer value and `regex_filter` stands for a list of include and exclude
+            regular expression patterns (Also see --instrumentation_filter).
+
+            Example: `--runs_per_test=//foo/.*,-//foo/bar/.*@3` runs all tests in `//foo/` except
+            those under `//foo/bar` three times. This option can be passed multiple times. The most
+            recently passed argument that matches takes precedence. If nothing matches,
+            the test is only run once.
+            """)
     public List<PerLabelOptions> runsPerTest;
 
     @Option(
@@ -276,8 +298,10 @@ public class TestConfiguration extends Fragment {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "If true, then Blaze will cancel concurrently running tests on the first successful "
-                + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
+            """
+            If true, then Blaze will cancel concurrently running tests on the first successful
+            run. This is only useful in combination with `--runs_per_test_detects_flakes`.
+            """)
     public boolean cancelConcurrentTests;
 
     @Option(
@@ -291,8 +315,10 @@ public class TestConfiguration extends Fragment {
           OptionEffectTag.LOADING_AND_ANALYSIS
         },
         help =
-            "Location of support files that are required on the inputs of every test action "
-                + "that collects code coverage. Defaults to '//tools/test:coverage_support'.")
+            """
+            Location of support files that are required on the inputs of every test action
+            that collects code coverage. Defaults to `//tools/test:coverage_support`.
+            """)
     public Label coverageSupport;
 
     @Option(
@@ -313,8 +339,10 @@ public class TestConfiguration extends Fragment {
         effectTags = {OptionEffectTag.UNKNOWN},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
-            "If true, exclusive tests will run with sandboxed strategy. Add 'local' tag to force "
-                + "an exclusive test run locally")
+            """
+            If true, exclusive tests will run with sandboxed strategy. Add `local` tag to force
+            an exclusive test run locally
+            """)
     public boolean incompatibleExclusiveTestSandboxed;
 
     @Option(
@@ -341,10 +369,12 @@ public class TestConfiguration extends Fragment {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "If true, Bazel will fail a sharded test if the test runner does not indicate that it "
-                + "supports sharding by touching the file at the path in TEST_SHARD_STATUS_FILE. "
-                + "If false, a test runner that does not support sharding will lead to all tests "
-                + "running in each shard.")
+            """
+            If true, Bazel will fail a sharded test if the test runner does not indicate that it
+            supports sharding by touching the file at the path in `TEST_SHARD_STATUS_FILE`.
+            If false, a test runner that does not support sharding will lead to all tests
+            running in each shard.
+            """)
     public boolean checkShardingSupport;
 
     @Option(
