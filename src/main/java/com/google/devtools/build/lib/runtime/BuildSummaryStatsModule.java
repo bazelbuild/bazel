@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -168,6 +169,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
           criticalPath = criticalPathComputer.aggregate();
+          reporter.post(new CriticalPathEvent(criticalPath));
           items.add(criticalPath.toStringSummaryNoRemote());
           event
               .getResult()

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -311,6 +312,13 @@ class MetricsCollector {
   @Subscribe
   public void onCommandPrecompleteEvent(CommandPrecompleteEvent event) {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
+  }
+
+  @Subscribe
+  public void onCriticalPath(CriticalPathEvent event) {
+    com.google.protobuf.Duration protoDuration =
+        Durations.fromNanos(event.getCriticalPath().getAggregatedElapsedTime().toNanos());
+    timingMetrics.setCriticalPathTime(protoDuration);
   }
 
   @SuppressWarnings("unused")
