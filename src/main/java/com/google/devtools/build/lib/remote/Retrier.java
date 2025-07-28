@@ -224,33 +224,38 @@ public class Retrier {
     this.sleeper = sleeper;
   }
 
-  ListeningScheduledExecutorService getRetryService() {
-    return retryService;
+  /** A {@link Callable} that can be retried in case of transient failure. */
+  @FunctionalInterface
+  public interface RetryableCallable<T, E extends Exception> extends Callable<T> {
+    @Override
+    T call() throws IOException, InterruptedException, E;
   }
 
   /**
-   * Execute a {@link Callable}, retrying execution in case of transient failure and returning the
-   * result in case of success.
+   * Execute a {@link RetryableCallable}, retrying execution in case of transient failure and
+   * returning the result in case of success.
    */
-  public <T> T execute(Callable<T> call) throws Exception {
+  public <T, E extends Exception> T execute(RetryableCallable<T, E> call)
+      throws E, IOException, InterruptedException {
     return execute(call, newBackoff());
   }
 
   /**
-   * Execute a {@link Callable}, retrying execution in case of transient failure and returning the
-   * result in case of success with give {@link Backoff}.
+   * Execute a {@link RetryableCallable}, retrying execution in case of transient failure and
+   * returning the result in case of success with give {@link Backoff}.
    *
    * <p>{@link InterruptedException} is not retried.
    *
    * @param call the {@link Callable} to execute.
-   * @throws Exception if the {@code call} didn't succeed within the framework specified by {@code
-   *     backoffSupplier} and {@code resultClassifier}.
+   * @throws E or {@link IOException} if the {@code call} didn't succeed within the framework
+   *     specified by {@code backoffSupplier} and {@code resultClassifier}.
    * @throws CircuitBreakerException in case a call was rejected because the circuit breaker
    *     tripped.
    * @throws InterruptedException if the {@code call} throws an {@link InterruptedException} or the
    *     current thread's interrupted flag is set.
    */
-  public <T> T execute(Callable<T> call, Backoff backoff) throws Exception {
+  public <T, E extends Exception> T execute(RetryableCallable<T, E> call, Backoff backoff)
+      throws E, IOException, InterruptedException {
     while (true) {
       State circuitState = circuitBreaker.state();
       if (State.REJECT_CALLS.equals(circuitState)) {

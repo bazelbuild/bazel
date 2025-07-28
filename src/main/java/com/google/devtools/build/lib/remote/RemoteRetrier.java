@@ -18,7 +18,6 @@ import static java.lang.Math.max;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -26,7 +25,6 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -106,31 +104,11 @@ public class RemoteRetrier extends Retrier {
     super(backoff, resultClassifier, retryScheduler, circuitBreaker, sleeper);
   }
 
-  /**
-   * Execute a callable with retries. {@link IOException} and {@link InterruptedException} are
-   * propagated directly to the caller. All other exceptions are wrapped in {@link
-   * RuntimeException}.
-   */
+  /** Execute a callable with retries. */
   @Override
-  public <T> T execute(Callable<T> call) throws IOException, InterruptedException {
+  public <T, E extends Exception> T execute(RetryableCallable<T, E> call)
+      throws E, IOException, InterruptedException {
     return execute(call, newBackoff());
-  }
-
-  /**
-   * Execute a callable with retries and given {@link Backoff}. {@link IOException} and {@link
-   * InterruptedException} are propagated directly to the caller. All other exceptions are wrapped
-   * in {@link RuntimeException}.
-   */
-  @Override
-  public <T> T execute(Callable<T> call, Backoff backoff) throws IOException, InterruptedException {
-    try {
-      return super.execute(call, backoff);
-    } catch (Exception e) {
-      Throwables.throwIfInstanceOf(e, IOException.class);
-      Throwables.throwIfInstanceOf(e, InterruptedException.class);
-      Throwables.throwIfUnchecked(e);
-      throw new RuntimeException(e);
-    }
   }
 
   /** Backoff strategy that backs off exponentially. */
@@ -154,8 +132,8 @@ public class RemoteRetrier extends Retrier {
      *     jitter, and 1 providing a duration that is 0-200% of the non-jittered duration.
      * @param maxAttempts Maximal times to attempt a retry 0 means no retries.
      */
-    ExponentialBackoff(Duration initial, Duration max, double multiplier, double jitter,
-        int maxAttempts) {
+    ExponentialBackoff(
+        Duration initial, Duration max, double multiplier, double jitter, int maxAttempts) {
       Preconditions.checkArgument(multiplier > 1, "multipler must be > 1");
       Preconditions.checkArgument(jitter >= 0 && jitter <= 1, "jitter must be in the range (0, 1)");
       Preconditions.checkArgument(maxAttempts >= 0, "maxAttempts must be >= 0");
