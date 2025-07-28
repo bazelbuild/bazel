@@ -89,7 +89,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   private final ByteStreamUploader uploader;
   private final int maxMissingBlobsDigestsPerMessage;
 
-  private AtomicBoolean closed = new AtomicBoolean();
+  private final AtomicBoolean closed = new AtomicBoolean();
 
   @VisibleForTesting
   public GrpcCacheClient(
