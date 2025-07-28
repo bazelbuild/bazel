@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -55,7 +56,7 @@ public final class PlatformProducerTest extends ProducerTestCase {
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
-    PlatformValue result = fetch(platformLabel);
+    PlatformValue result = fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of());
 
     assertThat(result).isNotNull();
     assertThat(result.platformInfo().label()).isEqualTo(platformLabel);
@@ -88,7 +89,7 @@ public final class PlatformProducerTest extends ProducerTestCase {
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:alias");
-    PlatformValue result = fetch(platformLabel);
+    PlatformValue result = fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of());
 
     assertThat(result).isNotNull();
     assertThat(result.platformInfo().label())
@@ -108,7 +109,9 @@ public final class PlatformProducerTest extends ProducerTestCase {
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
-    assertThrows(InvalidPlatformException.class, () -> fetch(platformLabel));
+    assertThrows(
+        InvalidPlatformException.class,
+        () -> fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of()));
   }
 
   @Test
@@ -123,13 +126,82 @@ public final class PlatformProducerTest extends ProducerTestCase {
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
-    assertThrows(OptionsParsingException.class, () -> fetch(platformLabel));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of()));
   }
 
-  private PlatformValue fetch(Label platformLabel)
+  @Test
+  public void flagAliasUsesCanonicalFlag() throws Exception {
+    scratch.overwriteFile(
+        "starlark/flags.bzl",
+        """
+        string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+        bool_flag = rule(implementation = lambda ctx: [], build_setting = config.bool(flag = True))
+        """);
+    scratch.overwriteFile(
+        "starlark/BUILD",
+        """
+        load("//starlark:flags.bzl", "string_flag", "bool_flag")
+        string_flag(
+            name = "actual1",
+            build_setting_default = "value1",
+        )
+        bool_flag(
+            name = "actual2",
+            build_setting_default = False,
+        )
+        bool_flag(
+            name = "actual3",
+            build_setting_default = True,
+        )
+
+        """);
+    scratch.overwriteFile(
+        "lookup/BUILD",
+        """
+        constraint_setting(name = "setting1")
+        constraint_value(
+            name = "value1",
+            constraint_setting = ":setting1",
+        )
+        platform(
+            name = "basic",
+            constraint_values = [":value1"],
+            flags = [
+                "--aliasname1=fast",
+                "--aliasname2",
+                "--noaliasname3",
+                "--compilation_mode=opt",
+            ],
+        )
+        """);
+
+    PlatformValue result =
+        fetch(
+            Label.parseCanonicalUnchecked("//lookup:basic"),
+            /* flagAliasMappings= */ ImmutableMap.of(
+                "aliasname1",
+                "//starlark:actual1",
+                "aliasname2",
+                "//starlark:actual2",
+                "aliasname3",
+                "//starlark:actual3"));
+
+    // Native flags:
+    assertThat(result.parsedFlags().get().parsingResult().canonicalize())
+        .containsExactly("--compilation_mode=opt");
+    // Starlark flags:
+    assertThat(result.parsedFlags().get().parsingResult().getStarlarkOptions())
+        .containsExactly(
+            "//starlark:actual1", "fast", "//starlark:actual2", true, "//starlark:actual3", false);
+  }
+
+  private PlatformValue fetch(Label platformLabel, ImmutableMap<String, String> flagAliasMappings)
       throws InvalidPlatformException, OptionsParsingException, InterruptedException {
     PlatformInfoSink sink = new PlatformInfoSink();
-    PlatformProducer producer = new PlatformProducer(platformLabel, sink, StateMachine.DONE);
+    PlatformProducer producer =
+        new PlatformProducer(platformLabel, flagAliasMappings, sink, StateMachine.DONE);
     boolean success = executeProducer(producer);
     if (sink.platformValue != null) {
       assertThat(success).isTrue();

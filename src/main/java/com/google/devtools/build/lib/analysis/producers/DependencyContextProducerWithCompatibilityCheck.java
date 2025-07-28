@@ -99,6 +99,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
     // toolchains mark the target incompatible instead of failing the build.
     return new PlatformProducer(
         platformConfiguration.getTargetPlatform(),
+        targetAndConfiguration.getConfiguration().getCommandLineFlagAliases(),
         (PlatformProducer.ResultSink) this,
         /* runAfter= */ this::computeConfigConditions);
   }

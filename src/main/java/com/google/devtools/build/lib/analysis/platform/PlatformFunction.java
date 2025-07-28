@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.CommonOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue.PlatformKeyParams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -56,7 +57,8 @@ public final class PlatformFunction implements SkyFunction {
   @Override
   public PlatformValue compute(SkyKey skyKey, Environment env)
       throws PlatformFunctionException, InterruptedException {
-    var platformLabel = (Label) skyKey.argument();
+    PlatformKeyParams params = (PlatformKeyParams) skyKey.argument();
+    var platformLabel = params.label();
     var pkgId = platformLabel.getPackageIdentifier();
 
     // Load the Package first to verify the Target. The ConfiguredTarget should not be loaded until
@@ -114,7 +116,8 @@ public final class PlatformFunction implements SkyFunction {
             platformInfo.flags(),
             PackageContext.of(pkgId, repoMappingValue.repositoryMapping()),
             // Include default values so that any flags explicitly reset to the default are kept.
-            /* includeDefaultValues= */ true);
+            /* includeDefaultValues= */ true,
+            params.flagAliasMappings());
     var parsedFlagsValue = (ParsedFlagsValue) env.getValue(parsedFlagsKey);
     if (parsedFlagsValue == null) {
       return null;

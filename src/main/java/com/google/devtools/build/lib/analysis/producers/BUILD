@@ -114,6 +114,7 @@ java_library(
         ":platform_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -141,6 +142,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

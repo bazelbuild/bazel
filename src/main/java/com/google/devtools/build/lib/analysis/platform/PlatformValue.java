@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
@@ -46,11 +47,22 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     return new PlatformValue(platformInfo, Optional.of(parsedFlags));
   }
 
-  public static PlatformKey key(Label platformLabel) {
-    return PlatformKey.intern(new PlatformKey(platformLabel));
+  public static PlatformKey key(
+      Label platformLabel, ImmutableMap<String, String> flagAliasMappings) {
+    return PlatformKey.intern(
+        new PlatformKey(new PlatformKeyParams(platformLabel, flagAliasMappings)));
   }
 
-  private static final class PlatformKey extends AbstractSkyKey<Label> {
+  /**
+   * Key parameters.
+   *
+   * @param label The platform label.
+   * @param flagAliasMappings {@code --flag_alias} maps that apply to this build.
+   */
+  @AutoCodec
+  public record PlatformKeyParams(Label label, ImmutableMap<String, String> flagAliasMappings) {}
+
+  private static final class PlatformKey extends AbstractSkyKey<PlatformKeyParams> {
     private static final SkyKeyInterner<PlatformKey> interner = new SkyKeyInterner<>();
 
     @AutoCodec.Interner
@@ -58,7 +70,7 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
       return interner.intern(key);
     }
 
-    private PlatformKey(Label arg) {
+    private PlatformKey(PlatformKeyParams arg) {
       super(arg);
     }
 
