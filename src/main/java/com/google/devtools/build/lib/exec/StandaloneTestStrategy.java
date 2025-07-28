@@ -809,6 +809,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         throw e;
       }
 
+      // Append all output from the coverage spawn to the test log.
       writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
       appendCoverageLog(coverageOutErr, fileOutErr);
     }
