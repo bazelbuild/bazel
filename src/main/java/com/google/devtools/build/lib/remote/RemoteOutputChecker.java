@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
@@ -379,6 +380,10 @@ public class RemoteOutputChecker implements OutputChecker {
      * invariant.
      */
     void add(ActionInput input) {
+      checkArgument(
+          !(input instanceof TreeFileArtifact),
+          "TreeFileArtifacts should not be added to the trie: %s",
+          input);
       paths.add(input.getExecPath());
     }
 
