@@ -21,6 +21,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -112,6 +114,9 @@ public final class Runfiles implements RunfilesApi {
         args.accept(artifact.getRunfilesPathString());
         args.accept(artifact.getExecPathString());
       };
+
+  private static final Interner<PathFragment> workspacePathInterner =
+      BlazeInterners.newWeakInterner();
 
   /**
    * The directory to put all runfiles under.
@@ -362,7 +367,8 @@ public final class Runfiles implements RunfilesApi {
         finalManifest.put(externalPath, entry.getValue());
       } else {
         sawWorkspaceName = true;
-        finalManifest.put(workspaceName.getRelative(path), entry.getValue());
+        finalManifest.put(
+            workspacePathInterner.intern(workspaceName.getRelative(path)), entry.getValue());
       }
     }
 
