@@ -3031,8 +3031,29 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:match")).isNull();
     assertContainsEvent(
         "in values attribute of config_setting rule //test:match: error while parsing configuration"
-            + " settings: select() on %s is not allowed. Use platform constraints instead"
+            + " settings: select() on '%s' is not allowed. Use platform constraints instead"
                 .formatted(flag));
+  }
+
+  @Test
+  public void selectDisabledOnNonPlatformsFlag() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "compilation_mode": "opt",
+            },
+        )
+        """);
+    useConfiguration("--incompatible_disable_select_on=compilation_mode");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: error while parsing configuration"
+            + " settings: select() on 'compilation_mode' is not allowed.");
+    assertDoesNotContainEvent("Use platform constraints instead");
   }
 
   @Test
@@ -3071,8 +3092,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
       assertContainsEvent(
           "in values attribute of config_setting rule //test:match: error while parsing"
               + " configuration"
-              + " settings: select() on %s is not allowed. Use platform constraints instead"
-                  .formatted(disabledName));
+              + " settings: select() on '%s' is not allowed.".formatted(disabledName));
     }
   }
 
