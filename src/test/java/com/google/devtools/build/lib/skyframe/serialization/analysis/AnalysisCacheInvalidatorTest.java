@@ -72,7 +72,7 @@ public final class AnalysisCacheInvalidatorTest {
             mockEventHandler);
     assertThat(
             invalidator.lookupKeysToInvalidate(
-                new RemoteAnalysisCachingState(
+                new RemoteAnalysisCachingServerState(
                     frontierNodeVersion,
                     ImmutableSet.of(),
                     new SnapshotClientId("for_testing", 2))))
@@ -101,7 +101,7 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
-                new RemoteAnalysisCachingState(
+                new RemoteAnalysisCachingServerState(
                     frontierNodeVersion,
                     ImmutableSet.of(key),
                     new SnapshotClientId("for_testing", 2))))
@@ -130,7 +130,7 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
-                new RemoteAnalysisCachingState(
+                new RemoteAnalysisCachingServerState(
                     frontierNodeVersion,
                     ImmutableSet.of(key),
                     new SnapshotClientId("for_testing", 2))))
@@ -166,7 +166,7 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
-                new RemoteAnalysisCachingState(
+                new RemoteAnalysisCachingServerState(
                     frontierNodeVersion,
                     ImmutableSet.of(hitKey, missKey),
                     new SnapshotClientId("for_testing", 2))))
@@ -205,7 +205,7 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
-                new RemoteAnalysisCachingState(
+                new RemoteAnalysisCachingServerState(
                     previousVersion,
                     ImmutableSet.of(key1, key2),
                     new SnapshotClientId("for_testing", 2))))
@@ -274,7 +274,7 @@ public final class AnalysisCacheInvalidatorTest {
 
     ImmutableSet<SkyKey> keysToInvalidate =
         invalidator.lookupKeysToInvalidate(
-            new RemoteAnalysisCachingState(
+            new RemoteAnalysisCachingServerState(
                 frontierNodeVersion, ImmutableSet.of(key), testCase.previousClientId));
 
     if (testCase.expectedInvalidated) {

@@ -78,14 +78,13 @@ public final class AnalysisCacheInvalidator {
    * @param keysToLookup The set of SkyKeys to check.
    * @return The subset of keysToLookup that got a cache miss should be invalidated locally.
    */
-  public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-      RemoteAnalysisCachingState remoteAnalysisCachingState) {
-    if (remoteAnalysisCachingState.deserializedKeys().isEmpty()) {
+  public ImmutableSet<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingServerState serverState) {
+    if (serverState.deserializedKeys().isEmpty()) {
       logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
       return ImmutableSet.of();
     }
 
-    var previousVersion = remoteAnalysisCachingState.version();
+    var previousVersion = serverState.version();
     checkState(previousVersion != null, "Version is null, but there are keys to lookup.");
 
     if (!previousVersion.equals(currentVersion)) {
@@ -93,10 +92,10 @@ public final class AnalysisCacheInvalidator {
           "Skycache: Version changed during invalidation check. Previous version: %s, current"
               + " version: %s.",
           previousVersion, currentVersion);
-      return remoteAnalysisCachingState.deserializedKeys(); // everything must be invalidated
+      return serverState.deserializedKeys(); // everything must be invalidated
     }
 
-    if (Objects.equals(currentClientId, remoteAnalysisCachingState.clientId())) {
+    if (Objects.equals(currentClientId, serverState.clientId())) {
       // The current client state is the same as the previous client state, so
       // no invalidation is needed because all deserialized keys are still valid.
       return ImmutableSet.of();
@@ -107,7 +106,7 @@ public final class AnalysisCacheInvalidator {
     ImmutableList<ListenableFuture<Optional<SkyKey>>> futures;
     try (SilentCloseable unused = Profiler.instance().profile("submitInvalidationLookups")) {
       futures =
-          remoteAnalysisCachingState.deserializedKeys().parallelStream()
+          serverState.deserializedKeys().parallelStream()
               .map(this::submitInvalidationLookup)
               .collect(toImmutableList());
     }

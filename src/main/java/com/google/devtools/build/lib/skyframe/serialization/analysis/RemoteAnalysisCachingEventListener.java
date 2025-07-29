@@ -42,6 +42,12 @@ import javax.annotation.Nullable;
 @ThreadSafety.ThreadSafe
 public class RemoteAnalysisCachingEventListener {
 
+  private final DeserializedKeysSink deserializedKeysSink;
+
+  public RemoteAnalysisCachingEventListener(DeserializedKeysSink deserializedKeysSink) {
+    this.deserializedKeysSink = deserializedKeysSink;
+  }
+
   /**
    * An event for when a Skyframe node has been serialized, but its associated write futures (i.e.
    * RPC latency) may not be done yet.
@@ -125,6 +131,7 @@ public class RemoteAnalysisCachingEventListener {
         if (!cacheHits.add(key)) {
           return;
         }
+        deserializedKeysSink.addDeserializedKey(key);
         hitsBySkyFunctionName
             .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
             .incrementAndGet();
@@ -169,6 +176,10 @@ public class RemoteAnalysisCachingEventListener {
     this.skyValueVersion.set(version);
   }
 
+  public FrontierNodeVersion getSkyValueVersion() {
+    return skyValueVersion.get();
+  }
+
   public void setClientId(ClientId clientId) {
     this.clientId = clientId;
   }
@@ -177,12 +188,4 @@ public class RemoteAnalysisCachingEventListener {
     return clientId;
   }
 
-  /**
-   * Returns the {@link RemoteAnalysisCachingState} for this build with information about all the
-   * cache hits.
-   */
-  public RemoteAnalysisCachingState getLatestBuildState() {
-    return new RemoteAnalysisCachingState(
-        skyValueVersion.get(), ImmutableSet.copyOf(cacheHits), clientId);
-  }
 }

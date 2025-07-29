@@ -126,8 +126,8 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingState;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -1004,8 +1004,10 @@ public class BuildTool {
         reportRemoteAnalysisServiceStats(dependenciesProvider);
         reportRemoteAnalysisCachingStats();
         env.getSkyframeExecutor()
-            .updateRemoteAnalysisCachingState(
-                env.getRemoteAnalysisCachingEventListener().getLatestBuildState());
+            .syncRemoteAnalysisCachingState(
+                env.getRemoteAnalysisCachingEventListener().getCacheHits(),
+                env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
+                env.getRemoteAnalysisCachingEventListener().getClientId());
         break;
       case OFF:
         break;
@@ -1457,8 +1459,8 @@ public class BuildTool {
     }
 
     @Override
-    public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-        RemoteAnalysisCachingState remoteAnalysisCachingState) throws InterruptedException {
+    public Set<SkyKey> lookupKeysToInvalidate(
+        RemoteAnalysisCachingServerState remoteAnalysisCachingState) throws InterruptedException {
       AnalysisCacheInvalidator invalidator = getAnalysisCacheInvalidator();
       if (invalidator == null) {
         return ImmutableSet.of();
