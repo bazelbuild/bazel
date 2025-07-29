@@ -166,6 +166,19 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public Map<SkyKey, NodeEntry> getBatchMap(
       SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    if (reason == Reason.REWINDING) {
+      // When rewinding, nodes are typically expected to be in the graph. However, systems with
+      // remote caching might not have loaded all dependencies into the local graph if a value was
+      // fetched from the cache.
+      //
+      // Tree artifacts are a key example. Their value (TreeArtifactValue) contains dependency keys.
+      // If the TreeArtifactValue is a cache hit, its child dependencies might not exist in the
+      // local graph. If a lost input is later discovered to be one of these children, we need to
+      // ensure the node entries exist for the rewinding process to analyze them.
+      //
+      // createIfAbsentBatch ensures that such nodes are present in the graph.
+      createIfAbsentBatch(requestor, reason, keys);
+    }
     // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates. The map will be thrown away shortly.
     HashMap<SkyKey, NodeEntry> result = new HashMap<>();

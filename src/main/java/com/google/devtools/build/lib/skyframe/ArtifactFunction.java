@@ -375,7 +375,7 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   @Nullable
-  static ActionLookupValue getActionLookupValue(
+  public static ActionLookupValue getActionLookupValue(
       ActionLookupKey actionLookupKey,
       SkyFunction.Environment env,
       boolean crashIfActionOwnerMissing)
