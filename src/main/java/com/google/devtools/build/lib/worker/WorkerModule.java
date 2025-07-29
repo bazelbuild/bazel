@@ -203,8 +203,7 @@ public class WorkerModule extends BlazeModule {
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
 
     // Start collecting after a pool is defined
-    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    workerLifecycleManager.setReporter(env.getReporter());
+    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options, env.getReporter());
     workerLifecycleManager.setDaemon(true);
     workerLifecycleManager.start();
 

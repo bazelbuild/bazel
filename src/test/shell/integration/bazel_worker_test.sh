@@ -783,7 +783,7 @@ EOF
 
   expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "Worker process did not return a WorkResponse:"
-  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) because it is using more memory than the limit ([0-9]\+ KB > 1 MB)"
+  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) because it is using more memory than the limit ([0-9,]\+ KB > 1,000 KB)"
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
@@ -803,14 +803,14 @@ EOF
   || fail "build failed"
 
 
-  expect_log "Worker Lifecycle Manager starts work with (total limit: 10000 MB, individual limit: 5000 MB, shrinking: disabled)"
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 10000000 KB, individual limit: 5000000 KB, shrinking: disabled)"
 
   bazel build --experimental_total_worker_memory_limit_mb=15000 \
   --experimental_worker_memory_limit_mb=7000 --experimental_shrink_worker_pool :hello_world_2 &> "$TEST_log" \
   || fail "build failed"
 
   expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
-  expect_log "Worker Lifecycle Manager starts work with (total limit: 15000 MB, individual limit: 7000 MB, shrinking: enabled)"
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 15000000 KB, individual limit: 7000000 KB, shrinking: enabled)"
 }
 
 function test_worker_metrics_collection() {
