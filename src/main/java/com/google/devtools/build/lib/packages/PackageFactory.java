@@ -341,7 +341,7 @@ public final class PackageFactory {
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
 
-    packageValidator.validate(pkg, eventHandler);
+    packageValidator.validate(pkg, metrics, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
     long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);

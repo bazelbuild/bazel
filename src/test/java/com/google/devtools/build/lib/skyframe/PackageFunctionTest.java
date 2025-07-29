@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
@@ -293,13 +294,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
             inv -> {
               Package pkg = inv.getArgument(0, Package.class);
               if (pkg.getName().equals("pkg")) {
-                inv.getArgument(1, ExtendedEventHandler.class).handle(Event.warn("warning event"));
+                inv.getArgument(2, ExtendedEventHandler.class).handle(Event.warn("warning event"));
                 throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
               }
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(Metrics.class), any(ExtendedEventHandler.class));
 
     invalidatePackages();
 
@@ -330,7 +331,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), getSkyKey("pkg"), /* keepGoing= */ false, reporter);
 
-    verify(mockPackageValidator).validate(packageCaptor.capture(), any(ExtendedEventHandler.class));
+    verify(mockPackageValidator)
+        .validate(packageCaptor.capture(), any(Metrics.class), any(ExtendedEventHandler.class));
     List<Package> packages = packageCaptor.getAllValues();
     assertThat(packages.get(0).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
   }
@@ -357,7 +359,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(Metrics.class), any(ExtendedEventHandler.class));
 
     SkyKey skyKey = getSkyKey("pkg");
     EvaluationResult<PackageoidValue> result1 =
