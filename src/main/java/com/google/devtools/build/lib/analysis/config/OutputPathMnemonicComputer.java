@@ -241,7 +241,7 @@ public final class OutputPathMnemonicComputer {
   private static void handlePlatformCpuDescriptor(
       MnemonicContext ctx, CoreOptions coreOptions, @Nullable PlatformOptions platformOptions)
       throws InvalidMnemonicException {
-    if (!coreOptions.platformInOutputDir || platformOptions == null) {
+    if (!coreOptions.usePlatformInOutputDir() || platformOptions == null) {
       ctx.checkedAddToMnemonic(coreOptions.cpu, "CPU/Platform descriptor");
       ctx.markAsExplicitInOutputPathFor("cpu");
       return;
