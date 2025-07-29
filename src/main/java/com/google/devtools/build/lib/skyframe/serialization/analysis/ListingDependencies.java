@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
+
 /** Type representing a directory listing operation. */
 abstract sealed class ListingDependencies
     implements FileSystemDependencies.FileOpDependency,
@@ -23,10 +26,11 @@ abstract sealed class ListingDependencies
         ListingDependencies.MissingListingDependencies {
 
   static ListingDependencies from(FileDependencies realDirectory) {
-    if (realDirectory.isMissingData()) {
-      return newMissingInstance();
-    }
-    return new AvailableListingDependencies(realDirectory);
+    return switch (realDirectory) {
+      case AvailableFileDependencies availableRealDirectory ->
+          new AvailableListingDependencies(availableRealDirectory);
+      case MissingFileDependencies unused -> newMissingInstance();
+    };
   }
 
   static ListingDependencies newMissingInstance() {
@@ -34,9 +38,9 @@ abstract sealed class ListingDependencies
   }
 
   static final class AvailableListingDependencies extends ListingDependencies {
-    private final FileDependencies realDirectory;
+    private final AvailableFileDependencies realDirectory;
 
-    private AvailableListingDependencies(FileDependencies realDirectory) {
+    private AvailableListingDependencies(AvailableFileDependencies realDirectory) {
       this.realDirectory = realDirectory;
     }
 
@@ -65,7 +69,7 @@ abstract sealed class ListingDependencies
       return changes.matchListingChange(realDirectory.resolvedPath(), validityHorizon);
     }
 
-    FileDependencies realDirectory() {
+    AvailableFileDependencies realDirectory() {
       return realDirectory;
     }
 

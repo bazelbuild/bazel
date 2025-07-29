@@ -17,6 +17,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -42,12 +44,18 @@ abstract sealed class NestedDependencies
         return new MissingNestedDependencies();
       }
     }
-    for (FileDependencies dep : sources) {
-      if (dep.isMissingData()) {
-        return new MissingNestedDependencies();
+    int size = sources.length;
+    var availableSources = new AvailableFileDependencies[size];
+    for (int i = 0; i < size; i++) {
+      switch (sources[i]) {
+        case AvailableFileDependencies available:
+          availableSources[i] = available;
+          break;
+        case MissingFileDependencies unused:
+          return new MissingNestedDependencies();
       }
     }
-    return new AvailableNestedDependencies(analysisDependencies, sources);
+    return new AvailableNestedDependencies(analysisDependencies, availableSources);
   }
 
   @VisibleForTesting
@@ -65,10 +73,10 @@ abstract sealed class NestedDependencies
 
   static final class AvailableNestedDependencies extends NestedDependencies {
     private final FileSystemDependencies[] analysisDependencies;
-    private final FileDependencies[] sources;
+    private final AvailableFileDependencies[] sources;
 
-    AvailableNestedDependencies(
-        FileSystemDependencies[] analysisDependencies, FileDependencies[] sources) {
+    private AvailableNestedDependencies(
+        FileSystemDependencies[] analysisDependencies, AvailableFileDependencies[] sources) {
       checkArgument(
           analysisDependencies.length >= 1 || sources.length >= 1,
           "analysisDependencies and sources both empty");
@@ -93,7 +101,7 @@ abstract sealed class NestedDependencies
       return sources.length;
     }
 
-    FileDependencies getSource(int index) {
+    AvailableFileDependencies getSource(int index) {
       return sources[index];
     }
 

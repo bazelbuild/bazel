@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMa
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.VersionedChanges.NO_MATCH;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemDependencies.FileOpDependency;
@@ -294,6 +295,49 @@ public final class NestedMatchMemoizingLookupTest {
     assertThat(lookupResult).isEqualTo(ALWAYS_MATCH_RESULT);
   }
 
+  @Test
+  public void invalidation_missingAnalysisDependency_file() throws Exception {
+    var key =
+        NestedDependencies.from(
+            ImmutableList.of(
+                createAvailableFileDependencies("dep/a"), FileDependencies.newMissingInstance()),
+            ImmutableList.of(createAvailableFileDependencies("src/a")));
+
+    assertThat(getLookupResult(key, 99)).isEqualTo(ALWAYS_MATCH_RESULT);
+  }
+
+  @Test
+  public void invalidation_missingAnalysisDependency_listing() throws Exception {
+    var key =
+        NestedDependencies.from(
+            ImmutableList.of(
+                createAvailableFileDependencies("dep/a"), ListingDependencies.newMissingInstance()),
+            ImmutableList.of(createAvailableFileDependencies("src/a")));
+
+    assertThat(getLookupResult(key, 99)).isEqualTo(ALWAYS_MATCH_RESULT);
+  }
+
+  @Test
+  public void invalidation_missingSourceDependency() throws Exception {
+    var key =
+        NestedDependencies.from(
+            ImmutableList.of(createAvailableFileDependencies("dep/a")),
+            ImmutableList.of(
+                createAvailableFileDependencies("src/a"), FileDependencies.newMissingInstance()));
+
+    assertThat(getLookupResult(key, 99)).isEqualTo(ALWAYS_MATCH_RESULT);
+  }
+
+  @Test
+  public void invalidation_allMissing() throws Exception {
+    var key =
+        NestedDependencies.from(
+            ImmutableList.of(FileDependencies.newMissingInstance()),
+            ImmutableList.of(FileDependencies.newMissingInstance()));
+
+    assertThat(getLookupResult(key, 99)).isEqualTo(ALWAYS_MATCH_RESULT);
+  }
+
   private NestedMatchResult getLookupResult(NestedDependencies key, int validityHorizon) {
     try {
       switch (lookup.getValueOrFuture(key, validityHorizon)) {
@@ -329,5 +373,9 @@ public final class NestedMatchMemoizingLookupTest {
   private static NestedDependencies createNestedDependencies(FileDependencies fileDependency) {
     return NestedDependencies.from(
         new FileSystemDependencies[] {fileDependency}, NestedDependencies.EMPTY_SOURCES);
+  }
+
+  private static AvailableFileDependencies createAvailableFileDependencies(String path) {
+    return (AvailableFileDependencies) FileDependencies.builder(path).build();
   }
 }

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Alwa
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatch;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
@@ -69,9 +70,9 @@ public final class FileOpMatchMemoizingLookupTest {
 
     var key =
         FileDependencies.builder("abc/def")
-            .addDependency(FileDependencies.builder("dep/a").build())
-            .addDependency(FileDependencies.builder("dep/b").build())
-            .addDependency(FileDependencies.builder("dep/c").build())
+            .addDependency(createFileDependencies("dep/a"))
+            .addDependency(createFileDependencies("dep/b"))
+            .addDependency(createFileDependencies("dep/c"))
             .build();
 
     var expectedResult =
@@ -162,9 +163,7 @@ public final class FileOpMatchMemoizingLookupTest {
 
     var key =
         ListingDependencies.from(
-            FileDependencies.builder("dir")
-                .addDependency(FileDependencies.builder("dep/a").build())
-                .build());
+            FileDependencies.builder("dir").addDependency(createFileDependencies("dep/a")).build());
 
     assertThat(getLookupResult(key, 99)).isEqualTo(new FileOpMatch(100));
   }
@@ -174,8 +173,10 @@ public final class FileOpMatchMemoizingLookupTest {
     FileDependencies missingFile = FileDependencies.newMissingInstance();
 
     var result = lookup.getValueOrFuture(missingFile, 99);
-
     assertThat(result).isEqualTo(ALWAYS_MATCH_RESULT);
+
+    var cachedResult = lookup.getValueOrFuture(missingFile, 99);
+    assertThat(cachedResult).isEqualTo(ALWAYS_MATCH_RESULT);
   }
 
   @Test
@@ -183,8 +184,10 @@ public final class FileOpMatchMemoizingLookupTest {
     ListingDependencies missingListing = ListingDependencies.newMissingInstance();
 
     var result = lookup.getValueOrFuture(missingListing, 99);
-
     assertThat(result).isEqualTo(ALWAYS_MATCH_RESULT);
+
+    var cachedResult = lookup.getValueOrFuture(missingListing, 99);
+    assertThat(cachedResult).isEqualTo(ALWAYS_MATCH_RESULT);
   }
 
   private FileOpMatchResult getLookupResult(FileOpDependency key, int validityHorizon) {
@@ -201,5 +204,12 @@ public final class FileOpMatchMemoizingLookupTest {
       }
       throw new AssertionError(e);
     }
+  }
+
+  private static AvailableFileDependencies createFileDependencies(String path) {
+    // This cast is necessary because the builder returns the base FileDependencies type, while the
+    // methods under test require the more specific AvailableFileDependencies type. This is fine for
+    // the test.
+    return (AvailableFileDependencies) FileDependencies.builder(path).build();
   }
 }

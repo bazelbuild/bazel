@@ -40,6 +40,8 @@ import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DirectoryListingInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.Symlink;
@@ -301,7 +303,7 @@ final class FileDependencyDeserializer {
     var waitForParent = new WaitForParent(key, data, basename);
 
     if (parentKey == null) {
-      return waitForParent.apply(/* parent= */ null);
+      return waitForParent.apply(/* parentOrMissing= */ null);
     }
 
     switch (getFileDependencies(parentKey)) {
@@ -324,16 +326,22 @@ final class FileDependencyDeserializer {
     }
 
     @Override
-    public ListenableFuture<FileDependencies> apply(@Nullable FileDependencies parent) {
+    public ListenableFuture<FileDependencies> apply(@Nullable FileDependencies parentOrMissing) {
       FileDependencies.Builder builder;
       String parentDirectory;
-      if (parent == null) {
-        parentDirectory = null;
-        builder = FileDependencies.builder(basename);
-      } else {
-        parentDirectory = parent.resolvedPath();
-        builder =
-            FileDependencies.builder(getRelative(parentDirectory, basename)).addDependency(parent);
+      switch (parentOrMissing) {
+        case null:
+          parentDirectory = null;
+          builder = FileDependencies.builder(basename);
+          break;
+        case AvailableFileDependencies parent:
+          parentDirectory = parent.resolvedPath();
+          builder =
+              FileDependencies.builder(getRelative(parentDirectory, basename))
+                  .addDependency(parent);
+          break;
+        case MissingFileDependencies unused:
+          return immediateFuture(FileDependencies.newMissingInstance());
       }
       return processSymlinks(key, data, /* symlinkIndex= */ 0, parentDirectory, builder);
     }
@@ -422,10 +430,16 @@ final class FileDependencyDeserializer {
     }
 
     @Override
-    public ListenableFuture<FileDependencies> apply(FileDependencies parent) {
-      String parentPath = parent.resolvedPath();
-      builder.addPath(getRelative(parentPath, linkBasename)).addDependency(parent);
-      return processSymlinks(key, data, symlinkIndex + 1, parentPath, builder);
+    public ListenableFuture<FileDependencies> apply(FileDependencies parentOrMissing) {
+      return switch (parentOrMissing) {
+        case AvailableFileDependencies parent -> {
+          String parentPath = parent.resolvedPath();
+          builder.addPath(getRelative(parentPath, linkBasename)).addDependency(parent);
+          yield processSymlinks(key, data, symlinkIndex + 1, parentPath, builder);
+        }
+        case MissingFileDependencies unused ->
+            immediateFuture(FileDependencies.newMissingInstance());
+      };
     }
   }
 
