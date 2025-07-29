@@ -484,7 +484,7 @@ def _create_cc_compile_actions(
             semantics = cpp_semantics,
             source_artifact = cpp_module_map.file(),
         )
-        modules = cc_internal.create_module_action(
+        modules = _create_module_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
@@ -499,7 +499,7 @@ def _create_cc_compile_actions(
             generate_no_pic_action = generate_no_pic_action,
             generate_pic_action = generate_pic_action,
             label = label,
-            common_toolchain_variables = common_compile_build_variables,
+            common_compile_build_variables = common_compile_build_variables,
             fdo_build_variables = fdo_build_variables,
             cpp_semantics = cpp_semantics,
             outputs = outputs,
@@ -518,7 +518,7 @@ def _create_cc_compile_actions(
                 semantics = cpp_semantics,
                 source_artifact = separate_cpp_module_map.file(),
             )
-            separate_modules = cc_internal.create_module_action(
+            separate_modules = _create_module_action(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
@@ -533,7 +533,7 @@ def _create_cc_compile_actions(
                 generate_no_pic_action = generate_no_pic_action,
                 generate_pic_action = generate_pic_action,
                 label = label,
-                common_toolchain_variables = common_compile_build_variables,
+                common_compile_build_variables = common_compile_build_variables,
                 fdo_build_variables = fdo_build_variables,
                 cpp_semantics = cpp_semantics,
                 outputs = outputs,
@@ -767,6 +767,59 @@ def _create_cc_compile_actions(
             cpp_compile_action_builder = cpp_compile_action_builder,
         )
         outputs.add_header_token_file(header_token_file)
+
+def _create_module_action(
+        action_construction_context,
+        cc_compilation_context,
+        cc_toolchain,
+        configuration,
+        conlyopts,
+        copts,
+        cpp_configuration,
+        cxxopts,
+        fdo_context,
+        auxiliary_fdo_inputs,
+        feature_configuration,
+        generate_no_pic_action,
+        generate_pic_action,
+        label,
+        common_compile_build_variables,
+        fdo_build_variables,
+        cpp_semantics,
+        cpp_module_map,
+        outputs,
+        cpp_compile_action_builder):
+    module_map_label = Label(cpp_module_map.name())
+    return cc_internal.create_compile_source_action_from_builder(
+        action_construction_context = action_construction_context,
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        configuration = configuration,
+        conlyopts = conlyopts,
+        copts = copts,
+        cpp_configuration = cpp_configuration,
+        cxxopts = cxxopts,
+        fdo_context = fdo_context,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        feature_configuration = feature_configuration,
+        generate_no_pic_action = generate_no_pic_action,
+        generate_pic_action = generate_pic_action,
+        label = label,
+        common_compile_build_variables = common_compile_build_variables,
+        fdo_build_variables = fdo_build_variables,
+        cpp_semantics = cpp_semantics,
+        source_label = module_map_label,
+        output_name = paths.basename(module_map_label.name),
+        outputs = outputs,
+        source_artifact = cpp_module_map.file(),
+        cpp_compile_action_builder = cpp_compile_action_builder,
+        cpp_module_map = cpp_module_map,
+        output_category = artifact_category.CPP_MODULE,
+        add_object = False,
+        enable_coverage = False,
+        generate_dwo = False,
+        bitcode_output = False,
+    )
 
 def _calculate_output_name_map_by_type(sources, prefix_dir):
     return (
