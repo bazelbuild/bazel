@@ -1888,6 +1888,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
