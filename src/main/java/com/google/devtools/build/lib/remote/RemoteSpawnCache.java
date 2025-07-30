@@ -95,7 +95,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
     RemoteAction action =
         remoteExecutionService.buildRemoteAction(
-            spawn, context, MerkleTreeComputer.SubTreePolicy.DISCARD);
+            spawn, context, MerkleTreeComputer.BlobPolicy.DISCARD);
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())
