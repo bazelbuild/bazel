@@ -14,9 +14,10 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -49,7 +50,7 @@ public class EvalException extends Exception {
    * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
    */
   public EvalException(String message, @Nullable Throwable cause) {
-    super(Preconditions.checkNotNull(message), cause);
+    super(checkNotNull(message), cause);
   }
 
   /** Constructs an EvalException using the same message as the cause exception. */
@@ -57,9 +58,14 @@ public class EvalException extends Exception {
     super(getCauseMessage(cause), cause);
   }
 
-  /** Fills in the callstack if it hasn't been set yet. */
+  /**
+   * Fills in the callstack if it hasn't been set yet.
+   *
+   * @param callstack the Starlark callstack; must not be empty.
+   */
   @CanIgnoreReturnValue
   public EvalException withCallStack(List<StarlarkThread.CallStackEntry> callstack) {
+    checkArgument(!callstack.isEmpty(), "Callstack cannot be empty");
     if (this.callstack == null) {
       this.callstack = ImmutableList.copyOf(callstack);
     }
