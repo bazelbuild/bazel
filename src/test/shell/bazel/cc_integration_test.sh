@@ -2117,4 +2117,48 @@ EOF
   expect_log "Hello from main.cpp"
 }
 
+function test_cpp20_modules_with_clang() {
+  type -P clang || return 0
+
+  cat > BUILD.bazel <<'EOF'
+config_setting(
+    name = "clang_compiler",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
+)
+
+cc_binary(
+  name = "main",
+  module_interfaces = select({":clang_compiler": ["foo.cppm"]}),
+  srcs = select({":clang_compiler": ["main.cc"]}),
+  features = ["cpp_modules"],
+)
+EOF
+  cat > main.cc <<'EOF'
+import foo;
+int main() {
+  f();
+  return 0;
+}
+EOF
+  cat > foo.cppm <<'EOF'
+export module foo;
+
+export void f() {
+}
+EOF
+
+  cat > MODULE.bazel <<'EOF'
+bazel_dep(name = "rules_cc", version = "0.1.2")
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+git_override(
+    module_name = "rules_cc",
+    remote = "https://github.com/PikachuHyA/rules_cc.git",
+    commit = "ea54473341df503ebc93aa34b7162622cf391a2f"
+)
+EOF
+
+  bazel build //:main --repo_env=BAZEL_CXXOPTS=-std=c++20 --repo_env=CC=clang --experimental_cpp_modules || fail "Expected build C++20 Modules success with compiler 'clang'"
+}
+
 run_suite "cc_integration_test"

@@ -38,7 +38,9 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]),
+    srcs = glob(["*.bzl"]) + [
+        "//tools/cpp/modules_tools:bzl_srcs",
+    ],
     visibility = ["//tools:__pkg__"],
 )
 

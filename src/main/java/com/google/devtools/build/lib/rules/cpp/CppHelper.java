@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -256,7 +257,7 @@ public class CppHelper {
     }
   }
 
-  static Artifact getCompileOutputArtifact(
+  static DerivedArtifact getCompileOutputArtifact(
       ActionConstructionContext actionConstructionContext,
       Label label,
       String outputName,
