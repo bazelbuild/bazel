@@ -12,6 +12,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
+import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.NodeProperties;
@@ -80,6 +81,9 @@ import java.util.concurrent.Future;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
+/**
+ * <p>Computes a Merkle tree representing the inputs of a {@link Spawn} in a {@link Action#getInputRootDigest()}
+ */
 public final class MerkleTreeComputer {
 
   // This differs from the Comparable implementation of PathFragment in two ways that are relevant
@@ -250,9 +254,31 @@ public final class MerkleTreeComputer {
         throws IOException, InterruptedException;
   }
 
+  /** Specifies which blobs should be retained in the Merkle tree. */
   public enum BlobPolicy {
+    /**
+     * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.RootOnly}.
+     *
+     * <p>This is the most lightweight policy. It always suffices when checking for a remote cache
+     * hit and may suffice for remote execution when a cache hit is expected.
+     */
     DISCARD,
+
+    /**
+     * Retains all blobs in the tree that aren't contained in cached subtrees.
+     *
+     * <p>Only blobs that have been uploaded to the remote cache during the lifetime of the Bazel
+     * server are omitted from this tree. This usually suffices for remote execution unless the
+     * remote cache loses entries.
+     */
     KEEP_UNCACHED,
+
+    /**
+     * Retains all blobs in the tree and also forces the recomputation of cached subtrees.
+     *
+     * <p>This is only needed in exceptional cases, such as when the remote cache has lost entries
+     * while the Bazel server is running.
+     */
     KEEP_ALL,
   }
 
