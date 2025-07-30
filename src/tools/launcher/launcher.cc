@@ -29,6 +29,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows/process.h"
 #include "src/tools/launcher/util/data_parser.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
@@ -137,6 +138,10 @@ wstring BinaryLauncherBase::GetRunfilesPath() const {
   return runfiles_path;
 }
 
+std::wstring BinaryLauncherBase::EscapeArg(const std::wstring &arg) const {
+  return windows::WindowsEscapeArg(arg);
+}
+
 void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
                                            const wstring& manifest_path) {
   ifstream manifest_file(AsAbsoluteWindowsPath(manifest_path.c_str()).c_str());
@@ -215,7 +220,7 @@ void BinaryLauncherBase::CreateCommandLine(
   wostringstream cmdline;
   cmdline << L'\"' << executable << L'\"';
   for (const auto& s : arguments) {
-    cmdline << L' ' << s;
+    cmdline << L' ' << EscapeArg(s);
   }
 
   wstring cmdline_str = cmdline.str();

@@ -91,6 +91,9 @@ class BinaryLauncherBase {
   // converts forward slashes to backslashes, then returns that.
   std::wstring GetRunfilesPath() const;
 
+ protected:
+  virtual std::wstring EscapeArg(const std::wstring& arg) const;
+
  private:
   // The path of the launcher binary.
   const std::wstring launcher_path;

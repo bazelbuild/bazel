@@ -74,5 +74,8 @@ ExitCode BashBinaryLauncher::Launch() {
   return this->LaunchProcess(bash_binary, args);
 }
 
+std::wstring BashBinaryLauncher::EscapeArg(const std::wstring &arg) const {
+  return BashEscapeArg(arg);
+}
 }  // namespace launcher
 }  // namespace bazel
