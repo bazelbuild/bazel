@@ -983,23 +983,33 @@ public interface CcModuleApi<
         @Param(
             name = "source_file",
             doc =
-                "Optional source file for the compilation. Please prefer passing source_file here "
-                    + "over appending it to the end of the command line generated from "
+                "Optional source file path for the compilation. Please prefer passing source_file "
+                    + "here over appending it to the end of the command line generated from "
                     + "cc_common.get_memory_inefficient_command_line, as then it's in the power of "
                     + "the toolchain author to properly specify and position compiler flags.",
             named = true,
             positional = false,
-            defaultValue = "None"),
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
         @Param(
             name = "output_file",
             doc =
-                "Optional output file of the compilation. Please prefer passing output_file here "
-                    + "over appending it to the end of the command line generated from "
+                "Optional output file path of the compilation. Please prefer passing output_file "
+                    + "here over appending it to the end of the command line generated from "
                     + "cc_common.get_memory_inefficient_command_line, as then it's in the power of "
                     + "the toolchain author to properly specify and position compiler flags.",
             named = true,
             positional = false,
-            defaultValue = "None"),
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
         @Param(
             name = "user_compile_flags",
             doc = "List of additional compilation flags (copts).",
@@ -1127,6 +1137,7 @@ public interface CcModuleApi<
             positional = false,
             defaultValue = "unbound",
             allowedTypes = {
+              @ParamType(type = FileApi.class),
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class),
             }),

@@ -207,6 +207,15 @@ def _get_memory_inefficient_command_line(*, feature_configuration, action_name, 
 def _get_environment_variables(*, feature_configuration, action_name, variables):
     return cc_common_internal.get_environment_variables(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
 
+def _get_path_str(file, allow_none = True):
+    if type(file) == "File":
+        return file.path
+    elif type(file) == "string":
+        return file
+    elif allow_none and type(file) == "NoneType":
+        return file
+    fail("expected File or string, got:", type(file))
+
 def _create_compile_variables(
         *,
         cc_toolchain,
@@ -236,8 +245,8 @@ def _create_compile_variables(
     return cc_common_internal.create_compile_variables(
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        source_file = source_file,
-        output_file = output_file,
+        source_file = _get_path_str(source_file),
+        output_file = _get_path_str(output_file),
         user_compile_flags = user_compile_flags,
         include_directories = include_directories,
         quote_include_directories = quote_include_directories,
@@ -251,7 +260,7 @@ def _create_compile_variables(
         add_legacy_cxx_options = add_legacy_cxx_options,
         variables_extension = variables_extension,
         strip_opts = strip_opts,
-        input_file = input_file,
+        input_file = _get_path_str(input_file),
     )
 
 def _empty_variables():
