@@ -453,10 +453,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     // https://bugs.openjdk.org/browse/JDK-8320362
     result.push_back("-Djavax.net.ssl.trustStoreType=KeychainStore-ROOT");
 #elif defined(__linux__)
-    if (blaze_util::Path("/etc/ssl/certs/java/cacerts").Exists()) {
+    if (blaze_util::IsDirectory(blaze_util::Path("/etc/ssl/certs/java/cacerts"))) {
       // The default trust store location on Debian and Ubuntu.
-      result.push_back("-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts");
-    } else if (blaze_util::Path("/etc/pki/java/cacerts").Exists()) {
+      result.push_back(
+          "-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts");
+    } else if (blaze_util::IsDirectory(blaze_util::Path("/etc/pki/java/cacerts"))) {
       // The default trust store location on Fedora and CentOS.
       result.push_back("-Djavax.net.ssl.trustStore=/etc/pki/java/cacerts");
     }
