@@ -105,8 +105,8 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -487,12 +487,12 @@ public class RemoteExecutionService {
   @VisibleForTesting
   RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return buildRemoteAction(spawn, context, MerkleTreeComputer.SubTreePolicy.UPLOAD);
+    return buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP_ALL);
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(
-      Spawn spawn, SpawnExecutionContext context, MerkleTreeComputer.SubTreePolicy subTreePolicy)
+      Spawn spawn, SpawnExecutionContext context, MerkleTreeComputer.BlobPolicy blobPolicy)
       throws IOException, ExecException, InterruptedException {
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
     try {
@@ -508,13 +508,13 @@ public class RemoteExecutionService {
         merkleTree =
             merkleTreeComputer.buildForSpawn(
                 spawn,
-                toolSignature != null ? toolSignature.toolInputs:ImmutableSet.of(),
+                toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                 scrubber,
                 context,
                 remotePathResolver,
                 remoteOptions.remoteDiscardMerkleTrees
-                    ? MerkleTreeComputer.SubTreePolicy.DISCARD
-                    : subTreePolicy);
+                    ? MerkleTreeComputer.BlobPolicy.DISCARD
+                    : blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
       } catch (RemoteExecutionCapabilitiesException e) {
@@ -1866,21 +1866,27 @@ public class RemoteExecutionService {
     // network connection.
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
     try {
-      var merkleTree = action.getMerkleTree();
-      if (merkleTree.allDigests().isEmpty() || force) {
+      MerkleTree.WithBlobs merkleTree;
+      if (action.getMerkleTree() instanceof MerkleTree.WithBlobs withBlobs && !force) {
+        merkleTree = withBlobs;
+      } else {
         // --experimental_remote_discard_merkle_trees was provided or the remote lost a shared
-        // subtree uploaded previously. Recompute the input root and upload everything.
+        // subtree uploaded previously. Recompute the tree - including all subtrees in the latter
+        // case.
         Spawn spawn = action.getSpawn();
         SpawnExecutionContext context = action.getSpawnExecutionContext();
         ToolSignature toolSignature = getToolSignature(spawn, context);
         merkleTree =
-            merkleTreeComputer.buildForSpawn(
-                spawn,
-                toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
-                scrubber,
-                context,
-                action.getRemotePathResolver(),
-                MerkleTreeComputer.SubTreePolicy.FORCE_UPLOAD);
+            (MerkleTree.WithBlobs)
+                merkleTreeComputer.buildForSpawn(
+                    spawn,
+                    toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
+                    scrubber,
+                    context,
+                    action.getRemotePathResolver(),
+                    force
+                        ? MerkleTreeComputer.BlobPolicy.KEEP_ALL
+                        : MerkleTreeComputer.BlobPolicy.KEEP_UNCACHED);
       }
 
       remoteExecutionCache.ensureInputsPresent(

@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
@@ -353,7 +352,7 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = new TreeMap<>();
     inputs.put(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
     path.delete();
 
     var e =
@@ -404,7 +403,7 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = new TreeMap<>();
     inputs.put(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
 
     CountDownLatch ensureInputsPresentReturned = new CountDownLatch(1);
     Thread thread =
@@ -483,7 +482,7 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = new TreeMap<>();
     inputs.put(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
 
     CountDownLatch ensureInputsPresentReturned = new CountDownLatch(2);
     CountDownLatch ensureInterrupted = new CountDownLatch(1);
@@ -575,12 +574,12 @@ public class CombinedCacheTest {
     SortedMap<PathFragment, Path> input1 = new TreeMap<>();
     input1.put(PathFragment.create("foo"), foo);
     input1.put(PathFragment.create("bar"), bar);
-    MerkleTree merkleTree1 = merkleTreeComputer.buildForFiles(input1);
+    var merkleTree1 = merkleTreeComputer.buildForFiles(input1);
 
     SortedMap<PathFragment, Path> input2 = new TreeMap<>();
     input2.put(PathFragment.create("bar"), bar);
     input2.put(PathFragment.create("qux"), qux);
-    MerkleTree merkleTree2 = merkleTreeComputer.buildForFiles(input2);
+    var merkleTree2 = merkleTreeComputer.buildForFiles(input2);
 
     CountDownLatch ensureInputsPresentReturned = new CountDownLatch(2);
     CountDownLatch ensureInterrupted = new CountDownLatch(1);
@@ -668,7 +667,7 @@ public class CombinedCacheTest {
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = ImmutableSortedMap.of(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
 
     IOException e =
         assertThrows(
