@@ -325,11 +325,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (inputFile.getName().equals("BUILD")) {
-        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion.
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
                 ? inputFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()
-                : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
+                : aspectResolver.computeBuildFileDependencies(inputFile);
 
         for (Label starlarkLoadLabel : starlarkLoadLabels) {
           input.addSubinclude(internalToUnicode(labelPrinter.toString(starlarkLoadLabel)));

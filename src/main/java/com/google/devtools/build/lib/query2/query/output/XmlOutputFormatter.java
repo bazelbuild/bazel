@@ -279,11 +279,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private void addStarlarkFilesToElement(
-      Document doc, Element parent, InputFile inputFile, LabelPrinter labelPrinter)
+      Document doc, Element parent, InputFile buildFile, LabelPrinter labelPrinter)
       throws InterruptedException {
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
-    Iterable<Label> dependencies =
-        aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
+    Iterable<Label> dependencies = aspectResolver.computeBuildFileDependencies(buildFile);
 
     for (Label starlarkFileDep : dependencies) {
       Element elem = doc.createElement("load");

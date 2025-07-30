@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 
 /**
@@ -36,7 +35,7 @@ public class NullAspectResolver implements AspectResolver {
   }
 
   @Override
-  public ImmutableList<Label> computeBuildFileDependencies(Package pkg) {
-    return pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles();
+  public ImmutableList<Label> computeBuildFileDependencies(Target buildFile) {
+    return buildFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles();
   }
 }
