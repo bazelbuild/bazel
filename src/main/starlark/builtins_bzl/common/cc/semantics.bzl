@@ -137,10 +137,9 @@ def _cpp_modules_tools():
             cfg = "exec",
             default = "@" + _get_repo() + "//tools/cpp:aggregate-ddi",
         ),
-        "_generate_modmap": attr.label(
+        "generate_modmap": attr.label(
             executable = True,
             cfg = "exec",
-            default = "@" + _get_repo() + "//tools/cpp:generate-modmap",
         ),
     }
 
