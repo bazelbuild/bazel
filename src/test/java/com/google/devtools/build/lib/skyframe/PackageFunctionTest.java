@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,7 +38,6 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -64,10 +65,10 @@ import com.google.devtools.build.lib.skyframe.GlobsValue.GlobRequest;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -95,7 +96,6 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -141,24 +141,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-      BuildLanguageOptions buildLanguageOptions, Path... roots) {
+      BuildLanguageOptions buildLanguageOptions, Path... roots)
+      throws InterruptedException, AbruptExitException {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.packagePath = stream(roots).map(Path::getPathString).collect(toImmutableList());
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
-    getSkyframeExecutor()
-        .preparePackageLoading(
-            new PathPackageLocator(
-                outputBase,
-                Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
-                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageOptions,
-            buildLanguageOptions,
-            UUID.randomUUID(),
-            ImmutableMap.of(),
-            QuiescingExecutorsImpl.forTesting(),
-            new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.of());
+    setPackageAndBuildLanguageOptions(packageOptions, buildLanguageOptions);
   }
 
   @Override

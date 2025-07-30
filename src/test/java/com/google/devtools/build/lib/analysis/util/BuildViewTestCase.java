@@ -523,14 +523,25 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty())));
   }
 
-  protected void setPackageOptions(String... options) throws Exception {
+  protected void setPackageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     packageOptions = parsePackageOptions(options);
     setUpSkyframe();
     invalidatePackages(/* alsoConfigs= */ false);
   }
 
-  protected void setBuildLanguageOptions(String... options) throws Exception {
+  protected void setBuildLanguageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     buildLanguageOptions = parseBuildLanguageOptions(options);
+    setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
+  }
+
+  protected void setPackageAndBuildLanguageOptions(
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions)
+      throws InterruptedException, AbruptExitException {
+    this.packageOptions = packageOptions;
+    this.buildLanguageOptions = buildLanguageOptions;
     setUpSkyframe();
     invalidatePackages(/* alsoConfigs= */ false);
   }
@@ -543,14 +554,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return "public";
   }
 
-  private PackageOptions parsePackageOptions(String... options) throws Exception {
+  private PackageOptions parsePackageOptions(String... options) throws OptionsParsingException {
     OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
     parser.parse("--default_visibility=" + getDefaultVisibility());
     parser.parse(options);
     return parser.getOptions(PackageOptions.class);
   }
 
-  protected BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  protected BuildLanguageOptions parseBuildLanguageOptions(String... options)
+      throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(getDefaultBuildLanguageOptions());
@@ -558,7 +570,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(BuildLanguageOptions.class);
   }
 
-  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+  protected List<String> getDefaultBuildLanguageOptions() {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
     ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     return ans.build();
