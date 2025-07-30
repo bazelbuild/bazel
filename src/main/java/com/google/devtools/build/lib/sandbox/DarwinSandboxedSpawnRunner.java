@@ -218,8 +218,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
