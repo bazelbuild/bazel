@@ -105,7 +105,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote:abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",

@@ -54,9 +54,11 @@ java_library(
             "Globber.java",
             "GlobberUtils.java",
             "LabelPrinter.java",
+            "PackageGroupsRuleVisibility.java",
             "PackagePieceIdentifier.java",
             "PackageSpecification.java",
             "RuleClassUtils.java",
+            "RuleVisibility.java",
         ],
     ),
     deps = [
@@ -67,6 +69,7 @@ java_library(
         ":label_printer",
         ":package_piece_identifier",
         ":package_specification",
+        ":rule_visibility",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
@@ -243,5 +246,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "rule_visibility",
+    srcs = [
+        "PackageGroupsRuleVisibility.java",
+        "RuleVisibility.java",
+    ],
+    deps = [
+        ":package_specification",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
