@@ -85,6 +85,7 @@ java_library(
     name = "platform_utils",
     srcs = ["PlatformUtils.java"],
     deps = [
+        ":platform",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/protobuf:failure_details_java_proto",
