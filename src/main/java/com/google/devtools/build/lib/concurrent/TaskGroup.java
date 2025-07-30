@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -204,10 +205,15 @@ public class TaskGroup<T, R> implements AutoCloseable {
   private void onComplete(Subtask<? extends T> subtask) {
     try {
       checkState(subtask.state() != Subtask.State.UNAVAILABLE);
+      // We want to call Joiner#onComplete first, so that if subtask failed and the policy decides
+      // to cancel the group, the joiner can see the exception from this subtask first. Otherwise,
+      // the exception from this subtask may race with the InterruptedException from other subtasks
+      // that are cancelled. This will cause the joiner to sometimes throw InterruptedException
+      // instead of the exception from this subtask, if the joiner only throws one exception.
+      joiner.onComplete(subtask);
       if (policy.onComplete(subtask)) {
         cancel();
       }
-      joiner.onComplete(subtask);
     } finally {
       latch.countDown();
     }
@@ -557,7 +563,8 @@ public class TaskGroup<T, R> implements AutoCloseable {
       return new VoidOrThrow<T>();
     }
 
-    private static final class VoidOrThrow<T> implements Joiner<T, Void> {
+    @VisibleForTesting
+    static final class VoidOrThrow<T> implements Joiner<T, Void> {
       private volatile Throwable error;
 
       @Override
@@ -577,6 +584,11 @@ public class TaskGroup<T, R> implements AutoCloseable {
         } else {
           return null;
         }
+      }
+
+      @VisibleForTesting
+      Throwable getError() {
+        return error;
       }
     }
   }

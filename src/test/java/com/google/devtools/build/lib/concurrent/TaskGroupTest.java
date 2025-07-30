@@ -59,6 +59,55 @@ public final class TaskGroupTest {
   }
 
   @Test
+  public void allSuccessful_anySubtaskFails_setErrorBeforeCanceling() throws Throwable {
+    var subtask2Ready = new CountDownLatch(1);
+    var letSubtask1Fail = new CountDownLatch(1);
+    var latch = new CountDownLatch(1);
+    var joiner = new Joiners.VoidOrThrow<>();
+    AtomicReference<Throwable> assertErrorRef = new AtomicReference<>(null);
+    var policy =
+        new TaskGroup.Policy<Object>() {
+          @Override
+          public boolean onComplete(Subtask<? extends Object> subtask) {
+            if (subtask.state() == Subtask.State.FAILED) {
+              // Assert that the joiner has the error from subtask1 before we decide to cancel the
+              // group.
+              try {
+                assertThat(joiner.getError()).isInstanceOf(RuntimeException.class);
+                assertThat(joiner.getError()).hasMessageThat().isEqualTo("test");
+              } catch (Throwable e2) {
+                assertErrorRef.set(e2);
+              }
+              return true;
+            }
+            return false;
+          }
+        };
+    try (var group = TaskGroup.open(policy, joiner)) {
+      group.fork(
+          () -> {
+            letSubtask1Fail.await();
+            throw new RuntimeException("test");
+          });
+      group.fork(
+          () -> {
+            subtask2Ready.countDown();
+            latch.await();
+            return 2;
+          });
+
+      subtask2Ready.await();
+      letSubtask1Fail.countDown();
+
+      assertThrows(ExecutionException.class, () -> group.join());
+    }
+    var assertError = assertErrorRef.get();
+    if (assertError != null) {
+      throw assertError;
+    }
+  }
+
+  @Test
   public void allSuccessful_anySubtaskFails_cancelsOthersAndThrows() throws Exception {
     var latch = new CountDownLatch(1);
     try (var group = TaskGroup.open(Policies.allSuccessful(), Joiners.voidOrThrow())) {
