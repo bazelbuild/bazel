@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -77,7 +78,8 @@ public class MoreFuturesTest {
 
   /** Test that if any of the futures in the list fails, we cancel all the futures immediately. */
   @Test
-  public void allAsListOrCancelAllCancellation() throws InterruptedException {
+  public void allAsListOrCancelAllCancellation()
+      throws InterruptedException, TimeoutException, ExecutionException {
     final List<DelayedFuture> futureList = new ArrayList<>();
     for (int i = 1; i < 6; i++) {
       DelayedFuture future = new DelayedFuture(i * 1000);
@@ -94,9 +96,21 @@ public class MoreFuturesTest {
       fail("This should fail");
     } catch (InterruptedException | ExecutionException ignored) {
     }
-    Thread.sleep(100);
+
+    // Wait for all the futures to be cancelled.
+    for (DelayedFuture future : futureList) {
+      if (future != toFail) {
+        try {
+          future.get(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+          fail("Future should have been cancelled");
+        } catch (InterruptedException | CancellationException e) {
+          // This is expected.
+        }
+      }
+    }
+
     for (DelayedFuture delayedFuture : futureList) {
-      assertThat(delayedFuture.wasCanceled || delayedFuture == toFail).isTrue();
+      assertThat(delayedFuture.isCancelled() || delayedFuture == toFail).isTrue();
       assertThat(delayedFuture.wasInterrupted).isFalse();
     }
   }
