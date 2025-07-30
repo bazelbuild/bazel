@@ -303,15 +303,16 @@ public class GrpcCacheClientTest {
             /* outErr= */ null,
             ImmutableClassToInstanceMap.of(),
             /* actionFileSystem= */ null);
-    MerkleTree merkleTree =
-        new MerkleTreeComputer(DIGEST_UTIL, client, "buildRequestId", "commandId")
-            .buildForSpawn(
-                spawn,
-                ImmutableSet.of(),
-                /* spawnScrubber= */ null,
-                spawnExecutionContext,
-                remotePathResolver,
-                MerkleTreeComputer.SubTreePolicy.UPLOAD);
+    var merkleTree =
+        (MerkleTree.WithBlobs)
+            new MerkleTreeComputer(DIGEST_UTIL, client, "buildRequestId", "commandId")
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* spawnScrubber= */ null,
+                    spawnExecutionContext,
+                    remotePathResolver,
+                    MerkleTreeComputer.BlobPolicy.KEEP_UNCACHED);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 
     // Add a fake CAS that responds saying that the above virtual action input is missing

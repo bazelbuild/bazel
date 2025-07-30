@@ -137,7 +137,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
     Command command = commandBuilder.build();
     Digest commandHash = digestUtil.compute(command);
-    MerkleTreeComputer.MerkleTree merkleTree =
+    var merkleTree =
         new MerkleTreeComputer(
                 digestUtil, /* remoteExecutionCache= */ null, buildRequestId, commandId)
             .buildForFiles(inputFiles);

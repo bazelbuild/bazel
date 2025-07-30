@@ -183,7 +183,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     RemoteAction action =
         remoteExecutionService.buildRemoteAction(
-            spawn, context, MerkleTreeComputer.SubTreePolicy.UPLOAD);
+            spawn, context, MerkleTreeComputer.BlobPolicy.KEEP_UNCACHED);
 
     context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 

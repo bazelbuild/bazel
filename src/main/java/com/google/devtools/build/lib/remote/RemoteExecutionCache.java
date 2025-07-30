@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -132,20 +131,13 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
    */
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
+      MerkleTree.WithBlobs merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force,
       @Nullable RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
-    Iterable<Digest> allDigests =
-        Iterables.concat(merkleTree.allDigests(), additionalInputs.keySet());
-    if (Iterables.isEmpty(allDigests)) {
-      return;
-    }
-
     Flowable<TransferResult> uploads =
-        createUploadTasks(
-                context, merkleTree, additionalInputs, allDigests, force, remotePathResolver)
+        createUploadTasks(context, merkleTree, additionalInputs, force, remotePathResolver)
             .flatMapPublisher(
                 result ->
                     Flowable.using(
@@ -177,7 +169,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   @Override
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
+      MerkleTree.WithBlobs merkleTree,
       boolean force,
       RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
@@ -256,7 +248,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
-      MerkleTree merkleTree,
+      MerkleTree.WithBlobs merkleTree,
       Map<Digest, Message> additionalInputs,
       @Nullable RemotePathResolver remotePathResolver) {
     var upload = merkleTree.upload(this, context, remotePathResolver, digest);
@@ -285,11 +277,14 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   private Single<List<UploadTask>> createUploadTasks(
       RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
+      MerkleTree.WithBlobs merkleTree,
       Map<Digest, Message> additionalInputs,
-      Iterable<Digest> allDigests,
       boolean force,
       @Nullable RemotePathResolver remotePathResolver) {
+    var allDigests = Iterables.concat(merkleTree.allDigests(), additionalInputs.keySet());
+    if (Iterables.isEmpty(allDigests)) {
+      return Single.just(ImmutableList.of());
+    }
     return Single.using(
         () -> Profiler.instance().profile("collect digests"),
         ignored ->
@@ -309,7 +304,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   private Maybe<UploadTask> maybeCreateUploadTask(
       RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
+      MerkleTree.WithBlobs merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
       boolean force,
