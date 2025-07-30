@@ -144,7 +144,9 @@ public class TypeCheckTest {
             "hasattr: (object, str, /) -> bool",
             "repr: (object, /) -> str",
             "str: (object, /) -> str",
-            "type: (object, /) -> str");
+            "type: (object, /) -> str",
+            "float: (str|bool|int|float, /) -> float",
+            "int: (str|bool|int|float, /, base: [int]) -> int");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(
