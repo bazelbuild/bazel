@@ -2662,7 +2662,6 @@ EOF
     bazel coverage \
       --test_output=all \
       --experimental_fetch_all_coverage_outputs \
-      --experimental_generate_llvm_lcov \
       --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
