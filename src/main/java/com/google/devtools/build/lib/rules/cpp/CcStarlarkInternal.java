@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
 
 import com.google.common.base.Strings;
@@ -937,19 +938,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "cc_compilation_context", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "cpp_configuration", positional = false, named = true),
-        @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "fdo_context", positional = false, named = true, defaultValue = "None"),
-        @Param(
-            name = "auxiliary_fdo_inputs",
-            positional = false,
-            named = true,
-            defaultValue = "None"),
         @Param(
             name = "feature_configuration",
             positional = false,
@@ -957,53 +946,33 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "use_pic", positional = false, named = true),
         @Param(name = "label", positional = false, named = true),
         @Param(name = "common_compile_build_variables", positional = false, named = true),
-        @Param(name = "fdo_build_variables", positional = false, named = true),
+        @Param(name = "specific_compile_build_variables", positional = false, named = true),
         @Param(name = "cpp_semantics", positional = false, named = true),
-        @Param(name = "source_label", positional = false, named = true),
         @Param(name = "output_name_base", positional = false, named = true),
         @Param(name = "cpp_compile_action_builder", positional = false, named = true)
       })
   public Artifact createParseHeaderAction(
       StarlarkRuleContext starlarkRuleContext,
-      CcCompilationContext ccCompilationContext,
-      StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
-      Sequence<?> conlyopts,
-      Sequence<?> copts,
-      CppConfiguration cppConfiguration,
-      Sequence<?> cxxopts,
-      StructImpl fdoContext,
-      Depset auxiliaryFdoInputs,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       boolean generatePicAction,
       Label label,
       CcToolchainVariables commonCompileBuildVariables,
-      Dict<?, ?> fdoBuildVariables,
+      CcToolchainVariables specificCompileBuildVariables,
       CppSemantics semantics,
-      Label sourceLabel,
       String outputNameBase,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
     return CcStaticCompilationHelper.createParseHeaderAction(
         starlarkRuleContext.getRuleContext(),
-        ccCompilationContext,
-        CcToolchainProvider.create(ccToolchain),
         configuration,
-        Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
-        Sequence.cast(copts, String.class, "copts").getImmutableList(),
-        cppConfiguration,
-        Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
-        new FdoContext(fdoContext),
-        Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
         featureConfigurationForStarlark.getFeatureConfiguration(),
         generatePicAction,
         label,
         commonCompileBuildVariables,
-        ImmutableMap.copyOf(
-            Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")),
+        specificCompileBuildVariables,
         starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
         semantics,
-        sourceLabel,
         outputNameBase,
         builder);
   }
@@ -1127,6 +1096,9 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "source_artifact", positional = false, named = true),
         @Param(name = "additional_compilation_inputs", positional = false, named = true),
         @Param(name = "additional_include_scanning_roots", positional = false, named = true),
+        @Param(name = "output_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "dotd_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "diagnostics_file", positional = false, named = true, defaultValue = "None"),
       })
   public CppCompileActionBuilder createCppCompileActionBuilderWithInputs(
       StarlarkRuleContext actionConstructionContext,
@@ -1138,7 +1110,10 @@ public class CcStarlarkInternal implements StarlarkValue {
       CppSemantics semantics,
       Artifact sourceArtifact,
       Sequence<?> additionalCompilationInputs,
-      Sequence<?> additionalIncludeScanningRoots)
+      Sequence<?> additionalIncludeScanningRoots,
+      Object outputFile,
+      Object dotdFile,
+      Object diagnosticsFile)
       throws EvalException {
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
@@ -1159,6 +1134,10 @@ public class CcStarlarkInternal implements StarlarkValue {
                 additionalIncludeScanningRoots,
                 Artifact.class,
                 "additional_include_scanning_roots"));
+    builder.setOutputs(
+        nullIfNone(outputFile, Artifact.class),
+        nullIfNone(dotdFile, Artifact.class),
+        nullIfNone(diagnosticsFile, Artifact.class));
     return builder;
   }
 
@@ -1183,5 +1162,19 @@ public class CcStarlarkInternal implements StarlarkValue {
     if (fn.getModule().getGlobal(fn.getName()) != fn) {
       throw Starlark.errorf("Passed function must be top-level functions.");
     }
+  }
+
+  @StarlarkMethod(
+      name = "per_file_copts",
+      documented = false,
+      parameters = {
+        @Param(name = "cpp_configuration"),
+        @Param(name = "source_file"),
+        @Param(name = "label"),
+      })
+  public ImmutableList<String> perFileCopts(
+      CppConfiguration cppConfiguration, Artifact sourceFile, Label sourceLabel)
+      throws EvalException {
+    return CcStaticCompilationHelper.collectPerFileCopts(cppConfiguration, sourceFile, sourceLabel);
   }
 }

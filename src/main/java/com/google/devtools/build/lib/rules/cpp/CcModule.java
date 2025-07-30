@@ -1403,7 +1403,7 @@ public abstract class CcModule
   }
 
   @Nullable
-  private static <T> T nullIfNone(Object object, Class<T> type) {
+  static <T> T nullIfNone(Object object, Class<T> type) {
     return object != Starlark.NONE ? type.cast(object) : null;
   }
 
