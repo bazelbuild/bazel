@@ -280,8 +280,8 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   wstring jar_bin = this->Rlocation(this->GetLaunchInfoByKey(JAR_BIN_PATH));
   vector<wstring> arguments;
   arguments.push_back(L"cvfm");
-  arguments.push_back(bazel::windows::WindowsEscapeArg(manifest_jar_path));
-  arguments.push_back(bazel::windows::WindowsEscapeArg(jar_manifest_file_path));
+  arguments.push_back(manifest_jar_path);
+  arguments.push_back(jar_manifest_file_path);
 
   if (this->LaunchProcess(jar_bin, arguments, /* suppressOutput */ true) != 0) {
     die(L"Couldn't create classpath jar: %s", manifest_jar_path.c_str());
@@ -416,13 +416,7 @@ ExitCode JavaBinaryLauncher::Launch() {
     arguments.push_back(arg);
   }
 
-  vector<wstring> escaped_arguments;
-  // Quote the arguments if having spaces
-  for (const auto& arg : arguments) {
-    escaped_arguments.push_back(bazel::windows::WindowsEscapeArg(arg));
-  }
-
-  ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);
+  ExitCode exit_code = this->LaunchProcess(java_bin, arguments);
 
   // Delete classpath jar file after execution.
   if (!classpath_jar.empty()) {
