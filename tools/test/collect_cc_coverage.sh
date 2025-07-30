@@ -49,7 +49,7 @@ function uses_llvm() {
   return 1
 }
 
-# Returns 1 if gcov must be used, 0 otherwise.
+# Returns 0 if gcov must be used, 1 otherwise.
 # The uses_gcov function determines whether gcov should be used for coverage.
 # Originally, it returned 0 (success) only if GCOV_COVERAGE=1, but GCOV_COVERAGE
 # was not set anywhere, causing the function to return 1 (failure) by default.
