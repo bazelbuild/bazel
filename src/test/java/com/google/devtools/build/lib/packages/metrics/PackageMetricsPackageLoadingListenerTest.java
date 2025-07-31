@@ -17,8 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
@@ -570,14 +572,17 @@ public class PackageMetricsPackageLoadingListenerTest {
 
   private static Package mockPackage(
       String pkgIdString, Map<String, Target> targets, int transitivelyLoadedStarlarkFiles) {
-    Package.Declarations mockDeclarations = mock(Package.Declarations.class);
+    ImmutableList.Builder<Label> fakeLoads = ImmutableList.builder();
+    for (int i = 0; i < transitivelyLoadedStarlarkFiles; i++) {
+      fakeLoads.add(Label.parseCanonicalUnchecked(String.format("//:%d.bzl", i)));
+    }
+    Package.Declarations fakeDeclarations =
+        new Package.Declarations.Builder().setTransitiveLoads(fakeLoads.build()).build();
     Package mockPackage = mock(Package.class);
     when(mockPackage.getPackageIdentifier())
         .thenReturn(PackageIdentifier.createInMainRepo(pkgIdString));
     when(mockPackage.getTargets()).thenReturn(ImmutableSortedMap.copyOf(targets));
-    when(mockPackage.getDeclarations()).thenReturn(mockDeclarations);
-    when(mockDeclarations.countTransitivelyLoadedStarlarkFiles())
-        .thenReturn(transitivelyLoadedStarlarkFiles);
+    when(mockPackage.getDeclarations()).thenReturn(fakeDeclarations);
     return mockPackage;
   }
 }

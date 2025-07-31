@@ -380,7 +380,7 @@ public class RuleContext extends TargetContext
 
   /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
-    return rule.getPackageDeclarations().getWorkspaceName();
+    return rule.getPackageMetadata().workspaceName();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */

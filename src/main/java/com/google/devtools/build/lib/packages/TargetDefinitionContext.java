@@ -101,8 +101,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   // detected.
   protected final TargetRecorder recorder;
 
-  protected final String workspaceName;
-
   private final boolean simplifyUnconditionalSelectsInRuleAttrs;
 
   /** Converts label literals to Label objects within this package. */
@@ -391,7 +389,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       Packageoid pkg,
       SymbolGenerator<?> symbolGenerator,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
-      String workspaceName,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       PackageOverheadEstimator packageOverheadEstimator,
@@ -405,7 +402,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.metadata = metadata;
     this.pkg = pkg;
     this.symbolGenerator = symbolGenerator;
-    this.workspaceName = Preconditions.checkNotNull(workspaceName);
     this.simplifyUnconditionalSelectsInRuleAttrs = simplifyUnconditionalSelectsInRuleAttrs;
     this.labelConverter =
         new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());

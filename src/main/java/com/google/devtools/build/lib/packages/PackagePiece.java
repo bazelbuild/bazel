@@ -196,7 +196,7 @@ public abstract sealed class PackagePiece extends Packageoid
     }
 
     private ForBuildFile(PackagePieceIdentifier.ForBuildFile identifier, Metadata metadata) {
-      super(metadata, new Declarations());
+      super(metadata, new Declarations.Builder());
       checkArgument(identifier.getPackageIdentifier().equals(metadata.packageIdentifier()));
       this.identifier = identifier;
     }
@@ -227,6 +227,7 @@ public abstract sealed class PackagePiece extends Packageoid
           Metadata.builder()
               .packageIdentifier(identifier.getPackageIdentifier())
               .buildFilename(filename)
+              .workspaceName(workspaceName)
               .repositoryMapping(repositoryMapping)
               .associatedModuleName(associatedModuleName)
               .associatedModuleVersion(associatedModuleVersion)
@@ -239,7 +240,6 @@ public abstract sealed class PackagePiece extends Packageoid
           packageSettings.precomputeTransitiveLoads(),
           noImplicitFileExport,
           simplifyUnconditionalSelectsInRuleAttrs,
-          workspaceName,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -303,7 +303,6 @@ public abstract sealed class PackagePiece extends Packageoid
           boolean precomputeTransitiveLoads,
           boolean noImplicitFileExport,
           boolean simplifyUnconditionalSelectsInRuleAttrs,
-          String workspaceName,
           RepositoryMapping mainRepositoryMapping,
           @Nullable Semaphore cpuBoundSemaphore,
           PackageOverheadEstimator packageOverheadEstimator,
@@ -319,7 +318,6 @@ public abstract sealed class PackagePiece extends Packageoid
             precomputeTransitiveLoads,
             noImplicitFileExport,
             simplifyUnconditionalSelectsInRuleAttrs,
-            workspaceName,
             mainRepositoryMapping,
             cpuBoundSemaphore,
             packageOverheadEstimator,
@@ -403,7 +401,7 @@ public abstract sealed class PackagePiece extends Packageoid
         Declarations declarations,
         MacroInstance evaluatedMacro,
         PackagePieceIdentifier parentIdentifier) {
-      super(metadata, declarations);
+      super(metadata, declarations.checkImmutable());
       checkArgument(
           metadata
               .packageIdentifier()
@@ -529,7 +527,6 @@ public abstract sealed class PackagePiece extends Packageoid
             forMacro,
             SymbolGenerator.create(forMacro.getIdentifier()),
             simplifyUnconditionalSelectsInRuleAttrs,
-            forMacro.getDeclarations().getWorkspaceName(),
             mainRepositoryMapping,
             cpuBoundSemaphore,
             packageOverheadEstimator,
