@@ -220,7 +220,7 @@ void BinaryLauncherBase::CreateCommandLine(
   wostringstream cmdline;
   cmdline << L'\"' << executable << L'\"';
   for (const auto& s : arguments) {
-    cmdline << L' ' << EscapeArg(s);
+    cmdline << L' ' << s;
   }
 
   wstring cmdline_str = cmdline.str();
@@ -252,7 +252,11 @@ bool BinaryLauncherBase::PrintLauncherCommandLine(
 ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
                                            const vector<wstring>& arguments,
                                            bool suppressOutput) const {
-  if (PrintLauncherCommandLine(executable, arguments)) {
+  std::vector<std::wstring> escaped_arguments(arguments.size());
+  std::transform(arguments.cbegin(), arguments.cend(), escaped_arguments.begin(), [this](const wstring& arg) {
+    return EscapeArg(arg);
+  });
+  if (PrintLauncherCommandLine(executable, escaped_arguments)) {
     return 0;
   }
   // Set RUNFILES_DIR if:
@@ -267,7 +271,7 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
     SetEnv(L"RUNFILES_MANIFEST_FILE", manifest_file);
   }
   CmdLine cmdline;
-  CreateCommandLine(&cmdline, executable, arguments);
+  CreateCommandLine(&cmdline, executable, escaped_arguments);
   PROCESS_INFORMATION processInfo = {0};
   STARTUPINFOW startupInfo = {0};
   startupInfo.cb = sizeof(startupInfo);
