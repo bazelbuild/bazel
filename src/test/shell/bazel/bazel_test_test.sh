@@ -463,7 +463,6 @@ function test_runs_per_test_detects_flakes_cancel_concurrent() {
   # Directory for counters
   local COUNTER_DIR="${TEST_TMPDIR}/counter_dir"
   mkdir -p "${COUNTER_DIR}"
-  add_rules_shell "MODULE.bazel"
 
   # This file holds the number of the next run
   echo 1 > "${COUNTER_DIR}/counter"
@@ -482,8 +481,6 @@ exit \$((i <= 2 ? 0 : 1))
 EOF
   chmod +x test.sh
   cat <<EOF > BUILD
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
-
 sh_test(name = "test", srcs = [ "test.sh" ])
 EOF
   bazel test --spawn_strategy=standalone \
