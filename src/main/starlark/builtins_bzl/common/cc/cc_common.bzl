@@ -26,6 +26,7 @@ load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "c
 load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
 load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
 load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
+load(":common/cc/link/create_linkstamp.bzl", "create_linkstamp")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
@@ -844,6 +845,10 @@ def _absolute_symlink(*, ctx, output, target_path, progress_message):
         progress_message = progress_message,
     )
 
+def _create_linkstamp(linkstamp, headers):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return create_linkstamp(linkstamp, headers)
+
 cc_common = struct(
     link = _link,
     create_lto_compilation_context = _create_lto_compilation_context,
@@ -899,4 +904,5 @@ cc_common = struct(
     get_cc_native_library_info_provider = _get_cc_native_library_info_provider,
     get_artifact_name_for_category = _get_artifact_name_for_category,
     absolute_symlink = _absolute_symlink,
+    create_linkstamp = _create_linkstamp,
 )
