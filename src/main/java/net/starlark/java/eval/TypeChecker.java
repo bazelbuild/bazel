@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
+import net.starlark.java.types.Types.ListType;
 import net.starlark.java.types.Types.UnionType;
 
 /** Type checker for Starlark types. */
@@ -70,11 +71,25 @@ public final class TypeChecker {
       return isUnionSubtypeOf(ImmutableSet.of(type1), union2.getTypes()); // a < a|b
     }
 
+    if (type1 instanceof ListType list1 && type2 instanceof ListType list2) {
+      // The list type is invariant (which is necessary while the interface supports both reading
+      // and modification). This matches Python's behaviour.
+      return isEqual(list1.getElementType(), list2.getElementType());
+    }
+
     // TODO(ilist@): this just works for primitive types
     return Objects.equals(type1, type2);
   }
 
+  private static boolean isEqual(StarlarkType type1, StarlarkType type2) {
+    return isSubtypeOf(type1, type2) && isSubtypeOf(type2, type1);
+  }
+
   static boolean isValueSubtypeOf(Object value, StarlarkType type2) {
+    // Fast path for Any type. `type(value)` below can take long time to evaluate
+    if (Objects.equals(type2, Types.ANY)) {
+      return true;
+    }
     return isSubtypeOf(type(value), type2);
   }
 

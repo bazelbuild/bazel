@@ -14,6 +14,8 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.Serializable;
@@ -31,6 +33,8 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /**
  * A StarlarkList is a mutable finite sequence of values.
@@ -88,6 +92,17 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
 
   // Prohibit instantiation outside of package.
   StarlarkList() {}
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    // TODO(ilist@): store the type for non-homogeneous lists
+    // Current implementation traverses the list and computes union of all elements - same as most
+    // of the native calls. This is correct, but could be expensive. Proposed optimization is
+    // to store and update list's type when elements are added to it.
+    return isEmpty()
+        ? Types.list(Types.ANY)
+        : Types.list(Types.union(stream().map(TypeChecker::type).collect(toImmutableSet())));
+  }
 
   /**
    * Takes ownership of the supplied array of class Object[].class, and returns a new StarlarkList

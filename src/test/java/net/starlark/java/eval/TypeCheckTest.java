@@ -65,6 +65,24 @@ public class TypeCheckTest {
   }
 
   @Test
+  public void runtimeTypecheck_list() throws Exception {
+    ev.exec("def f(a: list[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: list[int]): pass", "f([])");
+    ev.exec("def f(a: list[list[int]]): pass", "f([[], [1]])");
+    assertExecThrows(EvalException.class, "def f(a: list[int]): pass", "f([True])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[bool]', want 'list[int]'");
+    assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1], [True]])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[list[int]|list[bool]]', "
+                + "want 'list[list[int]]'");
+    assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1, True]])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[list[int|bool]]', "
+                + "want 'list[list[int]]'");
+  }
+
+  @Test
   public void runtimeTypecheck_unions() throws Exception {
     ev.exec("def f(a: None|bool): pass", "f(None)");
     ev.exec("def f(a: None|bool): pass", "f(True)");
