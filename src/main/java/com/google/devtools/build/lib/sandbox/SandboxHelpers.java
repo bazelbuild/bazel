@@ -607,9 +607,6 @@ public final class SandboxHelpers {
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
 
-    private static final SandboxInputs EMPTY_INPUTS =
-        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
-
     public SandboxInputs(
         Map<PathFragment, Path> files,
         Map<VirtualActionInput, byte[]> virtualInputs,
@@ -617,10 +614,6 @@ public final class SandboxHelpers {
       this.files = files;
       this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
-    }
-
-    public static SandboxInputs getEmptyInputs() {
-      return EMPTY_INPUTS;
     }
 
     public Map<PathFragment, Path> getFiles() {

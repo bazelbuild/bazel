@@ -164,7 +164,8 @@ public final class SpawnInputExpander {
       NestedSet<? extends ActionInput> inputFiles,
       InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
-      PathFragment baseDirectory) {
+      PathFragment baseDirectory,
+      boolean expandAllRunfilesTrees) {
     // Actions that accept TreeArtifacts as inputs generally expect the directory corresponding
     // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
     // here to signal consumers that they should create the directory.
@@ -184,10 +185,17 @@ public final class SpawnInputExpander {
             input,
             baseDirectory);
       } else if (isRunfilesTreeArtifact(input)) {
-        RunfilesTree runfilesTree =
-            inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
-        addSingleRunfilesTreeToInputs(
-            runfilesTree, inputMap, inputMetadataProvider, pathMapper, baseDirectory);
+        var runfilesTree = inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+        if (expandAllRunfilesTrees || !runfilesTree.isMappingCached()) {
+          addSingleRunfilesTreeToInputs(
+              runfilesTree, inputMap, inputMetadataProvider, pathMapper, baseDirectory);
+        } else {
+          addMapping(
+              inputMap,
+              mapForRunfiles(pathMapper, input.getExecPath(), input.getExecPath()),
+              input,
+              baseDirectory);
+        }
       } else if (input instanceof Artifact fileset && fileset.isFileset()) {
         addFilesetManifest(
             fileset.getExecPath(),
@@ -214,13 +222,23 @@ public final class SpawnInputExpander {
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, PathFragment baseDirectory) {
+    return getInputMapping(
+        spawn, inputMetadataProvider, baseDirectory, /* expandRunfilesTrees= */ true);
+  }
+
+  public SortedMap<PathFragment, ActionInput> getInputMapping(
+      Spawn spawn,
+      InputMetadataProvider inputMetadataProvider,
+      PathFragment baseDirectory,
+      boolean expandRunfilesTrees) {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(
         inputMap,
         spawn.getInputFiles(),
         inputMetadataProvider,
         spawn.getPathMapper(),
-        baseDirectory);
+        baseDirectory,
+        expandRunfilesTrees);
     return inputMap;
   }
 
@@ -314,7 +332,8 @@ public final class SpawnInputExpander {
                 NestedSetBuilder.wrap(someInputFiles.getOrder(), leaves),
                 inputMetadataProvider,
                 pathMapper,
-                baseDirectory);
+                baseDirectory,
+                /* expandRunfilesTrees= */ true);
             return inputMap;
           }
 
@@ -389,7 +408,8 @@ public final class SpawnInputExpander {
                 NestedSetBuilder.create(Order.STABLE_ORDER, tree),
                 inputMetadataProvider,
                 pathMapper,
-                baseDirectory);
+                baseDirectory,
+                /* expandRunfilesTrees= */ true);
             return inputMap;
           }
         });
