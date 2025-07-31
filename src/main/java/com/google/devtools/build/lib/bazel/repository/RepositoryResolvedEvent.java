@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.common.collect.Maps.asMap;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.Pair;
@@ -36,8 +38,9 @@ public class RepositoryResolvedEvent {
     } else {
       // Repo claims that the returned (probably changed) arguments are a reproducible
       // version of itself.
+      // Don't use repoDefinition.attrValues() here as it doesn't include default values.
       Pair<Map<String, Object>, List<String>> diff =
-          compare(repoDefinition.attrValues().attributes(), result);
+          compare(asMap(repoDefinition.getFieldNames(), repoDefinition::getValue), result);
       if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
         this.informationReturned = false;
         this.message = "Repo '" + repoDefinition.name() + "' finished fetching.";
