@@ -22,14 +22,11 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.ArgsFunc;
-import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.LocationFunc;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 /**
- * A value class that holds arguments for {@link
- * CoverageReportActionBuilder#generateCoverageReportAction}, {@link ArgsFunc} and {@link
- * LocationFunc}.
+ * A value class that holds arguments for {@link CoverageReportActionBuilder#CoverageHelper}
+ * methods.
  */
 public record CoverageArgs(
     BlazeDirectories directories,

@@ -108,31 +108,34 @@ public class BazelCoverageReportModule extends BlazeModule {
                 actionKeyContext,
                 actionLookupKey,
                 workspaceName,
-                this::getArgs,
-                this::getLocationMessage,
+                new BazelCoverageHelper(),
                 /* htmlReport= */ false);
         eventBus.register(new CoverageReportCollector(wrapper));
         return wrapper;
       }
+    };
+  }
 
-      private ImmutableList<String> getArgs(CoverageArgs args, Artifact lcovOutput) {
-        ImmutableList.Builder<String> argsBuilder =
-            ImmutableList.<String>builder()
-                .add(
-                    args.reportGenerator().getExecutable().getExecPathString(),
-                    // A file that contains all the exec paths to the coverage artifacts
-                    "--reports_file=" + args.lcovArtifact().getExecPathString(),
-                    "--output_file=" + lcovOutput.getExecPathString());
+  private static class BazelCoverageHelper implements CoverageReportActionBuilder.CoverageHelper {
+    @Override
+    public ImmutableList<String> getArgs(CoverageArgs args, Artifact lcovOutput) {
+      ImmutableList.Builder<String> argsBuilder =
+          ImmutableList.<String>builder()
+              .add(
+                  args.reportGenerator().getExecutable().getExecPathString(),
+                  // A file that contains all the exec paths to the coverage artifacts
+                  "--reports_file=" + args.lcovArtifact().getExecPathString(),
+                  "--output_file=" + lcovOutput.getExecPathString());
         return argsBuilder.build();
       }
 
-      private String getLocationMessage(CoverageArgs args, Artifact lcovOutput) {
-        return "LCOV coverage report is located at "
-            + lcovOutput.getPath().getPathString()
-            + "\n and execpath is "
-            + lcovOutput.getExecPathString();
-      }
-    };
+    @Override
+    public String getLocationMessage(CoverageArgs args, Artifact lcovOutput) {
+      return "LCOV coverage report is located at "
+          + lcovOutput.getPath().getPathString()
+          + "\n and execpath is "
+          + lcovOutput.getExecPathString();
+    }
   }
 
   private record CoverageReportCollector(CoverageReportActionsWrapper wrapper) {

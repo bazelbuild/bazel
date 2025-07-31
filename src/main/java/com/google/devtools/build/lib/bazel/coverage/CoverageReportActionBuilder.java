@@ -201,8 +201,7 @@ public final class CoverageReportActionBuilder {
       ActionKeyContext actionKeyContext,
       ArtifactOwner artifactOwner,
       String workspaceName,
-      ArgsFunc argsFunction,
-      LocationFunc locationFunc,
+      CoverageHelper coverageHelper,
       boolean htmlReport)
       throws InterruptedException {
     if (targetsToTest == null || targetsToTest.isEmpty()) {
@@ -256,8 +255,7 @@ public final class CoverageReportActionBuilder {
                   workspaceName,
                   /* htmlReport= */ false,
                   actionOwner),
-              argsFunction,
-              locationFunc,
+              coverageHelper,
               "_baseline_report.dat");
       Artifact coverageLcovArtifact =
           factory.getDerivedArtifact(
@@ -278,8 +276,7 @@ public final class CoverageReportActionBuilder {
                   workspaceName,
                   htmlReport,
                   actionOwner),
-              argsFunction,
-              locationFunc,
+              coverageHelper,
               "_coverage_report.dat");
       return new CoverageReportActionsWrapper(
           baselineReportAction,
@@ -303,20 +300,17 @@ public final class CoverageReportActionBuilder {
         /* includeDerivedArtifacts= */ true);
   }
 
-  /** Computes the arguments passed to the coverage report generator. */
-  @FunctionalInterface
-  public interface ArgsFunc {
-    ImmutableList<String> apply(CoverageArgs args, Artifact lcovOutput);
-  }
+  /** A helper interface for product-specific coverage support. */
+  public interface CoverageHelper {
+    /** Returns the arguments for the coverage report generator action. */
+    ImmutableList<String> getArgs(CoverageArgs args, Artifact lcovOutput);
 
-  /** Computes the location message for the {@link CoverageReportAction}. */
-  @FunctionalInterface
-  public interface LocationFunc {
-    String apply(CoverageArgs args, Artifact lcovOutput);
+    /** Returns a message describing the location of the coverage report. */
+    String getLocationMessage(CoverageArgs args, Artifact lcovOutput);
   }
 
   private static CoverageReportAction generateCoverageReportAction(
-      CoverageArgs args, ArgsFunc argsFunc, LocationFunc locationFunc, String basename) {
+      CoverageArgs args, CoverageHelper coverageHelper, String basename) {
     ArtifactRoot root = args.directories().getBuildDataDirectory(args.workspaceName());
     PathFragment coverageDir = TestRunnerAction.COVERAGE_TMP_ROOT;
     Artifact lcovOutput =
@@ -326,7 +320,7 @@ public final class CoverageReportActionBuilder {
     RunfilesSupport runfilesSupport = args.reportGenerator().getRunfilesSupport();
     Artifact runfilesTree =
         runfilesSupport != null ? runfilesSupport.getRunfilesTreeArtifact() : null;
-    ImmutableList<String> actionArgs = argsFunc.apply(args, lcovOutput);
+    ImmutableList<String> actionArgs = coverageHelper.getArgs(args, lcovOutput);
 
     NestedSetBuilder<Artifact> inputsBuilder =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -341,7 +335,7 @@ public final class CoverageReportActionBuilder {
         inputsBuilder.build(),
         ImmutableSet.of(lcovOutput),
         actionArgs,
-        locationFunc.apply(args, lcovOutput),
+        coverageHelper.getLocationMessage(args, lcovOutput),
         !args.htmlReport());
   }
 }
