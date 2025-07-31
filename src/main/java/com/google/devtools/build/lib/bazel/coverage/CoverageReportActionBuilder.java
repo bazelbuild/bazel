@@ -246,7 +246,7 @@ public final class CoverageReportActionBuilder {
           generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts, actionOwner);
       Action baselineReportAction =
           generateCoverageReportAction(
-              CoverageArgs.create(
+              new CoverageArgs(
                   directories,
                   baselineCoverageArtifacts,
                   baselineLcovArtifact,
@@ -268,7 +268,7 @@ public final class CoverageReportActionBuilder {
           generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
       Action coverageReportAction =
           generateCoverageReportAction(
-              CoverageArgs.create(
+              new CoverageArgs(
                   directories,
                   coverageArtifacts,
                   coverageLcovArtifact,
@@ -306,13 +306,13 @@ public final class CoverageReportActionBuilder {
   /** Computes the arguments passed to the coverage report generator. */
   @FunctionalInterface
   public interface ArgsFunc {
-    ImmutableList<String> apply(CoverageArgs args);
+    ImmutableList<String> apply(CoverageArgs args, Artifact lcovOutput);
   }
 
   /** Computes the location message for the {@link CoverageReportAction}. */
   @FunctionalInterface
   public interface LocationFunc {
-    String apply(CoverageArgs args);
+    String apply(CoverageArgs args, Artifact lcovOutput);
   }
 
   private static CoverageReportAction generateCoverageReportAction(
@@ -326,8 +326,7 @@ public final class CoverageReportActionBuilder {
     RunfilesSupport runfilesSupport = args.reportGenerator().getRunfilesSupport();
     Artifact runfilesTree =
         runfilesSupport != null ? runfilesSupport.getRunfilesTreeArtifact() : null;
-    args = CoverageArgs.createCopyWithLcovOutput(args, lcovOutput);
-    ImmutableList<String> actionArgs = argsFunc.apply(args);
+    ImmutableList<String> actionArgs = argsFunc.apply(args, lcovOutput);
 
     NestedSetBuilder<Artifact> inputsBuilder =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -342,7 +341,7 @@ public final class CoverageReportActionBuilder {
         inputsBuilder.build(),
         ImmutableSet.of(lcovOutput),
         actionArgs,
-        locationFunc.apply(args),
+        locationFunc.apply(args, lcovOutput),
         !args.htmlReport());
   }
 }

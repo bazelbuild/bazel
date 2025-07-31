@@ -115,22 +115,22 @@ public class BazelCoverageReportModule extends BlazeModule {
         return wrapper;
       }
 
-      private ImmutableList<String> getArgs(CoverageArgs args) {
+      private ImmutableList<String> getArgs(CoverageArgs args, Artifact lcovOutput) {
         ImmutableList.Builder<String> argsBuilder =
             ImmutableList.<String>builder()
                 .add(
                     args.reportGenerator().getExecutable().getExecPathString(),
                     // A file that contains all the exec paths to the coverage artifacts
                     "--reports_file=" + args.lcovArtifact().getExecPathString(),
-                    "--output_file=" + args.lcovOutput().getExecPathString());
+                    "--output_file=" + lcovOutput.getExecPathString());
         return argsBuilder.build();
       }
 
-      private String getLocationMessage(CoverageArgs args) {
+      private String getLocationMessage(CoverageArgs args, Artifact lcovOutput) {
         return "LCOV coverage report is located at "
-            + args.lcovOutput().getPath().getPathString()
+            + lcovOutput.getPath().getPathString()
             + "\n and execpath is "
-            + args.lcovOutput().getExecPathString();
+            + lcovOutput.getExecPathString();
       }
     };
   }
