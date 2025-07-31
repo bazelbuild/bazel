@@ -16,6 +16,7 @@
 
 import os
 import tempfile
+import shutil
 import time
 
 from absl.testing import absltest
@@ -391,6 +392,35 @@ class RepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_b)
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testRecoverFromDeletedCache(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+          'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Delete the entire cache directory
+    shutil.rmtree(self.repo_contents_cache)
+
+    # Second fetch: target of the symlink is gone, so refetch
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
 if __name__ == '__main__':
   absltest.main()
