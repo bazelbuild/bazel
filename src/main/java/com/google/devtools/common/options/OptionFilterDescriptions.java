@@ -187,7 +187,9 @@ public class OptionFilterDescriptions {
         .put(
             OptionMetadataTag.INTERNAL, // Here for completeness, these options are UNDOCUMENTED.
             "This option isn't even a option, and should not be logged.")
-        .put(OptionMetadataTag.IMMUTABLE, "This option cannot be changed in a transition.");
+        .put(
+            OptionMetadataTag.NON_CONFIGURABLE,
+            "This option cannot be changed in a transition or be used in a select() statement.");
     return effectTagDescriptionBuilder.build();
   }
 }

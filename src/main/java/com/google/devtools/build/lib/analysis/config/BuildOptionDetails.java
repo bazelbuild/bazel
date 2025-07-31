@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.common.options.OptionsParser.getOptionDefinitionByName;
+import static java.util.Arrays.stream;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
@@ -183,5 +185,19 @@ public final class BuildOptionDetails {
   public boolean allowsMultipleValues(String optionName) {
     OptionDetails optionDetails = nativeOptionsMap.get(optionName);
     return optionDetails != null && optionDetails.allowsMultiple;
+  }
+
+  public boolean isNonConfigurable(String optionName) {
+    OptionDetails optionDetails = nativeOptionsMap.get(optionName);
+    if (optionDetails == null) {
+      return false;
+    }
+    OptionDefinition optionDefinition =
+        getOptionDefinitionByName(optionDetails.optionsClass, optionName);
+    if (optionDefinition == null) {
+      return false;
+    }
+    return stream(optionDefinition.getOptionMetadataTags())
+        .anyMatch(OptionMetadataTag.NON_CONFIGURABLE::equals);
   }
 }

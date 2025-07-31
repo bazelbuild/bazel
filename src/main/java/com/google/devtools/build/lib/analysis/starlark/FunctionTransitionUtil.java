@@ -271,20 +271,20 @@ public final class FunctionTransitionUtil {
   }
 
   /**
-   * Check if a native option is immutable.
+   * Check if a native option is non-configurable.
    *
-   * @return whether or not the option is immutable
+   * @return whether or not the option is non-configurable
    * @throws VerifyException if the option does not exist
    */
-  private static boolean isNativeOptionImmutable(
+  private static boolean isNativeOptionNonConfigurable(
       ImmutableMap<String, OptionInfo> optionInfoMap, String flag) {
     String optionName = flag.substring(COMMAND_LINE_OPTION_PREFIX.length());
     OptionInfo optionInfo = optionInfoMap.get(optionName);
     if (optionInfo == null) {
       throw new VerifyException(
-          "Cannot check if option " + flag + " is immutable: it does not exist");
+          "Cannot check if option " + flag + " is non-configurable: it does not exist");
     }
-    return optionInfo.hasOptionMetadataTag(OptionMetadataTag.IMMUTABLE);
+    return optionInfo.hasOptionMetadataTag(OptionMetadataTag.NON_CONFIGURABLE);
   }
 
   private static void validateInputOptions(
@@ -331,7 +331,7 @@ public final class FunctionTransitionUtil {
       ImmutableList<String> immutableNativeOptions =
           options.stream()
               .filter(IS_NATIVE_OPTION)
-              .filter(optionName -> isNativeOptionImmutable(optionInfoMap, optionName))
+              .filter(optionName -> isNativeOptionNonConfigurable(optionInfoMap, optionName))
               .collect(toImmutableList());
       if (!immutableNativeOptions.isEmpty()) {
         throw ValidationException.format(

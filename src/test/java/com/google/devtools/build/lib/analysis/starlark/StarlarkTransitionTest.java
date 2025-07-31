@@ -46,12 +46,12 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     public DummyTestOptions() {}
 
     @Option(
-        name = "immutable_option",
+        name = "non_configurable_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "super secret",
-        metadataTags = {OptionMetadataTag.IMMUTABLE})
-    public String immutableOption;
+        defaultValue = "non-configurable",
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+    public String nonConfigurableOption;
   }
 
   /** Test fragment. */
@@ -392,17 +392,17 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testChangingImmutableOptionFails() throws Exception {
+  public void testChangingNonConfigurableOptionFails() throws Exception {
     scratch.file(
         "test/defs.bzl",
         """
         def _transition_impl(settings, attr):
-            return {"//command_line_option:immutable_option": "something_else"}
+            return {"//command_line_option:non_configurable_option": "something_else"}
 
         _transition = transition(
             implementation = _transition_impl,
             inputs = [],
-            outputs = ["//command_line_option:immutable_option"],
+            outputs = ["//command_line_option:non_configurable_option"],
         )
 
         def _impl(ctx):
@@ -424,7 +424,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:arizona");
     assertContainsEvent(
-        "transition outputs [//command_line_option:immutable_option] cannot be changed: they are"
-            + " immutable");
+        "transition outputs [//command_line_option:non_configurable_option] cannot be changed: they"
+            + " are immutable");
   }
 }

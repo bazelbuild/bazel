@@ -75,6 +75,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
         defaultValue = "",
         oldName = "old_option_name")
     public String optionWithOldName;
+
+    @Option(
+        name = "non_configurable_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "non-configurable",
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+    public String nonConfigurableOption;
   }
 
   /** Test fragment. */
@@ -3200,5 +3208,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
       assertThat(getConfiguredTarget("//test:match")).isNull();
       assertContainsEvent(expectedError);
     }
+  }
+
+  @Test
+  public void nonConfigurableOption() throws Exception {
+    checkError(
+        "foo",
+        "non_configurable_option",
+        "select() on 'non_configurable_option' is not allowed.",
+        """
+        config_setting(
+            name = "non_configurable_option",
+            values = {"non_configurable_option": "foo"},
+        )
+        """);
   }
 }

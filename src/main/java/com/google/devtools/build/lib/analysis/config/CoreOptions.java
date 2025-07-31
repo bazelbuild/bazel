@@ -112,7 +112,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = CommaSeparatedOptionSetConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.IMMUTABLE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
       help = "List of flags for which the use in select() is disabled.")
   public ImmutableList<String> disabledSelectOptions;
 

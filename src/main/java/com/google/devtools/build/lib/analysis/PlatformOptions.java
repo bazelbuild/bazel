@@ -149,7 +149,7 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       metadataTags = {
-        OptionMetadataTag.IMMUTABLE,
+        OptionMetadataTag.NON_CONFIGURABLE,
       },
       help =
           "The location of a mapping file that describes which platform to use if none is set or "

@@ -432,7 +432,7 @@ Either remove one of these settings or ensure they match the same value.
 
     ImmutableList<String> disabledSelectOptions =
         ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
-    if (disabledSelectOptions.contains(optionName)) {
+    if (disabledSelectOptions.contains(optionName) || options.isNonConfigurable(optionName)) {
       String message = PARSE_ERROR_MESSAGE + "select() on '%s' is not allowed.";
       if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)) {
         message +=
