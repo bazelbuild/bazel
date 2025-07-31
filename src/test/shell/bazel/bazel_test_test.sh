@@ -475,8 +475,46 @@ EOF
         --runs_per_test=5 \
         --runs_per_test_detects_flakes \
         //:test$i &> $TEST_log || fail "should have succeeded"
-    expect_log "FLAKY"
+    expect_log "FLAKY, failed in 4 out of 5"
   done
+}
+
+function test_runs_per_test_detects_flakes_cancel_concurrent() {
+  # Directory for counters
+  local COUNTER_DIR="${TEST_TMPDIR}/counter_dir"
+  mkdir -p "${COUNTER_DIR}"
+  add_rules_shell "MODULE.bazel"
+
+  # This file holds the number of the next run
+  echo 1 > "${COUNTER_DIR}/counter"
+  cat <<EOF > test.sh
+#!/bin/sh
+i=\$(cat "${COUNTER_DIR}/counter")
+
+echo "Run \$i"
+
+# increment the hidden state
+echo \$((i + 1)) > "${COUNTER_DIR}/counter"
+
+# succeed in the first two runs, fail in the third one
+exit \$((i <= 2 ? 0 : 1))
+}
+EOF
+  chmod +x test.sh
+  cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(name = "test", srcs = [ "test.sh" ])
+EOF
+  bazel test --spawn_strategy=standalone \
+      --jobs=1 \
+      --runs_per_test=5 \
+      --runs_per_test_detects_flakes \
+      --experimental_cancel_concurrent_tests=on_failed \
+      //:test &> $TEST_log || fail "should have succeeded"
+  expect_log_n "^FAIL: //:test" 1
+  expect_log_n "^CANCELLED: //:test" 2
+  expect_log "FLAKY, failed in 1 out of 3"
 }
 
 # Tests that the test.xml is extracted from the sandbox correctly.
