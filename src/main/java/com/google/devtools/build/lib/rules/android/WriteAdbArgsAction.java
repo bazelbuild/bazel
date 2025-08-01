@@ -13,37 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.util.DeterministicWriter;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 
-/**
- * An action that writes a parameter file to {@code incremental_install.py} based on the command
- * line arguments to {@code bazel mobile-install}.
- */
-@Immutable // note that it accesses data non-hermetically during the execution phase
-public final class WriteAdbArgsAction extends AbstractFileWriteAction {
-  private static final String GUID = "16720416-3c01-4b0a-a543-ead7e563a1ca";
-
+/** Legacy action. Only here to keep Options subclass, which is used by `mobile-install`. */
+public final class WriteAdbArgsAction {
   /** Options of the {@code mobile-install} command pertaining to the way {@code adb} is invoked. */
   public static final class Options extends OptionsBase {
     @Option(
@@ -117,74 +95,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     public Void debugApp;
   }
 
-  public WriteAdbArgsAction(ActionOwner owner, Artifact outputFile) {
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputFile);
-  }
-
-  @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    Options options = ctx.getOptions().getOptions(Options.class);
-    final List<String> args = new ArrayList<>(options.adbArgs);
-    final String adb = options.adb;
-    final String device = options.device;
-    final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
-    final StartType start = options.start;
-    final String userHomeDirectory = ctx.getClientEnv().get("HOME");
-
-    return new DeterministicWriter() {
-      @Override
-      public void writeTo(OutputStream out) throws IOException {
-        PrintStream ps = new PrintStream(out, false, "UTF-8");
-
-        if (!adb.isEmpty()) {
-          ps.printf("--adb=%s\n", adb);
-        }
-
-        if (!device.isEmpty()) {
-          args.add("-s");
-          args.add(device);
-        }
-
-        for (String arg : args) {
-          ps.printf("--extra_adb_arg=%s\n", arg);
-        }
-
-        if (!incrementalInstallVerbosity.isEmpty()) {
-          ps.printf("--verbosity=%s\n", incrementalInstallVerbosity);
-        }
-
-        ps.printf("--start=%s\n", start.name().toLowerCase());
-
-        if (userHomeDirectory != null) {
-          ps.printf("--user_home_dir=%s\n", userHomeDirectory);
-        }
-
-        ps.flush();
-      }
-    };
-  }
-
-  @Override
-  public boolean isVolatile() {
-    return true;
-  }
-
-  @Override
-  public boolean executeUnconditionally() {
-    // In theory, we only need to re-execute if the --adb_args command line arg changes, but we
-    // cannot express this. We also can't put the ADB args in the configuration, because that would
-    // mean re-analysis on every change, and then the "build" command would also have this argument,
-    // which is not optimal.
-    return true;
-  }
-
-  @Override
-  protected void computeKey(
-      ActionKeyContext actionKeyContext,
-      @Nullable InputMetadataProvider inputMetadataProvider,
-      Fingerprint fp) {
-    fp.addString(GUID);
-  }
+  private WriteAdbArgsAction() {}
 
   /** Specifies how the app should be started/stopped. */
   public enum StartType {
