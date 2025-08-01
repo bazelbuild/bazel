@@ -71,10 +71,11 @@ import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -108,7 +109,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -138,7 +139,9 @@ import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Random;
 import java.util.SortedMap;
 import java.util.concurrent.CountDownLatch;
@@ -146,6 +149,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.random.RandomGeneratorFactory;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
@@ -215,7 +219,7 @@ public class RemoteExecutionServiceTest {
 
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
 
-    execRoot = fs.getPath("/execroot");
+    execRoot = fs.getPath("/execroot/_main");
     execRoot.createDirectoryAndParents();
 
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
@@ -436,6 +440,264 @@ public class RemoteExecutionServiceTest {
 
     CacheSalt expected = CacheSalt.newBuilder().setMayBeExecutedRemotely(false).build();
     assertThat(remoteAction.getAction().getSalt()).isEqualTo(expected.toByteString());
+  }
+
+  @Test
+  public void buildRemoteAction_goldenTest(@TestParameter({"1", "2", "3"}) int seed)
+      throws Exception {
+    var inputs = new ArrayList<Artifact>();
+
+    var files =
+        ImmutableList.of(
+            "root_file1",
+            "root_file2",
+            "root_file3",
+            "dir/subdir/file1",
+            "dir/subdir/file2",
+            "dir/subdir/file3",
+            "dir/subdir/subdir2/file1",
+            "dir/subdir/subdir2/file2",
+            "dir/subdir/subdir2/file3",
+            "dir/file1",
+            "dir/file2",
+            "dir/file3",
+            // These paths sort differently depending on whether they are sorted as Strings or as
+            // PathFragments.
+            "srcs/system/foo.txt",
+            "srcs/system-root/bar.txt");
+    for (var file : files) {
+      var input = ActionsTestUtil.createArtifact(artifactRoot, file);
+      fakeFileCache.createScratchInput(input, "content of " + file);
+      inputs.add(input);
+    }
+
+    var treeArtifactInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, "dir/subdir/tree_artifact");
+    var treeArtifactBuilder = TreeArtifactValue.newBuilder(treeArtifactInput);
+    for (var file : files) {
+      var treeFileArtifact = TreeFileArtifact.createTreeOutput(treeArtifactInput, file);
+      var digest =
+          fakeFileCache.createScratchInput(treeFileArtifact, "content of tree file " + file);
+      treeArtifactBuilder.putChild(
+          treeFileArtifact,
+          FileArtifactValue.createForNormalFile(
+              digest.getHashBytes().toByteArray(), null, digest.getSizeBytes()));
+    }
+    fakeFileCache.addTreeArtifact(treeArtifactInput, treeArtifactBuilder.build());
+    inputs.add(treeArtifactInput);
+
+    var emptyDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "empty_dir");
+    fakeFileCache.addTreeArtifact(emptyDir, TreeArtifactValue.newBuilder(emptyDir).build());
+    inputs.add(emptyDir);
+
+    // Keep last as it consumes the other inputs.
+    var runfilesTreeRoot = artifactRoot.getExecPath().getRelative("dir/my_tool.runfiles");
+    var runfilesTree =
+        ActionsTestUtil.createRunfilesArtifact(artifactRoot, runfilesTreeRoot.getPathString());
+    fakeFileCache.addRunfilesTree(
+        runfilesTree,
+        createRunfilesTree(runfilesTreeRoot.getPathString(), ImmutableList.copyOf(inputs)));
+    inputs.add(runfilesTree);
+
+    var outputDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "dir/output_dir");
+
+    // Verify that the order of inputs does not affect the result.
+    Collections.shuffle(inputs, RandomGeneratorFactory.getDefault().create(seed));
+    var spawn =
+        new SpawnBuilder("my", "args")
+            .withInputs(inputs.toArray(ActionInput[]::new))
+            .withOutput(outputDir)
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    remoteOptions.remoteDiscardMerkleTrees = false;
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+
+    var emptyDirectory = dir(ImmutableList.of(), ImmutableMap.of());
+    var treeArtifactDirectory =
+        dir(
+            ImmutableList.of(
+                file("root_file1", "content of tree file root_file1"),
+                file("root_file2", "content of tree file root_file2"),
+                file("root_file3", "content of tree file root_file3")),
+            ImmutableMap.of(
+                "dir",
+                dir(
+                    ImmutableList.of(
+                        file("file1", "content of tree file dir/file1"),
+                        file("file2", "content of tree file dir/file2"),
+                        file("file3", "content of tree file dir/file3")),
+                    ImmutableMap.of(
+                        "subdir",
+                        dir(
+                            ImmutableList.of(
+                                file("file1", "content of tree file dir/subdir/file1"),
+                                file("file2", "content of tree file dir/subdir/file2"),
+                                file("file3", "content of tree file dir/subdir/file3")),
+                            ImmutableMap.of(
+                                "subdir2",
+                                dir(
+                                    ImmutableList.of(
+                                        file(
+                                            "file1",
+                                            "content of tree file dir/subdir/subdir2/file1"),
+                                        file(
+                                            "file2",
+                                            "content of tree file dir/subdir/subdir2/file2"),
+                                        file(
+                                            "file3",
+                                            "content of tree file dir/subdir/subdir2/file3")),
+                                    ImmutableMap.of()))))),
+                "srcs",
+                dir(
+                    ImmutableList.of(),
+                    ImmutableMap.of(
+                        "system",
+                        dir(
+                            ImmutableList.of(
+                                file("foo.txt", "content of tree file srcs/system/foo.txt")),
+                            ImmutableMap.of()),
+                        "system-root",
+                        dir(
+                            ImmutableList.of(
+                                file("bar.txt", "content of tree file srcs/system-root/bar.txt")),
+                            ImmutableMap.of())))));
+    var runfilesDirectory =
+        dir(
+            ImmutableList.of(),
+            ImmutableMap.of(
+                "_main",
+                dir(
+                    ImmutableList.of(
+                        file("root_file1", "content of root_file1"),
+                        file("root_file2", "content of root_file2"),
+                        file("root_file3", "content of root_file3")),
+                    ImmutableMap.of(
+                        "dir",
+                        dir(
+                            ImmutableList.of(
+                                file("file1", "content of dir/file1"),
+                                file("file2", "content of dir/file2"),
+                                file("file3", "content of dir/file3")),
+                            ImmutableMap.of(
+                                "subdir",
+                                dir(
+                                    ImmutableList.of(
+                                        file("file1", "content of dir/subdir/file1"),
+                                        file("file2", "content of dir/subdir/file2"),
+                                        file("file3", "content of dir/subdir/file3")),
+                                    ImmutableMap.of(
+                                        "subdir2",
+                                        dir(
+                                            ImmutableList.of(
+                                                file(
+                                                    "file1", "content of dir/subdir/subdir2/file1"),
+                                                file(
+                                                    "file2", "content of dir/subdir/subdir2/file2"),
+                                                file(
+                                                    "file3",
+                                                    "content of dir/subdir/subdir2/file3")),
+                                            ImmutableMap.of()),
+                                        "tree_artifact",
+                                        treeArtifactDirectory)))),
+                        "empty_dir",
+                        emptyDirectory,
+                        "srcs",
+                        dir(
+                            ImmutableList.of(),
+                            ImmutableMap.of(
+                                "system",
+                                dir(
+                                    ImmutableList.of(
+                                        file("foo.txt", "content of srcs/system/foo.txt")),
+                                    ImmutableMap.of()),
+                                "system-root",
+                                dir(
+                                    ImmutableList.of(
+                                        file("bar.txt", "content of srcs/system-root/bar.txt")),
+                                    ImmutableMap.of())))))));
+    var dirDirectory =
+        dir(
+            ImmutableList.of(
+                file("file1", "content of dir/file1"),
+                file("file2", "content of dir/file2"),
+                file("file3", "content of dir/file3")),
+            ImmutableMap.of(
+                "my_tool.runfiles",
+                runfilesDirectory,
+                "output_dir",
+                emptyDirectory,
+                "subdir",
+                dir(
+                    ImmutableList.of(
+                        file("file1", "content of dir/subdir/file1"),
+                        file("file2", "content of dir/subdir/file2"),
+                        file("file3", "content of dir/subdir/file3")),
+                    ImmutableMap.of(
+                        "subdir2",
+                        dir(
+                            ImmutableList.of(
+                                file("file1", "content of dir/subdir/subdir2/file1"),
+                                file("file2", "content of dir/subdir/subdir2/file2"),
+                                file("file3", "content of dir/subdir/subdir2/file3")),
+                            ImmutableMap.of()),
+                        "tree_artifact",
+                        treeArtifactDirectory))));
+    var rootDirectory =
+        dir(
+            ImmutableList.of(),
+            ImmutableMap.of(
+                "outputs",
+                dir(
+                    ImmutableList.of(
+                        file("root_file1", "content of root_file1"),
+                        file("root_file2", "content of root_file2"),
+                        file("root_file3", "content of root_file3")),
+                    ImmutableMap.of(
+                        "dir",
+                        dirDirectory,
+                        "empty_dir",
+                        emptyDirectory,
+                        "srcs",
+                        dir(
+                            ImmutableList.of(),
+                            ImmutableMap.of(
+                                "system",
+                                dir(
+                                    ImmutableList.of(
+                                        file("foo.txt", "content of srcs/system/foo.txt")),
+                                    ImmutableMap.of()),
+                                "system-root",
+                                dir(
+                                    ImmutableList.of(
+                                        file("bar.txt", "content of srcs/system-root/bar.txt")),
+                                    ImmutableMap.of())))))));
+
+    var expectedDigest =
+        DigestUtil.fromString(
+            "79419efe6586ca5048180744d9005896cd67339d6e012a7bec15ed0720e1fec7/82");
+    assertThat(digestUtil.compute(rootDirectory)).isEqualTo(expectedDigest);
+    assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().rootDigest())
+        .isEqualTo(expectedDigest);
+  }
+
+  private FileNode file(String name, String content) {
+    return FileNode.newBuilder()
+        .setName(name)
+        .setDigest(digestUtil.computeAsUtf8(content))
+        .setIsExecutable(true)
+        .build();
+  }
+
+  private Directory dir(ImmutableList<FileNode> files, ImmutableMap<String, Directory> dirs) {
+    var builder = Directory.newBuilder().addAllFiles(files);
+    dirs.forEach(
+        (name, dir) ->
+            builder.addDirectories(
+                DirectoryNode.newBuilder().setName(name).setDigest(digestUtil.compute(dir))));
+    return builder.build();
   }
 
   @Test
@@ -2087,6 +2349,7 @@ public class RemoteExecutionServiceTest {
     Semaphore semaphore = new Semaphore(0);
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
+    remoteOptions.remoteDiscardMerkleTrees = false;
     RemoteExecutionService service = newRemoteExecutionService();
     Spawn spawn =
         newSpawn(
@@ -2207,134 +2470,8 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildMerkleTree_withMemoization_works() throws Exception {
-    // Test that Merkle tree building can be memoized.
-
-    // TODO: Would like to check that NestedSet.getNonLeaves() is only called once per node, but
-    //       cannot Mockito.spy on NestedSet as it is final.
-
-    // arrange
-    // Single node NestedSets are folded, so always add a dummy file everywhere.
-    ActionInput dummyFile = ActionInputHelper.fromPath("file");
-    fakeFileCache.createScratchInput(dummyFile, "file");
-
-    SpecialArtifact tree =
-        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
-    fakeFileCache.addTreeArtifact(tree, TreeArtifactValue.newBuilder(tree).build());
-
-    ActionInput barFile = ActionInputHelper.fromPath("bar/file");
-    NestedSet<ActionInput> nodeBar =
-        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, barFile);
-    fakeFileCache.createScratchInput(barFile, "bar");
-
-    ActionInput foo1File = ActionInputHelper.fromPath("foo1/file");
-    NestedSet<ActionInput> nodeFoo1 =
-        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo1File);
-    fakeFileCache.createScratchInput(foo1File, "foo1");
-
-    ActionInput foo2File = ActionInputHelper.fromPath("foo2/file");
-    NestedSet<ActionInput> nodeFoo2 =
-        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
-    fakeFileCache.createScratchInput(foo2File, "foo2");
-
-    ActionInput runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(artifactRoot, "runfiles");
-
-    NestedSet<ActionInput> nodeRoot1 =
-        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
-            .add(dummyFile)
-            .add(runfilesArtifact)
-            .add(tree)
-            .addTransitive(nodeBar)
-            .addTransitive(nodeFoo1)
-            .build();
-    NestedSet<ActionInput> nodeRoot2 =
-        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
-            .add(dummyFile)
-            .add(runfilesArtifact)
-            .add(tree)
-            .addTransitive(nodeBar)
-            .addTransitive(nodeFoo2)
-            .build();
-
-    Artifact toolDat = ActionsTestUtil.createArtifact(artifactRoot, "tool.dat");
-    fakeFileCache.createScratchInput(toolDat, "tool.dat");
-
-    RunfilesTree runfilesTree =
-        createRunfilesTree("tools/tool.runfiles", ImmutableList.of(toolDat));
-
-    fakeFileCache.addRunfilesTree(runfilesArtifact, runfilesTree);
-
-    Spawn spawn1 =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar", "//dummy:label"),
-            /* arguments= */ ImmutableList.of(),
-            /* environment= */ ImmutableMap.of(),
-            /* executionInfo= */ ImmutableMap.of(),
-            /* inputs= */ nodeRoot1,
-            /* outputs= */ ImmutableSet.of(),
-            ResourceSet.ZERO);
-
-    Spawn spawn2 =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar", "//dummy:label"),
-            /* arguments= */ ImmutableList.of(),
-            /* environment= */ ImmutableMap.of(),
-            /* executionInfo= */ ImmutableMap.of(),
-            /* inputs= */ nodeRoot2,
-            /* outputs= */ ImmutableSet.of(),
-            ResourceSet.ZERO);
-
-    FakeSpawnExecutionContext context1 = newSpawnExecutionContext(spawn1);
-    FakeSpawnExecutionContext context2 = newSpawnExecutionContext(spawn2);
-    remoteOptions.remoteMerkleTreeCache = true;
-    remoteOptions.remoteMerkleTreeCacheSize = 0;
-    RemoteExecutionService service = spy(newRemoteExecutionService(remoteOptions));
-
-    // act first time
-    service.buildRemoteAction(spawn1, context1);
-
-    // assert first time
-    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
-    assertThat(service.getMerkleTreeCache().asMap().keySet())
-        .containsExactly(
-            ImmutableList.of(
-                PathFragment.create("tools/tool.runfiles"),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()),
-            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()));
-
-    // act second time
-    service.buildRemoteAction(spawn2, context2);
-
-    // assert second time
-    verify(service, times(5 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
-    assertThat(service.getMerkleTreeCache().asMap().keySet())
-        .containsExactly(
-            ImmutableList.of(
-                PathFragment.create("tools/tool.runfiles"),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()),
-            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeRoot2.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeFoo2.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()));
-  }
-
-  @Test
-  public void buildRemoteActionForRemotePersistentWorkers(@TestParameter boolean enablePathMapping)
+  public void buildRemoteActionForRemotePersistentWorkers(
+      @TestParameter boolean enablePathMapping, @TestParameter boolean siblingRepositoryLayout)
       throws Exception {
     var input = ActionsTestUtil.createArtifact(artifactRoot, "input");
     fakeFileCache.createScratchInput(input, "value");
@@ -2360,6 +2497,10 @@ public class RemoteExecutionServiceTest {
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     remoteOptions.markToolInputs = true;
     remoteOptions.remoteDiscardMerkleTrees = false;
+    remotePathResolver =
+        siblingRepositoryLayout
+            ? new SiblingRepositoryLayoutResolver(execRoot)
+            : new DefaultRemotePathResolver(execRoot);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that worker files are properly marked in the merkle tree.
@@ -2420,9 +2561,21 @@ public class RemoteExecutionServiceTest {
                     .build())
             .build();
 
+    if (siblingRepositoryLayout) {
+      rootDirectory =
+          Directory.newBuilder()
+              .addDirectories(
+                  DirectoryNode.newBuilder()
+                      .setName("_main")
+                      .setDigest(digestUtil.compute(rootDirectory))
+                      .build())
+              .build();
+    }
+
     var remoteAction1 = service.buildRemoteAction(spawn, context);
-    var merkleTree = remoteAction1.getMerkleTree();
-    assertThat(merkleTree.getRootProto()).isEqualTo(rootDirectory);
+    var merkleTree = (MerkleTree.WithBlobs) remoteAction1.getMerkleTree();
+    assertThat(Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest())))
+        .isEqualTo(rootDirectory);
     assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(1);
     assertThat(remoteAction1.getAction().getPlatform().getProperties(0).getName())
         .isEqualTo("persistentWorkerKey");
@@ -2476,9 +2629,11 @@ public class RemoteExecutionServiceTest {
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
-    MerkleTree merkleTree = remoteAction.getMerkleTree();
-    Directory actualRootDir =
-        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+    var merkleTree = (MerkleTree.WithBlobs) remoteAction.getMerkleTree();
+    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
+    var actualRootDir =
+        Directory.parseFrom(
+            (byte[]) merkleTree.blobs().get(rootProto.getDirectories(0).getDigest()));
 
     Directory expectedRootDir =
         Directory.newBuilder()
@@ -2506,10 +2661,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteActionWithPathMapping(@TestParameter boolean remoteMerkleTreeCache)
-      throws Exception {
-    remoteOptions.remoteMerkleTreeCache = remoteMerkleTreeCache;
-
+  public void buildRemoteActionWithPathMapping() throws Exception {
     var mappedInput = ActionsTestUtil.createArtifact(artifactRoot, "bin/config/input1");
     fakeFileCache.createScratchInput(mappedInput, "value1");
     var unmappedInput = ActionsTestUtil.createArtifact(artifactRoot, "bin/input2");
@@ -2543,12 +2695,15 @@ public class RemoteExecutionServiceTest {
             "outputs/bin/dir/output1", "outputs/bin/other_dir/output2", "outputs/bin/output_dir");
 
     // Check that the Merkle tree nodes are mapped correctly, including the output directory.
-    var merkleTree = remoteAction.getMerkleTree();
+    var merkleTree = (MerkleTree.WithBlobs) remoteAction.getMerkleTree();
+    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
     var outputsDirectory =
-        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+        Directory.parseFrom(
+            (byte[]) merkleTree.blobs().get(rootProto.getDirectories(0).getDigest()));
     assertThat(outputsDirectory.getDirectoriesCount()).isEqualTo(1);
     var binDirectory =
-        merkleTree.getDirectoryByDigest(outputsDirectory.getDirectories(0).getDigest());
+        Directory.parseFrom(
+            (byte[]) merkleTree.blobs().get(outputsDirectory.getDirectories(0).getDigest()));
     assertThat(
             binDirectory.getFilesList().stream().map(FileNode::getName).collect(toImmutableList()))
         .containsExactly("input1", "input2");
