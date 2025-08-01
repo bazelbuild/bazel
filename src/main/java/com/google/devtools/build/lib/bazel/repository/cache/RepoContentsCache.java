@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -161,9 +160,19 @@ public final class RepoContentsCache {
     Preconditions.checkState(path != null);
 
     Path entryDir = path.getRelative(predeclaredInputHash);
-    String counter = getNextCounterInDir(entryDir);
-    Path cacheRecordedInputsFile = entryDir.getChild(counter + RECORDED_INPUTS_SUFFIX);
-    Path cacheRepoDir = entryDir.getChild(counter);
+    // The entry name needs to be unique across Bazel instances so that the repo cache supports
+    // concurrent operations for the same repo definition. It also has to be unique over time even
+    // when the repo contents cache directory is deleted since otherwise the following can happen:
+    // - Repo foo is fetched and moved into the repo contents cache under <cache>/<hash>/<name>.
+    // - The entire <cache> directory is deleted while the Bazel server is still alive.
+    // - On the next invocation, Skyframe FS diffing notices that <cache>/<hash>/<name> is missing
+    //   and marks it as non-existent.
+    // - Repo foo is refetched and moved into the repo contents cache under <cache>/<hash>/<name>.
+    // - FileStateFunction for that path incorrectly reuses the information that this path doesn't
+    //   exist.
+    String uniqueEntryName = UUID.randomUUID().toString();
+    Path cacheRecordedInputsFile = entryDir.getChild(uniqueEntryName + RECORDED_INPUTS_SUFFIX);
+    Path cacheRepoDir = entryDir.getChild(uniqueEntryName);
 
     cacheRepoDir.deleteTree();
     cacheRepoDir.getParentDirectory().createDirectoryAndParents();
@@ -185,28 +194,7 @@ public final class RepoContentsCache {
     return cacheRepoDir;
   }
 
-  private static String getNextCounterInDir(Path entryDir)
-      throws IOException, InterruptedException {
-    Path counterFile = entryDir.getRelative("counter");
-    // This use of FileSystemLock.get is safe since the predeclared input hash is part of entryDir's
-    // path and in particular includes the canonical repository name. This ensures that the same
-    // lock file will not be acquired concurrently by multiple threads, which isn't supported.
-    try (var lock = FileSystemLock.get(entryDir.getRelative("lock"), LockMode.EXCLUSIVE)) {
-      int c = 0;
-      if (counterFile.exists()) {
-        try {
-          c = Integer.parseInt(FileSystemUtils.readContent(counterFile, StandardCharsets.UTF_8));
-        } catch (NumberFormatException e) {
-          // ignored
-        }
-      }
-      String counter = Integer.toString(c + 1);
-      FileSystemUtils.writeContent(counterFile, StandardCharsets.UTF_8, counter);
-      return counter;
-    }
-  }
-
-  public void acquireSharedLock() throws IOException, InterruptedException {
+  public void acquireSharedLock() throws IOException {
     Preconditions.checkState(path != null);
     Preconditions.checkState(sharedLock == null, "this process already has the shared lock");
     sharedLock = FileSystemLock.get(path.getRelative(LOCK_PATH), LockMode.SHARED);
