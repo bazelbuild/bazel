@@ -80,6 +80,10 @@ public class TypeCheckTest {
         .isEqualTo(
             "in call to f(), parameter 'a' got value of type 'list[list[int|bool]]', "
                 + "want 'list[list[int]]'");
+    // invariance
+    assertExecThrows(EvalException.class, "def f(a: list[None|int]): pass", "f([1])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[int]', want 'list[None|int]'");
   }
 
   @Test
@@ -121,6 +125,23 @@ public class TypeCheckTest {
     ev.exec("def f(a: set[int]): pass", "f(set())");
     assertExecThrows(EvalException.class, "def f(a: set[int]): pass", "f(set([True]))")
         .isEqualTo("in call to f(), parameter 'a' got value of type 'set[bool]', want 'set[int]'");
+  }
+
+  @Test
+  public void runtimeTypecheck_tuple() throws Exception {
+    ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
+    ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
+    assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'tuple[int, int]', want 'tuple[int,"
+                + " str]'");
+    assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1,))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'tuple[int]', want 'tuple[int,"
+                + " str]'");
+    ev.exec("def f(a: tuple[int, tuple[str, bool]]): pass", "f((1, ('a', True)))");
+    // Covariance
+    ev.exec("def f(a: tuple[None|int]): pass", "f((1,))");
   }
 
   @Test
@@ -186,7 +207,7 @@ public class TypeCheckTest {
 
     assertThat(builder.build())
         .containsAtLeast(
-            "False: bool", //
+            "False: bool",
             "True: bool",
             "None: None",
             "hash: (str, /) -> int",

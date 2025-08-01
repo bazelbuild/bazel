@@ -62,7 +62,8 @@ public final class Types {
         .put("str", STR)
         .put("list", wrapTypeConstructor("list", Types::list))
         .put("dict", wrapTypeConstructor("dict", Types::dict))
-        .put("set", wrapTypeConstructor("set", Types::set));
+        .put("set", wrapTypeConstructor("set", Types::set))
+        .put("tuple", wrapTupleConstructorProxy());
     return env.buildOrThrow();
   }
 
@@ -420,6 +421,23 @@ public final class Types {
     }
   }
 
+  public static TupleType tuple(ImmutableList<StarlarkType> elementTypes) {
+    return new AutoValue_Types_TupleType(elementTypes);
+  }
+
+  /** Tuple type of a fixed length. */
+  @AutoValue
+  public abstract static class TupleType extends StarlarkType {
+    public abstract ImmutableList<StarlarkType> getElementTypes();
+
+    @Override
+    public final String toString() {
+      return "tuple["
+          + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
+          + "]";
+    }
+  }
+
   /**
    * A proxy for a type constructor, e.g. {@code list}.
    *
@@ -465,6 +483,23 @@ public final class Types {
                 "in application to %s, got '%s', expected a type", name, argsTuple.get(1)));
       }
       return constructor.apply(keyType, valueType);
+    };
+  }
+
+  private static final TypeConstructorProxy wrapTupleConstructorProxy() {
+    // This is a function instead of a constant, so that the order of evaluation doesn't depend on
+    // the position in the class.
+    return argsTuple -> {
+      ImmutableList.Builder<StarlarkType> elementTypes =
+          ImmutableList.builderWithExpectedSize(argsTuple.size());
+      for (Object arg : argsTuple) {
+        if (!(arg instanceof StarlarkType type)) {
+          throw new IllegalArgumentException(
+              String.format("in application to tuple, got '%s', expected a type", arg));
+        }
+        elementTypes.add(type);
+      }
+      return tuple(elementTypes.build());
     };
   }
 }

@@ -24,10 +24,24 @@ import net.starlark.java.types.Types;
 import net.starlark.java.types.Types.DictType;
 import net.starlark.java.types.Types.ListType;
 import net.starlark.java.types.Types.SetType;
+import net.starlark.java.types.Types.TupleType;
 import net.starlark.java.types.Types.UnionType;
 
 /** Type checker for Starlark types. */
 public final class TypeChecker {
+
+  private static boolean isTupleSubtypeOf(TupleType tuple1, TupleType tuple2) {
+    if (tuple1.getElementTypes().size() != tuple2.getElementTypes().size()) {
+      return false;
+    }
+    // Tuples are covariant
+    for (int i = 0; i < tuple1.getElementTypes().size(); ++i) {
+      if (!isSubtypeOf(tuple1.getElementTypes().get(i), tuple2.getElementTypes().get(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   private static boolean isUnionSubtypeOf(
       ImmutableSet<StarlarkType> subtypes1, ImmutableSet<StarlarkType> subtypes2) {
@@ -75,6 +89,9 @@ public final class TypeChecker {
 
     // Mutable collections are invariant (which is necessary while the interface supports both
     // reading and modification). This matches Python's behaviour.
+    if (type1 instanceof TupleType tuple1 && type2 instanceof TupleType tuple2) {
+      return isTupleSubtypeOf(tuple1, tuple2);
+    }
     if (type1 instanceof ListType list1 && type2 instanceof ListType list2) {
       return isEqual(list1.getElementType(), list2.getElementType());
     }
