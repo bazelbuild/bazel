@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
@@ -700,26 +699,6 @@ public class ExecutionTool {
   }
 
   /**
-   * Obtains the {@link BuildConfigurationValue} for a given {@link BuildOptions} for the purpose of
-   * symlink creation.
-   *
-   * <p>In the event of a {@link InvalidConfigurationException}, a warning is emitted and null is
-   * returned.
-   */
-  @Nullable
-  private static BuildConfigurationValue getConfiguration(
-      SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
-    try {
-      return executor.getConfiguration(reporter, options, /* keepGoing= */ false);
-    } catch (InvalidConfigurationException e) {
-      reporter.handle(
-          Event.warn(
-              "Couldn't get configuration for convenience symlink creation: " + e.getMessage()));
-      return null;
-    }
-  }
-
-  /**
    * Handles what action to perform on the convenience symlinks. If the mode is {@link
    * ConvenienceSymlinksMode#IGNORE}, then skip any creating or cleaning of convenience symlinks.
    * Otherwise, manage the convenience symlinks and then post a {@link
@@ -817,7 +796,6 @@ public class ExecutionTool {
           env.getDirectories(),
           getReporter(),
           targetConfigs,
-          options -> getConfiguration(executor, reporter, options),
           productName);
     }
   }

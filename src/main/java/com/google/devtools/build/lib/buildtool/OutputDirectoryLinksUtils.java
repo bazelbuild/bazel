@@ -22,7 +22,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink.Action;
@@ -38,7 +37,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 
 /** Static utilities for managing output directory symlinks. */
 public final class OutputDirectoryLinksUtils {
@@ -99,7 +97,6 @@ public final class OutputDirectoryLinksUtils {
       BlazeDirectories directories,
       EventHandler eventHandler,
       Set<BuildConfigurationValue> targetConfigs,
-      Function<BuildOptions, BuildConfigurationValue> configGetter,
       String productName) {
     Path execRoot = directories.getExecRoot(workspaceName);
     Path outputPath = directories.getOutputPath(workspaceName);
@@ -130,12 +127,7 @@ public final class OutputDirectoryLinksUtils {
       } else {
         Set<Path> candidatePaths =
             symlink.getLinkPaths(
-                buildRequestOptions,
-                targetConfigs,
-                configGetter,
-                repositoryName,
-                outputPath,
-                execRoot);
+                buildRequestOptions, targetConfigs, repositoryName, outputPath, execRoot);
         if (candidatePaths.size() == 1) {
           createLink(
               workspace,
@@ -325,7 +317,6 @@ public final class OutputDirectoryLinksUtils {
             public ImmutableSet<Path> getLinkPaths(
                 BuildRequestOptions buildRequestOptions,
                 Set<BuildConfigurationValue> targetConfigs,
-                Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {
@@ -333,12 +324,7 @@ public final class OutputDirectoryLinksUtils {
                 return ImmutableSet.of();
               }
               return super.getLinkPaths(
-                  buildRequestOptions,
-                  targetConfigs,
-                  configGetter,
-                  repositoryName,
-                  outputPath,
-                  execRoot);
+                  buildRequestOptions, targetConfigs, repositoryName, outputPath, execRoot);
             }
           },
           // output directory (bazel-out)
@@ -352,7 +338,6 @@ public final class OutputDirectoryLinksUtils {
             public ImmutableSet<Path> getLinkPaths(
                 BuildRequestOptions buildRequestOptions,
                 Set<BuildConfigurationValue> targetConfigs,
-                Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {
@@ -370,7 +355,6 @@ public final class OutputDirectoryLinksUtils {
             public ImmutableSet<Path> getLinkPaths(
                 BuildRequestOptions buildRequestOptions,
                 Set<BuildConfigurationValue> targetConfigs,
-                Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {

@@ -19,12 +19,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
-import java.util.function.Function;
 
 /** Base class for symlinks to output roots. Used only by {@link OutputDirectoryLinksUtils}. */
 class ConfigSymlink implements SymlinkDefinition {
@@ -50,7 +48,6 @@ class ConfigSymlink implements SymlinkDefinition {
   public ImmutableSet<Path> getLinkPaths(
       BuildRequestOptions buildRequestOptions,
       Set<BuildConfigurationValue> targetConfigs,
-      Function<BuildOptions, BuildConfigurationValue> configGetter,
       RepositoryName repositoryName,
       Path outputPath,
       Path execRoot) {
