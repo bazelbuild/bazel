@@ -165,4 +165,19 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
     return Iterables.transform(
         skyKeys, key -> new DepAndRdepAtDepth(new DepAndRdep(/*dep=*/ null, key), 0));
   }
+
+  @Override
+  protected Iterable<Target> outputKeysToOutputValues(Iterable<SkyKey> targetKeys)
+      throws InterruptedException, QueryException {
+    // Can't use Iterables.filter() with the uniquifier here because the filter function has
+    // side-effects and the resulting Iterable will be consumed more than once.
+    ImmutableList.Builder<SkyKey> notYetOutputKeysBuilder =
+        ImmutableList.builderWithExpectedSize(Iterables.size(targetKeys));
+    for (SkyKey targetKey : targetKeys) {
+      if (validRdepMinDepthUniquifier.uniqueForOutput(targetKey)) {
+        notYetOutputKeysBuilder.add(targetKey);
+      }
+    }
+    return super.outputKeysToOutputValues(notYetOutputKeysBuilder.build());
+  }
 }

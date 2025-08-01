@@ -54,6 +54,16 @@ public interface MinDepthUniquifier<T> {
   boolean uniqueAtDepthLessThanOrEqualTo(T newElement, int depth) throws QueryException;
 
   /**
+   * Returns whether {@code element} hasn't been output before by the depth-bounded visitation.
+   *
+   * <p>The {@code uniqueAtDepth} methods are used to determine whether to <em>visit</em> an element
+   * again given the reported depth, and may return {@code true} multiple times for the same element
+   * when visited at lower depths. These methods necessarily cannot be used to uniquely determine
+   * whether a target has already been produced as query output.
+   */
+  boolean uniqueForOutput(T element);
+
+  /**
    * Batch version of {@link #uniqueAtDepthLessThanOrEqualTo(Object, int)}.
    *
    * <p>The same benign check-then-act race applies here too.
