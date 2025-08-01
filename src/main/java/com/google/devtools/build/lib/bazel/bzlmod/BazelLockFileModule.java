@@ -120,6 +120,8 @@ public class BazelLockFileModule extends BlazeModule {
     // Presize conservatively to avoid blocking for resizing.
     Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
         new ConcurrentHashMap<>(maxNumExtensions);
+    Map<ModuleExtensionId, Facts> combinedFacts = new ConcurrentHashMap<>(maxNumExtensions);
+    combinedFacts.putAll(oldLockfile.getFacts());
     executor
         .getEvaluator()
         .getInMemoryGraph()
@@ -133,6 +135,7 @@ public class BazelLockFileModule extends BlazeModule {
                   // entry.
                   && !key.argument().isInnate()) {
                 newExtensionInfos.put(key.argument(), value.lockFileInfo().get());
+                combinedFacts.put(key.argument(), value.facts());
               }
             });
 
@@ -155,6 +158,15 @@ public class BazelLockFileModule extends BlazeModule {
                           ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
                       .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
                       .setModuleExtensions(notReproducibleExtensionInfos)
+                      .setFacts(
+                          ImmutableSortedMap.copyOf(
+                              Maps.filterEntries(
+                                  combinedFacts,
+                                  entry ->
+                                      depGraphValue
+                                              .getExtensionUsagesTable()
+                                              .containsRow(entry.getKey())
+                                          && !entry.getValue().equals(Facts.EMPTY))))
                       .build();
 
               // Write the new values to the files, but only if needed. This is not just a
