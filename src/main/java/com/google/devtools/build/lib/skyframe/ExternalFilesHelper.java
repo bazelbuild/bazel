@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -208,10 +207,6 @@ public class ExternalFilesHelper {
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
-    return getFileTypeAndRepository(rootedPath).getFirst();
-  }
-
-  private Pair<FileType, RepositoryName> getFileTypeAndRepository(RootedPath rootedPath) {
     FileType fileType = detectFileType(rootedPath);
     if (fileType == FileType.EXTERNAL_OTHER) {
       if (externalOtherFilesSeen.size() >= MAX_EXTERNAL_FILES_TO_TRACK) {
@@ -226,7 +221,7 @@ public class ExternalFilesHelper {
     if (FileType.OUTPUT == fileType) {
       anyOutputFilesSeen = true;
     }
-    return Pair.of(fileType, null);
+    return fileType;
   }
 
   /**
@@ -267,9 +262,7 @@ public class ExternalFilesHelper {
   @ThreadSafe
   FileType maybeHandleExternalFile(RootedPath rootedPath, SkyFunction.Environment env)
       throws NonexistentImmutableExternalFileException, IOException, InterruptedException {
-    Pair<FileType, RepositoryName> pair = getFileTypeAndRepository(rootedPath);
-
-    FileType fileType = Preconditions.checkNotNull(pair.getFirst());
+    FileType fileType = Preconditions.checkNotNull(getAndNoteFileType(rootedPath));
     switch (fileType) {
       case BUNDLED:
       case INTERNAL:
