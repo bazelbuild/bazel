@@ -15,13 +15,17 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparingLong;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -214,7 +219,11 @@ public final class RepoContentsCache {
 
   /**
    * Creates a garbage collection {@link IdleTask} that deletes cached repos who are last accessed
-   * more than {@code maxAge} ago, with an idle delay of {@code idleDelay}.
+   * more than {@code maxAge} ago as well as duplicated repos, with an idle delay of {@code
+   * idleDelay}.
+   *
+   * @param maxAge the maximum age of cached repos to keep in the cache. If zero, no repo will be
+   *     garbage collected due to age.
    */
   public IdleTask createGcIdleTask(Duration maxAge, Duration idleDelay) {
     Preconditions.checkState(path != null);
@@ -250,23 +259,46 @@ public final class RepoContentsCache {
 
   private void runGc(Duration maxAge) throws InterruptedException, IOException {
     path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
-    Instant cutoff = Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
+    Instant cutoff =
+        maxAge.isZero()
+            ? Instant.MIN
+            : Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
     Path trashDir = ensureTrashDir();
+    HashFunction sha256 = DigestHashFunction.SHA256.getHashFunction();
 
     for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
       if (dirent.getType() != Dirent.Type.DIRECTORY || dirent.getName().equals(TRASH_PATH)) {
         continue;
       }
-      for (Path recordedInputsFile : path.getChild(dirent.getName()).getDirectoryEntries()) {
-        if (!recordedInputsFile.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX)) {
-          continue;
-        }
+      // Sort all recorded input files by descending mtime, so that deduplication keeps around the
+      // most recent entry.
+      var recordedInputsFiles =
+          path.getChild(dirent.getName()).getDirectoryEntries().stream()
+              .filter(file -> file.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
+              .sorted(
+                  comparingLong(
+                          (Path path) -> {
+                            try {
+                              return path.getLastModifiedTime();
+                            } catch (IOException e) {
+                              // If we can't read the mtime from the entry, it's broken and treated
+                              // as outdated.
+                              return 0;
+                            }
+                          })
+                      .reversed())
+              .collect(toImmutableList());
+      var seen = new HashSet<HashCode>();
+      for (Path recordedInputsFile : recordedInputsFiles) {
         if (Thread.interrupted()) {
           throw new InterruptedException();
         }
 
-        if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)) {
-          // Sorry buddy, you're out.
+        // In addition to deleting old entries, also remove identical entries. These may be created
+        // when multiple Bazel servers fetch the same repo at the same time. The servers that have
+        // their referenced entry deleted will roll over to the next entry on the next build.
+        if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)
+            || !seen.add(sha256.hashBytes(FileSystemUtils.readContent(recordedInputsFile)))) {
           recordedInputsFile.delete();
           var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
           // Use a UUID to avoid clashes.
