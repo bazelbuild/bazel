@@ -72,7 +72,6 @@ public class GcovParser {
           malformedInput = true;
         }
       }
-      bufferedReader.close();
     }
     endSourceFile();
     if (malformedInput) {
