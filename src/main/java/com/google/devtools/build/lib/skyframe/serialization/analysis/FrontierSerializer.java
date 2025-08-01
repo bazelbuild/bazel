@@ -89,7 +89,7 @@ public final class FrontierSerializer {
       EventBus eventBus,
       boolean keepStateAfterBuild)
       throws InterruptedException {
-    var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
+    var stopwatch = Stopwatch.createStarted();
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
     ImmutableMap<SkyKey, SelectionMarking> selection =
@@ -98,6 +98,7 @@ public final class FrontierSerializer {
     reporter.handle(
         Event.info(
             String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
+    stopwatch.reset().start();
 
     if (dependenciesProvider.mode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
       reporter.handle(
@@ -147,7 +148,7 @@ public final class FrontierSerializer {
         // SelectedEntrySerializer.
         // - Delete entire nodes not in selection and DTC, because they are never traversed in
         // SelectedEntrySerializer.
-        stopwatch.stopwatch.reset().start();
+        stopwatch.reset().start();
         long rdepsDeleted = deleteAllRdeps(graph); // saves about 8% RAM b/418730298#comment26
         reporter.handle(
             Event.info(
@@ -156,6 +157,7 @@ public final class FrontierSerializer {
       }
     }
 
+    stopwatch.reset().start();
     ListenableFuture<Void> writeStatus =
         SelectedEntrySerializer.uploadSelection(
             graph,
@@ -186,6 +188,7 @@ public final class FrontierSerializer {
                   stats.entriesWritten(),
                   stats.setBatches(),
                   stopwatch)));
+      stopwatch.reset().start();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       String message = cause.getMessage();
@@ -410,16 +413,6 @@ public final class FrontierSerializer {
                 selection.putIfAbsent(depKey, FRONTIER_CANDIDATE);
               }
             });
-  }
-
-  /** Stopwatch that resets upon reporting the time via {@link #toString}. */
-  private record ResettingStopwatch(Stopwatch stopwatch) {
-    @Override
-    public String toString() {
-      String text = stopwatch.toString();
-      stopwatch.reset().start();
-      return text;
-    }
   }
 
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {
