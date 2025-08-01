@@ -61,7 +61,8 @@ public final class Types {
         .put("float", FLOAT)
         .put("str", STR)
         .put("list", wrapTypeConstructor("list", Types::list))
-        .put("dict", wrapTypeConstructor("dict", Types::dict));
+        .put("dict", wrapTypeConstructor("dict", Types::dict))
+        .put("set", wrapTypeConstructor("set", Types::set));
     return env.buildOrThrow();
   }
 
@@ -401,6 +402,21 @@ public final class Types {
     @Override
     public final String toString() {
       return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    }
+  }
+
+  public static SetType set(StarlarkType elementType) {
+    return new AutoValue_Types_SetType(elementType);
+  }
+
+  /** Set type */
+  @AutoValue
+  public abstract static class SetType extends StarlarkType {
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public final String toString() {
+      return "set[" + getElementType() + "]";
     }
   }
 

@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -30,13 +31,15 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /** A finite, mutable set of Starlark values. */
 @StarlarkBuiltin(
     name = "set",
     category = "core",
     doc =
-        """
+"""
 The built-in set type. A set is a mutable, iterable collection of unique values &ndash; the set's
 <em>elements</em>. The <a href="../globals/all#type">type name</a> of a set is <code>"set"</code>.
 
@@ -382,7 +385,7 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   @StarlarkMethod(
       name = "issubset",
       doc =
-          """
+"""
 Returns true of this set is a subset of another.
 
 <p>Note that a set is always considered to be a subset of itself.
@@ -404,7 +407,7 @@ set([1, 2]).issubset([2, 3])     # False
   @StarlarkMethod(
       name = "issuperset",
       doc =
-          """
+"""
 Returns true of this set is a superset of another.
 
 <p>Note that a set is always considered to be a superset of itself.
@@ -426,7 +429,7 @@ set([1, 2, 3]).issuperset([2, 3, 4])  # False
   @StarlarkMethod(
       name = "isdisjoint",
       doc =
-          """
+"""
 Returns true if this set has no elements in common with another.
 
 <p>For example,
@@ -450,7 +453,7 @@ set([1, 2]).isdisjoint([2, 3])  # False
   @StarlarkMethod(
       name = "update",
       doc =
-          """
+"""
 Adds the elements found in others to this set.
 
 <p>For example,
@@ -482,7 +485,7 @@ unchanged.
   @StarlarkMethod(
       name = "add",
       doc =
-          """
+"""
 Adds an element to the set.
 
 <p>It is permissible to <code>add</code> a value already present in the set; this leaves the set
@@ -501,7 +504,7 @@ the <code>|=</code> augmented assignment operation.
   @StarlarkMethod(
       name = "remove",
       doc =
-          """
+"""
 Removes an element, which must be present in the set, from the set.
 
 <p><code>remove</code> fails if the element was not present in the set. If you don't want to fail on
@@ -526,7 +529,7 @@ assignment operation.
   @StarlarkMethod(
       name = "discard",
       doc =
-          """
+"""
 Removes an element from the set if it is present.
 
 <p>It is permissible to <code>discard</code> a value not present in the set; this leaves the set
@@ -552,7 +555,7 @@ s.discard("y")  # None; s == set(["x"])
   @StarlarkMethod(
       name = "pop",
       doc =
-          """
+"""
 Removes and returns the first element of the set (in iteration order, which is the order in which
 elements were first added to the set).
 
@@ -586,7 +589,7 @@ s.pop()  # error: empty set
   @StarlarkMethod(
       name = "union",
       doc =
-          """
+"""
 Returns a new mutable set containing the union of this set with others.
 
 <p>If <code>s</code> and <code>t</code> are sets, <code>s.union(t)</code> is equivalent to
@@ -616,7 +619,7 @@ set([1, 2]).union([2, 3], {3: "a", 4: "b"})  # set([1, 2, 3, 4])
   @StarlarkMethod(
       name = "intersection",
       doc =
-          """
+"""
 Returns a new mutable set containing the intersection of this set with others.
 
 <p>If <code>s</code> and <code>t</code> are sets, <code>s.intersection(t)</code> is equivalent to
@@ -646,7 +649,7 @@ set([1, 2, 3]).intersection([0, 1], [1, 2])  # set([1])
   @StarlarkMethod(
       name = "intersection_update",
       doc =
-          """
+"""
 Removes any elements not found in all others from this set.
 
 <p>If <code>s</code> and <code>t</code> are sets, <code>s.intersection_update(t)</code> is
@@ -676,7 +679,7 @@ s.intersection_update([0, 1], [1, 2])  # None; s is set([1])
   @StarlarkMethod(
       name = "difference",
       doc =
-          """
+"""
 Returns a new mutable set containing the difference of this set with others.
 
 <p>If <code>s</code> and <code>t</code> are sets, <code>s.difference(t)</code> is equivalent to
@@ -706,7 +709,7 @@ set([1, 2, 3]).difference([0, 1], [3, 4])  # set([2])
   @StarlarkMethod(
       name = "difference_update",
       doc =
-          """
+"""
 Removes any elements found in any others from this set.
 
 <p>If <code>s</code> and <code>t</code> are sets, <code>s.difference_update(t)</code> is equivalent
@@ -735,7 +738,7 @@ s.difference_update([0, 1], [4, 5])  # None; s is set([3])
   @StarlarkMethod(
       name = "symmetric_difference",
       doc =
-          """
+"""
 Returns a new mutable set containing the symmetric difference of this set with another set,
 sequence, or dict.
 
@@ -773,7 +776,7 @@ set([1, 2]).symmetric_difference([2, 3])  # set([1, 3])
   @StarlarkMethod(
       name = "symmetric_difference_update",
       doc =
-          """
+"""
 Returns a new mutable set containing the symmetric difference of this set with another set,
 sequence, or dict.
 
@@ -803,6 +806,14 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
         contents.add(castElement);
       }
     }
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    // TODO(ilist@): store the type for non-homogeneous sets
+    return isEmpty()
+        ? Types.set(Types.ANY)
+        : Types.set(Types.union(stream().map(TypeChecker::type).collect(toImmutableSet())));
   }
 
   /**

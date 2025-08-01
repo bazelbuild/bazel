@@ -116,6 +116,14 @@ public class TypeCheckTest {
   }
 
   @Test
+  public void runtimeTypecheck_set() throws Exception {
+    ev.exec("def f(a: set[int]): pass", "f(set([1, 2]))");
+    ev.exec("def f(a: set[int]): pass", "f(set())");
+    assertExecThrows(EvalException.class, "def f(a: set[int]): pass", "f(set([True]))")
+        .isEqualTo("in call to f(), parameter 'a' got value of type 'set[bool]', want 'set[int]'");
+  }
+
+  @Test
   public void union_edgeCaseSyntax() throws Exception {
     ev.exec("def f(a: None|None): pass", "f(None)");
     ev.exec("def f(a: None|bool|bool): pass", "f(None)");

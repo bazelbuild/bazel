@@ -23,6 +23,7 @@ import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 import net.starlark.java.types.Types.DictType;
 import net.starlark.java.types.Types.ListType;
+import net.starlark.java.types.Types.SetType;
 import net.starlark.java.types.Types.UnionType;
 
 /** Type checker for Starlark types. */
@@ -80,6 +81,9 @@ public final class TypeChecker {
     if (type1 instanceof DictType dict1 && type2 instanceof DictType dict2) {
       return isEqual(dict1.getKeyType(), dict2.getKeyType())
           && isEqual(dict1.getValueType(), dict2.getValueType());
+    }
+    if (type1 instanceof SetType set1 && type2 instanceof SetType set2) {
+      return isEqual(set1.getElementType(), set2.getElementType());
     }
 
     // TODO(ilist@): this just works for primitive types
