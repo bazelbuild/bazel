@@ -70,9 +70,12 @@ ExitCode BashBinaryLauncher::Launch() {
 
   vector<wstring> args;
   args.push_back(L"-c");
-  args.push_back(BashEscapeArg(bash_command.str()));
+  args.push_back(bash_command.str());
   return this->LaunchProcess(bash_binary, args);
 }
 
+std::wstring BashBinaryLauncher::EscapeArg(const std::wstring& arg) const {
+  return BashEscapeArg(arg);
+}
 }  // namespace launcher
 }  // namespace bazel

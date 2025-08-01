@@ -31,6 +31,7 @@ win_cc_library(
     hdrs = ["launcher.h"],
     deps = [
         "//src/main/cpp/util:filesystem",
+        "//src/main/native/windows:lib-process",
         "//src/tools/launcher/util",
         "//src/tools/launcher/util:data_parser",
     ],

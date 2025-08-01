@@ -29,6 +29,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows/process.h"
 #include "src/tools/launcher/util/data_parser.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
@@ -135,6 +136,10 @@ wstring BinaryLauncherBase::GetRunfilesPath() const {
       GetBinaryPathWithExtension(launcher_path) + L".runfiles";
   std::replace(runfiles_path.begin(), runfiles_path.end(), L'/', L'\\');
   return runfiles_path;
+}
+
+std::wstring BinaryLauncherBase::EscapeArg(const std::wstring& arg) const {
+  return windows::WindowsEscapeArg(arg);
 }
 
 void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
@@ -247,7 +252,11 @@ bool BinaryLauncherBase::PrintLauncherCommandLine(
 ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
                                            const vector<wstring>& arguments,
                                            bool suppressOutput) const {
-  if (PrintLauncherCommandLine(executable, arguments)) {
+  std::vector<std::wstring> escaped_arguments(arguments.size());
+  std::transform(arguments.cbegin(), arguments.cend(),
+                 escaped_arguments.begin(),
+                 [this](const wstring& arg) { return EscapeArg(arg); });
+  if (PrintLauncherCommandLine(executable, escaped_arguments)) {
     return 0;
   }
   // Set RUNFILES_DIR if:
@@ -262,7 +271,7 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
     SetEnv(L"RUNFILES_MANIFEST_FILE", manifest_file);
   }
   CmdLine cmdline;
-  CreateCommandLine(&cmdline, executable, arguments);
+  CreateCommandLine(&cmdline, executable, escaped_arguments);
   PROCESS_INFORMATION processInfo = {0};
   STARTUPINFOW startupInfo = {0};
   startupInfo.cb = sizeof(startupInfo);
