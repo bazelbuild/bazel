@@ -2349,6 +2349,7 @@ public class RemoteExecutionServiceTest {
     Semaphore semaphore = new Semaphore(0);
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
+    remoteOptions.remoteDiscardMerkleTrees = false;
     RemoteExecutionService service = newRemoteExecutionService();
     Spawn spawn =
         newSpawn(
