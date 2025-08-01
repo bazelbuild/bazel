@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
@@ -43,6 +44,7 @@ public class ExternalFilesHelper {
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
+  private final Supplier<Path> repoContentsCachePath;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
   private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
@@ -60,35 +62,43 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath,
       int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
+    this.repoContentsCachePath = repoContentsCachePath;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return TestType.isInTest()
-        ? createForTesting(pkgLocator, externalFileAction, directories)
+        ? createForTesting(pkgLocator, externalFileAction, directories, repoContentsCachePath)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /*maxNumExternalFilesToLog=*/ 100);
+            pkgLocator,
+            externalFileAction,
+            directories,
+            repoContentsCachePath,
+            /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
+        repoContentsCachePath,
         // These log lines are mostly spam during unit and integration tests.
-        /*maxNumExternalFilesToLog=*/ 0);
+        /* maxNumExternalFilesToLog= */ 0);
   }
-
 
   /**
    * The action to take when an external path is encountered. See {@link FileType} for the
@@ -160,11 +170,10 @@ public class ExternalFilesHelper {
   }
 
   /**
-   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see
-   * {@link ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
+   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see {@link
+   * ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
    */
-  static class NonexistentImmutableExternalFileException extends Exception {
-  }
+  static class NonexistentImmutableExternalFileException extends Exception {}
 
   static class ExternalFilesKnowledge {
     final boolean anyOutputFilesSeen;
@@ -202,8 +211,13 @@ public class ExternalFilesHelper {
   }
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
+    System.err.println(repoContentsCachePath);
     return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
+        pkgLocator,
+        externalFileAction,
+        directories,
+        repoContentsCachePath,
+        maxNumExternalFilesToLog);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
@@ -241,6 +255,13 @@ public class ExternalFilesHelper {
     if (outputBase == null) {
       return FileType.EXTERNAL_OTHER;
     }
+    // If using the repo contents cache, external repo directories are symlinks into the cache. The
+    // contents of the cache may be updated during a build and thus have to be treated just like
+    // regular external repo files for invalidation.
+    if (repoContentsCachePath.get() != null
+        && rootedPath.asPath().startsWith(repoContentsCachePath.get())) {
+      return FileType.EXTERNAL_REPO;
+    }
     if (rootedPath.asPath().startsWith(outputBase)) {
       Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
       if (rootedPath.asPath().startsWith(externalRepoDir)) {
@@ -271,7 +292,7 @@ public class ExternalFilesHelper {
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
           logger.atInfo().log("Encountered an external path %s", rootedPath);
         }
-        // fall through
+      // fall through
       case OUTPUT:
         if (externalFileAction
             == ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS) {

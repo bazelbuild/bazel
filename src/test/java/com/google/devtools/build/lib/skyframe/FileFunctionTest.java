@@ -155,7 +155,11 @@ public class FileFunctionTest {
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
-        ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
+        ExternalFilesHelper.createForTesting(
+            pkgLocatorRef,
+            externalFileAction,
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
     differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(

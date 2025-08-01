@@ -74,7 +74,8 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
         ExternalFilesHelper.createForTesting(
             packageLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            directories);
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
 
     skyFunctions =
         ImmutableMap.<SkyFunctionName, SkyFunction>builder()

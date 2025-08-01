@@ -92,7 +92,8 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         ExternalFilesHelper.createForTesting(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            directories);
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());

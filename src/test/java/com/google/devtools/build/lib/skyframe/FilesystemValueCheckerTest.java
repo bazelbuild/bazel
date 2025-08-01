@@ -299,7 +299,8 @@ public final class FilesystemValueCheckerTest {
         ExternalFilesHelper.createForTesting(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            directories);
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(
