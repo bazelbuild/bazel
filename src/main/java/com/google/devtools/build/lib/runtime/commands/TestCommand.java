@@ -98,9 +98,11 @@ public class TestCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
     if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
-      env.getReporter().handle(Event.warn(
-          "Streamed test output requested. All tests will be run locally, without sharding, "
-          + "one at a time"));
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Streamed test output requested. All tests will be run without sharding, "
+                      + "one at a time"));
     }
 
     AnsiTerminalPrinter printer =
