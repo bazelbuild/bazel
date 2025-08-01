@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
+import net.starlark.java.types.Types.DictType;
 import net.starlark.java.types.Types.ListType;
 import net.starlark.java.types.Types.UnionType;
 
@@ -71,10 +72,14 @@ public final class TypeChecker {
       return isUnionSubtypeOf(ImmutableSet.of(type1), union2.getTypes()); // a < a|b
     }
 
+    // Mutable collections are invariant (which is necessary while the interface supports both
+    // reading and modification). This matches Python's behaviour.
     if (type1 instanceof ListType list1 && type2 instanceof ListType list2) {
-      // The list type is invariant (which is necessary while the interface supports both reading
-      // and modification). This matches Python's behaviour.
       return isEqual(list1.getElementType(), list2.getElementType());
+    }
+    if (type1 instanceof DictType dict1 && type2 instanceof DictType dict2) {
+      return isEqual(dict1.getKeyType(), dict2.getKeyType())
+          && isEqual(dict1.getValueType(), dict2.getValueType());
     }
 
     // TODO(ilist@): this just works for primitive types

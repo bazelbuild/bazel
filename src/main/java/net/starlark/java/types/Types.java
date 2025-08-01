@@ -20,6 +20,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -59,7 +60,8 @@ public final class Types {
         .put("int", INT)
         .put("float", FLOAT)
         .put("str", STR)
-        .put("list", wrapTypeConstructor("list", Types::list));
+        .put("list", wrapTypeConstructor("list", Types::list))
+        .put("dict", wrapTypeConstructor("dict", Types::dict));
     return env.buildOrThrow();
   }
 
@@ -385,6 +387,23 @@ public final class Types {
     }
   }
 
+  public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
+    return new AutoValue_Types_DictType(keyType, valueType);
+  }
+
+  /** Dict type */
+  @AutoValue
+  public abstract static class DictType extends StarlarkType {
+    public abstract StarlarkType getKeyType();
+
+    public abstract StarlarkType getValueType();
+
+    @Override
+    public final String toString() {
+      return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    }
+  }
+
   /**
    * A proxy for a type constructor, e.g. {@code list}.
    *
@@ -409,6 +428,27 @@ public final class Types {
                 "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
       }
       return constructor.apply(type);
+    };
+  }
+
+  static TypeConstructorProxy wrapTypeConstructor(
+      String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> constructor) {
+    return argsTuple -> {
+      if (argsTuple.size() != 2) {
+        throw new IllegalArgumentException(
+            String.format("%s[] accepts exactly 2 arguments but got %d", name, argsTuple.size()));
+      }
+      if (!(argsTuple.get(0) instanceof StarlarkType keyType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
+      }
+      if (!(argsTuple.get(1) instanceof StarlarkType valueType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "in application to %s, got '%s', expected a type", name, argsTuple.get(1)));
+      }
+      return constructor.apply(keyType, valueType);
     };
   }
 }

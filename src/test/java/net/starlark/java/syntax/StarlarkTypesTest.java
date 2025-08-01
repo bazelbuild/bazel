@@ -58,6 +58,29 @@ public class StarlarkTypesTest {
   }
 
   @Test
+  public void resolveType_dict() throws Exception {
+    assertThat(resolveType("dict[int, str]")).isEqualTo(Types.dict(Types.INT, Types.STR));
+    assertThat(resolveType("dict[int, list[str]]"))
+        .isEqualTo(Types.dict(Types.INT, Types.list(Types.STR)));
+
+    var exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("dict[int]"));
+    assertThat(exception)
+        .hasMessageThat()
+        .isEqualTo("dict[] accepts exactly 2 arguments but got 1");
+
+    exception =
+        assertThrows(SyntaxError.Exception.class, () -> resolveType("dict[int, str, bool]"));
+    assertThat(exception)
+        .hasMessageThat()
+        .isEqualTo("dict[] accepts exactly 2 arguments but got 3");
+
+    exception = assertThrows(SyntaxError.Exception.class, () -> resolveType("dict"));
+    assertThat(exception)
+        .hasMessageThat()
+        .isEqualTo("expected type arguments after the type constructor 'dict'");
+  }
+
+  @Test
   public void resolveType_unknownIdentifier() {
     SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> resolveType("Foo"));
 

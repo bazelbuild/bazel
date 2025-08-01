@@ -91,6 +91,31 @@ public class TypeCheckTest {
   }
 
   @Test
+  public void runtimeTypecheck_dict() throws Exception {
+    ev.exec("def f(a: dict[int, str]): pass", "f({1: 'a', 2: 'b'})");
+    ev.exec("def f(a: dict[int, str]): pass", "f({})");
+    assertExecThrows(EvalException.class, "def f(a: dict[int, str]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', "
+                + "want 'dict[int, str]'");
+    assertExecThrows(EvalException.class, "def f(a: dict[int, str]): pass", "f({1: 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[int, int]', "
+                + "want 'dict[int, str]'");
+    ev.exec("def f(a: dict[int, list[str]]): pass", "f({1: ['a'], 2: ['b']})");
+    assertExecThrows(
+            EvalException.class, "def f(a: dict[int, list[str]]): pass", "f({1: [1], 2: [2]})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[int, list[int]]', "
+                + "want 'dict[int, list[str]]'");
+    assertExecThrows(
+            EvalException.class, "def f(a: dict[int, list[str]]): pass", "f({1: ['a', 1]})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[int, list[str|int]]', "
+                + "want 'dict[int, list[str]]'");
+  }
+
+  @Test
   public void union_edgeCaseSyntax() throws Exception {
     ev.exec("def f(a: None|None): pass", "f(None)");
     ev.exec("def f(a: None|bool|bool): pass", "f(None)");
