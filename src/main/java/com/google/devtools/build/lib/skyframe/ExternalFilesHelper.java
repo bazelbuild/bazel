@@ -19,19 +19,15 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -75,7 +71,7 @@ public class ExternalFilesHelper {
     return TestType.isInTest()
         ? createForTesting(pkgLocator, externalFileAction, directories)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /*maxNumExternalFilesToLog=*/ 100);
+            pkgLocator, externalFileAction, directories, /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
@@ -87,9 +83,8 @@ public class ExternalFilesHelper {
         externalFileAction,
         directories,
         // These log lines are mostly spam during unit and integration tests.
-        /*maxNumExternalFilesToLog=*/ 0);
+        /* maxNumExternalFilesToLog= */ 0);
   }
-
 
   /**
    * The action to take when an external path is encountered. See {@link FileType} for the
@@ -161,11 +156,10 @@ public class ExternalFilesHelper {
   }
 
   /**
-   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see
-   * {@link ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
+   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see {@link
+   * ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
    */
-  static class NonexistentImmutableExternalFileException extends Exception {
-  }
+  static class NonexistentImmutableExternalFileException extends Exception {}
 
   static class ExternalFilesKnowledge {
     final boolean anyOutputFilesSeen;
@@ -278,7 +272,7 @@ public class ExternalFilesHelper {
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
           logger.atInfo().log("Encountered an external path %s", rootedPath);
         }
-        // fall through
+      // fall through
       case OUTPUT:
         if (externalFileAction
             == ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS) {
@@ -289,42 +283,8 @@ public class ExternalFilesHelper {
         Preconditions.checkState(
             externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             externalFileAction);
-        addExternalFilesDependencies(rootedPath, directories, env);
         break;
     }
     return fileType;
-  }
-
-  /**
-   * For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding repo so
-   * that if the repo definition changes, the File/DirectoryStateValue will be re-evaluated.
-   *
-   * <p>Note that: - We don't add a dependency on the parent directory at the package root boundary,
-   * so the only transitive dependencies from files inside the package roots to external files are
-   * through symlinks. So the upwards transitive closure of external files is small. - The only way
-   * other than external repositories for external source files to get into the skyframe graph in
-   * the first place is through symlinks outside the package roots, which we neither want to
-   * encourage nor optimize for since it is not common. So the set of external files is small.
-   */
-  private static void addExternalFilesDependencies(
-      RootedPath rootedPath, BlazeDirectories directories, Environment env)
-      throws InterruptedException {
-    Path externalRepoDir =
-        directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
-    if (repositoryPath.isEmpty()) {
-      // We are the top of the repository path (<outputBase>/external), not in an actual external
-      // repository path.
-      return;
-    }
-    RepositoryName repositoryName;
-    try {
-      repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
-    } catch (LabelSyntaxException ignored) {
-      // The directory of a repository with an invalid name can never exist, so we don't need to
-      // add a dependency on it.
-      return;
-    }
-    env.getValue(RepositoryDirectoryValue.key(repositoryName));
   }
 }
