@@ -75,7 +75,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           """
           Specifies the amount of time an entry in the repo contents cache can stay unused before \
-          it's garbage collected. If set to zero, garbage collection is disabled.
+          it's garbage collected. If set to zero, only duplicate entries will be garbage collected.
           """)
   public Duration repoContentsCacheGcMaxAge;
 
