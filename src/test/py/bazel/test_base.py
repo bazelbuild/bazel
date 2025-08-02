@@ -23,6 +23,7 @@ import socket
 import stat
 import subprocess
 import sys
+import signal
 import tempfile
 from absl.testing import absltest
 import runfiles
@@ -525,7 +526,15 @@ class TestBase(absltest.TestCase):
             cwd=(str(cwd) if cwd else self._test_cwd),
             env=self._EnvMap(env_remove, env_add),
             shell=shell)
-        exit_code = proc.wait()
+        try:
+          exit_code = proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            proc.send_signal(signal.SIGINT)
+            exit_code = proc.wait(timeout=5)
+            proc.send_signal(signal.SIGINT)
+            exit_code = proc.wait(timeout=5)
+            proc.send_signal(signal.SIGINT)
+            exit_code = proc.wait(timeout=5)
 
         stdout.seek(0)
         stdout_lines = [
@@ -538,6 +547,8 @@ class TestBase(absltest.TestCase):
             l.decode('utf-8').rstrip() if rstrip else l.decode('utf-8').strip()
             for l in stderr.readlines()
         ]
+
+        print("\n".join(stderr_lines))
 
         if not allow_failure:
           self.AssertExitCode(exit_code, 0, stderr_lines, stdout_lines)

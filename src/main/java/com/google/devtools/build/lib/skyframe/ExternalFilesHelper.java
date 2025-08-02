@@ -303,7 +303,7 @@ public class ExternalFilesHelper {
         Preconditions.checkState(
             externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             externalFileAction);
-        addExternalFilesDependencies(rootedPath, directories, env);
+        addExternalFilesDependencies(rootedPath, directories, repoContentsCachePath.get(), env);
         break;
     }
     return fileType;
@@ -321,23 +321,48 @@ public class ExternalFilesHelper {
    * encourage nor optimize for since it is not common. So the set of external files is small.
    */
   private static void addExternalFilesDependencies(
-      RootedPath rootedPath, BlazeDirectories directories, Environment env)
+      RootedPath rootedPath,
+      BlazeDirectories directories,
+      Path repoContentsCachePath,
+      Environment env)
       throws InterruptedException {
+    RepositoryName repositoryName;
     Path externalRepoDir =
         directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
-    if (repositoryPath.isEmpty()) {
-      // We are the top of the repository path (<outputBase>/external), not in an actual external
-      // repository path.
+    if (rootedPath.asPath().startsWith(externalRepoDir)) {
+      PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
+      if (repositoryPath.isEmpty()) {
+        // We are the top of the repository path (<outputBase>/external), not in an actual external
+        // repository path.
+        return;
+      }
+      try {
+        repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
+      } catch (LabelSyntaxException ignored) {
+        // The directory of a repository with an invalid name can never exist, so we don't need to
+        // add a dependency on it.
+        return;
+      }
+    } else {
+      System.err.println("external_repo: " + rootedPath);
       return;
-    }
-    RepositoryName repositoryName;
-    try {
-      repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
-    } catch (LabelSyntaxException ignored) {
-      // The directory of a repository with an invalid name can never exist, so we don't need to
-      // add a dependency on it.
-      return;
+//      PathFragment cachePath = rootedPath.asPath().relativeTo(repoContentsCachePath);
+//      if (cachePath.isEmpty()) {
+//        // We are at the top of the repo contents cache path, not in an actual external repo.
+//        return;
+//      }
+//      try {
+//        String firstSegment = cachePath.getSegment(0);
+//        if (!firstSegment.contains(".")) {
+//          return;
+//        }
+//        repositoryName =
+//            RepositoryName.create(firstSegment.substring(0, firstSegment.lastIndexOf('.')));
+//      } catch (LabelSyntaxException e) {
+//        // The directory of a repository with an invalid name can never exist, so we don't need to
+//        // add a dependency on it.
+//        return;
+//      }
     }
     env.getValue(RepositoryDirectoryValue.key(repositoryName));
   }

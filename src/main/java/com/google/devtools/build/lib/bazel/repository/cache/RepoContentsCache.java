@@ -180,6 +180,7 @@ public final class RepoContentsCache {
     // Set up a symlink at the original fetched repo dir path.
     fetchedRepoDir.deleteTree();
     FileSystemUtils.ensureSymbolicLink(fetchedRepoDir, cacheRepoDir);
+    FileSystemUtils.ensureSymbolicLink(fetchedRepoMarkerFile, cacheRecordedInputsFile);
     return cacheRepoDir;
   }
 
