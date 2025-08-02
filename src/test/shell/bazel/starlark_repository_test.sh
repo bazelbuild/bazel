@@ -1417,6 +1417,7 @@ mget *
 quit
 
 # this is a comment
+    # this is an indented comment
 machine example.com login
 myusername password mysecret default
 login anonymous password myusername@example.com
