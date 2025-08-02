@@ -86,19 +86,8 @@ class Coverage {
     }
     Coverage finalCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
-      // The manifest lists source files with relative paths, but _cc_coverage.dat has absolute paths.
-      // To match files correctly, compare only the end (suffix) of the absolute path with the relative path.
-      
-      String sourceName = source.sourceFileName();
-      boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-      String normalizedSourceName = isWindows ? sourceName.replace('\\', '/') : sourceName;
-
-      for (String keep : sourcesToKeep) {
-        String normalizedKeep = isWindows ? keep.replace('\\', '/') : keep;
-        if (normalizedSourceName.endsWith(normalizedKeep)) {
-          finalCoverage.add(source);
-          break;
-        }
+      if (sourcesToKeep.contains(source.sourceFileName())) {
+        finalCoverage.add(source);
       }
     }
     return finalCoverage;
