@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -23,7 +24,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformCommonApi;
 
 /** Starlark namespace used to interact with the platform APIs. */
-public class PlatformCommon implements PlatformCommonApi {
+public class PlatformCommon implements PlatformCommonApi<IncompatiblePlatformProvider> {
 
   @Override
   public Provider getPlatformInfoConstructor() {
@@ -48,5 +49,10 @@ public class PlatformCommon implements PlatformCommonApi {
   @Override
   public Provider getToolchainInfoConstructor() {
     return ToolchainInfo.PROVIDER;
+  }
+
+  @Override
+  public IncompatiblePlatformProvider incompatibleTarget() {
+    return IncompatiblePlatformProvider.incompatibleDueToStarlark(null, "Hello, World!");
   }
 }

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -137,6 +138,15 @@ public final class StarlarkRuleConfiguredTargetUtil {
   private static void checkDeclaredProviders(
       ConfiguredTarget configuredTarget, AdvertisedProviderSet advertisedProviders)
       throws EvalException {
+    var incompatiblePlatformProvider = configuredTarget.get(IncompatiblePlatformProvider.PROVIDER);
+    if (incompatiblePlatformProvider != null) {
+      // The target declared itself as incompatible.
+      //
+      // Skip checking all advertised providers are present to avoid forcing rules to implement
+      // dummy values for all providers they advertise.
+      return;
+    }
+
     for (StarlarkProviderIdentifier providerId : advertisedProviders.getStarlarkProviders()) {
       if (configuredTarget.get(providerId) == null) {
         throw Starlark.errorf(

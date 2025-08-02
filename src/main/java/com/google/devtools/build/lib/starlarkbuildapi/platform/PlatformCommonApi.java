@@ -25,7 +25,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "platform_common",
     category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Functions for Starlark to interact with the platform APIs.")
-public interface PlatformCommonApi extends StarlarkValue {
+public interface PlatformCommonApi<IncompatiblePlatformProviderApiT extends IncompatiblePlatformProviderApi> extends StarlarkValue {
   @StarlarkMethod(
       name = "TemplateVariableInfo",
       doc =
@@ -68,4 +68,12 @@ public interface PlatformCommonApi extends StarlarkValue {
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
       structField = true)
   ProviderApi getConstraintValueInfoConstructor();
+
+  @StarlarkMethod(
+      name = "incompatible_target",
+      doc =
+          "The constructor/key for the <a href='../providers/ConstraintValueInfo.html'>"
+              + "ConstraintValueInfo</a> provider."
+              + PlatformInfoApi.EXPERIMENTAL_WARNING)
+  IncompatiblePlatformProviderApiT incompatibleTarget();
 }
