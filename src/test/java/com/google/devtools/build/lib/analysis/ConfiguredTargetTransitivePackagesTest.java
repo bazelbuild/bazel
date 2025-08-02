@@ -47,8 +47,9 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
   @Override
   protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
     // Transitive packages are only stored when external repositories are enabled.
-    return SkyframeExecutorRepositoryHelpersHolder.create(
-        new RepositoryDirectoryDirtinessChecker());
+    RepositoryDirectoryDirtinessChecker repositoryDirectoryDirtinessChecker = new RepositoryDirectoryDirtinessChecker();
+    return new SkyframeExecutorRepositoryHelpersHolder(
+        repositoryDirectoryDirtinessChecker, null);
   }
 
   private void assertTransitiveClosureOfTargetContainsPackages(

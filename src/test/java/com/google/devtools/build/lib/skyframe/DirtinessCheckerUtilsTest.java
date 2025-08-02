@@ -21,6 +21,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -75,7 +76,8 @@ public final class DirtinessCheckerUtilsTest {
       ExternalFilesHelper.createForTesting(
           pkgLocator,
           ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-          directories);
+          directories,
+          /* repoContentsCachePath= */ Suppliers.ofInstance(null));
 
   @Test
   public void missingDiffChecker_matchesInsideRoot() {

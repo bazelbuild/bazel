@@ -738,7 +738,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
-        ExternalFilesHelper.create(pkgLocator, externalFileAction, directories);
+        ExternalFilesHelper.create(
+            pkgLocator,
+            externalFileAction,
+            directories,
+            repositoryHelpersHolder != null
+                ? repositoryHelpersHolder.repoContentsCachePath()
+                : null);
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.externalPackageHelper = externalPackageHelper;

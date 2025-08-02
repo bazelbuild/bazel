@@ -17,16 +17,19 @@ package com.google.devtools.build.lib.skyframe;
 import static java.util.Objects.requireNonNull;
 
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
+import com.google.devtools.build.lib.vfs.Path;
+import java.util.function.Supplier;
 
-/** Provides repository-related objects for use by {@link SequencedSkyframeExecutor}. */
+/**
+ * Provides repository-related objects for use by {@link SequencedSkyframeExecutor}.
+ *
+ * @param repoContentsCachePath supplies the path of the repo contents cache, which may be null
+ */
 public record SkyframeExecutorRepositoryHelpersHolder(
-    RepositoryDirectoryDirtinessChecker repositoryDirectoryDirtinessChecker) {
+    RepositoryDirectoryDirtinessChecker repositoryDirectoryDirtinessChecker,
+    Supplier<Path> repoContentsCachePath) {
   public SkyframeExecutorRepositoryHelpersHolder {
     requireNonNull(repositoryDirectoryDirtinessChecker, "repositoryDirectoryDirtinessChecker");
-  }
-
-  public static SkyframeExecutorRepositoryHelpersHolder create(
-      RepositoryDirectoryDirtinessChecker repositoryDirectoryDirtinessChecker) {
-    return new SkyframeExecutorRepositoryHelpersHolder(repositoryDirectoryDirtinessChecker);
+    requireNonNull(repoContentsCachePath, "repoContentsCachePath");
   }
 }

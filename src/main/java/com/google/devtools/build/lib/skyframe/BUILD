@@ -2614,7 +2614,11 @@ java_library(
 java_library(
     name = "skyframe_executor_repository_helpers_holder",
     srcs = ["SkyframeExecutorRepositoryHelpersHolder.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
