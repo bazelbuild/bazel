@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -491,7 +492,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredValueCreationException(
           ctgValue.getTarget(),
           null,
-          "Analysis of target '" + target.getLabel() + "' failed",
+          "Analysis of target '%s' (config: %s) failed"
+              .formatted(
+                  target.getLabel(),
+                  configuration != null ? configuration.getOptions().shortId() : "none"),
           rootCauses,
           null);
     }
