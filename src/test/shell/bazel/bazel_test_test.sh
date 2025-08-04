@@ -118,6 +118,7 @@ function test_env_vars() {
 #!/bin/sh
 echo "pwd: $PWD"
 echo "src: $TEST_SRCDIR"
+echo "rd: $RUNFILES_DIR"
 echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
@@ -131,8 +132,9 @@ sh_test(
 EOF
 
   bazel test --test_output=all //foo &> $TEST_log || fail "Test failed"
-  expect_log "pwd: .*/foo.runfiles/_main$"
-  expect_log "src: .*/foo.runfiles$"
+  expect_log "pwd: /.*/foo.runfiles/_main$"
+  expect_log "src: /.*/foo.runfiles$"
+  expect_log "rd: /.*/foo.runfiles$"
   expect_log "ws: _main$"
 }
 
