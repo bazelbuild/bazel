@@ -59,7 +59,8 @@ import javax.annotation.Nullable;
 public record IncompatiblePlatformProvider(
     @Nullable Label targetPlatform,
     @Nullable ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility,
-    @Nullable ImmutableList<ConstraintValueInfo> constraintsResponsibleForIncompatibility)
+    @Nullable ImmutableList<ConstraintValueInfo> constraintsResponsibleForIncompatibility,
+    @Nullable String starlarkMessageResponsibleForIncompatibility)
     implements Info, IncompatiblePlatformProviderApi {
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "IncompatiblePlatformProvider";
@@ -80,7 +81,7 @@ public record IncompatiblePlatformProvider(
     Preconditions.checkNotNull(targetsResponsibleForIncompatibility);
     Preconditions.checkArgument(!targetsResponsibleForIncompatibility.isEmpty());
     return new IncompatiblePlatformProvider(
-        targetPlatform, targetsResponsibleForIncompatibility, null);
+        targetPlatform, targetsResponsibleForIncompatibility, null, null);
   }
 
   public static IncompatiblePlatformProvider incompatibleDueToConstraints(
@@ -96,12 +97,17 @@ public record IncompatiblePlatformProvider(
             .distinct()
             .collect(toImmutableList());
 
-    return new IncompatiblePlatformProvider(targetPlatform, null, constraints);
+    return new IncompatiblePlatformProvider(targetPlatform, null, constraints, null);
+  }
+
+  public static IncompatiblePlatformProvider incompatibleDueToStarlark(@Nullable Label targetPlatform, String message) {
+    Preconditions.checkNotNull(message);
+
+    return new IncompatiblePlatformProvider(targetPlatform, null, null, message);
   }
 
   @Override
   public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
   }
-
 }

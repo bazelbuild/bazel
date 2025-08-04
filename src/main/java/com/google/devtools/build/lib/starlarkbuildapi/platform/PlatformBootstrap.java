@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 
 /** {@link Bootstrap} for Starlark objects related to platforms. */
-public class PlatformBootstrap implements Bootstrap {
+public class PlatformBootstrap<IncompatiblePlatformProviderApiT extends IncompatiblePlatformProviderApi> implements Bootstrap {
 
-  private final PlatformCommonApi platformCommon;
+  private final PlatformCommonApi<IncompatiblePlatformProviderApiT> platformCommon;
 
-  public PlatformBootstrap(PlatformCommonApi platformCommon) {
+  public PlatformBootstrap(PlatformCommonApi<IncompatiblePlatformProviderApiT> platformCommon) {
     this.platformCommon = platformCommon;
   }
 
