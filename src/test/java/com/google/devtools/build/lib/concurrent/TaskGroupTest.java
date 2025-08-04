@@ -109,21 +109,26 @@ public final class TaskGroupTest {
 
   @Test
   public void allSuccessful_anySubtaskFails_cancelsOthersAndThrows() throws Exception {
+    var subtask2Ready = new CountDownLatch(1);
+    var letSubtask1Fail = new CountDownLatch(1);
     var latch = new CountDownLatch(1);
     try (var group = TaskGroup.open(Policies.allSuccessful(), Joiners.voidOrThrow())) {
       var subtask1 =
           group.fork(
               () -> {
-                Thread.sleep(100);
+                letSubtask1Fail.await();
                 throw new RuntimeException("test");
               });
       var subtask2 =
           group.fork(
               () -> {
+                subtask2Ready.countDown();
                 latch.await();
                 return 2;
               });
 
+      subtask2Ready.await();
+      letSubtask1Fail.countDown();
       var e = assertThrows(ExecutionException.class, () -> group.join());
 
       assertThat(group.isCancelled()).isTrue();
@@ -141,6 +146,8 @@ public final class TaskGroupTest {
   public void allSuccessful_interrupted_cancelsRunningSubtasks() throws Exception {
     var latch = new CountDownLatch(1);
     var subtask1Done = new CountDownLatch(1);
+    var subtask2Ready = new CountDownLatch(1);
+    var subtask3Ready = new CountDownLatch(1);
     AtomicReference<TaskGroup<Object, Void>> groupRef = new AtomicReference<>(null);
     AtomicReference<Subtask<Integer>> subtask1Ref = new AtomicReference<>(null);
     AtomicReference<Subtask<Integer>> subtask2Ref = new AtomicReference<>(null);
@@ -164,6 +171,7 @@ public final class TaskGroupTest {
                     var subtask2 =
                         group.fork(
                             () -> {
+                              subtask2Ready.countDown();
                               latch.await();
                               return 2;
                             });
@@ -171,6 +179,7 @@ public final class TaskGroupTest {
                     var subtask3 =
                         group.fork(
                             () -> {
+                              subtask3Ready.countDown();
                               latch.await();
                               return 3;
                             });
@@ -187,6 +196,8 @@ public final class TaskGroupTest {
                 });
 
     subtask1Done.await();
+    subtask2Ready.await();
+    subtask3Ready.await();
     thread.interrupt();
     thread.join();
 
@@ -356,5 +367,40 @@ public final class TaskGroupTest {
               }
             });
     assertThat(e).hasMessageThat().contains("Owner did not join after forking");
+  }
+
+  @Test
+  public void afterSubtaskCompleted_removesThreadFromSet() throws Exception {
+    var subtask1Ready = new CountDownLatch(1);
+    var letSubtask1Complete = new CountDownLatch(1);
+    var subtask2Ready = new CountDownLatch(1);
+    var letSubtask2Complete = new CountDownLatch(1);
+    try (var group = TaskGroup.open(Policies.allSuccessful(), Joiners.voidOrThrow())) {
+      group.fork(
+          () -> {
+            subtask1Ready.countDown();
+            letSubtask1Complete.await();
+            return 1;
+          });
+
+      subtask1Ready.await();
+      assertThat(group.getThreads()).hasSize(1);
+
+      group.fork(
+          () -> {
+            subtask2Ready.countDown();
+            letSubtask2Complete.await();
+            return 2;
+          });
+      subtask2Ready.await();
+      assertThat(group.getThreads()).hasSize(2);
+
+      letSubtask1Complete.countDown();
+      letSubtask2Complete.countDown();
+
+      group.join();
+
+      assertThat(group.getThreads()).hasSize(0);
+    }
   }
 }

@@ -140,18 +140,8 @@ public class TaskGroup<T, R> implements AutoCloseable {
       if (thread == null) {
         throw new RejectedExecutionException("Rejected by thread factory");
       }
-
-      boolean added = threads.add(thread);
-      checkState(added);
-      // If the task group was cancelled, remove the thread from the set of threads. We must add
-      // the thread to the set before checking the cancellation state to avoid a race with {@link
-      // #cancel}.
-      if (cancelled.get()) {
-        threads.remove(thread);
-      } else {
-        latch.increment();
-        thread.start();
-      }
+      latch.increment();
+      thread.start();
     }
 
     state = TaskGroupState.FORKED;
@@ -202,19 +192,22 @@ public class TaskGroup<T, R> implements AutoCloseable {
     return cancelled.get();
   }
 
-  private void onComplete(Subtask<? extends T> subtask) {
+  private void onComplete(Subtask<? extends T> subtask, Thread thread) {
     try {
-      checkState(subtask.state() != Subtask.State.UNAVAILABLE);
-      // We want to call Joiner#onComplete first, so that if subtask failed and the policy decides
-      // to cancel the group, the joiner can see the exception from this subtask first. Otherwise,
-      // the exception from this subtask may race with the InterruptedException from other subtasks
-      // that are cancelled. This will cause the joiner to sometimes throw InterruptedException
-      // instead of the exception from this subtask, if the joiner only throws one exception.
-      joiner.onComplete(subtask);
-      if (policy.onComplete(subtask)) {
-        cancel();
+      if (subtask.state() != Subtask.State.UNAVAILABLE) {
+        // We want to call Joiner#onComplete first, so that if subtask failed and the policy decides
+        // to cancel the group, the joiner can see the exception from this subtask first. Otherwise,
+        // the exception from this subtask may race with the InterruptedException from other
+        // subtasks that are cancelled. This will cause the joiner to sometimes throw
+        // InterruptedException instead of the exception from this subtask, if the joiner only
+        // throws one exception.
+        joiner.onComplete(subtask);
+        if (policy.onComplete(subtask)) {
+          cancel();
+        }
       }
     } finally {
+      threads.remove(thread);
       latch.countDown();
     }
   }
@@ -279,6 +272,11 @@ public class TaskGroup<T, R> implements AutoCloseable {
     }
   }
 
+  @VisibleForTesting
+  ImmutableSet<Thread> getThreads() {
+    return ImmutableSet.copyOf(threads);
+  }
+
   /** A subtask forked with {@link #fork}. */
   public interface Subtask<T> extends Supplier<T> {
     /** The state of the subtask. */
@@ -323,7 +321,16 @@ public class TaskGroup<T, R> implements AutoCloseable {
 
     @Override
     public void run() {
+      Thread thread = Thread.currentThread();
+      boolean added = taskGroup.threads.add(thread);
+      checkState(added);
       try {
+        if (taskGroup.cancelled.get()) {
+          // If the task group was cancelled, skip the task. We must check the cancellation state
+          // after adding the thread to the set to avoid a race with {@link #cancel}.
+          return;
+        }
+
         T result = null;
         Throwable ex = null;
         try {
@@ -338,7 +345,7 @@ public class TaskGroup<T, R> implements AutoCloseable {
           this.result = new NullOrExceptionResult(ex);
         }
       } finally {
-        taskGroup.onComplete(this);
+        taskGroup.onComplete(this, thread);
       }
     }
 
