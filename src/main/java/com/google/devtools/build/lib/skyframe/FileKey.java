@@ -51,4 +51,9 @@ public final class FileKey extends AbstractSkyKey<RootedPath>
   public SkyKeyInterner<FileKey> getSkyKeyInterner() {
     return interner;
   }
+
+  @Override
+  public String toString() {
+    return arg.toString();
+  }
 }

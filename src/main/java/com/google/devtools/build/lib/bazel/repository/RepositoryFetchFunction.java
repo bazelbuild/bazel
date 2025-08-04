@@ -160,6 +160,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
     }
 
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
+    if (repositoryName.getName().contains("my_repo")) {
+      System.err.println("compute for " + repositoryName);
+    }
     if (!repositoryName.isVisible()) {
       return new Failure(
           String.format(
@@ -451,7 +454,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private boolean shouldUseCachedRepoContents(Environment env, RepoDefinition repoDefinition)
       throws InterruptedException {
     if (env.getState(State::new).result != null) {
-      System.err.println("Just cached result, using it: " + env.getState(State::new).result);
+      if (((String) repoDefinition.getValue("name")).contains("my_repo")) {
+        System.err.println("Just cached result, using it: " + env.getState(State::new).result);
+      }
       // If this SkyFunction has finished fetching once, then we should always use the cached
       // result. This means that we _very_ recently (as in, in the same command invocation) fetched
       // this repo (possibly with --force or --configure), and are only here again due to a Skyframe
@@ -536,7 +541,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
       var state = env.getState(State::new);
-      System.err.println(state.result);
+      if (repoDefinition.name().contains("my_repo")) {
+        System.err.println(
+            "fetching "
+                + repoDefinition.name()
+                + " with state: "
+                + state.result
+                + " "
+                + state.cacheRepoDir);
+      }
       if (state.result != null) {
         // Escape early if we've already finished fetching once. This can happen if
         // a Skyframe restart is triggered _after_ fetch() is finished.

@@ -56,6 +56,11 @@ public class FileStateFunction implements SkyFunction {
   public FileStateValue compute(SkyKey skyKey, Environment env)
       throws FileStateFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
+    if (rootedPath.asPath().getPathString().contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+      new Throwable().printStackTrace();
+      System.err.println(
+          "FileStateFunction.compute called with rootedPath: " + rootedPath.asPath().getPathString());
+    }
 
     try {
       FileType fileType = externalFilesHelper.maybeHandleExternalFile(rootedPath, env);

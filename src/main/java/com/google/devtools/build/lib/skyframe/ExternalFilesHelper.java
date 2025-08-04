@@ -211,7 +211,6 @@ public class ExternalFilesHelper {
   }
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
-    System.err.println(repoContentsCachePath);
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
@@ -344,7 +343,6 @@ public class ExternalFilesHelper {
         return;
       }
     } else {
-      System.err.println("external_repo: " + rootedPath);
       return;
 //      PathFragment cachePath = rootedPath.asPath().relativeTo(repoContentsCachePath);
 //      if (cachePath.isEmpty()) {

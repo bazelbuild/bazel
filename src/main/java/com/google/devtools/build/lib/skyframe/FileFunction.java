@@ -103,6 +103,10 @@ public class FileFunction implements SkyFunction {
   public FileValue compute(SkyKey skyKey, Environment env)
       throws FileFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
+    if (rootedPath.asPath().getPathString().contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+      System.err.println(
+          "FileFunction.compute called with rootedPath: " + rootedPath.asPath().getPathString());
+    }
     SymlinkResolutionState symlinkResolutionState = new SymlinkResolutionState();
 
     // Fully resolve the path of the parent directory, but only if the current file is not the

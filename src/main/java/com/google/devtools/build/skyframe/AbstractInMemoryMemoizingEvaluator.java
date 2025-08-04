@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
@@ -118,6 +119,17 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   public <T extends SkyValue> EvaluationResult<T> evaluate(
       Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException {
+    if (ImmutableList.copyOf(roots).stream()
+        .filter(key -> key.functionName().getName().contains("FILE"))
+        .anyMatch(
+            key ->
+                key.toString()
+                    .contains(
+                        "f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac"))) {
+      System.err.println("Caught evaluation of FILE_STATE with key: " + roots);
+      new Throwable().printStackTrace();
+    }
+
     // NOTE: Performance critical code. See bug "Null build performance parity".
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);

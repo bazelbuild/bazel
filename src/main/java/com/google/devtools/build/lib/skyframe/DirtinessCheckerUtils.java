@@ -102,8 +102,8 @@ public class DirtinessCheckerUtils {
 
     private final UnionDirtinessChecker checker = createBasicFilesystemDirtinessChecker();
 
-    ExternalDirtinessChecker(ExternalFilesHelper externalFilesHelper,
-        EnumSet<FileType> fileTypesToCheck) {
+    ExternalDirtinessChecker(
+        ExternalFilesHelper externalFilesHelper, EnumSet<FileType> fileTypesToCheck) {
       this.externalFilesHelper = externalFilesHelper;
       this.fileTypesToCheck = fileTypesToCheck;
     }
@@ -137,6 +137,18 @@ public class DirtinessCheckerUtils {
           checker.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
       if (Objects.equal(newValue, oldValue)) {
         return SkyValueDirtinessChecker.DirtyResult.notDirty();
+      }
+      if (skyKey.functionName().getName().equals("FILE_STATE")
+          && skyKey
+              .toString()
+              .contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+        System.err.println(
+            "Checking dirtiness for "
+                + skyKey
+                + " with fileType "
+                + fileType
+                + " cacheable: "
+                + cacheable);
       }
       if (cacheable) {
         return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);

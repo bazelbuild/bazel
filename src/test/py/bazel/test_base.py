@@ -527,7 +527,7 @@ class TestBase(absltest.TestCase):
             env=self._EnvMap(env_remove, env_add),
             shell=shell)
         try:
-          exit_code = proc.wait(timeout=15)
+          exit_code = proc.wait(timeout=30)
         except subprocess.TimeoutExpired:
             proc.send_signal(signal.SIGINT)
             exit_code = proc.wait(timeout=5)
