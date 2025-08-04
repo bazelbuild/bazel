@@ -185,8 +185,8 @@ public class RequestBatcher<RequestT, ResponseT> {
     /**
      * Fails the corresponding request with the given {@link Throwable}.
      *
-     * <p>A sink should only be completed once. Subsequent calls to either this method after the
-     * sink has already been completed will be ignored.
+     * <p>A sink should only be completed once. Subsequent calls to this method after the sink has
+     * already been completed will be ignored.
      */
     void acceptFailure(Throwable t);
   }
