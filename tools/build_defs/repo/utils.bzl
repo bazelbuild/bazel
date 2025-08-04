@@ -73,14 +73,14 @@ def _use_native_patch(patch_args):
 def _download_patch(ctx, patch_url, integrity, auth = None):
     name = patch_url.split("/")[-1]
     patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
-    ctx.download(
+    download_info = ctx.download(
         patch_url,
         patch_path,
         canonical_id = ctx.attr.canonical_id,
         auth = get_auth(ctx, [patch_url]) if auth == None else auth,
         integrity = integrity,
     )
-    return patch_path
+    return patch_path, download_info
 
 def download_remote_files(ctx, auth = None):
     """Utility function for downloading remote files.
@@ -93,9 +93,12 @@ def download_remote_files(ctx, auth = None):
       ctx: The repository context of the repository rule calling this utility
         function.
       auth: An optional dict specifying authentication information for some of the URLs.
+
+    Returns:
+        dict mapping file paths to a download info.
     """
-    pending = [
-        ctx.download(
+    pending = {
+        path: ctx.download(
             remote_file_urls,
             path,
             canonical_id = ctx.attr.canonical_id,
@@ -104,11 +107,10 @@ def download_remote_files(ctx, auth = None):
             block = False,
         )
         for path, remote_file_urls in ctx.attr.remote_file_urls.items()
-    ]
+    }
 
     # Wait until the requests are done
-    for p in pending:
-        p.wait()
+    return {path: token.wait() for path, token in pending.items()}
 
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
     """Implementation of patching an already extracted repository.
@@ -133,6 +135,8 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
       patch_args: Arguments to pass to the patch tool. List of strings.
       auth: An optional dict specifying authentication information for some of the URLs.
 
+    Returns:
+        dict mapping remote patch URLs to a download info.
     """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     powershell_exe = ctx.os.environ["BAZEL_POWERSHELL"] if "BAZEL_POWERSHELL" in ctx.os.environ else "powershell.exe"
@@ -181,9 +185,11 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
         ctx.report_progress("Patching repository")
 
     # Apply remote patches
+    remote_patches_download_info = {}
     for patch_url in remote_patches:
         integrity = remote_patches[patch_url]
-        patchfile = _download_patch(ctx, patch_url, integrity, auth)
+        patchfile, download_info = _download_patch(ctx, patch_url, integrity, auth)
+        remote_patches_download_info[patch_url] = download_info
         ctx.patch(patchfile, remote_patch_strip)
         ctx.delete(patchfile)
     ctx.delete(ctx.path(_REMOTE_PATCH_DIR))
@@ -223,6 +229,8 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
             if st.return_code:
                 fail("Error applying patch command %s:\n%s%s" %
                      (cmd, st.stdout, st.stderr))
+
+    return remote_patches_download_info
 
 def update_attrs(orig, keys, override):
     """Utility function for altering and adding the specified attributes to a particular repository rule invocation.
