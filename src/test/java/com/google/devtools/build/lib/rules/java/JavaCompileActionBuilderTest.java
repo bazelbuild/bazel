@@ -200,8 +200,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     context.insertDependencies(bJdeps, Deps.Dependencies.newBuilder().addDependency(dep).build());
     assertThat(
             artifactsToStrings(
-                action.getReducedClasspath(new ActionExecutionContextBuilder().build(), context)
-                    .reducedJars))
+                action.getReducedClasspath(new ActionExecutionContextBuilder().build(), context)))
         .containsExactly(
             "bin java/com/google/test/libb-hjar.jar", "bin java/com/google/test/libc-hjar.jar");
   }

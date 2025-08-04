@@ -253,7 +253,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    * com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule#computeStrictClasspath}.
    */
   @VisibleForTesting
-  ReducedClasspath getReducedClasspath(
+  NestedSet<Artifact> getReducedClasspath(
       ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
       throws IOException {
     HashSet<String> direct = new HashSet<>();
@@ -271,7 +271,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         ImmutableList.copyOf(
             Iterables.filter(
                 transitiveCollection, input -> direct.contains(input.getExecPathString())));
-    return new ReducedClasspath(reducedJars, transitiveCollection.size());
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, reducedJars);
   }
 
   /**
@@ -298,7 +298,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private JavaSpawn getReducedSpawn(
       ActionExecutionContext actionExecutionContext,
-      ReducedClasspath reducedClasspath,
+      NestedSet<Artifact> reducedClasspath,
       boolean fallback)
       throws CommandLineExpansionException, InterruptedException {
     CustomCommandLine.Builder classpathLine = CustomCommandLine.builder();
@@ -309,7 +309,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     if (fallback) {
       classpathLine.addExecPaths("--classpath", transitiveInputs);
     } else {
-      classpathLine.addExecPaths("--classpath", reducedClasspath.reducedJars);
+      classpathLine.addExecPaths("--classpath", reducedClasspath);
     }
 
     if (classpathMode == JavaClasspathMode.BAZEL_NO_FALLBACK) {
@@ -321,9 +321,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       // retrying with the full classpath.
       classpathLine.add("--reduce_classpath_mode", fallback ? "BAZEL_FALLBACK" : "BAZEL_REDUCED");
     }
-    classpathLine.add("--full_classpath_length", Integer.toString(reducedClasspath.fullLength));
-    classpathLine.add(
-        "--reduced_classpath_length", Integer.toString(reducedClasspath.reducedLength));
 
     CommandLines reducedCommandLine =
         CommandLines.builder()
@@ -340,7 +337,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     NestedSet<Artifact> inputs =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
-            .addTransitive(fallback ? transitiveInputs : reducedClasspath.reducedJars)
+            .addTransitive(fallback ? transitiveInputs : reducedClasspath)
             .build();
     return new JavaSpawn(
         expandedCommandLines,
@@ -403,7 +400,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    ReducedClasspath reducedClasspath;
+    NestedSet<Artifact> reducedClasspath;
     Spawn spawn;
     try {
       if (classpathMode == JavaClasspathMode.BAZEL
