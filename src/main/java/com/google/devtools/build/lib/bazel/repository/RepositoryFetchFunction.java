@@ -228,14 +228,21 @@ public final class RepositoryFetchFunction implements SkyFunction {
           DigestWriter.computePredeclaredInputHash(repoDefinition, starlarkSemantics);
 
       var state = env.getState(State::new);
-      System.err.println("state.result: " + state.result + ", cacheRepoDir: " + state.cacheRepoDir);
+      if (repositoryName.getName().contains("my_repo")) {
+        System.err.println(
+            "state.result: " + state.result + ", cacheRepoDir: " + state.cacheRepoDir);
+      }
       if (state.result != null && state.cacheRepoDir != null) {
         var value = registerCachedRepoDir(env, state.cacheRepoDir);
         if (value == null) {
-          System.err.println("restart for finalized repo contents cache registration");
+          if (repositoryName.getName().contains("my_repo")) {
+            System.err.println("restart for finalized repo contents cache registration");
+          }
           return null;
         }
-        System.err.printf("Done restart: %s %s %s%n", value, repositoryName, state.cacheRepoDir);
+        if (repositoryName.getName().contains("my_repo")) {
+          System.err.printf("Done restart: %s %s %s%n", value, repositoryName, state.cacheRepoDir);
+        }
       }
       if (shouldUseCachedRepoContents(env, repoDefinition)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
@@ -252,14 +259,18 @@ public final class RepositoryFetchFunction implements SkyFunction {
         if (repoContentsCache.isEnabled()) {
           for (CandidateRepo candidate :
               repoContentsCache.getCandidateRepos(predeclaredInputHash)) {
-            System.err.println(candidate);
+            if (repositoryName.getName().contains("my_repo")) {
+              System.err.println(candidate);
+            }
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     env, candidate.recordedInputsFile());
             if (repoState == null) {
               return null;
             }
-            System.err.println(repoState + " for " + candidate.contentsDir());
+            if (repositoryName.getName().contains("my_repo")) {
+              System.err.println(repoState + " for " + candidate.contentsDir());
+            }
             if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
               if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
                   == null) {
@@ -308,12 +319,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
           // Don't forget to register a FileValue on the cache repo dir, so that we know to refetch
           // if the cache entry gets GC'd from under us.
           FileValue value;
-          if ((value = registerCachedRepoDir(env, cachedRepoDir))
-              == null) {
-            System.err.println("restart for repo contents cache registration");
+          if ((value = registerCachedRepoDir(env, cachedRepoDir)) == null) {
+            if (repositoryName.getName().contains("my_repo")) {
+              System.err.println("restart for repo contents cache registration");
+            }
             return null;
           }
-          System.err.printf("Done: %s %s %s%n", value, repositoryName, cachedRepoDir);
+          if (repositoryName.getName().contains("my_repo")) {
+            System.err.printf("Done: %s %s %s%n", value, repositoryName, cachedRepoDir);
+          }
         }
         return new RepositoryDirectoryValue.Success(
             repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
@@ -343,13 +357,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
     }
   }
 
-  private static FileValue registerCachedRepoDir(
-      Environment env, Path cachedRepoDir)
+  private static FileValue registerCachedRepoDir(Environment env, Path cachedRepoDir)
       throws InterruptedException {
-    return (FileValue) env.getValue(
-        FileValue.key(
-            RootedPath.toRootedPath(
-                Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)));
+    return (FileValue)
+        env.getValue(
+            FileValue.key(
+                RootedPath.toRootedPath(
+                    Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)));
   }
 
   @Nullable
