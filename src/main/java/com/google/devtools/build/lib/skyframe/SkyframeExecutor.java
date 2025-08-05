@@ -115,7 +115,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformFunction;
-import com.google.devtools.build.lib.analysis.platform.PlatformValue.PlatformKeyParams;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
@@ -1829,7 +1829,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Parse the options.
     PackageContext rootPackage = mainRepoContext.rootPackage();
     ParsedFlagsValue.Key parsedFlagsKey =
-        ParsedFlagsValue.Key.create(args, rootPackage, /* flagAliasMappings= */ ImmutableMap.of());
+        ParsedFlagsValue.Key.create(args, rootPackage, /* flagAliasMappings= */ ImmutableList.of());
     EvaluationResult<SkyValue> result =
         evaluateSkyKeys(eventHandler, ImmutableList.of(parsedFlagsKey));
     if (result.hasError()) {
@@ -4077,7 +4077,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // a non-ActionLookupKey depending on an ActionLookupKey. So we can skip any other
           // non-ActionLookupKeys in the traversal as an optimization.
           if (dep.functionName().equals(SkyFunctions.PLATFORM)) {
-            var platformLabel = ((PlatformKeyParams) dep.argument()).label();
+            var platformLabel = ((PlatformValue.Key) dep.argument()).label();
             dep = PlatformFunction.configuredTargetDep(platformLabel);
           }
           if (!(dep instanceof ActionLookupKey depKey)) {
