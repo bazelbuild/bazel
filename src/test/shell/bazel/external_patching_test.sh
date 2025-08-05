@@ -285,7 +285,8 @@ genrule(
 EOF
 
   bazel build :foo.sh > "${TEST_log}" 2>&1
-  expect_log 'canonical reproducible form can be obtained by modifying arguments'
+  expect_log "canonical reproducible form can be obtained by modifying arguments \
+remote_patches = {\".*/remote\.patch\": \"[^\"]*\"}\$"
 
   foopath=`bazel info bazel-bin`/foo.sh
   grep -q 'There are' $foopath || fail "expected remote patch to be applied"

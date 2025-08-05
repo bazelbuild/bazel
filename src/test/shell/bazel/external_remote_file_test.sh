@@ -239,7 +239,8 @@ EOF
   add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//:hello_world > "${TEST_log}" 2>&1
-  expect_log 'canonical reproducible form can be obtained by modifying arguments'
+  expect_log "canonical reproducible form can be obtained by modifying arguments \
+remote_file_integrity = {\"REPO\.bazel\": \"[^\"]*\", \"BUILD\.bazel\": \"[^\"]*\"}\$"
 
   # Check that repo is not marked as reproducible and cached
 
@@ -297,7 +298,8 @@ EOF
   add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//:hello_world > "${TEST_log}" 2>&1
-  expect_log 'canonical reproducible form can be obtained by modifying arguments'
+  expect_log "canonical reproducible form can be obtained by modifying arguments \
+remote_file_integrity = {\"REPO\.bazel\": \"[^\"]*\", \"BUILD\.bazel\": \"[^\"]*\"}\$"
 
   # Check that repo is not marked as reproducible and cached
 
