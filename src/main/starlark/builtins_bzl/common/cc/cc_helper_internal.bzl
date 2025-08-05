@@ -58,6 +58,30 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("rules_rust", "rust/private"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
+def check_private_api():
+    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
+
+def wrap_with_check_private_api(symbol):
+    """
+    Protects the symbol so it can only be used internally.
+
+    Returns:
+      A function. When the function is invoked (without any params), the check
+      is done and if it passes the symbol is returned.
+    """
+
+    def callback():
+        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        return symbol
+
+    return callback
+
+def should_create_per_object_debug_info(feature_configuration, cpp_configuration):
+    return cpp_configuration.fission_active_for_current_compilation_mode() and \
+           feature_configuration.is_enabled("per_object_debug_info")
+
+# LINT.IfChange(forked_exports)
+
 _CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
 _C_SOURCE = [".c"]
 _OBJC_SOURCE = [".m"]
@@ -123,30 +147,6 @@ extensions = struct(
     CPP_MODULE = _CPP_MODULE,
     CPP_MODULE_MAP = _CPP_MODULE_MAP,
 )
-
-def check_private_api():
-    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
-
-def wrap_with_check_private_api(symbol):
-    """
-    Protects the symbol so it can only be used internally.
-
-    Returns:
-      A function. When the function is invoked (without any params), the check
-      is done and if it passes the symbol is returned.
-    """
-
-    def callback():
-        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
-        return symbol
-
-    return callback
-
-def should_create_per_object_debug_info(feature_configuration, cpp_configuration):
-    return cpp_configuration.fission_active_for_current_compilation_mode() and \
-           feature_configuration.is_enabled("per_object_debug_info")
-
-# LINT.IfChange(forked_exports)
 
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",
