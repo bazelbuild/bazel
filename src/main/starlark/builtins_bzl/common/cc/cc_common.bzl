@@ -853,6 +853,10 @@ def _create_linkstamp(linkstamp, headers):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return create_linkstamp(linkstamp, headers)
 
+def _escape_label(*, label):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _builtins.internal.cc_internal.escape_label(label = label)
+
 cc_common = struct(
     link = _link,
     create_lto_compilation_context = _create_lto_compilation_context,
@@ -910,4 +914,5 @@ cc_common = struct(
     absolute_symlink = _absolute_symlink,
     objc_expand_and_tokenize = _objc_expand_and_tokenize,
     create_linkstamp = _create_linkstamp,
+    escape_label = _escape_label,
 )

@@ -20,7 +20,6 @@ load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
 load(":common/cc/semantics.bzl", "semantics")
 
-cc_internal = _builtins.internal.cc_internal
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
@@ -87,7 +86,7 @@ def _attributes(ctx):
     all_files = _files(ctx, "all_files")
     return struct(
         supports_param_files = ctx.attr.supports_param_files,
-        runtime_solib_dir_base = "_solib__" + cc_internal.escape_label(label = ctx.label),
+        runtime_solib_dir_base = "_solib__" + cc_common.escape_label(label = ctx.label),
         cc_toolchain_config_info = _provider(ctx.attr.toolchain_config, CcToolchainConfigInfo),
         static_runtime_lib = ctx.attr.static_runtime_lib,
         dynamic_runtime_lib = ctx.attr.dynamic_runtime_lib,
