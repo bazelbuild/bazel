@@ -1418,7 +1418,7 @@ that perform a build. For more details, see
 are strongly recommended:
 
 *   [`--bazelrc=/dev/null`](/run/bazelrc)
-*   [`--nokeep_state_after_build`](/reference/command-line-reference#flag--keep_state_after_build)
+*   [`--nokeep_state_after_build`](/reference/command-line-reference#common_options-flag--keep_state_after_build)
 
 These options are also important:
 
