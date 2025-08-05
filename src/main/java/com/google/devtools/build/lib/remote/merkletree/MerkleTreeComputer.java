@@ -82,7 +82,8 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * <p>Computes a Merkle tree representing the inputs of a {@link Spawn} in a {@link Action#getInputRootDigest()}
+ * Computes a Merkle tree representing the inputs of a {@link Spawn} in a {@link
+ * Action#getInputRootDigest()}.
  */
 public final class MerkleTreeComputer {
 
@@ -147,7 +148,7 @@ public final class MerkleTreeComputer {
   private final String commandId;
   private final Digest emptyDigest;
   private final MerkleTree.WithBlobs emptyTree;
-  private final AsyncCache<Object, MerkleTree.RootOnly> inFlightSubTreeCache =
+  private final AsyncCache<InFlightCacheKey, MerkleTree.RootOnly> inFlightSubTreeCache =
       Caffeine.newBuilder().buildAsync();
 
   public MerkleTreeComputer(
@@ -271,7 +272,7 @@ public final class MerkleTreeComputer {
      * server are omitted from this tree. This usually suffices for remote execution unless the
      * remote cache loses entries.
      */
-    KEEP_UNCACHED,
+    KEEP,
 
     /**
      * Retains all blobs in the tree and also forces the recomputation of cached subtrees.
@@ -279,7 +280,7 @@ public final class MerkleTreeComputer {
      * <p>This is only needed in exceptional cases, such as when the remote cache has lost entries
      * while the Bazel server is running.
      */
-    KEEP_ALL,
+    KEEP_AND_FLUSH_CACHE,
   }
 
   public MerkleTree buildForSpawn(
@@ -389,7 +390,7 @@ public final class MerkleTreeComputer {
             absolutePathResolver,
             /* remoteActionExecutionContext= */ null,
             /* remotePathResolver= */ null,
-            BlobPolicy.KEEP_ALL);
+            BlobPolicy.KEEP_AND_FLUSH_CACHE);
   }
 
   private MerkleTree build(
@@ -768,7 +769,7 @@ public final class MerkleTreeComputer {
       @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
-    if (blobPolicy == BlobPolicy.KEEP_ALL) {
+    if (blobPolicy == BlobPolicy.KEEP_AND_FLUSH_CACHE) {
       persistentCache.invalidate(metadata);
     } else {
       var cachedRoot = persistentCache.getIfPresent(metadata);
@@ -776,26 +777,35 @@ public final class MerkleTreeComputer {
         return completedFuture(cachedRoot);
       }
     }
-    var inFlightCacheKey = inFlightCacheKeyFor(metadata, isTool);
-    if (blobPolicy == BlobPolicy.KEEP_ALL) {
+    var inFlightCacheKey = new InFlightCacheKey(metadata, isTool, blobPolicy != BlobPolicy.DISCARD);
+    if (blobPolicy == BlobPolicy.KEEP_AND_FLUSH_CACHE) {
       inFlightSubTreeCache.synchronous().invalidate(inFlightCacheKey);
     }
     return inFlightSubTreeCache
         .get(
             inFlightCacheKey,
             (key, buildExecutor) -> {
-              // There is a window in which a concurrent call may have removed the
-              // in-flight cache entry while this one had already passed the check
-              // above. Recheck the persistent cache to avoid unnecessary work.
+              // There is a window in which a concurrent call may have removed the in-flight cache
+              // entry while this one had already passed the check above. Recheck the persistent
+              // cache to avoid unnecessary work.
               var cachedRoot = persistentCache.getIfPresent(metadata);
               if (cachedRoot != null) {
                 return completedFuture(cachedRoot);
               }
+              // An ongoing computation with blobs can be reused for one that doesn't require them
+              if (blobPolicy == BlobPolicy.DISCARD) {
+                var inFlightComputation =
+                    inFlightSubTreeCache.getIfPresent(
+                        new InFlightCacheKey(metadata, isTool, /* blobsAreCached= */ true));
+                if (inFlightComputation != null) {
+                  return inFlightComputation;
+                }
+              }
               return supplyAsync(
                       () -> {
                         try {
-                          // Subtrees either consist entirely of tool inputs or don't contain
-                          // any. The same applies to scrubbed inputs.
+                          // Subtrees either consist entirely of tool inputs or don't contain any.
+                          // The same applies to scrubbed inputs.
                           return build(
                               sortedInputsSupplier.compute(),
                               isTool ? alwaysTrue() : alwaysFalse(),
@@ -820,7 +830,7 @@ public final class MerkleTreeComputer {
                               remoteExecutionCache.ensureInputsPresent(
                                   remoteActionExecutionContext,
                                   withBlobs,
-                                  blobPolicy == BlobPolicy.KEEP_ALL,
+                                  blobPolicy == BlobPolicy.KEEP_AND_FLUSH_CACHE,
                                   remotePathResolver);
                             }
                           } catch (IOException e) {
@@ -858,10 +868,7 @@ public final class MerkleTreeComputer {
     }
   }
 
-  private static Object inFlightCacheKeyFor(FileArtifactValue metadata, boolean isTool) {
-    record ToolFileArtifactValue(FileArtifactValue metadata) {}
-    return isTool ? new ToolFileArtifactValue(metadata) : metadata;
-  }
+  record InFlightCacheKey(FileArtifactValue metadata, boolean isTool, boolean blobsAreCached) {}
 
   private static void addFile(
       Directory.Builder directory,
