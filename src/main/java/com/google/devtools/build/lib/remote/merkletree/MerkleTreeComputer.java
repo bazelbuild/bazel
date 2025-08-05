@@ -136,9 +136,9 @@ public final class MerkleTreeComputer {
       Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
   private static final ExecutorService MERKLE_TREE_UPLOAD_POOL =
       Executors.newVirtualThreadPerTaskExecutor();
-  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentToolSubTreeCache =
+  private static final Cache<FileArtifactValue, MerkleTree.Opaque> persistentToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
-  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentNonToolSubTreeCache =
+  private static final Cache<FileArtifactValue, MerkleTree.Opaque> persistentNonToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
   @Nullable private static volatile Scrubber lastScrubber;
 
@@ -148,7 +148,7 @@ public final class MerkleTreeComputer {
   private final String commandId;
   private final Digest emptyDigest;
   private final MerkleTree.WithBlobs emptyTree;
-  private final AsyncCache<InFlightCacheKey, MerkleTree.RootOnly> inFlightSubTreeCache =
+  private final AsyncCache<InFlightCacheKey, MerkleTree.Opaque> inFlightSubTreeCache =
       Caffeine.newBuilder().buildAsync();
 
   public MerkleTreeComputer(
@@ -164,7 +164,8 @@ public final class MerkleTreeComputer {
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
         new MerkleTree.WithBlobs(
-            new MerkleTree.RootOnly(emptyDigest, 0, 0), ImmutableMap.of(emptyDigest, emptyBlob));
+            new MerkleTree.OpaqueWithCachedSubTrees(emptyDigest, 0, 0),
+            ImmutableMap.of(emptyDigest, emptyBlob));
   }
 
   public sealed interface MerkleTree {
@@ -174,20 +175,26 @@ public final class MerkleTreeComputer {
 
     long inputBytes();
 
-    RootOnly root();
+    Opaque root();
 
-    record RootOnly(Digest rootDigest, long inputFiles, long inputBytes) implements MerkleTree {
+    sealed interface Opaque extends MerkleTree {
       @Override
-      public RootOnly root() {
+      default Opaque root() {
         return this;
       }
     }
 
+    record OpaqueWithCachedSubTrees(Digest rootDigest, long inputFiles, long inputBytes)
+        implements Opaque {}
+
+    record OpaqueWithDiscardedSubTrees(Digest rootDigest, long inputFiles, long inputBytes)
+        implements Opaque {}
+
     final class WithBlobs implements MerkleTree {
-      private final RootOnly root;
+      private final OpaqueWithCachedSubTrees root;
       private final ImmutableMap<Digest, Object> blobs;
 
-      private WithBlobs(RootOnly root, ImmutableMap<Digest, Object> blobs) {
+      private WithBlobs(OpaqueWithCachedSubTrees root, ImmutableMap<Digest, Object> blobs) {
         this.root = root;
         this.blobs = blobs;
       }
@@ -214,7 +221,7 @@ public final class MerkleTreeComputer {
       }
 
       @Override
-      public RootOnly root() {
+      public Opaque root() {
         return root;
       }
 
@@ -258,7 +265,7 @@ public final class MerkleTreeComputer {
   /** Specifies which blobs should be retained in the Merkle tree. */
   public enum BlobPolicy {
     /**
-     * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.RootOnly}.
+     * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.Opaque}.
      *
      * <p>This is the most lightweight policy. It always suffices when checking for a remote cache
      * hit and may suffice for remote execution when a cache hit is expected.
@@ -456,13 +463,16 @@ public final class MerkleTreeComputer {
           var topDirectory = directoryStack.peek();
           if (topDirectory == null) {
             var builtBlobs = blobs.buildKeepingLast();
-            var rootOnly = new MerkleTree.RootOnly(directoryBlobDigest, inputFiles, inputBytes);
             if (blobPolicy == BlobPolicy.DISCARD) {
               // Make sure that we didn't unnecessarily retain any blobs.
               checkState(builtBlobs.isEmpty());
-              return rootOnly;
+              return new MerkleTree.OpaqueWithDiscardedSubTrees(
+                  directoryBlobDigest, inputFiles, inputBytes);
             }
-            return new MerkleTree.WithBlobs(rootOnly, builtBlobs);
+            return new MerkleTree.WithBlobs(
+                new MerkleTree.OpaqueWithCachedSubTrees(
+                    directoryBlobDigest, inputFiles, inputBytes),
+                builtBlobs);
           }
           topDirectory
               .addDirectoriesBuilder()
@@ -683,7 +693,7 @@ public final class MerkleTreeComputer {
     return null;
   }
 
-  private CompletableFuture<MerkleTree.RootOnly> computeForRunfilesTreeIfAbsent(
+  private CompletableFuture<MerkleTree.Opaque> computeForRunfilesTreeIfAbsent(
       RunfilesArtifactValue runfilesArtifactValue,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -721,7 +731,7 @@ public final class MerkleTreeComputer {
         blobPolicy);
   }
 
-  private CompletableFuture<MerkleTree.RootOnly> computeForTreeArtifactIfAbsent(
+  private CompletableFuture<MerkleTree.Opaque> computeForTreeArtifactIfAbsent(
       TreeArtifactValue treeArtifactValue,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -759,7 +769,7 @@ public final class MerkleTreeComputer {
         throws IOException, InterruptedException;
   }
 
-  private CompletableFuture<MerkleTree.RootOnly> computeIfAbsent(
+  private CompletableFuture<MerkleTree.Opaque> computeIfAbsent(
       FileArtifactValue metadata,
       SortedInputsSupplier sortedInputsSupplier,
       boolean isTool,
@@ -773,7 +783,9 @@ public final class MerkleTreeComputer {
       persistentCache.invalidate(metadata);
     } else {
       var cachedRoot = persistentCache.getIfPresent(metadata);
-      if (cachedRoot != null) {
+      if (cachedRoot != null
+          && (blobPolicy == BlobPolicy.DISCARD
+              || cachedRoot instanceof MerkleTree.OpaqueWithCachedSubTrees)) {
         return completedFuture(cachedRoot);
       }
     }
@@ -789,10 +801,12 @@ public final class MerkleTreeComputer {
               // entry while this one had already passed the check above. Recheck the persistent
               // cache to avoid unnecessary work.
               var cachedRoot = persistentCache.getIfPresent(metadata);
-              if (cachedRoot != null) {
+              if (cachedRoot != null
+                  && (blobPolicy == BlobPolicy.DISCARD
+                      || cachedRoot instanceof MerkleTree.OpaqueWithCachedSubTrees)) {
                 return completedFuture(cachedRoot);
               }
-              // An ongoing computation with blobs can be reused for one that doesn't require them
+              // An ongoing computation with blobs can be reused for one that doesn't require them.
               if (blobPolicy == BlobPolicy.DISCARD) {
                 var inFlightComputation =
                     inFlightSubTreeCache.getIfPresent(
@@ -841,7 +855,17 @@ public final class MerkleTreeComputer {
                         }
                         // Move the computed root to the persistent cache so that it can be reused
                         // by later builds.
-                        persistentCache.asMap().putIfAbsent(metadata, merkleTree.root());
+                        persistentCache
+                            .asMap()
+                            .compute(
+                                metadata,
+                                (unused, oldRoot) -> {
+                                  // Don't downgrade the cached root from one indicating that its
+                                  // blobs have been uploaded.
+                                  return oldRoot instanceof MerkleTree.OpaqueWithCachedSubTrees
+                                      ? oldRoot
+                                      : merkleTree.root();
+                                });
                         return merkleTree.root();
                       },
                       MERKLE_TREE_UPLOAD_POOL);
