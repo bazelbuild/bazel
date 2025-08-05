@@ -845,6 +845,10 @@ def _absolute_symlink(*, ctx, output, target_path, progress_message):
         progress_message = progress_message,
     )
 
+def _objc_expand_and_tokenize(**kwargs):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _builtins.internal.objc_internal.expand_and_tokenize(**kwargs)
+
 def _create_linkstamp(linkstamp, headers):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return create_linkstamp(linkstamp, headers)
@@ -904,5 +908,6 @@ cc_common = struct(
     get_cc_native_library_info_provider = _get_cc_native_library_info_provider,
     get_artifact_name_for_category = _get_artifact_name_for_category,
     absolute_symlink = _absolute_symlink,
+    objc_expand_and_tokenize = _objc_expand_and_tokenize,
     create_linkstamp = _create_linkstamp,
 )
