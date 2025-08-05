@@ -114,7 +114,7 @@ def get_specific_compile_build_variables(
         result[_VARS.MODULE_MAP_FILE] = cpp_module_map.file()
         result[_VARS.DEPENDENT_MODULE_MAP_FILES] = depset(direct_module_maps)
 
-    result[_VARS.USER_COMPILE_FLAGS] = user_compile_flags
+    result[_VARS.USER_COMPILE_FLAGS] = _cc_internal.intern_string_sequence_variable_value(user_compile_flags)
     if source_file:
         result[_VARS.SOURCE_FILE] = source_file
     if output_file:

@@ -93,6 +93,22 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "intern_string_sequence_variable_value",
+      documented = false,
+      parameters = {
+        @Param(name = "string_sequence"),
+      })
+  public Sequence<String> internStringSequenceVariableValue(Sequence<?> stringSequence)
+      throws EvalException {
+    return Sequence.cast(
+        interner.intern(
+            StarlarkList.immutableCopyOf(
+                Sequence.cast(stringSequence, String.class, "string_sequence"))),
+        String.class,
+        "string_sequence");
+  }
+
+  @StarlarkMethod(
       name = "solib_symlink_action",
       documented = false,
       parameters = {
