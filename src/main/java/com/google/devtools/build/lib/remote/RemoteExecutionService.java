@@ -487,7 +487,7 @@ public class RemoteExecutionService {
   @VisibleForTesting
   RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP_ALL);
+    return buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP_AND_FLUSH_CACHE);
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
@@ -1885,8 +1885,8 @@ public class RemoteExecutionService {
                     context,
                     action.getRemotePathResolver(),
                     force
-                        ? MerkleTreeComputer.BlobPolicy.KEEP_ALL
-                        : MerkleTreeComputer.BlobPolicy.KEEP_UNCACHED);
+                        ? MerkleTreeComputer.BlobPolicy.KEEP_AND_FLUSH_CACHE
+                        : MerkleTreeComputer.BlobPolicy.KEEP);
       }
 
       remoteExecutionCache.ensureInputsPresent(

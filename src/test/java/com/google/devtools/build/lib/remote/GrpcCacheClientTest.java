@@ -312,7 +312,7 @@ public class GrpcCacheClientTest {
                     /* spawnScrubber= */ null,
                     spawnExecutionContext,
                     remotePathResolver,
-                    MerkleTreeComputer.BlobPolicy.KEEP_UNCACHED);
+                    MerkleTreeComputer.BlobPolicy.KEEP);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 
     // Add a fake CAS that responds saying that the above virtual action input is missing
