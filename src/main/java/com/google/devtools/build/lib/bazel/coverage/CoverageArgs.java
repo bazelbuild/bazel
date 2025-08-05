@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import javax.annotation.Nullable;
 
 /**
  * A value class that holds arguments for {@link CoverageReportActionBuilder#CoverageHelper}
@@ -36,7 +37,7 @@ public record CoverageArgs(
     ArtifactOwner artifactOwner,
     FilesToRunProvider reportGenerator,
     String workspaceName,
-    boolean htmlReport,
+    @Nullable Artifact htmlReport,
     ActionOwner actionOwner) {
   public CoverageArgs {
     requireNonNull(directories, "directories");

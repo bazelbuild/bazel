@@ -222,6 +222,9 @@ public final class BlazeDirectories {
   /**
    * Returns the configuration-independent root where the build-data should be placed, given the
    * {@link BlazeDirectories} of this server instance. Nothing else should be placed here.
+   *
+   * <p>Note that, for historic reasons, this method is also used to determine where coverage data
+   * ("_coverage") should be stored.
    */
   public ArtifactRoot getBuildDataDirectory(String workspaceName) {
     return ArtifactRoot.asDerivedRoot(
