@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -135,7 +134,7 @@ public final class BuildConfigurationKeyProducer<C>
       tasks.enqueue(
           new PlatformProducer(
               targetPlatforms.getFirst(),
-              ImmutableMap.copyOf(options.get(CoreOptions.class).commandLineFlagAliases),
+              options.get(CoreOptions.class).commandLineFlagAliases,
               this,
               this::checkTargetPlatformFlags));
       return runAfter;

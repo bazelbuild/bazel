@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.CommonOptions;
-import com.google.devtools.build.lib.analysis.platform.PlatformValue.PlatformKeyParams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -57,7 +56,7 @@ public final class PlatformFunction implements SkyFunction {
   @Override
   public PlatformValue compute(SkyKey skyKey, Environment env)
       throws PlatformFunctionException, InterruptedException {
-    PlatformKeyParams params = (PlatformKeyParams) skyKey.argument();
+    PlatformValue.Key params = (PlatformValue.Key) skyKey.argument();
     var platformLabel = params.label();
     var pkgId = platformLabel.getPackageIdentifier();
 

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.CPU_CONSTRAINT_SETTING;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -115,9 +114,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
 
     PlatformValue platformValue =
         (PlatformValue)
-            env.getValue(
-                PlatformValue.key(
-                    platformLabel, ImmutableMap.copyOf(coreOptions.commandLineFlagAliases)));
+            env.getValue(PlatformValue.key(platformLabel, coreOptions.commandLineFlagAliases));
     if (platformValue == null) {
       return null;
     }

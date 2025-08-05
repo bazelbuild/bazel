@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,7 +58,7 @@ public final class PlatformProducerTest extends ProducerTestCase {
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
-    PlatformValue result = fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of());
+    PlatformValue result = fetch(platformLabel, /* flagAliasMappings= */ ImmutableList.of());
 
     assertThat(result).isNotNull();
     assertThat(result.platformInfo().label()).isEqualTo(platformLabel);
@@ -89,7 +91,7 @@ public final class PlatformProducerTest extends ProducerTestCase {
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:alias");
-    PlatformValue result = fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of());
+    PlatformValue result = fetch(platformLabel, /* flagAliasMappings= */ ImmutableList.of());
 
     assertThat(result).isNotNull();
     assertThat(result.platformInfo().label())
@@ -111,7 +113,7 @@ public final class PlatformProducerTest extends ProducerTestCase {
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
     assertThrows(
         InvalidPlatformException.class,
-        () -> fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of()));
+        () -> fetch(platformLabel, /* flagAliasMappings= */ ImmutableList.of()));
   }
 
   @Test
@@ -128,7 +130,7 @@ public final class PlatformProducerTest extends ProducerTestCase {
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
     assertThrows(
         OptionsParsingException.class,
-        () -> fetch(platformLabel, /* flagAliasMappings= */ ImmutableMap.of()));
+        () -> fetch(platformLabel, /* flagAliasMappings= */ ImmutableList.of()));
   }
 
   @Test
@@ -180,13 +182,10 @@ public final class PlatformProducerTest extends ProducerTestCase {
     PlatformValue result =
         fetch(
             Label.parseCanonicalUnchecked("//lookup:basic"),
-            /* flagAliasMappings= */ ImmutableMap.of(
-                "aliasname1",
-                "//starlark:actual1",
-                "aliasname2",
-                "//starlark:actual2",
-                "aliasname3",
-                "//starlark:actual3"));
+            /* flagAliasMappings= */ ImmutableList.of(
+                Map.entry("aliasname1", "//starlark:actual1"),
+                Map.entry("aliasname2", "//starlark:actual2"),
+                Map.entry("aliasname3", "//starlark:actual3")));
 
     // Native flags:
     assertThat(result.parsedFlags().get().parsingResult().canonicalize())
@@ -197,7 +196,8 @@ public final class PlatformProducerTest extends ProducerTestCase {
             "//starlark:actual1", "fast", "//starlark:actual2", true, "//starlark:actual3", false);
   }
 
-  private PlatformValue fetch(Label platformLabel, ImmutableMap<String, String> flagAliasMappings)
+  private PlatformValue fetch(
+      Label platformLabel, List<Map.Entry<String, String>> flagAliasMappings)
       throws InvalidPlatformException, OptionsParsingException, InterruptedException {
     PlatformInfoSink sink = new PlatformInfoSink();
     PlatformProducer producer =

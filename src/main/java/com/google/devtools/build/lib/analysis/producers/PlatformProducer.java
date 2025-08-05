@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -21,6 +20,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrException2Sink;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Retrieves {@link PlatformValue} for a given platform. */
@@ -38,7 +39,7 @@ final class PlatformProducer
 
   // -------------------- Input --------------------
   private final Label platformLabel;
-  private final ImmutableMap<String, String> flagAliasMappings;
+  private final List<Map.Entry<String, String>> flagAliasMappings;
 
   // -------------------- Output --------------------
   private final ResultSink sink;
@@ -48,7 +49,7 @@ final class PlatformProducer
 
   PlatformProducer(
       Label platformLabel,
-      ImmutableMap<String, String> flagAliasMappings,
+      List<Map.Entry<String, String>> flagAliasMappings,
       ResultSink sink,
       StateMachine runAfter) {
     this.platformLabel = platformLabel;
