@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -99,7 +100,11 @@ public final class DependencyContextProducerWithCompatibilityCheck
     // toolchains mark the target incompatible instead of failing the build.
     return new PlatformProducer(
         platformConfiguration.getTargetPlatform(),
-        targetAndConfiguration.getConfiguration().getCommandLineFlagAliases(),
+        targetAndConfiguration
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .commandLineFlagAliases,
         (PlatformProducer.ResultSink) this,
         /* runAfter= */ this::computeConfigConditions);
   }
