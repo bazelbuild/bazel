@@ -1116,8 +1116,6 @@ def _is_stamping_enabled(ctx):
         stamp = ctx.attr.stamp
     return stamp
 
-# LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:forked_exports)
-
 def _has_target_constraints(ctx, constraints):
     # Constraints is a label_list.
     for constraint in constraints:
@@ -1125,6 +1123,8 @@ def _has_target_constraints(ctx, constraints):
         if ctx.target_platform_has_constraint(constraint_value):
             return True
     return False
+
+# LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:forked_exports)
 
 def _is_stamping_enabled_for_aspect(ctx):
     if ctx.configuration.is_tool_configuration():
