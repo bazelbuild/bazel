@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoInfo.ProtoInfoProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -115,49 +114,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     Action action = getDescriptorWriteAction("//x:no_srcs");
     assertThat(action).isInstanceOf(FileWriteAction.class);
     assertThat(((FileWriteAction) action).getFileContents()).isEmpty();
-  }
-
-  /**
-   * Asserts that the actions creating descriptor sets for rule R, take as input (=depend on) all of
-   * the descriptor sets of the transitive dependencies of R.
-   *
-   * <p>This is needed so that building R, that has a dependency R' which violates strict proto
-   * deps, would break.
-   */
-  @Test
-  @Ignore("b/204266604 Remove if the testing shows it's not needed.")
-  public void descriptorSetsDependOnChildren() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "proto_library(name='alias', deps = ['foo'])",
-        "proto_library(name='foo', srcs=['foo.proto'], deps = ['bar'])",
-        "proto_library(name='bar', srcs=['bar.proto'])",
-        "proto_library(name='alias_to_no_srcs', deps = ['no_srcs'])",
-        "proto_library(name='no_srcs')");
-
-    assertThat(getDepsDescriptorSets(getDescriptorOutput("//x:alias")))
-        .containsExactly("x/foo-descriptor-set.proto.bin", "x/bar-descriptor-set.proto.bin");
-    assertThat(getDepsDescriptorSets(getDescriptorOutput("//x:foo")))
-        .containsExactly("x/bar-descriptor-set.proto.bin");
-    assertThat(getDepsDescriptorSets(getDescriptorOutput("//x:bar"))).isEmpty();
-    assertThat(getDepsDescriptorSets(getDescriptorOutput("//x:alias_to_no_srcs")))
-        .containsExactly("x/no_srcs-descriptor-set.proto.bin");
-    assertThat(getDepsDescriptorSets(getDescriptorOutput("//x:no_srcs"))).isEmpty();
-  }
-
-  /**
-   * Returns all of the inputs of the action that generated 'getDirectDescriptorSet', and which are
-   * themselves descriptor sets.
-   */
-  private ImmutableList<String> getDepsDescriptorSets(Artifact descriptorSet) {
-    ImmutableList.Builder<String> result = ImmutableList.builder();
-    for (String input : prettyArtifactNames(getGeneratingAction(descriptorSet).getInputs())) {
-      if (input.endsWith("-descriptor-set.proto.bin")) {
-        result.add(input);
-      }
-    }
-    return result.build();
   }
 
   @Test
