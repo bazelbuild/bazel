@@ -248,7 +248,7 @@ def update_attrs(orig, keys, override):
     """
     result = {}
     for key in keys:
-        if getattr(orig, key) != None:
+        if hasattr(orig, key):
             result[key] = getattr(orig, key)
     result["name"] = orig.name
     result.update(override)
