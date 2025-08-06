@@ -3085,19 +3085,25 @@ def _impl(repository_ctx):
     "name": repository_ctx.attr.name,
     "attr1": repository_ctx.attr.attr1,
     "attr2": repository_ctx.attr.attr2,
+    "attr3": repository_ctx.attr.attr3,
+    "attr4": repository_ctx.attr.attr4,
   }
 
 repo = repository_rule(
   implementation = _impl,
   attrs={
     "attr1": attr.string(default = "default1"),
-    "attr2": attr.string(default = "default2"),
+    "attr2": attr.string(),
+    "attr3": attr.label(default = "//:default"),
+    "attr4": attr.label(),
   },
 )
 EOF
 
   bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
   expect_not_log "indicated that a canonical reproducible form can be obtained"
+  expect_not_log "modifying"
+  expect_not_log "dropping"
 }
 
 function test_resolved_attributes_shows_message_if_changed() {
