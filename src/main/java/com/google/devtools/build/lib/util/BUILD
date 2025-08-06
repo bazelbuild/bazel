@@ -276,6 +276,18 @@ java_library(
 )
 
 java_library(
+    name = "deterministic_writer_input_stream",
+    srcs = ["DeterministicWriterInputStream.java"],
+    add_exports = [
+        "java.base/jdk.internal.vm",
+    ],
+    deps = [
+        ":deterministic_writer",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "byte_string_deterministic_writer",
     srcs = ["ByteStringDeterministicWriter.java"],
     deps = [
