@@ -43,10 +43,6 @@ linker_mode = struct(
 )
 # LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:linker_mode)
 
-cpp_file_types = struct(
-    LINKER_SCRIPT = ["ld", "lds", "ldscript"],
-)
-
 _CPP_TOOLCHAIN_TYPE = "@@" + semantics.get_repo() + "//tools/cpp:toolchain_type"
 
 def _find_cpp_toolchain(ctx, *, mandatory = True):
@@ -106,12 +102,6 @@ def _rule_error(msg):
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
 
-def _is_test_target(ctx):
-    if hasattr(ctx.attr, "testonly"):
-        return ctx.attr.testonly
-
-    return False
-
 # NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
 # it has better performance (checking for extension in a short list rather than multiple
 # string.endswith() checks)
@@ -135,6 +125,14 @@ def _additional_inputs_from_linking_context(linking_context):
     for linker_input in linking_context.linker_inputs.to_list():
         inputs.extend(linker_input.additional_inputs)
     return depset(inputs, order = "topological")
+
+# LINT.IfChange(forked_exports)
+
+cpp_file_types = struct(
+    LINKER_SCRIPT = ["ld", "lds", "ldscript"],
+)
+
+artifact_category = _artifact_category
 
 def _replace_name(name, new_name):
     last_slash = name.rfind("/")
@@ -164,9 +162,11 @@ def _get_linked_artifact(ctx, cc_toolchain, is_dynamic_link_type):
 
     return ctx.actions.declare_file(name)
 
-# LINT.IfChange(forked_exports)
+def _is_test_target(ctx):
+    if hasattr(ctx.attr, "testonly"):
+        return ctx.attr.testonly
 
-artifact_category = _artifact_category
+    return False
 
 def _create_save_feature_state_artifacts(
         output_groups_builder,
@@ -1100,6 +1100,22 @@ def _get_local_defines_for_runfiles_lookup(ctx, all_deps):
             return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
     return []
 
+def _linker_scripts(ctx):
+    result = []
+    for dep in ctx.attr.deps:
+        for f in dep[DefaultInfo].files.to_list():
+            if f.extension in cpp_file_types.LINKER_SCRIPT:
+                result.append(f)
+    return result
+
+def _is_stamping_enabled(ctx):
+    if ctx.configuration.is_tool_configuration():
+        return 0
+    stamp = 0
+    if hasattr(ctx.attr, "stamp"):
+        stamp = ctx.attr.stamp
+    return stamp
+
 # LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:forked_exports)
 
 def _has_target_constraints(ctx, constraints):
@@ -1110,14 +1126,6 @@ def _has_target_constraints(ctx, constraints):
             return True
     return False
 
-def _is_stamping_enabled(ctx):
-    if ctx.configuration.is_tool_configuration():
-        return 0
-    stamp = 0
-    if hasattr(ctx.attr, "stamp"):
-        stamp = ctx.attr.stamp
-    return stamp
-
 def _is_stamping_enabled_for_aspect(ctx):
     if ctx.configuration.is_tool_configuration():
         return 0
@@ -1125,14 +1133,6 @@ def _is_stamping_enabled_for_aspect(ctx):
     if hasattr(ctx.rule.attr, "stamp"):
         stamp = ctx.rule.attr.stamp
     return stamp
-
-def _linker_scripts(ctx):
-    result = []
-    for dep in ctx.attr.deps:
-        for f in dep[DefaultInfo].files.to_list():
-            if f.extension in cpp_file_types.LINKER_SCRIPT:
-                result.append(f)
-    return result
 
 def _proto_output_root(proto_root, bin_dir_path):
     if proto_root == ".":
