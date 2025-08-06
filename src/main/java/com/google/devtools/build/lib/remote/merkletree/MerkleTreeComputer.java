@@ -84,8 +84,41 @@ import javax.annotation.Nullable;
 /**
  * Computes a Merkle tree representing the inputs of a {@link Spawn} in a {@link
  * Action#getInputRootDigest()}.
+ *
+ * <p>Remote execution should allow a developer to run up to thousands of actions remotely in
+ * parallel on a regular machine. As a result, this class is optimized with the following goals in
+ * the order of decreasing importance:
+ *
+ * <ul>
+ *   <li>Above all else, keep peak memory usage as low as possible so that Bazel doesn't OOM when
+ *       running many remote execution actions in parallel. Allocations with sizes linear in the
+ *       number of spawn inputs should be avoided if possible and kept as small as possible.
+ *   <li>Make incremental builds as fast as possible.
+ *   <li>Keep the size of caches kept between builds as small as possible.
  */
 public final class MerkleTreeComputer {
+  // This class achieves its goals via the following observations:
+  //
+  // * Incremental builds typically have a large number of cache hits and the only information about
+  //   a Merkle tree needed to check for a cache hit is the root digest. We can thus avoid
+  //   materializing the full tree unless the cache check fails.
+  // * Certain special artifacts are known to form self-contained Merkle trees that never intersect
+  //   with any other Merkle tree. This includes tree artifacts, runfiles directories and source
+  //   directories. The Merkle trees for such artifacts can be computed and uploaded to the remote
+  //   cache independently. Only their root digest has to be kept around for inclusion in other
+  //   Merkle trees.
+  // * FileArtifactValue's fully describe their contents and can thus be used as cache keys for
+  //   inter-build caches. By using a weak reference for the key, they can be cleaned up
+  //   automatically as soon as their contents change or they are no longer relevant.
+  // * Instead of basing caching decisions on a particular remote cache TTL, we can optimistically
+  //   assume that every blob that has been uploaded is still in the cache if we support a mode in
+  //   which all blobs can be forcibly recomputed and re-uploaded on missing digests.
+  // * While the inputs of a spawn naturally form a map of paths to contents, this map doesn't have
+  //   to be materialized in memory. Instead, it suffices to maintain a list of inputs that is
+  //   sorted by lazily computed paths. This drastically reduces peak memory usage.
+  // * When visiting the inputs of a spawn in lexicographical order, once a directory is left once,
+  //   it will never be entered again. At that point, the proto describing it can be built and
+  //   digested and intermediate structures are no longer needed.
 
   // This differs from the Comparable implementation of PathFragment in two ways that are relevant
   // for RBE:
@@ -132,14 +165,23 @@ public final class MerkleTreeComputer {
       ImmutableList.of(entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
   private static final PathFragment ROOT_FAKE_PATH_SEGMENT = PathFragment.create("root");
 
+  // Building Merkle trees mostly involves computing hashes of protos and is thus CPU-bound.
+  // TODO: Source directories are also visited on this pool in a single-threaded manner.
   private static final ExecutorService MERKLE_TREE_BUILD_POOL =
-      Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+      Executors.newFixedThreadPool(
+          Runtime.getRuntime().availableProcessors(),
+          Thread.ofPlatform().name("merkle-tree-build-", 0).factory());
+  // Uploading Merkle trees mostly involves waiting on networking futures, for which virtual threads
+  // are ideal.
   private static final ExecutorService MERKLE_TREE_UPLOAD_POOL =
-      Executors.newVirtualThreadPerTaskExecutor();
-  private static final Cache<FileArtifactValue, MerkleTree.Opaque> persistentToolSubTreeCache =
+      Executors.newThreadPerTaskExecutor(
+          Thread.ofVirtual().name("merkle-tree-upload-", 0).factory());
+
+  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
-  private static final Cache<FileArtifactValue, MerkleTree.Opaque> persistentNonToolSubTreeCache =
+  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentNonToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
+
   @Nullable private static volatile Scrubber lastScrubber;
 
   private final DigestUtil digestUtil;
@@ -147,8 +189,8 @@ public final class MerkleTreeComputer {
   private final String buildRequestId;
   private final String commandId;
   private final Digest emptyDigest;
-  private final MerkleTree.WithBlobs emptyTree;
-  private final AsyncCache<InFlightCacheKey, MerkleTree.Opaque> inFlightSubTreeCache =
+  private final MerkleTree.Uploadable emptyTree;
+  private final AsyncCache<InFlightCacheKey, MerkleTree.RootOnly> inFlightSubTreeCache =
       Caffeine.newBuilder().buildAsync();
 
   public MerkleTreeComputer(
@@ -163,38 +205,57 @@ public final class MerkleTreeComputer {
     var emptyBlob = new byte[0];
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
-        new MerkleTree.WithBlobs(
-            new MerkleTree.OpaqueWithCachedSubTrees(emptyDigest, 0, 0),
+        new MerkleTree.Uploadable(
+            new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0),
             ImmutableMap.of(emptyDigest, emptyBlob));
   }
 
   public sealed interface MerkleTree {
     Digest rootDigest();
 
+    /** The total number of files in this tree, including all subtrees. */
     long inputFiles();
 
+    /**
+     * The total number of content bytes in this tree, including all subtrees. This includes both
+     * file contents and the protos describing directories.
+     */
     long inputBytes();
 
-    Opaque root();
+    /** Returns the root of this tree, which may be the current instance. */
+    RootOnly root();
 
-    sealed interface Opaque extends MerkleTree {
+    /**
+     * A {@link MerkleTree} that doesn't retain any blobs, either because they have already been
+     * uploaded or because only the root digest is needed (e.g., for a remote cache check).
+     */
+    sealed interface RootOnly extends MerkleTree {
       @Override
-      default Opaque root() {
+      default RootOnly root() {
         return this;
       }
+
+      /**
+       * A {@link MerkleTree} that retains no blobs since all of them have recently been uploaded to
+       * the remote cache.
+       */
+      record BlobsUploaded(Digest rootDigest, long inputFiles, long inputBytes)
+          implements RootOnly {}
+
+      /**
+       * A {@link MerkleTree} that retains no blobs since they were discarded during the computation
+       * (e.g., because they aren't needed for a remote cache check).
+       */
+      record BlobsDiscarded(Digest rootDigest, long inputFiles, long inputBytes)
+          implements RootOnly {}
     }
 
-    record OpaqueWithCachedSubTrees(Digest rootDigest, long inputFiles, long inputBytes)
-        implements Opaque {}
-
-    record OpaqueWithDiscardedSubTrees(Digest rootDigest, long inputFiles, long inputBytes)
-        implements Opaque {}
-
-    final class WithBlobs implements MerkleTree {
-      private final OpaqueWithCachedSubTrees root;
+    /** A {@link MerkleTree} that retains all blobs that still need to be uploaded. */
+    final class Uploadable implements MerkleTree {
+      private final RootOnly.BlobsUploaded root;
       private final ImmutableMap<Digest, Object> blobs;
 
-      private WithBlobs(OpaqueWithCachedSubTrees root, ImmutableMap<Digest, Object> blobs) {
+      private Uploadable(RootOnly.BlobsUploaded root, ImmutableMap<Digest, Object> blobs) {
         this.root = root;
         this.blobs = blobs;
       }
@@ -221,7 +282,7 @@ public final class MerkleTreeComputer {
       }
 
       @Override
-      public Opaque root() {
+      public RootOnly root() {
         return root;
       }
 
@@ -256,7 +317,7 @@ public final class MerkleTreeComputer {
 
     void ensureInputsPresent(
         RemoteActionExecutionContext context,
-        MerkleTree.WithBlobs merkleTree,
+        MerkleTree.Uploadable merkleTree,
         boolean force,
         RemotePathResolver remotePathResolver)
         throws IOException, InterruptedException;
@@ -265,7 +326,7 @@ public final class MerkleTreeComputer {
   /** Specifies which blobs should be retained in the Merkle tree. */
   public enum BlobPolicy {
     /**
-     * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.Opaque}.
+     * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.RootOnly}.
      *
      * <p>This is the most lightweight policy. It always suffices when checking for a remote cache
      * hit and may suffice for remote execution when a cache hit is expected.
@@ -273,7 +334,8 @@ public final class MerkleTreeComputer {
     DISCARD,
 
     /**
-     * Retains all blobs in the tree that aren't contained in cached subtrees.
+     * Retains all blobs in the tree that aren't contained in subtrees that have already been
+     * uploaded.
      *
      * <p>Only blobs that have been uploaded to the remote cache during the lifetime of the Bazel
      * server are omitted from this tree. This usually suffices for remote execution unless the
@@ -282,12 +344,12 @@ public final class MerkleTreeComputer {
     KEEP,
 
     /**
-     * Retains all blobs in the tree and also forces the recomputation of cached subtrees.
+     * Retains all blobs in the tree and also forces the reupload of all subtrees.
      *
      * <p>This is only needed in exceptional cases, such as when the remote cache has lost entries
      * while the Bazel server is running.
      */
-    KEEP_AND_FLUSH_CACHE,
+    KEEP_AND_REUPLOAD,
   }
 
   public MerkleTree buildForSpawn(
@@ -374,7 +436,7 @@ public final class MerkleTreeComputer {
         .getRelative(pathMapper.map(input.getExecPath()));
   }
 
-  public MerkleTree.WithBlobs buildForFiles(Map<PathFragment, Path> inputs)
+  public MerkleTree.Uploadable buildForFiles(Map<PathFragment, Path> inputs)
       throws IOException, InterruptedException {
     ArtifactPathResolver absolutePathResolver;
     if (inputs.isEmpty()) {
@@ -385,7 +447,7 @@ public final class MerkleTreeComputer {
       absolutePathResolver = ArtifactPathResolver.forExecRoot(absoluteRoot);
     }
     // BlobPolicy.KEEP_ALL always results in a MerkleTree.WithBlobs.
-    return (MerkleTree.WithBlobs)
+    return (MerkleTree.Uploadable)
         build(
             Collections2.transform(
                 ImmutableList.sortedCopyOf(
@@ -397,7 +459,7 @@ public final class MerkleTreeComputer {
             absolutePathResolver,
             /* remoteActionExecutionContext= */ null,
             /* remotePathResolver= */ null,
-            BlobPolicy.KEEP_AND_FLUSH_CACHE);
+            BlobPolicy.KEEP_AND_REUPLOAD);
   }
 
   private MerkleTree build(
@@ -466,13 +528,14 @@ public final class MerkleTreeComputer {
             if (blobPolicy == BlobPolicy.DISCARD) {
               // Make sure that we didn't unnecessarily retain any blobs.
               checkState(builtBlobs.isEmpty());
-              return new MerkleTree.OpaqueWithDiscardedSubTrees(
+              return new MerkleTree.RootOnly.BlobsDiscarded(
                   directoryBlobDigest, inputFiles, inputBytes);
+            } else {
+              return new MerkleTree.Uploadable(
+                  new MerkleTree.RootOnly.BlobsUploaded(
+                      directoryBlobDigest, inputFiles, inputBytes),
+                  builtBlobs);
             }
-            return new MerkleTree.WithBlobs(
-                new MerkleTree.OpaqueWithCachedSubTrees(
-                    directoryBlobDigest, inputFiles, inputBytes),
-                builtBlobs);
           }
           topDirectory
               .addDirectoriesBuilder()
@@ -693,7 +756,7 @@ public final class MerkleTreeComputer {
     return null;
   }
 
-  private CompletableFuture<MerkleTree.Opaque> computeForRunfilesTreeIfAbsent(
+  private CompletableFuture<MerkleTree.RootOnly> computeForRunfilesTreeIfAbsent(
       RunfilesArtifactValue runfilesArtifactValue,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -731,7 +794,7 @@ public final class MerkleTreeComputer {
         blobPolicy);
   }
 
-  private CompletableFuture<MerkleTree.Opaque> computeForTreeArtifactIfAbsent(
+  private CompletableFuture<MerkleTree.RootOnly> computeForTreeArtifactIfAbsent(
       TreeArtifactValue treeArtifactValue,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -769,7 +832,7 @@ public final class MerkleTreeComputer {
         throws IOException, InterruptedException;
   }
 
-  private CompletableFuture<MerkleTree.Opaque> computeIfAbsent(
+  private CompletableFuture<MerkleTree.RootOnly> computeIfAbsent(
       FileArtifactValue metadata,
       SortedInputsSupplier sortedInputsSupplier,
       boolean isTool,
@@ -779,18 +842,18 @@ public final class MerkleTreeComputer {
       @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
-    if (blobPolicy == BlobPolicy.KEEP_AND_FLUSH_CACHE) {
+    if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
       persistentCache.invalidate(metadata);
     } else {
       var cachedRoot = persistentCache.getIfPresent(metadata);
       if (cachedRoot != null
           && (blobPolicy == BlobPolicy.DISCARD
-              || cachedRoot instanceof MerkleTree.OpaqueWithCachedSubTrees)) {
+              || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
         return completedFuture(cachedRoot);
       }
     }
     var inFlightCacheKey = new InFlightCacheKey(metadata, isTool, blobPolicy != BlobPolicy.DISCARD);
-    if (blobPolicy == BlobPolicy.KEEP_AND_FLUSH_CACHE) {
+    if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
       inFlightSubTreeCache.synchronous().invalidate(inFlightCacheKey);
     }
     return inFlightSubTreeCache
@@ -803,14 +866,14 @@ public final class MerkleTreeComputer {
               var cachedRoot = persistentCache.getIfPresent(metadata);
               if (cachedRoot != null
                   && (blobPolicy == BlobPolicy.DISCARD
-                      || cachedRoot instanceof MerkleTree.OpaqueWithCachedSubTrees)) {
+                      || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
                 return completedFuture(cachedRoot);
               }
               // An ongoing computation with blobs can be reused for one that doesn't require them.
               if (blobPolicy == BlobPolicy.DISCARD) {
                 var inFlightComputation =
                     inFlightSubTreeCache.getIfPresent(
-                        new InFlightCacheKey(metadata, isTool, /* blobsAreCached= */ true));
+                        new InFlightCacheKey(metadata, isTool, /* blobsUploaded= */ true));
                 if (inFlightComputation != null) {
                   return inFlightComputation;
                 }
@@ -838,13 +901,13 @@ public final class MerkleTreeComputer {
                       MERKLE_TREE_BUILD_POOL)
                   .thenApplyAsync(
                       merkleTree -> {
-                        if (merkleTree instanceof MerkleTree.WithBlobs withBlobs) {
+                        if (merkleTree instanceof MerkleTree.Uploadable uploadable) {
                           try {
                             if (remoteExecutionCache != null) {
                               remoteExecutionCache.ensureInputsPresent(
                                   remoteActionExecutionContext,
-                                  withBlobs,
-                                  blobPolicy == BlobPolicy.KEEP_AND_FLUSH_CACHE,
+                                  uploadable,
+                                  blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
                                   remotePathResolver);
                             }
                           } catch (IOException e) {
@@ -862,7 +925,7 @@ public final class MerkleTreeComputer {
                                 (unused, oldRoot) -> {
                                   // Don't downgrade the cached root from one indicating that its
                                   // blobs have been uploaded.
-                                  return oldRoot instanceof MerkleTree.OpaqueWithCachedSubTrees
+                                  return oldRoot instanceof MerkleTree.RootOnly.BlobsUploaded
                                       ? oldRoot
                                       : merkleTree.root();
                                 });
@@ -874,6 +937,7 @@ public final class MerkleTreeComputer {
         // to the in-flight cache.
         .thenApply(
             root -> {
+              // Clean up the in-flight cache so that it doesn't grow unboundedly.
               inFlightSubTreeCache.synchronous().invalidate(inFlightCacheKey);
               return root;
             });
@@ -892,7 +956,7 @@ public final class MerkleTreeComputer {
     }
   }
 
-  record InFlightCacheKey(FileArtifactValue metadata, boolean isTool, boolean blobsAreCached) {}
+  record InFlightCacheKey(FileArtifactValue metadata, boolean isTool, boolean blobsUploaded) {}
 
   private static void addFile(
       Directory.Builder directory,
