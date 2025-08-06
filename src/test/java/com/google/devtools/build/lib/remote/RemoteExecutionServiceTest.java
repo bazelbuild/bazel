@@ -2679,7 +2679,7 @@ public class RemoteExecutionServiceTest {
     }
 
     var remoteAction1 = service.buildRemoteAction(spawn, context);
-    var merkleTree = (MerkleTree.WithBlobs) remoteAction1.getMerkleTree();
+    var merkleTree = (MerkleTree.Uploadable) remoteAction1.getMerkleTree();
     assertThat(Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest())))
         .isEqualTo(rootDirectory);
     assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(1);
@@ -2735,7 +2735,7 @@ public class RemoteExecutionServiceTest {
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
-    var merkleTree = (MerkleTree.WithBlobs) remoteAction.getMerkleTree();
+    var merkleTree = (MerkleTree.Uploadable) remoteAction.getMerkleTree();
     var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
     var actualRootDir =
         Directory.parseFrom(
@@ -2801,7 +2801,7 @@ public class RemoteExecutionServiceTest {
             "outputs/bin/dir/output1", "outputs/bin/other_dir/output2", "outputs/bin/output_dir");
 
     // Check that the Merkle tree nodes are mapped correctly, including the output directory.
-    var merkleTree = (MerkleTree.WithBlobs) remoteAction.getMerkleTree();
+    var merkleTree = (MerkleTree.Uploadable) remoteAction.getMerkleTree();
     var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
     var outputsDirectory =
         Directory.parseFrom(

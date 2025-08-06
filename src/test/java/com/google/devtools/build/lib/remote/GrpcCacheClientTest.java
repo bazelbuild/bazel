@@ -304,7 +304,7 @@ public class GrpcCacheClientTest {
             ImmutableClassToInstanceMap.of(),
             /* actionFileSystem= */ null);
     var merkleTree =
-        (MerkleTree.WithBlobs)
+        (MerkleTree.Uploadable)
             new MerkleTreeComputer(DIGEST_UTIL, client, "buildRequestId", "commandId")
                 .buildForSpawn(
                     spawn,
