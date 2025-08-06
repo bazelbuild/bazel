@@ -313,6 +313,8 @@ ExitCode JavaBinaryLauncher::Launch() {
     wprintf(L"%s\n", java_bin.c_str());
     return 0;
   }
+  wstring jacoco_main_class = this->GetLaunchInfoByKey(JACOCO_MAIN_CLASS);
+  SetEnv(L"JACOCO_MAIN_CLASS", jacoco_main_class);
 
   wostringstream classpath;
 
