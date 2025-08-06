@@ -59,8 +59,12 @@ public class BazelLockFileModuleTest {
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .setModuleExtensionMetadata(
                 Optional.of(
-                    ModuleExtensionMetadata.create(
-                        Starlark.NONE, Starlark.NONE, /* reproducible= */ true)))
+                    LockfileModuleExtensionMetadata.of(
+                        ModuleExtensionMetadata.create(
+                            Starlark.NONE,
+                            Starlark.NONE,
+                            /* reproducible= */ true,
+                            /* facts= */ Starlark.NONE))))
             .build();
     evalFactors = ModuleExtensionEvalFactors.create("linux", "x86_64");
     otherEvalFactors = ModuleExtensionEvalFactors.create("linux", "aarch64");
