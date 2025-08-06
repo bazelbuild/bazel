@@ -487,7 +487,7 @@ public class RemoteExecutionService {
   @VisibleForTesting
   RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP_AND_FLUSH_CACHE);
+    return buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
@@ -1866,9 +1866,9 @@ public class RemoteExecutionService {
     // network connection.
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
     try {
-      MerkleTree.WithBlobs merkleTree;
-      if (action.getMerkleTree() instanceof MerkleTree.WithBlobs withBlobs && !force) {
-        merkleTree = withBlobs;
+      MerkleTree.Uploadable merkleTree;
+      if (action.getMerkleTree() instanceof MerkleTree.Uploadable uploadable && !force) {
+        merkleTree = uploadable;
       } else {
         // --experimental_remote_discard_merkle_trees was provided or the remote lost a shared
         // subtree uploaded previously. Recompute the tree - including all subtrees in the latter
@@ -1877,7 +1877,7 @@ public class RemoteExecutionService {
         SpawnExecutionContext context = action.getSpawnExecutionContext();
         ToolSignature toolSignature = getToolSignature(spawn, context);
         merkleTree =
-            (MerkleTree.WithBlobs)
+            (MerkleTree.Uploadable)
                 merkleTreeComputer.buildForSpawn(
                     spawn,
                     toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
@@ -1885,7 +1885,7 @@ public class RemoteExecutionService {
                     context,
                     action.getRemotePathResolver(),
                     force
-                        ? MerkleTreeComputer.BlobPolicy.KEEP_AND_FLUSH_CACHE
+                        ? MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD
                         : MerkleTreeComputer.BlobPolicy.KEEP);
       }
 
