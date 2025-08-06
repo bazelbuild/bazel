@@ -132,7 +132,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
    */
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
-      MerkleTree.WithBlobs merkleTree,
+      MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force,
       @Nullable RemotePathResolver remotePathResolver)
@@ -170,7 +170,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   @Override
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
-      MerkleTree.WithBlobs merkleTree,
+      MerkleTree.Uploadable merkleTree,
       boolean force,
       RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
@@ -249,7 +249,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
-      MerkleTree.WithBlobs merkleTree,
+      MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       @Nullable RemotePathResolver remotePathResolver) {
     var upload = merkleTree.upload(this, context, remotePathResolver, digest);
@@ -278,7 +278,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   private Single<List<UploadTask>> createUploadTasks(
       RemoteActionExecutionContext context,
-      MerkleTree.WithBlobs merkleTree,
+      MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force,
       @Nullable RemotePathResolver remotePathResolver) {
@@ -305,7 +305,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   private Maybe<UploadTask> maybeCreateUploadTask(
       RemoteActionExecutionContext context,
-      MerkleTree.WithBlobs merkleTree,
+      MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
       boolean force,
