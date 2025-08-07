@@ -254,6 +254,7 @@ java_library(
         ":os",
         ":shell_escaper",
         ":string_encoding",
+        ":thread_dumper",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/util/io",
