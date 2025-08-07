@@ -91,7 +91,9 @@ function test_tmpdir() {
 #!/bin/sh
 set -e
 echo TEST_TMPDIR=$TEST_TMPDIR
+echo HOME=$HOME
 touch "$TEST_TMPDIR/foo"
+touch "$HOME/bar"
 EOF
   chmod +x foo/bar_test.sh
   cat > foo/BUILD <<EOF
@@ -105,10 +107,12 @@ EOF
   bazel test --test_output=all //foo:bar_test >& $TEST_log || \
     fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=/.*"
+  expect_log "HOME=/.*"
 
   bazel test --nocache_test_results --test_output=all --test_tmpdir=$TEST_TMPDIR //foo:bar_test \
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
+  expect_log "HOME=$TEST_TMPDIR"
 }
 
 function test_env_vars() {
@@ -118,6 +122,7 @@ function test_env_vars() {
 #!/bin/sh
 echo "pwd: $PWD"
 echo "src: $TEST_SRCDIR"
+echo "rd: $RUNFILES_DIR"
 echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
@@ -131,8 +136,9 @@ sh_test(
 EOF
 
   bazel test --test_output=all //foo &> $TEST_log || fail "Test failed"
-  expect_log "pwd: .*/foo.runfiles/_main$"
-  expect_log "src: .*/foo.runfiles$"
+  expect_log "pwd: /.*/foo.runfiles/_main$"
+  expect_log "src: /.*/foo.runfiles$"
+  expect_log "rd: /.*/foo.runfiles$"
   expect_log "ws: _main$"
 }
 
