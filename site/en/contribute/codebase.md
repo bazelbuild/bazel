@@ -924,7 +924,7 @@ built). Derived artifacts can themselves be multiple kinds:
 There is no fundamental reason why source artifacts cannot be tree artifacts or
 unresolved symlink artifacts. At the moment, symlinks in source files are always
 resolved and while source directories are supported, their contents are entirely
-opaque to Bazel and thus don't support the same kind of lazy expansion on
+opaque to build rules and thus don't support the same kind of lazy expansionson
 command lines as tree artifacts do.
 
 Actions are best understood as a command that needs to be run, the environment
