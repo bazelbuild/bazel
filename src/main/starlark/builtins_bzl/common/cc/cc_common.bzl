@@ -345,13 +345,13 @@ def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
         direct_cc_compilation_contexts.append(cc_info.compilation_context)
         cc_linking_contexts.append(cc_info.linking_context)
         cc_debug_info_contexts.append(cc_info.debug_context())
-        transitive_native_cc_libraries.append(cc_info.transitive_native_libraries())
+        transitive_native_cc_libraries.append(cc_info._legacy_transitive_native_libraries)
 
     for cc_info in cc_infos:
         cc_compilation_contexts.append(cc_info.compilation_context)
         cc_linking_contexts.append(cc_info.linking_context)
         cc_debug_info_contexts.append(cc_info.debug_context())
-        transitive_native_cc_libraries.append(cc_info.transitive_native_libraries())
+        transitive_native_cc_libraries.append(cc_info._legacy_transitive_native_libraries)
 
     return CcInfo(
         compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),

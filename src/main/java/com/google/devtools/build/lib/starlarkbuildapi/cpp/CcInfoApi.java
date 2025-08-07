@@ -62,11 +62,11 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       throws EvalException;
 
   @StarlarkMethod(
-      name = "transitive_native_libraries",
+      name = "_legacy_transitive_native_libraries",
       documented = false,
-      doc = "Returns a depset of the transitive native libraries",
-      useStarlarkThread = true)
-  Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException;
+      structField = true,
+      doc = "Returns a depset of the transitive native libraries")
+  Depset getCcTransitiveNativeLibraries() throws EvalException;
 
   /** The provider implementing this can construct CcInfo objects. */
   @StarlarkBuiltin(

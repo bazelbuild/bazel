@@ -297,7 +297,7 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
     return library.dynamic_library
 
 def _collect_native_cc_libraries(deps, libraries):
-    transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
+    transitive_libraries = [dep[CcInfo]._legacy_transitive_native_libraries for dep in deps if CcInfo in dep]
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
 def _build_linking_context_from_libraries(ctx, libraries):
