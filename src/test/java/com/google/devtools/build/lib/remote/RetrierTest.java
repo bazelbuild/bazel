@@ -158,19 +158,20 @@ public class RetrierTest {
     AtomicInteger attemptsLvl1 = new AtomicInteger();
     AtomicInteger attemptsLvl2 = new AtomicInteger();
     try {
-      r.execute(
-          () -> {
-            attemptsLvl0.incrementAndGet();
-            return r.execute(
-                () -> {
-                  attemptsLvl1.incrementAndGet();
-                  return r.execute(
-                      () -> {
-                        attemptsLvl2.incrementAndGet();
-                        throw new Exception("failure message");
-                      });
-                });
-          });
+      var unused =
+          r.execute(
+              () -> {
+                attemptsLvl0.incrementAndGet();
+                return r.execute(
+                    () -> {
+                      attemptsLvl1.incrementAndGet();
+                      return r.execute(
+                          () -> {
+                            attemptsLvl2.incrementAndGet();
+                            throw new Exception("failure message");
+                          });
+                    });
+              });
     } catch (Exception e) {
       assertThat(e).hasMessageThat().isEqualTo("failure message");
       assertThat(attemptsLvl0.get()).isEqualTo(2);
@@ -229,10 +230,11 @@ public class RetrierTest {
     cb.trialCall();
 
     try {
-      r.execute(
-          () -> {
-            throw new Exception("call failed");
-          });
+      var unused =
+          r.execute(
+              () -> {
+                throw new Exception("call failed");
+              });
     } catch (Exception expected) {
       // Intentionally left empty.
     }
