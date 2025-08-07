@@ -61,7 +61,6 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -414,8 +413,7 @@ public final class SandboxModule extends BlazeModule {
     return new SandboxFallbackSpawnRunner(
         sandboxSpawnRunner,
         createFallbackRunner(env),
-        env.getReporter(),
-        sandboxOptions != null && sandboxOptions.legacyLocalFallback);
+        env.getReporter());
   }
 
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
@@ -442,18 +440,14 @@ public final class SandboxModule extends BlazeModule {
     private final SpawnRunner sandboxSpawnRunner;
     private final SpawnRunner fallbackSpawnRunner;
     private final ExtendedEventHandler reporter;
-    private static final AtomicBoolean warningEmitted = new AtomicBoolean();
-    private final boolean fallbackAllowed;
 
     SandboxFallbackSpawnRunner(
         SpawnRunner sandboxSpawnRunner,
         SpawnRunner fallbackSpawnRunner,
-        ExtendedEventHandler reporter,
-        boolean fallbackAllowed) {
+        ExtendedEventHandler reporter) {
       this.sandboxSpawnRunner = sandboxSpawnRunner;
       this.fallbackSpawnRunner = fallbackSpawnRunner;
       this.reporter = reporter;
-      this.fallbackAllowed = fallbackAllowed;
     }
 
     @Override
@@ -478,26 +472,7 @@ public final class SandboxModule extends BlazeModule {
 
     @Override
     public boolean canExecWithLegacyFallback(Spawn spawn) {
-      if (Spawns.usesPathMapping(spawn)) {
-        return false;
-      }
-      boolean canExec = !sandboxSpawnRunner.canExec(spawn) && fallbackSpawnRunner.canExec(spawn);
-      if (canExec) {
-        // We give a warning to use strategies instead, whether or not we allow the fallback
-        // to happen. This allows people to switch early, but also explains why the build fails
-        // once we flip the flag. Unfortunately, we can't easily tell if the flag was explicitly
-        // set, if we could we should omit the warnings in that case.
-        if (warningEmitted.compareAndSet(false, true)) {
-          reporter.handle(
-              Event.warn(
-                  String.format(
-                      "%s (from %s) uses implicit fallback from sandbox to local, which is"
-                          + " deprecated because it is not hermetic. Prefer setting an explicit"
-                          + " list of strategies, e.g., --strategy=%s=sandboxed,standalone",
-                      spawn.getMnemonic(), spawn.getTargetLabel(), spawn.getMnemonic())));
-        }
-      }
-      return canExec && fallbackAllowed;
+      return false;
     }
 
     @Override
