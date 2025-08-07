@@ -1025,7 +1025,11 @@ final class AspectFunction implements SkyFunction {
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
       analysisEnvironment.disable(associatedTarget);
-      String msg = "Analysis of target '" + associatedTarget.getLabel() + "' failed";
+      String msg =
+          "Analysis of target '%s' (config: %s) failed"
+              .formatted(
+                  associatedTarget.getLabel(),
+                  configuration != null ? configuration.getOptions().shortId() : "none");
       throw new AspectFunctionException(
           new AspectCreationException(msg, key.getLabel(), configuration));
     }

@@ -485,7 +485,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredValueCreationException(
           ctgValue.getTarget(),
           null,
-          "Analysis of target '" + target.getLabel() + "' failed",
+          "Analysis of target '%s' (config: %s) failed"
+              .formatted(
+                  target.getLabel(),
+                  configuration != null ? configuration.getOptions().shortId() : "none"),
           rootCauses,
           null);
     }
