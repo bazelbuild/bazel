@@ -80,7 +80,7 @@ public abstract sealed class PathFragment
   //  choice to assume case sensitivity based on the host OS. Windows case sensitivity is
   //  configurable on a per-directory basis:
   //  https://learn.microsoft.com/en-us/windows/wsl/case-sensitivity
-  public static final Comparator<PathFragment> CASE_SENSITIVE_SEGMENTS_COMPARATOR =
+  public static final Comparator<PathFragment> HIERARCHICAL_COMPARATOR =
       (p1, p2) -> {
         // Bazel's Strings contain raw UTF-8 bytes (see StringEncoding), which can be compared
         // byte-by-byte.
