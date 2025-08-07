@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
-import java.util.Objects;
 
 @VisibleForTesting
 class UnixOsPathPolicy implements OsPathPolicy {
@@ -93,39 +92,6 @@ class UnixOsPathPolicy implements OsPathPolicy {
   }
 
   @Override
-  public int compare(String s1, String s2) {
-    return s1.compareTo(s2);
-  }
-
-  @Override
-  public int compare(char c1, char c2) {
-    return Character.compare(c1, c2);
-  }
-
-  @Override
-  public boolean equals(String s1, String s2) {
-    return Objects.equals(s1, s2);
-  }
-
-  @Override
-  public int hash(String s) {
-    if (s == null) {
-      return 0;
-    }
-    return s.hashCode();
-  }
-
-  @Override
-  public boolean startsWith(String path, String prefix) {
-    return path.startsWith(prefix);
-  }
-
-  @Override
-  public boolean endsWith(String path, String suffix) {
-    return path.endsWith(suffix);
-  }
-
-  @Override
   public boolean isSeparator(char c) {
     return c == '/';
   }
@@ -133,11 +99,6 @@ class UnixOsPathPolicy implements OsPathPolicy {
   @Override
   public char additionalSeparator() {
     return 0;
-  }
-
-  @Override
-  public boolean isCaseSensitive() {
-    return true;
   }
 
   @Override

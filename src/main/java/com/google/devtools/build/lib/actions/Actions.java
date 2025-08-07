@@ -269,9 +269,9 @@ public final class Actions {
     }
   }
 
+  // TODO(fmeum): Replace with comparator in PathFragment.
   private static final Comparator<Artifact> EXEC_PATH_PREFIX_COMPARATOR =
       (lhs, rhs) -> {
-        // We need to use the OS path policy in case the OS is case insensitive.
         OsPathPolicy os = OsPathPolicy.getFilePathOs();
         String str1 = lhs.getExecPathString();
         String str2 = rhs.getExecPathString();
@@ -281,7 +281,7 @@ public final class Actions {
         for (int i = 0; i < n; ++i) {
           char c1 = str1.charAt(i);
           char c2 = str2.charAt(i);
-          int res = os.compare(c1, c2);
+          int res = Character.compare(c1, c2);
           if (res != 0) {
             if (c1 == PathFragment.SEPARATOR_CHAR) {
               return -1;

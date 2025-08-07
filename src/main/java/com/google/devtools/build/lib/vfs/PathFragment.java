@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -51,7 +53,7 @@ import javax.annotation.Nullable;
  * \\\\network\\paths and \\\\?\\unc\\paths are not supported. We are currently using forward
  * slashes ('/') even on Windows.
  *
- * <p>Mac and Windows path fragments are case insensitive.
+ * <p>All paths are case-sensitive.
  */
 @Immutable
 public abstract sealed class PathFragment
@@ -372,7 +374,7 @@ public abstract sealed class PathFragment
           "Cannot relativize an absolute and a non-absolute path pair");
     }
     String basePath = base.normalizedPath;
-    if (!OS.startsWith(normalizedPath, basePath)) {
+    if (!normalizedPath.startsWith(basePath)) {
       throw new IllegalArgumentException(
           String.format("Path '%s' is not under '%s', cannot relativize", this, base));
     }
@@ -416,12 +418,40 @@ public abstract sealed class PathFragment
     if (getDriveStrLength() != other.getDriveStrLength()) {
       return false;
     }
-    if (!OS.startsWith(normalizedPath, other.normalizedPath)) {
+    if (!normalizedPath.startsWith(other.normalizedPath)) {
       return false;
     }
     return normalizedPath.length() == other.normalizedPath.length()
         || other.normalizedPath.length() == getDriveStrLength()
         || normalizedPath.charAt(other.normalizedPath.length()) == SEPARATOR_CHAR;
+  }
+
+  /**
+   * Returns true iff {@code other} is an ancestor of this path, ignoring case.
+   *
+   * <p>If this == other, true is returned.
+   *
+   * <p>An absolute path can never be an ancestor of a relative path, and vice versa.
+   */
+  public boolean startsWithIgnoringCase(PathFragment other) {
+    Preconditions.checkNotNull(other);
+    // Drive strings are ASCII only and hence can be checked without conversion to Unicode.
+    if (getDriveStrLength() != other.getDriveStrLength()) {
+      return false;
+    }
+    // Convert to regular Unicode Java strings so that Unicode case mappings are applied correctly.
+    String normalizedPathUnicode = internalToUnicode(normalizedPath);
+    String otherNormalizedPathUnicode = internalToUnicode(other.normalizedPath);
+    if (otherNormalizedPathUnicode.length() > normalizedPathUnicode.length()) {
+      return false;
+    }
+    if (!normalizedPathUnicode.regionMatches(
+        true, 0, otherNormalizedPathUnicode, 0, otherNormalizedPathUnicode.length())) {
+      return false;
+    }
+    return normalizedPathUnicode.length() == otherNormalizedPathUnicode.length()
+        || other.normalizedPath.length() == getDriveStrLength()
+        || normalizedPathUnicode.charAt(otherNormalizedPathUnicode.length()) == SEPARATOR_CHAR;
   }
 
   /**
@@ -438,7 +468,7 @@ public abstract sealed class PathFragment
     if (other.isAbsolute()) {
       return this.equals(other);
     }
-    if (!OS.endsWith(normalizedPath, other.normalizedPath)) {
+    if (!normalizedPath.endsWith(other.normalizedPath)) {
       return false;
     }
     return normalizedPath.length() == other.normalizedPath.length()
@@ -465,15 +495,12 @@ public abstract sealed class PathFragment
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    return OS.equals(this.normalizedPath, ((PathFragment) o).normalizedPath);
+    return o instanceof PathFragment other && this.normalizedPath.equals(other.normalizedPath);
   }
 
   @Override
   public int hashCode() {
-    return OS.hash(this.normalizedPath);
+    return this.normalizedPath.hashCode();
   }
 
   /**
@@ -486,7 +513,7 @@ public abstract sealed class PathFragment
    */
   @Override
   public int compareTo(PathFragment o) {
-    return OS.compare(this.normalizedPath, o.normalizedPath);
+    return this.normalizedPath.compareTo(o.normalizedPath);
   }
 
   ////////////////////////////////////////////////////////////////////////

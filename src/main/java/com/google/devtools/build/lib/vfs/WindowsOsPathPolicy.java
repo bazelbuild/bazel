@@ -189,63 +189,6 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   }
 
   @Override
-  public int compare(String s1, String s2) {
-    // Windows is case-insensitive
-    return s1.compareToIgnoreCase(s2);
-  }
-
-  @Override
-  public int compare(char c1, char c2) {
-    return Character.compare(Character.toLowerCase(c1), Character.toLowerCase(c2));
-  }
-
-  @Override
-  public boolean equals(String s1, String s2) {
-    return (s1 == null && s2 == null) || (s1 != null && s1.equalsIgnoreCase(s2));
-  }
-
-  @Override
-  public int hash(String s) {
-    // Windows is case-insensitive
-    if (s == null) {
-      return 0;
-    }
-    return s.toLowerCase().hashCode();
-  }
-
-  @Override
-  public boolean startsWith(String path, String prefix) {
-    int pathn = path.length();
-    int prefixn = prefix.length();
-    if (pathn < prefixn) {
-      return false;
-    }
-    for (int i = 0; i < prefixn; ++i) {
-      if (Character.toLowerCase(path.charAt(i)) != Character.toLowerCase(prefix.charAt(i))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Override
-  public boolean endsWith(String path, String suffix) {
-    int pathn = path.length();
-    int suffixLength = suffix.length();
-    if (pathn < suffixLength) {
-      return false;
-    }
-    int offset = pathn - suffixLength;
-    for (int i = 0; i < suffixLength; ++i) {
-      if (Character.toLowerCase(path.charAt(i + offset))
-          != Character.toLowerCase(suffix.charAt(i))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Override
   public boolean isSeparator(char c) {
     return c == '/' || c == '\\';
   }
@@ -253,11 +196,6 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   @Override
   public char additionalSeparator() {
     return '\\';
-  }
-
-  @Override
-  public boolean isCaseSensitive() {
-    return false;
   }
 
   @Override
