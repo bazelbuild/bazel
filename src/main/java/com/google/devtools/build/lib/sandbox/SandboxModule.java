@@ -471,11 +471,6 @@ public final class SandboxModule extends BlazeModule {
     }
 
     @Override
-    public boolean canExecWithLegacyFallback(Spawn spawn) {
-      return false;
-    }
-
-    @Override
     public boolean handlesCaching() {
       return false;
     }

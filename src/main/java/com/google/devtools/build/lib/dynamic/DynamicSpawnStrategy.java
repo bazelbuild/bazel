@@ -166,7 +166,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return null;
     }
     for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, LOCAL)) {
-      if ((s.canExec(spawn, acr) || s.canExecWithLegacyFallback(spawn, acr))) {
+      if (s.canExec(spawn, acr)) {
         return s;
       }
     }
