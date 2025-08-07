@@ -196,7 +196,7 @@
     },
     "@@pybind11_bazel+//:internal_configure.bzl%internal_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "gQXF8kIH/Lc3Rk+teQlDBRu2Bi4H96t9w9ld+qzrJYQ=",
+        "bzlTransitiveDigest": "JcDmaRDt5IMFVxv9yR0EaPF9hudcXMj/mUC+Lr3EGfM=",
         "usagesDigest": "D1r3lfzMuUBFxgG8V6o0bQTLMk3GkaGOaPzw53wrwyw=",
         "recordedFileInputs": {
           "@@pybind11_bazel+//MODULE.bazel": "e6f4c20442eaa7c90d7190d8dc539d0ab422f95c65a57cc59562170c58ae3d34"
@@ -308,7 +308,7 @@
     },
     "@@rules_apple+//apple:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "q8V/xNJqUG43FrmgehGY/eLY7mmzCE+WkLUOfkMrGJ4=",
+        "bzlTransitiveDigest": "rfCZhqdxycMtUyWckscZHZxmqMPyDQBMGr504YLnKkw=",
         "usagesDigest": "M3VqFpeTCo4qmrNKGZw0dxBHvTYDrfV3cscGzlSAhQ4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -336,7 +336,7 @@
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "Y1Dqiy3TcTRjPqD7eRNsi3a983lykV2It91RSyqNjsI=",
+        "bzlTransitiveDigest": "0/NVlW+9GjVDCgsVbFf+KB6vANQksB8jyo/CetTv3fg=",
         "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -400,7 +400,7 @@
     },
     "@@rules_python+//python/extensions:pip.bzl%pip": {
       "general": {
-        "bzlTransitiveDigest": "wY1aoMnBPy8/Q7pltB6FlwTc9T5yd4vXszDdOYYqDoY=",
+        "bzlTransitiveDigest": "mxjpLbBbbduT9H+ESyb1RSXLRDkc+3GqbYiqThMOUg0=",
         "usagesDigest": "eQR1polMlGbsS1Ic3Iesbiwurad7mg4fXDKGeoMQFOU=",
         "recordedFileInputs": {
           "@@rules_python+//tools/publish/requirements_darwin.txt": "095d4a4f3d639dce831cd493367631cd51b53665292ab20194bac2c0c6458fa8",
@@ -2836,7 +2836,7 @@
     },
     "@@rules_swift+//swift:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "U23AyGZxFPhFXPzW4+9ZJ3Iyq63mnRpT0wmFqIJMjNo=",
+        "bzlTransitiveDigest": "0FlD6DkuyX62AgU10dTcF5gxh8aigvo5/Phlvji8E8o=",
         "usagesDigest": "mhACFnrdMv9Wi0Mt67bxocJqviRkDSV+Ee5Mqdj5akA=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
