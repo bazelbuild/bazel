@@ -126,43 +126,6 @@ EOF
   do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
 }
 
-function test_sandbox_not_used_with_legacy_fallback() {
-  mkdir pkg
-  cat >pkg/BUILD <<EOF
-genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@",
-  tags = ["no-sandbox"])
-EOF
-
-  local output_base="$(bazel info output_base)"
-  local sandbox_base="${output_base}/sandbox"
-  rm -rf ${sandbox_base}
-
-  bazel build \
-    --incompatible_legacy_local_fallback //pkg \
-    >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
-
-  expect_not_log "${output_base}.*/sandbox/"
-  expect_log "implicit fallback from sandbox to local"
-}
-
-function test_sandbox_local_not_used_without_legacy_fallback() {
-  mkdir pkg
-  cat >pkg/BUILD <<EOF
-genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@",
-  tags = ["no-sandbox"])
-EOF
-
-  local output_base="$(bazel info output_base)"
-  local sandbox_base="${output_base}/sandbox"
-  rm -rf ${sandbox_base}
-
-  bazel build \
-    --noincompatible_legacy_local_fallback //pkg \
-    >"${TEST_log}" 2>&1 && fail "Expected build to fail" || true
-  # Still warning in this case even when the flag is flipped
-  expect_log "implicit fallback from sandbox to local"
-}
-
 function test_sandbox_local_used_with_proper_strategy() {
   mkdir pkg
   cat >pkg/BUILD <<EOF
@@ -174,12 +137,10 @@ EOF
   local sandbox_base="${output_base}/sandbox"
   rm -rf ${sandbox_base}
 
-  bazel build --genrule_strategy=sandboxed,standalone \
-    --noincompatible_legacy_local_fallback //pkg \
+  bazel build --genrule_strategy=sandboxed,standalone //pkg \
     >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
 
   expect_not_log "${output_base}.*/sandbox/"
-  expect_not_log "implicit fallback from sandbox to local"
 }
 
 function test_sandbox_base_top_is_removed() {
@@ -446,7 +407,7 @@ genrule(
   local = 1,
 )
 EOF
-  bazel build --incompatible_legacy_local_fallback \
+  bazel build --strategy=Genrule=sandboxed,local \
     examples/genrule:breaks1_works_with_local &> $TEST_log \
     || fail "Non-hermetic genrule failed even though local=1: examples/genrule:breaks1_works_with_local"
   [ -f "bazel-genfiles/examples/genrule/breaks1_works_with_local.txt" ] \
@@ -466,7 +427,7 @@ genrule(
   tags = [ "local" ],
 )
 EOF
-  bazel build --incompatible_legacy_local_fallback \
+  bazel build --strategy=Genrule=sandboxed,local \
     examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:breaks1_works_with_local_tag"
   [ -f "bazel-genfiles/examples/genrule/breaks1_works_with_local_tag.txt" ] \
@@ -565,7 +526,7 @@ starlark_breaks1(
 EOF
   write_starlark_breaks1
 
-  bazel build --incompatible_legacy_local_fallback \
+  bazel build --spawn_strategy=sandboxed,standalone,local \
     examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:starlark_breaks1_works_with_local_tag"
   [ -f "bazel-bin/examples/genrule/starlark_breaks1_works_with_local_tag.txt" ] \

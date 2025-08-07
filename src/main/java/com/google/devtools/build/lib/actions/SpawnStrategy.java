@@ -38,9 +38,7 @@ public interface SpawnStrategy {
       throws ExecException, InterruptedException;
 
   /**
-   * Returns whether this SpawnActionContext supports executing the given Spawn. This does not allow
-   * using the legacy fallback to local execution controlled by the {@code
-   * --incompatible_legacy_local_fallback} flag.
+   * Returns whether this SpawnActionContext supports executing the given Spawn.
    */
   boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry);
 

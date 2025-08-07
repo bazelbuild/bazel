@@ -430,11 +430,11 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /**
-   * A SpawnRunner that does sandboxing if possible, but might fall back to local execution if
-   * ----incompatible_legacy_local_fallback is true and no other strategy has been usable. This is a
-   * legacy functionality from before the strategies system was added, and can deceive the user into
-   * thinking a build is hermetic when it isn't really. TODO(b/178356138): Flip flag to default to
-   * false and then later remove this code entirely.
+   * A SpawnRunner that does sandboxing if possible. This is a legacy
+   * functionality from before the strategies system was added, and can deceive
+   * the user into thinking a build is hermetic when it isn't really.
+   * TODO(b/178356138): Flip flag to default to false and then later remove
+   * this code entirely.
    */
   private static final class SandboxFallbackSpawnRunner implements SpawnRunner {
     private final SpawnRunner sandboxSpawnRunner;
