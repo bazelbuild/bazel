@@ -150,6 +150,40 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(
+      name = "root_module",
+      structField = true,
+      doc =
+          "The root module if it uses this module extension, or None otherwise. Can be used as a"
+              + " simpler alternative to iterating over all the modules in the modules field to"
+              + " find the root.")
+  @Nullable
+  public StarlarkBazelModule getRootModule() {
+    for (StarlarkBazelModule module : modules) {
+      if (module.isRoot()) {
+        return module;
+      }
+    }
+    return null;
+  }
+
+  @StarlarkMethod(
+      name = "current_module",
+      structField = true,
+      doc =
+          "The module that defined the module extension currently being processed. This is the"
+              + " module that the label passed to module_extension() was resolved in.")
+  @Nullable 
+  public StarlarkBazelModule getCurrentModule() {
+    String currentModuleName = extensionId.bzlFileLabel().getRepository().getName();
+    for (StarlarkBazelModule module : modules) {
+      if (module.getName().equals(currentModuleName)) {
+        return module;
+      }
+    }
+    return null;
+  }
+
+  @StarlarkMethod(
       name = "extension_metadata",
       doc =
           "Constructs an opaque object that can be returned from the module extension's"
