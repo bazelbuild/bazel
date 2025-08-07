@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.vfs.PathFragment.CASE_SENSITIVE_SEGMENTS_COMPARATOR;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 import static org.junit.Assert.assertThrows;
@@ -552,7 +552,7 @@ public final class PathFragmentTest {
   }
 
   @Test
-  public void testCaseSensitiveSegmentsComparator() {
+  public void testHierarchicalComparator() {
     List<String> pathStrs =
         ImmutableList.of(
             "",
@@ -572,27 +572,27 @@ public final class PathFragmentTest {
       for (PathFragment y : paths) {
         for (PathFragment z : paths) {
           // Anti-symmetry
-          assertThat(-1 * Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(y, x)))
-              .isEqualTo(Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y)));
+          assertThat(-1 * Integer.signum(HIERARCHICAL_COMPARATOR.compare(y, x)))
+              .isEqualTo(Integer.signum(HIERARCHICAL_COMPARATOR.compare(x, y)));
           // Transitivity
-          if (CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y) > 0
-              && CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(y, z) > 0) {
-            assertThat(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, z)).isGreaterThan(0);
+          if (HIERARCHICAL_COMPARATOR.compare(x, y) > 0
+              && HIERARCHICAL_COMPARATOR.compare(y, z) > 0) {
+            assertThat(HIERARCHICAL_COMPARATOR.compare(x, z)).isGreaterThan(0);
           }
           // "Substitutability"
-          if (CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y) == 0) {
-            assertThat(Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(y, z)))
-                .isEqualTo(Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, z)));
+          if (HIERARCHICAL_COMPARATOR.compare(x, y) == 0) {
+            assertThat(Integer.signum(HIERARCHICAL_COMPARATOR.compare(y, z)))
+                .isEqualTo(Integer.signum(HIERARCHICAL_COMPARATOR.compare(x, z)));
           }
           // Consistency with equals
           assertThat(x.equals(y))
-              .isEqualTo((CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y) == 0));
+              .isEqualTo((HIERARCHICAL_COMPARATOR.compare(x, y) == 0));
         }
       }
     }
     // Now test that compareTo does what we expect.  The exact ordering here doesn't matter much.
     Collections.shuffle(paths);
-    paths.sort(CASE_SENSITIVE_SEGMENTS_COMPARATOR);
+    paths.sort(HIERARCHICAL_COMPARATOR);
     List<PathFragment> expectedOrder =
         toPaths(
             ImmutableList.of(
