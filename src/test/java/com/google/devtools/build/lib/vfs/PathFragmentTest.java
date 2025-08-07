@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.vfs.PathFragment.CASE_SENSITIVE_SEGMENTS_COMPARATOR;
 import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 import static org.junit.Assert.assertThrows;
@@ -551,6 +552,65 @@ public final class PathFragmentTest {
   }
 
   @Test
+  public void testCaseSensitiveSegmentsComparator() {
+    List<String> pathStrs =
+        ImmutableList.of(
+            "",
+            "/",
+            "foo",
+            "/foo",
+            "foo/bar",
+            "foo.bar",
+            "foo/bar.baz",
+            "foo/bar/baz",
+            "foo/barfile",
+            "foo/Bar",
+            "Foo/bar");
+    List<PathFragment> paths = toPaths(pathStrs);
+    // First test that compareTo is self-consistent.
+    for (PathFragment x : paths) {
+      for (PathFragment y : paths) {
+        for (PathFragment z : paths) {
+          // Anti-symmetry
+          assertThat(-1 * Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(y, x)))
+              .isEqualTo(Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y)));
+          // Transitivity
+          if (CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y) > 0
+              && CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(y, z) > 0) {
+            assertThat(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, z)).isGreaterThan(0);
+          }
+          // "Substitutability"
+          if (CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y) == 0) {
+            assertThat(Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(y, z)))
+                .isEqualTo(Integer.signum(CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, z)));
+          }
+          // Consistency with equals
+          assertThat(x.equals(y))
+              .isEqualTo((CASE_SENSITIVE_SEGMENTS_COMPARATOR.compare(x, y) == 0));
+        }
+      }
+    }
+    // Now test that compareTo does what we expect.  The exact ordering here doesn't matter much.
+    Collections.shuffle(paths);
+    paths.sort(CASE_SENSITIVE_SEGMENTS_COMPARATOR);
+    List<PathFragment> expectedOrder =
+        toPaths(
+            ImmutableList.of(
+                "",
+                "/",
+                "/foo",
+                "Foo/bar",
+                "foo",
+                "foo/Bar",
+                "foo/bar",
+                "foo/bar/baz",
+                "foo/bar.baz",
+                "foo/barfile",
+                "foo.bar"));
+    assertThat(paths).isEqualTo(expectedOrder);
+  }
+
+  @Test
   public void testGetSafePathString() {
     assertThat(create("/").getSafePathString()).isEqualTo("/");
     assertThat(create("/abc").getSafePathString()).isEqualTo("/abc");
@@ -624,7 +684,7 @@ public final class PathFragmentTest {
   @Test
   public void testSerializationAbsolute() throws Exception {
     checkSerialization("/foo");
-   }
+  }
 
   @Test
   public void testSerializationNested() throws Exception {

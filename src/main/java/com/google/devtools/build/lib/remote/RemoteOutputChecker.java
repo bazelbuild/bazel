@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -247,7 +248,8 @@ public class RemoteOutputChecker implements OutputChecker {
     }
   }
 
-  public void addOutputToDownload(ActionInput file) {
+  @VisibleForTesting
+  void addOutputToDownload(ActionInput file) {
     pathsToDownload.add(file);
   }
 
@@ -368,7 +370,8 @@ public class RemoteOutputChecker implements OutputChecker {
    */
   private static final class ConcurrentArtifactPathTrie {
     // Invariant: no path in this set is a prefix of another path.
-    private final ConcurrentSkipListSet<PathFragment> paths = new ConcurrentSkipListSet<>();
+    private final ConcurrentSkipListSet<PathFragment> paths =
+        new ConcurrentSkipListSet<>(PathFragment.CASE_SENSITIVE_SEGMENTS_COMPARATOR);
 
     /**
      * Adds the given {@link ActionInput} to the trie.
@@ -389,8 +392,9 @@ public class RemoteOutputChecker implements OutputChecker {
 
     /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
     boolean contains(PathFragment execPath) {
-      // By the invariant of this set, if a prefix of execPath is present, it must sort right before
-      // it (or be equal to it).
+      // By the invariant of this set, there is at most one prefix of execPath in the set. Since the
+      // comparator sorts all children of a path right after the path itself, if such a prefix
+      // exists, it must thus sort right before execPath (or be equal to it).
       var floorPath = paths.floor(execPath);
       return floorPath != null && execPath.startsWith(floorPath);
     }
