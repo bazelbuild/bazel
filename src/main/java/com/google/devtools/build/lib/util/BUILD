@@ -255,7 +255,6 @@ java_library(
         ":shell_escaper",
         ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -467,6 +466,12 @@ java_library(
     name = "blocker",
     srcs = ["Blocker.java"],
     add_exports = ["java.base/jdk.internal.misc"],
+)
+
+java_library(
+    name = "thread_dumper",
+    srcs = ["ThreadDumper.java"],
+    add_exports = ["java.base/jdk.internal.vm"],
 )
 
 java_library(
