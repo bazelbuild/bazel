@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import java.io.IOException;
@@ -48,6 +49,11 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
         return ImmutableList.of();
       }
     };
+  }
+
+  protected void setLazyMacroExpansionPackages(
+      LazyMacroExpansionPackages lazyMacroExpansionPackages) {
+    ((SkyframeQueryHelper) helper).setLazyMacroExpansionPackages(lazyMacroExpansionPackages);
   }
 
   @Override
@@ -112,7 +118,96 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   }
 
   @Test
+  public void testFindsAllTargets_symbolicMacro() throws Exception {
+    writeFile(
+        "test//starlark/extension.bzl",
+        """
+        def _rule_impl(ctx):
+            return None
+
+        starlark_rule = rule(implementation = _rule_impl)
+
+        def _macro_impl(name, visibility):
+            starlark_rule(name = name, visibility = visibility)
+            native.genrule(name = name + "_gen", outs = [name + "_gen.txt"], cmd = "echo hi >$@")
+
+        symbolic_macro = macro(implementation = _macro_impl)
+        """);
+
+    writeFile(
+        "test//starlark/BUILD",
+        """
+        load("//test/starlark:extension.bzl", "symbolic_macro")
+
+        symbolic_macro(name = "foo")
+        """);
+
+    assertThat(targetLabels(eval("//test/starlark:*")))
+        .containsExactly(
+            "//test/starlark:BUILD",
+            "//test/starlark:foo",
+            "//test/starlark:foo_gen",
+            "//test/starlark:foo_gen.txt");
+  }
+
+  @Test
+  public void testFindsAllTargets_symbolicMacro_withLazyMacroExpansion() throws Exception {
+    setLazyMacroExpansionPackages(LazyMacroExpansionPackages.ALL);
+    writeFile(
+        "test//starlark/extension.bzl",
+        """
+        def _rule_impl(ctx):
+            return None
+
+        starlark_rule = rule(implementation = _rule_impl)
+
+        def _macro_impl(name, visibility):
+            starlark_rule(name = name, visibility = visibility)
+            native.genrule(name = name + "_gen", outs = [name + "_gen.txt"], cmd = "echo hi >$@")
+
+        symbolic_macro = macro(implementation = _macro_impl)
+        """);
+
+    writeFile(
+        "test//starlark/BUILD",
+        """
+        load("//test/starlark:extension.bzl", "symbolic_macro")
+
+        symbolic_macro(name = "foo")
+        """);
+
+    assertThat(targetLabels(eval("//test/starlark:*")))
+        .containsExactly(
+            "//test/starlark:BUILD",
+            "//test/starlark:foo",
+            "//test/starlark:foo_gen",
+            "//test/starlark:foo_gen.txt");
+  }
+
+  @Test
   public void testBuildfiles_starlarkDep() throws Exception {
+    writeFile(
+        "test//starlark/extension.bzl",
+        """
+        def macro(name):
+            native.genrule(name = name, outs = [name + ".txt"], cmd = "echo hi >$@")
+        """);
+
+    writeFile(
+        "test//starlark/BUILD",
+        """
+        load("//test/starlark:extension.bzl", "macro")
+
+        macro(name = "rule1")
+        """);
+
+    assertThat(targetLabels(eval("buildfiles(//test/starlark:BUILD)")))
+        .containsExactly("//test/starlark:extension.bzl", "//test/starlark:BUILD");
+  }
+
+  @Test
+  public void testBuildfiles_starlarkDep_withLazyMacroExpansion() throws Exception {
+    setLazyMacroExpansionPackages(LazyMacroExpansionPackages.ALL);
     writeFile(
         "test//starlark/extension.bzl",
         """
@@ -155,6 +250,19 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
 
   @Test
   public void testLoadfiles_sclDep() throws Exception {
+    writeBzlAndSclFiles();
+
+    assertThat(targetLabels(eval("loadfiles(//foo:BUILD)")))
+        .containsExactly(
+            "//bar:direct.scl",
+            "//bar:indirect.scl",
+            "//bar:intermediate.bzl",
+            "//test_defs:foo_library.bzl");
+  }
+
+  @Test
+  public void testLoadfiles_sclDep_withLazyMacroExpansion() throws Exception {
+    setLazyMacroExpansionPackages(LazyMacroExpansionPackages.ALL);
     writeBzlAndSclFiles();
 
     assertThat(targetLabels(eval("loadfiles(//foo:BUILD)")))

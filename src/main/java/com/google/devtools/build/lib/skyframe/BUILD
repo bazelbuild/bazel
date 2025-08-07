@@ -1698,6 +1698,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
@@ -1707,6 +1708,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
@@ -93,8 +94,19 @@ public final class CompileOneDependencyTransformer {
     }
 
     Rule result = null;
-    Iterable<Rule> orderedRuleList =
-        getOrderedRuleList(packageProvider.getPackage(eventHandler, target.getPackageoid()));
+    Iterable<Rule> orderedRuleList;
+    try {
+      orderedRuleList = getOrderedRuleList(packageProvider.getPackage(eventHandler, target));
+    } catch (NoSuchPackageException e) {
+      // Only possible if lazy macro expansion is enabled, and an error was encountered when loading
+      // a different package piece of this package.
+      throw new TargetParsingException(
+          "Package of --compile_one_dependency target '"
+              + target.getLabel()
+              + "' could not be loaded",
+          e,
+          e.getDetailedExitCode());
+    }
     for (Rule rule : orderedRuleList) {
       Set<Label> labels = getInputLabels(rule);
       if (listContainsFile(eventHandler, labels, target.getLabel(), Sets.<Label>newHashSet())) {

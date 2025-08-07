@@ -152,12 +152,15 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -2829,13 +2832,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       ErrorInfo error = result.getError(pkgName);
       if (error != null) {
-        if (!error.getCycleInfo().isEmpty()) {
-          cyclesReporter.reportCycles(result.getError().getCycleInfo(), pkgName, eventHandler);
-          // This can only happen if a package is freshly loaded outside of the target parsing or
-          // loading phase
-          throw new BuildFileContainsErrorsException(
-              pkgName, "Cycle encountered while loading package " + pkgName);
-        }
+        checkCycles(eventHandler, pkgName, pkgName, error);
         Throwable e = checkNotNull(error.getException(), "%s %s", pkgName, error);
         // PackageFunction should be catching, swallowing, and rethrowing all transitive errors as
         // NoSuchPackageExceptions or constructing packages with errors, since we're in keep_going
@@ -2849,6 +2846,84 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             e);
       }
       return result.get(pkgName).getPackage();
+    }
+
+    /**
+     * Returns the BUILD file target of the given package. Mostly used after the loading phase, so
+     * packages should already be present, but occasionally used pre-loading phase. If the package
+     * is not present, will load either the full package (if lazy macro expansion is disabled) or
+     * just the package piece owning the BUILD file target (if lazy macro expansion is enabled).
+     *
+     * <p>Use should be discouraged, since this cannot be used inside a Skyframe evaluation, and
+     * concurrent calls are synchronized.
+     *
+     * <p>This method contains a synchronized block since InMemoryMemoizingEvaluator.evaluate()
+     * method does not support concurrent calls.
+     */
+    InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
+        throws InterruptedException, NoSuchPackageException, NoSuchPackagePieceException {
+      PackagePieceIdentifier.ForBuildFile packagePieceIdentifier =
+          new PackagePieceIdentifier.ForBuildFile(pkgName);
+      EvaluationResult<PackagePieceValue.ForBuildFile> resultForBuildFile = null;
+      synchronized (valueLookupLock) {
+        if (getLazyMacroExpansionPackages(eventHandler).contains(pkgName)) {
+          resultForBuildFile =
+              evaluate(
+                  ImmutableList.of(packagePieceIdentifier),
+                  /* keepGoing= */ true,
+                  /* numThreads= */ DEFAULT_THREAD_COUNT,
+                  eventHandler);
+        }
+      }
+      if (resultForBuildFile == null) {
+        // Need monolithic package.
+        return getPackage(eventHandler, pkgName).getBuildFile();
+      }
+      ErrorInfo error = resultForBuildFile.getError(packagePieceIdentifier);
+      if (error != null) {
+        checkCycles(eventHandler, packagePieceIdentifier, pkgName, error);
+        Throwable e = checkNotNull(error.getException(), "%s %s", pkgName, error);
+        // Given a PackagePieceIdentifier.ForBuildFile, PackageFunction should be catching,
+        // swallowing, and rethrowing all transitive errors as either NoSuchPackageExceptions or
+        // NoSuchPackagePieceExceptions, or constructing packages with errors, since we're in
+        // keep_going mode.
+        Throwables.throwIfInstanceOf(e, NoSuchPackageException.class);
+        Throwables.throwIfInstanceOf(e, NoSuchPackagePieceException.class);
+        throw new IllegalStateException(
+            "Unexpected Exception type from PackagePieceValue.ForBuildFile for '"
+                + packagePieceIdentifier
+                + "'' with error: "
+                + error,
+            e);
+      }
+      return resultForBuildFile.get(packagePieceIdentifier).getPackagePiece().getBuildFile();
+    }
+
+    private LazyMacroExpansionPackages getLazyMacroExpansionPackages(
+        ExtendedEventHandler eventHandler) throws InterruptedException {
+      SkyKey key = PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.getKey();
+      EvaluationResult<PrecomputedValue> lazyMacroExpansionPackagesResult =
+          evaluate(
+              ImmutableList.of(key),
+              /* keepGoing= */ true,
+              /* numThreads= */ DEFAULT_THREAD_COUNT,
+              eventHandler);
+      return (LazyMacroExpansionPackages) lazyMacroExpansionPackagesResult.get(key).get();
+    }
+
+    private void checkCycles(
+        ExtendedEventHandler eventHandler,
+        SkyKey topLevelKey,
+        PackageIdentifier pkgName,
+        ErrorInfo error)
+        throws NoSuchPackageException {
+      if (!error.getCycleInfo().isEmpty()) {
+        cyclesReporter.reportCycles(error.getCycleInfo(), topLevelKey, eventHandler);
+        // This can only happen if a package is freshly loaded outside of the target parsing or
+        // loading phase
+        throw new BuildFileContainsErrorsException(
+            pkgName, "Cycle encountered while loading package " + pkgName);
+      }
     }
 
     /** Returns whether the given package should be consider deleted and thus should be ignored. */

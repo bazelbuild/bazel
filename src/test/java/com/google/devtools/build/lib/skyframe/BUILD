@@ -2172,3 +2172,23 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "GraphBackedRecursivePackageProviderTest",
+    srcs = ["GraphBackedRecursivePackageProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:graph_backed_recursive_package_provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_pkg_value_root_package_extractor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
