@@ -360,6 +360,7 @@ public final class ArtifactFunction implements SkyFunction {
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
         case INCONSISTENT_FILESYSTEM:
+        case DETAILED_IO_EXCEPTION:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
         case GENERATED_PATH_CONFLICT:
