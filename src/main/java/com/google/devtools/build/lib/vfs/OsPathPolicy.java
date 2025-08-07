@@ -49,32 +49,6 @@ public interface OsPathPolicy {
    */
   int getDriveStrLength(String path);
 
-  /** Compares two path strings, using the given OS case sensitivity. */
-  int compare(String s1, String s2);
-
-  /** Compares two characters, using the given OS case sensitivity. */
-  int compare(char c1, char c2);
-
-  /** Tests two path strings for equality, using the given OS case sensitivity. */
-  boolean equals(String s1, String s2);
-
-  /** Computes the hash code for a path string. */
-  int hash(String s);
-
-  /**
-   * Returns whether the passed string starts with the given prefix, given the OS case sensitivity.
-   *
-   * <p>This is a pure string operation and doesn't account for path separators.
-   */
-  boolean startsWith(String path, String prefix);
-
-  /**
-   * Returns whether the passed string ends with the given suffix, given the OS case sensitivity.
-   *
-   * <p>This is a pure string operation and doesn't account for path separators.
-   */
-  boolean endsWith(String path, String suffix);
-
   /** Returns whether the unnormalized character c is a separator. */
   boolean isSeparator(char c);
 
@@ -83,8 +57,6 @@ public interface OsPathPolicy {
    * there is no such additional character.
    */
   char additionalSeparator();
-
-  boolean isCaseSensitive();
 
   /**
    * Modifies the given string to be suitable for execution on the OS represented by this policy.
@@ -142,7 +114,7 @@ public interface OsPathPolicy {
               ++shift;
               break;
             }
-            // Fall through
+          // Fall through
           default:
             ++segmentCount;
             if (shift > 0) {
