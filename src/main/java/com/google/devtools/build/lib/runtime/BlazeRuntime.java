@@ -533,7 +533,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /** The directory in which blaze stores the server state - that is, the socket file and a log. */
-  private Path getServerDirectory() {
+  public Path getServerDirectory() {
     return workspace.getDirectories().getOutputBase().getChild("server");
   }
 

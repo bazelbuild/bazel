@@ -155,6 +155,18 @@ public class CommonCommandOptions extends OptionsBase {
               + " --experimental_action_cache_gc_threshold flags.")
   public Duration actionCacheGcMaxAge;
 
+  @Option(
+      name = "experimental_thread_dump_interval",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "How often to dump the state of all threads (including virtual threads) to a file. The"
+              + " dumps will be written to the <output_base>/server/thread_dumps/ directory. If"
+              + " zero, no thread dumps are written.")
+  public Duration threadDumpInterval;
+
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter extends Converter.Contextless<UUID> {
 

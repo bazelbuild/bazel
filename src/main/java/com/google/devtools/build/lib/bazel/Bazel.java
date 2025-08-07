@@ -49,6 +49,7 @@ public final class Bazel {
           CredentialModule.class,
           com.google.devtools.build.lib.runtime.CommandLogModule.class,
           com.google.devtools.build.lib.runtime.MemoryPressureModule.class,
+          com.google.devtools.build.lib.runtime.ThreadDumpModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,
           com.google.devtools.build.lib.platform.SystemSuspensionModule.class,
           BazelFileSystemModule.class,
