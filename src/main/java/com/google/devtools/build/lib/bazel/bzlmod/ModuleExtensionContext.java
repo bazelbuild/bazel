@@ -171,12 +171,14 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       structField = true,
       doc =
           "The module that defined the module extension currently being processed. This is the"
-              + " module that the label passed to module_extension() was resolved in.")
+              + " module that the label passed to module_extension() was resolved in. Returns"
+              + " None if the defining module is not present in the modules list (which can happen"
+              + " if the extension is defined in a module that doesn't use the extension itself).")
   @Nullable 
   public StarlarkBazelModule getCurrentModule() {
-    String currentModuleName = extensionId.bzlFileLabel().getRepository().getName();
+    String repoName = extensionId.bzlFileLabel().getRepository().getName();
     for (StarlarkBazelModule module : modules) {
-      if (module.getName().equals(currentModuleName)) {
+      if (module.getName().equals(repoName)) {
         return module;
       }
     }
