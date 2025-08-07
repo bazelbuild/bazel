@@ -586,7 +586,7 @@ public final class PathFragmentTest {
           }
           // Consistency with equals
           assertThat(x.equals(y))
-              .isEqualTo((HIERARCHICAL_COMPARATOR.compare(x, y) == 0));
+              .isEqualTo(HIERARCHICAL_COMPARATOR.compare(x, y) == 0);
         }
       }
     }
