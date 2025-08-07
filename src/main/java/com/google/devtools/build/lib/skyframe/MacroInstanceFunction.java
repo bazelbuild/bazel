@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * {@link com.google.devtools.build.lib.packages.PackagePiece}, producing a {@link
  * MacroInstanceValue}.
  */
-final class MacroInstanceFunction implements SkyFunction {
+public final class MacroInstanceFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -62,6 +62,9 @@ final class MacroInstanceFunction implements SkyFunction {
     return new MacroInstanceValue(macroInstance);
   }
 
+  /**
+   * Wrapper for exceptions which can be thrown by {@link MacroInstanceFunctionException#compute}.
+   */
   public static final class MacroInstanceFunctionException extends SkyFunctionException {
     MacroInstanceFunctionException(NoSuchPackageException cause) {
       super(cause, Transience.PERSISTENT);
@@ -76,6 +79,9 @@ final class MacroInstanceFunction implements SkyFunction {
     }
   }
 
+  /**
+   * Exception indicating that the given macro instance does not exist in the given package piece.
+   */
   public static final class NoSuchMacroInstanceException extends NoSuchThingException {
     NoSuchMacroInstanceException(MacroInstanceValue.Key key, PackagePiece packagePiece) {
       super(

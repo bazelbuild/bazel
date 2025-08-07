@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import java.util.List;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Listener for package-loading events. */
 public interface PackageLoadingListener {
 
-  PackageLoadingListener NOOP_LISTENER = (pkg, semantics, metrics) -> {};
+  PackageLoadingListener NOOP_LISTENER =
+      (pkg, semantics, lazyMacroExpansionPackages, metrics) -> {};
 
   /** Returns a {@link PackageLoadingListener} from a composed of the input listeners. */
   static PackageLoadingListener create(List<PackageLoadingListener> listeners) {
@@ -28,9 +30,10 @@ public interface PackageLoadingListener {
       case 0 -> NOOP_LISTENER;
       case 1 -> listeners.get(0);
       default ->
-          (pkg, semantics, metrics) -> {
+          (pkg, semantics, lazyMacroExpansionPackages, metrics) -> {
             for (PackageLoadingListener listener : listeners) {
-              listener.onLoadingCompleteAndSuccessful(pkg, semantics, metrics);
+              listener.onLoadingCompleteAndSuccessful(
+                  pkg, semantics, lazyMacroExpansionPackages, metrics);
             }
           };
     };
@@ -57,7 +60,12 @@ public interface PackageLoadingListener {
    *
    * @param pkg the loaded {@link Package}
    * @param starlarkSemantics are the semantics used to load the package
+   * @param lazyMacroExpansionPackages determines which packages are loaded with lazy symbolic macro
+   *     expansion enabled
    */
   void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, Metrics metrics);
+      Package pkg,
+      StarlarkSemantics starlarkSemantics,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages,
+      Metrics metrics);
 }

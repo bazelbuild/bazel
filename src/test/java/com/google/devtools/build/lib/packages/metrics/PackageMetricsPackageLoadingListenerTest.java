@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.protobuf.util.Durations;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -87,18 +88,21 @@ public class PackageMetricsPackageLoadingListenerTest {
         mockPackage(
             "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 42_000_000, /* globFilesystemOperationCost= */ 0));
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 43_000_000, /* globFilesystemOperationCost= */ 0));
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 44_000_000, /* globFilesystemOperationCost= */ 0));
   }
 
@@ -146,6 +150,7 @@ public class PackageMetricsPackageLoadingListenerTest {
             ImmutableMap.of("target1", mock(Target.class)),
             /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         PLACEHOLDER_METRICS);
 
     underTest.onLoadingCompleteAndSuccessful(
@@ -154,6 +159,7 @@ public class PackageMetricsPackageLoadingListenerTest {
             ImmutableMap.of("target1", mock(Target.class), "target2", mock(Target.class)),
             /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         PLACEHOLDER_METRICS);
 
     underTest.onLoadingCompleteAndSuccessful(
@@ -168,6 +174,7 @@ public class PackageMetricsPackageLoadingListenerTest {
                 mock(Target.class)),
             /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         PLACEHOLDER_METRICS);
   }
 
@@ -212,18 +219,21 @@ public class PackageMetricsPackageLoadingListenerTest {
         mockPackage(
             "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 1),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         PLACEHOLDER_METRICS);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 2),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         PLACEHOLDER_METRICS);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 3),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         PLACEHOLDER_METRICS);
   }
 
@@ -273,21 +283,30 @@ public class PackageMetricsPackageLoadingListenerTest {
             "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage1.getComputationSteps()).thenReturn(1000L);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage1, StarlarkSemantics.DEFAULT, PLACEHOLDER_METRICS);
+        mockPackage1,
+        StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
+        PLACEHOLDER_METRICS);
 
     Package mockPackage2 =
         mockPackage(
             "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage2.getComputationSteps()).thenReturn(100L);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage2, StarlarkSemantics.DEFAULT, PLACEHOLDER_METRICS);
+        mockPackage2,
+        StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
+        PLACEHOLDER_METRICS);
 
     Package mockPackage3 =
         mockPackage(
             "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage3.getComputationSteps()).thenReturn(10L);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage3, StarlarkSemantics.DEFAULT, PLACEHOLDER_METRICS);
+        mockPackage3,
+        StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
+        PLACEHOLDER_METRICS);
   }
 
   @Test
@@ -334,14 +353,20 @@ public class PackageMetricsPackageLoadingListenerTest {
             "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage1.getPackageOverhead()).thenReturn(OptionalLong.of(100));
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage1, StarlarkSemantics.DEFAULT, PLACEHOLDER_METRICS);
+        mockPackage1,
+        StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
+        PLACEHOLDER_METRICS);
 
     // Record nothing for pkg2, will be missing from metrics.
     Package mockPackage2 =
         mockPackage(
             "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage2, StarlarkSemantics.DEFAULT, PLACEHOLDER_METRICS);
+        mockPackage2,
+        StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
+        PLACEHOLDER_METRICS);
 
     Package mockPackage3 =
         mockPackage(
@@ -350,7 +375,10 @@ public class PackageMetricsPackageLoadingListenerTest {
     when(mockPackage3.getPackageOverhead()).thenReturn(OptionalLong.of(300));
 
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage3, StarlarkSemantics.DEFAULT, PLACEHOLDER_METRICS);
+        mockPackage3,
+        StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
+        PLACEHOLDER_METRICS);
   }
 
   @Test
@@ -457,6 +485,7 @@ public class PackageMetricsPackageLoadingListenerTest {
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage1,
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 42_000_000, /* globFilesystemOperationCost= */ 100));
 
     Package mockPackage2 =
@@ -470,6 +499,7 @@ public class PackageMetricsPackageLoadingListenerTest {
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage2,
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 43_000_000, /* globFilesystemOperationCost= */ 200));
 
     Package mockPackage3 =
@@ -488,6 +518,7 @@ public class PackageMetricsPackageLoadingListenerTest {
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage3,
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 44_000_000, /* globFilesystemOperationCost= */ 300));
   }
 
@@ -496,18 +527,21 @@ public class PackageMetricsPackageLoadingListenerTest {
         mockPackage(
             "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 0, /* globFilesystemOperationCost= */ 111));
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 0, /* globFilesystemOperationCost= */ 222));
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 0, /* globFilesystemOperationCost= */ 333));
   }
 
@@ -557,6 +591,7 @@ public class PackageMetricsPackageLoadingListenerTest {
         mockPackage(
             "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
+        LazyMacroExpansionPackages.NONE,
         new Metrics(/* loadTimeNanos= */ 42_000_000, /* globFilesystemOperationCost= */ 0));
 
     assertAllMapsEmpty(underTest.getPackageMetricsRecorder());

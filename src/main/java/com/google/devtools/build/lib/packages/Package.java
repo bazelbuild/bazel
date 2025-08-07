@@ -191,8 +191,8 @@ public class Package extends Packageoid {
    */
   // TODO(#19922): Better separate fields that must be known a priori from those determined through
   // BUILD evaluation.
-  private Package(Metadata metadata) {
-    super(metadata, new Declarations.Builder());
+  private Package(Metadata metadata, Declarations declarations) {
+    super(metadata, declarations);
   }
 
   // ==== General package metadata accessors ====
@@ -597,6 +597,7 @@ public class Package extends Packageoid {
             .configSettingVisibilityPolicy(configSettingVisibilityPolicy)
             .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
             .build(),
+        new Declarations.Builder(),
         SymbolGenerator.create(id),
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
@@ -609,6 +610,45 @@ public class Package extends Packageoid {
         enableNameConflictChecking,
         trackFullMacroInformation,
         packageLimits);
+  }
+
+  /** Returns a new {@link Builder} suitable for constructing a package from package pieces. */
+  public static Builder newPackageFromPackagePiecesBuilder(
+      PackageSettings packageSettings,
+      Metadata metadata,
+      Declarations declarations,
+      boolean noImplicitFileExport,
+      boolean simplifyUnconditionalSelectsInRuleAttrs,
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      PackageOverheadEstimator packageOverheadEstimator,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable Globber globber,
+      boolean enableNameConflictChecking,
+      boolean trackFullMacroInformation,
+      PackageLimits packageLimits,
+      InputFile buildFile) {
+    Builder builder =
+        new Builder(
+            metadata,
+            declarations.checkImmutable(),
+            SymbolGenerator.create(metadata.packageIdentifier()),
+            packageSettings.precomputeTransitiveLoads(),
+            noImplicitFileExport,
+            simplifyUnconditionalSelectsInRuleAttrs,
+            mainRepositoryMapping,
+            cpuBoundSemaphore,
+            packageOverheadEstimator,
+            generatorMap,
+            globber,
+            enableNameConflictChecking,
+            trackFullMacroInformation,
+            packageLimits);
+    checkArgument(
+        buildFile.getPackageMetadata().packageIdentifier().equals(metadata.packageIdentifier()));
+    builder.recorder.replaceInputFileUnchecked(buildFile);
+    builder.setBuildFile(buildFile);
+    return builder;
   }
 
   // ==== Non-trivial nested classes ====
@@ -962,7 +1002,9 @@ public class Package extends Packageoid {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
       // Add target for the BUILD file itself.
-      // (This may be overridden by an exports_file declaration.)
+      // (This may be overridden by an exports_file declaration; or, for a package from package
+      // pieces, by the PackagePiece.ForBuildFile's BUILD file target set in
+      // newPackageFromPackagePiecesBuilder().)
       recorder.addInputFileUnchecked(
           new InputFile(pkg, metadata.buildFileLabel(), metadata.getBuildFileLocation()));
     }
@@ -975,8 +1017,8 @@ public class Package extends Packageoid {
   public static class Builder extends AbstractBuilder {
 
     /**
-     * A bundle of options affecting package construction, that is not specific to any particular
-     * package.
+     * A bundle of statically-defined options affecting package construction, that is not specific
+     * to any particular package and does not change for the lifetime of the server.
      */
     public interface PackageSettings {
       /**
@@ -1063,6 +1105,7 @@ public class Package extends Packageoid {
 
     private Builder(
         Metadata metadata,
+        Declarations declarations,
         SymbolGenerator<?> symbolGenerator,
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
@@ -1077,7 +1120,7 @@ public class Package extends Packageoid {
         PackageLimits packageLimits) {
       super(
           metadata,
-          new Package(metadata),
+          new Package(metadata, declarations),
           symbolGenerator,
           precomputeTransitiveLoads,
           noImplicitFileExport,
@@ -1132,6 +1175,15 @@ public class Package extends Packageoid {
     public void addRuleUnchecked(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
       recorder.addRuleUnchecked(rule);
+    }
+
+    /** Adds all targets, macros, and Starlark computation steps from a given package piece. */
+    public void addAllFromPackagePiece(PackagePiece packagePiece) throws NameConflictException {
+      // We add the BUILD file in newPackageFromPackagePiecesBuilder(), not here. (We want to ensure
+      // that the package always has a BUILD file target, even if addAllFromPackagePiece would throw
+      // a name conflict.)
+      this.recorder.addAllFromPackagePiece(packagePiece, /* skipBuildFile= */ true);
+      this.computationSteps += packagePiece.getComputationSteps();
     }
 
     @Override

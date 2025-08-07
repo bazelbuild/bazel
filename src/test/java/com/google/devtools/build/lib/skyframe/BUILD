@@ -1189,7 +1189,7 @@ java_test(
     name = "PackageFunctionTest",
     timeout = "moderate",
     srcs = ["PackageFunctionTest.java"],
-    shard_count = 2,
+    shard_count = 6,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":testutil",
