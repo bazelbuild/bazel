@@ -37,8 +37,7 @@ public interface RemoteAnalysisCachingServicesSupplier {
    *
    * <p>This method updates the services and parameters when the relevant flags change.
    */
-  default void configure(
-      RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId, String buildId)
+  default void configure(RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId)
       throws AbruptExitException {
     // Does nothing by default.
   }

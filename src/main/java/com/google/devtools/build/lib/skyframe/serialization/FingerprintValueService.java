@@ -152,9 +152,4 @@ public final class FingerprintValueService {
   public Executor getExecutor() {
     return executor;
   }
-
-  @VisibleForTesting
-  public FingerprintValueStore getStoreForTesting() {
-    return store;
-  }
 }

@@ -114,16 +114,6 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   public String analysisCacheService;
 
   @Option(
-      name = "experimental_managed_storage_service_table_name",
-      defaultValue = "data",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "The table name to use in managed storage. Only applicable when the mode is UPLOAD and"
-              + " experimental_remote_analysis_cache refers to a managed storage path.")
-  public String managedStorageServiceTableName;
-
-  @Option(
       name = "experimental_analysis_cache_key_distinguisher_for_testing",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

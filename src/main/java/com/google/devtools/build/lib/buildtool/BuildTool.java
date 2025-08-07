@@ -1329,9 +1329,7 @@ public class BuildTool {
           this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal()));
       listener.setClientId(clientId);
       servicesSupplier.configure(
-          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class),
-          clientId,
-          env.getBuildRequestId());
+          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class), clientId);
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.eventHandler = env.getReporter();
