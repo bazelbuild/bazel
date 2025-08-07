@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -165,9 +164,7 @@ public final class RepositoryName {
     this.name = name;
     this.contextRepoIfNotVisible = contextRepoIfNotVisible;
     this.didYouMeanSuffix = didYouMeanSuffix;
-    this.hashCode =
-        31 * OsPathPolicy.getFilePathOs().hash(name)
-            + HashCodes.hashObjects(contextRepoIfNotVisible, didYouMeanSuffix);
+    this.hashCode = HashCodes.hashObjects(name, contextRepoIfNotVisible, didYouMeanSuffix);
   }
 
   private RepositoryName(String name) {
@@ -361,7 +358,7 @@ public final class RepositoryName {
     if (!(object instanceof RepositoryName other)) {
       return false;
     }
-    return OsPathPolicy.getFilePathOs().equals(name, other.name)
+    return Objects.equals(name, other.name)
         && Objects.equals(contextRepoIfNotVisible, other.contextRepoIfNotVisible)
         && Objects.equals(didYouMeanSuffix, other.didYouMeanSuffix);
   }
