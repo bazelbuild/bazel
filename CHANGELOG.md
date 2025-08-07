@@ -1,3 +1,26 @@
+## Release 9.0.0-pre.20250730.2 (2025-08-07)
+
+```
+Baseline: b4216efd8c13c564e92115dae25dd6620423bac1
+
+Cherry picks:
+
+   + bbfb288a7b24bff645c62fa2bf3521d1de293cb1:
+     Fix
+     https://github.com/bazelbuild/bazel/commit/9aa7583e97bffb17d2a6f4
+     8aecefa932e8064daa performance regression.
+```
+
+Important changes:
+
+  - Tool paths specified in `cc_toolchain` action configs are now
+    normalized based on the current execution platform's OS rather
+    than the host OS. In particular, Windows-style absolute paths are
+    now treated as absolute paths when building on a Windows executor
+    from a non-Windows host.
+
+This release contains contributions from many people at Google, as well as Austin Schuh, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, George Gensure, Mike Lundy, Wade Carpenter.
+
 ## Release 9.0.0-pre.20250721.4 (2025-07-31)
 
 ```
