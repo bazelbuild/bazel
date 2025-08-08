@@ -76,8 +76,6 @@ _SHARED_LIBRARY = [".so", ".dylib", ".dll", ".wasm"]
 _INTERFACE_SHARED_LIBRARY = [".ifso", ".tbd", ".lib", ".dll.a"]
 _OBJECT_FILE = [".o", ".obj"]
 _PIC_OBJECT_FILE = [".pic.o"]
-_CPP_MODULE = [".pcm", ".gcm", ".ifc"]
-_CPP_MODULE_MAP = [".cppmap"]
 
 _CC_AND_OBJC = []
 _CC_AND_OBJC.extend(_CC_SOURCE)
@@ -120,8 +118,6 @@ extensions = struct(
     PIC_OBJECT_FILE = _PIC_OBJECT_FILE,
     CC_AND_OBJC = _CC_AND_OBJC,
     DISALLOWED_HDRS_FILES = _DISALLOWED_HDRS_FILES,  # Also includes VERSIONED_SHARED_LIBRARY files.
-    CPP_MODULE = _CPP_MODULE,
-    CPP_MODULE_MAP = _CPP_MODULE_MAP,
 )
 
 def check_private_api():

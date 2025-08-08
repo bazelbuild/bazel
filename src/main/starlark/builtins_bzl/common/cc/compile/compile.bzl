@@ -750,10 +750,7 @@ def _create_cc_compile_actions(
                 category = artifact_category.INCLUDED_FILE_LIST,
                 output_name = output_name_base,
             ),
-        ) if (
-            _dotd_files_enabled(language, cpp_configuration, feature_configuration) and
-            _use_dotd_file(feature_configuration, source_artifact)
-        ) else None
+        ) if _dotd_files_enabled(language, cpp_configuration, feature_configuration) else None
         diagnostics_file = _get_compile_output_file(
             action_construction_context,
             label,
@@ -867,15 +864,6 @@ def _create_module_action(
 def _get_compile_output_file(ctx, label, *, output_name):
     return ctx.actions.declare_file(paths.join("_objs", label.name, output_name))
 
-def _use_dotd_file(feature_configuration, source_file):
-    extension = "." + source_file.extension if source_file.extension else ""
-    header_discover_required = extension not in (extensions.ASSEMBLER + extensions.CPP_MODULE)
-    use_header_modules = (
-        feature_configuration.is_enabled("use_header_modules") and
-        extension in extensions.CC_SOURCE + extensions.CC_HEADER + extensions.CPP_MODULE_MAP
-    )
-    return header_discover_required and not use_header_modules
-
 def _dotd_files_enabled(language, cpp_configuration, feature_configuration):
     enabled_in_config = (
         _starlark_cc_semantics.dotd_files_enabled(cpp_configuration) if language == "cpp" else cpp_configuration.objc_should_generate_dotd_files()
@@ -892,8 +880,8 @@ def _serialized_diagnostics_file_enabled(feature_configuration):
 _SOURCE_TYPES_FOR_CXXOPTS = set(
     extensions.CC_SOURCE +
     extensions.CC_HEADER +
-    extensions.CLIF_INPUT_PROTO +
-    extensions.CPP_MODULE_MAP +
+    [".cppmap"] +  # cpp module map
+    [".pcm", ".gcm", ".ifc"] +  # clif input proto
     [".mm"],  # objc source
 )
 
