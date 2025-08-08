@@ -960,9 +960,11 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true), // FeatureConfigurationForStarlark
         @Param(name = "use_pic", positional = false, named = true),
+        @Param(name = "label", positional = false, named = true),
         @Param(name = "common_compile_build_variables", positional = false, named = true),
         @Param(name = "specific_compile_build_variables", positional = false, named = true),
         @Param(name = "cpp_semantics", positional = false, named = true),
+        @Param(name = "output_name_base", positional = false, named = true),
         @Param(name = "cpp_compile_action_builder", positional = false, named = true)
       })
   public Artifact createParseHeaderAction(
@@ -970,9 +972,11 @@ public class CcStarlarkInternal implements StarlarkValue {
       BuildConfigurationValue configuration,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       boolean generatePicAction,
+      Label label,
       CcToolchainVariables commonCompileBuildVariables,
       CcToolchainVariables specificCompileBuildVariables,
       CppSemantics semantics,
+      String outputNameBase,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
     return CcStaticCompilationHelper.createParseHeaderAction(
@@ -980,10 +984,12 @@ public class CcStarlarkInternal implements StarlarkValue {
         configuration,
         featureConfigurationForStarlark.getFeatureConfiguration(),
         generatePicAction,
+        label,
         commonCompileBuildVariables,
         specificCompileBuildVariables,
         starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
         semantics,
+        outputNameBase,
         builder);
   }
 
