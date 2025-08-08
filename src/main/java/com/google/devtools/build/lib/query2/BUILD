@@ -115,7 +115,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:script_util",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",

@@ -116,18 +116,29 @@ java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
-        "CommandDescriptionForm.java",
-        "CommandFailureUtils.java",
         "CommandUtils.java",
     ],
     deps = [
-        ":describable_execution_unit",
+        ":command_failure_utils",
         ":os",
-        ":script_util",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "command_failure_utils",
+    srcs = [
+        "CommandDescriptionForm.java",
+        "CommandFailureUtils.java",
+    ],
+    deps = [
+        ":describable_execution_unit",
+        ":script_util",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
