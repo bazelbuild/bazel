@@ -316,19 +316,6 @@ public class SandboxOptions extends OptionsBase {
   public int asyncTreeDeleteIdleThreads;
 
   @Option(
-      name = "incompatible_legacy_local_fallback",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, enables the legacy implicit fallback from sandboxed to local strategy."
-              + " This flag will eventually default to false and then become a no-op. Use"
-              + " --strategy, --spawn_strategy, or --dynamic_local_strategy to configure fallbacks"
-              + " instead.")
-  public boolean legacyLocalFallback;
-
-  @Option(
       name = "reuse_sandbox_directories",
       oldName = "experimental_reuse_sandbox_directories",
       oldNameWarning = false,
