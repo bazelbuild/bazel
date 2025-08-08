@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -37,6 +38,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.LinkOption;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -45,6 +47,8 @@ import javax.annotation.Nullable;
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
 public class UnixFileSystem extends AbstractFileSystem {
+  private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
+      new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
   protected final String hashAttributeName;
 
   public UnixFileSystem(DigestHashFunction hashFunction, String hashAttributeName) {
@@ -427,7 +431,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   public void deleteTreesBelow(PathFragment dir) throws IOException {
-    if (isDirectory(dir, /*followSymlinks=*/ false)) {
+    if (isDirectory(dir, /* followSymlinks= */ false)) {
       long startTime = Profiler.nanoTimeMaybe();
       var comp = Blocker.begin();
       try {
@@ -450,13 +454,25 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(StringEncoding.internalToPlatform(path.getPathString()));
+  protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
+    // We assume that macOS is the only Unix-like system which may have a case-insensitive file
+    // system.
+    if (OS.getCurrent() != OS.DARWIN) {
+      return super.canonicalizeCase(path);
+    }
+    var canonical =
+        PathFragment.create(
+            StringEncoding.platformToInternal(
+                getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).toString()));
+    if (canonical.segmentCount() != path.segmentCount()) {
+      throw new IOException("Unexpected case canonicalization: " + path + " -> " + canonical);
+    }
+    return canonical;
   }
 
-  protected OutputStream createFileOutputStream(PathFragment path, boolean append)
-      throws FileNotFoundException {
-    return createFileOutputStream(path, append, /* internal= */ false);
+  @Override
+  protected InputStream createFileInputStream(PathFragment path) throws IOException {
+    return new FileInputStream(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override

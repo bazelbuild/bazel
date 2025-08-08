@@ -581,4 +581,158 @@ EOF
   expect_log "dir/BUILD/file"
 }
 
+function test_case_sensitive_pkg_names() {
+  local -r pkg1="${FUNCNAME[0]}"
+  local -r pkg2="MyPackage"
+  mkdir -p "$pkg1/$pkg2" || fail "Could not mkdir $pkg1/$pkg2"
+  echo "filegroup(name = 'MyTarget')" > "$pkg1/$pkg2/BUILD"
+
+  local -r pkg1_upper=$(echo "$pkg1" | tr '[:lower:]' '[:upper:]')
+  local -r pkg2_upper=$(echo "$pkg2" | tr '[:lower:]' '[:upper:]')
+
+  [[ "$pkg1_upper" != "$pkg1" ]] || fail "Expected strings ($pkg1) to differ"
+  [[ "$pkg2_upper" != "$pkg2" ]] || fail "Expected strings ($pkg2) to differ"
+
+  if is_windows || is_darwin; then
+    [[ -e "$pkg1_upper/$pkg2_upper/BUILD" ]] \
+        || fail "Expected case-insensitive semantics"
+  else
+    [[ -e "$pkg1_upper/$pkg2_upper/BUILD" ]] \
+        && fail "Expected case-sensitive semantics" || true
+  fi
+
+  # The wrong casing should not work.
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1_upper/$pkg2_upper:all >&"$TEST_log" \
+      && fail "Expected failure" || true
+  if is_windows || is_darwin; then
+    expect_log "ERROR: no such package '$pkg1_upper/$pkg2_upper': use the canonical form '$pkg1/$pkg2' instead"
+  else
+    expect_log "ERROR: no such package '$pkg1_upper/$pkg2_upper': BUILD file not found"
+  fi
+
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1/$pkg2_upper:all >&"$TEST_log" && fail "Expected failure" || true
+  if is_windows || is_darwin; then
+    expect_log "ERROR: no such package '$pkg1/$pkg2_upper': use the canonical form '$pkg1/$pkg2' instead"
+  else
+    expect_log "ERROR: no such package '$pkg1/$pkg2_upper': BUILD file not found"
+  fi
+
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1_upper/$pkg2:all >&"$TEST_log" && fail "Expected failure" || true
+  if is_windows || is_darwin; then
+    expect_log "ERROR: no such package '$pkg1_upper/$pkg2': use the canonical form '$pkg1/$pkg2' instead"
+  else
+    expect_log "ERROR: no such package '$pkg1_upper/$pkg2': BUILD file not found"
+  fi
+
+  # The right casing should work.
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1/$pkg2:all >&"$TEST_log" || fail "Expected success"
+  expect_not_log "no such package"
+  expect_log "//$pkg1/$pkg2:MyTarget"
+
+  # The wrong casing should still not work.
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1_upper/$pkg2_upper:all >&"$TEST_log" \
+      && fail "Expected failure" || true
+  if is_windows || is_darwin; then
+    expect_log "ERROR: no such package '$pkg1_upper/$pkg2_upper': use the canonical form '$pkg1/$pkg2' instead"
+  else
+    expect_log "ERROR: no such package '$pkg1_upper/$pkg2_upper': BUILD file not found"
+  fi
+}
+
+function test_case_sensitive_pkg_names_incrementality() {
+  if ! is_windows && ! is_darwin; then
+    # This test only makes sense on case-insensitive file systems.
+    return 0
+  fi
+
+  local -r pkg1="${FUNCNAME[0]}"
+  local -r pkg2="MyPackage"
+  mkdir -p "$pkg1/$pkg2" || fail "Could not mkdir $pkg1/$pkg2"
+  echo "filegroup(name = 'MyTarget')" > "$pkg1/$pkg2/BUILD"
+
+  local -r pkg1_upper=$(echo "$pkg1" | tr '[:lower:]' '[:upper:]')
+  local -r pkg2_upper=$(echo "$pkg2" | tr '[:lower:]' '[:upper:]')
+
+  [[ "$pkg1_upper" != "$pkg1" ]] || fail "Expected strings ($pkg1) to differ"
+  [[ "$pkg2_upper" != "$pkg2" ]] || fail "Expected strings ($pkg2) to differ"
+
+  [[ -e "$pkg1_upper/$pkg2_upper/BUILD" ]] \
+      || fail "Expected case-insensitive semantics"
+
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1/$pkg2:all >&"$TEST_log" || fail "Expected success"
+
+  mv "$pkg1" "$pkg1_upper"
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1/$pkg2:all >&"$TEST_log" \
+      && fail "Expected failure" || true
+  expect_log "ERROR: no such package '$pkg1/$pkg2': use the canonical form '$pkg1/$pkg2_upper' instead"
+
+  mv "$pkg1_upper/$pkg2" "$pkg1_upper/$pkg2_upper"
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1/$pkg2:all >&"$TEST_log" \
+      && fail "Expected failure" || true
+  expect_log "ERROR: no such package '$pkg1/$pkg2': use the canonical form '$pkg1_upper/$pkg2_upper' instead"
+
+  mv "$pkg1_upper" "$pkg1"
+  mv "$pkg1/$pkg2_upper" "$pkg1/$pkg2"
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg1/$pkg2:all >&"$TEST_log" || fail "Expected success"
+}
+
+function test_case_sensitive_build_file_names() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "Could not mkdir $pkg"
+  echo "filegroup(name = 'my_target')" > "$pkg/BuIlD"
+
+  if is_windows || is_darwin; then
+    [[ -e "$pkg/BUILD" ]] \
+        || fail "Expected case-insensitive semantics"
+  else
+    [[ -e "$pkg/BUILD" ]] \
+        && fail "Expected case-sensitive semantics" || true
+  fi
+
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg:all >&"$TEST_log" \
+      && fail "Expected failure" || true
+  if is_windows || is_darwin; then
+    expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid build file name, use 'BUILD' instead"
+  else
+    expect_log "ERROR: no such package '$pkg': BUILD file not found"
+  fi
+}
+
+function test_case_sensitive_build_file_names_incrementality() {
+  if ! is_windows && ! is_darwin; then
+    # This test only makes sense on case-insensitive file systems.
+    return 0
+  fi
+
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "Could not mkdir $pkg"
+  echo "filegroup(name = 'my_target')" > "$pkg/BuIlD"
+
+  [[ -e "$pkg/BUILD" ]] \
+      || fail "Expected case-insensitive semantics"
+
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg:all >&"$TEST_log" || fail "Expected success"
+
+  mv "$pkg/BuIlD" "$pkg/BUILD"
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg:all >&"$TEST_log" || fail "Expected success"
+
+  mv "$pkg/BUILD" "$pkg/BuIlD"
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg:all >&"$TEST_log" \
+      && fail "Expected failure" || true
+  expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid build file name, use 'BUILD' instead"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

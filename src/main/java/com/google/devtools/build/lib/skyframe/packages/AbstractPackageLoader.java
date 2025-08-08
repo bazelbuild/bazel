@@ -569,7 +569,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new PackageLookupFunction(
                 /* deletedPackages= */ new AtomicReference<>(ImmutableSet.of()),
                 getCrossRepositoryLabelViolationStrategy(),
-                getBuildFilesByPriority()))
+                getBuildFilesByPriority(),
+                /* enforceStrictLabelCasing= */ new AtomicReference<>(false)))
         .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(

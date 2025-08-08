@@ -827,4 +827,17 @@ public abstract class FileSystem {
       }
     }
   }
+
+  /**
+   * Returns the path of an existing file with the case of its segments normalized to reflect the
+   * actual state of the case-preserving but possibly case-insensitive filesystem.
+   *
+   * <p>The returned path is guaranteed to have the same number of segments as this path.
+   *
+   * <p>The default implementation returns the path unchanged, which is appropriate for
+   * case-sensitive filesystems.
+   */
+  protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
+    return path;
+  }
 }

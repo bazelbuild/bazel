@@ -2152,4 +2152,18 @@ public abstract class FileSystemTest {
       tempDirs.add(tempDir);
     }
   }
+
+  @Test
+  public void testCanonicalizeCase() throws Exception {
+    Path canonicalCase = absolutize(StringEncoding.unicodeToInternal("ThiS/pAtH/HÄs/MIXED/case"));
+    canonicalCase.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(canonicalCase);
+    assertThat(canonicalCase.canonicalizeCase()).isEqualTo(canonicalCase);
+
+    Path nonCanonicalCase =
+        absolutize(StringEncoding.unicodeToInternal("this/path/häs/mixed/CASE"));
+    // Only continue on case-insensitive filesystems.
+    assume().that(nonCanonicalCase.exists()).isTrue();
+    assertThat(nonCanonicalCase.canonicalizeCase()).isEqualTo(canonicalCase);
+  }
 }

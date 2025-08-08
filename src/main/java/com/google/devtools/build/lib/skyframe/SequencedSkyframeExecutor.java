@@ -379,6 +379,19 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     deletedPackages.set(newDeletedPackagesSet);
   }
 
+  @Override
+  void setEnforceStrictLabelCasing(boolean newEnforceStrictLabelCasing) {
+    // enforceStrictLabelCasing.get() may be null if this is the first time the executor is being
+    // used.
+    Boolean oldEnforceStrictLabelCasing =
+        enforceStrictLabelCasing.getAndSet(newEnforceStrictLabelCasing);
+    if (oldEnforceStrictLabelCasing != null
+        && oldEnforceStrictLabelCasing != newEnforceStrictLabelCasing) {
+      // PackageLookupValue is a HERMETIC node type, so we can't invalidate it.
+      memoizingEvaluator.delete(k -> k.functionName().equals(SkyFunctions.PACKAGE_LOOKUP));
+    }
+  }
+
   /**
    * {@inheritDoc}
    *

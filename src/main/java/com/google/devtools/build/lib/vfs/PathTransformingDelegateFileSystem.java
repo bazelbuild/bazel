@@ -325,6 +325,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
     return delegateFs.createTempDirectory(toDelegatePath(parent), prefix);
   }
 
+  @Override
+  protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
+    return fromDelegatePath(delegateFs.canonicalizeCase(toDelegatePath(path)));
+  }
+
   /** Transform original path to a different one to be used with the {@code delegateFs}. */
   protected abstract PathFragment toDelegatePath(PathFragment path);
 
