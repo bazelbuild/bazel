@@ -527,24 +527,59 @@ public final class CcStaticCompilationHelper {
 
   static Artifact createParseHeaderAction(
       ActionConstructionContext actionConstructionContext,
+      CcCompilationContext ccCompilationContext,
+      CcToolchainProvider ccToolchain,
       BuildConfigurationValue configuration,
+      ImmutableList<String> conlyopts,
+      ImmutableList<String> copts,
+      CppConfiguration cppConfiguration,
+      ImmutableList<String> cxxopts,
+      FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       boolean generatePicAction,
       Label label,
       CcToolchainVariables commonToolchainVariables,
-      CcToolchainVariables specificToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
+      Label sourceLabel,
       String outputNameBase,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
     builder
+        .setOutputs(
+            actionConstructionContext,
+            ruleErrorConsumer,
+            label,
+            ArtifactCategory.PROCESSED_HEADER,
+            outputNameBase)
         // If we generate pic actions, we prefer the header actions to use the pic artifacts.
         .setPicMode(generatePicAction);
     builder.setVariables(
-        CcToolchainVariables.builder(commonToolchainVariables)
-            .addAllNonTransitive(specificToolchainVariables)
-            .build());
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
+            ccCompilationContext,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            auxiliaryFdoInputs,
+            featureConfiguration,
+            semantics,
+            builder,
+            sourceLabel,
+            generatePicAction,
+            /* needsFdoBuildVariables= */ false,
+            fdoBuildVariables,
+            ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
+            /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            /* additionalBuildVariables= */ ImmutableMap.of()));
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionConstructionContext.registerAction(compileAction);
