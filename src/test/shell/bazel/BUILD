@@ -510,9 +510,6 @@ sh_test(
         ":gen_rules_java_repo_name",
         ":test-deps",
     ],
-    tags = [
-        "no_windows",
-    ],
 )
 
 # Test java coverage with the java_toolchain in the released java_tools versions.
