@@ -122,6 +122,11 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
+  public boolean isExecutableNonTestRule(Target target) {
+    return TargetUtils.isExecutableNonTestRule(target);
+  }
+
+  @Override
   public boolean isTestRule(Target target) {
     return TargetUtils.isTestRule(target);
   }
