@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.NoRepositoryPackageLookupValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -100,7 +101,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (!packageKey.getRepository().isMain()) {
-      return computeExternalPackageLookupValue(skyKey, env, packageKey);
+      return computeExternalPackageLookupValue(skyKey, env);
     }
 
     if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
@@ -319,6 +320,21 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (fileValue.isFile()) {
+      if (OS.getCurrent() == OS.WINDOWS || OS.getCurrent() == OS.DARWIN) {
+        var casingValue =
+            (RootedPathCasingValue)
+                env.getValue(RootedPathCasingValue.key(buildFileRootedPath.getParentDirectory()));
+        if (casingValue == null) {
+          return null;
+        }
+        if (casingValue instanceof RootedPathCasingValue.NoMatch noMatch) {
+          return PackageLookupValue.invalidPackageName(
+              "package name %s must match the filesystem casing %s"
+                  .formatted(
+                      packageIdentifier.getPackageFragment(),
+                      noMatch.expectedCasing(packageIdentifier.getPackageFragment())));
+        }
+      }
       return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
     }
 
@@ -332,8 +348,7 @@ public class PackageLookupFunction implements SkyFunction {
    * name.
    */
   @Nullable
-  private PackageLookupValue computeExternalPackageLookupValue(
-      SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
+  private PackageLookupValue computeExternalPackageLookupValue(SkyKey skyKey, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
     SkyKey repositoryKey = RepositoryDirectoryValue.key(id.getRepository());
@@ -381,12 +396,25 @@ public class PackageLookupFunction implements SkyFunction {
       PathFragment buildFileFragment =
           id.getPackageFragment().getRelative(buildFileName.getFilenameFragment());
       RootedPath buildFileRootedPath = RootedPath.toRootedPath(root, buildFileFragment);
-      FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
+      FileValue fileValue = getFileValue(buildFileRootedPath, env, id);
       if (fileValue == null) {
         return null;
       }
 
       if (fileValue.isFile()) {
+        if (OS.getCurrent() == OS.WINDOWS || OS.getCurrent() == OS.DARWIN) {
+          var casingValue =
+              (RootedPathCasingValue)
+                  env.getValue(RootedPathCasingValue.key(buildFileRootedPath.getParentDirectory()));
+          if (casingValue == null) {
+            return null;
+          }
+          if (casingValue instanceof RootedPathCasingValue.NoMatch noMatch) {
+            return PackageLookupValue.invalidPackageName(
+                "package name %s must match the filesystem casing %s"
+                    .formatted(packageFragment, noMatch.expectedCasing(packageFragment)));
+          }
+        }
         return PackageLookupValue.success(root, buildFileName);
       }
     }
