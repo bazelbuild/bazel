@@ -368,7 +368,8 @@ public class RemoteOutputChecker implements OutputChecker {
    */
   private static final class ConcurrentArtifactPathTrie {
     // Invariant: no path in this set is a prefix of another path.
-    private final ConcurrentSkipListSet<PathFragment> paths = new ConcurrentSkipListSet<>();
+    private final ConcurrentSkipListSet<PathFragment> paths =
+        new ConcurrentSkipListSet<>(PathFragment.HIERARCHICAL_COMPARATOR);
 
     /**
      * Adds the given {@link ActionInput} to the trie.
@@ -389,8 +390,9 @@ public class RemoteOutputChecker implements OutputChecker {
 
     /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
     boolean contains(PathFragment execPath) {
-      // By the invariant of this set, if a prefix of execPath is present, it must sort right before
-      // it (or be equal to it).
+      // By the invariant of this set, there is at most one prefix of execPath in the set. Since the
+      // comparator sorts all children of a path right after the path itself, if such a prefix
+      // exists, it must thus sort right before execPath (or be equal to it).
       var floorPath = paths.floor(execPath);
       return floorPath != null && execPath.startsWith(floorPath);
     }
