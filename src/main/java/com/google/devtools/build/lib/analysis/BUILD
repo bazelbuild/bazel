@@ -56,6 +56,7 @@ java_library(
         "FragmentCollection.java",
         "LocationExpander.java",
         "LocationTemplateContext.java",
+        "MaterializedDepsInfo.java",
         "OutputGroupInfo.java",
         "PackageSpecificationProvider.java",
         "PrerequisiteArtifacts.java",

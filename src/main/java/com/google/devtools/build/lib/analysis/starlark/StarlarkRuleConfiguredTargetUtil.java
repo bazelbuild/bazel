@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -241,6 +242,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Location implLoc,
       boolean isDefaultExecutableCreated)
       throws EvalException, InterruptedException {
+
+    // Handle "return provider" vs "return [provider]"
     Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
     if (rawProviders instanceof Info info) {
       if (getProviderKey(info).equals(StructProvider.STRUCT.getKey())) {
@@ -273,6 +276,15 @@ public final class StarlarkRuleConfiguredTargetUtil {
     } else if (rawProviders != Starlark.NONE) {
       throw Starlark.errorf(
           "Expected a list of providers, but got %s", Starlark.type(rawProviders));
+    }
+
+    if (context.getRule().getRuleClassObject().isMaterializerRule()) {
+      if (declaredProviders.size() != 1
+          || !declaredProviders.containsKey(MaterializedDepsInfo.PROVIDER.getKey())) {
+        throw Starlark.errorf(
+            "Materializer rules must return exactly one MaterializedDepsInfo provider, but got %s",
+            declaredProviders.keySet());
+      }
     }
 
     boolean defaultProviderProvidedExplicitly = false;

@@ -1152,4 +1152,64 @@ declared.
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "materializer_rule",
+      doc =
+          "Creates a new materializer rule, which can be called from a BUILD file or a macro to"
+              + " create materializer targets.<p>Materializer targets are used to dynamically"
+              + " select dependencies at analysis time. Targets which depend on a materializer"
+              + " target will see the materialized dependencies, rather than the materializer"
+              + " target itself.",
+      parameters = {
+        @Param(
+            name = "implementation",
+            named = true,
+            positional = false,
+            doc =
+                "The Starlark function implementing this materializer rule. It must have exactly"
+                    + " one parameter: <a href=\"../builtins/ctx.html\">ctx</a>. This function is"
+                    + " called during the analysis phase for each instance of the rule."
+                    + " Materializer rules return exactly one and only one MaterializedDepsInfo"
+                    + " provider which specifies the dependencies to materialize in place of any"
+                    + " instance of this rule in the attributes of another target."),
+        @Param(
+            name = "attrs",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "{}",
+            doc =
+"""
+A dictionary to declare all the attributes of the rule. It maps from an attribute \
+name to an attribute object (see
+<a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes starting \
+with <code>_</code> are private, and can be used to add an implicit dependency on \
+a label. The attribute <code>name</code> is implicitly added and must not be \
+specified. Attributes <code>visibility</code>, <code>deprecation</code>, \
+<code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly \
+added and cannot be overridden. Most rules need only a handful of attributes. To \
+limit memory usage, there is a cap on the number of attributes that may be \
+declared.
+<p>Declared attributes will convert <code>None</code> to the default value.</p>
+"""),
+        @Param(
+            name = "doc",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "A description of the rule that can be extracted by documentation generating "
+                    + "tools."),
+      },
+      useStarlarkThread = true)
+  StarlarkCallable materializerRule(
+      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
+      throws EvalException;
 }

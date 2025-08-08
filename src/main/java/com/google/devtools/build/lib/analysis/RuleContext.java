@@ -1790,8 +1790,27 @@ public class RuleContext extends TargetContext
                           configuredTarget, TargetMode.WITH_KIND)));
             }
           }
+
+          // Materializer rules can depend only on dependency resolution rules via "normal" /
+          // non-dormant attributes, and everything else only via dormant attributes, except
+          // for PackageGroupConfiguredTargets and build settings.
+          if (target.getAssociatedRule().getRuleClassObject().isMaterializerRule()
+              && !(attribute.getType() == BuildType.DORMANT_LABEL
+                  || attribute.getType() == BuildType.DORMANT_LABEL_LIST)
+              && !configuredTarget.isForDependencyResolution()
+              && !(configuredTarget.getConfiguredTarget()
+                  instanceof PackageGroupConfiguredTarget)) {
+            attributeError(
+                attribute.getName(),
+                String.format(
+                    "materializer rules can depend on only dependency resolution rules via"
+                        + " non-dormant attributes; %s is a non-dormant attribute, and %s is not a"
+                        + " dependency resolution rule",
+                    attribute.getName(), configuredTarget.getTargetLabel()));
+          }
         }
       }
+
       return mapBuilder.build();
     }
 

@@ -34,6 +34,9 @@ interface RuleClassData {
   /** Returns whether rules of this class can be made available during dependency resolution. */
   boolean isDependencyResolutionRule();
 
+  /** Whether this RuleClass represents a materializer rule. */
+  boolean isMaterializerRule();
+
   /** Returns the set of advertised transitive info providers. */
   AdvertisedProviderSet getAdvertisedProviders();
 

@@ -841,6 +841,102 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
         .containsAtLeast("//a:r", "//a:a", "//a:b1", "//a:b2");
   }
 
+  @Test
+  public void testMaterializerRuleQuery() throws Exception {
+
+    writeFile(
+        "defs.bzl",
+"""
+# Component ######################################
+
+ComponentInfo = provider(fields = ["output"])
+
+def _component_impl(ctx):
+   f = ctx.actions.declare_file(ctx.label.name + ".txt")
+   ctx.actions.write(f, ctx.label.name)
+   return ComponentInfo(output = f)
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+)
+
+# Component selector #############################
+
+def _component_selector_impl(ctx):
+    selected = []
+    # interleave these to make it more interesting
+    for cd in ctx.attr.all_components_dormant:
+        if "yes" in str(cd.label):
+            selected.append(cd)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components_dormant": attr.dormant_label_list(),
+    },
+)
+
+# Binary #########################################
+
+def _binary_impl(ctx):
+    files = [dep[ComponentInfo].output for dep in ctx.attr.deps]
+    return DefaultInfo(files = depset(direct = files))
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
+)
+""");
+
+    writeFile(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector", "binary")
+
+binary(
+    name = "bin",
+    deps = [
+        ":aaa",
+        ":component_selector",
+        ":zzz",
+    ],
+)
+
+component_selector(
+    name = "component_selector",
+    all_components_dormant = [":a_yes", ":b_yes", ":c_no", ":d_no"],
+)
+
+component(name = "aaa")
+component(name = "a_yes")
+component(name = "b_yes")
+component(name = "c_no")
+component(name = "d_no")
+component(name = "zzz")
+""");
+
+    // This should return all the possible deps, as opposed to just the selected deps.
+    assertThat(evalToListOfStrings("deps('//:bin')"))
+        .containsAtLeast(
+            "//:aaa",
+            "//:a_yes",
+            "//:b_yes",
+            "//:c_no",
+            "//:d_no",
+            "//:zzz",
+            "//:component_selector");
+
+    // The direct deps should contain only component_selector and none of the selected deps
+    // because it's not known at query (i.e. only loading time) what deps are selected.
+    ImmutableList<String> directDeps = evalToListOfStrings("deps('//:bin', 1)");
+    assertThat(directDeps).containsAtLeast("//:aaa", "//:component_selector", "//:zzz");
+    assertThat(directDeps).containsNoneOf("//:a_yes", "//:b_yes", "//:c_no", "//:d_no");
+  }
+
   protected Iterable<String> targetLabels(Set<Target> targets) {
     return Iterables.transform(targets, new Function<Target, String>() {
       @Override

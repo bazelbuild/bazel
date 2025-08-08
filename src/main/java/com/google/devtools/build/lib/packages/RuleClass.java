@@ -693,6 +693,7 @@ public class RuleClass implements RuleClassData {
     private boolean documented;
     private boolean outputsToBindir = true;
     private boolean dependencyResolutionRule = false;
+    private boolean isMaterializerRule;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
@@ -930,6 +931,7 @@ public class RuleClass implements RuleClassData {
           documented,
           outputsToBindir,
           dependencyResolutionRule,
+          isMaterializerRule,
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
@@ -1417,6 +1419,13 @@ public class RuleClass implements RuleClassData {
       return this;
     }
 
+    /** Mark the rule as a materializer rule. */
+    @CanIgnoreReturnValue
+    public Builder setIsMaterializerRule(boolean isMaterializerRule) {
+      this.isMaterializerRule = isMaterializerRule;
+      return this;
+    }
+
     /**
      * This rule class outputs a default executable for every rule with the same name as the
      * rules's. Only works for Starlark.
@@ -1679,6 +1688,7 @@ public class RuleClass implements RuleClassData {
   private final boolean documented;
   private final boolean outputsToBindir;
   private final boolean dependencyResolutionRule;
+  private final boolean isMaterializerRule;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
@@ -1789,6 +1799,7 @@ public class RuleClass implements RuleClassData {
       boolean documented,
       boolean outputsToBindir,
       boolean dependencyResolutionRule,
+      boolean isMaterializerRule,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
@@ -1838,6 +1849,7 @@ public class RuleClass implements RuleClassData {
     this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
     this.outputFileKind = outputFileKind;
     this.dependencyResolutionRule = dependencyResolutionRule;
+    this.isMaterializerRule = isMaterializerRule;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
@@ -1906,6 +1918,10 @@ public class RuleClass implements RuleClassData {
 
   public <T extends ConfiguredTargetFactory<?, ?, ?>> T getConfiguredTargetFactory(Class<T> clazz) {
     return clazz.cast(configuredTargetFactory);
+  }
+
+  public ConfiguredTargetFactory<?, ?, ?> getConfiguredTargetFactory() {
+    return configuredTargetFactory;
   }
 
   /** Returns the class of rule that this RuleClass represents (e.g. "cc_library"). */
@@ -2265,6 +2281,12 @@ public class RuleClass implements RuleClassData {
   @Override
   public boolean isDependencyResolutionRule() {
     return dependencyResolutionRule;
+  }
+
+  /** Whether this rule class is a materializer rule. */
+  @Override
+  public boolean isMaterializerRule() {
+    return isMaterializerRule;
   }
 
   /** Returns true if this rule class outputs a default executable for every rule. */

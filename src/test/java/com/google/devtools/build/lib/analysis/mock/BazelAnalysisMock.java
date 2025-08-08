@@ -683,6 +683,16 @@ launcher_flag_alias(
           ),
         )
         """);
+
+    config.create(
+        "embedded_tools/tools/allowlists/materializer_rule_allowlist/BUILD",
+        """
+        package_group(
+            name = "materializer_rule_allowlist",
+            packages = ["public"],
+        )
+        """);
+
     MockProtoSupport.setupWorkspace(config);
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
