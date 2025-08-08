@@ -3069,4 +3069,73 @@ EOF
   expect_log 'result_err.error_message: ""'
 }
 
+function test_resolved_attributes_shows_no_message_if_unchanged() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "name": repository_ctx.attr.name,
+    "attr1": repository_ctx.attr.attr1,
+    "attr2": repository_ctx.attr.attr2,
+    "attr3": repository_ctx.attr.attr3,
+    "attr4": repository_ctx.attr.attr4,
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs={
+    "attr1": attr.string(default = "default1"),
+    "attr2": attr.string(),
+    "attr3": attr.label(default = "//:default"),
+    "attr4": attr.label(),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "indicated that a canonical reproducible form can be obtained"
+  expect_not_log "modifying"
+  expect_not_log "dropping"
+}
+
+function test_resolved_attributes_shows_message_if_changed() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "name": repository_ctx.attr.name,
+    "attr1": repository_ctx.attr.attr2,
+    "attr2": repository_ctx.attr.attr2,
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs = {
+    "attr1": attr.string(default = "default1"),
+    "attr2": attr.string(default = "default2"),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "indicated that a canonical reproducible form can be obtained"
+  expect_log "by modifying arguments attr1 = \"default2\""
+}
+
 run_suite "local repository tests"
