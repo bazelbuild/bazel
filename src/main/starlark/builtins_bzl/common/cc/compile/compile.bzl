@@ -802,9 +802,11 @@ def _create_cc_compile_actions(
             configuration = configuration,
             feature_configuration = feature_configuration,
             use_pic = generate_pic_action,
+            label = label,
             common_compile_build_variables = common_compile_build_variables,
             specific_compile_build_variables = specific_compile_build_variables,
             cpp_semantics = cpp_semantics,
+            output_name_base = output_name_base,
             cpp_compile_action_builder = cpp_compile_action_builder,
         )
         outputs.add_header_token_file(header_token_file)

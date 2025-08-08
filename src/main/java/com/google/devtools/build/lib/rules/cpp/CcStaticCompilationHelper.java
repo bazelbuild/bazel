@@ -530,10 +530,12 @@ public final class CcStaticCompilationHelper {
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       boolean generatePicAction,
+      Label label,
       CcToolchainVariables commonToolchainVariables,
       CcToolchainVariables specificToolchainVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
+      String outputNameBase,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
     builder
