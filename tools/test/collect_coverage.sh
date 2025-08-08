@@ -125,6 +125,10 @@ if [[ ! -z "${JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE}" ]]; then
   # Create a paramsfile for invoking SingleJar.
   mkdir -p "${COVERAGE_DIR}"
   single_jar_params_file="${COVERAGE_DIR}/runtime_classpath.paramsfile"
+  # Remove if exists, then create to avoid permission issues
+  # Remove the parameter file if it already exists to prevent permission conflicts
+  rm -f "$single_jar_params_file"
+  # Create an empty parameter file that SingleJar will read arguments from
   touch "$single_jar_params_file"
 
   # Export JACOCO_METADATA_JAR in order for JacocoCoverageRunner to be able
