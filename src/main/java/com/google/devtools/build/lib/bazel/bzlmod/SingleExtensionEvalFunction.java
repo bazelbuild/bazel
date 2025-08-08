@@ -209,8 +209,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   "The module extension '%s' produced two repos '%s' and '%s' that only"
                       + " differ in case, which is not allowed.",
                   extensionId,
-                  name,
-                  previousName));
+                  previousName,
+                  name));
         }
       }
     }
