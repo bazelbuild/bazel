@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -117,12 +118,12 @@ public class Package extends Packageoid {
     DEFAULT_STANDARD
   }
 
+  // ==== Target and macro fields ====
+
   // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
   // Cannot be in Declarations because, since it's a Target, it holds a back reference to this
   // Package object.
   private InputFile buildFile;
-
-  // ==== Target and macro fields ====
 
   /**
    * The collection of all symbolic macro instances defined in this package, indexed by their {@link
@@ -190,8 +191,8 @@ public class Package extends Packageoid {
    */
   // TODO(#19922): Better separate fields that must be known a priori from those determined through
   // BUILD evaluation.
-  private Package(Metadata metadata) {
-    super(metadata, new Declarations());
+  private Package(Metadata metadata, Declarations declarations) {
+    super(metadata, declarations);
   }
 
   // ==== General package metadata accessors ====
@@ -231,10 +232,9 @@ public class Package extends Packageoid {
     return metadata.configSettingVisibilityPolicy();
   }
 
-  /** Convenience wrapper for {@link Declarations#getWorkspaceName} */
+  /** Convenience wrapper for {@link Metadata#workspaceName} */
   public String getWorkspaceName() {
-    // To support declarations mocking, use getDeclarations() instead of directly using the field.
-    return getDeclarations().getWorkspaceName();
+    return getMetadata().workspaceName();
   }
 
   /** Returns the InputFile target for this package's BUILD file. */
@@ -244,13 +244,11 @@ public class Package extends Packageoid {
 
   /** Convenience wrapper for {@link Declarations#getPackageArgs} */
   public PackageArgs getPackageArgs() {
-    // To support declarations mocking, use getDeclarations() instead of directly using the field.
     return getDeclarations().getPackageArgs();
   }
 
   /** Convenience wrapper for {@link Declarations#getMakeEnvironment} */
   public ImmutableMap<String, String> getMakeEnvironment() {
-    // To support declarations mocking, use getDeclarations() instead of directly using the field.
     return getDeclarations().getMakeEnvironment();
   }
 
@@ -592,17 +590,18 @@ public class Package extends Packageoid {
         Metadata.builder()
             .packageIdentifier(id)
             .buildFilename(filename)
+            .workspaceName(workspaceName)
             .repositoryMapping(repositoryMapping)
             .associatedModuleName(associatedModuleName)
             .associatedModuleVersion(associatedModuleVersion)
             .configSettingVisibilityPolicy(configSettingVisibilityPolicy)
             .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
             .build(),
+        new Declarations.Builder(),
         SymbolGenerator.create(id),
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
         simplifyUnconditionalSelectsInRuleAttrs,
-        workspaceName,
         mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
@@ -611,6 +610,45 @@ public class Package extends Packageoid {
         enableNameConflictChecking,
         trackFullMacroInformation,
         packageLimits);
+  }
+
+  /** Returns a new {@link Builder} suitable for constructing a package from package pieces. */
+  public static Builder newPackageFromPackagePiecesBuilder(
+      PackageSettings packageSettings,
+      Metadata metadata,
+      Declarations declarations,
+      boolean noImplicitFileExport,
+      boolean simplifyUnconditionalSelectsInRuleAttrs,
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      PackageOverheadEstimator packageOverheadEstimator,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable Globber globber,
+      boolean enableNameConflictChecking,
+      boolean trackFullMacroInformation,
+      PackageLimits packageLimits,
+      InputFile buildFile) {
+    Builder builder =
+        new Builder(
+            metadata,
+            declarations.checkImmutable(),
+            SymbolGenerator.create(metadata.packageIdentifier()),
+            packageSettings.precomputeTransitiveLoads(),
+            noImplicitFileExport,
+            simplifyUnconditionalSelectsInRuleAttrs,
+            mainRepositoryMapping,
+            cpuBoundSemaphore,
+            packageOverheadEstimator,
+            generatorMap,
+            globber,
+            enableNameConflictChecking,
+            trackFullMacroInformation,
+            packageLimits);
+    checkArgument(
+        buildFile.getPackageMetadata().packageIdentifier().equals(metadata.packageIdentifier()));
+    builder.recorder.replaceInputFileUnchecked(buildFile);
+    builder.setBuildFile(buildFile);
+    return builder;
   }
 
   // ==== Non-trivial nested classes ====
@@ -669,11 +707,12 @@ public class Package extends Packageoid {
     // TODO(#19922): Require this to be set before BUILD evaluation.
     @CanIgnoreReturnValue
     public AbstractBuilder setLoads(Iterable<Module> directLoads) {
-      checkLoadsNotSet();
+      Declarations.Builder declarationsBuilder =
+          pkg.getDeclarations().checkMutable().checkLoadsNotSet();
       if (precomputeTransitiveLoads) {
-        pkg.getDeclarations().transitiveLoads = computeTransitiveLoads(directLoads);
+        declarationsBuilder.setTransitiveLoads(computeTransitiveLoads(directLoads));
       } else {
-        pkg.getDeclarations().directLoads = ImmutableList.copyOf(directLoads);
+        declarationsBuilder.setDirectLoads(ImmutableList.copyOf(directLoads));
       }
       return this;
     }
@@ -686,25 +725,12 @@ public class Package extends Packageoid {
 
     @CanIgnoreReturnValue
     AbstractBuilder setTransitiveLoadsForDeserialization(ImmutableList<Label> transitiveLoads) {
-      checkLoadsNotSet();
-      pkg.getDeclarations().transitiveLoads = checkNotNull(transitiveLoads);
+      pkg.getDeclarations().checkMutable().checkLoadsNotSet().setTransitiveLoads(transitiveLoads);
       return this;
     }
 
-    private void checkLoadsNotSet() {
-      checkState(
-          pkg.getDeclarations().directLoads == null,
-          "Direct loads already set: %s",
-          pkg.getDeclarations().directLoads);
-      checkState(
-          pkg.getDeclarations().transitiveLoads == null,
-          "Transitive loads already set: %s",
-          pkg.getDeclarations().transitiveLoads);
-    }
-
     public void mergePackageArgsFrom(PackageArgs packageArgs) {
-      pkg.getDeclarations()
-          .setPackageArgs(pkg.getDeclarations().getPackageArgs().mergeWith(packageArgs));
+      pkg.getDeclarations().checkMutable().mergePackageArgsFrom(packageArgs);
     }
 
     public void mergePackageArgsFrom(PackageArgs.Builder builder) {
@@ -930,13 +956,14 @@ public class Package extends Packageoid {
     @Override
     protected void packageoidInitializationHook() {
       // Finish Package.Declarations construction.
-      if (pkg.getDeclarations().directLoads == null
-          && pkg.getDeclarations().transitiveLoads == null) {
-        checkState(pkg.containsErrors(), "Loads not set for error-free package");
-        setLoads(ImmutableList.of());
+      if (pkg.getDeclarations() instanceof Declarations.Builder declarationsBuilder) {
+        if (declarationsBuilder.directLoads == null
+            && declarationsBuilder.transitiveLoads == null) {
+          checkState(pkg.containsErrors(), "Loads not set for error-free package");
+          setLoads(ImmutableList.of());
+        }
+        pkg.declarations = declarationsBuilder.setMakeEnvironment(makeEnv).build();
       }
-      pkg.getDeclarations().workspaceName = workspaceName;
-      pkg.getDeclarations().makeEnv = ImmutableMap.copyOf(makeEnv);
     }
 
     AbstractBuilder(
@@ -946,7 +973,6 @@ public class Package extends Packageoid {
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
-        String workspaceName,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
@@ -961,7 +987,6 @@ public class Package extends Packageoid {
           pkg,
           symbolGenerator,
           simplifyUnconditionalSelectsInRuleAttrs,
-          workspaceName,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -977,7 +1002,9 @@ public class Package extends Packageoid {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
       // Add target for the BUILD file itself.
-      // (This may be overridden by an exports_file declaration.)
+      // (This may be overridden by an exports_file declaration; or, for a package from package
+      // pieces, by the PackagePiece.ForBuildFile's BUILD file target set in
+      // newPackageFromPackagePiecesBuilder().)
       recorder.addInputFileUnchecked(
           new InputFile(pkg, metadata.buildFileLabel(), metadata.getBuildFileLocation()));
     }
@@ -990,8 +1017,8 @@ public class Package extends Packageoid {
   public static class Builder extends AbstractBuilder {
 
     /**
-     * A bundle of options affecting package construction, that is not specific to any particular
-     * package.
+     * A bundle of statically-defined options affecting package construction, that is not specific
+     * to any particular package and does not change for the lifetime of the server.
      */
     public interface PackageSettings {
       /**
@@ -1078,11 +1105,11 @@ public class Package extends Packageoid {
 
     private Builder(
         Metadata metadata,
+        Declarations declarations,
         SymbolGenerator<?> symbolGenerator,
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
-        String workspaceName,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
@@ -1093,12 +1120,11 @@ public class Package extends Packageoid {
         PackageLimits packageLimits) {
       super(
           metadata,
-          new Package(metadata),
+          new Package(metadata, declarations),
           symbolGenerator,
           precomputeTransitiveLoads,
           noImplicitFileExport,
           simplifyUnconditionalSelectsInRuleAttrs,
-          workspaceName,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -1149,6 +1175,15 @@ public class Package extends Packageoid {
     public void addRuleUnchecked(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
       recorder.addRuleUnchecked(rule);
+    }
+
+    /** Adds all targets, macros, and Starlark computation steps from a given package piece. */
+    public void addAllFromPackagePiece(PackagePiece packagePiece) throws NameConflictException {
+      // We add the BUILD file in newPackageFromPackagePiecesBuilder(), not here. (We want to ensure
+      // that the package always has a BUILD file target, even if addAllFromPackagePiece would throw
+      // a name conflict.)
+      this.recorder.addAllFromPackagePiece(packagePiece, /* skipBuildFile= */ true);
+      this.computationSteps += packagePiece.getComputationSteps();
     }
 
     @Override
@@ -1332,6 +1367,10 @@ public class Package extends Packageoid {
       PackageIdentifier packageIdentifier,
       RootedPath buildFilename,
       Label buildFileLabel,
+      /**
+       * The name of the workspace this package is in. Used as a prefix for the runfiles directory.
+       */
+      String workspaceName,
       RepositoryMapping repositoryMapping,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
@@ -1350,6 +1389,8 @@ public class Package extends Packageoid {
 
       Builder buildFilename(RootedPath buildFilename);
 
+      Builder workspaceName(String workspaceName);
+
       Builder repositoryMapping(RepositoryMapping repositoryMapping);
 
       Builder associatedModuleName(Optional<String> associatedModuleName);
@@ -1367,6 +1408,7 @@ public class Package extends Packageoid {
     static Metadata of(
         PackageIdentifier packageIdentifier,
         RootedPath buildFilename,
+        String workspaceName,
         RepositoryMapping repositoryMapping,
         Optional<String> associatedModuleName,
         Optional<String> associatedModuleVersion,
@@ -1384,6 +1426,7 @@ public class Package extends Packageoid {
           packageIdentifier,
           buildFilename,
           buildFileLabel,
+          workspaceName,
           repositoryMapping,
           associatedModuleName,
           associatedModuleVersion,
@@ -1399,6 +1442,7 @@ public class Package extends Packageoid {
     public Metadata {
       Preconditions.checkNotNull(packageIdentifier);
       Preconditions.checkNotNull(buildFilename);
+      Preconditions.checkNotNull(workspaceName);
       Preconditions.checkNotNull(repositoryMapping);
       Preconditions.checkNotNull(associatedModuleName);
       Preconditions.checkNotNull(associatedModuleVersion);
@@ -1478,24 +1522,21 @@ public class Package extends Packageoid {
    * references to {@link Package} or {@link PackagePiece} objects. Treated as immutable after BUILD
    * file evaluation has completed.
    *
-   * <p>This class should not be extended - it's only non-final for mocking!
+   * <p>Instances of the base {@link Declarations} class are immutable; for a mutable builder, see
+   * {@link Declarations.Builder}.
    */
-  public static class Declarations {
-    // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
-    // Starlark evaluation of the WORKSPACE file has finished.
-    // TODO(bazel-team): move to Metadata when WORKSPACE file logic is deleted.
-    private String workspaceName;
+  public static sealed class Declarations permits Declarations.Builder {
+    // All fields are non-final only to allow builder subclass to mutate them.
 
-    // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
-    private PackageArgs packageArgs = PackageArgs.DEFAULT;
-
-    // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
-    private ImmutableMap<String, String> makeEnv;
+    // These two fields are mutated only during BUILD file evaluation (not during symbolic macro
+    // evaluation).
+    protected PackageArgs packageArgs = PackageArgs.DEFAULT;
+    protected ImmutableMap<String, String> makeEnv;
 
     // These two fields are mutually exclusive. Which one is set depends on
     // PackageSettings#precomputeTransitiveLoads. See Package.Builder#setLoads.
-    @Nullable private ImmutableList<Module> directLoads;
-    @Nullable private ImmutableList<Label> transitiveLoads;
+    @Nullable protected ImmutableList<Module> directLoads;
+    @Nullable protected ImmutableList<Label> transitiveLoads;
 
     @Override
     public boolean equals(Object obj) {
@@ -1503,7 +1544,6 @@ public class Package extends Packageoid {
         return true;
       }
       return obj instanceof Declarations other
-          && Objects.equals(workspaceName, other.workspaceName)
           && Objects.equals(packageArgs, other.packageArgs)
           && Objects.equals(makeEnv, other.makeEnv)
           // Serializers use getOrComputeTransitivelyLoadedStarlarkFiles() and don't distinguish
@@ -1516,7 +1556,6 @@ public class Package extends Packageoid {
     @Override
     public int hashCode() {
       return HashCodes.hashObjects(
-          workspaceName,
           packageArgs,
           makeEnv,
           // Serializers use getOrComputeTransitivelyLoadedStarlarkFiles() and don't distinguish
@@ -1525,29 +1564,11 @@ public class Package extends Packageoid {
     }
 
     /**
-     * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
-     * directory.
-     */
-    public String getWorkspaceName() {
-      return workspaceName;
-    }
-
-    /**
      * Returns the collection of package-level attributes set by the {@code package()} callable and
      * similar methods.
      */
     public PackageArgs getPackageArgs() {
       return packageArgs;
-    }
-
-    /**
-     * Sets the arguments of the {@code package()} callable.
-     *
-     * <p>This method should only be used by builders for {@link Package} and {@link
-     * PackagePiece.ForBuildFile}.
-     */
-    void setPackageArgs(PackageArgs packageArgs) {
-      this.packageArgs = packageArgs;
     }
 
     /**
@@ -1626,11 +1647,88 @@ public class Package extends Packageoid {
       }
     }
 
-    /**
-     * Objects of this class should only be constructed by constructors for {@link Package} and
-     * {@link PackagePiece.ForBuildFile}.
-     */
-    Declarations() {}
+    @CanIgnoreReturnValue
+    public Declarations.Builder checkMutable() {
+      if (this instanceof Declarations.Builder builder) {
+        return builder;
+      }
+      throw new IllegalStateException("Package declarations has been finalized and is immutable.");
+    }
+
+    @CanIgnoreReturnValue
+    public Declarations checkImmutable() {
+      if (this instanceof Builder) {
+        throw new IllegalStateException("Package declarations is in mutable state.");
+      }
+      return this;
+    }
+
+    private Declarations(
+        PackageArgs packageArgs,
+        ImmutableMap<String, String> makeEnv,
+        @Nullable ImmutableList<Module> directLoads,
+        @Nullable ImmutableList<Label> transitiveLoads) {
+      this.packageArgs = checkNotNull(packageArgs);
+      this.makeEnv = checkNotNull(makeEnv);
+      this.directLoads = directLoads;
+      this.transitiveLoads = transitiveLoads;
+      checkArgument(
+          directLoads == null ^ transitiveLoads == null,
+          "Exactly one of directLoads and transitiveLoads must be set");
+    }
+
+    /** Default constructor for use only by {@link Builder}. */
+    private Declarations() {}
+
+    /** Builder for {@link Declarations}. */
+    public static final class Builder extends Declarations {
+
+      @CanIgnoreReturnValue
+      public Builder setPackageArgs(PackageArgs packageArgs) {
+        this.packageArgs = checkNotNull(packageArgs);
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder mergePackageArgsFrom(PackageArgs packageArgs) {
+        this.packageArgs = this.packageArgs.mergeWith(checkNotNull(packageArgs));
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setMakeEnvironment(Map<String, String> makeEnv) {
+        this.makeEnv = ImmutableMap.copyOf(checkNotNull(makeEnv));
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setDirectLoads(List<Module> directLoads) {
+        this.directLoads = ImmutableList.copyOf(checkNotNull(directLoads));
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setTransitiveLoads(List<Label> transitiveLoads) {
+        this.transitiveLoads = ImmutableList.copyOf(checkNotNull(transitiveLoads));
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      private Builder checkLoadsNotSet() {
+        checkState(directLoads == null, "Direct loads already set: %s", directLoads);
+        checkState(transitiveLoads == null, "Transitive loads already set: %s", transitiveLoads);
+        return this;
+      }
+
+      public Declarations build() {
+        return new Declarations(packageArgs, makeEnv, directLoads, transitiveLoads);
+      }
+
+      public Builder() {
+        packageArgs = PackageArgs.DEFAULT;
+        makeEnv = ImmutableMap.of();
+      }
+    }
   }
 
   /** Package codec implementation. */

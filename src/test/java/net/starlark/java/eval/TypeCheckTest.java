@@ -65,11 +65,83 @@ public class TypeCheckTest {
   }
 
   @Test
+  public void runtimeTypecheck_list() throws Exception {
+    ev.exec("def f(a: list[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: list[int]): pass", "f([])");
+    ev.exec("def f(a: list[list[int]]): pass", "f([[], [1]])");
+    assertExecThrows(EvalException.class, "def f(a: list[int]): pass", "f([True])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[bool]', want 'list[int]'");
+    assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1], [True]])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[list[int]|list[bool]]', "
+                + "want 'list[list[int]]'");
+    assertExecThrows(EvalException.class, "def f(a: list[list[int]]): pass", "f([[1, True]])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[list[int|bool]]', "
+                + "want 'list[list[int]]'");
+    // invariance
+    assertExecThrows(EvalException.class, "def f(a: list[None|int]): pass", "f([1])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[int]', want 'list[None|int]'");
+  }
+
+  @Test
   public void runtimeTypecheck_unions() throws Exception {
     ev.exec("def f(a: None|bool): pass", "f(None)");
     ev.exec("def f(a: None|bool): pass", "f(True)");
     assertExecThrows(EvalException.class, "def f(a: None|bool): pass", "f(1)")
         .isEqualTo("in call to f(), parameter 'a' got value of type 'int', want 'None|bool'");
+  }
+
+  @Test
+  public void runtimeTypecheck_dict() throws Exception {
+    ev.exec("def f(a: dict[int, str]): pass", "f({1: 'a', 2: 'b'})");
+    ev.exec("def f(a: dict[int, str]): pass", "f({})");
+    assertExecThrows(EvalException.class, "def f(a: dict[int, str]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', "
+                + "want 'dict[int, str]'");
+    assertExecThrows(EvalException.class, "def f(a: dict[int, str]): pass", "f({1: 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[int, int]', "
+                + "want 'dict[int, str]'");
+    ev.exec("def f(a: dict[int, list[str]]): pass", "f({1: ['a'], 2: ['b']})");
+    assertExecThrows(
+            EvalException.class, "def f(a: dict[int, list[str]]): pass", "f({1: [1], 2: [2]})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[int, list[int]]', "
+                + "want 'dict[int, list[str]]'");
+    assertExecThrows(
+            EvalException.class, "def f(a: dict[int, list[str]]): pass", "f({1: ['a', 1]})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[int, list[str|int]]', "
+                + "want 'dict[int, list[str]]'");
+  }
+
+  @Test
+  public void runtimeTypecheck_set() throws Exception {
+    ev.exec("def f(a: set[int]): pass", "f(set([1, 2]))");
+    ev.exec("def f(a: set[int]): pass", "f(set())");
+    assertExecThrows(EvalException.class, "def f(a: set[int]): pass", "f(set([True]))")
+        .isEqualTo("in call to f(), parameter 'a' got value of type 'set[bool]', want 'set[int]'");
+  }
+
+  @Test
+  public void runtimeTypecheck_tuple() throws Exception {
+    ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
+    ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
+    assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'tuple[int, int]', want 'tuple[int,"
+                + " str]'");
+    assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1,))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'tuple[int]', want 'tuple[int,"
+                + " str]'");
+    ev.exec("def f(a: tuple[int, tuple[str, bool]]): pass", "f((1, ('a', True)))");
+    // Covariance
+    ev.exec("def f(a: tuple[None|int]): pass", "f((1,))");
   }
 
   @Test
@@ -135,7 +207,7 @@ public class TypeCheckTest {
 
     assertThat(builder.build())
         .containsAtLeast(
-            "False: bool", //
+            "False: bool",
             "True: bool",
             "None: None",
             "hash: (str, /) -> int",
@@ -144,7 +216,9 @@ public class TypeCheckTest {
             "hasattr: (object, str, /) -> bool",
             "repr: (object, /) -> str",
             "str: (object, /) -> str",
-            "type: (object, /) -> str");
+            "type: (object, /) -> str",
+            "float: (str|bool|int|float, /) -> float",
+            "int: (str|bool|int|float, /, base: [int]) -> int");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(

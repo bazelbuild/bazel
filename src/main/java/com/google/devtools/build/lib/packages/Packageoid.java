@@ -46,7 +46,7 @@ public abstract class Packageoid {
 
   protected final Package.Metadata metadata;
 
-  protected final Package.Declarations declarations;
+  protected Package.Declarations declarations;
 
   // ==== Common metadata fields ====
 

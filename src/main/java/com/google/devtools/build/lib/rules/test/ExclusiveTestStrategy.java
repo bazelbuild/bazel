@@ -31,9 +31,13 @@ import java.io.IOException;
  * <p>This strategy should be registered with a command line identifier of 'exclusive' which will
  * trigger behavior in SkyframeExecutor to schedule test execution sequentially after non-test
  * actions. This ensures streamed test output is not polluted by other action output.
+ *
+ * <p>Note: It's expected that this strategy is largely identical to the one it wraps. Most of the
+ * behavior specific to the 'exclusive' strategy is enabled based on the value of the <code>
+ * --test_strategy</code> flag, not instance methods of this class.
  */
 public class ExclusiveTestStrategy implements TestActionContext {
-  private TestActionContext parent;
+  private final TestActionContext parent;
 
   public ExclusiveTestStrategy(TestActionContext parent) {
     this.parent = parent;

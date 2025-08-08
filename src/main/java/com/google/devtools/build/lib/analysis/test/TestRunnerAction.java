@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext.ProcessedAt
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult.Result;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -164,7 +165,7 @@ public class TestRunnerAction extends AbstractAction
    */
   private final Collection<String> requiredClientEnvVariables;
 
-  private final boolean cancelConcurrentTestsOnSuccess;
+  private final CancelConcurrentTests cancelConcurrentTests;
 
   private final boolean splitCoveragePostProcessing;
   private final NestedSet<Artifact> lcovMergerFilesToRun;
@@ -211,7 +212,7 @@ public class TestRunnerAction extends AbstractAction
       BuildConfigurationValue configuration,
       String workspaceName,
       @Nullable PathFragment shExecutable,
-      boolean cancelConcurrentTestsOnSuccess,
+      CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
       NestedSet<Artifact> lcovMergerFilesToRun,
       PackageSpecificationProvider networkAllowlist) {
@@ -268,7 +269,7 @@ public class TestRunnerAction extends AbstractAction
             configuration.getActionEnvironment().getInheritedEnv(),
             configuration.getTestActionEnvironment().getInheritedEnv(),
             this.extraTestEnv.getInheritedEnv());
-    this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
+    this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
     this.networkAllowlist = networkAllowlist;
@@ -1005,15 +1006,22 @@ public class TestRunnerAction extends AbstractAction
       try {
         testRunnerSpawn = testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
         attemptGroup =
-            cancelConcurrentTestsOnSuccess
+            cancelConcurrentTests != CancelConcurrentTests.NEVER
                 ? testActionContext.getAttemptGroup(getOwner(), shardNum)
                 : AttemptGroup.NOOP;
+        var cancelOnResult =
+            switch (cancelConcurrentTests) {
+              case NEVER -> null;
+              case ON_FAILED -> Result.FAILED_CAN_RETRY;
+              case ON_PASSED -> Result.PASSED;
+            };
         try {
           attemptGroup.register();
           var result =
               executeAllAttempts(
                   testRunnerSpawn,
                   testActionContext.isTestKeepGoing(),
+                  cancelOnResult,
                   attemptGroup,
                   spawnResults,
                   failedAttempts);
@@ -1192,6 +1200,7 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult executeAllAttempts(
       TestRunnerSpawn testRunnerSpawn,
       boolean keepGoing,
+      @Nullable Result cancelOnResult,
       final AttemptGroup attemptGroup,
       List<SpawnResult> spawnResults,
       List<ProcessedAttemptResult> failedAttempts)
@@ -1206,9 +1215,10 @@ public class TestRunnerAction extends AbstractAction
 
       spawnResults.addAll(result.spawnResults());
       TestAttemptResult.Result testResult = result.result();
-      if (testResult == TestAttemptResult.Result.PASSED) {
+      if (testResult == cancelOnResult) {
         attemptGroup.cancelOthers();
-      } else {
+      }
+      if (testResult != TestAttemptResult.Result.PASSED) {
         TestRunnerSpawnAndMaxAttempts nextRunnerAndAttempts =
             computeNextRunnerAndMaxAttempts(
                 testResult,

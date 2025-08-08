@@ -557,7 +557,8 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
       events.assertContainsError("/bin/x/y/whatever' (belonging to //x/y:y)");
       events.assertContainsError("/bin/x/y' (belonging to //x:y)");
       events.assertContainsError("is a prefix of the other");
-      events.assertContainsError("Analysis of target '//x:fail_analysis' failed");
+      events.assertContainsError("Analysis of target '//x:fail_analysis' (config: ");
+      events.assertContainsError(") failed");
 
       assertThat(eventListener.analysisFailures).containsAtLeast("//x:y", "//x:fail_analysis");
     } else if (minimizeMemory) {

@@ -11,15 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe.serialization.analysis;
+package com.google.devtools.build.lib.util;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
-import com.google.devtools.build.skyframe.SkyKey;
+import java.io.IOException;
+import java.io.OutputStream;
 
-/** State to track the {@link SkyKey}s that were deserialized from the remote analysis cache. */
-public record RemoteAnalysisCachingState(
-    FrontierNodeVersion version, ImmutableSet<SkyKey> deserializedKeys) {
-  public static final RemoteAnalysisCachingState EMPTY =
-      new RemoteAnalysisCachingState(null, ImmutableSet.of());
+/** Wrapper for {@link jdk.internal.vm.ThreadDumper}. */
+public final class ThreadDumper {
+
+  private ThreadDumper() {}
+
+  /**
+   * Generate a thread dump in plain text format to the given output stream, UTF-8 encoded.
+   *
+   * @throws IOException if an I/O error occurs
+   */
+  @SuppressWarnings("CheckedExceptionNotThrown") // intentional for compatibility with JDK 25
+  public static void dumpThreads(OutputStream out) throws IOException {
+    jdk.internal.vm.ThreadDumper.dumpThreads(out);
+  }
 }

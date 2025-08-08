@@ -45,6 +45,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:classpath",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:html_utils",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/java/com/google/devtools/common/options/testing",
         "//src/main/protobuf:invocation_policy_java_proto",

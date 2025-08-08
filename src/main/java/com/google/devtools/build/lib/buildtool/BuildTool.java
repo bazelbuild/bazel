@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ExecRootEvent;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
@@ -126,8 +127,8 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingState;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -1004,8 +1005,10 @@ public class BuildTool {
         reportRemoteAnalysisServiceStats(dependenciesProvider);
         reportRemoteAnalysisCachingStats();
         env.getSkyframeExecutor()
-            .updateRemoteAnalysisCachingState(
-                env.getRemoteAnalysisCachingEventListener().getLatestBuildState());
+            .syncRemoteAnalysisCachingState(
+                env.getRemoteAnalysisCachingEventListener().getCacheHits(),
+                env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
+                env.getRemoteAnalysisCachingEventListener().getClientId());
         break;
       case OFF:
         break;
@@ -1322,9 +1325,11 @@ public class BuildTool {
       }
       RemoteAnalysisCachingServicesSupplier servicesSupplier =
           env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+      ClientId clientId =
+          this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal()));
+      listener.setClientId(clientId);
       servicesSupplier.configure(
-          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class),
-          this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal())));
+          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class), clientId);
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.eventHandler = env.getReporter();
@@ -1455,8 +1460,8 @@ public class BuildTool {
     }
 
     @Override
-    public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-        RemoteAnalysisCachingState remoteAnalysisCachingState) throws InterruptedException {
+    public Set<SkyKey> lookupKeysToInvalidate(
+        RemoteAnalysisCachingServerState remoteAnalysisCachingState) throws InterruptedException {
       AnalysisCacheInvalidator invalidator = getAnalysisCacheInvalidator();
       if (invalidator == null) {
         return ImmutableSet.of();
@@ -1485,7 +1490,12 @@ public class BuildTool {
             }
             localRef =
                 new AnalysisCacheInvalidator(
-                    client, codecs, fingerprintService, getSkyValueVersion(), eventHandler);
+                    client,
+                    codecs,
+                    fingerprintService,
+                    getSkyValueVersion(),
+                    listener.getClientId(),
+                    eventHandler);
           }
         }
       }
@@ -1502,7 +1512,8 @@ public class BuildTool {
               env.getSkyframeExecutor(),
               env.getVersionGetter(),
               env.getReporter(),
-              env.getEventBus());
+              env.getEventBus(),
+              env.getOptions().getOptions(CommonCommandOptions.class).keepStateAfterBuild);
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }

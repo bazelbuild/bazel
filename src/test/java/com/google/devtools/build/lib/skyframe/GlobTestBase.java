@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -489,7 +490,7 @@ public abstract class GlobTestBase {
     // Note: this contains two asterisks because otherwise a RE is not built,
     // as an optimization.
     assertThat(
-            new UnixGlob.Builder(pkgPath, SyscallCache.NO_CACHE)
+            new UnixGlob.Builder(pkgPath, FilesystemOps.DIRECT)
                 .addPattern("*a.b*")
                 .globInterruptible())
         .containsExactly(aDotB);

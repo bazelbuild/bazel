@@ -20,6 +20,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrException2Sink;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Retrieves {@link PlatformValue} for a given platform. */
@@ -37,6 +39,7 @@ final class PlatformProducer
 
   // -------------------- Input --------------------
   private final Label platformLabel;
+  private final List<Map.Entry<String, String>> flagAliasMappings;
 
   // -------------------- Output --------------------
   private final ResultSink sink;
@@ -44,8 +47,13 @@ final class PlatformProducer
   // -------------------- Sequencing --------------------
   private final StateMachine runAfter;
 
-  PlatformProducer(Label platformLabel, ResultSink sink, StateMachine runAfter) {
+  PlatformProducer(
+      Label platformLabel,
+      List<Map.Entry<String, String>> flagAliasMappings,
+      ResultSink sink,
+      StateMachine runAfter) {
     this.platformLabel = platformLabel;
+    this.flagAliasMappings = flagAliasMappings;
     this.sink = sink;
     this.runAfter = runAfter;
   }
@@ -53,7 +61,7 @@ final class PlatformProducer
   @Override
   public StateMachine step(Tasks tasks) {
     tasks.lookUp(
-        PlatformValue.key(platformLabel),
+        PlatformValue.key(platformLabel, flagAliasMappings),
         InvalidPlatformException.class,
         OptionsParsingException.class,
         this);

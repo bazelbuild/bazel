@@ -48,7 +48,7 @@ public abstract class OutputFile extends FileTarget {
   private final String outputKey;
 
   private OutputFile(Label label, Rule generatingRule, String outputKey) {
-    super(generatingRule.getPackage(), label);
+    super(generatingRule.getPackageoid(), label);
     this.generatingRule = generatingRule;
     this.outputKey = outputKey;
   }

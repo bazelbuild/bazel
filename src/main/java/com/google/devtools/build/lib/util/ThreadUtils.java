@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -46,8 +49,7 @@ public class ThreadUtils {
       MAP_WITH_ARRAY_LIST_VALUES_COLLECTOR =
           Collectors.groupingBy(StackTraceAndState::new, toCollection(ArrayList::new));
 
-  private ThreadUtils() {
-  }
+  private ThreadUtils() {}
 
   /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
   public static synchronized void warnAboutSlowInterrupt(
@@ -86,6 +88,16 @@ public class ThreadUtils {
                   makeThreadInfoString(e.getValue()),
                   makeString(stackTraceAndState.trace));
             });
+
+    try {
+      var out = new ByteArrayOutputStream();
+      ThreadDumper.dumpThreads(out);
+      logger.atWarning().log(
+          "Dumping additional thread state using ThreadDumper:\n%s",
+          new String(out.toByteArray(), UTF_8));
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to dump threads with ThreadDumper.");
+    }
 
     SlowInterruptInnerException inner =
         new SlowInterruptInnerException(

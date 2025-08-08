@@ -181,6 +181,22 @@ def _collect_module_maps(deps, cc_toolchain_compilation_context, additional_cpp_
 
     return module_maps
 
+_ModuleMapInfo = provider(
+    doc = "An internal provider for create_module_map_action().",
+    fields = [
+        "module_map",
+        "public_headers",
+        "private_headers",
+        "dependency_module_maps",
+        "additional_exported_headers",
+        "separate_module_headers",
+        "compiled_module",
+        "generate_submodules",
+        "extern_dependencies",
+        "leading_periods",
+    ],
+)
+
 def _module_map_struct_to_module_map_content(parameters, tree_expander):
     lines = []
     module_map = parameters.module_map
@@ -289,7 +305,12 @@ def _create_module_map_action(
     content.set_param_file_format("multiline")
     segments_to_exec_path = module_map.file().path.count("/")
     leading_periods = "" if module_map_home_is_cwd else "../" * segments_to_exec_path
-    data_struct = struct(
+    public_headers = cc_internal.freeze(public_headers)
+    private_headers = cc_internal.freeze(private_headers)
+    dependency_module_maps = cc_internal.freeze(dependency_module_maps)
+    additional_exported_headers = cc_internal.freeze(additional_exported_headers)
+    separate_module_headers = cc_internal.freeze(separate_module_headers)
+    data_struct = _ModuleMapInfo(
         module_map = module_map,
         public_headers = public_headers,
         private_headers = private_headers,

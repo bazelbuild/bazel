@@ -353,7 +353,7 @@ class RunCommandLine {
         Path runUnderBinary, List<String> args, PathPrettyPrinter pathPrettyPrinter) {
       StringBuilder runUnder = new StringBuilder();
       StringBuilder prettyRunUnder = new StringBuilder();
-      runUnder.append(ShellEscaper.escapeString(runUnderBinary.devirtualize().getPathString()));
+      runUnder.append(ShellEscaper.escapeString(runUnderBinary.getPathString()));
       prettyRunUnder.append(
           ShellEscaper.escapeString(
               pathPrettyPrinter.getPrettyPath(runUnderBinary.asFragment()).getPathString()));
@@ -375,8 +375,7 @@ class RunCommandLine {
     @CanIgnoreReturnValue
     Builder addArg(Path path, PathPrettyPrinter pathPrettyPrinter) {
       return addArgInternal(
-          path.devirtualize().getPathString(),
-          pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString());
+          path.getPathString(), pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString());
     }
 
     @CanIgnoreReturnValue

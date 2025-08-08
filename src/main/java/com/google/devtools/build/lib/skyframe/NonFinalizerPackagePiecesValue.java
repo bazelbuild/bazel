@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
@@ -31,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A Skyframe value representing all package pieces of a package that are not defined by finalizer
@@ -63,7 +65,11 @@ public record NonFinalizerPackagePiecesValue(
      * The macros in the package pieces, keyed (and ordered) by id. May be incomplete if either
      * nameConflictBetweenPackagePiecesException is non-null or errorKeys is non-empty.
      */
-    ImmutableSortedMap<String, MacroInstance> macroInstances)
+    ImmutableSortedMap<String, MacroInstance> macroInstances,
+    /** Starlark semantics, inlined to avoid extra dependency edges. */
+    StarlarkSemantics starlarkSemantics,
+    /** Main repository mapping, inlined to avoid extra dependency edges. */
+    RepositoryMapping mainRepositoryMapping)
     implements PackagePieces, SkyValue {
   public NonFinalizerPackagePiecesValue {
     checkNotNull(packagePieces);
@@ -72,6 +78,8 @@ public record NonFinalizerPackagePiecesValue(
     checkNotNull(errorKeys);
     checkNotNull(targets);
     checkNotNull(macroInstances);
+    checkNotNull(starlarkSemantics);
+    checkNotNull(mainRepositoryMapping);
   }
 
   @Override

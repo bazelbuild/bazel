@@ -62,9 +62,10 @@ public class StandaloneModule extends BlazeModule {
         TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
     TestActionContext testStrategy =
         new StandaloneTestStrategy(executionOptions, testSummaryOptions, testTmpRoot);
-    registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
+    // Keep the standalone test strategy last so that it is the default one.
     registryBuilder.register(
         TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
+    registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
     registryBuilder.register(FileWriteActionContext.class, new FileWriteStrategy(), "local");
     registryBuilder.register(
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");

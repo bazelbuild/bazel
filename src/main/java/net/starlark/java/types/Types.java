@@ -20,6 +20,8 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -27,7 +29,7 @@ import javax.annotation.Nullable;
  *
  * <p><code>
  *   t1, t2 ::= None | bool | int | float | str | object
- *           | t1|t2
+ *           | t1|t2 | list[t1]
  * </code>
  */
 public final class Types {
@@ -57,7 +59,11 @@ public final class Types {
         .put("bool", BOOL)
         .put("int", INT)
         .put("float", FLOAT)
-        .put("str", STR);
+        .put("str", STR)
+        .put("list", wrapTypeConstructor("list", Types::list))
+        .put("dict", wrapTypeConstructor("dict", Types::dict))
+        .put("set", wrapTypeConstructor("set", Types::set))
+        .put("tuple", wrapTupleConstructorProxy());
     return env.buildOrThrow();
   }
 
@@ -366,5 +372,134 @@ public final class Types {
     public final String toString() {
       return getTypes().stream().map(StarlarkType::toString).collect(joining("|"));
     }
+  }
+
+  public static ListType list(StarlarkType elementType) {
+    return new AutoValue_Types_ListType(elementType);
+  }
+
+  /** List type */
+  @AutoValue
+  public abstract static class ListType extends StarlarkType {
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public final String toString() {
+      return "list[" + getElementType() + "]";
+    }
+  }
+
+  public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
+    return new AutoValue_Types_DictType(keyType, valueType);
+  }
+
+  /** Dict type */
+  @AutoValue
+  public abstract static class DictType extends StarlarkType {
+    public abstract StarlarkType getKeyType();
+
+    public abstract StarlarkType getValueType();
+
+    @Override
+    public final String toString() {
+      return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    }
+  }
+
+  public static SetType set(StarlarkType elementType) {
+    return new AutoValue_Types_SetType(elementType);
+  }
+
+  /** Set type */
+  @AutoValue
+  public abstract static class SetType extends StarlarkType {
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public final String toString() {
+      return "set[" + getElementType() + "]";
+    }
+  }
+
+  public static TupleType tuple(ImmutableList<StarlarkType> elementTypes) {
+    return new AutoValue_Types_TupleType(elementTypes);
+  }
+
+  /** Tuple type of a fixed length. */
+  @AutoValue
+  public abstract static class TupleType extends StarlarkType {
+    public abstract ImmutableList<StarlarkType> getElementTypes();
+
+    @Override
+    public final String toString() {
+      return "tuple["
+          + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
+          + "]";
+    }
+  }
+
+  /**
+   * A proxy for a type constructor, e.g. {@code list}.
+   *
+   * <p>It takes a list of arguments and returns a constructed type.
+   *
+   * <p>Throws {@link IllegalArgumentException} if call doesn't match the expected signature.
+   */
+  public interface TypeConstructorProxy {
+    StarlarkType invoke(ImmutableList<?> argsTuple);
+  }
+
+  static TypeConstructorProxy wrapTypeConstructor(
+      String name, Function<StarlarkType, StarlarkType> constructor) {
+    return argsTuple -> {
+      if (argsTuple.size() != 1) {
+        throw new IllegalArgumentException(
+            String.format("%s[] accepts exactly 1 argument but got %d", name, argsTuple.size()));
+      }
+      if (!(argsTuple.get(0) instanceof StarlarkType type)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
+      }
+      return constructor.apply(type);
+    };
+  }
+
+  static TypeConstructorProxy wrapTypeConstructor(
+      String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> constructor) {
+    return argsTuple -> {
+      if (argsTuple.size() != 2) {
+        throw new IllegalArgumentException(
+            String.format("%s[] accepts exactly 2 arguments but got %d", name, argsTuple.size()));
+      }
+      if (!(argsTuple.get(0) instanceof StarlarkType keyType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "in application to %s, got '%s', expected a type", name, argsTuple.get(0)));
+      }
+      if (!(argsTuple.get(1) instanceof StarlarkType valueType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "in application to %s, got '%s', expected a type", name, argsTuple.get(1)));
+      }
+      return constructor.apply(keyType, valueType);
+    };
+  }
+
+  private static final TypeConstructorProxy wrapTupleConstructorProxy() {
+    // This is a function instead of a constant, so that the order of evaluation doesn't depend on
+    // the position in the class.
+    return argsTuple -> {
+      ImmutableList.Builder<StarlarkType> elementTypes =
+          ImmutableList.builderWithExpectedSize(argsTuple.size());
+      for (Object arg : argsTuple) {
+        if (!(arg instanceof StarlarkType type)) {
+          throw new IllegalArgumentException(
+              String.format("in application to tuple, got '%s', expected a type", arg));
+        }
+        elementTypes.add(type);
+      }
+      return tuple(elementTypes.build());
+    };
   }
 }

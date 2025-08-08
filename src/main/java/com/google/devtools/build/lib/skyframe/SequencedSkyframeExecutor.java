@@ -107,6 +107,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -175,7 +176,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter,
-      boolean globUnderSingleDep) {
+      boolean globUnderSingleDep,
+      Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -202,7 +204,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         workspaceInfoFromDiffReceiver,
         new SequencedRecordingDifferencer(),
         repositoryHelpersHolder,
-        globUnderSingleDep);
+        globUnderSingleDep,
+        diffCheckNotificationOptions);
   }
 
   @Override
@@ -834,6 +837,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
     private boolean globUnderSingleDep = true;
+    private DiffCheckNotificationOptions diffCheckNotificationOptions;
 
     private Builder() {}
 
@@ -872,7 +876,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
               bugReporter,
-              globUnderSingleDep);
+              globUnderSingleDep,
+              Optional.ofNullable(diffCheckNotificationOptions));
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -1008,6 +1013,13 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setGlobUnderSingleDep(boolean globUnderSingleDep) {
       this.globUnderSingleDep = globUnderSingleDep;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setDiffCheckNotificationOptions(
+        DiffCheckNotificationOptions diffCheckNotificationOptions) {
+      this.diffCheckNotificationOptions = diffCheckNotificationOptions;
       return this;
     }
   }

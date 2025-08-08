@@ -41,6 +41,8 @@ public class TargetLoadingUtil {
    * <p>Returns {@link TargetAndErrorIfAny} if no dep was mising; otherwise, returns the {@link
    * SkyKey} specifying the missing dep.
    */
+  // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion, don't
+  // load full packages unless needed.
   public static Object loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     if (label.getName().contains("/")) {
@@ -96,7 +98,7 @@ public class TargetLoadingUtil {
     Target target = pkg.getTarget(label.getName());
     NoSuchTargetException error = pkg.containsErrors() ? new NoSuchTargetException(target) : null;
     return new TargetAndErrorIfAny(
-        /* packageLoadedSuccessfully= */ !pkg.containsErrors(), error, target);
+        /* packageLoadedSuccessfully= */ !pkg.containsErrors(), error, target, pkg);
   }
 
   private static PathFragment getContainingDirectory(Label label) {
@@ -114,15 +116,18 @@ public class TargetLoadingUtil {
     private final boolean packageLoadedSuccessfully;
     @Nullable private final NoSuchTargetException errorLoadingTarget;
     private final Target target;
+    private final Package pkg;
 
     @VisibleForTesting
     TargetAndErrorIfAny(
         boolean packageLoadedSuccessfully,
         @Nullable NoSuchTargetException errorLoadingTarget,
-        Target target) {
+        Target target,
+        Package pkg) {
       this.packageLoadedSuccessfully = packageLoadedSuccessfully;
       this.errorLoadingTarget = errorLoadingTarget;
       this.target = target;
+      this.pkg = pkg;
     }
 
     public boolean isPackageLoadedSuccessfully() {
@@ -136,6 +141,14 @@ public class TargetLoadingUtil {
 
     public Target getTarget() {
       return target;
+    }
+
+    /**
+     * Returns the target's full package (which, if lazy symbolic macro expansion is enabled, is not
+     * the same thing as {@code target.getPackageoid()}).
+     */
+    public Package getPackage() {
+      return pkg;
     }
   }
 }

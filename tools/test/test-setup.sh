@@ -64,6 +64,7 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
 is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
 is_absolute "$HOME" || HOME="$TEST_TMPDIR"
+export HOME
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
 
 # Set USER to the current user, unless passed by Bazel via --test_env.
@@ -250,6 +251,14 @@ start=$(date +%s)
 # eventuality. So, what we do is spawn a *second* background process that
 # watches for us to be killed, and then chain-kills the test's process group.
 # Aren't processes fun?
+# Note: When running under bazel run, as determined by the availability of an
+# environment variable specific to it, don't use job control as it interferes
+# with interactive debugging. Also skip cleanup and post-processing steps such
+# as undeclared outputs zipping to avoid unexpected latency when the user
+# finishes debugging.
+if [ -n "$BUILD_EXECROOT" ]; then
+  exec "${TEST_PATH}" "$@" 2>&1
+fi
 set -m
 if [ -z "$COVERAGE_DIR" ]; then
   ("${TEST_PATH}" "$@" 2>&1) <&0 &

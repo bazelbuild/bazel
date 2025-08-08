@@ -801,13 +801,4 @@ public abstract class FileSystem {
       }
     }
   }
-
-  /**
-   * Represents a devirtualizer that undoes the virtualization of {@link Path}s established by
-   * {@link
-   * com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem#createWithVirtualization}.
-   */
-  public interface PathDevirtualizer {
-    Path devirtualizePath(Path original);
-  }
 }

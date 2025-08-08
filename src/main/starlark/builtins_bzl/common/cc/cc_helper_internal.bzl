@@ -58,32 +58,25 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("rules_rust", "rust/private"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
-artifact_category = struct(
-    STATIC_LIBRARY = "STATIC_LIBRARY",
-    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
-    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
-    EXECUTABLE = "EXECUTABLE",
-    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
-    PIC_FILE = "PIC_FILE",
-    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
-    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
-    OBJECT_FILE = "OBJECT_FILE",
-    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
-    CPP_MODULE = "CPP_MODULE",
-    CPP_MODULE_GCM = "CPP_MODULE_GCM",
-    CPP_MODULE_IFC = "CPP_MODULE_IFC",
-    CPP_MODULES_INFO = "CPP_MODULES_INFO",
-    CPP_MODULES_DDI = "CPP_MODULES_DDI",
-    CPP_MODULES_MODMAP = "CPP_MODULES_MODMAP",
-    CPP_MODULES_MODMAP_INPUT = "CPP_MODULES_MODMAP_INPUT",
-    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
-    PROCESSED_HEADER = "PROCESSED_HEADER",
-    GENERATED_HEADER = "GENERATED_HEADER",
-    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
-    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
-    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
-    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
-)
+def check_private_api():
+    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
+
+def wrap_with_check_private_api(symbol):
+    """
+    Protects the symbol so it can only be used internally.
+
+    Returns:
+      A function. When the function is invoked (without any params), the check
+      is done and if it passes the symbol is returned.
+    """
+
+    def callback():
+        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        return symbol
+
+    return callback
+
+# LINT.IfChange(forked_exports)
 
 _CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
 _C_SOURCE = [".c"]
@@ -103,6 +96,8 @@ _SHARED_LIBRARY = [".so", ".dylib", ".dll", ".wasm"]
 _INTERFACE_SHARED_LIBRARY = [".ifso", ".tbd", ".lib", ".dll.a"]
 _OBJECT_FILE = [".o", ".obj"]
 _PIC_OBJECT_FILE = [".pic.o"]
+_CPP_MODULE = [".pcm", ".gcm", ".ifc"]
+_CPP_MODULE_MAP = [".cppmap"]
 
 _CC_AND_OBJC = []
 _CC_AND_OBJC.extend(_CC_SOURCE)
@@ -145,32 +140,51 @@ extensions = struct(
     PIC_OBJECT_FILE = _PIC_OBJECT_FILE,
     CC_AND_OBJC = _CC_AND_OBJC,
     DISALLOWED_HDRS_FILES = _DISALLOWED_HDRS_FILES,  # Also includes VERSIONED_SHARED_LIBRARY files.
+    CPP_MODULE = _CPP_MODULE,
+    CPP_MODULE_MAP = _CPP_MODULE_MAP,
 )
 
-def check_private_api():
-    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
-
-def wrap_with_check_private_api(symbol):
-    """
-    Protects the symbol so it can only be used internally.
-
-    Returns:
-      A function. When the function is invoked (without any params), the check
-      is done and if it passes the symbol is returned.
-    """
-
-    def callback():
-        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
-        return symbol
-
-    return callback
+artifact_category = struct(
+    STATIC_LIBRARY = "STATIC_LIBRARY",
+    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
+    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
+    EXECUTABLE = "EXECUTABLE",
+    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
+    PIC_FILE = "PIC_FILE",
+    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
+    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
+    OBJECT_FILE = "OBJECT_FILE",
+    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
+    CPP_MODULE = "CPP_MODULE",
+    CPP_MODULE_GCM = "CPP_MODULE_GCM",
+    CPP_MODULE_IFC = "CPP_MODULE_IFC",
+    CPP_MODULES_INFO = "CPP_MODULES_INFO",
+    CPP_MODULES_DDI = "CPP_MODULES_DDI",
+    CPP_MODULES_MODMAP = "CPP_MODULES_MODMAP",
+    CPP_MODULES_MODMAP_INPUT = "CPP_MODULES_MODMAP_INPUT",
+    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
+    PROCESSED_HEADER = "PROCESSED_HEADER",
+    GENERATED_HEADER = "GENERATED_HEADER",
+    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
+    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
+    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
+    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
+)
 
 def should_create_per_object_debug_info(feature_configuration, cpp_configuration):
     return cpp_configuration.fission_active_for_current_compilation_mode() and \
            feature_configuration.is_enabled("per_object_debug_info")
 
 def is_versioned_shared_library_extension_valid(shared_library_name):
-    # validate against the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+    """Validates the name against the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+
+    Args:
+        shared_library_name: (str) the name to validate
+
+    Returns:
+        (bool)
+    """
+
     # must match VERSIONED_SHARED_LIBRARY.
     for ext in (".so.", ".dylib."):
         name, _, version = shared_library_name.rpartition(ext)
@@ -184,17 +198,6 @@ def is_versioned_shared_library_extension_valid(shared_library_name):
                         return False
             return True
     return False
-
-def is_shared_library(file):
-    return file.extension in ["so", "dylib", "dll", "pyd", "wasm", "tgt", "vpi"]
-
-def is_versioned_shared_library(file):
-    # Because regex matching can be slow, we first do a quick check for ".so." and ".dylib."
-    # substring before risking the full-on regex match. This should eliminate the performance
-    # hit on practically every non-qualifying file type.
-    if ".so." not in file.basename and ".dylib." not in file.basename:
-        return False
-    return is_versioned_shared_library_extension_valid(file.basename)
 
 def _is_repository_main(repository):
     return repository == ""
@@ -236,6 +239,19 @@ def repository_exec_path(repository, sibling_repository_layout):
     if repository.startswith("@"):
         repository = repository[1:]
     return paths.get_relative(prefix, repository)
+
+# LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)
+
+def is_shared_library(file):
+    return file.extension in ["so", "dylib", "dll", "pyd", "wasm", "tgt", "vpi"]
+
+def is_versioned_shared_library(file):
+    # Because regex matching can be slow, we first do a quick check for ".so." and ".dylib."
+    # substring before risking the full-on regex match. This should eliminate the performance
+    # hit on practically every non-qualifying file type.
+    if ".so." not in file.basename and ".dylib." not in file.basename:
+        return False
+    return is_versioned_shared_library_extension_valid(file.basename)
 
 def use_pic_for_binaries(cpp_config, feature_configuration):
     """

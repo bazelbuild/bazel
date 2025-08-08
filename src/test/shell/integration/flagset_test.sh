@@ -43,6 +43,9 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 write_project_scl_definition
 
+add_to_bazelrc "test --test_strategy=standalone"
+add_to_bazelrc "test --strategy=TestRunner=local"
+
 function set_up_project_file() {
   mkdir -p test
   cat > test/BUILD <<EOF
@@ -143,6 +146,7 @@ sh_test(name='other', srcs=['other.sh'])
 EOF
 
   touch other/other.sh
+  chmod u+x other/other.sh
   cat > other/other.sh <<EOF
 #!/usr/bin/env bash
 echo hi
@@ -150,6 +154,9 @@ EOF
 
   bazel build --nobuild  //test:test_suite  &> "$TEST_log" || \
     fail "expected success"
+  # Expect same result for test command. Since test commands may expand test
+  # suites with different logic, it's not enough to check the build command.
+  bazel test //test:test_suite  &> "$TEST_log" || fail "expected success"
 }
 
 function test_scl_config_plus_external_target_in_test_suite_fails() {
@@ -184,6 +191,7 @@ sh_test(name='other', srcs=['other.sh'])
 EOF
 
   touch other/other.sh
+  chmod u+x other/other.sh
   cat > other/other.sh <<EOF
 #!/usr/bin/env bash
 echo hi
@@ -191,7 +199,12 @@ EOF
 
   bazel build --nobuild //test:test_suite //other:other --scl_config=test_config \
     &> "$TEST_log" && fail "expected build to fail"
+  expect_log "Can't set --scl_config for a build where only some targets have projects."
 
+  # Expect same result for test command. Since test commands may expand test
+  # suites with different logic, it's not enough to check the build command.
+   bazel test //test:test_suite //other:other --scl_config=test_config \
+    &> "$TEST_log" && fail "expected test to fail"
   expect_log "Can't set --scl_config for a build where only some targets have projects."
 }
 

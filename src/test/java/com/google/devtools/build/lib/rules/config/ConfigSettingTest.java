@@ -75,6 +75,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
         defaultValue = "",
         oldName = "old_option_name")
     public String optionWithOldName;
+
+    @Option(
+        name = "non_configurable_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "non-configurable",
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+    public String nonConfigurableOption;
   }
 
   /** Test fragment. */
@@ -3031,8 +3039,29 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:match")).isNull();
     assertContainsEvent(
         "in values attribute of config_setting rule //test:match: error while parsing configuration"
-            + " settings: select() on %s is not allowed. Use platform constraints instead"
+            + " settings: select() on '%s' is not allowed. Use platform constraints instead"
                 .formatted(flag));
+  }
+
+  @Test
+  public void selectDisabledOnNonPlatformsFlag() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "compilation_mode": "opt",
+            },
+        )
+        """);
+    useConfiguration("--incompatible_disable_select_on=compilation_mode");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: error while parsing configuration"
+            + " settings: select() on 'compilation_mode' is not allowed.");
+    assertDoesNotContainEvent("Use platform constraints instead");
   }
 
   @Test
@@ -3071,8 +3100,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
       assertContainsEvent(
           "in values attribute of config_setting rule //test:match: error while parsing"
               + " configuration"
-              + " settings: select() on %s is not allowed. Use platform constraints instead"
-                  .formatted(disabledName));
+              + " settings: select() on '%s' is not allowed.".formatted(disabledName));
     }
   }
 
@@ -3180,5 +3208,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
       assertThat(getConfiguredTarget("//test:match")).isNull();
       assertContainsEvent(expectedError);
     }
+  }
+
+  @Test
+  public void nonConfigurableOption() throws Exception {
+    checkError(
+        "foo",
+        "non_configurable_option",
+        "select() on 'non_configurable_option' is not allowed.",
+        """
+        config_setting(
+            name = "non_configurable_option",
+            values = {"non_configurable_option": "foo"},
+        )
+        """);
   }
 }

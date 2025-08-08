@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.common.options.HtmlUtils;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -601,8 +602,7 @@ public final class HelpCommand implements BlazeCommand {
       OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClasses).build();
       String productName = runtime.getProductName();
       result.append(
-          parser
-              .describeOptionsHtml(HTML_ESCAPER, productName, optionsToIgnore, commandName)
+          HtmlUtils.describeOptionsHtml(parser, HTML_ESCAPER, optionsToIgnore, commandName)
               .replace("%{product}", productName));
 
       List<String> optionNames = new ArrayList<>();
@@ -613,7 +613,6 @@ public final class HelpCommand implements BlazeCommand {
       }
       return optionNames;
     }
-
   }
 
   /** A visitor for Blaze commands and their respective command line options. */

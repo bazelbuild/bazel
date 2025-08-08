@@ -30,9 +30,11 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -242,6 +244,37 @@ public final class PackageFactory {
         packageValidator.getPackageLimits());
   }
 
+  // This function is public only for the benefit of skyframe.PackageFunction,
+  // which is morally part of lib.packages, so that it can create empty packages
+  // in case of error before BUILD execution. Do not call it from anywhere else.
+  public Package.Builder newPackageFromPackagePiecesBuilder(
+      Package.Metadata metadata,
+      Package.Declarations declarations,
+      StarlarkSemantics starlarkSemantics,
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber,
+      InputFile buildFile) {
+    return Package.newPackageFromPackagePiecesBuilder(
+        packageSettings,
+        metadata,
+        declarations,
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        mainRepositoryMapping,
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        generatorMap,
+        globber,
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits(),
+        buildFile);
+  }
+
   // This function is public only for the benefit of skyframe.PackageFunction, which is morally part
   // of lib.packages, so that it can create empty package pieces in case of error before BUILD
   // execution. Do not call it from anywhere else.
@@ -336,11 +369,12 @@ public final class PackageFactory {
   public void afterDoneLoadingPackage(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages,
+      Metrics metrics,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
 
-    packageValidator.validate(pkg, eventHandler);
+    packageValidator.validate(pkg, metrics, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
     long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
@@ -363,7 +397,8 @@ public final class PackageFactory {
                   .build()));
     }
 
-    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(
+        pkg, starlarkSemantics, lazyMacroExpansionPackages, metrics);
   }
 
   /**
@@ -372,10 +407,13 @@ public final class PackageFactory {
    *
    * @throws InvalidPackagePieceException if the package is determined to be invalid
    */
+  // TODO(https://github.com/bazelbuild/bazel/issues/23852): merge with afterDoneLoadingPackagePiece
+  // and perhaps move it all to PackageFunction (combining with existing PackageFunction.compute()
+  // boilerplate such as finishBuild() and event replay). Requires package piece validation.
   public void afterDoneLoadingPackagePiece(
       PackagePiece pkgPiece,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
+      Metrics metrics,
       ExtendedEventHandler eventHandler)
       throws InvalidPackagePieceException {
     // TODO(https://github.com/bazelbuild/bazel/issues/23852): add package piece validation.

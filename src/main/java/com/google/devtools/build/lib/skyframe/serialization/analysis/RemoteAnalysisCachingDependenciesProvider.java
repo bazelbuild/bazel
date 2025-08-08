@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Fr
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Set;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -31,7 +32,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   RemoteAnalysisCacheMode mode();
 
-  default boolean isRemoteFetchEnabled() {
+  default boolean isRetrievalEnabled() {
     return mode() == RemoteAnalysisCacheMode.DOWNLOAD;
   }
 
@@ -70,7 +71,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>May call the remote analysis cache to get the set of keys to invalidate.
    */
-  ImmutableSet<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingState remoteAnalysisCachingState)
+  Set<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingServerState remoteAnalysisCachingState)
       throws InterruptedException;
 
   /** A stub dependencies provider for when analysis caching is disabled. */
@@ -132,7 +133,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-        RemoteAnalysisCachingState remoteAnalysisCachingState) {
+        RemoteAnalysisCachingServerState remoteAnalysisCachingState) {
       throw new UnsupportedOperationException();
     }
   }

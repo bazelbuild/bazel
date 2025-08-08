@@ -28,12 +28,14 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -269,16 +271,32 @@ public class TestConfiguration extends Fragment {
                 + "run/attempt fails gets a FLAKY status.")
     public boolean runsPerTestDetectsFlakes;
 
+    /** When to cancel concurrently running tests. */
+    public enum CancelConcurrentTests {
+      NEVER,
+      ON_FAILED,
+      ON_PASSED;
+
+      /** Converts to {@link CancelConcurrentTests}. */
+      static class Converter extends BoolOrEnumConverter<CancelConcurrentTests> {
+        public Converter() {
+          super(CancelConcurrentTests.class, "when to cancel concurrent tests", ON_PASSED, NEVER);
+        }
+      }
+    }
+
     @Option(
         name = "experimental_cancel_concurrent_tests",
-        defaultValue = "false",
+        defaultValue = "never",
+        converter = CancelConcurrentTests.Converter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "If true, then Blaze will cancel concurrently running tests on the first successful "
-                + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
-    public boolean cancelConcurrentTests;
+            "If 'on_failed' or 'on_passed, then Blaze will cancel concurrently running tests on "
+                + "the first run with that result. This is only useful in combination with "
+                + "--runs_per_test_detects_flakes.")
+    public CancelConcurrentTests cancelConcurrentTests;
 
     @Option(
         name = "coverage_support",
@@ -446,7 +464,7 @@ public class TestConfiguration extends Fragment {
     return options.runsPerTestDetectsFlakes;
   }
 
-  public boolean cancelConcurrentTests() {
+  public CancelConcurrentTests cancelConcurrentTests() {
     return options.cancelConcurrentTests;
   }
 

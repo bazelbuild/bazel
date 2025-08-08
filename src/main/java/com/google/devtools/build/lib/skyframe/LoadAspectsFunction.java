@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
@@ -28,26 +25,22 @@ import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** {@link SkyFunction} to load top level aspects and assign their parameters. */
-final class LoadTopLevelAspectsFunction implements SkyFunction {
+final class LoadAspectsFunction implements SkyFunction {
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws LoadTopLevelAspectsFunctionException, InterruptedException {
+      throws LoadAspectsFunctionException, InterruptedException {
 
-    LoadTopLevelAspectsKey topLevelAspectsDetailsKey = (LoadTopLevelAspectsKey) skyKey.argument();
+    LoadAspectsKey topLevelAspectsDetailsKey = (LoadAspectsKey) skyKey.argument();
 
     ImmutableList<Aspect> topLevelAspects =
         getTopLevelAspects(
@@ -59,13 +52,13 @@ final class LoadTopLevelAspectsFunction implements SkyFunction {
       return null; // some aspects are not loaded
     }
 
-    return new LoadTopLevelAspectsValue(topLevelAspects);
+    return new LoadAspectsValue(topLevelAspects);
   }
 
   @Nullable
   private static StarlarkDefinedAspect loadStarlarkAspect(
       Environment env, StarlarkAspectClass aspectClass)
-      throws InterruptedException, LoadTopLevelAspectsFunctionException {
+      throws InterruptedException, LoadAspectsFunctionException {
     StarlarkDefinedAspect starlarkAspect;
     try {
       BzlLoadValue bzlLoadValue =
@@ -79,7 +72,7 @@ final class LoadTopLevelAspectsFunction implements SkyFunction {
       starlarkAspect = AspectFunction.loadAspectFromBzl(aspectClass, bzlLoadValue);
     } catch (BzlLoadFailedException | AspectCreationException e) {
       env.getListener().handle(Event.error(e.getMessage()));
-      throw new LoadTopLevelAspectsFunctionException(
+      throw new LoadAspectsFunctionException(
           new TopLevelAspectsDetailsBuildFailedException(
               e.getMessage(), Code.ASPECT_CREATION_FAILED));
     }
@@ -91,7 +84,7 @@ final class LoadTopLevelAspectsFunction implements SkyFunction {
       Environment env,
       ImmutableList<AspectClass> topLevelAspectsClasses,
       ImmutableMap<String, String> topLevelAspectsParameters)
-      throws InterruptedException, LoadTopLevelAspectsFunctionException {
+      throws InterruptedException, LoadAspectsFunctionException {
     AspectsList.Builder builder = new AspectsList.Builder();
 
     for (AspectClass aspectClass : topLevelAspectsClasses) {
@@ -104,7 +97,7 @@ final class LoadTopLevelAspectsFunction implements SkyFunction {
           builder.addAspect(starlarkAspect);
         } catch (EvalException e) {
           env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
-          throw new LoadTopLevelAspectsFunctionException(
+          throw new LoadAspectsFunctionException(
               new TopLevelAspectsDetailsBuildFailedException(
                   e.getMessage(), Code.ASPECT_CREATION_FAILED));
         }
@@ -113,7 +106,7 @@ final class LoadTopLevelAspectsFunction implements SkyFunction {
           builder.addAspect((NativeAspectClass) aspectClass);
         } catch (AssertionError e) {
           env.getListener().handle(Event.error(e.getMessage()));
-          throw new LoadTopLevelAspectsFunctionException(
+          throw new LoadAspectsFunctionException(
               new TopLevelAspectsDetailsBuildFailedException(
                   e.getMessage(), Code.ASPECT_CREATION_FAILED));
         }
@@ -126,111 +119,15 @@ final class LoadTopLevelAspectsFunction implements SkyFunction {
         return aspectsList.buildAspects(topLevelAspectsParameters);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
-      throw new LoadTopLevelAspectsFunctionException(
+      throw new LoadAspectsFunctionException(
           new TopLevelAspectsDetailsBuildFailedException(
               e.getMessage(), Code.ASPECT_CREATION_FAILED));
     }
   }
 
-  private static final class LoadTopLevelAspectsFunctionException extends SkyFunctionException {
-    LoadTopLevelAspectsFunctionException(TopLevelAspectsDetailsBuildFailedException cause) {
+  private static final class LoadAspectsFunctionException extends SkyFunctionException {
+    LoadAspectsFunctionException(TopLevelAspectsDetailsBuildFailedException cause) {
       super(cause, Transience.PERSISTENT);
-    }
-  }
-
-  /** {@link SkyKey} for building top-level aspects details. */
-  @AutoCodec
-  static final class LoadTopLevelAspectsKey implements SkyKey {
-    private static final SkyKeyInterner<LoadTopLevelAspectsKey> interner = SkyKey.newInterner();
-
-    private final ImmutableList<AspectClass> topLevelAspectsClasses;
-    private final ImmutableMap<String, String> topLevelAspectsParameters;
-    private final int hashCode;
-
-    static LoadTopLevelAspectsKey create(
-        ImmutableList<AspectClass> topLevelAspectsClasses,
-        ImmutableMap<String, String> topLevelAspectsParameters) {
-      return interner.intern(
-          new LoadTopLevelAspectsKey(
-              topLevelAspectsClasses,
-              topLevelAspectsParameters,
-              Objects.hashCode(topLevelAspectsClasses, topLevelAspectsParameters)));
-    }
-
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static LoadTopLevelAspectsKey intern(LoadTopLevelAspectsKey key) {
-      return interner.intern(key);
-    }
-
-    private LoadTopLevelAspectsKey(
-        ImmutableList<AspectClass> topLevelAspectsClasses,
-        @Nullable ImmutableMap<String, String> topLevelAspectsParameters,
-        int hashCode) {
-      Preconditions.checkArgument(!topLevelAspectsClasses.isEmpty(), "No aspects");
-      this.topLevelAspectsClasses = topLevelAspectsClasses;
-      this.topLevelAspectsParameters = topLevelAspectsParameters;
-      this.hashCode = hashCode;
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS;
-    }
-
-    ImmutableList<AspectClass> getTopLevelAspectsClasses() {
-      return topLevelAspectsClasses;
-    }
-
-    ImmutableMap<String, String> getTopLevelAspectsParameters() {
-      return topLevelAspectsParameters;
-    }
-
-    @Override
-    public int hashCode() {
-      return hashCode;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o == this) {
-        return true;
-      }
-      if (!(o instanceof LoadTopLevelAspectsKey that)) {
-        return false;
-      }
-      return hashCode == that.hashCode
-          && topLevelAspectsClasses.equals(that.topLevelAspectsClasses)
-          && topLevelAspectsParameters.equals(that.topLevelAspectsParameters);
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("topLevelAspectsClasses", topLevelAspectsClasses)
-          .add("topLevelAspectsParameters", topLevelAspectsParameters)
-          .toString();
-    }
-
-    @Override
-    public SkyKeyInterner<LoadTopLevelAspectsKey> getSkyKeyInterner() {
-      return interner;
-    }
-  }
-
-  /**
-   * {@link SkyValue} for {@code LoadTopLevelAspectsKey} wraps a list of the {@code Aspect} of the
-   * top level aspects.
-   */
-  static final class LoadTopLevelAspectsValue implements SkyValue {
-    private final ImmutableList<Aspect> aspects;
-
-    private LoadTopLevelAspectsValue(Collection<Aspect> aspects) {
-      this.aspects = ImmutableList.copyOf(aspects);
-    }
-
-    public ImmutableList<Aspect> getAspects() {
-      return aspects;
     }
   }
 }

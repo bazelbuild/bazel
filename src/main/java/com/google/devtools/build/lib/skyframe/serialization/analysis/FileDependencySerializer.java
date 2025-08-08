@@ -85,6 +85,7 @@ import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -519,11 +520,11 @@ final class FileDependencySerializer {
       case FileDataInfo info:
         return future.completeWith(handler.apply(info));
       case FutureFileDataInfo futureInfo:
-        return future.completeWith(Futures.transform(futureInfo, handler, directExecutor()));
+        return future.completeWith(Futures.transformAsync(futureInfo, handler, directExecutor()));
     }
   }
 
-  private class ListingFileHandler implements Function<FileDataInfo, ListingInvalidationDataInfo> {
+  private class ListingFileHandler implements AsyncFunction<FileDataInfo, ListingDataInfo> {
     private final RootedPath rootedPath;
 
     private ListingFileHandler(RootedPath rootedPath) {
@@ -537,37 +538,48 @@ final class FileDependencySerializer {
      * com.google.devtools.build.lib.skyframe.DirectoryListingValue#key}.
      */
     @Override
-    public ListingInvalidationDataInfo apply(FileDataInfo info) {
+    public ListenableFuture<ListingDataInfo> apply(FileDataInfo info) {
       DirectoryListingInvalidationData.Builder data = DirectoryListingInvalidationData.newBuilder();
       var writeStatuses = new ArrayList<WriteStatus>();
-      long mtsv = LongVersionGetter.MINIMAL;
+      long fileMtsv;
       RootedPath realPath;
       switch (info) {
         case CONSTANT_FILE: // reached only for the root directory
           realPath = rootedPath;
+          fileMtsv = LongVersionGetter.MINIMAL;
           break;
         case FileInvalidationDataInfo fileInfo:
           writeStatuses.add(fileInfo.writeStatus());
-          mtsv = fileInfo.mtsv();
-          if (mtsv != LongVersionGetter.MINIMAL) {
-            data.setFileMtsv(mtsv);
+          fileMtsv = fileInfo.mtsv();
+          if (fileMtsv != LongVersionGetter.MINIMAL) {
+            data.setFileMtsv(fileMtsv);
           }
           realPath = fileInfo.realPath();
           break;
       }
-      try {
-        mtsv = max(mtsv, versionGetter.getDirectoryListingVersion(realPath.asPath()));
-      } catch (IOException e) {
-        throw new IllegalStateException(
-            "unexpected error getting listing version for " + rootedPath, e);
-      }
-      String cacheKey =
-          computeCacheKey(rootedPath.getRootRelativePath(), mtsv, DIRECTORY_KEY_DELIMITER);
-      KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
-      byte[] dataBytes = data.build().toByteArray();
-      writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
-      return new ListingInvalidationDataInfo(
-          cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
+
+      ListenableFuture<Long> dirMtsvFuture =
+          Futures.submit(
+              (Callable<Long>)
+                  () -> {
+                    return versionGetter.getDirectoryListingVersion(realPath.asPath());
+                  },
+              ForkJoinPool.commonPool());
+
+      return Futures.transform(
+          dirMtsvFuture,
+          dirMtsv -> {
+            long mtsv = max(dirMtsv, fileMtsv);
+
+            String cacheKey =
+                computeCacheKey(rootedPath.getRootRelativePath(), mtsv, DIRECTORY_KEY_DELIMITER);
+            KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
+            byte[] dataBytes = data.build().toByteArray();
+            writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
+            return new ListingInvalidationDataInfo(
+                cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
+          },
+          directExecutor());
     }
   }
 
@@ -690,6 +702,7 @@ final class FileDependencySerializer {
     }
 
     private void addFileKey(FileKey fileKey) {
+
       switch (registerDependency(fileKey)) {
         case FileDataInfo info:
           addFileInfo(info);

@@ -15,8 +15,9 @@ java_library(
     name = "event_listener",
     srcs = ["RemoteAnalysisCachingEventListener.java"],
     deps = [
+        ":client_id",
+        ":deserialized_keys_sink",
         ":remote_analysis_cache_client",
-        ":remote_analysis_caching_state",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -31,7 +32,7 @@ java_library(
     deps = [
         ":options",
         ":remote_analysis_cache_client",
-        ":remote_analysis_caching_state",
+        ":remote_analysis_caching_server_state",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -59,6 +60,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
@@ -218,6 +220,10 @@ java_library(
 java_library(
     name = "client_id",
     srcs = ["ClientId.java"],
+    deps = [
+        "//third_party:error_prone_annotations",
+        # Do NOT add Bazel-specific dependencies here.
+    ],
 )
 
 java_library(
@@ -272,8 +278,9 @@ java_library(
     name = "analysis_cache_invalidator",
     srcs = ["AnalysisCacheInvalidator.java"],
     deps = [
+        ":client_id",
         ":remote_analysis_cache_client",
-        ":remote_analysis_caching_state",
+        ":remote_analysis_caching_server_state",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -285,11 +292,22 @@ java_library(
 )
 
 java_library(
-    name = "remote_analysis_caching_state",
-    srcs = ["RemoteAnalysisCachingState.java"],
+    name = "deserialized_keys_sink",
+    srcs = ["DeserializedKeysSink.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "remote_analysis_caching_server_state",
+    srcs = ["RemoteAnalysisCachingServerState.java"],
+    deps = [
+        ":client_id",
+        ":deserialized_keys_sink",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

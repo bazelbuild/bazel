@@ -287,7 +287,7 @@ function test_untokenizable_jvm_flag_when_escaping_is_enabled() {
     bazel build --verbose_failures "${pkg}:cannot_tokenize" \
       2>"$TEST_log" || fail "expected success"
     expect_program_cannot_run "bazel-bin/$pkg/cannot_tokenize${EXE_EXT}"
-    expect_log "syntax error"
+    expect_log "\(syntax error\)\|\(unexpected EOF while looking for matching \`''\)"
   fi
 }
 

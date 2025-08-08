@@ -242,7 +242,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Override
-  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+  protected List<String> getDefaultBuildLanguageOptions() {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     builder.addAll(super.getDefaultBuildLanguageOptions());
     // This is important for test initialization. BuildViewTestCase calls initializeSkyframeExecutor

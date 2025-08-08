@@ -20,14 +20,15 @@ import static com.google.common.base.Preconditions.checkState;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * Various utility methods for network related stuff.
  */
 public final class NetUtil {
 
-  private static String hostname = null;
-  private static Supplier<String> hostnameSupplier = NetUtil::computeShortHostName;
+  @Nullable private static volatile String hostname = null;
+  @Nullable private static Supplier<String> hostnameSupplier = NetUtil::computeShortHostName;
 
   private NetUtil() {}
 

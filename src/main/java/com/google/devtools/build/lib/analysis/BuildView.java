@@ -48,15 +48,12 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory.TestTrimmingTransition;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -784,18 +781,6 @@ public class BuildView {
         .build();
   }
 
-  private static NestedSet<Artifact> getBaselineCoverageArtifacts(
-      Collection<ConfiguredTarget> configuredTargets) {
-    var baselineCoverageArtifacts = NestedSetBuilder.<Artifact>stableOrder();
-    for (ConfiguredTarget target : configuredTargets) {
-      InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-      if (provider != null) {
-        baselineCoverageArtifacts.addTransitive(provider.getBaselineCoverageArtifacts());
-      }
-    }
-    return baselineCoverageArtifacts.build();
-  }
-
   private void addExtraActionsIfRequested(
       AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
@@ -970,8 +955,8 @@ public class BuildView {
             eventHandler,
             eventBus,
             directories,
+            configuredTargets,
             allTargetsToTest,
-            getBaselineCoverageArtifacts(configuredTargets),
             getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
             CoverageReportValue.COVERAGE_REPORT_KEY,

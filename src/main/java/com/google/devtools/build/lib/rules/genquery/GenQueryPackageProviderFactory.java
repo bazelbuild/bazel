@@ -325,7 +325,8 @@ public class GenQueryPackageProviderFactory {
 
               target = targetAndErrorIfAny.getTarget();
               traversal.collectedTargets.put(label, target);
-              traversal.collectedPackages.put(label.getPackageIdentifier(), target.getPackage());
+              traversal.collectedPackages.put(
+                  label.getPackageIdentifier(), targetAndErrorIfAny.getPackage());
             } else {
               SkyKey missingKey = (SkyKey) o;
               traversal.labelsToVisitInLaterRestart.put(label, missingKey);

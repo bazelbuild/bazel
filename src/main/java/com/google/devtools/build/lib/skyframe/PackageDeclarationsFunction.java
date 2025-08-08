@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.packages.PackagePiece.ForBuildFile}, producing a {@link
  * PackageDeclarationsValue}.
  */
-final class PackageDeclarationsFunction implements SkyFunction {
+public final class PackageDeclarationsFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -60,6 +60,7 @@ final class PackageDeclarationsFunction implements SkyFunction {
         packagePieceValue.mainRepositoryMapping());
   }
 
+  /** Wrapper for exceptions which can be thrown by {@link PackageDeclarationsFunction#compute}. */
   public static final class PackageDeclarationsFunctionException extends SkyFunctionException {
     PackageDeclarationsFunctionException(NoSuchPackageException cause) {
       super(cause, Transience.PERSISTENT);
