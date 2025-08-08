@@ -240,7 +240,7 @@ public interface QueryEnvironment<T> {
   }
 
   /** Returns all of the targets in <code>target</code>'s package, in some stable order. */
-  Collection<T> getSiblingTargetsInPackage(T target) throws QueryException;
+  Collection<T> getSiblingTargetsInPackage(T target) throws QueryException, InterruptedException;
 
   /**
    * Invokes {@code callback} with the set of target nodes in the graph for the specified target
@@ -570,9 +570,9 @@ public interface QueryEnvironment<T> {
         T originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
         throws QueryException, InterruptedException;
 
-    T getBuildFileTarget(T originalTarget);
+    T getBuildFileTarget(T originalTarget) throws InterruptedException;
 
-    T getLoadFileTarget(T originalTarget, Label bzlLabel);
+    T getLoadFileTarget(T originalTarget, Label bzlLabel) throws InterruptedException;
 
     @Nullable
     T maybeGetBuildFileTargetForLoadFileTarget(T originalTarget, Label bzlLabel)

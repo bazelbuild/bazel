@@ -459,11 +459,9 @@ public class RunCommand implements BlazeCommand {
       configuration = result.getBuildConfiguration();
     }
 
-    // When --nobuild_runfile_manifests is enabled, either virtual roots are also enabled (in which
-    // case we assume runfiles staging is handled elsewhere) or the output service is responsible
-    // for staging runfiles.
+    // When --nobuild_runfile_manifests is enabled, the output service is responsible for staging
+    // runfiles.
     if (!configuration.buildRunfileManifests()
-        && env.getDirectories().getVirtualSourceRoot() == null
         && !env.getOutputService().stagesTopLevelRunfiles()) {
       throw new RunCommandException(
           reportAndCreateFailureResult(
@@ -754,25 +752,22 @@ public class RunCommand implements BlazeCommand {
         settings.getRunfilesSymlinksCreated()
             == options.getOptions(CoreOptions.class).buildRunfileLinks);
 
-    Path devirtualizedExecRoot = env.getExecRoot().devirtualize();
-    Path devirtualizedRunfilesDir =
-        settings.getRunfilesDir() != null
-            ? settings.getRunfilesDir().devirtualize()
-            : builtTargets.targetToRunRunfilesDir.getParentDirectory().devirtualize();
+    Path execRoot = env.getExecRoot();
+    Path runfilesDir = settings.getRunfilesDir();
+    if (runfilesDir == null) {
+      runfilesDir = builtTargets.targetToRunRunfilesDir.getParentDirectory();
+    }
 
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
-    Path tmpDirRoot =
-        TestStrategy.getTmpRoot(env.getWorkspace(), devirtualizedExecRoot, executionOptions);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(env.getWorkspace(), execRoot, executionOptions);
     PathFragment maybeRelativeTmpDir =
-        tmpDirRoot.startsWith(devirtualizedExecRoot)
-            ? tmpDirRoot.relativeTo(devirtualizedExecRoot)
-            : tmpDirRoot.asFragment();
+        tmpDirRoot.startsWith(execRoot) ? tmpDirRoot.relativeTo(execRoot) : tmpDirRoot.asFragment();
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     runEnvironment.putAll(
         testPolicy.computeTestEnvironment(
             testAction,
             env.getClientEnv(),
-            devirtualizedRunfilesDir.relativeTo(devirtualizedExecRoot),
+            runfilesDir.relativeTo(execRoot),
             maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
 
     try {
@@ -816,7 +811,7 @@ public class RunCommand implements BlazeCommand {
     return new RunCommandLine.Builder(
             ImmutableSortedMap.copyOf(runEnvironment),
             ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY,
-            /* workingDir= */ devirtualizedExecRoot,
+            /* workingDir= */ execRoot,
             /* isTestTarget= */ true)
         .addArgs(testArgs)
         .addArgsFromResidue(argsFromResidue)
@@ -833,7 +828,7 @@ public class RunCommand implements BlazeCommand {
     TreeMap<String, String> result = new TreeMap<>();
     result.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     result.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
-    result.put("BUILD_EXECROOT", env.getExecRoot().devirtualize().getPathString());
+    result.put("BUILD_EXECROOT", env.getExecRoot().getPathString());
     result.put("BUILD_ID", env.getCommandId().toString());
     return result;
   }
@@ -984,11 +979,9 @@ public class RunCommand implements BlazeCommand {
       workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getPrefix());
     }
 
-    // Return early if runfiles staging is handled elsewhere (i.e. either if virtual roots are
-    // enabled or if it's managed by the output service).
-    if (env.getDirectories().getVirtualSourceRoot() != null
-        || env.getOutputService().stagesTopLevelRunfiles()) {
-      return workingDir.devirtualize();
+    // Return early if runfiles staging is managed by the output service.
+    if (env.getOutputService().stagesTopLevelRunfiles()) {
+      return workingDir;
     }
 
     // Always create runfiles directory and the workspace-named directory underneath, even if we

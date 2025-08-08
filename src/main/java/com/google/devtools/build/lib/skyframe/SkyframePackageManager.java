@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
@@ -61,9 +63,19 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     return packageLoader.getPackage(eventHandler, packageIdentifier);
   }
 
+  @ThreadSafe
+  @Override
+  public InputFile getBuildFile(
+      ExtendedEventHandler eventHandler, PackageIdentifier packageIdentifier)
+      throws NoSuchPackageException, NoSuchPackagePieceException, InterruptedException {
+    return packageLoader.getBuildFile(eventHandler, packageIdentifier);
+  }
+
   @Override
   public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): don't expand the full package if lazy
+    // macro expansion is enabled.
     return Preconditions.checkNotNull(getPackage(eventHandler, label.getPackageIdentifier()), label)
         .getTarget(label.getName());
   }

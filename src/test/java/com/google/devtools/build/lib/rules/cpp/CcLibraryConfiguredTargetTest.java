@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -2029,8 +2030,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             lib
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
-                .getTransitiveDwoFiles()
-                .toList()
+                .getValue("files", Depset.class)
+                .toList(Artifact.class)
                 .stream()
                 .map(Artifact::getFilename))
         .contains("public_dep.dwo");
@@ -2038,8 +2039,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             lib
                 .get(CcInfo.PROVIDER)
                 .getCcDebugInfoContext()
-                .getTransitiveDwoFiles()
-                .toList()
+                .getValue("files", Depset.class)
+                .toList(Artifact.class)
                 .stream()
                 .map(Artifact::getFilename))
         .contains("implementation_dep.dwo");

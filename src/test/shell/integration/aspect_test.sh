@@ -1991,4 +1991,153 @@ EOF
   expect_log "--inject_repository"
 }
 
+function test_exec_aspect() {
+  local package="test"
+  mkdir -p "${package}"
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_impl(target, ctx):
+  print("Running aspect on " + str(target.label))
+  return []
+
+my_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = ["deps"],
+)
+
+def _rule_impl(ctx):
+  pass
+
+my_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "tool": attr.label(
+            default = "//${package}:tool",
+            executable = True,
+            cfg = "exec",
+        ),
+        "dep": attr.label(default = "//${package}:sibling_dep"),
+    },
+)
+
+def _dep_rule_impl(ctx):
+  executable = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.write(executable, "")
+  return [DefaultInfo(executable = executable)]
+
+dep_rule = rule(
+  implementation = _dep_rule_impl,
+  attrs = {
+      "srcs" : attr.label_list(allow_files = True),
+      "deps" : attr.label_list(providers = [DefaultInfo]),
+  },
+  executable = True,
+)
+EOF
+
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:defs.bzl", "my_rule", "dep_rule")
+my_rule(name = "top_level_target")
+
+dep_rule(name = "tool", srcs = ["tool.sh"], deps = [":dep_of_tool"])
+dep_rule(name = "sibling_dep", srcs = ["sibling_dep.sh"])
+dep_rule(name = "dep_of_tool", srcs = ["dep_of_tool.sh"])
+EOF
+
+  touch "${package}/tool.sh"
+  touch "${package}/sibling_dep.sh"
+  touch "${package}/dep_of_tool.sh"
+
+  bazel build "//${package}:top_level_target" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log || fail "Build failed"
+  expect_log "Running aspect on @@\?//test:tool"
+  expect_log "Running aspect on @@\?//test:dep_of_tool"
+  expect_not_log "Running aspect on @@\?//test:top_level_target"
+  expect_not_log "Running aspect on @@\?//test:sibling_dep"
+}
+
+function test_failing_exec_aspect_plus_allow_list() {
+  local package="test"
+  mkdir -p "${package}"
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_impl(target, ctx):
+  if str(target.label) == "@@//${package}:bad_dep":
+    fail("Found bad dep")
+  return []
+
+def attr_aspects_function(ctx):
+    if str(ctx.rule.label) == "@@//${package}:exempt_tool":
+        print("Exempt target")
+        return []
+    else:
+        return dir(ctx.rule.attr)
+
+my_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = attr_aspects_function,
+)
+
+def _rule_impl(ctx):
+  pass
+
+my_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "tool": attr.label(
+            default = "//${package}:tool",
+            executable = True,
+            cfg = "exec",
+        ),
+        "dep": attr.label(default = "//${package}:sibling_dep"),
+    },
+)
+
+def _rule_no_tool_impl(ctx):
+  pass
+
+my_rule_no_tool = rule(
+    implementation = _rule_no_tool_impl,
+    attrs = {
+        "dep": attr.label(default = "//${package}:sibling_dep"),
+    },
+)
+
+def _dep_rule_impl(ctx):
+  executable = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.write(executable, "")
+  return [DefaultInfo(executable = executable)]
+
+dep_rule = rule(
+  implementation = _dep_rule_impl,
+  attrs = {
+      "srcs" : attr.label_list(allow_files = True),
+      "deps" : attr.label_list(providers = [DefaultInfo]),
+  },
+  executable = True,
+)
+EOF
+
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:defs.bzl", "my_rule", "my_rule_no_tool", "dep_rule")
+my_rule(name = "failing_target")
+my_rule_no_tool(name = "top_level_target_no_tool")
+my_rule(name = "exempt_target", tool = "//${package}:exempt_tool")
+
+dep_rule(name = "tool", srcs = ["tool.sh"], deps = [":bad_dep"])
+dep_rule(name = "sibling_dep", srcs = ["sibling_dep.sh"])
+dep_rule(name = "bad_dep", srcs = ["bad_dep.sh"])
+dep_rule(name = "exempt_tool", srcs = ["exempt_tool.sh"], deps = [":bad_dep"])
+EOF
+
+  touch "${package}/tool.sh"
+  touch "${package}/sibling_dep.sh"
+  touch "${package}/bad_dep.sh"
+  touch "${package}/exempt_tool.sh"
+
+  bazel build "//${package}:failing_target" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log && fail "Expected failure"
+  expect_log "Found bad dep"
+  bazel build "//${package}:top_level_target_no_tool" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log || fail "Expected success"
+  bazel build "//${package}:exempt_target" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log || fail "Expected success"
+}
+
 run_suite "Tests for aspects"

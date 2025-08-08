@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -40,10 +39,8 @@ import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.TextFormat;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -83,15 +80,6 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     return variables.build();
   }
 
-  /** Creates an empty CcToolchainFeatures. */
-  private static CcToolchainFeatures buildEmptyFeatures(String... toolchain) throws Exception {
-    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
-    return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchainForTestingOnly(toolchainBuilder.buildPartial()),
-        PathFragment.EMPTY_FRAGMENT);
-  }
-
   private static ImmutableSet<String> getEnabledFeatures(
       CcToolchainFeatures features, String... requestedFeatures) throws Exception {
     FeatureConfiguration configuration =
@@ -109,7 +97,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testFeatureConfigurationCodec() throws Exception {
     FeatureConfiguration emptyConfiguration =
         FeatureConfiguration.intern(
-            buildEmptyFeatures("").getFeatureConfiguration(ImmutableSet.of()));
+            CcToolchainTestHelper.buildFeatures("").getFeatureConfiguration(ImmutableSet.of()));
     FeatureConfiguration emptyFeatures =
         CcToolchainTestHelper.buildFeatures("feature {name: 'a'}", "feature {name: 'b'}")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));

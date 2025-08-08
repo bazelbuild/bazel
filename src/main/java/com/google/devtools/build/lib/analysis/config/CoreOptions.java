@@ -112,7 +112,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = CommaSeparatedOptionSetConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
       help = "List of flags for which the use in select() is disabled.")
   public ImmutableList<String> disabledSelectOptions;
 
@@ -160,15 +160,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, a shortname for the target platform is used in the output directory name"
-              + " instead of the CPU. The exact scheme is experimental and subject to change:"
-              + " First, in the rare case the --platforms option does not have exactly one value, a"
-              + " hash of the platforms option is used. Next, if any shortname for the current"
-              + " platform was registered by --experimental_override_name_platform_in_output_dir,"
-              + " then that shortname is used. Then, if"
-              + " --experimental_use_platforms_in_output_dir_legacy_heuristic is set, use a"
-              + " shortname based off the current platform Label. Finally, a hash of the platform"
+              + " instead of the CPU. If auto, this is only applied for the exec configuration. The"
+              + " exact scheme is experimental and subject to change: First, in the rare case the"
+              + " --platforms option does not have exactly one value, a hash of the platforms"
+              + " option is used. Next, if any shortname for the current platform was registered by"
+              + " --experimental_override_name_platform_in_output_dir, then that shortname is used."
+              + " Then, if --experimental_use_platforms_in_output_dir_legacy_heuristic is set, use"
+              + " a shortname based off the current platform Label. Finally, a hash of the platform"
               + " option is used as a last resort.")
-  public boolean platformInOutputDir;
+  public TriState platformInOutputDir;
 
   @Option(
       name = "experimental_use_platforms_in_output_dir_legacy_heuristic",
@@ -1010,12 +1010,29 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "If true, use the target platform for running tests rather than the test exec group.")
   public boolean useTargetPlatformForTests;
 
+  @Option(
+      name = "exec_aspects",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      allowMultiple = true,
+      help =
+          "Comma-separated list of aspects to be applied to exec-configured targets, regardless of"
+              + " whether or not they are top-level targets. This is an experimental feature and"
+              + " is subject to change.")
+  public List<String> execAspects;
+
   public Optional<String> getPlatformCpuNameOverride(Label platform) {
     // As highest priority, use the last entry that matches in name override option.
     return Streams.findLast(
         overridePlatformCpuName.stream()
             .filter(e -> e.getKey().equals(platform))
             .map(Map.Entry::getValue));
+  }
+
+  public boolean usePlatformInOutputDir() {
+    return platformInOutputDir == TriState.YES || (platformInOutputDir == TriState.AUTO && isExec);
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */

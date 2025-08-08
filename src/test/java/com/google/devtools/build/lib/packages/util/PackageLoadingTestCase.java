@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -122,10 +123,11 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             .setPackageValidator(
                 new PackageValidator() {
                   @Override
-                  public void validate(Package pkg, ExtendedEventHandler eventHandler)
+                  public void validate(
+                      Package pkg, Metrics metrics, ExtendedEventHandler eventHandler)
                       throws InvalidPackageException {
                     if (validator != null) {
-                      validator.validate(pkg, eventHandler);
+                      validator.validate(pkg, metrics, eventHandler);
                     }
                   }
                 })

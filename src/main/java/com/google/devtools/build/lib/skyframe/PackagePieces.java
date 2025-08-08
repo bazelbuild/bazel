@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.MacroInstance;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
@@ -61,15 +62,35 @@ public interface PackagePieces {
   default void recordTargetsAndMacros(TargetRecorder recorder) throws EvalException {
     try {
       for (PackagePiece packagePiece : getPackagePieces().values()) {
-        recorder.addAllFromPackagePiece(packagePiece);
+        recorder.addAllFromPackagePiece(packagePiece, /* skipBuildFile= */ false);
       }
     } catch (TargetRecorder.NameConflictException e) {
-      throw new EvalException(e)
-          .withCallStack(
-              e.getMacro() != null
-                  ? e.getMacro().reconstructParentCallStack()
-                  : reconstructCallStack(e.getTarget()));
+      throw wrapNameConflictException(e);
     }
+  }
+
+  /**
+   * Records the targets and macros of the package pieces in this collection, verifying that there
+   * are no name conflicts between package pieces.
+   *
+   * @throws EvalException with a reconstructed Starlark call stack if there is a name conflict.
+   */
+  default void recordTargetsAndMacros(Package.Builder pkgBuilder) throws EvalException {
+    try {
+      for (PackagePiece packagePiece : getPackagePieces().values()) {
+        pkgBuilder.addAllFromPackagePiece(packagePiece);
+      }
+    } catch (TargetRecorder.NameConflictException e) {
+      throw wrapNameConflictException(e);
+    }
+  }
+
+  private static EvalException wrapNameConflictException(TargetRecorder.NameConflictException e) {
+    return new EvalException(e)
+        .withCallStack(
+            e.getMacro() != null
+                ? e.getMacro().reconstructParentCallStack()
+                : reconstructCallStack(e.getTarget()));
   }
 
   private static ImmutableList<StarlarkThread.CallStackEntry> reconstructCallStack(Target target) {
@@ -81,6 +102,8 @@ public interface PackagePieces {
     if (declaringMacro != null) {
       return declaringMacro.reconstructParentCallStack();
     }
-    return ImmutableList.of();
+    // Top-level non-rule target
+    return ImmutableList.of(
+        StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, target.getLocation()));
   }
 }

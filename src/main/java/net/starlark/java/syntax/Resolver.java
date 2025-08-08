@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static net.starlark.java.types.Types.NO_PARAMS_CALLABLE;
 
 import com.google.common.base.Ascii;
@@ -830,7 +831,7 @@ public final class Resolver extends NodeVisitor {
   }
 
   @Nullable
-  public StarlarkType resolveType(Resolver.Module module, Expression expr) {
+  public Object resolveTypeOrArg(Resolver.Module module, Expression expr) {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
@@ -840,7 +841,36 @@ public final class Resolver extends NodeVisitor {
           StarlarkType y = resolveType(module, binop.getY());
           return Types.union(x, y);
         }
-        break;
+        errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
+        return Types.ANY;
+      case TYPE_APPLICATION:
+        TypeApplication app = (TypeApplication) expr;
+
+        Object constructorObject = Types.TYPE_UNIVERSE.get(app.getConstructor().getName());
+        if (constructorObject == null) {
+          // TODO(ilist@): include possible candidates in the error message
+          errorf(expr, "type constructor '%s' is not defined", app.getConstructor().getName());
+          return Types.ANY;
+        }
+        if (!(constructorObject instanceof Types.TypeConstructorProxy constructor)) {
+          errorf(
+              expr,
+              "'%s' is not a type constructor, cannot be applied to '%s'",
+              app.getConstructor().getName(),
+              app.getArguments());
+          return Types.ANY;
+        }
+        ImmutableList<Object> arguments =
+            app.getArguments().stream()
+                .map(arg -> resolveTypeOrArg(module, arg))
+                .collect(toImmutableList());
+
+        try {
+          return constructor.invoke(arguments);
+        } catch (IllegalArgumentException e) {
+          errorf(expr, "%s", e.getMessage());
+          return Types.ANY;
+        }
       case IDENTIFIER:
         Identifier id = (Identifier) expr;
         // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
@@ -850,15 +880,26 @@ public final class Resolver extends NodeVisitor {
           errorf(expr, "type '%s' is not defined", id.getName());
           return Types.ANY;
         }
-        if (result instanceof StarlarkType type) {
-          return type;
-        }
-      // TODO(ilist@): full evaluation: applications
-      // fall through
+        return result;
       default:
+        // TODO(ilist@): full evaluation: lists and dicts
+        errorf(expr, "unexpected expression '%s'", expr);
+        return Types.ANY;
     }
-    errorf(expr, "expression '%s' is not a valid type.", expr);
-    return Types.ANY;
+  }
+
+  @Nullable
+  public StarlarkType resolveType(Resolver.Module module, Expression expr) {
+    Object typeOrArg = resolveTypeOrArg(module, expr);
+    if (!(typeOrArg instanceof StarlarkType type)) {
+      if (typeOrArg instanceof Types.TypeConstructorProxy) {
+        errorf(expr, "expected type arguments after the type constructor '%s'", expr);
+      } else {
+        errorf(expr, "expression '%s' is not a valid type.", expr);
+      }
+      return Types.ANY;
+    }
+    return type;
   }
 
   public Types.CallableType resolveFunctionType(

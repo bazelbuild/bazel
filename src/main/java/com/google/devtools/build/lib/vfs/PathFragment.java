@@ -22,11 +22,14 @@ import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
@@ -59,6 +62,56 @@ public abstract sealed class PathFragment
   public static final PathFragment EMPTY_FRAGMENT = new RelativePathFragment("");
 
   public static final char SEPARATOR_CHAR = '/';
+
+  /**
+   * Compares two path fragments lexicographically as sequences of case-sensitive path segments. The
+   * relative ordering of relative and absolute paths is unspecified.
+   *
+   * <p>The ordering imposed by this comparator differs from that of {@link
+   * #compareTo(PathFragment)} as it sorts {@code foo/bar-baz/quz} after {@code foo/bar/quz} - it
+   * has the property that the children of a path are sorted directly after their parent.
+   *
+   * <p>Note that the ordering imposed by this comparator is <em>not</em> consistent with equals if
+   * applied to paths that differ only in case on Windows. Paths of artifacts in a single build are
+   * known to not be affected by this as Bazel ensures that there is only a single artifact per
+   * equivalence class of {@link PathFragment}.
+   */
+  // TODO(bazel-team): Consider making this the default comparator for PathFragment and revisit the
+  //  choice to assume case sensitivity based on the host OS. Windows case sensitivity is
+  //  configurable on a per-directory basis:
+  //  https://learn.microsoft.com/en-us/windows/wsl/case-sensitivity
+  public static final Comparator<PathFragment> HIERARCHICAL_COMPARATOR =
+      (p1, p2) -> {
+        // Bazel's Strings contain raw UTF-8 bytes (see StringEncoding), which can be compared
+        // byte-by-byte.
+        var b1 = StringUnsafe.getInternalStringBytes(p1.getPathString());
+        var b2 = StringUnsafe.getInternalStringBytes(p2.getPathString());
+        // This is based on String.compareTo for the case of two Latin-1 coders.
+        int k = Arrays.mismatch(b1, b2);
+        if (k == -1) {
+          return 0;
+        }
+        if (k >= b1.length) {
+          // b1 is a prefix of b2.
+          return -1;
+        }
+        if (k >= b2.length) {
+          // b2 is a prefix of b1.
+          return 1;
+        }
+        byte c1 = b1[k];
+        byte c2 = b2[k];
+        if (c1 == '/') {
+          // Sort a/b/c before a/b-c.
+          return -1;
+        }
+        if (c2 == '/') {
+          // Sort a/b-c after a/b/c.
+          return 1;
+        }
+        return Byte.compareUnsigned(c1, c2);
+      };
+
   private static final char ADDITIONAL_SEPARATOR_CHAR = OS.additionalSeparator();
 
   private final String normalizedPath;
@@ -90,18 +143,15 @@ public abstract sealed class PathFragment
   }
 
   private static PathFragment makePathFragment(String normalizedPath, int driveStrLength) {
-    switch (driveStrLength) {
-      case 0:
-        return new RelativePathFragment(normalizedPath);
-      case 1:
-        return new UnixStyleAbsolutePathFragment(normalizedPath);
-      case 3:
-        return new WindowsStyleAbsolutePathFragment(normalizedPath);
-      default:
-        throw new IllegalStateException(
-            String.format(
-                "normalizedPath: %s, driveStrLength: %s", normalizedPath, driveStrLength));
-    }
+    return switch (driveStrLength) {
+      case 0 -> new RelativePathFragment(normalizedPath);
+      case 1 -> new UnixStyleAbsolutePathFragment(normalizedPath);
+      case 3 -> new WindowsStyleAbsolutePathFragment(normalizedPath);
+      default ->
+          throw new IllegalStateException(
+              String.format(
+                  "normalizedPath: %s, driveStrLength: %s", normalizedPath, driveStrLength));
+    };
   }
 
   /**
@@ -426,6 +476,14 @@ public abstract sealed class PathFragment
     return OS.hash(this.normalizedPath);
   }
 
+  /**
+   * Compares this path fragment to another path fragment as normalized strings, possibly ignoring
+   * casing based on the host OS.
+   *
+   * <p>{@code dir/foo, dir/foo-bar/data.txt, dir/foo/data.txt} is sorted according to this method,
+   * which is not consistent with viewing a path as a sequence of segments. See {@link
+   * #HIERARCHICAL_COMPARATOR} for an alternative comparator.
+   */
   @Override
   public int compareTo(PathFragment o) {
     return OS.compare(this.normalizedPath, o.normalizedPath);
@@ -697,8 +755,8 @@ public abstract sealed class PathFragment
   }
 
   /**
-   * Returns a relative PathFragment created from this absolute PathFragment using the
-   * same segments and drive letter.
+   * Returns a relative PathFragment created from this absolute PathFragment using the same segments
+   * and drive letter.
    */
   public PathFragment toRelative() {
     Preconditions.checkArgument(isAbsolute());

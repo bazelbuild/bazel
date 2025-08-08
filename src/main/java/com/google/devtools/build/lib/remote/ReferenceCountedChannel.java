@@ -78,8 +78,6 @@ public class ReferenceCountedChannel implements ReferenceCounted {
     try (var s = Profiler.instance().profile("getServerCapabilities")) {
       return blockingGet(
           withChannelConnection(ChannelConnectionWithServerCapabilities::getServerCapabilities));
-    } catch (ExecutionException e) {
-      throw new IOException(e);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(e);
@@ -90,21 +88,30 @@ public class ReferenceCountedChannel implements ReferenceCounted {
     return dynamicConnectionPool.isClosed();
   }
 
+  /**
+   * A specialized {@link Function} that can only throw {@link IOException} and {@link
+   * InterruptedException}.
+   */
+  @FunctionalInterface
+  public interface IOFunction<T, R> extends Function<T, R> {
+    @Override
+    R apply(T t) throws IOException, InterruptedException;
+  }
+
   @CheckReturnValue
   public <T> ListenableFuture<T> withChannelFuture(
-      Function<Channel, ? extends ListenableFuture<T>> source) {
+      IOFunction<Channel, ? extends ListenableFuture<T>> source) {
     return RxFutures.toListenableFuture(
         withChannel(channel -> RxFutures.toSingle(() -> source.apply(channel), directExecutor())));
   }
 
-  public <T> T withChannelBlocking(Function<Channel, T> source)
-      throws ExecutionException, IOException, InterruptedException {
+  public <T> T withChannelBlocking(IOFunction<Channel, T> source)
+      throws IOException, InterruptedException {
     return blockingGet(withChannel(channel -> Single.just(source.apply(channel))));
   }
 
   // prevents rxjava silent possible wrap of RuntimeException and misinterpretation
-  private <T> T blockingGet(Single<T> single)
-      throws ExecutionException, IOException, InterruptedException {
+  private <T> T blockingGet(Single<T> single) throws IOException, InterruptedException {
     SettableFuture<T> future = SettableFuture.create();
     single.subscribe(
         new SingleObserver<T>() {
@@ -135,8 +142,9 @@ public class ReferenceCountedChannel implements ReferenceCounted {
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       Throwables.throwIfInstanceOf(cause, IOException.class);
+      Throwables.throwIfInstanceOf(cause, InterruptedException.class);
       Throwables.throwIfUnchecked(cause);
-      throw e;
+      throw new IllegalStateException("Unexpected exception type", cause);
     }
   }
 

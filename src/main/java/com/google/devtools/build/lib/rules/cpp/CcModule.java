@@ -120,7 +120,6 @@ public abstract class CcModule
         StarlarkRuleContext,
         CcToolchainConfigInfo,
         CcCompilationOutputs,
-        CcDebugInfoContext,
         CppModuleMap> {
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
@@ -1404,23 +1403,8 @@ public abstract class CcModule
   }
 
   @Nullable
-  private static <T> T nullIfNone(Object object, Class<T> type) {
+  static <T> T nullIfNone(Object object, Class<T> type) {
     return object != Starlark.NONE ? type.cast(object) : null;
-  }
-
-  @Override
-  public CcDebugInfoContext createCcDebugInfoFromStarlark(
-      CcCompilationOutputs ccCompilationOutputs, StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CcDebugInfoContext.from(ccCompilationOutputs);
-  }
-
-  @Override
-  public CcDebugInfoContext mergeCcDebugInfoFromStarlark(
-      Sequence<?> debugInfos, StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CcDebugInfoContext.merge(
-        Sequence.cast(debugInfos, CcDebugInfoContext.class, "debug_infos"));
   }
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)

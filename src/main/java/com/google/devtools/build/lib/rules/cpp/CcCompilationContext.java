@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -576,6 +577,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   /** Returns modules maps from direct dependencies. */
   public ImmutableList<Artifact> getDirectModuleMaps() {
     return directModuleMaps;
+  }
+
+  @StarlarkMethod(name = "direct_module_maps", structField = true, documented = false)
+  public StarlarkList<Artifact> getDirectModuleMapsForStarlark() {
+    return StarlarkList.immutableCopyOf(getDirectModuleMaps());
   }
 
   DerivedArtifact getHeaderModule(boolean usePic) {

@@ -20,3 +20,13 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_library(
+    name = "compacthashset_codec",
+    srcs = ["CompactHashSetCodec.java"],
+    deps = [
+        ":compacthashset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)

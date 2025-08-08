@@ -1,3 +1,67 @@
+## Release 9.0.0-pre.20250730.2 (2025-08-07)
+
+```
+Baseline: b4216efd8c13c564e92115dae25dd6620423bac1
+
+Cherry picks:
+
+   + bbfb288a7b24bff645c62fa2bf3521d1de293cb1:
+     Fix
+     https://github.com/bazelbuild/bazel/commit/9aa7583e97bffb17d2a6f4
+     8aecefa932e8064daa performance regression.
+```
+
+Important changes:
+
+  - Tool paths specified in `cc_toolchain` action configs are now
+    normalized based on the current execution platform's OS rather
+    than the host OS. In particular, Windows-style absolute paths are
+    now treated as absolute paths when building on a Windows executor
+    from a non-Windows host.
+
+This release contains contributions from many people at Google, as well as Austin Schuh, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, George Gensure, Mike Lundy, Wade Carpenter.
+
+## Release 9.0.0-pre.20250721.4 (2025-07-31)
+
+```
+Baseline: 20cf927d8ce4e3fbd29d7bb45c5037b4fea49da8
+
+Cherry picks:
+
+   + 5b2baea3d70e2e1381bc6dbfb0327130d00d98ee:
+     Freeze lists in extra link time libraries
+   + e84de1792205bcfdd3a5a2014755a58027972101:
+     Deflake jvm_flags_escaping_test
+```
+
+New features:
+
+  - The new `--*_env==NAME` syntax can be used with any of
+    `--action_env`, `--host_action_env`, `--repo_env`, `--run_env`,
+    and `--test_env` to undo any previous occurrences of the
+    respective flags for that environment variable name. For
+    `--repo_env` and `--run_env`, this also results in the variable
+    being unset if it is set in the environment of the Bazel client.
+
+This release contains contributions from many people at Google, as well as Alexander Golovlev, Benjamin Peterson, Fabian Meumertzheim, Jordan Mele, Yannic Bonenberger.
+
+## Release 9.0.0-pre.20250716.1 (2025-07-23)
+
+```
+Baseline: 3e62cbbd9410e2a52d551cc7c00b9e2984d7ec02
+```
+
+Important changes:
+
+  - `ctx.actions.write` now supports path mapping when passed an
+    `Args` object. Use the `mnemonics` attribute to assign it a
+    dedicated mnemonic, which can then be used with
+    `--modify_execution_info` to opt in to path mapping (see
+    https://github.com/bazelbuild/bazel/discussions/22658 for details
+    on path mapping).
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jonathan Woodbury, Jordan Mele.
+
 ## Release 9.0.0-pre.20250714.1 (2025-07-18)
 
 ```

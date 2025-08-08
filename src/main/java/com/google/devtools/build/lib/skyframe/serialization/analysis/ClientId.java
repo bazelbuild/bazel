@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
+import com.google.errorprone.annotations.Immutable;
 
 /**
  * A unique identifier for a client that interacts with the AnalysisCacheService.
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.Sn
  * <p>This identifier exists for purposes related to caching the state of the client itself
  * regardless of the particular requested keys.
  */
+@Immutable
 public sealed interface ClientId permits SnapshotClientId, LongVersionClientId {
   /**
    * A snapshot of the present workspace state as of this invocation.

@@ -32,6 +32,7 @@ load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
 load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
 load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
+load(":common/cc/debug_package_info.bzl", "DebugPackageInfo")
 load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
 load(":common/cc/fdo/memprof_profile.bzl", "memprof_profile")
@@ -43,6 +44,7 @@ exported_toplevels = {
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
+    "DebugPackageInfo": DebugPackageInfo,
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
     "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
     "cc_common": cc_common,
@@ -82,6 +84,7 @@ exported_rules = {
 
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
+    "cc_common_compile": cc_common.compile,  # Only needed for CppCompileActionTemplateTest.
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
     "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
 }

@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -528,124 +527,28 @@ public final class CcStaticCompilationHelper {
 
   static Artifact createParseHeaderAction(
       ActionConstructionContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
       BuildConfigurationValue configuration,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      CppConfiguration cppConfiguration,
-      ImmutableList<String> cxxopts,
-      FdoContext fdoContext,
-      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       boolean generatePicAction,
       Label label,
       CcToolchainVariables commonToolchainVariables,
-      ImmutableMap<String, String> fdoBuildVariables,
+      CcToolchainVariables specificToolchainVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      Label sourceLabel,
       String outputNameBase,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
     builder
-        .setOutputs(
-            actionConstructionContext,
-            ruleErrorConsumer,
-            label,
-            ArtifactCategory.PROCESSED_HEADER,
-            outputNameBase)
         // If we generate pic actions, we prefer the header actions to use the pic artifacts.
         .setPicMode(generatePicAction);
     builder.setVariables(
-        setupSpecificCompileBuildVariables(
-            commonToolchainVariables,
-            ccCompilationContext,
-            conlyopts,
-            copts,
-            cppConfiguration,
-            cxxopts,
-            fdoContext,
-            auxiliaryFdoInputs,
-            featureConfiguration,
-            semantics,
-            builder,
-            sourceLabel,
-            generatePicAction,
-            /* needsFdoBuildVariables= */ false,
-            fdoBuildVariables,
-            ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
-            /* gcnoFile= */ null,
-            /* isUsingFission= */ false,
-            /* dwoFile= */ null,
-            /* ltoIndexingFile= */ null,
-            /* additionalBuildVariables= */ ImmutableMap.of()));
+        CcToolchainVariables.builder(commonToolchainVariables)
+            .addAllNonTransitive(specificToolchainVariables)
+            .build());
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionConstructionContext.registerAction(compileAction);
     return compileAction.getPrimaryOutput();
-  }
-
-  static ImmutableList<Artifact> createModuleAction(
-      ActionConstructionContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      CppConfiguration cppConfiguration,
-      ImmutableList<String> cxxopts,
-      FdoContext fdoContext,
-      NestedSet<Artifact> auxiliaryFdoInputs,
-      FeatureConfiguration featureConfiguration,
-      boolean generateNoPicAction,
-      boolean generatePicAction,
-      Label label,
-      CcToolchainVariables commonToolchainVariables,
-      ImmutableMap<String, String> fdoBuildVariables,
-      RuleErrorConsumer ruleErrorConsumer,
-      CppSemantics semantics,
-      CcCompilationOutputs.Builder result,
-      CppModuleMap cppModuleMap,
-      CppCompileActionBuilder builder)
-      throws RuleErrorException, EvalException, InterruptedException {
-    Artifact moduleMapArtifact = cppModuleMap.getArtifact();
-    Label sourceLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
-
-    // A header module compile action is just like a normal compile action, but:
-    // - the compiled source file is the module map
-    // - it creates a header module (.pcm file).
-    return createCompileSourceActionFromBuilder(
-        actionConstructionContext,
-        ccCompilationContext,
-        ccToolchain,
-        configuration,
-        conlyopts,
-        copts,
-        cppConfiguration,
-        cxxopts,
-        fdoContext,
-        auxiliaryFdoInputs,
-        featureConfiguration,
-        generateNoPicAction,
-        generatePicAction,
-        label,
-        commonToolchainVariables,
-        fdoBuildVariables,
-        ruleErrorConsumer,
-        semantics,
-        sourceLabel,
-        Path.of(sourceLabel.getName()).getFileName().toString(),
-        result,
-        moduleMapArtifact,
-        builder,
-        ArtifactCategory.CPP_MODULE,
-        cppModuleMap,
-        /* addObject= */ false,
-        /* enableCoverage= */ false,
-        /* generateDwo= */ false,
-        /* bitcodeOutput= */ false);
   }
 
   @CanIgnoreReturnValue
@@ -1047,7 +950,7 @@ public final class CcStaticCompilationHelper {
         : base;
   }
 
-  private static ImmutableList<String> collectPerFileCopts(
+  static ImmutableList<String> collectPerFileCopts(
       CppConfiguration cppConfiguration, Artifact sourceFile, Label sourceLabel) {
     return cppConfiguration.getPerFileCopts().stream()
         .filter(

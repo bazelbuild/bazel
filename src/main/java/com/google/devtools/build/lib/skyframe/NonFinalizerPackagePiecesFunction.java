@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
@@ -34,7 +36,7 @@ import net.starlark.java.eval.EvalException;
  * com.google.devtools.build.lib.packages.PackagePiece}s of a package, producing a {@link
  * NonFinalizerPackagePiecesValue}.
  */
-final class NonFinalizerPackagePiecesFunction implements SkyFunction {
+public final class NonFinalizerPackagePiecesFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -54,6 +56,8 @@ final class NonFinalizerPackagePiecesFunction implements SkyFunction {
       throw new NonFinalizerPackagePiecesFunctionException(e);
     }
 
+    checkState(!expander.getPackagePieces().isEmpty());
+
     if (expander.getPackagePieces().size() == 1) {
       // Trivial case - BUILD file only; name conflicts were already checked by
       // PackagePiece.ForBuildFile construction.
@@ -63,7 +67,9 @@ final class NonFinalizerPackagePiecesFunction implements SkyFunction {
           /* nameConflictBetweenPackagePiecesException= */ null,
           // All targets are top-level; no non-finalizer macros.
           expander.getPackagePieceForBuildFile().getTargets(),
-          ImmutableSortedMap.of());
+          ImmutableSortedMap.of(),
+          expander.getStarlarkSemantics(),
+          expander.getMainRepositoryMapping());
     }
 
     TargetRecorder targetRecorder =
@@ -87,9 +93,15 @@ final class NonFinalizerPackagePiecesFunction implements SkyFunction {
         expander.getErrorKeys(),
         nameConflictException,
         ImmutableSortedMap.copyOf(targetRecorder.getTargetMap()),
-        ImmutableSortedMap.copyOf(targetRecorder.getMacroMap()));
+        ImmutableSortedMap.copyOf(targetRecorder.getMacroMap()),
+        expander.getStarlarkSemantics(),
+        expander.getMainRepositoryMapping());
   }
 
+  /**
+   * Wrapper for exceptions which can be thrown by {@link
+   * NonFinalizerPackagePiecesFunction#compute}.
+   */
   public static final class NonFinalizerPackagePiecesFunctionException
       extends SkyFunctionException {
     NonFinalizerPackagePiecesFunctionException(NoSuchPackageException cause) {

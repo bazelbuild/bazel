@@ -21,10 +21,27 @@ import java.util.HashSet;
 import java.util.Objects;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
+import net.starlark.java.types.Types.DictType;
+import net.starlark.java.types.Types.ListType;
+import net.starlark.java.types.Types.SetType;
+import net.starlark.java.types.Types.TupleType;
 import net.starlark.java.types.Types.UnionType;
 
 /** Type checker for Starlark types. */
 public final class TypeChecker {
+
+  private static boolean isTupleSubtypeOf(TupleType tuple1, TupleType tuple2) {
+    if (tuple1.getElementTypes().size() != tuple2.getElementTypes().size()) {
+      return false;
+    }
+    // Tuples are covariant
+    for (int i = 0; i < tuple1.getElementTypes().size(); ++i) {
+      if (!isSubtypeOf(tuple1.getElementTypes().get(i), tuple2.getElementTypes().get(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   private static boolean isUnionSubtypeOf(
       ImmutableSet<StarlarkType> subtypes1, ImmutableSet<StarlarkType> subtypes2) {
@@ -70,11 +87,35 @@ public final class TypeChecker {
       return isUnionSubtypeOf(ImmutableSet.of(type1), union2.getTypes()); // a < a|b
     }
 
+    // Mutable collections are invariant (which is necessary while the interface supports both
+    // reading and modification). This matches Python's behaviour.
+    if (type1 instanceof TupleType tuple1 && type2 instanceof TupleType tuple2) {
+      return isTupleSubtypeOf(tuple1, tuple2);
+    }
+    if (type1 instanceof ListType list1 && type2 instanceof ListType list2) {
+      return isEqual(list1.getElementType(), list2.getElementType());
+    }
+    if (type1 instanceof DictType dict1 && type2 instanceof DictType dict2) {
+      return isEqual(dict1.getKeyType(), dict2.getKeyType())
+          && isEqual(dict1.getValueType(), dict2.getValueType());
+    }
+    if (type1 instanceof SetType set1 && type2 instanceof SetType set2) {
+      return isEqual(set1.getElementType(), set2.getElementType());
+    }
+
     // TODO(ilist@): this just works for primitive types
     return Objects.equals(type1, type2);
   }
 
+  private static boolean isEqual(StarlarkType type1, StarlarkType type2) {
+    return isSubtypeOf(type1, type2) && isSubtypeOf(type2, type1);
+  }
+
   static boolean isValueSubtypeOf(Object value, StarlarkType type2) {
+    // Fast path for Any type. `type(value)` below can take long time to evaluate
+    if (Objects.equals(type2, Types.ANY)) {
+      return true;
+    }
     return isSubtypeOf(type(value), type2);
   }
 

@@ -92,9 +92,15 @@ class GcChurningDetector {
     if (!event.wasFullGc() || event.wasManualGc()) {
       return;
     }
-
-    cumulativeFullGcDuration = cumulativeFullGcDuration.plus(event.duration());
     Duration invocationWallTimeDuration = Duration.between(start, clock.now());
+    Duration gcEventDuration = event.duration();
+    if (event.duration().compareTo(invocationWallTimeDuration) > 0) {
+      // Clamp the GC event's duration to the duration of the current invocation in case this is an
+      // event for a full GC that started before the current invocation started.
+      gcEventDuration = invocationWallTimeDuration;
+    }
+    cumulativeFullGcDuration = cumulativeFullGcDuration.plus(gcEventDuration);
+
     // This narrowing conversion is fine in practice since MAX_INT ms is almost 25 days, and
     // we don't care about supporting an invocation running for that long.
     int invocationWallTimeSoFarMs = (int) invocationWallTimeDuration.toMillis();
@@ -103,6 +109,7 @@ class GcChurningDetector {
       // if it's been less than a full millisecond so far.
       return;
     }
+
     double gcFraction = cumulativeFullGcDuration.toMillis() * 1.0 / invocationWallTimeSoFarMs;
     FullGcFractionPoint fullGcFractionPoint =
         FullGcFractionPoint.newBuilder()

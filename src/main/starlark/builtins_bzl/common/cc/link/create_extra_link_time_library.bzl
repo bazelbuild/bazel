@@ -93,7 +93,7 @@ def create_extra_link_time_libraries(library):
     """
     if library == None:
         return _EMPTY
-    libraries = [library]
+    libraries = cc_internal.freeze([library])
     return ExtraLinkTimeLibrariesInfo(
         libraries = libraries,
     )
@@ -144,7 +144,7 @@ def merge_extra_link_time_libraries(libraries):
 
         result.append(ExtraLinkTimeLibraryInfo(**merged_fields))
     return ExtraLinkTimeLibrariesInfo(
-        libraries = result,
+        libraries = cc_internal.freeze(result),
     )
 
 def build_libraries(extra_libraries, ctx, static_mode, for_dynamic_library):

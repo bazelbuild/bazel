@@ -22,15 +22,12 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.ArgsFunc;
-import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.LocationFunc;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import javax.annotation.Nullable;
 
 /**
- * A value class that holds arguments for {@link
- * CoverageReportActionBuilder#generateCoverageReportAction}, {@link ArgsFunc} and {@link
- * LocationFunc}.
+ * A value class that holds arguments for {@link CoverageReportActionBuilder#CoverageHelper}
+ * methods.
  */
 public record CoverageArgs(
     BlazeDirectories directories,
@@ -40,9 +37,8 @@ public record CoverageArgs(
     ArtifactOwner artifactOwner,
     FilesToRunProvider reportGenerator,
     String workspaceName,
-    boolean htmlReport,
-    ActionOwner actionOwner,
-    @Nullable Artifact lcovOutput) {
+    @Nullable Artifact htmlReport,
+    ActionOwner actionOwner) {
   public CoverageArgs {
     requireNonNull(directories, "directories");
     requireNonNull(coverageArtifacts, "coverageArtifacts");
@@ -52,42 +48,5 @@ public record CoverageArgs(
     requireNonNull(reportGenerator, "reportGenerator");
     requireNonNull(workspaceName, "workspaceName");
     requireNonNull(actionOwner);
-  }
-
-  public static CoverageArgs create(
-      BlazeDirectories directories,
-      NestedSet<Artifact> coverageArtifacts,
-      Artifact lcovArtifact,
-      ArtifactFactory factory,
-      ArtifactOwner artifactOwner,
-      FilesToRunProvider reportGenerator,
-      String workspaceName,
-      boolean htmlReport,
-      ActionOwner actionOwner) {
-    return new CoverageArgs(
-        directories,
-        coverageArtifacts,
-        lcovArtifact,
-        factory,
-        artifactOwner,
-        reportGenerator,
-        workspaceName,
-        htmlReport,
-        actionOwner,
-        /* lcovOutput= */ null);
-  }
-
-  public static CoverageArgs createCopyWithLcovOutput(CoverageArgs args, Artifact lcovOutput) {
-    return new CoverageArgs(
-        args.directories(),
-        args.coverageArtifacts(),
-        args.lcovArtifact(),
-        args.factory(),
-        args.artifactOwner(),
-        args.reportGenerator(),
-        args.workspaceName(),
-        args.htmlReport(),
-        args.actionOwner(),
-        lcovOutput);
   }
 }

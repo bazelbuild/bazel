@@ -25,7 +25,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/go:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform:srcs",

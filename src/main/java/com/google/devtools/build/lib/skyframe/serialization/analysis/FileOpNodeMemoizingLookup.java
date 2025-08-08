@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 
 import com.google.common.util.concurrent.FutureCallback;
@@ -37,6 +36,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Computes a mapping from {@link ActionLookupKey}s to {@link FileOpNodeOrFuture}s, representing the
@@ -180,7 +180,11 @@ final class FileOpNodeMemoizingLookup {
 
     private void addFuture(FutureFileOpNode future) {
       increment();
-      Futures.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this, directExecutor());
+      // There is a graph made of futures that parallels the Skyframe dependency graph. Therefore,
+      // it's a bad idea to use directExecutor() here because the amount of work that the
+      // the completion of the future unblocks can be quite large.
+      Futures.addCallback(
+          future, (FutureCallback<FileOpNodeOrEmpty>) this, ForkJoinPool.commonPool());
     }
 
     private void notifyAllFuturesAdded() {

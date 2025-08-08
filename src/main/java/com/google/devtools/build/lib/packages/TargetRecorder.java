@@ -454,7 +454,8 @@ public final class TargetRecorder {
    * Adds all rules and macros from a given package piece. Intended only for use by skyframe
    * machinery.
    */
-  public void addAllFromPackagePiece(PackagePiece packagePiece) throws NameConflictException {
+  public void addAllFromPackagePiece(PackagePiece packagePiece, boolean skipBuildFile)
+      throws NameConflictException {
     MacroFrame prev;
     if (packagePiece instanceof PackagePiece.ForMacro forMacro) {
       prev = setCurrentMacroFrame(new MacroFrame(forMacro.getEvaluatedMacro()));
@@ -464,7 +465,19 @@ public final class TargetRecorder {
     for (MacroInstance macro : packagePiece.getMacros()) {
       addMacro(macro);
     }
+    @Nullable
+    InputFile buildFile =
+        packagePiece instanceof PackagePiece.ForBuildFile forBuildFile
+            ? forBuildFile.getBuildFile()
+            : null;
     for (Target target : packagePiece.getTargets().values()) {
+      if (skipBuildFile && target == buildFile) {
+        continue;
+      }
+      if (target instanceof OutputFile) {
+        // Rule output files are recorded as a side effect of addTarget(rule)
+        continue;
+      }
       addTarget(target);
     }
     var unused = setCurrentMacroFrame(prev);

@@ -107,8 +107,6 @@ public final class ActionExecutionValueTest {
             createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink2))))
         .addEqualityGroup(
             createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))))
-        .addEqualityGroup(
-            createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink2, symlink1))))
         // discoveredModules
         .addEqualityGroup(
             createWithDiscoveredModules(

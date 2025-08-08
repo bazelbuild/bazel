@@ -183,17 +183,18 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       }
       final Digest blobDigest = response.getBlobDigest();
 
-      retrier.execute(
-          () -> {
-            try (OutputStream out = newOutputStream(destination, checksum)) {
-              Utils.getFromFuture(
-                  cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
-            } catch (OutputDigestMismatchException e) {
-              e.setOutputPath(destination.getPathString());
-              throw e;
-            }
-            return null;
-          });
+      var unused =
+          retrier.execute(
+              () -> {
+                try (OutputStream out = newOutputStream(destination, checksum)) {
+                  Utils.getFromFuture(
+                      cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+                } catch (OutputDigestMismatchException e) {
+                  e.setOutputPath(destination.getPathString());
+                  throw e;
+                }
+                return null;
+              });
 
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));

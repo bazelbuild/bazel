@@ -590,10 +590,7 @@ genrule(
         .isAtLeast(1);
 
     var versionFromBuild =
-        getCommandEnvironment()
-            .getRemoteAnalysisCachingEventListener()
-            .getLatestBuildState()
-            .version();
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyValueVersion();
 
     getSkyframeExecutor().resetEvaluator();
 
@@ -606,10 +603,7 @@ genrule(
         .isAtLeast(1);
 
     var versionFromTest =
-        getCommandEnvironment()
-            .getRemoteAnalysisCachingEventListener()
-            .getLatestBuildState()
-            .version();
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyValueVersion();
 
     // Assert that the top level config checksum subcomponent is equal.
     assertThat(versionFromBuild.getTopLevelConfigFingerprint())

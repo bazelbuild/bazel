@@ -28,6 +28,9 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
+      # https://github.com/bazelbuild/continuous-integration/issues/2353
+      - "--linkopt=-Wl,--no-fix-cortex-a53-843419"
+      - "--host_linkopt=-Wl,--no-fix-cortex-a53-843419"
   ubuntu2204:
     build_targets:
       - "//src:bazel"

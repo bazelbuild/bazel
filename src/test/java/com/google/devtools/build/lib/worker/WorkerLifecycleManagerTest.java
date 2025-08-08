@@ -20,7 +20,9 @@ import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -71,7 +73,8 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1000 * 100;
 
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -98,7 +101,8 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 0;
 
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -124,7 +128,8 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
 
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -149,7 +154,8 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -185,7 +191,8 @@ public final class WorkerLifecycleManagerTest {
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(3);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -228,7 +235,8 @@ public final class WorkerLifecycleManagerTest {
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(4);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -268,7 +276,8 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
     options.workerVerbose = true;
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers())
         .containsExactly(w1.getWorkerId(), w2.getWorkerId(), w3.getWorkerId());
@@ -308,7 +317,8 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
 
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(2);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
@@ -353,7 +363,8 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
 
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(4);
     assertThat(workerPool.getNumActive(key1)).isEqualTo(0);
@@ -395,7 +406,8 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 1;
     options.shrinkWorkerPool = true;
 
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).isEmpty();
     assertThat(workerPool.getNumActive(key)).isEqualTo(2);
@@ -449,7 +461,8 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 2;
     options.shrinkWorkerPool = true;
 
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     assertThat(workerPool.getIdleWorkers()).hasSize(2);
     assertThat(workerPool.getNumActive(key)).isEqualTo(3);
@@ -493,7 +506,8 @@ public final class WorkerLifecycleManagerTest {
                 ImmutableList.of(w1, w2), PROCESS_ID_1, /* memoryInKb= */ 4000));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     manager.evictWorkers(workerMetrics);
 
@@ -524,7 +538,8 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
     options.shrinkWorkerPool = true;
-    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    WorkerLifecycleManager manager =
+        new WorkerLifecycleManager(workerPool, options, new Reporter(new EventBus()));
 
     manager.evictWorkers(workerMetrics);
 

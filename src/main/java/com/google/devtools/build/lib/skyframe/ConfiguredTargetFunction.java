@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retrieveRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
@@ -273,8 +272,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
-      switch (fetchRemoteSkyValue(
+    if (remoteCachingDependencies.isRetrievalEnabled()) {
+      switch (retrieveRemoteSkyValue(
           configuredTargetKey, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:
           return null;
@@ -380,7 +379,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               computeDependenciesState.execGroupCollectionBuilder,
               state.computeDependenciesState.transitivePackages(),
-              /* crashIfExecutionPhase= */ !remoteCachingDependencies.isRemoteFetchEnabled(),
+              /* crashIfExecutionPhase= */ !remoteCachingDependencies.isRetrievalEnabled(),
               remoteCachingDependencies.mode());
       if (ans != null && analysisProgress != null) {
         analysisProgress.doneConfigureTarget();
@@ -493,7 +492,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredValueCreationException(
           ctgValue.getTarget(),
           null,
-          "Analysis of target '" + target.getLabel() + "' failed",
+          "Analysis of target '%s' (config: %s) failed"
+              .formatted(
+                  target.getLabel(),
+                  configuration != null ? configuration.getOptions().shortId() : "none"),
           rootCauses,
           null);
     }

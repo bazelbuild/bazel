@@ -208,9 +208,7 @@ final class RemoteActionContextProvider {
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteSpawnRunner spawnRunner =
         new RemoteSpawnRunner(
-            env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
-            env.getOptions().getOptions(ExecutionOptions.class),
             executionOptions.verboseFailures,
             env.getReporter(),
             retryScheduler,

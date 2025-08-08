@@ -225,7 +225,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           allowlistEntry("", "subrule_testing"));
 
   public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
-      ImmutableSet.of(allowlistEntry("", "initializer_testing/builtins"));
+      ImmutableSet.of(
+          allowlistEntry("", "initializer_testing/builtins"),
+          allowlistEntry("", "third_party/bazel_rules/rules_cc"),
+          allowlistEntry("rules_cc", ""));
 
   private static final String COMMON_ATTRIBUTES_NAME = "common";
 

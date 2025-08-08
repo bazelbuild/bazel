@@ -141,4 +141,65 @@ public class RuleContextTest extends ToolchainTestCase {
 
     useConfiguration("--extra_toolchains=//bar:all");
   }
+
+  @Test
+  public void testToolchainTypeVisibilityIsEnforced() throws Exception {
+    scratch.file(
+        "private/BUILD",
+        "toolchain_type(",
+        "    name = 'private_toolchain_type',",
+        "    visibility = ['//private:__pkg__'],",
+        ")");
+
+    checkError(
+        "other_pkg",
+        "my_toolchain",
+        "target '//private:private_toolchain_type' is not visible from\n"
+            + "target '//other_pkg:my_toolchain'",
+        """
+        toolchain(
+            name = 'my_toolchain',
+            toolchain_type = '//private:private_toolchain_type',
+            toolchain = ':impl',
+        )
+        filegroup(name = 'impl')
+        """);
+  }
+
+  @Test
+  public void testPrivateToolchainImplementationCanResolveAnywhere() throws Exception {
+    scratch.file(
+        "private/BUILD",
+        "load('//private:toolchain_def.bzl', 'foo_toolchain')",
+        "toolchain_type(name = 'type', visibility = ['//visibility:public'])",
+        "foo_toolchain(name = 'impl', visibility = ['//visibility:private'])",
+        "toolchain(name = 'toolchain',",
+        "    toolchain_type = ':type',",
+        "    toolchain = ':impl',",
+        "    visibility = ['//visibility:public'],",
+        ")");
+
+    scratch.file(
+        "private/toolchain_def.bzl",
+        "def _impl(ctx):",
+        "    return [platform_common.ToolchainInfo()]",
+        "foo_toolchain = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        ")");
+
+    scratch.file(
+        "other_pkg/rule.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_rule = rule(",
+        "    implementation = _impl,",
+        "    toolchains = ['//private:type'],",
+        ")");
+
+    scratch.file("other_pkg/BUILD", "load(':rule.bzl', 'my_rule')", "my_rule(name = 'target')");
+
+    useConfiguration("--extra_toolchains=//private:toolchain");
+    getConfiguredTarget("//other_pkg:target");
+  }
 }

@@ -34,15 +34,20 @@ public class FakeLoadTarget implements Target {
   private final Label label;
   private final Packageoid pkg;
 
-  public FakeLoadTarget(Label label, Package pkg) {
+  /**
+   * @param packageoidOfBuildFile the {@link Packageoid} owning the package's BUILD file: in other
+   *     words, either a monolithic {@link Package} (under eager symbolic macro expansion), or a
+   *     {@link PackagePiece.ForBuildFile} (under lazy symbolic macro expansion).
+   */
+  public FakeLoadTarget(Label label, Packageoid packageoidOfBuildFile) {
     this.label = Preconditions.checkNotNull(label);
-    this.pkg = Preconditions.checkNotNull(pkg);
-  }
-
-  // Fake load targets should be in the same package piece as the package's BUILD file.
-  public FakeLoadTarget(Label label, PackagePiece.ForBuildFile pkgPiece) {
-    this.label = Preconditions.checkNotNull(label);
-    this.pkg = Preconditions.checkNotNull(pkgPiece);
+    Preconditions.checkNotNull(packageoidOfBuildFile);
+    Preconditions.checkArgument(
+        (packageoidOfBuildFile instanceof Package pkg && pkg.getBuildFile().getPackageoid() == pkg)
+            || packageoidOfBuildFile instanceof PackagePiece.ForBuildFile,
+        "%s must be either a monolithic package or a top-level package piece",
+        packageoidOfBuildFile);
+    this.pkg = packageoidOfBuildFile;
   }
 
   @Override

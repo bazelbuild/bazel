@@ -988,9 +988,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @ThreadSafe
   @Override
-  public Collection<Target> getSiblingTargetsInPackage(Target target) {
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
-    return target.getPackage().getTargets().values();
+  public Collection<Target> getSiblingTargetsInPackage(Target target)
+      throws QueryException, InterruptedException {
+    try {
+      return graphBackedRecursivePackageProvider.getSiblingTargetsInPackage(eventHandler, target);
+    } catch (NoSuchPackageException e) {
+      throw new QueryException(e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
+    }
   }
 
   @ThreadSafe
@@ -1057,9 +1061,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
-      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
-        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
-        return new FakeLoadTarget(bzlLabel, originalTarget.getPackage());
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel)
+          throws InterruptedException {
+        return new FakeLoadTarget(bzlLabel, getBuildFileTarget(originalTarget).getPackageoid());
+      }
+
+      @Override
+      public Target getBuildFileTarget(Target originalTarget) throws InterruptedException {
+        return graphBackedRecursivePackageProvider.getBuildFile(originalTarget);
       }
 
       @Override
@@ -1084,12 +1093,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
                           .build())
                   .build());
         }
-        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return new FakeLoadTarget(
             Label.createUnvalidated(
                 packageIdentifier,
                 packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName()),
-            originalTarget.getPackage());
+            getBuildFileTarget(originalTarget).getPackageoid());
       }
     };
   }

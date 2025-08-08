@@ -1062,6 +1062,9 @@ message BuildMetrics {
     // The elapsed wall time in milliseconds until the first action execution
     // started (excluding workspace status actions).
     int64 actions_execution_start_in_ms = 5;
+
+    // The elapsed wall time in milliseconds that the critical path took.
+    google.protobuf.Duration critical_path_time = 6;
   }
   TimingMetrics timing_metrics = 5;
 

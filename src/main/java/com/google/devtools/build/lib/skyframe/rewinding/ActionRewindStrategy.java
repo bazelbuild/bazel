@@ -34,8 +34,11 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -53,6 +56,7 @@ import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependencies;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
@@ -155,7 +159,7 @@ public final class ActionRewindStrategy {
 
     ImmutableList<LostInputRecord> lostRecords = createLostInputRecords(lostOutputsByDigest);
 
-    ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
+    ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind = ImmutableList.builder();
     RewindPlanResult rewindPlanResult;
     try (var ignored =
         AutoProfiler.profiled(
@@ -181,7 +185,7 @@ public final class ActionRewindStrategy {
       rewindEventSamples.add(createLostOutputRewindEvent(failedKey, reset, lostRecords));
     }
 
-    for (Action dep : depsToRewind.build()) {
+    for (ActionAnalysisMetadata dep : depsToRewind.build()) {
       skyframeActionExecutor.prepareDepForRewinding(failedKey, dep);
     }
 
@@ -222,7 +226,7 @@ public final class ActionRewindStrategy {
             .orElseGet(
                 () -> calculateLostInputOwners(lostInputsByDigest.values(), metadataProvider));
 
-    ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
+    ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind = ImmutableList.builder();
     RewindPlanResult rewindPlanResult;
     try (var ignored =
         AutoProfiler.profiled(
@@ -307,7 +311,7 @@ public final class ActionRewindStrategy {
       ImmutableMap<String, ActionInput> lostInputsByDigest,
       LostInputOwners owners,
       Environment env,
-      ImmutableList.Builder<Action> depsToRewind)
+      ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind)
       throws InterruptedException {
     ImmutableList<ActionInput> lostInputs = lostInputsByDigest.values().asList();
 
@@ -325,7 +329,8 @@ public final class ActionRewindStrategy {
 
     boolean missingDependencies = false;
     for (DerivedArtifact lostArtifact : lostArtifacts) {
-      Map<ActionLookupData, Action> actionMap = getActionsForLostArtifact(lostArtifact, env);
+      Map<ActionLookupData, ActionAnalysisMetadata> actionMap =
+          getActionsForLostArtifact(lostArtifact, env);
       if (actionMap == null) {
         // Some deps of the artifact are not done. If allowSkyframeRestarts() is false, another
         // rewind must be in-flight, and there is no need to rewind the shared deps twice.
@@ -334,7 +339,7 @@ public final class ActionRewindStrategy {
         missingDependencies = true;
         continue;
       }
-      ImmutableList<ActionAndLookupData> newlyVisitedActions =
+      ImmutableList<ActionAndLookupDataOrTemplate> newlyVisitedActions =
           addArtifactDepsAndGetNewlyVisitedActions(rewindGraph, lostArtifact, actionMap);
 
       // Note that Artifact.key(lostArtifact) must be rewound. We do this after
@@ -343,7 +348,7 @@ public final class ActionRewindStrategy {
       // the action if it is below an ArtifactNestedSetKey, but this edge is benign since it's
       // always a transitive dep.
       rewindGraph.putEdge(failedKey, Artifact.key(lostArtifact));
-      depsToRewind.addAll(actions(newlyVisitedActions));
+      depsToRewind.addAll(actionAnalysisMetadatas(newlyVisitedActions));
       switch (checkActions(
           newlyVisitedActions, env, rewindGraph, depsToRewind, nestedSetsForPropagatingActions)) {
         case SUCCESS:
@@ -704,18 +709,19 @@ public final class ActionRewindStrategy {
    * checked too.
    */
   private CheckActionsStatus checkActions(
-      ImmutableList<ActionAndLookupData> actionsToCheck,
+      ImmutableList<ActionAndLookupDataOrTemplate> actionsToCheck,
       Environment env,
       MutableGraph<SkyKey> rewindGraph,
-      ImmutableList.Builder<Action> depsToRewind,
+      ImmutableList.Builder<ActionAnalysisMetadata> depsToRewind,
       SetMultimap<SkyKey, ArtifactNestedSetKey> nestedSetDeps)
       throws InterruptedException {
     boolean missingDependencies = false;
-    ArrayDeque<ActionAndLookupData> uncheckedActions = new ArrayDeque<>(actionsToCheck);
+    var uncheckedActions = new ArrayDeque<ActionAndLookupData>(actionsToCheck.size());
+    filterActionAndLookupDataTo(actionsToCheck, uncheckedActions);
     while (!uncheckedActions.isEmpty()) {
       ActionAndLookupData actionAndLookupData = uncheckedActions.removeFirst();
       ActionLookupData actionKey = actionAndLookupData.lookupData();
-      Action action = actionAndLookupData.action();
+      Action action = actionAndLookupData.actionAnalysisMetadata();
       ArrayList<DerivedArtifact> artifactsToCheck = new ArrayList<>();
       ArrayList<ActionLookupData> newlyDiscoveredActions = new ArrayList<>();
 
@@ -743,20 +749,33 @@ public final class ActionRewindStrategy {
         uncheckedActions.add(new ActionAndLookupData(actionLookupData, additionalAction));
       }
       for (DerivedArtifact artifact : artifactsToCheck) {
-        Map<ActionLookupData, Action> actionMap = getActionsForLostArtifact(artifact, env);
+        Map<ActionLookupData, ActionAnalysisMetadata> actionMap =
+            getActionsForLostArtifact(artifact, env);
         if (actionMap == null) {
           missingDependencies = true;
           continue;
         }
-        ImmutableList<ActionAndLookupData> newlyVisitedActions =
+        ImmutableList<ActionAndLookupDataOrTemplate> newlyVisitedActions =
             addArtifactDepsAndGetNewlyVisitedActions(rewindGraph, artifact, actionMap);
-        depsToRewind.addAll(actions(newlyVisitedActions));
-        uncheckedActions.addAll(newlyVisitedActions);
+        depsToRewind.addAll(actionAnalysisMetadatas(newlyVisitedActions));
+        filterActionAndLookupDataTo(newlyVisitedActions, uncheckedActions);
       }
     }
     return missingDependencies
         ? CheckActionsStatus.MISSING_DEPENDENCIES
         : CheckActionsStatus.SUCCESS;
+  }
+
+  private static void filterActionAndLookupDataTo(
+      ImmutableList<ActionAndLookupDataOrTemplate> actions, ArrayDeque<ActionAndLookupData> queue) {
+    for (ActionAndLookupDataOrTemplate action : actions) {
+      switch (action) {
+        case ActionAndLookupData actionAndLookupData -> {
+          queue.add(actionAndLookupData);
+        }
+        case TemplateWrapper unused -> {}
+      }
+    }
   }
 
   /**
@@ -821,18 +840,26 @@ public final class ActionRewindStrategy {
    *
    * <p>Returns a list of key+action pairs for each action whose key was newly added to the graph.
    */
-  private static ImmutableList<ActionAndLookupData> addArtifactDepsAndGetNewlyVisitedActions(
-      MutableGraph<SkyKey> rewindGraph,
-      Artifact artifact,
-      Map<ActionLookupData, Action> actionMap) {
+  private static ImmutableList<ActionAndLookupDataOrTemplate>
+      addArtifactDepsAndGetNewlyVisitedActions(
+          MutableGraph<SkyKey> rewindGraph,
+          Artifact artifact,
+          Map<ActionLookupData, ActionAnalysisMetadata> actionMap) {
 
-    ImmutableList.Builder<ActionAndLookupData> newlyVisitedActions =
+    ImmutableList.Builder<ActionAndLookupDataOrTemplate> newlyVisitedActions =
         ImmutableList.builderWithExpectedSize(actionMap.size());
     SkyKey artifactKey = Artifact.key(artifact);
-    for (Map.Entry<ActionLookupData, Action> actionEntry : actionMap.entrySet()) {
+    for (Map.Entry<ActionLookupData, ActionAnalysisMetadata> actionEntry : actionMap.entrySet()) {
       ActionLookupData actionKey = actionEntry.getKey();
       if (rewindGraph.addNode(actionKey)) {
-        newlyVisitedActions.add(new ActionAndLookupData(actionKey, actionEntry.getValue()));
+        newlyVisitedActions.add(
+            switch (actionEntry.getValue()) {
+              case Action action -> new ActionAndLookupData(actionKey, action);
+              case ActionTemplate<?> template -> new TemplateWrapper(template);
+              default ->
+                  throw new IllegalStateException(
+                      "ActionAnalysisMetadata " + actionEntry.getValue() + " of unexpected type");
+            });
       }
       if (!artifactKey.equals(actionKey)) {
         rewindGraph.putEdge(artifactKey, actionKey);
@@ -847,30 +874,42 @@ public final class ActionRewindStrategy {
    * not done.
    */
   @Nullable
-  private Map<ActionLookupData, Action> getActionsForLostArtifact(
+  private Map<ActionLookupData, ActionAnalysisMetadata> getActionsForLostArtifact(
       DerivedArtifact lostInput, Environment env) throws InterruptedException {
     ImmutableSet<ActionLookupData> actionExecutionDeps = getActionExecutionDeps(lostInput, env);
     if (actionExecutionDeps == null) {
       return null;
     }
 
-    Map<ActionLookupData, Action> actions =
+    Map<ActionLookupData, ActionAnalysisMetadata> actions =
         Maps.newHashMapWithExpectedSize(actionExecutionDeps.size());
     boolean missingAction = false;
     for (ActionLookupData dep : actionExecutionDeps) {
-      Action action =
-          ActionUtils.getActionForLookupData(
-              env, dep, /* crashIfActionOwnerMissing= */ !allowSkyframeRestarts());
-      if (action == null) {
+      ActionAnalysisMetadata actionAnalysisMetadata = getActionAnalysisMetadata(env, dep);
+      if (actionAnalysisMetadata == null) {
         missingAction = true;
         continue;
       }
-      actions.put(dep, action);
+      actions.put(dep, actionAnalysisMetadata);
     }
     if (missingAction) {
       return null;
     }
     return actions;
+  }
+
+  @Nullable
+  private ActionAnalysisMetadata getActionAnalysisMetadata(
+      Environment env, ActionLookupData actionLookupData) throws InterruptedException {
+    ActionLookupValue actionLookupValue =
+        ArtifactFunction.getActionLookupValue(
+            actionLookupData.getActionLookupKey(),
+            env,
+            /* crashIfActionOwnerMissing= */ !allowSkyframeRestarts());
+    if (actionLookupValue == null) {
+      return null;
+    }
+    return actionLookupValue.getActions().get(actionLookupData.getActionIndex());
   }
 
   /**
@@ -901,7 +940,10 @@ public final class ActionRewindStrategy {
     if (actionTemplateExpansionKeys == null) {
       return null;
     }
-    return ImmutableSet.copyOf(actionTemplateExpansionKeys);
+    return ImmutableSet.<ActionLookupData>builder()
+        .add(lostInput.getGeneratingActionKey())
+        .addAll(actionTemplateExpansionKeys)
+        .build();
   }
 
   private boolean shouldRecordRewindEventSample() {
@@ -909,7 +951,7 @@ public final class ActionRewindStrategy {
   }
 
   private boolean allowSkyframeRestarts() {
-    return cachingDependenciesSupplier.get().isRemoteFetchEnabled();
+    return cachingDependenciesSupplier.get().isRetrievalEnabled();
   }
 
   private static ActionRewindEvent createLostOutputRewindEvent(
@@ -955,14 +997,29 @@ public final class ActionRewindStrategy {
     }
   }
 
-  private record ActionAndLookupData(ActionLookupData lookupData, Action action) {
-    ActionAndLookupData {
-      requireNonNull(lookupData, "lookupData");
-      requireNonNull(action, "action");
+  private sealed interface ActionAndLookupDataOrTemplate
+      permits TemplateWrapper, ActionAndLookupData {
+    ActionAnalysisMetadata actionAnalysisMetadata();
+  }
+
+  private record TemplateWrapper(ActionTemplate<?> actionAnalysisMetadata)
+      implements ActionAndLookupDataOrTemplate {
+    private TemplateWrapper {
+      requireNonNull(actionAnalysisMetadata, "actionAnalysisMetadata");
     }
   }
 
-  private static List<Action> actions(List<ActionAndLookupData> newlyVisitedActions) {
-    return Lists.transform(newlyVisitedActions, ActionAndLookupData::action);
+  private record ActionAndLookupData(ActionLookupData lookupData, Action actionAnalysisMetadata)
+      implements ActionAndLookupDataOrTemplate {
+    private ActionAndLookupData {
+      requireNonNull(lookupData, "lookupData");
+      requireNonNull(actionAnalysisMetadata, "actionAnalysisMetadata");
+    }
+  }
+
+  private static List<ActionAnalysisMetadata> actionAnalysisMetadatas(
+      List<ActionAndLookupDataOrTemplate> newlyVisitedActions) {
+    return Lists.transform(
+        newlyVisitedActions, ActionAndLookupDataOrTemplate::actionAnalysisMetadata);
   }
 }

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -63,7 +65,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
 /**
@@ -84,9 +86,10 @@ public final class FrontierSerializer {
       SkyframeExecutor skyframeExecutor,
       LongVersionGetter versionGetter,
       Reporter reporter,
-      EventBus eventBus)
+      EventBus eventBus,
+      boolean keepStateAfterBuild)
       throws InterruptedException {
-    var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
+    var stopwatch = Stopwatch.createStarted();
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
     ImmutableMap<SkyKey, SelectionMarking> selection =
@@ -95,6 +98,7 @@ public final class FrontierSerializer {
     reporter.handle(
         Event.info(
             String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
+    stopwatch.reset().start();
 
     if (dependenciesProvider.mode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
       reporter.handle(
@@ -117,7 +121,7 @@ public final class FrontierSerializer {
     }
 
     var profileCollector = new ProfileCollector();
-    var serializedCount = new AtomicInteger();
+    var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
     if (versionGetter == null) {
       if (isInTest()) {
@@ -127,6 +131,33 @@ public final class FrontierSerializer {
       }
     }
 
+    if (!keepStateAfterBuild) {
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // INCREMENTALITY PITFALLS WARNING
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //
+      // The following code is not safe to run if the Skyframe graph needs to be
+      // incrementally correct after this point.
+      //
+      // We only do this if --nokeep_state_after_build is set.
+      try (var ignored = Profiler.instance().profile(null, "reclaimMemoryFromSkyframe")) {
+        // TODO: More ideas, while keeping the constraint that we need the
+        // structure of the selection and DTC to be able to compute the
+        // FileOpNodes MTSV metadata (File, DirectoryListing) for invalidation.
+        // - Delete SkyValues of nodes in the DTC, because the values are not needed by
+        // SelectedEntrySerializer.
+        // - Delete entire nodes not in selection and DTC, because they are never traversed in
+        // SelectedEntrySerializer.
+        stopwatch.reset().start();
+        long rdepsDeleted = deleteAllRdeps(graph); // saves about 8% RAM b/418730298#comment26
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "%s rdeps deleted to reclaim memory, took %s", rdepsDeleted, stopwatch)));
+      }
+    }
+
+    stopwatch.reset().start();
     ListenableFuture<Void> writeStatus =
         SelectedEntrySerializer.uploadSelection(
             graph,
@@ -137,7 +168,7 @@ public final class FrontierSerializer {
             dependenciesProvider.getFingerprintValueService(),
             eventBus,
             profileCollector,
-            serializedCount);
+            serializationStats);
 
     try {
       var unusedNull = writeStatus.get();
@@ -148,14 +179,16 @@ public final class FrontierSerializer {
       reporter.handle(
           Event.info(
               String.format(
-                  "Serialized %s frontier nodes into %s/%s key/value bytes and %s entries "
-                      + "(%s batches) in %s",
-                  serializedCount.get(),
+                  "Serialized %s/%s analysis/execution nodes into %s/%s key/value bytes and %s"
+                      + " entries (%s batches) in %s",
+                  serializationStats.analysisNodes(),
+                  serializationStats.executionNodes(),
                   stats.keyBytesSent(),
                   stats.valueBytesSent(),
                   stats.entriesWritten(),
                   stats.setBatches(),
                   stopwatch)));
+      stopwatch.reset().start();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       String message = cause.getMessage();
@@ -382,20 +415,33 @@ public final class FrontierSerializer {
             });
   }
 
-  /** Stopwatch that resets upon reporting the time via {@link #toString}. */
-  private record ResettingStopwatch(Stopwatch stopwatch) {
-    @Override
-    public String toString() {
-      String text = stopwatch.toString();
-      stopwatch.reset().start();
-      return text;
-    }
-  }
-
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {
     return FailureDetail.newBuilder()
         .setMessage(message)
         .setRemoteAnalysisCaching(RemoteAnalysisCaching.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /**
+   * Deletes all rdeps from the graph.
+   *
+   * <p>This is not safe to call if the Skyframe graph needs to be incrementally correct after this
+   * point.
+   *
+   * @return the number of rdeps deleted.
+   */
+  private static long deleteAllRdeps(InMemoryGraph graph) {
+    AtomicLong deletedRdeps = new AtomicLong();
+    graph.parallelForEach(
+        node -> {
+          IncrementalInMemoryNodeEntry incrementalInMemoryNodeEntry =
+              (IncrementalInMemoryNodeEntry) node;
+          for (SkyKey rdep : incrementalInMemoryNodeEntry.getReverseDepsForDoneEntry()) {
+            incrementalInMemoryNodeEntry.removeReverseDep(rdep);
+            deletedRdeps.incrementAndGet();
+          }
+          incrementalInMemoryNodeEntry.consolidateReverseDeps();
+        });
+    return deletedRdeps.get();
   }
 }

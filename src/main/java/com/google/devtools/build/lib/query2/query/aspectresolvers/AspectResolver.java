@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 
@@ -72,7 +71,7 @@ public interface AspectResolver {
 
   /**
    * Compute the labels of the BUILD Starlark files on which the results of the other two methods
-   * depend for a target in the given package.
+   * depend for a target in the given BUILD file's package.
    */
-  Iterable<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException;
+  Iterable<Label> computeBuildFileDependencies(Target buildFile) throws InterruptedException;
 }

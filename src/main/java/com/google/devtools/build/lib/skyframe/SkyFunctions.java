@@ -98,8 +98,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName ASPECT = SkyFunctionName.createHermetic("ASPECT");
   static final SkyFunctionName TOP_LEVEL_ASPECTS =
       SkyFunctionName.createHermetic("TOP_LEVEL_ASPECTS");
-  static final SkyFunctionName BUILD_TOP_LEVEL_ASPECTS_DETAILS =
-      SkyFunctionName.createHermetic("BUILD_TOP_LEVEL_ASPECTS_DETAILS");
+  static final SkyFunctionName LOAD_ASPECTS = SkyFunctionName.createHermetic("LOAD_ASPECTS");
   public static final SkyFunctionName TARGET_COMPLETION =
       SkyFunctionName.createHermetic("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =

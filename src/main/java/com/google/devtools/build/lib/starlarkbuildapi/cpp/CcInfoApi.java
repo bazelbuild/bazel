@@ -58,15 +58,15 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       documented = false,
       doc = "Returns the <code>DebugContext</code>",
       useStarlarkThread = true)
-  CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread)
+  StarlarkInfo /* CcDebugInfoContextApi */ getCcDebugInfoContextFromStarlark(StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
-      name = "transitive_native_libraries",
+      name = "_legacy_transitive_native_libraries",
       documented = false,
-      doc = "Returns a depset of the transitive native libraries",
-      useStarlarkThread = true)
-  Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException;
+      structField = true,
+      doc = "Returns a depset of the transitive native libraries")
+  Depset getCcTransitiveNativeLibraries() throws EvalException;
 
   /** The provider implementing this can construct CcInfo objects. */
   @StarlarkBuiltin(
@@ -109,7 +109,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               named = true,
               defaultValue = "None",
               allowedTypes = {
-                @ParamType(type = CcDebugInfoContextApi.class),
+                @ParamType(type = StarlarkInfo.class), /* CcDebugInfoContextApi */
                 @ParamType(type = NoneType.class)
               }),
           @Param(

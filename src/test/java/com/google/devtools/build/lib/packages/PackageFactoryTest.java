@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.License.LicenseType;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -519,7 +520,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     this.validator =
         new PackageValidator() {
           @Override
-          public void validate(Package pkg2, ExtendedEventHandler eventHandler)
+          public void validate(Package pkg2, Metrics metrics, ExtendedEventHandler eventHandler)
               throws InvalidPackageException {
             if (pkg2.getName().equals("x")) {
               eventHandler.handle(Event.warn("warning event"));

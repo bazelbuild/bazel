@@ -41,6 +41,9 @@ public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   private final Extrema<PackageLoadMetricsContainer> slowestPackagesToLoad;
 
   @GuardedBy("this")
+  private final Extrema<PackageLoadMetricsContainer> packagesWithMostGlobFilesystemOperationCost;
+
+  @GuardedBy("this")
   private final Extrema<PackageLoadMetricsContainer> largestPackages;
 
   @GuardedBy("this")
@@ -57,6 +60,10 @@ public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
     this.currentNumPackagesToTrack = currentNumPackagesToTrack;
     this.slowestPackagesToLoad =
         Extrema.max(currentNumPackagesToTrack, PackageLoadMetricsContainer.LOAD_TIMES_COMP);
+    this.packagesWithMostGlobFilesystemOperationCost =
+        Extrema.max(
+            currentNumPackagesToTrack,
+            PackageLoadMetricsContainer.GLOB_FILESYSTEM_OPERATION_COST_COMP);
     this.largestPackages =
         Extrema.max(currentNumPackagesToTrack, PackageLoadMetricsContainer.NUM_TARGETS_COMP);
     this.packagesWithMostTransitiveLoads =
@@ -75,6 +82,7 @@ public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   public synchronized void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics) {
     PackageLoadMetricsContainer cont = PackageLoadMetricsContainer.create(pkgId, metrics);
     slowestPackagesToLoad.aggregate(cont);
+    packagesWithMostGlobFilesystemOperationCost.aggregate(cont);
     packagesWithMostComputationSteps.aggregate(cont);
     largestPackages.aggregate(cont);
     packagesWithMostTransitiveLoads.aggregate(cont);
@@ -92,6 +100,13 @@ public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
                 v -> v.getPackageLoadMetricsInternal().getLoadDuration(),
                 (k, v) -> v,
                 LinkedHashMap::new)); // use a LinkedHashMap to ensure iteration order is maintained
+  }
+
+  @Override
+  public synchronized Map<PackageIdentifier, Long> getGlobFilesystemOperationCost() {
+    return toMap(
+        packagesWithMostGlobFilesystemOperationCost,
+        PackageLoadMetrics::getGlobFilesystemOperationCost);
   }
 
   @Override
@@ -129,6 +144,7 @@ public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   @Override
   public synchronized void clear() {
     slowestPackagesToLoad.clear();
+    packagesWithMostGlobFilesystemOperationCost.clear();
     packagesWithMostComputationSteps.clear();
     largestPackages.clear();
     packagesWithMostTransitiveLoads.clear();
@@ -141,6 +157,10 @@ public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
         "Slowest packages (ms)",
         slowestPackagesToLoad.getExtremeElements(),
         c -> Durations.toMillis(c.getPackageLoadMetricsInternal().getLoadDuration()));
+    logIfNonEmpty(
+        "Packages with highest glob filesystem operation cost",
+        packagesWithMostGlobFilesystemOperationCost.getExtremeElements(),
+        c -> c.getPackageLoadMetricsInternal().getGlobFilesystemOperationCost());
     logIfNonEmpty(
         "Largest packages (num targets)",
         largestPackages.getExtremeElements(),
@@ -169,6 +189,7 @@ public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   public synchronized Collection<PackageLoadMetrics> getPackageLoadMetrics() {
     return Streams.concat(
             slowestPackagesToLoad.getExtremeElements().stream(),
+            packagesWithMostGlobFilesystemOperationCost.getExtremeElements().stream(),
             packagesWithMostComputationSteps.getExtremeElements().stream(),
             largestPackages.getExtremeElements().stream(),
             packagesWithMostTransitiveLoads.getExtremeElements().stream(),

@@ -221,6 +221,39 @@ public class GcChurningDetectorTest {
     verifyOom();
   }
 
+  @Test
+  public void fullGcStartedBeforeInvocationStarted() {
+    ManualClock fakeClock = new ManualClock();
+
+    GcChurningDetector underTest =
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 100,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 100,
+            fakeClock,
+            mockBugReporter);
+
+    fakeClock.advance(Duration.ofMillis(1L));
+    underTest.handle(fullGcEvent(Duration.ofSeconds(2L)));
+
+    MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+    underTest.populateStats(actualBuilder);
+
+    assertThat(actualBuilder.build())
+        .isEqualTo(
+            MemoryPressureStats.newBuilder()
+                .addFullGcFractionPoint(
+                    FullGcFractionPoint.newBuilder()
+                        .setInvocationWallTimeSoFarMs(1)
+                        .setFullGcFractionSoFar(1.0)
+                        .build())
+                .setPeakFullGcFractionPoint(
+                    FullGcFractionPoint.newBuilder()
+                        .setInvocationWallTimeSoFarMs(1)
+                        .setFullGcFractionSoFar(1.0)
+                        .build())
+                .build());
+  }
+
   private void verifyNoOom() {
     verifyNoInteractions(mockBugReporter);
   }

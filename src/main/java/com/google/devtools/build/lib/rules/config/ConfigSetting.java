@@ -93,7 +93,7 @@ import javax.annotation.Nullable;
 public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
   /** Flags we'd like to remove once there are no more repo references. */
-  private static final ImmutableSet<String> DEPRECATED_FLAGS =
+  private static final ImmutableSet<String> DEPRECATED_PRE_PLATFORMS_FLAGS =
       ImmutableSet.of("cpu", "host_cpu", "crosstool_top");
 
   /**
@@ -432,18 +432,20 @@ Either remove one of these settings or ensure they match the same value.
 
     ImmutableList<String> disabledSelectOptions =
         ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
-    if (disabledSelectOptions.contains(optionName)) {
+    if (disabledSelectOptions.contains(optionName) || options.isNonConfigurable(optionName)) {
+      String message = PARSE_ERROR_MESSAGE + "select() on '%s' is not allowed.";
+      if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)) {
+        message +=
+            " Use platform constraints instead:"
+                + " https://bazel.build/docs/configurable-attributes#platforms.";
+      }
       ruleContext.attributeError(
-          ConfigSettingRule.SETTINGS_ATTRIBUTE,
-          String.format(
-              PARSE_ERROR_MESSAGE
-                  + "select() on %s is not allowed. Use platform constraints instead:"
-                  + " https://bazel.build/docs/configurable-attributes#platforms.",
-              optionName));
+          ConfigSettingRule.SETTINGS_ATTRIBUTE, String.format(message, optionName));
       return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
-    if (DEPRECATED_FLAGS.contains(optionName) && ruleContext.getLabel().getRepository().isMain()) {
+    if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)
+        && ruleContext.getLabel().getRepository().isMain()) {
       ruleContext.ruleWarning(
           String.format(
               "select() on %s is deprecated. Use platform constraints instead:"

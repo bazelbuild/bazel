@@ -14,12 +14,20 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Packageoid;
+import com.google.devtools.build.lib.packages.Target;
 
 /**
  * API for retrieving packages. Implementations generally load packages to fulfill requests.
@@ -46,23 +54,21 @@ public interface PackageProvider extends TargetProvider {
       throws NoSuchPackageException, InterruptedException;
 
   /**
-   * If a {@link Packageoid} is a {@link Package}, returns it; otherwise, loads and returns the full
-   * package containing it.
+   * If a {@link Target} is owned by a monolithic {@link Package}, returns it; otherwise, loads and
+   * returns the full package encompassing the target's package piece.
    *
+   * @throws NoSuchPackageException if target is owned by a {@link PackagePiece}, and the full
+   *     package could not be loaded due to an error while loading a different package piece.
    * @throws InterruptedException if the package loading was interrupted.
    */
-  default Package getPackage(ExtendedEventHandler eventHandler, Packageoid packageoid)
-      throws InterruptedException {
+  default Package getPackage(ExtendedEventHandler eventHandler, Target target)
+      throws NoSuchPackageException, InterruptedException {
+    Packageoid packageoid = target.getPackageoid();
     if (packageoid instanceof Package pkg) {
+      // Monolithic package.
       return pkg;
     }
-    try {
-      return getPackage(eventHandler, packageoid.getPackageIdentifier());
-    } catch (NoSuchPackageException e) {
-      // Cannot happen: for a packageoid to exists, its package's BUILD file must also exist and be
-      // parseable.
-      throw new AssertionError("Failed to load package " + packageoid.getPackageIdentifier(), e);
-    }
+    return getPackage(eventHandler, packageoid.getPackageIdentifier());
   }
 
   /**
@@ -84,4 +90,63 @@ public interface PackageProvider extends TargetProvider {
    */
   boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws InconsistentFilesystemException, InterruptedException;
+
+  /**
+   * Returns the BUILD file target of the given package, loading, parsing and evaluating either the
+   * full package (if lazy macro expansion is disabled) or just the package piece owning the BUILD
+   * file (if lazy macro expansion is enabled) if it is not already loaded.
+   *
+   * @throws NoSuchPackageException if the package could not be found
+   * @throws NoSuchPackagePieceException if lazy macro expansion is enabled, and the package piece
+   *     owning the BUILD file failed validation
+   * @throws InterruptedException if the package loading was interrupted
+   */
+  InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+      throws NoSuchPackageException, NoSuchPackagePieceException, InterruptedException;
+
+  @Override
+  default InputFile getBuildFile(Target target) throws InterruptedException {
+    Packageoid packageoid = target.getPackageoid();
+    if (packageoid instanceof Package pkg) {
+      // Monolithic package.
+      return pkg.getBuildFile();
+    } else if (packageoid instanceof PackagePiece.ForBuildFile forBuildFile) {
+      // Lazy macro expansion, target is top-level.
+      return forBuildFile.getBuildFile();
+    } else {
+      // Lazy macro expansion, target is in a PackagePiece.ForMacro, we need to retrieve the
+      // BUILD file from the (already loaded) PackagePiece.ForBuildFile.
+      StoredEventHandler localEventHandler = new StoredEventHandler();
+      InputFile buildFile;
+      try {
+        buildFile =
+            getBuildFile(localEventHandler, target.getPackageMetadata().packageIdentifier());
+      } catch (NoSuchPackageException | NoSuchPackagePieceException e) {
+        // If a PackagePiece.ForMacro exists, its corresponding PackagePiece.ForBuildFile must also
+        // exist (and already be loaded).
+        throw new IllegalStateException(
+            String.format(
+                "Bug in package loading machinery: failed to load package piece for BUILD file of"
+                    + " already-loaded target %s",
+                target),
+            e);
+      }
+      // If PackagePiece.ForMacro was loaded, its corresponding PackagePiece.ForBuildFile could not
+      // be in error.
+      checkState(
+          !localEventHandler.hasErrors(),
+          "Bug in package loading machinery: unexpected error while retrieving package piece for"
+              + " BUILD file of already-loaded target %s: %s",
+          target,
+          localEventHandler.getEvents());
+      return buildFile;
+    }
+  }
+
+  @Override
+  default ImmutableCollection<Target> getSiblingTargetsInPackage(
+      ExtendedEventHandler eventHandler, Target target)
+      throws NoSuchPackageException, InterruptedException {
+    return getPackage(eventHandler, target).getTargets().values();
+  }
 }

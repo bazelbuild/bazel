@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -32,6 +33,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import java.util.Objects;
 
 /** Options for configuring Packages -- loading and default behaviors. */
 public class PackageOptions extends OptionsBase {
@@ -198,6 +200,21 @@ public class PackageOptions extends OptionsBase {
               + " files.")
   public boolean checkExternalOtherFiles;
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/25539) - at present, lazy macro expansion is
+  // incompatible with non-finalizer use of native.existing_rules(). Once we can load all packages
+  // in lazy macro expansion mode, we might evolve this option to be an allowlist/denylist for
+  // performance reasons - which would mean supporting negation or package_group()-style
+  // subpackage patterns.
+  @Option(
+      name = "experimental_lazy_macro_expansion_packages",
+      defaultValue = "",
+      converter = LazyMacroExpansionPackages.OptionConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "List of packages in which symbolic macro are expanded only if necessary.")
+  public LazyMacroExpansionPackages lazyMacroExpansionPackages;
+
   /** A converter from strings containing comma-separated names of packages to lists of strings. */
   public static class CommaSeparatedPackageNameListConverter
       extends Converter.Contextless<List<PackageIdentifier>> {
@@ -224,7 +241,6 @@ public class PackageOptions extends OptionsBase {
     public String getTypeDescription() {
       return "comma-separated list of package names";
     }
-
   }
 
   public ImmutableSet<PackageIdentifier> getDeletedPackages() {
@@ -232,5 +248,97 @@ public class PackageOptions extends OptionsBase {
       return ImmutableSet.of();
     }
     return ImmutableSet.copyOf(deletedPackages);
+  }
+
+  /**
+   * The set of packages in which symbolic macros are to be expanded lazily. Used by Skyframe and by
+   * PackageLoader.
+   */
+  public interface LazyMacroExpansionPackages {
+    /**
+     * A {@link LazyMacroExpansionPackages} indicating that no packages should have symbolic macros
+     * expanded lazily.
+     */
+    public static final LazyMacroExpansionPackages NONE =
+        new LazyMacroExpansionPackagesSet(ImmutableSet.of());
+
+    /**
+     * A {@link LazyMacroExpansionPackages} indicating that all packages should have symbolic macros
+     * expanded lazily.
+     */
+    public static final LazyMacroExpansionPackages ALL =
+        new LazyMacroExpansionPackages() {
+          @Override
+          public boolean contains(PackageIdentifier packageId) {
+            return true;
+          }
+        };
+
+    /** Returns true if symbolic macros in the given package should be expanded lazily. */
+    boolean contains(PackageIdentifier packageId);
+
+    /** {@link Converter} for {@link LazyMacroExpansionPackages}. */
+    public static class OptionConverter extends Converter.Contextless<LazyMacroExpansionPackages> {
+
+      private static final CommaSeparatedNonEmptyOptionListConverter stringConverter =
+          new CommaSeparatedNonEmptyOptionListConverter();
+
+      @Override
+      public LazyMacroExpansionPackages convert(String input) throws OptionsParsingException {
+        ImmutableList<String> strings = stringConverter.convert(input);
+        if (strings.isEmpty()) {
+          return LazyMacroExpansionPackages.NONE;
+        } else if (strings.contains("*")) {
+          return LazyMacroExpansionPackages.ALL;
+        } else {
+          ImmutableSet.Builder<PackageIdentifier> packageIds = ImmutableSet.builder();
+          for (String s : strings) {
+            try {
+              packageIds.add(PackageIdentifier.parse(s));
+            } catch (LabelSyntaxException e) {
+              throw new OptionsParsingException(e.getMessage());
+            }
+          }
+          return new LazyMacroExpansionPackagesSet(packageIds.build());
+        }
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "comma-separated list of package names; or '*' to indicate all packages";
+      }
+    }
+  }
+
+  private static final class LazyMacroExpansionPackagesSet implements LazyMacroExpansionPackages {
+    private final ImmutableSet<PackageIdentifier> packageIds;
+
+    private LazyMacroExpansionPackagesSet(ImmutableSet<PackageIdentifier> packageIds) {
+      this.packageIds = packageIds;
+    }
+
+    @Override
+    public boolean contains(PackageIdentifier packageId) {
+      return packageIds.contains(packageId);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      return o instanceof LazyMacroExpansionPackagesSet other
+          && Objects.equals(packageIds, other.packageIds);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(packageIds);
+    }
+
+    @Override
+    public String toString() {
+      return String.format("LazyMacroExpansionPackages[%s]", packageIds);
+    }
   }
 }

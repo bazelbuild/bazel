@@ -21,9 +21,9 @@ load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "dynamic_deps_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/debug_package_info.bzl", "DebugPackageInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
-DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_internal = _builtins.internal.cc_internal
 
 # TODO(blaze-team): cleanup lint target types
@@ -665,6 +665,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         ctx,
         cc_toolchain,
         dwp_file,
+        feature_configuration = feature_configuration,
         cc_compilation_outputs = cc_compilation_outputs,
         cc_debug_context = cc_helper.merge_cc_debug_contexts(cc_compilation_outputs, _get_providers(ctx)),
         linking_mode = linking_mode,

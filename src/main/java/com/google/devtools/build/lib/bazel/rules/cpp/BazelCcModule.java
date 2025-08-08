@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcDebugInfoContext;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
@@ -44,7 +43,6 @@ public class BazelCcModule extends CcModule
         LtoBackendArtifacts,
         CcToolchainVariables,
         CcToolchainConfigInfo,
-        CcDebugInfoContext,
         CppModuleMap> {
 
   @Override
