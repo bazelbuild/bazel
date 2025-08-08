@@ -36,6 +36,8 @@ public final class SkyFunctions {
   // SequencedSkyframeExecutor deletes any affected PACKAGE_LOOKUP nodes when that set changes.
   public static final SkyFunctionName PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
+  public static final SkyFunctionName ROOTED_PATH_CASING =
+      SkyFunctionName.createHermetic("ROOTED_PATH_CASING");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
   public static final SkyFunctionName PROJECT = SkyFunctionName.createHermetic("PROJECT");

@@ -525,4 +525,9 @@ public class JavaIoFileSystem extends AbstractFileSystem {
       throws IOException {
     Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
   }
+
+  @Override
+  protected String getCanonicalBaseName(PathFragment path) throws IOException {
+    return getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).getFileName().toString();
+  }
 }

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.NoRepositoryPackageLookupValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -48,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -65,14 +67,17 @@ public class PackageLookupFunction implements SkyFunction {
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
+  private final AtomicReference<Boolean> enforceStrictLabelCasing;
 
   public PackageLookupFunction(
       AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      ImmutableList<BuildFileName> buildFilesByPriority) {
+      ImmutableList<BuildFileName> buildFilesByPriority,
+      AtomicReference<Boolean> enforceStrictLabelCasing) {
     this.deletedPackages = deletedPackages;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
+    this.enforceStrictLabelCasing = enforceStrictLabelCasing;
   }
 
   private static class State implements SkyKeyComputeState {
@@ -100,7 +105,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (!packageKey.getRepository().isMain()) {
-      return computeExternalPackageLookupValue(skyKey, env, packageKey);
+      return computeExternalPackageLookupValue(skyKey, env);
     }
 
     if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
@@ -319,7 +324,8 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (fileValue.isFile()) {
-      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+      return validateSuccessfulLookup(
+          env, buildFileName, packageIdentifier.getPackageFragment(), buildFileRootedPath);
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
@@ -332,8 +338,7 @@ public class PackageLookupFunction implements SkyFunction {
    * name.
    */
   @Nullable
-  private PackageLookupValue computeExternalPackageLookupValue(
-      SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
+  private PackageLookupValue computeExternalPackageLookupValue(SkyKey skyKey, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
     SkyKey repositoryKey = RepositoryDirectoryValue.key(id.getRepository());
@@ -381,17 +386,44 @@ public class PackageLookupFunction implements SkyFunction {
       PathFragment buildFileFragment =
           id.getPackageFragment().getRelative(buildFileName.getFilenameFragment());
       RootedPath buildFileRootedPath = RootedPath.toRootedPath(root, buildFileFragment);
-      FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
+      FileValue fileValue = getFileValue(buildFileRootedPath, env, id);
       if (fileValue == null) {
         return null;
       }
 
       if (fileValue.isFile()) {
-        return PackageLookupValue.success(root, buildFileName);
+        return validateSuccessfulLookup(env, buildFileName, packageFragment, buildFileRootedPath);
       }
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
+  }
+
+  private PackageLookupValue validateSuccessfulLookup(
+      Environment env,
+      BuildFileName buildFileName,
+      PathFragment packageFragment,
+      RootedPath buildFileRootedPath)
+      throws InterruptedException {
+    // Only Windows and macOS typically have case-insensitive file systems, so the validation below
+    // can only fail on those platforms.
+    if ((OS.getCurrent() != OS.WINDOWS && OS.getCurrent() != OS.DARWIN)
+        || !Objects.equals(enforceStrictLabelCasing.get(), Boolean.TRUE)) {
+      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+    }
+
+    var casingValue =
+        (RootedPathCasingValue)
+            env.getValue(RootedPathCasingValue.key(buildFileRootedPath.getParentDirectory()));
+    return switch (casingValue) {
+      case RootedPathCasingValue.NonCanonical nonCanonical ->
+          PackageLookupValue.invalidPackageName(
+              "use the canonical form '%s' instead"
+                  .formatted(nonCanonical.expectedCasing(packageFragment)));
+      case RootedPathCasingValue.Canonical ignored ->
+          PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+      case null -> null;
+    };
   }
 
   /**

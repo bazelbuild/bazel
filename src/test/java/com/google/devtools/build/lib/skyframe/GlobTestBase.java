@@ -156,7 +156,9 @@ public abstract class GlobTestBase {
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            /* enforceStrictLabelCasing= */ new AtomicReference<>(true)));
+    skyFunctions.put(SkyFunctions.ROOTED_PATH_CASING, new RootedPathCasingFunction());
     skyFunctions.put(
         SkyFunctions.REPO_FILE,
         new RepoFileFunction(

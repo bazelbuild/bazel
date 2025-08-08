@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.skyframe.RepoFileFunction;
 import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.RootedPathCasingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
 import com.google.devtools.build.lib.util.ValueOrException;
@@ -572,7 +573,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new PackageLookupFunction(
                 /* deletedPackages= */ new AtomicReference<>(ImmutableSet.of()),
                 getCrossRepositoryLabelViolationStrategy(),
-                getBuildFilesByPriority()))
+                getBuildFilesByPriority(),
+                /* enforceStrictLabelCasing= */ new AtomicReference<>(false)))
+        .put(SkyFunctions.ROOTED_PATH_CASING, new RootedPathCasingFunction())
         .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
