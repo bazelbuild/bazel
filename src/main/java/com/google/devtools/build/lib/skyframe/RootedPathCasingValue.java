@@ -26,23 +26,24 @@ import com.google.errorprone.annotations.Immutable;
 import com.google.errorprone.annotations.ThreadSafe;
 import java.util.stream.Stream;
 
+/** A value representing whether the casing of a {@link RootedPath} is canonical. */
 @CheckReturnValue
 @Immutable
 @ThreadSafe
 public sealed interface RootedPathCasingValue extends SkyValue {
-  RootedPathCasingValue MATCH = new Match();
+  RootedPathCasingValue CANONICAL = new Canonical();
 
   @AutoCodec
-  record Match() implements RootedPathCasingValue {}
+  record Canonical() implements RootedPathCasingValue {}
 
   @AutoCodec
-  record NoMatch(RootedPathCasingValue parentValue, String casedBasename)
+  record NonCanonical(RootedPathCasingValue parentValue, String canonicalBasename)
       implements RootedPathCasingValue {}
 
   default PathFragment expectedCasing(PathFragment rootRelativePath) {
     var fixedSegments =
-        Stream.iterate(this, v -> v instanceof NoMatch, v -> ((NoMatch) v).parentValue)
-            .map(v -> PathFragment.createAlreadyNormalized(((NoMatch) v).casedBasename()))
+        Stream.iterate(this, v -> v instanceof NonCanonical, v -> ((NonCanonical) v).parentValue)
+            .map(v -> PathFragment.createAlreadyNormalized(((NonCanonical) v).canonicalBasename()))
             .reduce(PathFragment.EMPTY_FRAGMENT, (a, b) -> b.getRelative(a));
     return rootRelativePath
         .subFragment(0, rootRelativePath.segmentCount() - fixedSegments.segmentCount())
@@ -73,7 +74,7 @@ public sealed interface RootedPathCasingValue extends SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.PACKAGE_NAME_CASING;
+      return SkyFunctions.ROOTED_PATH_CASING;
     }
 
     @Override
