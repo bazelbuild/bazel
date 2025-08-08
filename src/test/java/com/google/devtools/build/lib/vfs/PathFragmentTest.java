@@ -415,11 +415,11 @@ public final class PathFragmentTest {
     assertThat(foobar.startsWith(create("/Foo"))).isFalse();
     assertThat(
             create(unicodeToInternal("/ÄÖÜ/bar"))
-                .startsWithIgnoringCase(create(unicodeToInternal("/äöü"))))
+                .startsWith(create(unicodeToInternal("/äöü"))))
         .isFalse();
     assertThat(
             create(unicodeToInternal("ÄÖÜ/bar"))
-                .startsWithIgnoringCase(create(unicodeToInternal("äöü"))))
+                .startsWith(create(unicodeToInternal("äöü"))))
         .isFalse();
   }
 
