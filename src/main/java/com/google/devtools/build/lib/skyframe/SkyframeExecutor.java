@@ -790,6 +790,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
             deletedPackages, crossRepositoryLabelViolationStrategy, buildFilesByPriority));
+    map.put(SkyFunctions.PACKAGE_NAME_CASING, new RootedPathCasingFunction());
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.PROJECT, new ProjectFunction());
     map.put(SkyFunctions.PROJECT_FILES_LOOKUP, new ProjectFilesLookupFunction());
