@@ -130,6 +130,21 @@ def _update_integrity_attr(ctx, attrs, download_info):
     integrity_override = {"integrity": download_info.integrity}
     return ctx.repo_metadata(attrs_for_reproducibility = update_attrs(ctx.attr, attrs.keys(), integrity_override))
 
+def _update_http_archive_integrity_attrs(ctx, attrs, integrity):
+    integrity_override = {}
+    # We don't need to override the integrity attribute if sha256 is already specified.
+    if not ctx.attr.sha256 and not ctx.attr.integrity:
+        integrity_override["integrity"] = integrity.archive
+    if ctx.attr.remote_module_file_urls and not ctx.attr.remote_module_file_integrity:
+        integrity_override["remote_module_file_integrity"] = integrity.remote_module_file
+    if ctx.attr.remote_file_integrity != integrity.remote_files:
+        integrity_override["remote_file_integrity"] = integrity.remote_files
+    if ctx.attr.remote_patches != integrity.remote_patches:
+        integrity_override["remote_patches"] = integrity.remote_patches
+    if not integrity_override:
+        return ctx.repo_metadata(reproducible = True)
+    return ctx.repo_metadata(attrs_for_reproducibility = update_attrs(ctx.attr, attrs.keys(), integrity_override))
+
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
     if ctx.attr.build_file and ctx.attr.build_file_content:
@@ -148,21 +163,29 @@ def _http_archive_impl(ctx):
     )
     workspace_and_buildfile(ctx)
 
-    download_remote_files(ctx)
-    patch(ctx)
+    remote_files_info = download_remote_files(ctx)
+    remote_patches_info = patch(ctx)
 
     # Download the module file after applying patches since modules may decide
     # to patch their packaged module and the patch may not apply to the file
     # checked in to the registry. This overrides the file if it exists.
+    remote_module_file_integrity = ""
     if ctx.attr.remote_module_file_urls:
-        ctx.download(
+        remote_module_file_integrity = ctx.download(
             ctx.attr.remote_module_file_urls,
             "MODULE.bazel",
             auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
             integrity = ctx.attr.remote_module_file_integrity,
-        )
+        ).integrity
 
-    return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
+    integrity = struct(
+        archive = download_info.integrity,
+        remote_files = {path: info.integrity for path, info in remote_files_info.items()},
+        remote_patches = {url: info.integrity for url, info in remote_patches_info.items()},
+        remote_module_file = remote_module_file_integrity,
+    )
+
+    return _update_http_archive_integrity_attrs(ctx, _http_archive_attrs, integrity)
 
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
