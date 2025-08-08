@@ -66,14 +66,17 @@ public class PackageLookupFunction implements SkyFunction {
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
+  private final AtomicReference<Boolean> enforceStrictLabelCasing;
 
   public PackageLookupFunction(
       AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      ImmutableList<BuildFileName> buildFilesByPriority) {
+      ImmutableList<BuildFileName> buildFilesByPriority,
+      AtomicReference<Boolean> enforceStrictLabelCasing) {
     this.deletedPackages = deletedPackages;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
+    this.enforceStrictLabelCasing = enforceStrictLabelCasing;
   }
 
   private static class State implements SkyKeyComputeState {
@@ -320,22 +323,8 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (fileValue.isFile()) {
-      if (OS.getCurrent() == OS.WINDOWS || OS.getCurrent() == OS.DARWIN) {
-        var casingValue =
-            (RootedPathCasingValue)
-                env.getValue(RootedPathCasingValue.key(buildFileRootedPath.getParentDirectory()));
-        if (casingValue == null) {
-          return null;
-        }
-        if (casingValue instanceof RootedPathCasingValue.NoMatch noMatch) {
-          return PackageLookupValue.invalidPackageName(
-              "package name %s must match the filesystem casing %s"
-                  .formatted(
-                      packageIdentifier.getPackageFragment(),
-                      noMatch.expectedCasing(packageIdentifier.getPackageFragment())));
-        }
-      }
-      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+      return validateSuccessfulLookup(
+          env, buildFileName, packageIdentifier.getPackageFragment(), buildFileRootedPath);
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
@@ -402,24 +391,38 @@ public class PackageLookupFunction implements SkyFunction {
       }
 
       if (fileValue.isFile()) {
-        if (OS.getCurrent() == OS.WINDOWS || OS.getCurrent() == OS.DARWIN) {
-          var casingValue =
-              (RootedPathCasingValue)
-                  env.getValue(RootedPathCasingValue.key(buildFileRootedPath.getParentDirectory()));
-          if (casingValue == null) {
-            return null;
-          }
-          if (casingValue instanceof RootedPathCasingValue.NoMatch noMatch) {
-            return PackageLookupValue.invalidPackageName(
-                "package name %s must match the filesystem casing %s"
-                    .formatted(packageFragment, noMatch.expectedCasing(packageFragment)));
-          }
-        }
-        return PackageLookupValue.success(root, buildFileName);
+        return validateSuccessfulLookup(env, buildFileName, packageFragment, buildFileRootedPath);
       }
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
+  }
+
+  private PackageLookupValue validateSuccessfulLookup(
+      Environment env,
+      BuildFileName buildFileName,
+      PathFragment packageFragment,
+      RootedPath buildFileRootedPath)
+      throws InterruptedException {
+    // Only Windows and macOS typically have case-insensitive file systems, so the validation below
+    // can only fail on those platforms.
+    if ((OS.getCurrent() != OS.WINDOWS && OS.getCurrent() != OS.DARWIN)
+        || !enforceStrictLabelCasing.get()) {
+      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+    }
+
+    var casingValue =
+        (RootedPathCasingValue)
+            env.getValue(RootedPathCasingValue.key(buildFileRootedPath.getParentDirectory()));
+    return switch (casingValue) {
+      case RootedPathCasingValue.NonCanonical nonCanonical ->
+          PackageLookupValue.invalidPackageName(
+              "use the canonical form %s instead"
+                  .formatted(nonCanonical.expectedCasing(packageFragment)));
+      case RootedPathCasingValue.Canonical ignored ->
+          PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+      case null -> null;
+    };
   }
 
   /**

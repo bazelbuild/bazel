@@ -801,4 +801,21 @@ public abstract class FileSystem {
       }
     }
   }
+
+  /**
+   * Returns the basename of the canonical path for the given path.
+   *
+   * <p>While the exact nature of the canonicalization process is unspecified, the returned basename
+   * is expected to be identical to the basename of the given path if the underlying filesystem is
+   * case-sensitive. If it is not, the returned basename will be what the filesystem considers the
+   * preferred name for the file.
+   *
+   * <p>This method never follows symbolic links.
+   *
+   * <p>The default implementation returns {@link PathFragment#getBaseName}, which is appropriate
+   * for case-sensitive filesystems.
+   */
+  protected String getCanonicalBaseName(PathFragment path) throws IOException {
+    return path.getBaseName();
+  }
 }

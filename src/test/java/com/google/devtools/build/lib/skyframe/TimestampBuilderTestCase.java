@@ -184,7 +184,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   }
 
   protected BuilderWithResult createBuilder(ActionCache actionCache) throws Exception {
-    return createBuilder(actionCache, 1, /*keepGoing=*/ false);
+    return createBuilder(actionCache, 1, /* keepGoing= */ false);
   }
 
   /** Create a ParallelBuilder with a DatabaseDependencyChecker using the specified ActionCache. */
@@ -280,7 +280,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     new PackageLookupFunction(
                         null,
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+                        /* enforceStrictLabelCasing= */ new AtomicReference<>(true)))
+                .put(SkyFunctions.ROOTED_PATH_CASING, new RootedPathCasingFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new DelegatingActionTemplateExpansionFunction())
