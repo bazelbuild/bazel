@@ -143,18 +143,15 @@ public abstract sealed class PathFragment
   }
 
   private static PathFragment makePathFragment(String normalizedPath, int driveStrLength) {
-    switch (driveStrLength) {
-      case 0:
-        return new RelativePathFragment(normalizedPath);
-      case 1:
-        return new UnixStyleAbsolutePathFragment(normalizedPath);
-      case 3:
-        return new WindowsStyleAbsolutePathFragment(normalizedPath);
-      default:
-        throw new IllegalStateException(
-            String.format(
-                "normalizedPath: %s, driveStrLength: %s", normalizedPath, driveStrLength));
-    }
+    return switch (driveStrLength) {
+      case 0 -> new RelativePathFragment(normalizedPath);
+      case 1 -> new UnixStyleAbsolutePathFragment(normalizedPath);
+      case 3 -> new WindowsStyleAbsolutePathFragment(normalizedPath);
+      default ->
+          throw new IllegalStateException(
+              String.format(
+                  "normalizedPath: %s, driveStrLength: %s", normalizedPath, driveStrLength));
+    };
   }
 
   /**
