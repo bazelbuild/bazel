@@ -356,7 +356,8 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
-    assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of())).containsEntry("foo", "bar");
+    assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP))
+        .containsEntry("foo", "bar");
   }
 
   @Test
