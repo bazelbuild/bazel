@@ -47,6 +47,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:error_prone_annotations",
