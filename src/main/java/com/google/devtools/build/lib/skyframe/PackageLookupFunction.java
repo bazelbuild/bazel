@@ -417,7 +417,7 @@ public class PackageLookupFunction implements SkyFunction {
     return switch (casingValue) {
       case RootedPathCasingValue.NonCanonical nonCanonical ->
           PackageLookupValue.invalidPackageName(
-              "use the canonical form %s instead"
+              "use the canonical form '%s' instead"
                   .formatted(nonCanonical.expectedCasing(packageFragment)));
       case RootedPathCasingValue.Canonical ignored ->
           PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);

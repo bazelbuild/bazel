@@ -793,7 +793,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_enforce_strict_label_casing",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -1004,7 +1004,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
       "-experimental_repository_ctx_execute_wasm";
   public static final String INCOMPATIBLE_ENFORCE_STRICT_LABEL_CASING =
-      "+incompatible_enforce_strict_label_casing";
+      "-incompatible_enforce_strict_label_casing";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
