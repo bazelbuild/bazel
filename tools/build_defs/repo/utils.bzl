@@ -303,7 +303,7 @@ def parse_netrc(contents, filename = "a .netrc file"):
     currentmacro = ""
     cmd = None
     for line in contents.splitlines():
-        if line.startswith("#"):
+        if line.lstrip().startswith("#"):
             # Comments start with #. Ignore these lines.
             continue
         elif macdef:
