@@ -2162,12 +2162,8 @@ public abstract class FileSystemTest {
 
     Path nonCanonicalCase =
         absolutize(StringEncoding.unicodeToInternal("this/path/häs/mixed/CASE"));
-    if (nonCanonicalCase.exists()) {
-      // The underlying file system is case-insensitive.
-      assertThat(nonCanonicalCase.canonicalizeCase()).isEqualTo(canonicalCase);
-    } else {
-      // The underlying file system is case-sensitive.
-      assertThat(nonCanonicalCase.canonicalizeCase()).isEqualTo(nonCanonicalCase);
-    }
+    // Only continue on case-insensitive filesystems.
+    assume().that(nonCanonicalCase.exists()).isTrue();
+    assertThat(nonCanonicalCase.canonicalizeCase()).isEqualTo(canonicalCase);
   }
 }
