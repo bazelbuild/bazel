@@ -49,7 +49,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   private static final LinkOption[] NO_LINK_OPTION = new LinkOption[0];
   // This isn't generally safe; we rely on the file system APIs not modifying the array.
   private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
-      new LinkOption[] { LinkOption.NOFOLLOW_LINKS };
+      new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final Clock clock;
 
@@ -527,7 +527,9 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected String getCanonicalBaseName(PathFragment path) throws IOException {
-    return getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).getFileName().toString();
+  protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
+    return PathFragment.create(
+        StringEncoding.platformToInternal(
+            getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).toString()));
   }
 }
