@@ -325,8 +325,8 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected String getCanonicalBaseName(PathFragment path) throws IOException {
-    return delegateFs.getCanonicalBaseName(toDelegatePath(path));
+  protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
+    return fromDelegatePath(delegateFs.canonicalizeCase(toDelegatePath(path)));
   }
 
   /** Transform original path to a different one to be used with the {@code delegateFs}. */

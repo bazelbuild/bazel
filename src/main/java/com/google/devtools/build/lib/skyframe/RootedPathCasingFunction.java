@@ -50,7 +50,7 @@ public final class RootedPathCasingFunction implements SkyFunction {
     // File system access is guarded by the FileStateValue dependency above.
     String canonicalBasename;
     try {
-      canonicalBasename = path.asPath().getCanonicalBaseName();
+      canonicalBasename = path.asPath().canonicalizeCase().getBaseName();
     } catch (IOException e) {
       throw new RootedPathCasingFunctionException(e);
     }

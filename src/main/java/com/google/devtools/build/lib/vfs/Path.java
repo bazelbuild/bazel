@@ -100,17 +100,11 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Returns the basename of the canonical path for the given path.
-   *
-   * <p>While the exact nature of the canonicalization process is unspecified, the returned basename
-   * is expected to be identical to the basename of the given path if the underlying filesystem is
-   * case-sensitive. If it is not, the returned basename will be what the filesystem considers the
-   * preferred name for the file.
-   *
-   * <p>This method never follows symbolic links.
+   * Returns the path of an existing file with the case of its segments normalized to reflect the
+   * actual state of the case-preserving but possibly case-insensitive filesystem.
    */
-  public String getCanonicalBaseName() throws IOException {
-    return fileSystem.getCanonicalBaseName(asFragment());
+  public Path canonicalizeCase() throws IOException {
+    return fileSystem.getPath(fileSystem.canonicalizeCase(asFragment()));
   }
 
   /**
