@@ -307,10 +307,10 @@ static void MountFilesystems() {
   // this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
-            nullptr) < 0) {
-    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-        opt.working_dir.c_str());
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr,
+            MS_BIND | MS_REC, nullptr) < 0) {
+    DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
+        opt.working_dir.c_str(), opt.working_dir.c_str());
   }
 }
 
