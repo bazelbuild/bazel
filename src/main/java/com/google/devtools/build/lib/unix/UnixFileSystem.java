@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
 public class UnixFileSystem extends AbstractFileSystem {
-  private static final LinkOption[] NOFOLLOW_LINK_OPTIONS =
+  private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
       new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
   protected final String hashAttributeName;
 
@@ -453,12 +453,15 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected String getCanonicalBaseName(PathFragment path) throws IOException {
-    // Among the Unix OSes, only macOS typically has a case-insensitive file system.
+  protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
+    // We assume that macOS is the only Unix-like system which may have a case-insensitive file
+    // system.
     if (OS.getCurrent() != OS.DARWIN) {
-      return super.getCanonicalBaseName(path);
+      return super.canonicalizeCase(path);
     }
-    return getNioPath(path).toRealPath(NOFOLLOW_LINK_OPTIONS).getFileName().toString();
+    return PathFragment.create(
+        StringEncoding.platformToInternal(
+            getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).toString()));
   }
 
   @Override
