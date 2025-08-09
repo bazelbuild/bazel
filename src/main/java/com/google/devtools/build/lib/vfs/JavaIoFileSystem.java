@@ -528,8 +528,13 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
   @Override
   protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
-    return PathFragment.create(
-        StringEncoding.platformToInternal(
-            getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).toString()));
+    var canonical =
+        PathFragment.create(
+            StringEncoding.platformToInternal(
+                getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).toString()));
+    if (canonical.segmentCount() != path.segmentCount()) {
+      throw new IOException("Unexpected case canonicalization: " + path + " -> " + canonical);
+    }
+    return canonical;
   }
 }
