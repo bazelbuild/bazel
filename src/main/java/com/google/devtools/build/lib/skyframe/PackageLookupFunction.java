@@ -407,7 +407,7 @@ public class PackageLookupFunction implements SkyFunction {
     // Only Windows and macOS typically have case-insensitive file systems, so the validation below
     // can only fail on those platforms.
     if ((OS.getCurrent() != OS.WINDOWS && OS.getCurrent() != OS.DARWIN)
-        || enforceStrictLabelCasing.get() != true) {
+        || enforceStrictLabelCasing.get() != Boolean.TRUE) {
       return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
     }
 
