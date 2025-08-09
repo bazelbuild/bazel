@@ -492,6 +492,12 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   @ForOverride
   @Nullable
   SkyValue lookupRequestedDep(SkyKey depKey) {
+    if (depKey.functionName().getName().equals("FILE")
+        && depKey
+            .toString()
+            .contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+      new Throwable().printStackTrace();
+    }
     checkArgument(
         !depKey.equals(ErrorTransienceValue.KEY),
         "Error transience key cannot be in requested deps of %s",

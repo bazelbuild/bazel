@@ -160,6 +160,12 @@ abstract class AbstractParallelEvaluator {
     private final SkyKey skyKey;
 
     private Evaluate(SkyKey skyKey) {
+      if (skyKey.functionName().getName().contains("FILE")
+          && skyKey
+              .toString()
+              .contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+        new Throwable("Evaluate: " + skyKey + " " + skyKey.functionName()).printStackTrace();
+      }
       this.skyKey = skyKey;
     }
 
@@ -391,6 +397,33 @@ abstract class AbstractParallelEvaluator {
         throws InterruptedException {
       boolean parentIsSignalledAndReady = false;
       for (SkyKey directDep : knownChildren) {
+        if ((directDep.functionName().getName().contains("REPO")
+                || directDep.functionName().getName().contains("IGNORED"))
+            && directDep.toString().contains("my_repo")) {
+          new Throwable(
+                  skyKey
+                      + " "
+                      + skyKey.functionName()
+                      + " --> "
+                      + directDep
+                      + " "
+                      + directDep.functionName())
+              .printStackTrace();
+        }
+        if (directDep.functionName().getName().contains("FILE")
+            && directDep
+                .toString()
+                .contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+          new Throwable(
+                  skyKey
+                      + " "
+                      + skyKey.functionName()
+                      + " --> "
+                      + directDep
+                      + " "
+                      + directDep.functionName())
+              .printStackTrace();
+        }
         NodeEntry directDepEntry =
             checkNotNull(
                 oldChildren.get(directDep),
