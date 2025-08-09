@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
  * slashes ('/') even on Windows, so backslashes '\' get converted to forward slashes during
  * normalization.
  *
- * <p>Mac and Windows file paths are case insensitive. Case is preserved.
+ * <p>All paths are case-sensitive.
  */
 @ThreadSafe
 @AutoCodec
@@ -176,6 +176,18 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
       return false;
     }
     return pathFragment.startsWith(other.pathFragment);
+  }
+
+  /**
+   * Returns whether another path is an ancestor of this path, ignoring case.
+   *
+   * <p>A path is considered an ancestor of itself.
+   */
+  public boolean startsWithIgnoringCase(Path other) {
+    if (fileSystem != other.fileSystem) {
+      return false;
+    }
+    return pathFragment.startsWithIgnoringCase(other.pathFragment);
   }
 
   /**

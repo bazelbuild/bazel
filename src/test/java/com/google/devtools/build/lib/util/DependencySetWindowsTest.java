@@ -29,9 +29,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DependencySetWindowsTest {
 
-  private Scratch scratch = new Scratch();
+  private final Scratch scratch = new Scratch();
   private final FileSystem fileSystem =
-      new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ false);
+      new WindowsFileSystem(DigestHashFunction.SHA256, /* createSymbolicLinks= */ false);
   private final Path root = fileSystem.getPath("C:/");
 
   private DependencySet newDependencySet() {
@@ -95,17 +95,5 @@ public class DependencySetWindowsTest {
             fileSystem.getPath("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stdarg.h"));
 
     assertThat(newDependencySet().read(dotd).getDependencies()).containsExactlyElementsIn(expected);
-  }
-
-  @Test
-  public void dotDParser_caseInsensitive() throws Exception {
-    Path file1 = fileSystem.getPath("C:/blah/blah/genhello/hello.cc");
-    Path file2 = fileSystem.getPath("C:/blah/blah/genhello/hello.h");
-    Path file2DiffCase = fileSystem.getPath("C:/Blah/blah/Genhello/hello.h");
-    String filename = "hello.o";
-    Path dotd =
-        scratch.file("/tmp/foo.d", filename + ": \\", " " + file1 + " \\", " " + file2 + " ");
-    assertThat(newDependencySet().read(dotd).getDependencies())
-        .containsExactly(file1, file2DiffCase);
   }
 }
