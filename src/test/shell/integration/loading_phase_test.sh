@@ -659,4 +659,27 @@ function test_case_sensitive_pkg_names() {
   fi
 }
 
+function test_case_sensitive_build_file_names() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "Could not mkdir $pkg"
+  echo "filegroup(name = 'my_target')" > "$pkg/BuIlD"
+
+  if $is_windows || $is_mac; then
+    [[ -e "$pkg/BUILD" ]] \
+        || fail "Expected case-insensitive semantics"
+  else
+    [[ -e "$pkg/BUILD" ]] \
+        && fail "Expected case-sensitive semantics" || true
+  fi
+
+  bazel query --incompatible_enforce_strict_label_casing \
+      //$pkg:all >&"$TEST_log" \
+      && fail "Expected failure" || true
+  if $is_windows || $is_mac; then
+    expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid build file name, use 'BUILD' instead"
+  else
+    expect_log "ERROR: no such package '$pkg': BUILD file not found"
+  fi
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
