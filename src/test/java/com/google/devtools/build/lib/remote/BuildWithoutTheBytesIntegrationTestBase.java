@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.ensureSymbolicLink;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -944,6 +946,29 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadMinimal_symlinkToGeneratedFile() throws Exception {
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_artifact = ':foo',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:foo-link");
+  }
+
+  @Test
   public void downloadToplevel_symlinkToGeneratedFile() throws Exception {
     setDownloadToplevel();
     writeSymlinkRule();
@@ -1072,6 +1097,12 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", PathFragment.create("/some/path"));
+
+    // Change link, re-plant symlink
+    ensureSymbolicLink(getOutputPath("foo-link"), "/another/path");
     buildTarget("//:foo-link");
 
     assertSymlink("foo-link", PathFragment.create("/some/path"));
@@ -1775,7 +1806,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
               "output %s for target %s should not exist", output.getExecPathString(), target)
-          .that(output.getPath().exists())
+          .that(output.getPath().exists(Symlinks.NOFOLLOW))
           .isFalse();
     }
   }
@@ -1790,7 +1821,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected void assertOutputDoesNotExist(String binRelativePath) {
     Path output = getOutputPath(binRelativePath);
-    assertThat(output.exists()).isFalse();
+    assertThat(output.exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   protected void assertOnlyOutputContent(String target, String filename, String content)
@@ -1823,9 +1854,11 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)
       throws Exception {
+    Path output = getOutputPath(binRelativeLinkPath);
     // On Windows, symlinks might be implemented as a file copy.
-    if (OS.getCurrent() != OS.WINDOWS) {
-      Path output = getOutputPath(binRelativeLinkPath);
+    if (OS.getCurrent() == OS.WINDOWS) {
+      assertThat(output.exists()).isTrue();
+    } else {
       assertThat(output.isSymbolicLink()).isTrue();
       assertThat(output.readSymbolicLink()).isEqualTo(targetPath);
     }
