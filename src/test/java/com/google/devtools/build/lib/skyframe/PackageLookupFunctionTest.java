@@ -113,7 +113,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             crossRepositoryLabelViolationStrategy(),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             /* enforceStrictLabelCasing= */ new AtomicReference<>(true)));
-    skyFunctions.put(SkyFunctions.ROOTED_PATH_CASING, new RootedPathCasingFunction());
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         FileStateKey.FILE_STATE,

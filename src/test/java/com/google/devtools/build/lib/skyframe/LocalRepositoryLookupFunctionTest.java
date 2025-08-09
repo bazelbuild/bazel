@@ -89,7 +89,6 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             /* enforceStrictLabelCasing= */ new AtomicReference<>(true)));
-    skyFunctions.put(SkyFunctions.ROOTED_PATH_CASING, new RootedPathCasingFunction());
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(

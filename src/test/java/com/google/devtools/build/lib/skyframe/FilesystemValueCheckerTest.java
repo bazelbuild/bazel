@@ -320,7 +320,6 @@ public final class FilesystemValueCheckerTest {
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             /* enforceStrictLabelCasing= */ new AtomicReference<>(true)));
-    skyFunctions.put(SkyFunctions.ROOTED_PATH_CASING, new RootedPathCasingFunction());
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions.buildOrThrow(), differencer);
