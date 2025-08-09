@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.ResourceNameInterceptor;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
@@ -109,6 +110,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             channel,
             callCredentialsProvider,
             options.remoteTimeout.toSeconds(),
+            options.remoteLongTimeout.toSeconds(),
             retrier,
             options.maximumOpenFiles,
             digestUtil.getDigestFunction());
@@ -145,13 +147,15 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
-  private ByteStreamStub bsAsyncStub(RemoteActionExecutionContext context, Channel channel) {
+  private ByteStreamStub bsAsyncStub(
+      RemoteActionExecutionContext context, Channel channel, String resourceName) {
     return ByteStreamGrpc.newStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
-            new NetworkTimeInterceptor(context::getNetworkTime))
+            new NetworkTimeInterceptor(context::getNetworkTime),
+            new ResourceNameInterceptor(resourceName))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteLongTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
   private ActionCacheFutureStub acFutureStub(
@@ -398,7 +402,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
-    bsAsyncStub(context, channel)
+    bsAsyncStub(context, channel, resourceName)
         .read(
             ReadRequest.newBuilder()
                 .setResourceName(resourceName)
