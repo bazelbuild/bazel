@@ -105,7 +105,7 @@ def _build_common_variables(
         has_module_map = has_module_map,
         attr_linkopts = attr_linkopts,
         direct_cc_compilation_contexts = direct_cc_compilation_contexts,
-        includes = cc_helper.system_include_dirs(ctx, {}) if hasattr(ctx.attr, "includes") else [],
+        includes = cc_helper.include_dirs(ctx, {}) if hasattr(ctx.attr, "includes") else [],
     )
 
     return struct(
