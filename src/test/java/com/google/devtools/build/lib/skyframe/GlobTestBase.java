@@ -926,16 +926,16 @@ public abstract class GlobTestBase {
     root.getRelative("targets").createDirectoryAndParents();
     pkgPath.getRelative("symlinks").createDirectoryAndParents();
     for (char c = 'a'; c <= 'z'; ++c) {
-      FileSystemUtils.createEmptyFile(root.getRelative("targets/" + c + ".bzl"));
+      FileSystemUtils.createEmptyFile(root.getRelative("targets/" + c + ".ext"));
       FileSystemUtils.ensureSymbolicLink(
-          pkgPath.getRelative("symlinks/" + c + ".bzl"), root.getRelative("targets/" + c + ".bzl"));
+          pkgPath.getRelative("symlinks/" + c + ".ext"), root.getRelative("targets/" + c + ".ext"));
     }
 
     String[] allExpectedPathsInStr = new String[26];
     for (int i = 0; i < 26; ++i) {
-      allExpectedPathsInStr[i] = "symlinks/" + (char) ('a' + i) + ".bzl";
+      allExpectedPathsInStr[i] = "symlinks/" + (char) ('a' + i) + ".ext";
     }
-    assertSingleGlobMatches("symlinks/*.bzl", Operation.FILES_AND_DIRS, allExpectedPathsInStr);
+    assertSingleGlobMatches("symlinks/*.ext", Operation.FILES_AND_DIRS, allExpectedPathsInStr);
   }
 
   static final class CustomInMemoryFs extends InMemoryFileSystem {
