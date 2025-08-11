@@ -822,12 +822,7 @@ public abstract class CcModule
               ? CppPlatform.MAC
               : CppPlatform.LINUX;
       for (CToolchain.Feature feature :
-          CppActionConfigs.getLegacyFeatures(
-              platform,
-              featureNames,
-              linkerToolPath,
-              /* supportsEmbeddedRuntimes= */ false,
-              /* supportsInterfaceSharedLibraries= */ false)) {
+          CppActionConfigs.getLegacyFeatures(platform, featureNames, linkerToolPath)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -849,7 +844,6 @@ public abstract class CcModule
               gccToolPath,
               arToolPath,
               stripToolPath,
-              /* supportsInterfaceSharedLibraries= */ false,
               actionConfigNames)) {
         legacyActionConfigBuilder.add(new ActionConfig(actionConfig));
       }

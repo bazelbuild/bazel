@@ -42,20 +42,10 @@ public class CppActionConfigs {
   public static ImmutableList<CToolchain.Feature> getLegacyFeatures(
       CppPlatform platform,
       ImmutableSet<String> existingFeatureNames,
-      String cppLinkDynamicLibraryToolPath,
-      boolean supportsEmbeddedRuntimes,
-      boolean supportsInterfaceSharedLibraries) {
+      String cppLinkDynamicLibraryToolPath) {
 
     ImmutableList.Builder<CToolchain.Feature> featureBuilder = ImmutableList.builder();
     try {
-      if (!existingFeatureNames.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)
-          && supportsEmbeddedRuntimes) {
-        featureBuilder.add(getFeature("name: 'static_link_cpp_runtimes' enabled: true"));
-      }
-      if (!existingFeatureNames.contains(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES)
-          && supportsInterfaceSharedLibraries) {
-        featureBuilder.add(getFeature("name: 'supports_interface_shared_libraries' enabled: true"));
-      }
       if (!existingFeatureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
         featureBuilder.add(
             getFeature(
@@ -1029,7 +1019,6 @@ public class CppActionConfigs {
       String gccToolPath,
       String arToolPath,
       String stripToolPath,
-      boolean supportsInterfaceSharedLibraries,
       ImmutableSet<String> existingActionConfigNames) {
     try {
       ImmutableList.Builder<CToolchain.ActionConfig> actionConfigBuilder = ImmutableList.builder();

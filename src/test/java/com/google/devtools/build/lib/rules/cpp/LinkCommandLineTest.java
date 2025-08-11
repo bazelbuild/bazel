@@ -77,11 +77,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
         new ImmutableList.Builder<CToolchain.Feature>()
             .addAll(
                 CppActionConfigs.getLegacyFeatures(
-                    CppPlatform.LINUX,
-                    ImmutableSet.of(),
-                    "MOCK_LINKER_TOOL",
-                    /* supportsEmbeddedRuntimes= */ true,
-                    /* supportsInterfaceSharedLibraries= */ false))
+                    CppPlatform.LINUX, ImmutableSet.of(), "MOCK_LINKER_TOOL"))
             .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
             .build();
 
@@ -91,7 +87,6 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
             "MOCK_GCC_TOOL",
             "MOCK_AR_TOOL",
             "MOCK_STRIP_TOOL",
-            /* supportsInterfaceSharedLibraries= */ false,
             /* existingActionConfigNames= */ ImmutableSet.of());
 
     return CcToolchainTestHelper.buildFeatures(features, actionConfigs)
