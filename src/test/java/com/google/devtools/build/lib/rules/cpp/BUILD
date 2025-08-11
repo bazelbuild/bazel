@@ -16,18 +16,6 @@ filegroup(
 )
 
 java_library(
-    name = "CcToolchainTestHelper",
-    srcs = ["CcToolchainTestHelper.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:crosstool_config_java_proto",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
-    ],
-)
-
-java_library(
     name = "MockCppSemantics",
     srcs = ["MockCppSemantics.java"],
     deps = [

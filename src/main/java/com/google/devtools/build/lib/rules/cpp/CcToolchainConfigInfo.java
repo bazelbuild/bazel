@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -27,7 +25,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNameP
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -94,63 +91,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   @Override
   public Provider getProvider() {
     return PROVIDER;
-  }
-
-  @VisibleForTesting // Only called by tests.
-  public static CcToolchainConfigInfo fromToolchainForTestingOnly(CToolchain toolchain)
-      throws EvalException {
-    ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
-    for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
-      actionConfigBuilder.add(new ActionConfig(actionConfig));
-    }
-
-    ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
-    for (CToolchain.Feature feature : toolchain.getFeatureList()) {
-      featureBuilder.add(new Feature(feature));
-    }
-
-    ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
-        new ArtifactNamePatternMapper.Builder();
-    for (CToolchain.ArtifactNamePattern artifactNamePattern :
-        toolchain.getArtifactNamePatternList()) {
-      ArtifactCategory foundCategory = null;
-      for (ArtifactCategory artifactCategory : ArtifactCategory.values()) {
-        if (artifactNamePattern.getCategoryName().equals(artifactCategory.getCategoryName())) {
-          foundCategory = artifactCategory;
-          break;
-        }
-      }
-      Preconditions.checkNotNull(foundCategory, artifactNamePattern);
-      String extension = artifactNamePattern.getExtension();
-      Preconditions.checkState(
-          foundCategory.getAllowedExtensions().contains(extension),
-          "%s had extension not in %s",
-          artifactNamePattern,
-          foundCategory);
-      artifactNamePatternBuilder.addOverride(
-          foundCategory, artifactNamePattern.getPrefix(), extension);
-    }
-
-    return new CcToolchainConfigInfo(
-        actionConfigBuilder.build(),
-        featureBuilder.build(),
-        artifactNamePatternBuilder.build(),
-        ImmutableList.copyOf(toolchain.getCxxBuiltinIncludeDirectoryList()),
-        toolchain.getToolchainIdentifier(),
-        toolchain.getHostSystemName(),
-        toolchain.getTargetSystemName(),
-        toolchain.getTargetCpu(),
-        toolchain.getTargetLibc(),
-        toolchain.getCompiler(),
-        toolchain.getAbiVersion(),
-        toolchain.getAbiLibcVersion(),
-        toolchain.getToolPathList().stream()
-            .map(a -> Pair.of(a.getName(), a.getPath()))
-            .collect(ImmutableList.toImmutableList()),
-        toolchain.getMakeVariableList().stream()
-            .map(makeVariable -> Pair.of(makeVariable.getName(), makeVariable.getValue()))
-            .collect(ImmutableList.toImmutableList()),
-        toolchain.getBuiltinSysroot());
   }
 
   public ImmutableList<ActionConfig> getActionConfigs() {
