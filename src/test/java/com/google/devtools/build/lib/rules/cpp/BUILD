@@ -299,9 +299,9 @@ java_test(
     name = "CcToolchainFeaturesTest",
     srcs = ["CcToolchainFeaturesTest.java"],
     deps = [
-        ":CcToolchainTestHelper",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -311,11 +311,12 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
