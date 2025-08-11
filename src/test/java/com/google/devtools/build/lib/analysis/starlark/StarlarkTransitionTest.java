@@ -425,6 +425,43 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     getConfiguredTarget("//test:arizona");
     assertContainsEvent(
         "transition outputs [//command_line_option:non_configurable_option] cannot be changed: they"
-            + " are immutable");
+            + " are non-configurable");
+  }
+
+  @Test
+  public void testNonConfigurableOptionAsTransitionInputFails() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {}
+
+        _transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//command_line_option:non_configurable_option"],
+            outputs = [],
+        )
+
+        def _impl(ctx):
+            return []
+
+        state = rule(
+            implementation = _impl,
+            cfg = _transition,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "state")
+
+        state(name = "arizona")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:arizona");
+    assertContainsEvent(
+        "transition inputs [//command_line_option:non_configurable_option] cannot be changed: they"
+            + " are non-configurable");
   }
 }
