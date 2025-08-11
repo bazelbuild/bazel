@@ -14,10 +14,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.Feature;
 import com.google.protobuf.TextFormat;
 
 class CcToolchainTestHelper {
@@ -30,19 +28,6 @@ class CcToolchainTestHelper {
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
         CcToolchainConfigInfo.fromToolchainForTestingOnly(toolchainBuilder.buildPartial()),
-        PathFragment.create("crosstool/"));
-  }
-
-  /** Creates a CcToolchainFeatures from given features and action configs. */
-  public static CcToolchainFeatures buildFeatures(
-      ImmutableList<Feature> features, ImmutableList<CToolchain.ActionConfig> actionConfigs)
-      throws Exception {
-    return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchainForTestingOnly(
-            CToolchain.newBuilder()
-                .addAllFeature(features)
-                .addAllActionConfig(actionConfigs)
-                .buildPartial()),
         PathFragment.create("crosstool/"));
   }
 }
