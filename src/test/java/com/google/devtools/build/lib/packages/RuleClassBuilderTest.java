@@ -217,13 +217,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
-            .addExecGroups(ImmutableMap.of("group", parentGroup))
+            .addExecGroups(ImmutableMap.of("group", parentGroup), false)
             .build();
     RuleClass child =
         new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("attr", STRING))
-            .addExecGroups(ImmutableMap.of("child-group", childGroup))
+            .addExecGroups(ImmutableMap.of("child-group", childGroup), false)
             .build();
     assertThat(child.getDeclaredExecGroups().get("group")).isEqualTo(parentGroup);
     assertThat(child.getDeclaredExecGroups().get("child-group")).isEqualTo(childGroup);
@@ -234,7 +234,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass a =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT))
+            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT), false)
             .add(attr("tags", STRING_LIST))
             .addToolchainTypes(
                 ToolchainTypeRequirement.create(Label.parseCanonicalUnchecked("//some/toolchain")))
@@ -242,7 +242,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass b =
         new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT))
+            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT), false)
             .add(attr("tags", STRING_LIST))
             .addToolchainTypes(
                 ToolchainTypeRequirement.create(
@@ -272,7 +272,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
                             ToolchainTypeRequirement.create(
                                 Label.parseCanonicalUnchecked("//some/toolchain")))
                         .execCompatibleWith(ImmutableSet.of())
-                        .build()))
+                        .build()), false)
             .add(attr("tags", STRING_LIST))
             .build();
     RuleClass b =
@@ -284,7 +284,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
                     DeclaredExecGroup.builder()
                         .toolchainTypes(ImmutableSet.of())
                         .execCompatibleWith(ImmutableSet.of())
-                        .build()))
+                        .build()), false)
             .add(attr("tags", STRING_LIST))
             .build();
     IllegalArgumentException e =
@@ -296,6 +296,34 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
         .isEqualTo(
             "An execution group named 'blueberry' is inherited multiple times with different"
                 + " requirements in ruleC ruleclass");
+  }
+
+  @Test
+  public void testDuplicateExecGroupsOverwrite() throws Exception {
+    Label mockToolchainType = Label.parseCanonicalUnchecked("//mock_toolchain_type");
+    Label mockConstraint = Label.parseCanonicalUnchecked("//mock_constraint");
+    DeclaredExecGroup parentGroup =
+        DeclaredExecGroup.builder()
+            .addToolchainType(ToolchainTypeRequirement.create(mockToolchainType))
+            .execCompatibleWith(ImmutableSet.of(mockConstraint))
+            .build();
+    DeclaredExecGroup childGroup =
+        DeclaredExecGroup.builder()
+            .toolchainTypes(ImmutableSet.of())
+            .execCompatibleWith(ImmutableSet.of())
+            .build();
+    RuleClass parent =
+        new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .addExecGroups(ImmutableMap.of("group", parentGroup), false)
+            .build();
+    RuleClass child =
+        new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("attr", STRING))
+            .addExecGroups(ImmutableMap.of("group", childGroup), true)
+            .build();
+    assertThat(child.getDeclaredExecGroups().get("group")).isEqualTo(childGroup);
   }
 
   @Test
