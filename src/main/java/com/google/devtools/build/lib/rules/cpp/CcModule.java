@@ -1486,44 +1486,6 @@ public abstract class CcModule
     }
   }
 
-  @StarlarkMethod(
-      name = "validate_starlark_compile_api_call",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "actions",
-            doc = "<code>actions</code> object.",
-            positional = false,
-            named = true),
-        @Param(name = "include_prefix", documented = false, positional = false, named = true),
-        @Param(name = "strip_include_prefix", documented = false, positional = false, named = true),
-        @Param(
-            name = "additional_include_scanning_roots",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)},
-            defaultValue = "unbound"),
-      })
-  public void validateStarlarkCompileApiCallFromStarlark(
-      StarlarkActionFactory actionFactory,
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    getSemantics()
-        .validateStarlarkCompileApiCall(
-            actionFactory,
-            thread,
-            includePrefix,
-            stripIncludePrefix,
-            additionalIncludeScanningRoots,
-            2); // stackDepth = 2 is the caller of Starlark implemented cc_common.compile().
-  }
-
   // LINT.IfChange(compile)
   @Override
   @SuppressWarnings("unchecked")

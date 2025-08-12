@@ -146,6 +146,16 @@ def _cpp_modules_tools():
 def _validate(ctx, rule_name):
     pass
 
+def _validate_cc_compile_call(
+        *,
+        label,  # @unused
+        include_prefix,  # @unused
+        strip_include_prefix,  # @unused
+        additional_include_scanning_roots):
+    if additional_include_scanning_roots:
+        fail("The 'additional_include_scanning_roots' parameter doesn't do anything useful. " +
+             "This is only used internally for a mechanism we'd like to get rid of.")
+
 semantics = struct(
     toolchain = "@bazel_tools//tools/cpp:toolchain_type",
     validate = _validate,
@@ -190,6 +200,7 @@ semantics = struct(
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
     is_bazel = True,
     dotd_files_enabled = lambda _cfg: True,
+    validate_cc_compile_call = _validate_cc_compile_call,
     extra_exec_groups = {},
     stamp_extra_docs = "",
     malloc_docs = """

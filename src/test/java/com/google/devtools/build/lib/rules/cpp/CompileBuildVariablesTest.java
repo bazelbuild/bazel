@@ -395,7 +395,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     scratch.file("/foo/MODULE.bazel", "module(name = 'pkg')");
     scratch.file(
-        "/foo/BUILD",
+        "/foo/third_party/BUILD",
         """
         cc_library(
             name = "foo",
@@ -421,8 +421,8 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
             srcs = ["bin.cc"],
             deps = [
                 "bar",
-                "@pkg//:foo",
-                "@pkg//:foo2",
+                "@pkg//third_party:foo",
+                "@pkg//third_party:foo2",
             ],
         )
         """);
@@ -432,7 +432,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     ImmutableList.Builder<String> entries =
         ImmutableList.<String>builder()
             .add(
-                "/k8-fastbuild/bin/external/pkg+/_virtual_includes/foo2",
+                "/k8-fastbuild/bin/external/pkg+/third_party/_virtual_includes/foo2",
                 "external/pkg+",
                 "/k8-fastbuild/bin/external/pkg+");
     if (analysisMock.isThisBazel()) {

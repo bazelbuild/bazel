@@ -25,6 +25,7 @@ load(
     "should_create_per_object_debug_info",
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
+load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
 cc_common_internal = _builtins.internal.cc_common
@@ -174,8 +175,9 @@ def compile(
 
     # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcModuleApi.java:compile_api)
     # LINT.IfChange(compile)
-    cc_common_internal.validate_starlark_compile_api_call(
-        actions = actions,
+    ctx = cc_internal.actions2ctx_cheat(actions)
+    _starlark_cc_semantics.validate_cc_compile_call(
+        label = ctx.label,
         include_prefix = include_prefix,
         strip_include_prefix = strip_include_prefix,
         additional_include_scanning_roots = additional_include_scanning_roots,
@@ -470,7 +472,7 @@ def _create_cc_compile_actions(
         fail("PIC compilation is requested but the toolchain does not support it " +
              "(feature named 'supports_pic' is not enabled)")
 
-    cpp_semantics = cc_common_internal.get_cpp_semantics(language = language)
+    native_cc_semantics = cc_common_internal.get_cpp_semantics(language = language)
 
     if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
         cpp_module_map = cc_compilation_context.module_map()
@@ -482,7 +484,7 @@ def _create_cc_compile_actions(
             configuration = configuration,
             copts_filter = copts_filter,
             feature_configuration = feature_configuration,
-            semantics = cpp_semantics,
+            semantics = native_cc_semantics,
             source_artifact = cpp_module_map.file(),
         )
         modules = _create_module_action(
@@ -502,7 +504,7 @@ def _create_cc_compile_actions(
             label = label,
             common_compile_build_variables = common_compile_build_variables,
             fdo_build_variables = fdo_build_variables,
-            cpp_semantics = cpp_semantics,
+            native_cc_semantics = native_cc_semantics,
             outputs = outputs,
             cpp_module_map = cpp_module_map,
             cpp_compile_action_builder = cpp_compile_action_builder,
@@ -516,7 +518,7 @@ def _create_cc_compile_actions(
                 configuration = configuration,
                 copts_filter = copts_filter,
                 feature_configuration = feature_configuration,
-                semantics = cpp_semantics,
+                semantics = native_cc_semantics,
                 source_artifact = separate_cpp_module_map.file(),
             )
             separate_modules = _create_module_action(
@@ -536,7 +538,7 @@ def _create_cc_compile_actions(
                 label = label,
                 common_compile_build_variables = common_compile_build_variables,
                 fdo_build_variables = fdo_build_variables,
-                cpp_semantics = cpp_semantics,
+                native_cc_semantics = native_cc_semantics,
                 outputs = outputs,
                 cpp_module_map = separate_cpp_module_map,
                 cpp_compile_action_builder = cpp_compile_action_builder,
@@ -561,7 +563,7 @@ def _create_cc_compile_actions(
                     label = label,
                     common_toolchain_variables = common_compile_build_variables,
                     fdo_build_variables = fdo_build_variables,
-                    cpp_semantics = cpp_semantics,
+                    cpp_semantics = native_cc_semantics,
                     language = language,
                     outputs = outputs,
                     source_label = module_map_label,
@@ -588,7 +590,7 @@ def _create_cc_compile_actions(
             configuration = configuration,
             copts_filter = copts_filter,
             feature_configuration = feature_configuration,
-            semantics = cpp_semantics,
+            semantics = native_cc_semantics,
             source_artifact = source_artifact,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
@@ -613,7 +615,7 @@ def _create_cc_compile_actions(
                 label = label,
                 common_compile_build_variables = common_compile_build_variables,
                 fdo_build_variables = fdo_build_variables,
-                cpp_semantics = cpp_semantics,
+                cpp_semantics = native_cc_semantics,
                 source_label = source_label,
                 output_name = output_name,
                 outputs = outputs,
@@ -645,7 +647,7 @@ def _create_cc_compile_actions(
                     label = label,
                     common_compile_build_variables = common_compile_build_variables,
                     fdo_build_variables = fdo_build_variables,
-                    cpp_semantics = cpp_semantics,
+                    cpp_semantics = native_cc_semantics,
                     source = cpp_source,
                     output_name = output_name,
                     cpp_compile_action_builder = cpp_compile_action_builder,
@@ -672,7 +674,7 @@ def _create_cc_compile_actions(
                         label = label,
                         common_compile_build_variables = common_compile_build_variables,
                         fdo_build_variables = fdo_build_variables,
-                        cpp_semantics = cpp_semantics,
+                        cpp_semantics = native_cc_semantics,
                         source = cpp_source,
                         output_name = output_name,
                         cpp_compile_action_builder = cpp_compile_action_builder,
@@ -698,7 +700,7 @@ def _create_cc_compile_actions(
                         label = label,
                         common_compile_build_variables = common_compile_build_variables,
                         fdo_build_variables = fdo_build_variables,
-                        cpp_semantics = cpp_semantics,
+                        cpp_semantics = native_cc_semantics,
                         source = cpp_source,
                         output_name = output_name,
                         cpp_compile_action_builder = cpp_compile_action_builder,
@@ -726,7 +728,7 @@ def _create_cc_compile_actions(
             configuration = configuration,
             copts_filter = copts_filter,
             feature_configuration = feature_configuration,
-            semantics = cpp_semantics,
+            semantics = native_cc_semantics,
             source_artifact = source_artifact,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
@@ -752,7 +754,7 @@ def _create_cc_compile_actions(
             label = label,
             common_compile_build_variables = common_compile_build_variables,
             fdo_build_variables = fdo_build_variables,
-            cpp_semantics = cpp_semantics,
+            cpp_semantics = native_cc_semantics,
             source_label = cpp_source.label,
             output_name_base = output_name_base,
             cpp_compile_action_builder = cpp_compile_action_builder,
@@ -915,7 +917,7 @@ def _create_module_action(
         label,
         common_compile_build_variables,
         fdo_build_variables,
-        cpp_semantics,
+        native_cc_semantics,
         cpp_module_map,
         outputs,
         cpp_compile_action_builder):
@@ -937,7 +939,7 @@ def _create_module_action(
         label = label,
         common_compile_build_variables = common_compile_build_variables,
         fdo_build_variables = fdo_build_variables,
-        cpp_semantics = cpp_semantics,
+        cpp_semantics = native_cc_semantics,
         source_label = module_map_label,
         output_name = paths.basename(module_map_label.name),
         outputs = outputs,
