@@ -242,7 +242,6 @@ public abstract class AbstractQueryTest<T> {
   protected ImmutableList<String> resultSetToListOfStrings(Set<T> results) {
     return results.stream()
         .map(node -> helper.getLabel(node))
-        .distinct()
         .sorted(Ordering.natural())
         .collect(toImmutableList());
   }
