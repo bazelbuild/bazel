@@ -30,6 +30,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfe
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.Collections.min;
+import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -116,6 +117,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -141,7 +143,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -171,6 +173,9 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private static final Comparator<String> PROTO_STRING_COMPARATOR =
+      comparing(StringEncoding::unicodeToInternal, String::compareTo);
+
   private final Reporter reporter;
   private final boolean verboseFailures;
   private final Path execRoot;
@@ -270,7 +275,7 @@ public class RemoteExecutionService {
         String pathString = internalToUnicode(remotePathResolver.localPathToOutputPath(output));
         outputPaths.add(pathString);
       }
-      Collections.sort(outputPaths);
+      outputPaths.sort(PROTO_STRING_COMPARATOR);
       command.addAllOutputPaths(outputPaths);
     } else {
       var outputFiles = new ArrayList<String>();
@@ -283,8 +288,8 @@ public class RemoteExecutionService {
           outputFiles.add(pathString);
         }
       }
-      Collections.sort(outputFiles);
-      Collections.sort(outputDirectories);
+      outputFiles.sort(PROTO_STRING_COMPARATOR);
+      outputDirectories.sort(PROTO_STRING_COMPARATOR);
       command.addAllOutputFiles(outputFiles).addAllOutputDirectories(outputDirectories);
     }
 

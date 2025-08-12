@@ -462,6 +462,10 @@ public class RemoteExecutionServiceTest {
             "dir/file1",
             "dir/file2",
             "dir/file3",
+            // These paths sort differently depending on whether they are sorted as Java Unicode
+            // or Bazel internal strings.
+            unicodeToInternal("path/ﾐ"),
+            unicodeToInternal("path/🔥"),
             // These paths sort differently depending on whether they are sorted as Strings or as
             // PathFragments.
             "srcs/system/foo.txt",
@@ -547,6 +551,12 @@ public class RemoteExecutionServiceTest {
                                             "file3",
                                             "content of tree file dir/subdir/subdir2/file3")),
                                     ImmutableMap.of()))))),
+                "path",
+                dir(
+                    ImmutableList.of(
+                        file("ﾐ", "content of tree file path/ﾐ"),
+                        file("🔥", "content of tree file path/🔥")),
+                    ImmutableMap.of()),
                 "srcs",
                 dir(
                     ImmutableList.of(),
@@ -601,6 +611,11 @@ public class RemoteExecutionServiceTest {
                                         treeArtifactDirectory)))),
                         "empty_dir",
                         emptyDirectory,
+                        "path",
+                        dir(
+                            ImmutableList.of(
+                                file("ﾐ", "content of path/ﾐ"), file("🔥", "content of path/🔥")),
+                            ImmutableMap.of()),
                         "srcs",
                         dir(
                             ImmutableList.of(),
@@ -657,6 +672,11 @@ public class RemoteExecutionServiceTest {
                         dirDirectory,
                         "empty_dir",
                         emptyDirectory,
+                        "path",
+                        dir(
+                            ImmutableList.of(
+                                file("ﾐ", "content of path/ﾐ"), file("🔥", "content of path/🔥")),
+                            ImmutableMap.of()),
                         "srcs",
                         dir(
                             ImmutableList.of(),
@@ -675,8 +695,8 @@ public class RemoteExecutionServiceTest {
     var expectedDigest =
         DigestUtil.fromString(
             switch (TestConstants.PRODUCT_NAME) {
-              case "bazel" -> "79419efe6586ca5048180744d9005896cd67339d6e012a7bec15ed0720e1fec7/82";
-              case "blaze" -> "559ce87dd544e9b6001cbf0557bafd42c35b0ffc10c99467f559d4e14a9b766c/82";
+              case "bazel" -> "ce94243235c6a1763fbc2ff6359a1b9bf85f735899448cff7c71ccb7404c3476/82";
+              case "blaze" -> "693401e72f297cce50df9b39c8fdfb229778e696396c3fb4e983d9f56fa759d0/82";
               default ->
                   throw new IllegalArgumentException(
                       "Unknown product name " + TestConstants.PRODUCT_NAME);
@@ -2845,6 +2865,34 @@ public class RemoteExecutionServiceTest {
         executionOs == OS.WINDOWS ? "path\\to\\pkg\\script.bat" : "path/to/pkg/script.bat";
     assertThat(remoteAction.getCommand().getArgumentsList())
         .containsExactly(expectedFirstArg, "some/other/arg")
+        .inOrder();
+  }
+
+  @Test
+  public void buildRemoteAction_codePointSorting() throws Exception {
+    var one = "path/ﾐ";
+    var oneF = execRoot.getRelative(unicodeToInternal(one)).asFragment();
+    var two = "path/🔥";
+    var twoF = execRoot.getRelative(unicodeToInternal(two)).asFragment();
+    var three = "sort/system-foo";
+    var threeF = execRoot.getRelative(unicodeToInternal(three)).asFragment();
+    var four = "sort/system/foo";
+    var fourF = execRoot.getRelative(unicodeToInternal(four)).asFragment();
+    var spawn =
+        new SpawnBuilder("dummy")
+            .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, oneF))
+            .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, twoF))
+            .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, threeF))
+            .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, fourF))
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getCommand().getOutputPathsList())
+        .containsExactly(
+            "/execroot/" + one, "/execroot/" + two, "/execroot/" + three, "/execroot/" + four)
         .inOrder();
   }
 
