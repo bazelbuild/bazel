@@ -505,13 +505,7 @@ EOF
 
 # Test that actions.write emits a file name containing non-Latin1 characters as
 # a UTF-8 encoded string.
-function test_actions_write_not_latin1_path() {
-  # TODO(https://github.com/bazelbuild/bazel/issues/11602): Enable after that is fixed.
-  if $is_windows ; then
-    echo 'Skipping test_actions_write_not_latin1_path on Windows. See #11602'
-    return
-  fi
-
+function test_actions_write_utf8_path() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -580,6 +574,20 @@ function test_missing_BUILD() {
   touch "$pkg/BUILD" || fail "Couldn't touch"
   bazel query "$pkg/subdir1/subdir2/BUILD" &> "$TEST_log" && fail "Should fail"
   expect_log "no such target '//${pkg}:subdir1/subdir2/BUILD'"
+}
+
+function test_glob_matching_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/dir/BUILD" || fail "could not create \"$pkg/dir/BUILD\""
+  touch "$pkg/dir/BUILD/file" || fail "Couldn't touch"
+  cat > "$pkg/BUILD" <<EOF
+filegroup(
+    name = "files",
+    srcs = glob(["dir/**"]),
+)
+EOF
+  bazel query "$pkg:files" --output=build >&"$TEST_log" || fail "Expected success"
+  expect_log "dir/BUILD/file"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
