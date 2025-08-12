@@ -129,6 +129,7 @@ public class TypeCheckTest {
 
   @Test
   public void runtimeTypecheck_tuple() throws Exception {
+    ev.exec("def f(a: tuple[]): pass", "f(())");
     ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
     ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
     assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")

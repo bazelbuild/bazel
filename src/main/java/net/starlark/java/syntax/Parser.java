@@ -1061,7 +1061,9 @@ final class Parser {
   private Expression parseTypeApplication(Identifier constructor) {
     expect(TokenKind.LBRACKET);
     ImmutableList.Builder<Expression> args = ImmutableList.builder();
-    args.add(parseTypeArgument());
+    if (token.kind != TokenKind.RBRACKET) {
+      args.add(parseTypeArgument());
+    }
     while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
       expect(TokenKind.COMMA);
       args.add(parseTypeArgument());

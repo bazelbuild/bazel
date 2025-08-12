@@ -1070,6 +1070,7 @@ public final class ParserTest {
   public void testDefWithTypeAnnotations() throws Exception {
     setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
     parseStatement("def f(a: int): pass");
+    parseStatement("def f(a: tuple[]): pass");
     parseStatement("def f(a: list[str]): pass");
     parseStatement("def f(a: dict[str, int]): pass");
 
@@ -1113,14 +1114,6 @@ public final class ParserTest {
     setFailFast(false);
     parseStatement("def f(a, *: int, b: bool): pass");
     assertContainsError("syntax error at ':': expected )");
-  }
-
-  @Test
-  public void testDefWithEmptyParametersInTypeAnnotation() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
-    setFailFast(false);
-    parseStatement("def f(a: list[]): pass");
-    assertContainsError("syntax error at ']': expected a type argument");
   }
 
   @Test
