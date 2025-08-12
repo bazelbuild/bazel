@@ -6,6 +6,7 @@ import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Comparator.comparing;
 import static java.util.Map.entry;
 import static java.util.concurrent.CompletableFuture.allOf;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,9 +63,7 @@ import java.io.IOException;
 import java.util.AbstractCollection;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -119,43 +117,6 @@ public final class MerkleTreeComputer {
   // * When visiting the inputs of a spawn in lexicographical order, once a directory is left once,
   //   it will never be entered again. At that point, the proto describing it can be built and
   //   digested and intermediate structures are no longer needed.
-
-  // This differs from the Comparable implementation of PathFragment in two ways that are relevant
-  // for RBE:
-  // 1. It compares paths as sequences of segments rather than as strings, which is mandated by the
-  //    RE API and yields different results for paths such as src/system/foo.txt and
-  //    src/system-root/bar.txt.
-  // 2. It is case-sensitive regardless of the host OS, which should never factor into decisions for
-  //    remote execution.
-  // TODO(bazel-team): Make this the default comparator for PathFragment so that we can avoid the
-  //  sorted copies below.
-  private static final Comparator<PathFragment> RE_API_PATH_COMPARATOR =
-      (p1, p2) -> {
-        // Bazel's Strings contain raw UTF-8 bytes (see StringEncoding), which can be compared
-        // byte-by-byte.
-        var b1 = StringUnsafe.getInternalStringBytes(p1.getPathString());
-        var b2 = StringUnsafe.getInternalStringBytes(p2.getPathString());
-        // This is based on String.compareTo for the case of two Latin-1 coders.
-        int k = Arrays.mismatch(b1, b2);
-        if (k == -1) {
-          return 0;
-        }
-        if (k >= b1.length) {
-          return -1;
-        }
-        if (k >= b2.length) {
-          return 1;
-        }
-        byte c1 = b1[k];
-        byte c2 = b2[k];
-        if (c1 == '/') {
-          return -1;
-        }
-        if (c2 == '/') {
-          return 1;
-        }
-        return Byte.compareUnsigned(c1, c2);
-      };
 
   private static final NodeProperties TOOL_NODE_PROPERTIES =
       NodeProperties.newBuilder()
@@ -380,7 +341,7 @@ public final class MerkleTreeComputer {
         ImmutableList.sortedCopyOf(
             comparing(
                 input -> getOutputPath(input, remotePathResolver, spawn.getPathMapper()),
-                RE_API_PATH_COMPARATOR),
+                HIERARCHICAL_COMPARATOR),
             new AbstractCollection<ActionInput>() {
               @Override
               public Iterator<ActionInput> iterator() {
@@ -451,7 +412,7 @@ public final class MerkleTreeComputer {
         build(
             Collections2.transform(
                 ImmutableList.sortedCopyOf(
-                    Map.Entry.comparingByKey(RE_API_PATH_COMPARATOR), inputs.entrySet()),
+                    Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
                 e -> entry(e.getKey(), ActionInputHelper.fromPath(e.getValue().asFragment()))),
             alwaysFalse(),
             /* spawnScrubber= */ null,
@@ -784,7 +745,7 @@ public final class MerkleTreeComputer {
         runfilesArtifactValue.getMetadata(),
         () ->
             ImmutableList.sortedCopyOf(
-                Map.Entry.comparingByKey(RE_API_PATH_COMPARATOR),
+                Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR),
                 runfilesArtifactValue.getRunfilesTree().getMapping().entrySet()),
         isTool,
         metadataProvider,
@@ -816,7 +777,7 @@ public final class MerkleTreeComputer {
             Collections2.transform(
                 ImmutableList.sortedCopyOf(
                     comparing(
-                        Artifact.TreeFileArtifact::getParentRelativePath, RE_API_PATH_COMPARATOR),
+                        Artifact.TreeFileArtifact::getParentRelativePath, HIERARCHICAL_COMPARATOR),
                     treeArtifactValue.getChildren()),
                 child -> entry(child.getParentRelativePath(), child)),
         isTool,
@@ -997,7 +958,7 @@ public final class MerkleTreeComputer {
 
   private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(Path dirPath)
       throws IOException, InterruptedException {
-    var inputs = ImmutableSortedMap.<PathFragment, ActionInput>orderedBy(RE_API_PATH_COMPARATOR);
+    var inputs = ImmutableSortedMap.<PathFragment, ActionInput>orderedBy(HIERARCHICAL_COMPARATOR);
     explodeDirectory(PathFragment.EMPTY_FRAGMENT, dirPath, inputs);
     return inputs.buildOrThrow();
   }
