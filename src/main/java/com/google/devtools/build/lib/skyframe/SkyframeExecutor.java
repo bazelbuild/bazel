@@ -3787,7 +3787,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       // Before running the {@link FilesystemValueChecker} ensure that all values marked for
       // invalidation have actually been invalidated, because checking those is a waste of time.
-      performDeferredInvalidation(eventHandler);
+      applyInvalidation(eventHandler);
 
       FilesystemValueChecker fsvc =
           new FilesystemValueChecker(
@@ -3900,7 +3900,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Actually invalidates values marked for invalidation by a previous evaluation.
+   * Actually invalidates values marked for invalidation.
    *
    * <p>Invalidation is delayed because:
    *
@@ -3909,9 +3909,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *   <li>invalidated values may be resurrected due to change pruning.
    * </ul>
    */
-  public final void performDeferredInvalidation(ExtendedEventHandler eventHandler)
+  public final void applyInvalidation(ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("performDeferredInvalidation")) {
+    try (SilentCloseable c = Profiler.instance().profile("applyInvalidation")) {
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(false)

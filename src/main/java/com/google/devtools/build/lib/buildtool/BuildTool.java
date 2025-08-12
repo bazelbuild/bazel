@@ -489,14 +489,6 @@ public class BuildTool {
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
-        // Dirty nodes from previous builds may still be present in the graph at this point. While
-        // they can't be reached from the scope of the current build via deps, they can appear in
-        // rdeps, which results in analysis post-processors doing unnecessary work or even expecting
-        // stale keys to be present. Clean them up now.
-        if (analysisPostProcessor != NOOP_POST_PROCESSOR) {
-          env.getSkyframeExecutor().deleteOldNodes(0);
-          env.getSkyframeExecutor().performDeferredInvalidation(env.getReporter());
-        }
         try (SilentCloseable c = Profiler.instance().profile("analysisPostProcessor.process")) {
           analysisPostProcessor.process(request, env, runtime, analysisResult);
         }
