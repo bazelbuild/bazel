@@ -168,7 +168,6 @@ public final class CppConfiguration extends Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
   private final boolean collectCodeCoverage;
-  private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
 
@@ -309,7 +308,6 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
     this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
