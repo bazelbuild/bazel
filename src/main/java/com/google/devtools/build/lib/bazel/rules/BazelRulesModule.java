@@ -146,7 +146,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "experimental_worker_as_resource",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op, will be removed soon.")
     public boolean workerAsResource;
@@ -154,7 +154,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "high_priority_workers",
         defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op, will be removed soon.",
         allowMultiple = true)
@@ -163,7 +163,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "target_platform_fallback",
         defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "This option is deprecated and has no effect.")
     public String targetPlatformFallback;
@@ -197,7 +197,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "experimental_collect_local_sandbox_action_metrics",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.LOGGING,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "Deprecated no-op.")
     public boolean collectLocalSandboxExecutionStatistics;
@@ -215,7 +215,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "experimental_parallel_aquery_output",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.QUERY,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean parallelAqueryOutput;
@@ -415,7 +415,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_dont_use_javasourceinfoprovider",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
@@ -499,7 +499,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_require_linker_input_cc_api",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean incompatibleRequireLinkerInputCcApi;
@@ -507,7 +507,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_depset_for_libraries_to_link_getter",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean incompatibleDepsetForLibrariesToLinkGetter;
@@ -515,7 +515,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "legacy_external_runfiles",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean legacyExternalRunfiles;
@@ -523,7 +523,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_disable_target_provider_fields",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
@@ -532,7 +532,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_disallow_struct_provider_syntax",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
@@ -541,7 +541,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "auto_cpu_environment_group",
         defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "No-op")
@@ -550,7 +550,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_top_level_aspects_require_providers",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
@@ -559,7 +559,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "separate_aspect_deps",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean separateAspectDeps;
@@ -567,7 +567,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_visibility_private_attributes_at_definition",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
@@ -576,7 +576,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_new_actions_api",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
@@ -630,7 +630,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_depset_for_java_output_source_jars",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
@@ -639,7 +639,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_use_plus_in_repo_names",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         help = "No-op.")
     public boolean incompatibleUsePlusInRepoNames;
@@ -648,7 +648,7 @@ public final class BazelRulesModule extends BlazeModule {
         name = "enable_bzlmod",
         oldName = "experimental_enable_bzlmod",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         help = "No-op.")
     public boolean enableBzlmod;
@@ -656,7 +656,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "enable_workspace",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         help = "No-op.")
     public boolean enableWorkspace;
@@ -697,7 +697,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "experimental_action_resource_set",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean experimentalActionResourceSet;
@@ -714,7 +714,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "verbose_explanations",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.LOGGING,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "No-op.")
     public boolean verboseExplanations;
