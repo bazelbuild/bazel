@@ -55,6 +55,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -367,16 +368,46 @@ public class ActionGraphQueryEnvironment
    */
   private ImmutableList<ConfiguredTargetValue> getConfiguredTargetsForLabel(Label label)
       throws InterruptedException {
-    ImmutableList.Builder<ConfiguredTargetValue> ans = ImmutableList.builder();
-    for (BuildConfigurationValue config : transitiveConfigurations.values()) {
-      ConfiguredTargetValue configuredTargetValue =
-          createConfiguredTargetValueFromKey(
-              ConfiguredTargetKey.builder().setLabel(label).setConfiguration(config).build());
-      if (configuredTargetValue != null) {
-        ans.add(configuredTargetValue);
+    var ans = ImmutableList.<ConfiguredTargetValue>builder();
+    HashSet<ConfiguredTargetKey> extraConfiguredTargetKeys = null;
+    for (var configurationValue : transitiveConfigurations.values()) {
+      var configurationKey = configurationValue.getKey();
+      var targetValue =
+          getValueFromKey(
+              ConfiguredTargetKey.builder()
+                  .setLabel(label)
+                  .setConfigurationKey(configurationKey)
+                  .build());
+      if (targetValue == null) {
+        continue;
       }
+      // The configurations might not match if the target's configuration changed due to a
+      // transition or trimming. Filter such targets, with one exception: if the target is subject
+      // to a non-idempotent rule transition, we have to keep it once if the keys requested above,
+      // which never have shouldApplyRuleTransition set to false, don't cover it. This case is rare,
+      // so we optimize for it not being hit.
+      if (!Objects.equals(
+          configurationKey, targetValue.getConfiguredTarget().getConfigurationKey())) {
+        var targetKey = ConfiguredTargetKey.fromConfiguredTarget(targetValue.getConfiguredTarget());
+        if (targetKey.shouldApplyRuleTransition()
+            || getValueFromKey(
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfigurationKey(targetKey.getConfigurationKey())
+                        .build())
+                != null) {
+          continue;
+        }
+        if (extraConfiguredTargetKeys == null) {
+          extraConfiguredTargetKeys = new HashSet<>();
+        }
+        if (!extraConfiguredTargetKeys.add(targetKey)) {
+          continue;
+        }
+      }
+      ans.add(targetValue);
     }
-    ConfiguredTargetValue nullConfiguredTarget = getNullConfiguredTarget(label);
+    var nullConfiguredTarget = getNullConfiguredTarget(label);
     if (nullConfiguredTarget != null) {
       ans.add(nullConfiguredTarget);
     }
