@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLine.FlatCommandLine;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
@@ -232,7 +233,7 @@ public final class RunfilesSupport {
   private final Artifact runfilesManifest;
   private final Artifact runfilesTreeArtifact;
   private final Artifact owningExecutable;
-  private final CommandLine args;
+  private final FlatCommandLine args;
   private final ActionEnvironment actionEnvironment;
 
   // Only cache mappings if there is a chance that more than one action will use it within a single
@@ -268,7 +269,7 @@ public final class RunfilesSupport {
       RuleContext ruleContext,
       Artifact executable,
       Runfiles runfiles,
-      CommandLine args,
+      FlatCommandLine args,
       ActionEnvironment actionEnvironment) {
     checkNotNull(executable);
     RunfileSymlinksMode runfileSymlinksMode =
@@ -339,7 +340,7 @@ public final class RunfilesSupport {
       Artifact runfilesManifest,
       Artifact runfilesTreeArtifact,
       Artifact owningExecutable,
-      CommandLine args,
+      FlatCommandLine args,
       ActionEnvironment actionEnvironment) {
     this.runfilesTree = runfilesTree;
     this.runfilesInputManifest = runfilesInputManifest;
@@ -534,7 +535,7 @@ public final class RunfilesSupport {
   }
 
   /** Returns the unmodifiable list of expanded and tokenized 'args' attribute values. */
-  public CommandLine getArgs() {
+  public FlatCommandLine getArgs() {
     return args;
   }
 
@@ -577,7 +578,7 @@ public final class RunfilesSupport {
    */
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable) throws InterruptedException {
-    return RunfilesSupport.create(
+    return create(
         ruleContext,
         executable,
         runfiles,
@@ -585,7 +586,7 @@ public final class RunfilesSupport {
         computeActionEnvironment(ruleContext));
   }
 
-  private static CommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
+  private static FlatCommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
     if (!ruleContext.getRule().isAttrDefined("args", Types.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
       // attribute here.
@@ -595,8 +596,7 @@ public final class RunfilesSupport {
     return args.isEmpty() ? CommandLine.empty() : CommandLine.of(args);
   }
 
-  private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext)
-      throws InterruptedException {
+  private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
     // Executable Starlark rules can use RunEnvironmentInfo to specify environment variables.
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;

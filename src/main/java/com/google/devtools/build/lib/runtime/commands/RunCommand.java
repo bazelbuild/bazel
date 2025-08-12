@@ -27,12 +27,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -214,17 +211,16 @@ public class RunCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {}
 
   /** Returns the arguments in a {@link ConfiguredTarget}'s {@code args} attribute. */
-  private static ImmutableList<String> getBinaryArgs(ConfiguredTarget targetToRun)
-      throws InterruptedException, CommandLineExpansionException {
-    List<String> args = Lists.newArrayList();
-
+  private static ImmutableList<String> getBinaryArgs(ConfiguredTarget targetToRun) {
     FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
-    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
-    if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
-      CommandLine targetArgs = runfilesSupport.getArgs();
-      Iterables.addAll(args, targetArgs.arguments());
+    if (provider == null) {
+      return ImmutableList.of();
     }
-    return ImmutableList.copyOf(args);
+    RunfilesSupport runfilesSupport = provider.getRunfilesSupport();
+    if (runfilesSupport == null) {
+      return ImmutableList.of();
+    }
+    return runfilesSupport.getArgs().arguments();
   }
 
   @Override
@@ -695,29 +691,13 @@ public class RunCommand implements BlazeCommand {
       }
     }
 
-    ImmutableList<String> argsFromBinary;
-    try {
-      argsFromBinary = getBinaryArgs(builtTargets.targetToRun);
-    } catch (InterruptedException e) {
-      String message = "run: command line expansion interrupted";
-      env.getReporter().handle(Event.error(message));
-      throw new RunCommandException(
-          BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message)),
-          builtTargets.stopTime);
-    } catch (CommandLineExpansionException e) {
-      throw new RunCommandException(
-          reportAndCreateFailureResult(
-              env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE),
-          builtTargets.stopTime);
-    }
-
     return constructCommandLine(
         env,
         builtTargets,
         ImmutableSortedMap.copyOf(runEnvironment),
         ImmutableSortedSet.copyOf(
             Iterables.concat(envVariablesToClear, ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY)),
-        argsFromBinary,
+        getBinaryArgs(builtTargets.targetToRun),
         argsFromResidue);
   }
 
