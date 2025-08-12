@@ -762,6 +762,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
+  @StarlarkMethod(
+      name = "use_llvm_coverage_map_format",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useLlvmCoverageMapFormatStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return useLLVMCoverageMapFormat();
+  }
+
   @Nullable
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {

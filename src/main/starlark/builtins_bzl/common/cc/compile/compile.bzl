@@ -21,6 +21,7 @@ load(
     ":common/cc/cc_helper_internal.bzl",
     "artifact_category",
     "extensions",
+    "output_subdirectories",
     "should_create_per_object_debug_info",
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
@@ -543,17 +544,7 @@ def _create_cc_compile_actions(
             modules = modules + separate_modules
         if feature_configuration.is_enabled("header_module_codegen"):
             for module in modules:
-                cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
-                    action_construction_context = action_construction_context,
-                    cc_toolchain = cc_toolchain,
-                    cc_compilation_context = cc_compilation_context,
-                    configuration = configuration,
-                    copts_filter = copts_filter,
-                    feature_configuration = feature_configuration,
-                    semantics = cpp_semantics,
-                    source_artifact = module,
-                )
-                cc_internal.create_module_codegen_action(
+                _create_module_codegen_action(
                     action_construction_context = action_construction_context,
                     cc_compilation_context = cc_compilation_context,
                     cc_toolchain = cc_toolchain,
@@ -571,10 +562,10 @@ def _create_cc_compile_actions(
                     common_toolchain_variables = common_compile_build_variables,
                     fdo_build_variables = fdo_build_variables,
                     cpp_semantics = cpp_semantics,
+                    language = language,
                     outputs = outputs,
                     source_label = module_map_label,
                     module = module,
-                    cpp_compile_action_builder = cpp_compile_action_builder,
                 )
 
     output_name_prefix_dir = cc_internal.compute_output_name_prefix_dir(configuration = configuration, purpose = purpose)
@@ -768,6 +759,145 @@ def _create_cc_compile_actions(
         )
         outputs.add_header_token_file(header_token_file)
 
+def _create_module_codegen_action(
+        action_construction_context,
+        cc_compilation_context,
+        cc_toolchain,
+        configuration,
+        conlyopts,
+        copts,
+        copts_filter,
+        cpp_configuration,
+        cxxopts,
+        fdo_context,
+        auxiliary_fdo_inputs,
+        feature_configuration,
+        is_code_coverage_enabled,
+        label,
+        common_toolchain_variables,
+        fdo_build_variables,
+        cpp_semantics,
+        language,
+        source_label,
+        module,
+        outputs):
+    use_pic = ".pic" in module.basename
+    output_name = paths.basename(module.basename)
+
+    gcno_file = None
+    if is_code_coverage_enabled and not cpp_configuration.use_llvm_coverage_map_format():
+        gcno_file = _declare_output_file(
+            ctx = action_construction_context,
+            label = label,
+            sub_dir = output_subdirectories.OBJS,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.COVERAGE_DATA_FILE,
+                output_name = output_name,
+            ),
+        )
+
+    bitcode_output = (feature_configuration.is_enabled("thin_lto") and
+                      paths.split_extension(module.basename)[-1] in LTO_SOURCE_EXTENSIONS)
+
+    # TODO(tejohnson): Add support for ThinLTO if needed.
+    if bitcode_output:
+        fail("bitcode output not currently supported for feature header_module_codegen")
+
+    complete_copts = _get_copts(
+        language = language,
+        cpp_configuration = cpp_configuration,
+        source_file = module,
+        conlyopts = conlyopts,
+        copts = copts,
+        cxxopts = cxxopts,
+        label = source_label,
+    )
+
+    object_file, dotd_file, diagnostics_file = cc_internal.declare_output_files(
+        action_construction_context = action_construction_context,
+        label = label,
+        output_category = artifact_category.OBJECT_FILE,
+        output_name = output_name,
+        source_file = module,
+        cc_toolchain = cc_toolchain,
+        semantics = cpp_semantics,
+        feature_configuration = feature_configuration,
+        configuration = configuration,
+    )
+
+    dwo_file = None
+    generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration)
+    if generate_dwo:
+        dwo_file_name = paths.replace_extension(paths.basename(object_file.path), ".dwo")
+        dwo_file = action_construction_context.actions.declare_file(
+            dwo_file_name,
+            sibling = object_file,
+        )
+
+    compile_variables = cc_internal.create_specific_compile_build_variables(
+        current_variables = common_toolchain_variables,
+        source_file = module,
+        output_file = object_file,
+        enable_coverage = is_code_coverage_enabled,
+        gcno_file = gcno_file,
+        dwo_file = dwo_file,
+        using_fission = generate_dwo,
+        lto_indexing_file = None,
+        copts = complete_copts,
+        dotd_file = dotd_file,
+        diagnostics_file = diagnostics_file,
+        use_pic = use_pic,
+        cpp_module_map = cc_compilation_context.module_map(),
+        feature_configuration = feature_configuration,
+        direct_module_maps = cc_compilation_context.direct_module_maps,
+        fdo_build_variables = fdo_build_variables,
+        additional_build_variables = {},
+    )
+
+    additional_inputs = []
+    fdo_context_has_artifacts = (getattr(fdo_context, "branch_fdo_profile", None) or
+                                 getattr(fdo_context, "prefetch_hints_artifact", None) or
+                                 getattr(fdo_context, "properller_optimize_input_file", None) or
+                                 getattr(fdo_context, "memprof_profile_artifact", None))
+
+    # this flattening is cheap and is only necessary because get_auxiliary_fdo_inputs creates a
+    # depset instead of returning a list and and create_cpp_compile_action_builder_with_inputs
+    # expects a list instead of a depset
+    # TODO(cmita): Fix this muddle
+    if fdo_context_has_artifacts:
+        additional_inputs = auxiliary_fdo_inputs.to_list()
+
+    compile_action_builder = cc_internal.create_cpp_compile_action_builder_with_inputs(
+        action_construction_context = action_construction_context,
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        configuration = configuration,
+        copts_filter = copts_filter,
+        feature_configuration = feature_configuration,
+        semantics = cpp_semantics,
+        source_artifact = module,
+        additional_compilation_inputs = additional_inputs,
+        output_file = object_file,
+        dotd_file = dotd_file,
+        diagnostics_file = diagnostics_file,
+        gcno_file = gcno_file,
+        dwo_file = dwo_file,
+    )
+
+    cc_internal.create_cpp_compile_action(
+        action_construction_context = action_construction_context,
+        compile_action_builder = compile_action_builder,
+        compile_build_variables = compile_variables,
+        cpp_semantics = cpp_semantics,
+        configuration = configuration,
+        feature_configuration = feature_configuration,
+    )
+    if use_pic:
+        outputs.add_pic_object_file(object_file)
+    else:
+        outputs.add_object_file(object_file)
+
 def _create_module_action(
         action_construction_context,
         cc_compilation_context,
@@ -821,6 +951,47 @@ def _create_module_action(
         bitcode_output = False,
     )
 
+_SOURCE_TYPES_FOR_CXXOPTS = set(
+    extensions.CC_SOURCE +
+    extensions.CC_HEADER +
+    extensions.CLIF_INPUT_PROTO +
+    extensions.CPP_MODULE_MAP +
+    extensions.OBJCPP_SOURCE,
+)
+
+def _get_copts(
+        language,
+        cpp_configuration,
+        source_file,
+        conlyopts,
+        copts,
+        cxxopts,
+        label):
+    extension = "." + source_file.extension if source_file.extension else ""
+    result = []
+    result.extend(_copts_from_options(language, cpp_configuration, extension))
+    result.extend(copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cxxopts)
+    if label:
+        result.extend(cc_internal.per_file_copts(cpp_configuration, source_file, label))
+    return result
+
+def _copts_from_options(language, cpp_configuration, extension):
+    result = []
+    result.extend(cpp_configuration.copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(cpp_configuration.conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cpp_configuration.cxxopts)
+    if extension in [extensions.OBJC_SOURCE, extensions.OBJCPP_SOURCE] or (
+        language == "objc" and extension in extensions.CC_HEADER
+    ):
+        result.extend(cpp_configuration.objccopts)
+    return result
+
 def _calculate_output_name_map_by_type(sources, prefix_dir):
     return (
         _calculate_output_name_map(
@@ -872,3 +1043,8 @@ def _get_source_artifacts_by_type(sources, source_type):
 
 def _basename_without_extension(filename):
     return paths.split_extension(filename.basename)[0]
+
+def _declare_output_file(ctx, label, sub_dir, output_name):
+    path = paths.join(label.package, sub_dir, label.name, output_name)
+    output_file = ctx.actions.declare_file(path)
+    return output_file

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -424,105 +423,6 @@ public final class CcStaticCompilationHelper {
     }
 
     return outputFiles;
-  }
-
-  static void createModuleCodegenAction(
-      ActionConstructionContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      CoptsFilter coptsFilter,
-      CppConfiguration cppConfiguration,
-      ImmutableList<String> cxxopts,
-      ImmutableMap<String, String> executionInfo,
-      FdoContext fdoContext,
-      NestedSet<Artifact> auxiliaryFdoInputs,
-      FeatureConfiguration featureConfiguration,
-      boolean isCodeCoverageEnabled,
-      Label label,
-      CcToolchainVariables commonToolchainVariables,
-      ImmutableMap<String, String> fdoBuildVariables,
-      RuleErrorConsumer ruleErrorConsumer,
-      CppSemantics semantics,
-      CcCompilationOutputs.Builder result,
-      Label sourceLabel,
-      Artifact module,
-      CppCompileActionBuilder builder)
-      throws RuleErrorException, EvalException {
-    String outputName = module.getRootRelativePath().getBaseName();
-
-    // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
-    boolean pic = module.getFilename().contains(".pic.");
-    builder.setPicMode(pic);
-    builder.setOutputs(
-        actionConstructionContext,
-        ruleErrorConsumer,
-        label,
-        ArtifactCategory.OBJECT_FILE,
-        outputName);
-    PathFragment ccRelativeName = module.getRootRelativePath();
-
-    String gcnoFileName =
-        CppHelper.getArtifactNameForCategory(
-            ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
-    // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
-    Artifact gcnoFile =
-        isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
-            ? CppHelper.getCompileOutputArtifact(
-                actionConstructionContext, label, gcnoFileName, configuration)
-            : null;
-
-    boolean generateDwo =
-        CcToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration);
-    Artifact dwoFile =
-        generateDwo
-            ? getDwoFile(actionConstructionContext, configuration, builder.getOutputFile())
-            : null;
-    // TODO(tejohnson): Add support for ThinLTO if needed.
-    boolean bitcodeOutput =
-        featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
-            && CppFileTypes.LTO_SOURCE.matches(module.getFilename());
-    Preconditions.checkState(!bitcodeOutput);
-
-    builder.setVariables(
-        setupSpecificCompileBuildVariables(
-            commonToolchainVariables,
-            ccCompilationContext,
-            conlyopts,
-            copts,
-            cppConfiguration,
-            cxxopts,
-            fdoContext,
-            auxiliaryFdoInputs,
-            featureConfiguration,
-            semantics,
-            builder,
-            sourceLabel,
-            /* usePic= */ pic,
-            /* needsFdoBuildVariables= */ ccRelativeName != null,
-            fdoBuildVariables,
-            ccCompilationContext.getCppModuleMap(),
-            isCodeCoverageEnabled,
-            gcnoFile,
-            generateDwo,
-            dwoFile,
-            /* ltoIndexingFile= */ null,
-            /* additionalBuildVariables= */ ImmutableMap.of()));
-
-    builder.setGcnoFile(gcnoFile);
-    builder.setDwoFile(dwoFile);
-
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-    CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
-    actionConstructionContext.registerAction(compileAction);
-    Artifact objectFile = compileAction.getPrimaryOutput();
-    if (pic) {
-      result.addPicObjectFile(objectFile);
-    } else {
-      result.addObjectFile(objectFile);
-    }
   }
 
   static Artifact createParseHeaderAction(
