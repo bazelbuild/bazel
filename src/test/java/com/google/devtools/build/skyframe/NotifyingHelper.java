@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -99,6 +100,27 @@ public class NotifyingHelper {
     @Override
     public void remove(SkyKey key) {
       delegate.remove(key);
+    }
+
+    @Override
+    public NodeBatch getBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+        throws InterruptedException {
+      for (SkyKey key : keys) {
+        notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
+      }
+      NodeBatch batch = delegate.getBatch(requestor, reason, keys);
+      var map = new HashMap<SkyKey, NodeEntry>();
+      for (SkyKey key : keys) {
+        if (map.containsKey(key)) {
+          continue;
+        }
+        NodeEntry entry = batch.get(key);
+        if (entry != null) {
+          map.put(key, notifyingHelper.wrapEntry(key, entry));
+        }
+      }
+      return map::get;
     }
 
     @Override
