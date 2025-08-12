@@ -175,7 +175,6 @@ def compile(
     """
 
     # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcModuleApi.java:compile_api)
-    # LINT.IfChange(compile)
     ctx = cc_internal.actions2ctx_cheat(actions)
     _starlark_cc_semantics.validate_cc_compile_call(
         label = ctx.label,
@@ -431,8 +430,6 @@ def _should_provide_header_modules(
         feature_configuration.is_enabled("header_modules") and
         (private_headers or public_headers)
     )
-
-# LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CcModule.java:compile)
 
 def _create_cc_compile_actions(
         *,

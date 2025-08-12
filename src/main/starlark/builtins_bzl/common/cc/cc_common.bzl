@@ -707,11 +707,7 @@ def _compile(
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    if cc_toolchain._cpp_configuration.experimental_starlark_compiling():
-        compile_func = compile
-    else:
-        compile_func = cc_common_internal.compile
-    return compile_func(
+    return compile(
         actions = actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,

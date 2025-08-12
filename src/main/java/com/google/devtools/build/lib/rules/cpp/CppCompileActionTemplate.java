@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -58,6 +58,42 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   private final ActionOwner actionOwner;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> allInputs;
+
+  /**
+   * A group of source file types and action names for builds controlled by CcCompilationHelper.
+   * Determines what file types CcCompilationHelper considers sources and what action configs are
+   * configured in the CROSSTOOL.
+   */
+  enum SourceCategory {
+    CC(
+        FileTypeSet.of(
+            CppFileTypes.CPP_SOURCE,
+            CppFileTypes.CPP_HEADER,
+            CppFileTypes.C_SOURCE,
+            CppFileTypes.ASSEMBLER,
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR,
+            CppFileTypes.CLIF_INPUT_PROTO)),
+    CC_AND_OBJC(
+        FileTypeSet.of(
+            CppFileTypes.CPP_SOURCE,
+            CppFileTypes.CPP_HEADER,
+            CppFileTypes.OBJC_SOURCE,
+            CppFileTypes.OBJCPP_SOURCE,
+            CppFileTypes.C_SOURCE,
+            CppFileTypes.ASSEMBLER,
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR));
+
+    private final FileTypeSet sourceTypeSet;
+
+    SourceCategory(FileTypeSet sourceTypeSet) {
+      this.sourceTypeSet = sourceTypeSet;
+    }
+
+    /** Returns the set of file types that are valid for this category. */
+    public FileTypeSet getSourceTypes() {
+      return sourceTypeSet;
+    }
+  }
 
   /**
    * Creates a CppCompileActionTemplate.

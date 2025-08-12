@@ -202,26 +202,6 @@ java_test(
 )
 
 java_test(
-    name = "CcCompilationHelperTest",
-    srcs = ["CcCompilationHelperTest.java"],
-    deps = [
-        ":MockCppSemantics",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "CcCompileOnlyTest",
     srcs = ["CcCompileOnlyTest.java"],
     deps = [

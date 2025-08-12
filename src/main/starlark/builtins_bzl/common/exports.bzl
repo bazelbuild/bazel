@@ -25,7 +25,6 @@ load("@_builtins//:common/cc/cc_static_library.bzl", "cc_static_library")
 load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
 load("@_builtins//:common/cc/cc_toolchain.bzl", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
-load("@_builtins//:common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
@@ -85,6 +84,5 @@ exported_rules = {
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
     "cc_common_compile": cc_common.compile,  # Only needed for CppCompileActionTemplateTest.
-    "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
     "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
 }
