@@ -1662,4 +1662,40 @@ EOF
   expect_log "//${pkg}:platform is not a valid select.. condition"
 }
 
+function test_stale_rdeps() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch $pkg/dep.txt
+  touch $pkg/{1,2,3}.txt
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "dep",
+    srcs = ["dep.txt"],
+)
+
+[
+    filegroup(
+        name = "target_{}".format(txt),
+        srcs = [
+            txt,
+            ":dep",
+        ],
+    )
+    for txt in glob(["*.txt"])
+]
+EOF
+
+  bazel cquery "rdeps(//$pkg:all, //$pkg:dep)" > output 2>"$TEST_log" || fail "Unexpected failure"
+  expect_log "//$pkg:target_1.txt"
+  expect_log "//$pkg:target_2.txt"
+  expect_log "//$pkg:target_3.txt"
+
+  rm $pkg/2.txt
+  bazel cquery "rdeps(//$pkg:all, //$pkg:dep)" > output 2>"$TEST_log" || fail "Unexpected failure"
+
+  expect_log "//$pkg:target_1.txt"
+  expect_not_log "//$pkg:target_2.txt"
+  expect_log "//$pkg:target_3.txt"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
