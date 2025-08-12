@@ -294,16 +294,7 @@ public final class FunctionTransitionUtil {
       boolean allowNonConfigurableFlagChanges,
       ImmutableMap<String, OptionInfo> optionInfoMap)
       throws ValidationException {
-    ImmutableList<String> invalidNativeOptions =
-        options.stream()
-            .filter(IS_NATIVE_OPTION)
-            .filter(optionName -> !isNativeOptionValid(optionInfoMap, optionName))
-            .collect(toImmutableList());
-    if (!invalidNativeOptions.isEmpty()) {
-      throw ValidationException.format(
-          "transition inputs [%s] do not correspond to valid settings",
-          Joiner.on(", ").join(invalidNativeOptions));
-    }
+    checkForInvalidNativeOptions(/* transitionParameterType= */ "inputs", options, optionInfoMap);
 
     checkForNonConfigurableOptions(
         /* transitionParameterType= */ "inputs",
@@ -326,6 +317,20 @@ public final class FunctionTransitionUtil {
     // TODO: blaze-configurability - Move the checks for incompatible and experimental flags to here
     // (currently in ConfigGlobalLibrary.validateBuildSettingKeys).
 
+    checkForInvalidNativeOptions(/* transitionParameterType= */ "outputs", options, optionInfoMap);
+
+    checkForNonConfigurableOptions(
+        /* transitionParameterType= */ "outputs",
+        options,
+        allowNonConfigurableFlagChanges,
+        optionInfoMap);
+  }
+
+  private static void checkForInvalidNativeOptions(
+      String transitionParameterType,
+      ImmutableList<String> options,
+      ImmutableMap<String, OptionInfo> optionInfoMap)
+      throws ValidationException {
     ImmutableList<String> invalidNativeOptions =
         options.stream()
             .filter(IS_NATIVE_OPTION)
@@ -333,15 +338,9 @@ public final class FunctionTransitionUtil {
             .collect(toImmutableList());
     if (!invalidNativeOptions.isEmpty()) {
       throw ValidationException.format(
-          "transition outputs [%s] do not correspond to valid settings",
-          Joiner.on(", ").join(invalidNativeOptions));
+          "transition %s [%s] do not correspond to valid settings",
+          transitionParameterType, Joiner.on(", ").join(invalidNativeOptions));
     }
-
-    checkForNonConfigurableOptions(
-        /* transitionParameterType= */ "outputs",
-        options,
-        allowNonConfigurableFlagChanges,
-        optionInfoMap);
   }
 
   private static void checkForNonConfigurableOptions(
