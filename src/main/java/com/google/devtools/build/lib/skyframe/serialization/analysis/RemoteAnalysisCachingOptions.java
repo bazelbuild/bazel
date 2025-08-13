@@ -113,6 +113,29 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       help = "Locator for the AnalysisCacheService instance.")
   public String analysisCacheService;
 
+  // Configuration Modes:
+  // 1. Write Proxy: If --experimental_remote_analysis_write_proxy is set, all uploads go through
+  //    the write proxy. --experimental_remote_analysis_cache_mode must be UPLOAD.
+  //    --experimental_analysis_cache_service and --experimental_remote_analysis_cache are ignored.
+  //
+  // 2. Read Proxy: If --experimental_analysis_cache_service is set but
+  //    --experimental_remote_analysis_cache is NOT set, downloads are proxied through the
+  //    AnalysisCacheService. --experimental_remote_analysis_cache_mode must be DOWNLOAD.
+  //
+  // 3. Legacy Direct: Otherwise, connections are made directly to storage (specified by
+  //    --experimental_remote_analysis_cache) and AnalysisCacheService (specified by
+  //    --experimental_analysis_cache_service, if provided).
+
+  @Option(
+      name = "experimental_remote_analysis_write_proxy",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "The address of the SkycacheStorageWriteProxyService. If set, this service will be used "
+              + "for uploading analysis cache data.")
+  public String remoteAnalysisWriteProxy;
+
   @Option(
       name = "experimental_analysis_cache_key_distinguisher_for_testing",
       defaultValue = "null",
