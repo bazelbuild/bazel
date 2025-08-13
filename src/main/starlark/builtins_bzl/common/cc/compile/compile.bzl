@@ -212,7 +212,8 @@ def compile(
     language_normalized = language_normalized.replace("+", "p").upper()
     source_category = SOURCE_CATEGORY_CC if language_normalized == "CPP" else SOURCE_CATEGORY_CC_AND_OBJC
     ctx = cc_internal.actions2ctx_cheat(actions)
-    includes = includes.to_list() if type(includes) == "depset" else includes
+    if type(includes) == "depset":
+        includes = includes.to_list()
     textual_hdrs_list = textual_hdrs.to_list() if type(textual_hdrs) == "depset" else textual_hdrs
 
     compilation_unit_sources = {}
@@ -265,7 +266,8 @@ def compile(
         generate_no_pic_action = generate_no_pic_action,
         module_map = module_map,
         propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
-        additional_exported_headers = additional_exported_hdrs + [h.path for h in textual_hdrs_list],
+        additional_exported_headers =
+            additional_exported_hdrs + [h.path for h in textual_hdrs_list] if textual_hdrs_list else additional_exported_hdrs,
         deps = compilation_contexts,
         purpose = "unused",
         # init_cc_compilation_context() passes purpose to two calls to
