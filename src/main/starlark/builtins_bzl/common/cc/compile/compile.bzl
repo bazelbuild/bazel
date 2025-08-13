@@ -874,16 +874,15 @@ def _create_module_codegen_action(
             sibling = object_file,
         )
 
-    compile_variables = cc_internal.create_specific_compile_build_variables(
-        current_variables = common_toolchain_variables,
+    specific_compile_build_variables = get_specific_compile_build_variables(
         source_file = module,
         output_file = object_file,
-        enable_coverage = is_code_coverage_enabled,
+        code_coverage_enabled = is_code_coverage_enabled,
         gcno_file = gcno_file,
         dwo_file = dwo_file,
         using_fission = generate_dwo,
         lto_indexing_file = None,
-        copts = complete_copts,
+        user_compile_flags = complete_copts,
         dotd_file = dotd_file,
         diagnostics_file = diagnostics_file,
         use_pic = use_pic,
@@ -892,6 +891,10 @@ def _create_module_codegen_action(
         direct_module_maps = cc_compilation_context.direct_module_maps,
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {},
+    )
+    compile_variables = cc_internal.combine_cc_toolchain_variables(
+        common_toolchain_variables,
+        specific_compile_build_variables,
     )
 
     additional_inputs = []

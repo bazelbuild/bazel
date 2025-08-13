@@ -94,6 +94,27 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "combine_cc_toolchain_variables",
+      documented = false,
+      parameters = {},
+      extraPositionals =
+          @Param(
+              name = "variables",
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = CcToolchainVariables.class)
+              }))
+  public CcToolchainVariables combineCcToolchainVariables(Sequence<?> variablesSequenceUnchecked)
+      throws EvalException {
+    Sequence<CcToolchainVariables> variablesSequence =
+        Sequence.cast(variablesSequenceUnchecked, CcToolchainVariables.class, "variables");
+    CcToolchainVariables.Builder builder = CcToolchainVariables.builder();
+    for (CcToolchainVariables variables : variablesSequence) {
+      builder.addAllNonTransitive(variables);
+    }
+    return builder.build();
+  }
+
+  @StarlarkMethod(
       name = "intern_string_sequence_variable_value",
       documented = false,
       parameters = {
@@ -1002,103 +1023,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             TargetUtils.getExecutionInfo(
                 actionConstructionContext.getRuleContext().getRule(),
                 actionConstructionContext.getRuleContext().isAllowTagsPropagation()));
-  }
-
-  @StarlarkMethod(
-      name = "create_specific_compile_build_variables",
-      documented = false,
-      parameters = {
-        @Param(name = "current_variables", positional = false, named = true),
-        @Param(name = "source_file", positional = false, named = true),
-        @Param(name = "output_file", positional = false, named = true),
-        @Param(name = "enable_coverage", positional = false, named = true),
-        @Param(
-            name = "gcno_file",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None"),
-        @Param(
-            name = "dwo_file",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None"),
-        @Param(name = "using_fission", positional = false, named = true),
-        @Param(
-            name = "lto_indexing_file",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None"),
-        @Param(name = "copts", positional = false, named = true),
-        @Param(
-            name = "dotd_file",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None"),
-        @Param(
-            name = "diagnostics_file",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None"),
-        @Param(name = "use_pic", positional = false, named = true),
-        @Param(name = "cpp_module_map", positional = false, named = true),
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "direct_module_maps", positional = false, named = true),
-        @Param(name = "fdo_build_variables", positional = false, named = true),
-        @Param(name = "additional_build_variables", positional = false, named = true),
-      })
-  public CcToolchainVariables createSpecificCompileBuildVariables(
-      CcToolchainVariables currentVariables,
-      Artifact sourceFile,
-      Artifact outputFile,
-      boolean enableCoverage,
-      Object gcnoFileObject,
-      Object dwoFileObject,
-      boolean isUsingFission,
-      Object ltoIndexingFileObject,
-      StarlarkList<?> copts,
-      Object dotdFileObject,
-      Object diagnosticsFileObject,
-      boolean usePic,
-      CppModuleMap cppModuleMap,
-      FeatureConfigurationForStarlark featureConfiguration,
-      StarlarkList<?> directModuleMaps,
-      Dict<?, ?> fdoBuildVariables,
-      Dict<?, ?> additionalBuildVariables)
-      throws EvalException {
-    CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder(currentVariables);
-    Artifact dwoFile = nullIfNone(dwoFileObject, Artifact.class);
-    Artifact ltoIndexingFile = nullIfNone(ltoIndexingFileObject, Artifact.class);
-    Artifact dotdFile = nullIfNone(dotdFileObject, Artifact.class);
-    Artifact diagnosticsFile = nullIfNone(diagnosticsFileObject, Artifact.class);
-    Artifact gcnoFile = nullIfNone(gcnoFileObject, Artifact.class);
-    CompileBuildVariables.setupSpecificVariables(
-        buildVariables,
-        sourceFile,
-        outputFile,
-        enableCoverage,
-        gcnoFile,
-        dwoFile,
-        isUsingFission,
-        ltoIndexingFile,
-        Sequence.cast(copts, String.class, "copts").getImmutableList(),
-        dotdFile,
-        diagnosticsFile,
-        usePic,
-        featureConfiguration.getFeatureConfiguration(),
-        cppModuleMap,
-        Sequence.cast(directModuleMaps, Artifact.class, "direct_module_maps").getImmutableList(),
-        Dict.cast(
-            additionalBuildVariables, String.class, String.class, "additional_build_variables"));
-    if (fdoBuildVariables != null && !fdoBuildVariables.isEmpty()) {
-      buildVariables.addAllStringVariables(
-          Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables"));
-    }
-    return buildVariables.build();
   }
 
   /**
