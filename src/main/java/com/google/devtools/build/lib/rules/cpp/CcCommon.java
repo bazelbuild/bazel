@@ -156,7 +156,7 @@ public final class CcCommon implements StarlarkValue {
     @Override
     public void repr(Printer printer) {
       printer.append("CoptsFilter(noCoptsPattern=");
-      printer.append(noCoptsPattern.pattern());
+      printer.append(noCoptsPattern == null ? "null" : noCoptsPattern.pattern());
       printer.append(", allPasses=");
       printer.append(Boolean.toString(allPasses));
       printer.append(")");

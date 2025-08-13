@@ -583,7 +583,7 @@ def _create_cc_compile_actions(
         source_label = cpp_source.label
         bitcode_output = feature_configuration.is_enabled("thin_lto") and (("." + source_artifact.extension) in LTO_SOURCE_EXTENSIONS)
 
-        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder_with_inputs(
+        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
@@ -754,7 +754,7 @@ def _create_cc_compile_actions(
                 output_name = output_name_base,
             ),
         ) if _serialized_diagnostics_file_enabled(feature_configuration) else None
-        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder_with_inputs(
+        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
@@ -928,14 +928,14 @@ def _create_module_codegen_action(
                                  getattr(fdo_context, "properller_optimize_input_file", None) or
                                  getattr(fdo_context, "memprof_profile_artifact", None))
 
-    # this flattening is cheap and is only necessary because get_auxiliary_fdo_inputs creates a
-    # depset instead of returning a list and and create_cpp_compile_action_builder_with_inputs
-    # expects a list instead of a depset
+    # This flattening is cheap and is only necessary because get_auxiliary_fdo_inputs creates a
+    # depset instead of returning a list, and and create_cpp_compile_action_builder() expects a
+    # list instead of a depset
     # TODO(cmita): Fix this muddle
     if fdo_context_has_artifacts:
         additional_inputs = auxiliary_fdo_inputs.to_list()
 
-    compile_action_builder = cc_internal.create_cpp_compile_action_builder_with_inputs(
+    compile_action_builder = cc_internal.create_cpp_compile_action_builder(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
