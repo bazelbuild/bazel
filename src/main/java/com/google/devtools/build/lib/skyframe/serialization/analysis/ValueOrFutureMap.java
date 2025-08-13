@@ -22,7 +22,7 @@ import java.util.function.Function;
 /**
  * Regular implementation of {@link AbstractValueOrFutureMap}.
  *
- * <p>{@link getValueOrFuture} only requires a key parameter.
+ * <p>{@link #getValueOrFuture} only requires a key parameter.
  */
 final class ValueOrFutureMap<
         KeyT, ValueOrFutureT, ValueT extends ValueOrFutureT, FutureT extends ValueOrFutureT>
