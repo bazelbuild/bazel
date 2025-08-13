@@ -60,42 +60,6 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   private final NestedSet<Artifact> allInputs;
 
   /**
-   * A group of source file types and action names for builds controlled by CcCompilationHelper.
-   * Determines what file types CcCompilationHelper considers sources and what action configs are
-   * configured in the CROSSTOOL.
-   */
-  enum SourceCategory {
-    CC(
-        FileTypeSet.of(
-            CppFileTypes.CPP_SOURCE,
-            CppFileTypes.CPP_HEADER,
-            CppFileTypes.C_SOURCE,
-            CppFileTypes.ASSEMBLER,
-            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR,
-            CppFileTypes.CLIF_INPUT_PROTO)),
-    CC_AND_OBJC(
-        FileTypeSet.of(
-            CppFileTypes.CPP_SOURCE,
-            CppFileTypes.CPP_HEADER,
-            CppFileTypes.OBJC_SOURCE,
-            CppFileTypes.OBJCPP_SOURCE,
-            CppFileTypes.C_SOURCE,
-            CppFileTypes.ASSEMBLER,
-            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR));
-
-    private final FileTypeSet sourceTypeSet;
-
-    SourceCategory(FileTypeSet sourceTypeSet) {
-      this.sourceTypeSet = sourceTypeSet;
-    }
-
-    /** Returns the set of file types that are valid for this category. */
-    public FileTypeSet getSourceTypes() {
-      return sourceTypeSet;
-    }
-  }
-
-  /**
    * Creates a CppCompileActionTemplate.
    *
    * @param sourceTreeArtifact the TreeArtifact that contains source files to compile.
@@ -138,6 +102,19 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
             .build();
   }
 
+  // LINT.IfChange(cc_and_objc_file_types)
+  private static final FileTypeSet CC_AND_OBJC_FILE_TYPES =
+      FileTypeSet.of(
+          CppFileTypes.CPP_SOURCE,
+          CppFileTypes.CPP_HEADER,
+          CppFileTypes.OBJC_SOURCE,
+          CppFileTypes.OBJCPP_SOURCE,
+          CppFileTypes.C_SOURCE,
+          CppFileTypes.ASSEMBLER,
+          CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:cc_and_objc_file_types)
+
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
@@ -151,10 +128,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
       boolean isTextualInclude =
           CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(inputTreeFileArtifact.getExecPath());
       boolean isSource =
-          SourceCategory.CC_AND_OBJC
-                  .getSourceTypes()
-                  .matches(inputTreeFileArtifact.getExecPathString())
-              && !isHeader;
+          CC_AND_OBJC_FILE_TYPES.matches(inputTreeFileArtifact.getExecPathString()) && !isHeader;
 
       if (isHeader) {
         privateHeadersBuilder.add(inputTreeFileArtifact);

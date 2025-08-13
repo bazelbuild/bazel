@@ -44,6 +44,8 @@ SOURCE_CATEGORY_CC = set(
     extensions.ASSESMBLER_WITH_C_PREPROCESSOR +
     extensions.CLIF_INPUT_PROTO,
 )
+
+# LINT.IfChange(cc_and_objc_file_types)
 SOURCE_CATEGORY_CC_AND_OBJC = set(
     extensions.CC_SOURCE +
     extensions.CC_HEADER +
@@ -53,6 +55,7 @@ SOURCE_CATEGORY_CC_AND_OBJC = set(
     extensions.ASSEMBLER +
     extensions.ASSESMBLER_WITH_C_PREPROCESSOR,
 )
+# LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileActionTemplate.java:cc_and_objc_file_types)
 
 # Filetypes that generate LLVM bitcode when -flto is specified.
 LTO_SOURCE_EXTENSIONS = set(extensions.CC_SOURCE + extensions.C_SOURCE)
