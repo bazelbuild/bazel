@@ -707,7 +707,7 @@ public abstract class CcModule
       Object builtinSysroot,
       StarlarkThread thread)
       throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     List<String> cxxBuiltInIncludeDirectories =
         Sequence.cast(
             cxxBuiltInIncludeDirectoriesUnchecked, String.class, "cxx_builtin_include_directories");
