@@ -577,13 +577,17 @@ public final class RunfilesSupport {
    * tree is needed many times.
    */
   public static RunfilesSupport withExecutable(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable) throws InterruptedException {
+      RuleContext ruleContext,
+      Runfiles runfiles,
+      Artifact executable,
+      @Nullable RunEnvironmentInfo runEnvironmentInfo)
+      throws InterruptedException {
     return create(
         ruleContext,
         executable,
         runfiles,
         computeArgs(ruleContext),
-        computeActionEnvironment(ruleContext));
+        computeActionEnvironment(ruleContext, runEnvironmentInfo));
   }
 
   private static FlatCommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
@@ -596,25 +600,38 @@ public final class RunfilesSupport {
     return args.isEmpty() ? CommandLine.empty() : CommandLine.of(args);
   }
 
-  private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
-    // Executable Starlark rules can use RunEnvironmentInfo to specify environment variables.
+  private static ActionEnvironment computeActionEnvironment(
+      RuleContext ruleContext, @Nullable RunEnvironmentInfo runEnvironmentInfo) {
+    if (runEnvironmentInfo != null) {
+      // Must be a Starlark rule.
+      return ActionEnvironment.create(
+          runEnvironmentInfo.getEnvironment(),
+          ImmutableSet.copyOf(runEnvironmentInfo.getInheritedEnvironment()));
+    }
+
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
-    if (!isNativeRule
-        || (!ruleContext.getRule().isAttrDefined("env", Types.STRING_DICT)
-            && !ruleContext.getRule().isAttrDefined("env_inherit", Types.STRING_LIST))) {
+    if (!isNativeRule) {
       return ActionEnvironment.EMPTY;
     }
+
+    boolean envAttrDefined = ruleContext.getRule().isAttrDefined("env", Types.STRING_DICT);
+    boolean envInheritAttrDefined =
+        ruleContext.getRule().isAttrDefined("env_inherit", Types.STRING_LIST);
+    if (!envAttrDefined && !envInheritAttrDefined) {
+      return ActionEnvironment.EMPTY;
+    }
+
     TreeMap<String, String> fixedEnv = new TreeMap<>();
     Set<String> inheritedEnv = new LinkedHashSet<>();
-    if (ruleContext.isAttrDefined("env", Types.STRING_DICT)) {
+    if (envAttrDefined) {
       Expander expander = ruleContext.getExpander().withDataLocations();
       for (Map.Entry<String, String> entry :
           ruleContext.attributes().get("env", Types.STRING_DICT).entrySet()) {
         fixedEnv.put(entry.getKey(), expander.expand("env", entry.getValue()));
       }
     }
-    if (ruleContext.isAttrDefined("env_inherit", Types.STRING_LIST)) {
+    if (envInheritAttrDefined) {
       for (String key : ruleContext.attributes().get("env_inherit", Types.STRING_LIST)) {
         if (!fixedEnv.containsKey(key)) {
           inheritedEnv.add(key);
