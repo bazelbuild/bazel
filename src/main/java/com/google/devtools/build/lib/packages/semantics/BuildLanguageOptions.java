@@ -17,9 +17,13 @@ package com.google.devtools.build.lib.packages.semantics;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -29,7 +33,10 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.protobuf.ByteString;
 import java.util.List;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -46,7 +53,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>Add a new {@code @Option}-annotated field to this class. The field name and default value
  *       should be the same as in {@link StarlarkSemantics}, and the option name in the annotation
  *       should be that name written in snake_case. Add a line to set the new field in {@link
- *       #toStarlarkSemantics}.
+ *       #toStarlarkSemantics}. New options should always default to {@code false} and have no
+ *       observable effect when disabled.
  *   <li>Define a new {@code StarlarkSemantics.Key} or {@code StarlarkSemantics} boolean flag
  *       identifier.
  *   <li>Add a line to set the new field in both {@link ConsistencyTest#buildRandomOptions} and
@@ -810,106 +818,171 @@ public final class BuildLanguageOptions extends OptionsBase {
    */
   private static final Interner<StarlarkSemantics> INTERNER = BlazeInterners.newWeakInterner();
 
+  private interface FlagConsumer {
+    <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T value);
+
+    FlagConsumer setBool(String key, boolean enabled);
+  }
+
+  private void setFlags(FlagConsumer consumer) {
+    consumer
+        .setBool(
+            INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES, incompatibleStopExportingLanguageModules)
+        .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
+        .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
+        .set(INCOMPATIBLE_AUTOLOAD_EXTERNALLY, incompatibleAutoloadExternally)
+        .set(REPOSITORIES_WITHOUT_AUTOLOAD, repositoriesWithoutAutoloads)
+        .setBool(
+            INCOMPATIBLE_DISABLE_AUTOLOADS_IN_MAIN_REPO, incompatibleDisableAutoloadsInMainRepo)
+        .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
+        .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
+        .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
+        .setBool(ALLOW_EXPERIMENTAL_LOADS, allowExperimentalLoads)
+        .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
+        .setBool(EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
+        .setBool(
+            EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
+            experimentalSinglePackageToolchainBinding)
+        .setBool(EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, experimentalEnableFirstClassMacros)
+        .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
+        .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
+        .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, incompatibleNoImplicitWatchLabel)
+        .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
+        .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
+        .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
+        .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
+        .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
+        .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
+        .setBool(INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
+        .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
+        .setBool(
+            INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX, incompatiblePackageGroupHasPublicSyntax)
+        .setBool(
+            INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
+            incompatibleFixPackageGroupReporootSyntax)
+        .setBool(
+            INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS,
+            incompatibleJavaInfoMergeRuntimeModuleFlags)
+        .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
+        .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
+        .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
+        .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
+        .setBool(StarlarkSemantics.PRINT_TEST_MARKER, internalStarlarkFlagTestCanary)
+        .setBool(INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, incompatibleDoNotSplitLinkingCmdline)
+        .set(INCOMPATIBLE_ENFORCE_STARLARK_UTF8, incompatibleEnforceStarlarkUtf8)
+        .setBool(INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, incompatibleUseCcConfigureFromRulesCc)
+        .setBool(
+            INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
+            incompatibleUnambiguousLabelStringification)
+        .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
+        .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
+        .setBool(
+            INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
+            incompatibleDisableStarlarkHostTransitions)
+        .setBool(
+            INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION, incompatibleDisableObjcLibraryTransition)
+        .set(INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS, incompatibleDisableTransitionsOn)
+        .setBool(ADD_GO_EXEC_GROUPS_TO_BINARY_RULES, addGoExecGroupsToBinaryRules)
+        .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
+        .setBool(
+            INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
+            incompatibleEnableProtoToolchainResolution)
+        .setBool(
+            INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
+            incompatibleDisableNonExecutableJavaBinary)
+        .setBool(
+            INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS,
+            incompatibleDisableTargetDefaultProviderFields)
+        .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
+        .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
+        .setBool(EXPERIMENTAL_STARLARK_TYPES, experimentalStarlarkTypes)
+        .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
+        .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
+        .setBool(
+            INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
+        .setBool(INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS, incompatibleDisallowCtxResolveTools)
+        .setBool(
+            INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS,
+            incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
+        .setBool(INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, incompatibleLocationsPrefersExecutable)
+        .setBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
+        .setBool(
+            StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
+            internalStarlarkUtf8ByteStrings)
+        .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm);
+  }
+
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
   public StarlarkSemantics toStarlarkSemantics() {
     // This function connects command-line flags to their corresponding StarlarkSemantics keys.
-    StarlarkSemantics semantics =
-        StarlarkSemantics.builder()
-            .setBool(
-                INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-                incompatibleStopExportingLanguageModules)
-            .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
-            .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
-            .set(INCOMPATIBLE_AUTOLOAD_EXTERNALLY, incompatibleAutoloadExternally)
-            .set(REPOSITORIES_WITHOUT_AUTOLOAD, repositoriesWithoutAutoloads)
-            .setBool(
-                INCOMPATIBLE_DISABLE_AUTOLOADS_IN_MAIN_REPO, incompatibleDisableAutoloadsInMainRepo)
-            .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
-            .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
-            .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
-            .setBool(ALLOW_EXPERIMENTAL_LOADS, allowExperimentalLoads)
-            .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
-            .setBool(
-                EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
-            .setBool(
-                EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
-                experimentalSinglePackageToolchainBinding)
-            .setBool(EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, experimentalEnableFirstClassMacros)
-            .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
-            .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
-            .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, incompatibleNoImplicitWatchLabel)
-            .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
-            .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
-            .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
-            .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
-            .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
-            .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
-            .setBool(
-                INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
-            .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
-            .setBool(
-                INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
-                incompatiblePackageGroupHasPublicSyntax)
-            .setBool(
-                INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
-                incompatibleFixPackageGroupReporootSyntax)
-            .setBool(
-                INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS,
-                incompatibleJavaInfoMergeRuntimeModuleFlags)
-            .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
-            .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
-            .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
-            .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
-            .setBool(StarlarkSemantics.PRINT_TEST_MARKER, internalStarlarkFlagTestCanary)
-            .setBool(
-                INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, incompatibleDoNotSplitLinkingCmdline)
-            .set(INCOMPATIBLE_ENFORCE_STARLARK_UTF8, incompatibleEnforceStarlarkUtf8)
-            .setBool(
-                INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, incompatibleUseCcConfigureFromRulesCc)
-            .setBool(
-                INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
-                incompatibleUnambiguousLabelStringification)
-            .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
-            .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
-            .setBool(
-                INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
-                incompatibleDisableStarlarkHostTransitions)
-            .setBool(
-                INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
-                incompatibleDisableObjcLibraryTransition)
-            .set(INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS, incompatibleDisableTransitionsOn)
-            .setBool(ADD_GO_EXEC_GROUPS_TO_BINARY_RULES, addGoExecGroupsToBinaryRules)
-            .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
-            .setBool(
-                INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
-                incompatibleEnableProtoToolchainResolution)
-            .setBool(
-                INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
-                incompatibleDisableNonExecutableJavaBinary)
-            .setBool(
-                INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS,
-                incompatibleDisableTargetDefaultProviderFields)
-            .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
-            .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
-            .setBool(EXPERIMENTAL_STARLARK_TYPES, experimentalStarlarkTypes)
-            .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
-            .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
-            .setBool(
-                INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
-            .setBool(INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS, incompatibleDisallowCtxResolveTools)
-            .setBool(
-                INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS,
-                incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
-            .setBool(
-                INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, incompatibleLocationsPrefersExecutable)
-            .setBool(
-                StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
-            .setBool(
-                StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
-                internalStarlarkUtf8ByteStrings)
-            .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm)
-            .build();
-    return INTERNER.intern(semantics);
+    var builder = StarlarkSemantics.builder();
+    setFlags(
+        new FlagConsumer() {
+          @Override
+          public <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T value) {
+            builder.set(key, value);
+            return this;
+          }
+
+          @Override
+          public FlagConsumer setBool(String key, boolean enabled) {
+            builder.setBool(key, enabled);
+            return this;
+          }
+        });
+    return INTERNER.intern(builder.build());
+  }
+
+  /**
+   * Returns a fingerprint of the given {@link StarlarkSemantics} object that can be compared across
+   * Bazel versions.
+   */
+  public static ByteString stableFingerprint(StarlarkSemantics semantics) {
+    return FINGERPRINT_CACHE.getUnchecked(semantics);
+  }
+
+  // See the comment on INTERNER above, this cache should be very small.
+  private static final LoadingCache<StarlarkSemantics, ByteString> FINGERPRINT_CACHE =
+      CacheBuilder.newBuilder()
+          .weakKeys()
+          .build(
+              new CacheLoader<>() {
+                @Override
+                public ByteString load(StarlarkSemantics key) {
+                  return computeFingerprint(key);
+                }
+              });
+
+  private static ByteString computeFingerprint(StarlarkSemantics semantics) {
+    var enabledBoolFlags = new TreeSet<String>();
+    var otherFlags = new TreeMap<String, String>();
+    // We only care about the keys of the map, so the BuildLanguageOptions instance doesn't matter.
+    new BuildLanguageOptions()
+        .setFlags(
+            new FlagConsumer() {
+              @Override
+              public <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T ignored) {
+                // This assumes that all non-boolean values have a stable and unique string
+                // representation, which seems likely to remain true over time.
+                otherFlags.put(key.name, semantics.get(key).toString());
+                return this;
+              }
+
+              @Override
+              public FlagConsumer setBool(String key, boolean ignored) {
+                // Only fingerprint enabled options so that the fingerprint is stable across Bazel
+                // versions that only add new options (e.g., minor and patch versions). This relies
+                // on the assumption that disabled new options have no observable effect.
+                if (semantics.getBool(key)) {
+                  // Trim the leading '+' or '-' from the flag names - the default value doesn't
+                  // matter for the current value, which is what we need to fingerprint.
+                  enabledBoolFlags.add(key.substring(1));
+                }
+                return this;
+              }
+            });
+    return ByteString.copyFrom(
+        new Fingerprint().addStrings(enabledBoolFlags).addStringMap(otherFlags).digestAndReset());
   }
 
   // StarlarkSemantics keys used by Bazel

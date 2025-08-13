@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -204,9 +205,7 @@ class DigestWriter {
       RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics) {
     return new Fingerprint()
         .addInt(MARKER_FILE_VERSION)
-        // TODO: Using the hashCode() method for StarlarkSemantics here is suboptimal as
-        //   it doesn't include any default values.
-        .addInt(starlarkSemantics.hashCode())
+        .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
         .addString(repoDefinition.repoRule().id().bzlFileLabel().toString())
         .addString(repoDefinition.repoRule().id().ruleName())
         .addBytes(repoDefinition.repoRule().transitiveBzlDigest())
