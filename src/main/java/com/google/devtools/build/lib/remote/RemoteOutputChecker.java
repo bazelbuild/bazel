@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -36,10 +38,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
-import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -63,7 +65,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   private final ImmutableList<Predicate<String>> patternsToDownload;
   @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
 
-  private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
+  private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
 
   public RemoteOutputChecker(
       Clock clock,
@@ -243,11 +245,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   }
 
   public void addOutputToDownload(ActionInput file) {
-    if (file instanceof Artifact && ((Artifact) file).isTreeArtifact()) {
-      pathsToDownload.addPrefix(file.getExecPath());
-    } else {
-      pathsToDownload.add(file.getExecPath());
-    }
+    pathsToDownload.add(file);
   }
 
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
@@ -327,6 +325,43 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
             return functionName.equals(SkyFunctions.TARGET_COMPLETION)
                 || functionName.equals(SkyFunctions.ASPECT_COMPLETION);
           });
+    }
+  }
+
+  /**
+   * A specialized concurrent trie that stores paths of artifacts and allows checking whether a
+   * given path is contained in (in the case of a tree artifact) or exactly matches (in any other
+   * case) an artifact in the trie.
+   */
+  private static final class ConcurrentArtifactPathTrie {
+    // Invariant: no path in this set is a prefix of another path.
+    private final ConcurrentSkipListSet<PathFragment> paths =
+        new ConcurrentSkipListSet<>(PathFragment.HIERARCHICAL_COMPARATOR);
+
+    /**
+     * Adds the given {@link ActionInput} to the trie.
+     *
+     * <p>The caller must ensure that no object's path passed to this method is a prefix of any
+     * previously added object's path. Bazel enforces this for non-aggregate artifacts. Callers must
+     * not pass in {@link TreeFileArtifact}s (which have exec paths that have their parent tree
+     * artifact's exec path as a prefix) or non-Artifact {@link ActionInput}s that violate this
+     * invariant.
+     */
+    void add(ActionInput input) {
+      checkArgument(
+          !(input instanceof TreeFileArtifact),
+          "TreeFileArtifacts should not be added to the trie: %s",
+          input);
+      paths.add(input.getExecPath());
+    }
+
+    /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
+    boolean contains(PathFragment execPath) {
+      // By the invariant of this set, there is at most one prefix of execPath in the set. Since the
+      // comparator sorts all children of a path right after the path itself, if such a prefix
+      // exists, it must thus sort right before execPath (or be equal to it).
+      var floorPath = paths.floor(execPath);
+      return floorPath != null && execPath.startsWith(floorPath);
     }
   }
 }
