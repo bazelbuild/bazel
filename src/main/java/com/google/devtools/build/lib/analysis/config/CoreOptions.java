@@ -587,13 +587,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " '//package:target --options'.")
   public RunUnder runUnder;
 
-  // TODO: b/248763226 - Mark this and --verbose_visibility_errors as nonconfigurable. Requires
-  // something like https://github.com/bazelbuild/bazel/issues/25984.
   @Option(
       name = "check_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public boolean checkVisibility;
 
@@ -602,6 +601,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If enabled, visibility errors include additional diagnostic information.")
   public boolean verboseVisibilityErrors;
 
