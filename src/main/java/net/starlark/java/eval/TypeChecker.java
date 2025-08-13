@@ -22,6 +22,7 @@ import java.util.Objects;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 import net.starlark.java.types.Types.DictType;
+import net.starlark.java.types.Types.IterableType;
 import net.starlark.java.types.Types.ListType;
 import net.starlark.java.types.Types.SetType;
 import net.starlark.java.types.Types.TupleType;
@@ -51,7 +52,6 @@ public final class TypeChecker {
     remainingSubtypes1.removeAll(subtypes2);
 
     // This is the price we need to pay for having untagged unions
-    // TODO(ilist@): Test this code path once we have collection types
     for (StarlarkType t2 : subtypes2) {
       // we need to call isSubtype, for example isSubtype(List[Int], List[Int | Str])
       for (StarlarkType t1 : ImmutableList.copyOf(remainingSubtypes1)) {
@@ -71,7 +71,6 @@ public final class TypeChecker {
       type2 = type1;
     }
 
-    // TODO(ilist@): test this code path ("object" is not exposed to Starlark methods)
     if (type2.equals(Types.OBJECT)) {
       return true;
     }
@@ -87,11 +86,16 @@ public final class TypeChecker {
       return isUnionSubtypeOf(ImmutableSet.of(type1), union2.getTypes()); // a < a|b
     }
 
-    // Mutable collections are invariant (which is necessary while the interface supports both
-    // reading and modification). This matches Python's behaviour.
+    // Immutable collections are covariant. This matches Python's behaviour.
     if (type1 instanceof TupleType tuple1 && type2 instanceof TupleType tuple2) {
       return isTupleSubtypeOf(tuple1, tuple2);
     }
+    if (type1 instanceof IterableType iterable1 && type2 instanceof IterableType iterable2) {
+      return isSubtypeOf(iterable1.getElementType(), iterable2.getElementType());
+    }
+
+    // Mutable collections are invariant (which is necessary while the interface supports both
+    // reading and modification). This matches Python's behaviour.
     if (type1 instanceof ListType list1 && type2 instanceof ListType list2) {
       return isEqual(list1.getElementType(), list2.getElementType());
     }
@@ -101,6 +105,13 @@ public final class TypeChecker {
     }
     if (type1 instanceof SetType set1 && type2 instanceof SetType set2) {
       return isEqual(set1.getElementType(), set2.getElementType());
+    }
+
+    // Check for supertypes, that is interfaces like Iterable[T] or Sequence[T]
+    for (StarlarkType supertype1 : type1.getSupertypes()) {
+      if (isSubtypeOf(supertype1, type2)) {
+        return true;
+      }
     }
 
     // TODO(ilist@): this just works for primitive types

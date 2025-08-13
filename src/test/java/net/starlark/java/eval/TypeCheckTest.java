@@ -146,6 +146,23 @@ public class TypeCheckTest {
   }
 
   @Test
+  public void runtimeTypecheck_iterable() throws Exception {
+    ev.exec("def f(a: Iterable[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: Iterable[str]): pass", "f({'a': 1, 'b': 2})");
+    ev.exec("def f(a: Iterable[str]): pass", "f(set(['a', 'b']))");
+    ev.exec("def f(a: Iterable[str]): pass", "f(('a', 'b'))");
+    ev.exec("def f(a: Iterable[list[str]]): pass", "f([['a', 'b'], ['c']])");
+    ev.exec("def f(a: Iterable[int|str]): pass", "f(['a', 'b'])");
+    ev.exec("def f(a: Iterable[int|str]): pass", "f(['a', 1])");
+    ev.exec("def f(a: Iterable[int|str]): pass", "f(('a', 1))");
+    ev.exec("def f(a: Iterable[Iterable[str]]): pass", "f([['a', 'b'], ['c']])");
+    assertExecThrows(EvalException.class, "def f(a: Iterable[int]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
+                + " 'Iterable[int]'");
+  }
+
+  @Test
   public void union_edgeCaseSyntax() throws Exception {
     ev.exec("def f(a: None|None): pass", "f(None)");
     ev.exec("def f(a: None|bool|bool): pass", "f(None)");
