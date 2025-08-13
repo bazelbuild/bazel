@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -1100,80 +1099,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         nullIfNone(dotdFile, Artifact.class),
         nullIfNone(diagnosticsFile, Artifact.class));
     return builder;
-  }
-
-  @StarlarkMethod(
-      name = "declare_output_files",
-      documented = false,
-      parameters = {
-        @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "label", positional = false, named = true),
-        @Param(name = "output_category", positional = false, named = true),
-        @Param(name = "output_name", positional = false, named = true),
-        @Param(name = "source_file", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "semantics", positional = false, named = true),
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "configuration", positional = false, named = true),
-      })
-  public Tuple declareOutputFiles(
-      StarlarkRuleContext actionConstructionContext,
-      Label label,
-      String outputCategoryString,
-      String outputName,
-      Artifact sourceFile,
-      StarlarkInfo ccToolchainStruct,
-      CppSemantics semantics,
-      FeatureConfigurationForStarlark featureConfigurationStarlark,
-      BuildConfigurationValue configuration)
-      throws EvalException, RuleErrorException {
-    CcToolchainFeatures.FeatureConfiguration featureConfiguration =
-        featureConfigurationStarlark.getFeatureConfiguration();
-    RuleContext ruleContext = actionConstructionContext.getRuleContext();
-    CcToolchainProvider ccToolchain = CcToolchainProvider.create(ccToolchainStruct);
-    ArtifactCategory outputCategory = null;
-    try {
-      outputCategory = ArtifactCategory.valueOf(outputCategoryString);
-    } catch (IllegalArgumentException e) {
-      throw Starlark.errorf("Invalid output_category '%s'", outputCategoryString);
-    }
-
-    Artifact diagnosticsFile = null;
-    Artifact dotdFile = null;
-
-    Artifact outputFile =
-        CppHelper.getCompileOutputArtifact(
-            ruleContext,
-            label,
-            CppHelper.getArtifactNameForCategory(ccToolchain, outputCategory, outputName),
-            configuration);
-
-    boolean dotdFilesEnabled =
-        semantics.needsDotdInputPruning(configuration)
-            && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)
-            && !featureConfiguration.isEnabled(CppRuleClasses.NO_DOTD_FILE);
-    boolean useHeaderModules =
-        featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
-            && (sourceFile.isFileType(CppFileTypes.CPP_SOURCE)
-                || sourceFile.isFileType(CppFileTypes.CPP_HEADER)
-                || sourceFile.isFileType(CppFileTypes.CPP_MODULE_MAP));
-    boolean useDotdFile = CppFileTypes.headerDiscoveryRequired(sourceFile) && !useHeaderModules;
-    if (dotdFilesEnabled && useDotdFile) {
-      String dotdFileName = CppHelper.getDotdFileName(ccToolchain, outputCategory, outputName);
-      dotdFile =
-          CppHelper.getCompileOutputArtifact(ruleContext, label, dotdFileName, configuration);
-    }
-    if (featureConfiguration.isEnabled(CppRuleClasses.SERIALIZED_DIAGNOSTICS_FILE)) {
-      String diagnosticsFileName =
-          CppHelper.getDiagnosticsFileName(ccToolchain, outputCategory, outputName);
-      diagnosticsFile =
-          CppHelper.getCompileOutputArtifact(
-              ruleContext, label, diagnosticsFileName, configuration);
-    }
-    return Tuple.of(
-        outputFile,
-        dotdFile == null ? Starlark.NONE : dotdFile,
-        diagnosticsFile == null ? Starlark.NONE : diagnosticsFile);
   }
 
   @StarlarkMethod(

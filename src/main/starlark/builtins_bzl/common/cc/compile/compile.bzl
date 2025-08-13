@@ -853,17 +853,40 @@ def _create_module_codegen_action(
         label = source_label,
     )
 
-    object_file, dotd_file, diagnostics_file = cc_internal.declare_output_files(
-        action_construction_context = action_construction_context,
+    object_file = _get_compile_output_file(
+        ctx = action_construction_context,
         label = label,
-        output_category = artifact_category.OBJECT_FILE,
-        output_name = output_name,
-        source_file = module,
-        cc_toolchain = cc_toolchain,
-        semantics = cpp_semantics,
-        feature_configuration = feature_configuration,
-        configuration = configuration,
+        output_name = cc_internal.get_artifact_name_for_category(
+            cc_toolchain = cc_toolchain,
+            category = artifact_category.OBJECT_FILE,
+            output_name = output_name,
+        ),
     )
+
+    dotd_file = None
+    if (_dotd_files_enabled(cpp_semantics, configuration, feature_configuration) and
+        _use_dotd_file(feature_configuration, module)):
+        dotd_file = _get_compile_output_file(
+            ctx = action_construction_context,
+            label = label,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.INCLUDED_FILE_LIST,
+                output_name = output_name,
+            ),
+        )
+
+    diagnostics_file = None
+    if feature_configuration.is_enabled("serialized_diagnostics_file"):
+        diagnostics_file = _get_compile_output_file(
+            ctx = action_construction_context,
+            label = label,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.SERIALIZED_DIAGNOSTICS_FILE,
+                output_name = output_name,
+            ),
+        )
 
     dwo_file = None
     generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration)
