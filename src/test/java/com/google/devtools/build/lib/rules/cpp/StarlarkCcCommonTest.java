@@ -5216,27 +5216,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWrongElementTypeInListParameter_features() throws Exception {
-    getBasicCcToolchainConfigInfoWithAdditionalParameter(
-        "features = ['string_instead_of_feature']");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:r");
-    assertContainsEvent(
-        "'features' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
-            + " of type 'string' instead of a 'FeatureInfo' provider.");
-  }
-
-  @Test
-  public void testWrongElementTypeInListParameter_actionConfigs() throws Exception {
-    getBasicCcToolchainConfigInfoWithAdditionalParameter("action_configs = [None]");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:r");
-    assertContainsEvent(
-        "'action_configs' parameter of cc_common.create_cc_toolchain_config_info() contains an"
-            + " element of type 'NoneType' instead of a 'ActionConfigInfo' provider.");
-  }
-
-  @Test
   public void testWrongElementTypeInListParameter_artifactNamePatterns() throws Exception {
     getBasicCcToolchainConfigInfoWithAdditionalParameter("artifact_name_patterns = [1]");
     reporter.removeHandler(failFastHandler);
@@ -5255,16 +5234,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertContainsEvent(
         "'make_variables' parameter of cc_common.create_cc_toolchain_config_info() contains an"
             + " element of type 'bool' instead of a 'MakeVariableInfo' provider.");
-  }
-
-  @Test
-  public void testWrongElementTypeInListParameter_toolPaths() throws Exception {
-    getBasicCcToolchainConfigInfoWithAdditionalParameter("tool_paths = [{}]");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:r");
-    assertContainsEvent(
-        "'tool_paths' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
-            + " of type 'dict' instead of a 'ToolPathInfo' provider.");
   }
 
   private void getBasicCcToolchainConfigInfoWithAdditionalParameter(String s) throws Exception {

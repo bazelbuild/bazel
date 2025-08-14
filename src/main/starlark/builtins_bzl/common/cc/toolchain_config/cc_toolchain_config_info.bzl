@@ -14,6 +14,14 @@
 
 """Information describing C++ toolchain derived from CROSSTOOL file."""
 
+load(
+    ":common/cc/toolchain_config/legacy_features.bzl",
+    "get_features_to_appear_last",
+    "get_legacy_action_configs",
+    "get_legacy_features",
+)
+load(":common/paths.bzl", "paths")
+
 _cc_common_internal = _builtins.internal.cc_common
 
 # buildifier: disable=function-docstring
@@ -37,6 +45,53 @@ def create_cc_toolchain_config_info(
         builtin_sysroot = None,
         # buildifier: disable=unused-variable
         cc_target_os = None):
+    feature_names = set([f.name for f in features])
+    action_config_names = set([a.action_name for a in action_configs])
+    if "no_legacy_features" not in feature_names:
+        gcc_tool_path = "DUMMY_GCC_TOOL"
+        linker_tool_path = "DUMMY_LINKER_TOOL"
+        ar_tool_path = "DUMMY_AR_TOOL"
+        strip_tool_path = "DUMMY_STRIP_TOOL"
+        for tool in tool_paths:
+            if tool.name == "gcc":
+                gcc_tool_path = tool.path
+                linker_tool_path = paths.join(ctx.label.workspace_root, ctx.label.package, tool.path)
+            elif tool.name == "ar":
+                ar_tool_path = tool.path
+            elif tool.name == "strip":
+                strip_tool_path = tool.path
+
+        legacy_features = []
+
+        # TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there
+        # are no legacy crosstools.
+        # Existing projects depend on flags from legacy toolchain fields appearing
+        # first on the compile command line. 'legacy_compile_flags' feature contains
+        # all these flags, and so it needs to appear before other features.
+        if "legacy_compile_flags" in feature_names:
+            legacy_compile_flags = ([f for f in features if f.name == "legacy_compile_flags"])[0]
+            legacy_features.append(legacy_compile_flags)
+        if "default_compile_flags" in feature_names:
+            default_compile_flags = ([f for f in features if f.name == "default_compile_flags"])[0]
+            legacy_features.append(default_compile_flags)
+        platform = "mac" if target_libc == "macosx" else "linux"
+        legacy_features.extend(get_legacy_features(platform, feature_names, linker_tool_path))
+        legacy_features.extend([f for f in features if f.name not in ["legacy_compile_flags", "default_compile_flags"]])
+        legacy_features.extend(get_features_to_appear_last(feature_names))
+
+        legacy_action_configs = []
+        legacy_action_configs.extend(get_legacy_action_configs(
+            platform,
+            gcc_tool_path,
+            ar_tool_path,
+            strip_tool_path,
+            action_config_names,
+        ))
+        legacy_action_configs.extend(action_configs)
+
+        features = legacy_features
+        action_configs = legacy_action_configs
+
     return _cc_common_internal.create_cc_toolchain_config_info(
         ctx = ctx,
         toolchain_identifier = toolchain_identifier,

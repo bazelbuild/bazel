@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -719,9 +717,6 @@ public abstract class CcModule
     }
     ImmutableList<Feature> featureList = featureBuilder.build();
 
-    ImmutableSet<String> featureNames =
-        featureList.stream().map(Feature::getName).collect(toImmutableSet());
-
     OS execOs = starlarkRuleContext.getRuleContext().getExecutionPlatformOs();
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
@@ -729,11 +724,6 @@ public abstract class CcModule
       actionConfigBuilder.add(actionConfigFromStarlark((StarlarkInfo) actionConfig, execOs));
     }
     ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
-
-    ImmutableSet<String> actionConfigNames =
-        actionConfigList.stream()
-            .map(actionConfig -> actionConfig.getActionName())
-            .collect(toImmutableSet());
 
     CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
         new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
@@ -752,92 +742,6 @@ public abstract class CcModule
       toolPathPairs.add(toolPathPair);
     }
     ImmutableList<Pair<String, String>> toolPathList = toolPathPairs.build();
-
-    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-      String gccToolPath = "DUMMY_GCC_TOOL";
-      String linkerToolPath = "DUMMY_LINKER_TOOL";
-      String arToolPath = "DUMMY_AR_TOOL";
-      String stripToolPath = "DUMMY_STRIP_TOOL";
-      for (Pair<String, String> tool : toolPathList) {
-        if (tool.first.equals(CppConfiguration.Tool.GCC.getNamePart())) {
-          gccToolPath = tool.second;
-          linkerToolPath =
-              starlarkRuleContext
-                  .getRuleContext()
-                  .getLabel()
-                  .getPackageIdentifier()
-                  .getExecPath(starlarkRuleContext.getConfiguration().isSiblingRepositoryLayout())
-                  .getRelative(PathFragment.create(tool.second))
-                  .getPathString();
-        }
-        if (tool.first.equals(CppConfiguration.Tool.AR.getNamePart())) {
-          arToolPath = tool.second;
-        }
-        if (tool.first.equals(CppConfiguration.Tool.STRIP.getNamePart())) {
-          stripToolPath = tool.second;
-        }
-      }
-
-      ImmutableList.Builder<Feature> legacyFeaturesBuilder = ImmutableList.builder();
-      // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
-      // crosstools.
-      // Existing projects depend on flags from legacy toolchain fields appearing first on the
-      // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
-      // needs to appear before other features from {@link CppActionConfigs}.
-      if (featureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
-        Feature legacyCompileFlags =
-            featureList.stream()
-                .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
-                .findFirst()
-                .get();
-        if (legacyCompileFlags != null) {
-          legacyFeaturesBuilder.add(legacyCompileFlags);
-        }
-      }
-      if (featureNames.contains(CppRuleClasses.DEFAULT_COMPILE_FLAGS)) {
-        Feature defaultCompileFlags =
-            featureList.stream()
-                .filter(feature -> feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
-                .findFirst()
-                .get();
-        if (defaultCompileFlags != null) {
-          legacyFeaturesBuilder.add(defaultCompileFlags);
-        }
-      }
-
-      CppPlatform platform =
-          targetLibc.equals(CppActionConfigs.MACOS_TARGET_LIBC)
-              ? CppPlatform.MAC
-              : CppPlatform.LINUX;
-      for (CToolchain.Feature feature :
-          CppActionConfigs.getLegacyFeatures(platform, featureNames, linkerToolPath)) {
-        legacyFeaturesBuilder.add(new Feature(feature));
-      }
-      legacyFeaturesBuilder.addAll(
-          featureList.stream()
-              .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
-              .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
-              .collect(toImmutableList()));
-      for (CToolchain.Feature feature :
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
-        legacyFeaturesBuilder.add(new Feature(feature));
-      }
-
-      featureList = legacyFeaturesBuilder.build();
-
-      ImmutableList.Builder<ActionConfig> legacyActionConfigBuilder = ImmutableList.builder();
-      for (CToolchain.ActionConfig actionConfig :
-          CppActionConfigs.getLegacyActionConfigs(
-              platform,
-              gccToolPath,
-              arToolPath,
-              stripToolPath,
-              actionConfigNames)) {
-        legacyActionConfigBuilder.add(new ActionConfig(actionConfig));
-      }
-      legacyActionConfigBuilder.addAll(actionConfigList);
-      actionConfigList = legacyActionConfigBuilder.build();
-    }
 
     ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
     for (Object makeVariable : makeVariables) {
