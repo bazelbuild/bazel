@@ -3785,10 +3785,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExternalFilesHelper tmpExternalFilesHelper =
           externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
 
-      try (SilentCloseable c =
-          Profiler.instance().profile("invalidateValuesMarkedForInvalidation")) {
-        invalidateValuesMarkedForInvalidation(eventHandler);
-      }
+      // Before running the {@link FilesystemValueChecker} ensure that all values marked for
+      // invalidation have actually been invalidated, because checking those is a waste of time.
+      applyInvalidation(eventHandler);
 
       FilesystemValueChecker fsvc =
           new FilesystemValueChecker(
@@ -3901,19 +3900,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Before running the {@link FilesystemValueChecker} ensure that all values marked for
-   * invalidation have actually been invalidated (recall that invalidation happens at the beginning
-   * of the next evaluate() call), because checking those is a waste of time.
+   * Actually invalidates values marked for invalidation.
+   *
+   * <p>Invalidation is delayed because:
+   *
+   * <ul>
+   *   <li>there may never be a next evaluation, so the work to clean up values may be wasted;
+   *   <li>invalidated values may be resurrected due to change pruning.
+   * </ul>
    */
-  protected final void invalidateValuesMarkedForInvalidation(ExtendedEventHandler eventHandler)
+  public final void applyInvalidation(ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    EvaluationContext evaluationContext =
-        newEvaluationContextBuilder()
-            .setKeepGoing(false)
-            .setParallelism(DEFAULT_THREAD_COUNT)
-            .setEventHandler(eventHandler)
-            .build();
-    memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
+    try (SilentCloseable c = Profiler.instance().profile("applyInvalidation")) {
+      EvaluationContext evaluationContext =
+          newEvaluationContextBuilder()
+              .setKeepGoing(false)
+              .setParallelism(DEFAULT_THREAD_COUNT)
+              .setEventHandler(eventHandler)
+              .build();
+      memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
+    }
   }
 
   protected final Set<Root> getDiffPackageRootsUnderWhichToCheck(
