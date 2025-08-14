@@ -455,7 +455,8 @@ public final class CcStaticCompilationHelper {
       boolean addObject,
       boolean enableCoverage,
       boolean generateDwo,
-      boolean bitcodeOutput)
+      boolean bitcodeOutput,
+      ImmutableMap<String, String> additionalBuildVariables)
       throws RuleErrorException, EvalException, InterruptedException {
     ImmutableList.Builder<Artifact> directOutputs = new ImmutableList.Builder<>();
     PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
@@ -496,7 +497,7 @@ public final class CcStaticCompilationHelper {
               bitcodeOutput,
               ccRelativeName,
               /* usePic= */ true,
-              /* additionalBuildVariables= */ ImmutableMap.of());
+              additionalBuildVariables);
       directOutputs.add(picOutputFile);
       if (outputCategory == ArtifactCategory.CPP_MODULE) {
         result.addModuleFile(picOutputFile);
@@ -535,7 +536,7 @@ public final class CcStaticCompilationHelper {
               bitcodeOutput,
               ccRelativeName,
               /* usePic= */ false,
-              /* additionalBuildVariables= */ ImmutableMap.of());
+              additionalBuildVariables);
       directOutputs.add(noPicOutputFile);
       if (outputCategory == ArtifactCategory.CPP_MODULE) {
         result.addModuleFile(noPicOutputFile);
