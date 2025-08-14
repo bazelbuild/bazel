@@ -2117,4 +2117,37 @@ EOF
   expect_log "Hello from main.cpp"
 }
 
+function test_cpp20_modules_with_clang() {
+  type -P clang || return 0
+
+  cat > BUILD.bazel <<'EOF'
+config_setting(
+    name = "clang_compiler",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
+)
+
+cc_binary(
+  name = "main",
+  module_interfaces = select({":clang_compiler": ["foo.cppm"]}),
+  srcs = select({":clang_compiler": ["main.cc"]}),
+  features = ["cpp_modules"],
+)
+EOF
+  cat > main.cc <<'EOF'
+import foo;
+int main() {
+  f();
+  return 0;
+}
+EOF
+  cat > foo.cppm <<'EOF'
+export module foo;
+
+export void f() {
+}
+EOF
+
+  bazel build //:main --repo_env=CC=clang --experimental_cpp_modules || fail "Expected build C++20 Modules success with compiler 'clang'"
+}
+
 run_suite "cc_integration_test"
