@@ -101,7 +101,7 @@ public interface RemotePathResolver {
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         SpawnExecutionContext context, boolean willAccessRepeatedly) {
-      return context.getInputMapping(PathFragment.EMPTY_FRAGMENT, willAccessRepeatedly);
+      return context.getInputMapping(PathFragment.EMPTY_FRAGMENT, willAccessRepeatedly, true);
     }
 
     @Override
@@ -162,7 +162,7 @@ public interface RemotePathResolver {
       // the execroot locally. This is so that paths of artifacts in external repositories don't
       // start with an uplevel reference.
       return context.getInputMapping(
-          PathFragment.create(checkNotNull(getWorkingDirectory())), willAccessRepeatedly);
+          PathFragment.create(checkNotNull(getWorkingDirectory())), willAccessRepeatedly, true);
     }
 
     @Override

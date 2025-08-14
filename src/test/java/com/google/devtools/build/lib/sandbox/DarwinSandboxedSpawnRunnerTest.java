@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -123,14 +124,24 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   @Test
   public void testSimpleExecution() throws Exception {
     DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
+        new DarwinSandboxedSpawnRunner(
+            commandEnvironment,
+            sandboxBase,
+            treeDeleter,
+            new RunfilesTreeUpdater(
+                commandEnvironment.getExecRoot(), commandEnvironment.getXattrProvider()));
     doSimpleExecutionTest(runner);
   }
 
   @Test
   public void testSupportsParamFiles() throws Exception {
     DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
+        new DarwinSandboxedSpawnRunner(
+            commandEnvironment,
+            sandboxBase,
+            treeDeleter,
+            new RunfilesTreeUpdater(
+                commandEnvironment.getExecRoot(), commandEnvironment.getXattrProvider()));
     Spawn spawn =
         new SpawnBuilder("cp", "params/param-file", "out")
             .withInput(

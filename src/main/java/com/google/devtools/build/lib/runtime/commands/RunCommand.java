@@ -470,7 +470,7 @@ public class RunCommand implements BlazeCommand {
     // target to run needs to be preserved, as it acts as the working directory.
     Path targetToRunRunfilesDir = null;
     RunfilesSupport targetToRunRunfilesSupport = null;
-    RunfilesTreeUpdater runfilesTreeUpdater = RunfilesTreeUpdater.forCommandEnvironment(env);
+    RunfilesTreeUpdater runfilesTreeUpdater = new RunfilesTreeUpdater(env.getExecRoot(), env.getXattrProvider());
     for (ConfiguredTarget target : topLevelTargets) {
       FilesToRunProvider provider = target.getProvider(FilesToRunProvider.class);
       RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
