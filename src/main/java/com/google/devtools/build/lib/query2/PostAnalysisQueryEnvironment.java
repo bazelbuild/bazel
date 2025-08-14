@@ -549,9 +549,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         Preconditions.checkState(
             dependency != null,
             "query-requested node '%s' was unavailable in the query environment graph. If you come"
-                + " across this error, please add to"
-                + " https://github.com/bazelbuild/bazel/issues/15079 or contact the bazel"
-                + " configurability team.",
+                + " across this error, please file an issue at https://github.com/bazelbuild/bazel"
+                + " or contact the bazel configurability team.",
             key);
 
         boolean implicitDep;
