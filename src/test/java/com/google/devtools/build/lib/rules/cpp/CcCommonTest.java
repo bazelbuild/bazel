@@ -573,7 +573,7 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
 
     String includesRoot = "bang/bang_includes";
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
         .containsAtLeast(
             PathFragment.create(includesRoot),
             targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot));
@@ -596,17 +596,57 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
     PathFragment genfilesDir =
         targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
         .contains(genfilesDir);
 
     useConfiguration("--incompatible_merge_genfiles_directory");
     foo = getConfiguredTarget("//bang:bang");
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
         .doesNotContain(genfilesDir);
   }
 
   @Test
   public void testUseIsystemForIncludes() throws Exception {
+    // Tests the effect of --use_isystem_for_includes.
+    useConfiguration("--incompatible_merge_genfiles_directory=false");
+    scratch.file(
+        "no_includes/BUILD",
+        """
+        cc_library(
+            name = "no_includes",
+            srcs = ["no_includes.cc"],
+        )
+        """);
+    ConfiguredTarget noIncludes = getConfiguredTarget("//no_includes:no_includes");
+
+    scratch.file(
+        "bang/BUILD",
+        """
+        cc_library(
+            name = "bang",
+            srcs = ["bang.cc"],
+            includes = ["bang_includes"],
+            features = ["system_include_paths"],
+        )
+        """);
+
+    ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
+
+    String includesRoot = "bang/bang_includes";
+    List<PathFragment> expected =
+        new ImmutableList.Builder<PathFragment>()
+            .addAll(
+                noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+            .add(PathFragment.create(includesRoot))
+            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .build();
+    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+        .containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testUseIForIncludes() throws Exception {
     // Tests the effect of --use_isystem_for_includes.
     useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file(
@@ -635,12 +675,12 @@ public class CcCommonTest extends BuildViewTestCase {
     List<PathFragment> expected =
         new ImmutableList.Builder<PathFragment>()
             .addAll(
-                noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+                noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
             .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
         .containsExactlyElementsIn(expected);
   }
 
