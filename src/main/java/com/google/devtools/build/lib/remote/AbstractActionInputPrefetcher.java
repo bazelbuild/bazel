@@ -352,21 +352,33 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       mergedTransfer = mergeBulkTransfer(transfers);
     }
 
-    return Futures.transformAsync(
-        mergedTransfer,
-        unused -> {
-          try {
-            // Set output permissions on tree artifact subdirectories, matching the behavior of
-            // SkyframeActionExecutor#checkOutputs for artifacts produced by local actions.
-            for (Path dir : dirsWithOutputPermissions) {
-              directoryTracker.setOutputPermissions(dir);
-            }
-          } catch (IOException e) {
-            return immediateFailedFuture(e);
-          }
-          return immediateVoidFuture();
-        },
-        directExecutor());
+    return Profiler.instance()
+        .profileFuture(
+            Futures.transformAsync(
+                mergedTransfer,
+                unused -> {
+                  try {
+                    // Set output permissions on tree artifact subdirectories, matching the behavior
+                    // of SkyframeActionExecutor#checkOutputs for artifacts produced by local
+                    // actions.
+                    for (Path dir : dirsWithOutputPermissions) {
+                      directoryTracker.setOutputPermissions(dir);
+                    }
+                  } catch (IOException e) {
+                    return immediateFailedFuture(e);
+                  }
+                  return immediateVoidFuture();
+                },
+                directExecutor()),
+            "action-input-prefetcher",
+            ProfilerTask.REMOTE_DOWNLOAD,
+            "fetching %s of %s"
+                .formatted(
+                    switch (reason) {
+                      case INPUTS -> "inputs";
+                      case OUTPUTS -> "outputs";
+                    },
+                    action.prettyPrint()));
   }
 
   private ListenableFuture<Void> prefetchFile(
@@ -474,9 +486,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionInput input,
-      FileArtifactValue metadata,
-      MetadataSupplier metadataSupplier)
+      ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact treeFile) {
       SpecialArtifact treeArtifact = treeFile.getParent();
