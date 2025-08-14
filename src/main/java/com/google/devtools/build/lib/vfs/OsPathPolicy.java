@@ -42,6 +42,13 @@ public interface OsPathPolicy {
    */
   String normalize(String path, int normalizationLevel);
 
+  /** Compares two path strings, using the given OS case sensitivity. */
+  // TODO: Inline and delete this.
+  default int compare(String s1, String s2) {
+    return s1.compareTo(s2);
+  }
+   
+
   /**
    * Returns the length of the mount, eg. 1 for unix '/', 3 for Windows 'C:/'.
    *
