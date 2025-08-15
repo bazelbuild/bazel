@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteHelpersFactory;
 import javax.annotation.Nullable;
@@ -29,6 +30,7 @@ class RemoteRepositoryHelpersFactory implements RepositoryRemoteHelpersFactory {
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
+  private final boolean uploadLocalResults;
 
   RemoteRepositoryHelpersFactory(
       CombinedCache cache,
@@ -37,7 +39,8 @@ class RemoteRepositoryHelpersFactory implements RepositoryRemoteHelpersFactory {
       String commandId,
       String workspaceName,
       String remoteInstanceName,
-      boolean acceptCached) {
+      boolean acceptCached,
+      boolean uploadLocalResults) {
     this.cache = cache;
     this.remoteExecutor = remoteExecutor;
     this.buildRequestId = buildRequestId;
@@ -45,6 +48,7 @@ class RemoteRepositoryHelpersFactory implements RepositoryRemoteHelpersFactory {
     this.workspaceName = workspaceName;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
+    this.uploadLocalResults = uploadLocalResults;
   }
 
   @Nullable
@@ -62,5 +66,12 @@ class RemoteRepositoryHelpersFactory implements RepositoryRemoteHelpersFactory {
         workspaceName,
         remoteInstanceName,
         acceptCached);
+  }
+
+  @Nullable
+  @Override
+  public RemoteRepoContentsCache createRepoContentsCache() {
+    return new RemoteRepoContentsCacheImpl(
+        cache, buildRequestId, commandId, acceptCached, uploadLocalResults);
   }
 }
