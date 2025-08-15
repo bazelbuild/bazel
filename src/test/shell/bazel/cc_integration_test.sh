@@ -2130,6 +2130,7 @@ cc_binary(
   name = "main",
   module_interfaces = select({":clang_compiler": ["foo.cppm"]}),
   srcs = select({":clang_compiler": ["main.cc"]}),
+  copts = ["-std=c++20"],
   features = ["cpp_modules"],
 )
 EOF
