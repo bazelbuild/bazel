@@ -235,6 +235,6 @@ public interface Action extends ActionExecutionMetadata {
    * mutate any of the called action data but if necessary, its implementation must synchronize any
    * accesses to mutable data.
    */
-  ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException;
+  ImmutableMap<String, String> getEffectiveEnvironment(
+      Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException;
 }
