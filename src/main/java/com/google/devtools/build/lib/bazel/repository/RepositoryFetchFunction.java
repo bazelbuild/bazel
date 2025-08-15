@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache.CandidateRepo;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache.CandidateRepo;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata;
@@ -92,7 +92,7 @@ import net.starlark.java.eval.SymbolGenerator;
 public final class RepositoryFetchFunction implements SkyFunction {
 
   private final BlazeDirectories directories;
-  private final RepoContentsCache repoContentsCache;
+  private final LocalRepoContentsCache repoContentsCache;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   private double timeoutScaling = 1.0;
@@ -104,7 +104,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
   public RepositoryFetchFunction(
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
-      RepoContentsCache repoContentsCache) {
+      LocalRepoContentsCache repoContentsCache) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
