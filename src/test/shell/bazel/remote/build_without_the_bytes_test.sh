@@ -395,6 +395,50 @@ EOF
   || fail "Expected runfile bazel-bin/a/create_bar.sh to be downloaded"
 }
 
+function test_downloads_toplevel_runfiles_only_if_requested() {
+  # Test that --remote_download_toplevel does not fetch the top level binaries'
+  # runfiles if not requested.
+  mkdir -p a
+
+  cat > a/create_bar.tmpl <<'EOF'
+#!/bin/sh
+echo "bar runfiles"
+exit 0
+EOF
+
+  cat > a/foo.cc <<'EOF'
+#include <iostream>
+int main() { std::cout << "foo" << std::endl; return 0; }
+EOF
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "bar",
+  srcs = ["create_bar.tmpl"],
+  outs = ["create_bar.sh"],
+  cmd = "cat $(location create_bar.tmpl) > \"$@\"",
+)
+
+cc_binary(
+  name = "foo",
+  srcs = ["foo.cc"],
+  data = [":bar"],
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    --output_groups=does_not_exist \
+    //a:foo || fail "Failed to build //a:foobar"
+
+  [[ ! -f bazel-bin/a/foo${EXE_EXT} ]] \
+  || fail "Expected toplevel output bazel-bin/a/foo${EXE_EXT} to not be downloaded"
+
+  [[ ! -f bazel-bin/a/create_bar.sh ]] \
+  || fail "Expected runfile bazel-bin/a/create_bar.sh to not be downloaded"
+}
+
 # Test that --remote_download_toplevel fetches inputs to symlink actions. In
 # particular, cc_binary links against a symlinked imported .so file, and only
 # the symlink is in the runfiles.
