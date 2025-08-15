@@ -1137,6 +1137,7 @@ inline void ComputeRunfilePath(const std::wstring& test_workspace,
 
 bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
                     const Path& abs_test_srcdir, Path* result) {
+  // std::wstring original_test_path = test_path;
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
     if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
@@ -1202,6 +1203,22 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
   }
 
   (void)result->Absolutize(cwd);
+  // if (!IsReadableFile(*result)) {
+
+  //   if (!result->Set(original_test_path)) {
+  //     LogErrorWithArg2(__LINE__, "Could not join paths", cwd.Get(),
+  //                      original_test_path);
+  //     return false;
+  //   }
+
+  //   (void)result->Absolutize(cwd);
+
+  //   if (!IsReadableFile(*result)) {
+  //     // the file still does not exist
+  //     LogErrorWithArg(__LINE__, "Failed to find test path", result->Get());
+  //     return false;
+  //   }
+  // }
   return true;
 }
 
