@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -548,10 +549,12 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
 
     final String name;
 
-    public static ImmutableMap<EnvVar, Optional<String>> wrap(
+    public static ImmutableSortedMap<EnvVar, Optional<String>> wrap(
         Map<String, Optional<String>> envVars) {
       return envVars.entrySet().stream()
-          .collect(toImmutableMap(e -> new EnvVar(e.getKey()), Map.Entry::getValue));
+          .collect(
+              toImmutableSortedMap(
+                  naturalOrder(), e -> new EnvVar(e.getKey()), Map.Entry::getValue));
     }
 
     private EnvVar(String name) {

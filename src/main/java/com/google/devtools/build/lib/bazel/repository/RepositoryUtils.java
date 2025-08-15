@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -73,7 +74,7 @@ public class RepositoryUtils {
    * registering them as dependencies.
    */
   @Nullable
-  public static ImmutableMap<String, Optional<String>> getEnvVarValues(
+  public static ImmutableSortedMap<String, Optional<String>> getEnvVarValues(
       Environment env, Set<String> keys) throws InterruptedException {
     Map<String, Optional<String>> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (environ == null) {
@@ -93,7 +94,7 @@ public class RepositoryUtils {
         repoEnv.put(key, Optional.of(value));
       }
     }
-    return repoEnv.buildKeepingLast();
+    return ImmutableSortedMap.copyOf(repoEnv.buildKeepingLast());
   }
 
   protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
