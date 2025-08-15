@@ -98,8 +98,12 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
 
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
@@ -206,8 +210,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   @Test
   public void testDeletedPackage() throws Exception {
     scratch.file("parentpackage/deletedpackage/BUILD");
-    deletedPackages.set(ImmutableSet.of(
-        PackageIdentifier.createInMainRepo("parentpackage/deletedpackage")));
+    deletedPackages.set(
+        ImmutableSet.of(PackageIdentifier.createInMainRepo("parentpackage/deletedpackage")));
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/deletedpackage");
     assertThat(packageLookupValue.packageExists()).isFalse();
     assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
