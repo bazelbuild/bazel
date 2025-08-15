@@ -364,32 +364,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
-    /** Adds a C++ Modules file. */
-    @StarlarkMethod(
-        name = "add_cpp20_module_file",
-        documented = false,
-        parameters = {
-          @Param(name = "module_file", positional = true, named = false),
-        })
-    @CanIgnoreReturnValue
-    public Builder addCpp20ModuleFile(DerivedArtifact artifact) {
-      cpp20ModuleFiles.add(artifact);
-      return this;
-    }
-
-    /** Adds a modules info file. */
-    @StarlarkMethod(
-        name = "add_modules_info_file",
-        documented = false,
-        parameters = {
-          @Param(name = "modules_info_file", positional = true, named = false),
-        })
-    @CanIgnoreReturnValue
-    public Builder addModulesInfoFile(Artifact artifact) {
-      modulesInfoFiles.add(artifact);
-      return this;
-    }
-
     @CanIgnoreReturnValue
     public Builder addObjectFiles(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
@@ -413,28 +387,38 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
-    /** Adds a pic C++ Modules file. */
+    /** Adds a C++ Modules file. */
     @StarlarkMethod(
-        name = "add_pic_cpp20_module_file",
+        name = "add_cpp20_module_file",
         documented = false,
         parameters = {
-          @Param(name = "module_file", positional = true, named = false),
+          @Param(name = "module_file", positional = false, named = true),
+          @Param(name = "use_pic", positional = false, named = true),
         })
     @CanIgnoreReturnValue
-    public Builder addPicCpp20ModuleFile(DerivedArtifact artifact) {
-      picCpp20ModuleFiles.add(artifact);
+    public Builder addCpp20ModuleFile(DerivedArtifact artifact, boolean usePic) {
+      if (usePic) {
+        picCpp20ModuleFiles.add(artifact);
+      } else {
+        cpp20ModuleFiles.add(artifact);
+      }
       return this;
     }
-    /** Adds a pic modules info file. */
+    /** Adds a modules info file. */
     @StarlarkMethod(
-        name = "add_pic_modules_info_file",
+        name = "add_modules_info_file",
         documented = false,
         parameters = {
-          @Param(name = "modules_info_file", positional = true, named = false),
+          @Param(name = "modules_info_file", positional = false, named = true),
+          @Param(name = "use_pic", positional = false, named = true),
         })
     @CanIgnoreReturnValue
-    public Builder addPicModulesInfoFile(Artifact artifact) {
-      picModulesInfoFiles.add(artifact);
+    public Builder addModulesInfoFile(Artifact artifact, boolean usePic) {
+      if (usePic) {
+        picModulesInfoFiles.add(artifact);
+      } else {
+        modulesInfoFiles.add(artifact);
+      }
       return this;
     }
 

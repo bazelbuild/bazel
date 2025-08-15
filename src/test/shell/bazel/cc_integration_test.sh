@@ -2119,22 +2119,48 @@ EOF
 
 function test_cpp20_modules_with_clang() {
   type -P clang || return 0
-
+  add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
-config_setting(
-    name = "clang_compiler",
-    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+COPTS = ["-std=c++20"]
+FEATURES = ["cpp_modules"]
+cc_library(
+  name = "base",
+  module_interfaces = select({"@rules_cc//cc/compiler:clang": ["base.cppm"]}),
+  copts = COPTS,
+  features = FEATURES,
 )
-
+cc_library(
+  name = "foo",
+  module_interfaces = select({"@rules_cc//cc/compiler:clang": ["foo.cppm"]}),
+  copts = COPTS,
+  features = FEATURES,
+  deps = [":base"]
+)
+cc_library(
+  name = "bar",
+  module_interfaces = select({"@rules_cc//cc/compiler:clang": ["bar.cppm"]}),
+  copts = COPTS,
+  features = FEATURES,
+  deps = [":base"]
+)
 cc_binary(
   name = "main",
-  module_interfaces = select({":clang_compiler": ["foo.cppm"]}),
-  srcs = select({":clang_compiler": ["main.cc"]}),
-  features = ["cpp_modules"],
+  srcs = select({"@rules_cc//cc/compiler:clang": ["main.cc"]}),
+  copts = COPTS,
+  features = FEATURES,
+  deps = [":foo", ":bar"]
 )
 EOF
   cat > main.cc <<'EOF'
 import foo;
+import bar;
+
+void f() {
+  f_foo();
+  f_bar();
+}
+
 int main() {
   f();
   return 0;
@@ -2142,8 +2168,24 @@ int main() {
 EOF
   cat > foo.cppm <<'EOF'
 export module foo;
+import base;
 
-export void f() {
+export void f_foo() {
+  f_base();
+}
+EOF
+  cat > bar.cppm <<'EOF'
+export module bar;
+import base;
+
+export void f_bar() {
+  f_base();
+}
+EOF
+  cat > base.cppm <<'EOF'
+export module base;
+
+export void f_base() {
 }
 EOF
 
