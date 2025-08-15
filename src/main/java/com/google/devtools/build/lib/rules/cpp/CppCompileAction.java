@@ -999,6 +999,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // of getcwd() into the debug info. Not applicable to Darwin or Windows, which have no /proc.
       environment.put("PWD", "/proc/self/cwd");
     }
+
     environment.putAll(compileCommandLine.getEnvironment(pathMapper));
     return ImmutableMap.copyOf(environment);
   }

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
@@ -636,10 +637,10 @@ public class CcStarlarkInternal implements StarlarkValue {
       throws EvalException {
     return CcCompilationContext.createWithCpp20Modules(
         ccCompilationContext,
-        ccOutputs.getCpp20ModuleFiles(false),
-        ccOutputs.getCpp20ModuleFiles(true),
-        ccOutputs.getModulesInfoFiles(false),
-        ccOutputs.getModulesInfoFiles(true));
+        ccOutputs.getCpp20ModuleFiles(/* usePic= */ false),
+        ccOutputs.getCpp20ModuleFiles(/* usePic= */ true),
+        ccOutputs.getModulesInfoFiles(/* usePic= */ false),
+        ccOutputs.getModulesInfoFiles(/* usePic= */ true));
   }
 
   @StarlarkMethod(
@@ -818,7 +819,13 @@ public class CcStarlarkInternal implements StarlarkValue {
             generateDwo,
             bitcodeOutput,
             ImmutableMap.copyOf(
-                Dict.cast(additionalBuildVariables, String.class, String.class, "additional_build_variables"))
+                Dict.cast(additionalBuildVariables, String.class, Artifact.class, "additional_build_variables")
+                .entrySet().stream()
+                    .collect(ImmutableMap.toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().getExecPathString()
+                    ))
+                )
             ));
   }
 

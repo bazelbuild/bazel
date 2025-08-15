@@ -158,8 +158,7 @@ public interface CcCompilationContextApi<
         @Param(
             name = "use_pic",
             positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Boolean.class)})
+            named = true)
       })
   Depset getStarlarkModulesInfoFiles(boolean usePic, StarlarkThread thread) throws EvalException;
 
@@ -171,8 +170,7 @@ public interface CcCompilationContextApi<
         @Param(
             name = "use_pic",
             positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Boolean.class)})
+            named = true)
       })
   Depset getStarlarkModuleFiles(boolean usePic, StarlarkThread thread) throws EvalException;
 
@@ -184,8 +182,7 @@ public interface CcCompilationContextApi<
         @Param(
             name = "use_pic",
             positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Boolean.class)})
+            named = true)
       })
   Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread) throws EvalException;
 
