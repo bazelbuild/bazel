@@ -83,7 +83,7 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteHelpersFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -169,8 +169,8 @@ public final class RemoteModule extends BlazeModule {
   private final BuildEventArtifactUploaderFactoryDelegate
       buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
 
-  private final RepositoryRemoteExecutorFactoryDelegate repositoryRemoteExecutorFactoryDelegate =
-      new RepositoryRemoteExecutorFactoryDelegate();
+  private final RepositoryRemoteHelpersFactoryDelegate repositoryRemoteHelpersFactoryDelegate =
+      new RepositoryRemoteHelpersFactoryDelegate();
 
   private Downloader remoteDownloader;
 
@@ -180,7 +180,7 @@ public final class RemoteModule extends BlazeModule {
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addBuildEventArtifactUploaderFactory(
         buildEventArtifactUploaderFactoryDelegate, "remote");
-    builder.setRepositoryRemoteExecutorFactory(repositoryRemoteExecutorFactoryDelegate);
+    builder.setRepositoryHelpersFactory(repositoryRemoteHelpersFactoryDelegate);
   }
 
   /** Returns whether remote execution should be enabled. */
@@ -721,16 +721,6 @@ public final class RemoteModule extends BlazeModule {
               remoteOutputChecker,
               outputService,
               knownMissingCasDigests);
-      repositoryRemoteExecutorFactoryDelegate.init(
-          new RemoteRepositoryRemoteExecutorFactory(
-              remoteCache,
-              remoteExecutor,
-              digestUtil,
-              buildRequestId,
-              invocationId,
-              env.getWorkspaceName(),
-              remoteOptions.remoteInstanceName,
-              remoteOptions.remoteAcceptCached));
     } else {
       if (enableDiskCache) {
         try {
@@ -765,6 +755,15 @@ public final class RemoteModule extends BlazeModule {
               knownMissingCasDigests);
     }
 
+    repositoryRemoteHelpersFactoryDelegate.init(
+        new RemoteRepositoryHelpersFactory(
+            actionContextProvider.getCombinedCache(),
+            actionContextProvider.getRemoteExecutionClient(),
+            buildRequestId,
+            invocationId,
+            env.getWorkspaceName(),
+            remoteOptions.remoteInstanceName,
+            remoteOptions.remoteAcceptCached));
     buildEventArtifactUploaderFactoryDelegate.init(
         new ByteStreamBuildEventArtifactUploaderFactory(
             executorService,
@@ -963,7 +962,7 @@ public final class RemoteModule extends BlazeModule {
     lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
-    repositoryRemoteExecutorFactoryDelegate.reset();
+    repositoryRemoteHelpersFactoryDelegate.reset();
     remoteDownloader = null;
     actionContextProvider = null;
     actionInputFetcher = null;
@@ -1194,12 +1193,12 @@ public final class RemoteModule extends BlazeModule {
                 .build()));
   }
 
-  private static class RepositoryRemoteExecutorFactoryDelegate
-      implements RepositoryRemoteExecutorFactory {
+  private static class RepositoryRemoteHelpersFactoryDelegate
+      implements RepositoryRemoteHelpersFactory {
 
-    private volatile RepositoryRemoteExecutorFactory delegate;
+    private volatile RepositoryRemoteHelpersFactory delegate;
 
-    public void init(RepositoryRemoteExecutorFactory delegate) {
+    public void init(RepositoryRemoteHelpersFactory delegate) {
       Preconditions.checkState(this.delegate == null);
       this.delegate = delegate;
     }
@@ -1210,12 +1209,12 @@ public final class RemoteModule extends BlazeModule {
 
     @Nullable
     @Override
-    public RepositoryRemoteExecutor create() {
-      RepositoryRemoteExecutorFactory delegate = this.delegate;
+    public RepositoryRemoteExecutor createExecutor() {
+      RepositoryRemoteHelpersFactory delegate = this.delegate;
       if (delegate == null) {
         return null;
       }
-      return delegate.create();
+      return delegate.createExecutor();
     }
   }
 
