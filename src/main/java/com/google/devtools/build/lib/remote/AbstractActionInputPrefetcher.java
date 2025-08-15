@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -77,6 +78,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final OutputPermissions outputPermissions;
 
   protected final Path execRoot;
+  protected final Path externalDir;
   protected final RemoteOutputChecker remoteOutputChecker;
 
   private final ActionOutputDirectoryHelper outputDirectoryHelper;
@@ -131,6 +133,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     private void setWritable(Path dir, DirectoryState newState) throws IOException {
+      if (!dir.startsWith(execRoot)) {
+        return;
+      }
       AtomicReference<IOException> caughtException = new AtomicReference<>();
 
       directoryStateMap.compute(
@@ -208,20 +213,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected AbstractActionInputPrefetcher(
       Reporter reporter,
       Path execRoot,
+      Path externalDir,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
+    this.externalDir = externalDir;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputDirectoryHelper = outputDirectoryHelper;
     this.outputPermissions = outputPermissions;
   }
 
-  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
-      throws IOException {
+  protected boolean shouldDownloadFile(Path path, FileArtifactValue metadata) throws IOException {
     var stat = path.statIfFound();
     if (stat == null) {
       return true;
@@ -309,8 +315,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
-      // Source artifacts don't need to be fetched.
-      if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+      // Source artifacts in the main repo don't need to be fetched.
+      if (input instanceof Artifact artifact
+          && artifact.isSourceArtifact()
+          && artifact.getArtifactOwner().getLabel().getRepository().isMain()) {
         continue;
       }
 
@@ -597,7 +605,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             }));
   }
 
-  private void finalizeDownload(
+  protected void finalizeDownload(
       FileArtifactValue metadata, Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());

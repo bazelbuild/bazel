@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
@@ -55,6 +56,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       String commandId,
       CombinedCache combinedCache,
       Path execRoot,
+      Path externalDir,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper,
@@ -62,6 +64,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     super(
         reporter,
         execRoot,
+        externalDir,
         tempPathGenerator,
         remoteOutputChecker,
         outputDirectoryHelper,
@@ -114,7 +117,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
             context,
             input.getExecPathString(),
             input.getExecPath(),
-            tempPath,
+            underlyingPath(tempPath),
             digest,
             new CombinedCache.DownloadProgressReporter(
                 progress -> progress.postTo(reporter, action),
@@ -133,5 +136,27 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
                   }
                 }),
         directExecutor());
+  }
+
+  @Override
+  protected boolean shouldDownloadFile(Path path, FileArtifactValue metadata) throws IOException {
+    return super.shouldDownloadFile(underlyingPath(path), metadata);
+  }
+
+  @Override
+  protected void finalizeDownload(
+      FileArtifactValue metadata, Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
+      throws IOException {
+    var underlyingFinalPath = underlyingPath(finalPath);
+    underlyingFinalPath.getParentDirectory().createDirectoryAndParents();
+    super.finalizeDownload(
+        metadata, underlyingPath(tmpPath), underlyingFinalPath, dirsWithOutputPermissions);
+  }
+
+  private static Path underlyingPath(Path path) {
+    if (path.getFileSystem() instanceof RemoteOverlayFileSystem remoteFS) {
+      return remoteFS.underlying().getPath(path.asFragment());
+    }
+    return path;
   }
 }

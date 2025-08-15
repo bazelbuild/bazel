@@ -105,8 +105,8 @@ public class UploadManifest {
   private final ConcurrentHashMap<Digest, Path> digestToFile = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Digest, ByteString> digestToBlobs = new ConcurrentHashMap<>();
   @Nullable private ActionKey actionKey;
-  private Digest stderrDigest;
-  private Digest stdoutDigest;
+  private Digest stderrDigest = null;
+  private Digest stdoutDigest = null;
 
   public static UploadManifest create(
       CacheCapabilities cacheCapabilities,
@@ -116,7 +116,7 @@ public class UploadManifest {
       Action action,
       Command command,
       Collection<Path> outputFiles,
-      FileOutErr outErr,
+      @Nullable FileOutErr outErr,
       int exitCode,
       Instant startTime,
       int wallTimeInMs)
@@ -133,7 +133,9 @@ public class UploadManifest {
                 .getSymlinkAbsolutePathStrategy()
                 .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED));
     manifest.addFiles(outputFiles);
-    manifest.setStdoutStderr(outErr);
+    if (outErr != null) {
+      manifest.setStdoutStderr(outErr);
+    }
     manifest.addAction(actionKey, action, command);
     if (manifest.getStderrDigest() != null) {
       result.setStderrDigest(manifest.getStderrDigest());
