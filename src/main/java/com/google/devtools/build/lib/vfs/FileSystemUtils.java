@@ -888,10 +888,7 @@ public class FileSystemUtils {
     return path.getFileSystem().getFileSystemType(path.asFragment());
   }
 
-  /**
-   * Returns whether the given path starts with any of the paths in the given
-   * list of prefixes.
-   */
+  /** Returns whether the given path starts with any of the paths in the given list of prefixes. */
   public static boolean startsWithAny(Path path, Iterable<Path> prefixes) {
     for (Path prefix : prefixes) {
       if (path.startsWith(prefix)) {
@@ -902,9 +899,19 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns whether the given path starts with any of the paths in the given
-   * list of prefixes.
+   * Returns whether the given path starts with any of the paths in the given list of prefixes,
+   * ignoring case.
    */
+  public static boolean startsWithAnyIgnoringCase(Path path, Iterable<Path> prefixes) {
+    for (Path prefix : prefixes) {
+      if (path.startsWithIgnoringCase(prefix)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Returns whether the given path starts with any of the paths in the given list of prefixes. */
   public static boolean startsWithAny(PathFragment path, Iterable<PathFragment> prefixes) {
     for (PathFragment prefix : prefixes) {
       if (path.startsWith(prefix)) {
