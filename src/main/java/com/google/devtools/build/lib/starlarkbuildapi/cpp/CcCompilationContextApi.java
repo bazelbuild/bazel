@@ -151,6 +151,32 @@ public interface CcCompilationContextApi<
   Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "modules_info_files",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "use_pic",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class)})
+      })
+  Depset getStarlarkModulesInfoFiles(boolean usePic, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "module_files",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "use_pic",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class)})
+      })
+  Depset getStarlarkModuleFiles(boolean usePic, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "transitive_modules",
       documented = false,
       useStarlarkThread = true,
