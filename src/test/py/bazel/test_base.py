@@ -485,6 +485,12 @@ class TestBase(absltest.TestCase):
 
     shutil.rmtree(self._cas_path)
 
+  def ClearRemoteCache(self):
+    """Clears the CAS of the "local remote worker"."""
+    self.assertIsNotNone(self._cas_path)
+    shutil.rmtree(self._cas_path)
+    os.makedirs(self._cas_path)
+
   def RunProgram(
       self,
       args,

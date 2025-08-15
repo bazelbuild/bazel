@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache.CandidateRepo;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache.CandidateRepo;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata;
@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.RepoContentsCache;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
@@ -96,20 +97,21 @@ public final class RepositoryFetchFunction implements SkyFunction {
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
-  private final RepoContentsCache repoContentsCache;
+  private final LocalRepoContentsCache repoContentsCache;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   private double timeoutScaling = 1.0;
   @Nullable private DownloadManager downloadManager;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
+  @Nullable private RepoContentsCache remoteRepoContentsCache;
   @Nullable private SyscallCache syscallCache;
 
   public RepositoryFetchFunction(
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       AtomicBoolean isFetch,
       BlazeDirectories directories,
-      RepoContentsCache repoContentsCache) {
+      LocalRepoContentsCache repoContentsCache) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.isFetch = isFetch;
     this.directories = directories;
@@ -134,6 +136,10 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {
     this.repositoryRemoteExecutor = repositoryRemoteExecutor;
+  }
+
+  public void setRemoteRepoContentsCache(RepoContentsCache remoteRepoContentsCache) {
+    this.remoteRepoContentsCache = remoteRepoContentsCache;
   }
 
   /**
@@ -261,6 +267,27 @@ public final class RepositoryFetchFunction implements SkyFunction {
             }
           }
         }
+
+        if (remoteRepoContentsCache != null) {
+          try {
+            if (remoteRepoContentsCache.lookupCache(
+                repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+              env.getListener()
+                  .handle(
+                      Event.info(
+                          "Got %s from the remote repo contents cache".formatted(repositoryName)));
+              return new RepositoryDirectoryValue.Success(
+                  repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+            }
+          } catch (IOException e) {
+            throw new RepositoryFunctionException(
+                new IOException(
+                    "error looking up repo %s in remote repo contents cache: %s"
+                        .formatted(repositoryName, e.getMessage()),
+                    e),
+                Transience.TRANSIENT);
+          }
+        }
       }
 
       /* At this point: This is a force fetch, a local repository, OR The repository cache is old or
@@ -277,31 +304,40 @@ public final class RepositoryFetchFunction implements SkyFunction {
           return null;
         }
         digestWriter.writeMarkerFile(result.recordedInputValues());
-        if (repoContentsCache.isEnabled()
-            && result.reproducible() == RepoMetadata.Reproducibility.YES
-            && !repoDefinition.repoRule().local()) {
-          // This repo is eligible for the repo contents cache.
-          Path cachedRepoDir;
-          try {
-            cachedRepoDir =
-                repoContentsCache.moveToCache(
-                    repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
-          } catch (IOException e) {
-            throw new RepositoryFunctionException(
-                new IOException(
-                    "error moving repo %s into the repo contents cache: %s"
-                        .formatted(repositoryName, e.getMessage()),
-                    e),
-                Transience.TRANSIENT);
+        if (result.reproducible() == Reproducibility.YES && !repoDefinition.repoRule().local()) {
+          if (repoContentsCache.isEnabled()) {
+            // This repo is eligible for the repo contents cache.
+            Path cachedRepoDir;
+            try {
+              cachedRepoDir =
+                  repoContentsCache.moveToCache(
+                      repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
+            } catch (IOException e) {
+              throw new RepositoryFunctionException(
+                  new IOException(
+                      "error moving repo %s into the repo contents cache: %s"
+                          .formatted(repositoryName, e.getMessage()),
+                      e),
+                  Transience.TRANSIENT);
+            }
+            // Don't forget to register a FileValue on the cache repo dir, so that we know to
+            // refetch
+            // if the cache entry gets GC'd from under us.
+            if (env.getValue(
+                    FileValue.key(
+                        RootedPath.toRootedPath(
+                            Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
+                == null) {
+              return null;
+            }
           }
-          // Don't forget to register a FileValue on the cache repo dir, so that we know to refetch
-          // if the cache entry gets GC'd from under us.
-          if (env.getValue(
-                  FileValue.key(
-                      RootedPath.toRootedPath(
-                          Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
-              == null) {
-            return null;
+          if (remoteRepoContentsCache != null) {
+            remoteRepoContentsCache.addToCache(
+                repositoryName,
+                repoRoot,
+                digestWriter.markerPath,
+                digestWriter.predeclaredInputHash,
+                env.getListener());
           }
         }
         return new RepositoryDirectoryValue.Success(
