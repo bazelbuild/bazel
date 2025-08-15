@@ -1712,7 +1712,8 @@ public class RemoteExecutionService {
                 action.getSpawnExecutionContext().getFileOutErr(),
                 spawnResult.exitCode(),
                 spawnResult.getStartTime(),
-                spawnResult.getWallTimeInMs());
+                spawnResult.getWallTimeInMs(),
+                /* preserveExecutableBit= */ false);
           }
         });
   }
