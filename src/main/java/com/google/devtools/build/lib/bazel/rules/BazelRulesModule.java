@@ -726,6 +726,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean experimentalCcStaticLibrary;
+
+    @Option(
+        name = "incompatible_legacy_local_fallback",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean legacyLocalFallback;
   }
 
   @Override
