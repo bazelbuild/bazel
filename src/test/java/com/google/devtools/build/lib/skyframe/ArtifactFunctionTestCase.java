@@ -118,7 +118,8 @@ abstract class ArtifactFunctionTestCase {
                     new PackageLookupFunction(
                         null,
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+                        /* enforceStrictLabelCasing= */ new AtomicReference<>(true)))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(actionKeyContext))
