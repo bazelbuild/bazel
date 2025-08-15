@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
@@ -57,7 +58,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
+      @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     super(
         reporter,
@@ -83,7 +84,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected ListenableFuture<Void> doDownloadFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       ActionInput input,
       Path tempPath,
@@ -114,10 +115,14 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
             context,
             input.getExecPathString(),
             input.getExecPath(),
-            tempPath,
+            tempPath.forHostFileSystem(),
             digest,
             new CombinedCache.DownloadProgressReporter(
-                progress -> progress.postTo(reporter, action),
+                progress -> {
+                  if (action != null) {
+                    progress.postTo(reporter, action);
+                  }
+                },
                 input.getExecPathString(),
                 digest.getSizeBytes())),
         IOException.class,

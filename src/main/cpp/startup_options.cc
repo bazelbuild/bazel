@@ -101,7 +101,8 @@ StartupOptions::StartupOptions(const string &product_name,
       cgroup_parent(),
       run_in_user_cgroup(false),
 #endif
-      windows_enable_symlinks(false) {
+      windows_enable_symlinks(false),
+      remote_repo_contents_cache(false) {
 #if defined(_WIN32) || defined(__CYGWIN__)
   string windows_unix_root = DetectBashAndExportBazelSh();
   if (!windows_unix_root.empty()) {
@@ -135,6 +136,8 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
   RegisterNullaryStartupFlag("windows_enable_symlinks",
                              &windows_enable_symlinks);
+  RegisterNullaryStartupFlag("experimental_remote_repo_contents_cache",
+                             &remote_repo_contents_cache);
 #ifdef __linux__
   RegisterNullaryStartupFlag("experimental_run_in_user_cgroup",
                              &run_in_user_cgroup);

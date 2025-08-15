@@ -442,7 +442,7 @@ class TestBase(absltest.TestCase):
       # worker path must be as short as possible so we don't exceed Windows
       # path length limits, so we run straight in TEMP. This should ideally
       # be set to something like C:\temp. On CI this is set to D:\temp.
-      worker_path = TestBase.GetEnv('TEMP')
+      worker_path = tempfile.mkdtemp(dir=TestBase.GetEnv('TEMP'))
       worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker.exe')
     else:
       worker_path = tempfile.mkdtemp(dir=self._tests_root)
@@ -503,6 +503,13 @@ class TestBase(absltest.TestCase):
       print('\n'.join(stderr_lines))
 
     shutil.rmtree(self._cas_path)
+
+  def ClearRemoteCache(self):
+    """Clears the CAS of the "local remote worker"."""
+    self.assertIsNotNone(self._cas_path)
+    shutil.rmtree(self._cas_path)
+    # The worker needs the CAS path as well as the tmp dir to exist.
+    os.makedirs(os.path.join(self._cas_path, "tmp"))
 
   def RunProgram(
       self,

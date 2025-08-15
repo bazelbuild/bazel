@@ -130,6 +130,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     private void setWritable(Path dir, DirectoryState newState) throws IOException {
+      if (!dir.startsWith(execRoot)) {
+        return;
+      }
+      checkNotNull(outputDirectoryHelper);
       AtomicReference<IOException> caughtException = new AtomicReference<>();
 
       directoryStateMap.compute(
@@ -209,7 +213,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
+      @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
@@ -252,7 +256,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       ActionInput input,
       Path tempPath,
@@ -298,9 +302,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    *
    * @return a future that is completed once all downloads have finished.
    */
-  @VisibleForTesting
   public ListenableFuture<Void> prefetchFilesInterruptibly(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
       Priority priority,
@@ -308,8 +311,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
-      // Source artifacts don't need to be fetched.
-      if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+      // Source artifacts in the main repo don't need to be fetched.
+      if (input instanceof Artifact artifact
+          && artifact.isSourceArtifact()
+          && artifact.getArtifactOwner().getLabel().getRepository().isMain()) {
         continue;
       }
 
@@ -366,7 +371,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private ListenableFuture<Void> prefetchFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Set<Path> dirsWithOutputPermissions,
       MetadataSupplier metadataSupplier,
       ActionInput input,
@@ -526,7 +531,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable downloadFileNoCheckRx(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       ActionInput input,
       Path path,
       @Nullable Path treeRoot,
@@ -567,7 +572,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
     }
 
-    Path finalPath = path;
+    // Downloads should always be written to the "actual" host file system, not any overlays.
+    Path finalPath = path.forHostFileSystem();
 
     Completable download =
         usingTempPath(
@@ -575,12 +581,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 toCompletable(
                         () ->
                             doDownloadFile(
-                                action, reporter, input, tempPath, metadata, priority, reason),
+                                action,
+                                reporter,
+                                input,
+                                tempPath.forHostFileSystem(),
+                                metadata,
+                                priority,
+                                reason),
                         directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(
-                              metadata, tempPath, finalPath, dirsWithOutputPermissions);
+                              metadata,
+                              tempPath.forHostFileSystem(),
+                              finalPath,
+                              dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
                         }));
 
@@ -600,24 +615,30 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
 
-    // Ensure the parent directory exists and is writable. We cannot rely on this precondition to be
-    // have been established by the execution of the owning action in a previous invocation, since
-    // the output tree may have been externally modified in between invocations.
-    if (dirsWithOutputPermissions.contains(parentDir)) {
-      // The file belongs to a tree artifact created by an action that declared an output directory
-      // (as opposed to an action template expansion). The output permissions should be set on the
-      // parent directory after prefetching.
-      directoryTracker.setTemporarilyWritable(parentDir);
+    // Compare as fragments since execRoot may be located on a file system overlaying the host
+    // file system where the download is written to.
+    if (finalPath.asFragment().startsWith(execRoot.asFragment())) {
+      // Ensure the parent directory exists and is writable. We cannot rely on this precondition to
+      // have been established by the execution of the owning action in a previous invocation, since
+      // the output tree may have been externally modified in between invocations.
+      if (dirsWithOutputPermissions.contains(parentDir)) {
+        // The file belongs to a tree artifact created by an action that declared an output
+        // directory (as opposed to an action template expansion). The output permissions should be
+        // set on the parent directory after prefetching.
+        directoryTracker.setTemporarilyWritable(parentDir);
+      } else {
+        // One of the following must apply:
+        //   (1) The file does not belong to a tree artifact.
+        //   (2) The file belongs to a tree artifact created by an action template expansion.
+        // In case (1), the parent directory is a package or a subdirectory of a package, and should
+        // remain writable. In case (2), even though we arguably ought to set the output permissions
+        // on the parent directory to match local execution, we choose not to do it and avoid the
+        // additional implementation complexity required to detect a race condition between
+        // concurrent calls touching the same directory.
+        directoryTracker.setPermanentlyWritable(parentDir);
+      }
     } else {
-      // One of the following must apply:
-      //   (1) The file does not belong to a tree artifact.
-      //   (2) The file belongs to a tree artifact created by an action template expansion.
-      // In case (1), the parent directory is a package or a subdirectory of a package, and should
-      // remain writable. In case (2), even though we arguably ought to set the output permissions
-      // on the parent directory to match local execution, we choose not to do it and avoid the
-      // additional implementation complexity required to detect a race condition between concurrent
-      // calls touching the same directory.
-      directoryTracker.setPermanentlyWritable(parentDir);
+      parentDir.createDirectoryAndParents();
     }
 
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs

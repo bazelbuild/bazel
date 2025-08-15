@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
@@ -171,6 +172,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
   private final ExecutorService executorService;
+  private final List<RepositoryName> materializeOnExecute = new ArrayList<>(0);
 
   private boolean wasSuccessful = false;
 
@@ -2269,6 +2271,22 @@ func(
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
+    }
+    if (!label.getRepository().isMain()
+        && directories.getOutputBase().getFileSystem()
+            instanceof RemoteExternalOverlayFileSystem remoteFs) {
+      try {
+        remoteFs.ensureMaterialized(
+            label.getRepository(),
+            () ->
+                env.getListener()
+                    .handle(
+                        Event.debug(
+                            "Materializing remote repo %s".formatted(label.getRepository()))));
+      } catch (IOException e) {
+        throw Starlark.errorf(
+            "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
+      }
     }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {
