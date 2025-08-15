@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.HashSet;
@@ -74,7 +75,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         semantics,
         moduleContext.label(),
         location,
-        moduleContext.repoMapping());
+        moduleContext.repoMapping(),
+        thread.getSemantics().get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
   }
 
   @Override
@@ -111,7 +113,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         semantics,
         moduleContext.label(),
         location,
-        moduleContext.repoMapping());
+        moduleContext.repoMapping(),
+        thread.getSemantics().get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
   }
 
   // TODO(b/237422931): move into testing module
@@ -130,7 +133,11 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
-        changedSettingsMap, moduleContext.repoMapping(), moduleContext.label(), location);
+        changedSettingsMap,
+        moduleContext.repoMapping(),
+        moduleContext.label(),
+        location,
+        thread.getSemantics().get(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS));
   }
 
   private void validateBuildSettingKeys(

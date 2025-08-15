@@ -602,6 +602,17 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisableObjcLibraryTransition;
 
   @Option(
+      name = "incompatible_disable_transitions_on",
+      converter = CommaSeparatedOptionSetConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
+      help =
+          "A comma-separated list of flags that cannot be used in transitions inputs or outputs.")
+  public ImmutableList<String> incompatibleDisableTransitionsOn;
+
+  @Option(
       name = "add_go_exec_groups_to_binary_rules",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -866,6 +877,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
+            .set(INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS, incompatibleDisableTransitionsOn)
             .setBool(ADD_GO_EXEC_GROUPS_TO_BINARY_RULES, addGoExecGroupsToBinaryRules)
             .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
             .setBool(
@@ -994,6 +1006,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
       "-experimental_repository_ctx_execute_wasm";
   // non-booleans
+  public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =
+      new StarlarkSemantics.Key<>("incompatible_disable_transitions_on", ImmutableList.of());
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_AUTOLOAD_EXTERNALLY =
