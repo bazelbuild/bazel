@@ -225,6 +225,18 @@ public final class RunfilesSupport {
     public String getWorkspaceName() {
       return runfiles.getPrefix();
     }
+
+    @Override
+    public boolean containsConstantMetadata() {
+      if (cachedMapping != null) {
+        SortedMap<PathFragment, Artifact> mapping = cachedMapping.get();
+        if (mapping != null) {
+          return mapping.values().stream()
+              .anyMatch(artifact -> artifact != null && artifact.isConstantMetadata());
+        }
+      }
+      return getArtifacts().toList().stream().anyMatch(Artifact::isConstantMetadata);
+    }
   }
 
   private final RunfilesTreeImpl runfilesTree;
