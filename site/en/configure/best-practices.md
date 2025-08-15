@@ -79,6 +79,11 @@ try-import %workspace%/user.bazelrc
 (or any other file name) in your `{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc`
 and add `user.bazelrc` to your `.gitignore`.
 
+The open-source
+[bazelrc-preset.bzl](https://github.com/bazel-contrib/bazelrc-preset.bzl){: .external} 
+generates a custom bazelrc file that matches your Bazel version and provides a 
+preset of recommended flags.
+
 ## Packages {:#packages}
 
 Every directory that contains buildable files should be a package. If a `BUILD`
