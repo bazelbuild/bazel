@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParser;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.SortedMap;
@@ -103,5 +104,13 @@ public class RemoteOptionsTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     int defaultMax = options.maximumOpenFiles;
     assertThat(defaultMax).isEqualTo(-1);
+  }
+
+  @Test
+  public void testRemoteGrpcLogWithEmptyString() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--remote_grpc_log=test.log", "--remote_grpc_log=");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.remoteGrpcLog).isNull();
   }
 }

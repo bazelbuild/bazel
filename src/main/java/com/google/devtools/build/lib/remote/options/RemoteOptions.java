@@ -434,7 +434,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If specified, a path to a file to log gRPC call related details. This log consists of a"
