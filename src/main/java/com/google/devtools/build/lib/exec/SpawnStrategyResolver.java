@@ -87,10 +87,12 @@ public final class SpawnStrategyResolver implements ActionContext {
       if (fallbackStrategies.isEmpty()) {
         String message =
             String.format(
-                "%s spawn%s cannot be executed with any of the available strategies: %s. Your"
-                    + " --spawn_strategy, --genrule_strategy and/or --strategy flags are probably"
-                    + " too strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
-                    + " advice",
+                """
+                %s spawn%s cannot be executed with any of the available strategies: %s. Your \
+                --spawn_strategy, --genrule_strategy, --strategy and/or \
+                --allowed_strategies_by_exec_platform flags are probably too strict. \
+                Visit https://github.com/bazelbuild/bazel/issues/7480 for advice.
+                """,
                 spawn.getMnemonic(),
                 Spawns.usesPathMapping(spawn)
                     ? ", which requires sandboxing due to path mapping,"
