@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -170,7 +171,9 @@ public class RemoteOutputChecker implements OutputChecker {
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
               .getImportantArtifacts();
       addOutputsToDownload(artifactsToBuild.toList());
-      addRunfiles(target);
+//      if (topLevelArtifactContext.outputGroups().contains(OutputGroupInfo.HIDDEN_TOP_LEVEL)) {
+        addRunfiles(target);
+//      }
       addExtraActionArtifacts(target);
     }
   }
