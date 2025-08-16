@@ -291,7 +291,7 @@ public class UploadManifest {
   private void addAction(RemoteCacheClient.ActionKey actionKey, Action action, Command command) {
     Preconditions.checkState(this.actionKey == null, "Already added an action");
     this.actionKey = actionKey;
-    digestToBlobs.put(actionKey.getDigest(), action.toByteString());
+    digestToBlobs.put(actionKey.digest(), action.toByteString());
     digestToBlobs.put(action.getCommandDigest(), command.toByteString());
   }
 
@@ -683,11 +683,11 @@ public class UploadManifest {
               .doOnSubscribe(
                   d ->
                       reportUploadStarted(
-                          reporter, action, Store.AC, ImmutableList.of(actionKey.getDigest())))
+                          reporter, action, Store.AC, ImmutableList.of(actionKey.digest())))
               .doFinally(
                   () ->
                       reportUploadFinished(
-                          reporter, action, Store.AC, ImmutableList.of(actionKey.getDigest())));
+                          reporter, action, Store.AC, ImmutableList.of(actionKey.digest())));
     }
 
     return Completable.concatArray(uploadOutputs, uploadActionResult).toSingleDefault(actionResult);

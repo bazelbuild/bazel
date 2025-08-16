@@ -257,7 +257,7 @@ public class DiskCacheClient {
     return executorService.submit(
         () -> {
           try (InputStream data = actionResult.toByteString().newInput()) {
-            saveFile(actionKey.getDigest(), Store.AC, data);
+            saveFile(actionKey.digest(), Store.AC, data);
           }
           return null;
         });
