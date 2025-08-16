@@ -117,6 +117,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -286,8 +288,16 @@ public class GrpcCacheClientTest {
         new RemoteExecutionCache(
             newClient(options), /* diskCacheClient= */ null, options, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
+    // Use a large prime size to exercise the chunking logic.
+    byte[] bytes = new byte[65537];
+    new SecureRandom().nextBytes(bytes);
+    // Clamp to ASCII to ensure that the content is valid UTF-8.
+    for (int i = 0; i < bytes.length; i++) {
+      bytes[i] = (byte) (bytes[i] & 0x7F);
+    }
+    String content = new String(bytes, StandardCharsets.US_ASCII);
     VirtualActionInput virtualActionInput =
-        ActionsTestUtil.createVirtualActionInput(execPath, "hello");
+        ActionsTestUtil.createVirtualActionInput(execPath, content);
     MerkleTree merkleTree =
         MerkleTree.build(
             ImmutableSortedMap.of(execPath, virtualActionInput),
@@ -312,7 +322,8 @@ public class GrpcCacheClientTest {
         });
 
     // Mock a byte stream and assert that we see the virtual action input with contents 'hello'
-    AtomicBoolean writeOccurred = new AtomicBoolean();
+    StringBuilder committedContent = new StringBuilder();
+    AtomicBoolean firstRequest = new AtomicBoolean(true);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -321,15 +332,23 @@ public class GrpcCacheClientTest {
             return new StreamObserver<WriteRequest>() {
               @Override
               public void onNext(WriteRequest request) {
-                assertThat(request.getResourceName()).contains(digest.getHash());
-                assertThat(request.getFinishWrite()).isTrue();
-                assertThat(request.getData().toStringUtf8()).isEqualTo("hello");
-                writeOccurred.set(true);
+                if (firstRequest.getAndSet(false)) {
+                  assertThat(request.getResourceName()).contains(digest.getHash());
+                }
+                assertThat(request.getWriteOffset()).isEqualTo(committedContent.length());
+                committedContent.append(request.getData().toStringUtf8());
+                if (committedContent.length() == content.length()) {
+                  assertThat(request.getFinishWrite()).isTrue();
+                  assertThat(committedContent.toString()).isEqualTo(content);
+                } else {
+                  assertThat(request.getFinishWrite()).isFalse();
+                }
               }
 
               @Override
               public void onCompleted() {
-                responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(5).build());
+                responseObserver.onNext(
+                    WriteResponse.newBuilder().setCommittedSize(committedContent.length()).build());
                 responseObserver.onCompleted();
               }
 
@@ -344,6 +363,7 @@ public class GrpcCacheClientTest {
     // Upload all missing inputs (that is, the virtual action input from above)
     client.ensureInputsPresent(
         context, merkleTree, ImmutableMap.of(), /* force= */ true, remotePathResolver);
+    assertThat(committedContent.toString()).isEqualTo(content);
   }
 
   @Test
