@@ -603,7 +603,6 @@ public interface CcModuleApi<
                     + "`output_type`",
             positional = false,
             named = true,
-            documented = false,
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
         @Param(
