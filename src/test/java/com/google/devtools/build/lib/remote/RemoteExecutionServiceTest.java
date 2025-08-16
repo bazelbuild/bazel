@@ -2359,9 +2359,9 @@ public class RemoteExecutionServiceTest {
             ActionUploadStartedEvent.create(spawn.getResourceOwner(), Store.CAS, digest),
             ActionUploadFinishedEvent.create(spawn.getResourceOwner(), Store.CAS, digest),
             ActionUploadStartedEvent.create(
-                spawn.getResourceOwner(), Store.AC, action.getActionKey().getDigest()),
+                spawn.getResourceOwner(), Store.AC, action.getActionKey().digest()),
             ActionUploadFinishedEvent.create(
-                spawn.getResourceOwner(), Store.AC, action.getActionKey().getDigest()));
+                spawn.getResourceOwner(), Store.AC, action.getActionKey().digest()));
   }
 
   @Test

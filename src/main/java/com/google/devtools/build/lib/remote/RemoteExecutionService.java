@@ -674,11 +674,10 @@ public class RemoteExecutionService {
 
       RequestMetadata metadata =
           TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
+              buildRequestId, commandId, actionKey.digest().getHash(), spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
               spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
-
       return new RemoteAction(
           spawn,
           context,
@@ -1978,7 +1977,7 @@ public class RemoteExecutionService {
     RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) combinedCache;
     // Upload the command and all the inputs into the remote cache.
     Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
-    additionalInputs.put(action.getActionKey().getDigest(), action.getAction());
+    additionalInputs.put(action.getActionKey().digest(), action.getAction());
     additionalInputs.put(action.getCommandHash(), action.getCommand());
 
     // As uploading depends on having the full input root in memory, limit
@@ -2029,7 +2028,7 @@ public class RemoteExecutionService {
         ExecuteRequest.newBuilder()
             .setInstanceName(remoteOptions.remoteInstanceName)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setActionDigest(action.getActionKey().getDigest())
+            .setActionDigest(action.getActionKey().digest())
             .setSkipCacheLookup(!acceptCachedResult);
     if (remoteOptions.remoteResultCachePriority != 0) {
       requestBuilder

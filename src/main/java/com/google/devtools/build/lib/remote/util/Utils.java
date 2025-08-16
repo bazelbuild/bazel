@@ -417,7 +417,7 @@ public final class Utils {
       ActionKey actionDigest,
       BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction) {
     ByteArrayOutputStream data = new ByteArrayOutputStream(/* size= */ 1024);
-    ListenableFuture<Void> download = downloadFunction.apply(actionDigest.getDigest(), data);
+    ListenableFuture<Void> download = downloadFunction.apply(actionDigest.digest(), data);
     return FluentFuture.from(download)
         .transformAsync(
             (v) -> {

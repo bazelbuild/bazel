@@ -99,7 +99,7 @@ public class RemoteAction {
 
   /** Returns the id this is action. */
   public String getActionId() {
-    return actionKey.getDigest().getHash();
+    return actionKey.digest().getHash();
   }
 
   /** Returns the {@link ActionKey} of this action. */
