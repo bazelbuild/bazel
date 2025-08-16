@@ -1148,7 +1148,7 @@ public class RemoteExecutionService {
     for (FileNode file : dir.getFilesList()) {
       filesBuilder.add(
           new FileMetadata(
-              parent.getRelative(file.getName()),
+              parent.getRelative(unicodeToInternal(file.getName())),
               file.getDigest(),
               file.getIsExecutable(),
               ByteString.EMPTY));
@@ -1158,11 +1158,12 @@ public class RemoteExecutionService {
     for (SymlinkNode symlink : dir.getSymlinksList()) {
       symlinksBuilder.add(
           new SymlinkMetadata(
-              parent.getRelative(symlink.getName()), PathFragment.create(symlink.getTarget())));
+              parent.getRelative(unicodeToInternal(symlink.getName())),
+              PathFragment.create(unicodeToInternal(symlink.getTarget()))));
     }
 
     for (DirectoryNode directoryNode : dir.getDirectoriesList()) {
-      Path childPath = parent.getRelative(directoryNode.getName());
+      Path childPath = parent.getRelative(unicodeToInternal(directoryNode.getName()));
       Directory childDir =
           Preconditions.checkNotNull(childDirectoriesMap.get(directoryNode.getDigest()));
       DirectoryMetadata childMetadata = parseDirectory(childPath, childDir, childDirectoriesMap);
