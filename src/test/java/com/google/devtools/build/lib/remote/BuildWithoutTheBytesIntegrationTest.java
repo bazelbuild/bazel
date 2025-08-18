@@ -307,6 +307,85 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void downloadTopLevel_doesNotDownloadUnrequestedOutputGroups() throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = "echo 'echo Hello World' > {output} && chmod +x {output}".format(output = out.path),
+            )
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    transitive = [target[DefaultInfo].files for target in ctx.attr.data],
+                ),
+            ).merge_all([
+                target[DefaultInfo].default_runfiles for target in ctx.attr.data
+            ])
+            return DefaultInfo(
+                executable = out,
+                runfiles = runfiles,
+            )
+
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                "data": attr.label_list(allow_files = True),
+            },
+            executable = True,
+        )
+
+        def _aspect_impl(target, ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".sha256")
+            ctx.actions.run_shell(
+                inputs = depset(
+                    transitive = [
+                        target[DefaultInfo].files,
+                        target[DefaultInfo].default_runfiles.files,
+                    ],
+                ),
+                outputs = [out],
+                command = "echo 'hash' > {output}".format(output = out.path),
+            )
+            return [
+                OutputGroupInfo(
+                    my_aspect_out = depset([out]),
+                )
+            ]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        genrule(
+            name = "gen_data",
+            srcs = [],
+            outs = ["some_data"],
+            cmd = "echo 'data content' > $@",
+        )
+
+        my_rule(
+            name = "hello",
+            data = [":gen_data"],
+        )
+        """);
+
+    setDownloadToplevel();
+    addOptions("--aspects=//a:defs.bzl%my_aspect", "--output_groups=my_aspect_out");
+    buildTarget("//a:hello");
+
+    assertValidOutputFile("a/hello.sha256", "hash\n");
+    assertOutputsDoNotExist("//a:gen_data");
+    assertOutputsDoNotExist("//a:hello");
+  }
+
+  @Test
   public void remoteCacheEvictBlobs_whenPrefetchingInput_exitWithCode39() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
