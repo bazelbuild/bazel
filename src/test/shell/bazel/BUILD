@@ -636,7 +636,13 @@ sh_test(
 sh_test(
     name = "bazel_cc_code_coverage_test",
     srcs = ["bazel_cc_code_coverage_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//scripts:jq",
+    ],
+    env = {
+        "JQ_RLOCATIONPATH": "$(rlocationpath //scripts:jq)",
+    },
     tags = [
         # C++ coverage is not supported on macOS yet.
         "no_macos",
