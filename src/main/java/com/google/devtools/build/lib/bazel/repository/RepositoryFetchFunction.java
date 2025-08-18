@@ -628,7 +628,10 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
       repoMetadata =
           switch (result) {
-            case Dict<?, ?> dict -> new RepoMetadata(RepoMetadata.Reproducibility.NO, dict);
+            case Dict<?, ?> dict ->
+                new RepoMetadata(
+                    RepoMetadata.Reproducibility.NO,
+                    Dict.cast(dict, String.class, Object.class, "return value"));
             case RepoMetadata rm -> rm;
             default -> RepoMetadata.NONREPRODUCIBLE;
           };

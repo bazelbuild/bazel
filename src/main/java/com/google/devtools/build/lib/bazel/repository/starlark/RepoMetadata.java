@@ -27,7 +27,8 @@ import net.starlark.java.eval.StarlarkValue;
         """
         See <a href="repository_ctx#repo_metadata"><code>repository_ctx.repo_metadata</code></a>.
         """)
-public record RepoMetadata(Reproducibility reproducible, Dict<?, ?> attrsForReproducibility)
+public record RepoMetadata(
+    Reproducibility reproducible, Dict<String, Object> attrsForReproducibility)
     implements StarlarkValue {
   public static final RepoMetadata NONREPRODUCIBLE =
       new RepoMetadata(Reproducibility.NO, Dict.empty());

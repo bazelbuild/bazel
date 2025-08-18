@@ -3075,6 +3075,7 @@ repo = use_repo_rule("//:repo.bzl", "repo")
 repo(
   name = "repo",
   attr1 = "value1",
+  attr3 = "//:default",
 )
 EOF
   touch BUILD
@@ -3082,20 +3083,25 @@ EOF
 def _impl(repository_ctx):
   repository_ctx.file("BUILD", "filegroup(name='r')")
   return {
-    "name": repository_ctx.attr.name,
     "attr1": repository_ctx.attr.attr1,
     "attr2": repository_ctx.attr.attr2,
-    "attr3": repository_ctx.attr.attr3,
-    "attr4": repository_ctx.attr.attr4,
+    "attr5": "",
   }
 
 repo = repository_rule(
   implementation = _impl,
   attrs={
+    # Consistently changed from default.
     "attr1": attr.string(default = "default1"),
+    # Unchanged from default.
     "attr2": attr.string(),
+    # Explicitly set to default in rule attributes, not contained in returned dict.
     "attr3": attr.label(default = "//:default"),
+    # Not set or included in the returned dict.
     "attr4": attr.label(),
+    # Not set in rule attributes, but returned as default in the dict.
+    "attr5": attr.string(),
+    "_implicit": attr.string(default = "hi"),
   },
 )
 EOF
@@ -3112,6 +3118,8 @@ repo = use_repo_rule("//:repo.bzl", "repo")
 repo(
   name = "repo",
   attr1 = "value1",
+  attr2 = "value2",
+  attr3 = "value3",
 )
 EOF
   touch BUILD
@@ -3120,8 +3128,8 @@ def _impl(repository_ctx):
   repository_ctx.file("BUILD", "filegroup(name='r')")
   return {
     "name": repository_ctx.attr.name,
-    "attr1": repository_ctx.attr.attr2,
-    "attr2": repository_ctx.attr.attr2,
+    "attr1": "default2",
+    "attr2": "default2",
   }
 
 repo = repository_rule(
@@ -3129,13 +3137,14 @@ repo = repository_rule(
   attrs = {
     "attr1": attr.string(default = "default1"),
     "attr2": attr.string(default = "default2"),
+    "attr3": attr.string(default = "default3"),
   },
 )
 EOF
 
   bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
   expect_log "indicated that a canonical reproducible form can be obtained"
-  expect_log "by modifying arguments attr1 = \"default2\""
+  expect_log "by modifying arguments attr1 = \"default2\" and dropping \[attr2, attr3\]"
 }
 
 run_suite "local repository tests"
