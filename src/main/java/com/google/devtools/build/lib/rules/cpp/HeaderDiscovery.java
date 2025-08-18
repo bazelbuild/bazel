@@ -20,10 +20,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -153,12 +155,23 @@ final class HeaderDiscovery {
     // Check inclusions.
     IncludeProblems absolutePathProblems = new IncludeProblems();
     IncludeProblems unresolvablePathProblems = new IncludeProblems();
+    // Absolute includes from system paths are ignored. On Windows, which has a case-insensitive
+    // file system by default, the paths as reported by the compiler may differ in casing from
+    // those listed by the toolchain.
+    boolean caseInsensitiveSystemIncludes =
+        ConstraintConstants.getOsFromConstraints(action.getExecutionPlatform().constraints())
+            == OS.WINDOWS;
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
-        // Absolute includes from system paths are ignored.
-        if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
-          continue;
+        if (caseInsensitiveSystemIncludes) {
+          if (FileSystemUtils.startsWithAnyIgnoringCase(execPath, permittedSystemIncludePrefixes)) {
+            continue;
+          }
+        } else {
+          if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
+            continue;
+          }
         }
         if (execPath.startsWith(execRoot)
             && (!ignoreMainRepository

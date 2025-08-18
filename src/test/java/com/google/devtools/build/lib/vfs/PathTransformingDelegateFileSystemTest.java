@@ -160,7 +160,8 @@ public final class PathTransformingDelegateFileSystemTest {
             getFileSystemMethod("getPath", PathFragment.class),
             getFileSystemMethod("readSymbolicLink", PathFragment.class),
             getFileSystemMethod("resolveSymbolicLinks", PathFragment.class),
-            getFileSystemMethod("createSymbolicLink", PathFragment.class, PathFragment.class));
+            getFileSystemMethod("createSymbolicLink", PathFragment.class, PathFragment.class),
+            getFileSystemMethod("canonicalizeCase", PathFragment.class));
 
     private static Method getFileSystemMethod(String name, Class<?>... parameterTypes) {
       try {

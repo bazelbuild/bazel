@@ -146,6 +146,7 @@ public class ConsistencyTest {
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)]
                 .toString()
                 .toLowerCase(Locale.ROOT),
+        "--incompatible_enforce_strict_label_casing=" + rand.nextBoolean(),
         "--incompatible_locations_prefers_executable=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
         "--incompatible_no_implicit_file_export=" + rand.nextBoolean(),
@@ -190,6 +191,7 @@ public class ConsistencyTest {
             BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8,
             BuildLanguageOptions.Utf8EnforcementMode.values()[
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)])
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STRICT_LABEL_CASING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, rand.nextBoolean())

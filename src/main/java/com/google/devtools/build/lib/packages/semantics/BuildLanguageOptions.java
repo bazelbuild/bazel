@@ -802,6 +802,15 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "If true enables the repository_ctx `load_wasm` and `execute_wasm` methods.")
   public boolean repositoryCtxExecuteWasm;
 
+  @Option(
+      name = "incompatible_enforce_strict_label_casing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If enabled, enforce strict label casing.")
+  public boolean enforceStrictLabelCasing;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -908,6 +917,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
                 internalStarlarkUtf8ByteStrings)
             .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm)
+            .setBool(INCOMPATIBLE_ENFORCE_STRICT_LABEL_CASING, enforceStrictLabelCasing)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -1005,6 +1015,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_locations_prefers_executable";
   public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
       "-experimental_repository_ctx_execute_wasm";
+  public static final String INCOMPATIBLE_ENFORCE_STRICT_LABEL_CASING =
+      "-incompatible_enforce_strict_label_casing";
   // non-booleans
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =
       new StarlarkSemantics.Key<>("incompatible_disable_transitions_on", ImmutableList.of());

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
@@ -408,6 +409,57 @@ public final class PathFragmentTest {
     // (path, sibling) => false
     assertThat(create("/foo/wiz").startsWith(foobar)).isFalse();
     assertThat(foobar.startsWith(create("/foo/wiz"))).isFalse();
+
+    // (path, different case) => false
+    assertThat(foobar.startsWith(create("/Foo/bar"))).isFalse();
+    assertThat(foobar.startsWith(create("/Foo"))).isFalse();
+    assertThat(create(unicodeToInternal("/ÄÖÜ/bar")).startsWith(create(unicodeToInternal("/äöü"))))
+        .isFalse();
+    assertThat(create(unicodeToInternal("ÄÖÜ/bar")).startsWith(create(unicodeToInternal("äöü"))))
+        .isFalse();
+  }
+
+  @Test
+  public void testStartsWithIgnoringCase() {
+    PathFragment foobar = create("/foo/bar");
+    PathFragment foobarRelative = create("foo/bar");
+
+    // (path, prefix) => true
+    assertThat(foobar.startsWithIgnoringCase(foobar)).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo/"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo/bar/")))
+        .isTrue(); // Includes trailing slash.
+
+    // (prefix, path) => false
+    assertThat(create("/foo").startsWithIgnoringCase(foobar)).isFalse();
+    assertThat(create("/").startsWithIgnoringCase(foobar)).isFalse();
+
+    // (absolute, relative) => false
+    assertThat(foobar.startsWithIgnoringCase(foobarRelative)).isFalse();
+    assertThat(foobarRelative.startsWithIgnoringCase(foobar)).isFalse();
+
+    // (relative path, relative prefix) => true
+    assertThat(foobarRelative.startsWithIgnoringCase(foobarRelative)).isTrue();
+    assertThat(foobarRelative.startsWithIgnoringCase(create("foo"))).isTrue();
+    assertThat(foobarRelative.startsWithIgnoringCase(create(""))).isTrue();
+
+    // (path, sibling) => false
+    assertThat(create("/foo/wiz").startsWithIgnoringCase(foobar)).isFalse();
+    assertThat(foobar.startsWithIgnoringCase(create("/foo/wiz"))).isFalse();
+
+    // (path, different case) => false
+    assertThat(foobar.startsWithIgnoringCase(create("/Foo/bar"))).isTrue();
+    assertThat(foobar.startsWithIgnoringCase(create("/Foo"))).isTrue();
+    assertThat(
+            create(unicodeToInternal("/ÄÖÜ/bar"))
+                .startsWithIgnoringCase(create(unicodeToInternal("/äöü"))))
+        .isTrue();
+    assertThat(
+            create(unicodeToInternal("ÄÖÜ/bar"))
+                .startsWithIgnoringCase(create(unicodeToInternal("äöü"))))
+        .isTrue();
   }
 
   @Test
