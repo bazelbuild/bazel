@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.runtime.commands.BuiltinCommandModule;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -68,21 +67,18 @@ abstract class DocumentationTestUtil {
 
     Set<String> validOptions = new HashSet<>();
 
-    var startupOptionsClasses = BlazeCommandUtils.getStartupOptions(blazeModules);
     // collect all startup options
-    for (Class<? extends OptionsBase> optionsClass : startupOptionsClasses) {
+    for (Class<? extends OptionsBase> optionsClass :
+        BlazeCommandUtils.getStartupOptions(blazeModules)) {
       validOptions.addAll(Options.getDefaults(optionsClass).asMap().keySet());
     }
     validOptions.addAll(extraValidOptions);
 
-    var startupOptions = OptionsParser.builder().optionsClasses(startupOptionsClasses).build();
-    startupOptions.parse();
-
     // collect all command options
     ServerBuilder serverBuilder = new ServerBuilder();
-    new DummyBuiltinCommandModule().serverInit(startupOptions, serverBuilder);
+    new DummyBuiltinCommandModule().serverInit(null, serverBuilder);
     for (BlazeModule module : blazeModules) {
-      module.serverInit(startupOptions, serverBuilder);
+      module.serverInit(null, serverBuilder);
     }
     List<BlazeCommand> blazeCommands = serverBuilder.getCommands();
 
