@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -1087,11 +1089,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /** Metadata for files whose contents are available in memory. */
-  private static final class InlineFileArtifactValue extends FileArtifactValue {
+  @AutoCodec
+  @VisibleForSerialization
+  public static final class InlineFileArtifactValue extends FileArtifactValue {
     private final byte[] data;
     private final byte[] digest;
 
-    private InlineFileArtifactValue(byte[] data, byte[] digest) {
+    InlineFileArtifactValue(byte[] data, byte[] digest) {
       this.data = checkNotNull(data);
       this.digest = checkNotNull(digest);
     }
