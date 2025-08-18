@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
@@ -95,7 +94,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
     this.options = options;
-    this.appleCpus = AppleCpus.create(options, buildOptions.get(CoreOptions.class));
+    this.appleCpus = AppleCpus.create(options);
     this.applePlatformType =
         Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
     this.configurationDistinguisher = options.configurationDistinguisher;
@@ -119,7 +118,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   /** A class that contains information pertaining to Apple CPUs. */
   @AutoValue
   public abstract static class AppleCpus {
-    public static AppleCpus create(AppleCommandLineOptions options, CoreOptions coreOptions) {
+    public static AppleCpus create(AppleCommandLineOptions options) {
       String appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
       ImmutableList<String> iosMultiCpus =
           (options.iosMultiCpus == null || options.iosMultiCpus.isEmpty())
