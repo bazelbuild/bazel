@@ -1113,6 +1113,104 @@ BRH:5"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
+function test_branch_in_switch_coverage() {
+  # Verify our branch analysis handles an edge case where an instruction is
+  # reached from several different branch sets.
+  # https://github.com/bazelbuild/bazel/commit/a915b00547129bc15c7efcf5794407854ecf450c
+  # broke this.
+
+  mkdir -p foo
+  cat <<EOF > foo/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
+java_test(
+  name = "fooTest",
+  srcs = ["FooTest.java"],
+  test_class = "foo.FooTest",
+  deps = [":foo"],
+)
+
+java_library(
+  name = "foo",
+  srcs = ["Foo.java"],
+)
+EOF
+
+  cat <<EOF > foo/Foo.java
+package foo;
+
+public class Foo {
+  public static String calcFoo(int x) {
+    String out = "default";
+    switch(x) {
+      case 0:
+        out = "zero";
+        break;
+      case 1:
+      case 2:
+      case 3:
+        break;
+      case 4:
+        if (out.startsWith("d")) {
+          out = "four";
+        }
+      default:
+        break;
+    }
+    return out;
+  }
+}
+EOF
+
+  cat <<EOF > foo/FooTest.java
+package foo;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class FooTest {
+
+  @Test
+  public void testMiddleValue() {
+    assertEquals("default", Foo.calcFoo(2));
+  }
+
+  @Test
+  public void testFour() {
+    assertEquals("four", Foo.calcFoo(4));
+  }
+}
+EOF
+
+  bazel coverage //foo:fooTest \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --test_output=all \
+    --combined_report=lcov &>$TEST_log \
+    || echo "Coverage for //foo:fooTest failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_line_result="DA:3,0
+DA:5,1
+DA:6,1
+DA:8,0
+DA:9,0
+DA:13,1
+DA:15,1
+DA:16,1
+DA:21,1"
+  local expected_branch_result="BRDA:6,0,0,0
+BRDA:6,0,1,0
+BRDA:6,0,2,1
+BRDA:6,0,3,1
+BRDA:15,0,0,0
+BRDA:15,0,1,1
+BRF:6
+BRH:3"
+  assert_coverage_result "$expected_line_result" "$coverage_file_path"
+  assert_coverage_result "$expected_branch_result" "$coverage_file_path"
+}
+
 function test_java_test_coverage_cc_binary() {
   if is_gcov_missing_or_wrong_version; then
     echo "Skipping test." && return
