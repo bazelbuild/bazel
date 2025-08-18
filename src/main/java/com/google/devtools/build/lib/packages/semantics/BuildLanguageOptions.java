@@ -17,9 +17,13 @@ package com.google.devtools.build.lib.packages.semantics;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -29,7 +33,10 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.protobuf.ByteString;
 import java.util.List;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -46,7 +53,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>Add a new {@code @Option}-annotated field to this class. The field name and default value
  *       should be the same as in {@link StarlarkSemantics}, and the option name in the annotation
  *       should be that name written in snake_case. Add a line to set the new field in {@link
- *       #toStarlarkSemantics}.
+ *       #toStarlarkSemantics}. New options should always default to {@code false} and have no
+ *       observable effect when disabled.
  *   <li>Define a new {@code StarlarkSemantics.Key} or {@code StarlarkSemantics} boolean flag
  *       identifier.
  *   <li>Add a line to set the new field in both {@link ConsistencyTest#buildRandomOptions} and
@@ -810,11 +818,15 @@ public final class BuildLanguageOptions extends OptionsBase {
    */
   private static final Interner<StarlarkSemantics> INTERNER = BlazeInterners.newWeakInterner();
 
-  /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
-  public StarlarkSemantics toStarlarkSemantics() {
-    // This function connects command-line flags to their corresponding StarlarkSemantics keys.
-    StarlarkSemantics semantics =
-        StarlarkSemantics.builder()
+  private interface FlagConsumer {
+    <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T value);
+
+    FlagConsumer setBool(String key, boolean enabled);
+  }
+
+  private void setFlags(FlagConsumer consumer) {
+    var unused =
+        consumer
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
                 incompatibleStopExportingLanguageModules)
@@ -907,9 +919,80 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
                 internalStarlarkUtf8ByteStrings)
-            .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm)
-            .build();
-    return INTERNER.intern(semantics);
+            .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm);
+  }
+
+  /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
+  public StarlarkSemantics toStarlarkSemantics() {
+    // This function connects command-line flags to their corresponding StarlarkSemantics keys.
+    var builder = StarlarkSemantics.builder();
+    setFlags(
+        new FlagConsumer() {
+          @Override
+          public <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T value) {
+            builder.set(key, value);
+            return this;
+          }
+
+          @Override
+          public FlagConsumer setBool(String key, boolean enabled) {
+            builder.setBool(key, enabled);
+            return this;
+          }
+        });
+    return INTERNER.intern(builder.build());
+  }
+
+  /**
+   * Returns a fingerprint of the given {@link StarlarkSemantics} object that can be compared across
+   * Bazel versions.
+   */
+  public static ByteString stableFingerprint(StarlarkSemantics semantics) {
+    return FINGERPRINT_CACHE.getUnchecked(semantics);
+  }
+
+  // See the comment on INTERNER above, this cache should be very small.
+  private static final LoadingCache<StarlarkSemantics, ByteString> FINGERPRINT_CACHE =
+      CacheBuilder.newBuilder()
+          .weakKeys()
+          .build(
+              new CacheLoader<>() {
+                @Override
+                public ByteString load(StarlarkSemantics key) {
+                  return computeFingerprint(key);
+                }
+              });
+
+  private static ByteString computeFingerprint(StarlarkSemantics semantics) {
+    var enabledBoolFlags = new TreeSet<String>();
+    var otherFlags = new TreeMap<String, String>();
+    // We only care about the keys of the map, so the BuildLanguageOptions instance doesn't matter.
+    new BuildLanguageOptions()
+        .setFlags(
+            new FlagConsumer() {
+              @Override
+              public <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T ignored) {
+                // This assumes that all non-boolean values have a stable and unique string
+                // representation, which seems likely to remain true over time.
+                otherFlags.put(key.name, semantics.get(key).toString());
+                return this;
+              }
+
+              @Override
+              public FlagConsumer setBool(String key, boolean ignored) {
+                // Only fingerprint enabled options so that the fingerprint is stable across Bazel
+                // versions that only add new options (e.g., minor and patch versions). This relies
+                // on the assumption that disabled new options have no observable effect.
+                if (semantics.getBool(key)) {
+                  // Trim the leading '+' or '-' from the flag names - the default value doesn't
+                  // matter for the current value, which is what we need to fingerprint.
+                  enabledBoolFlags.add(key.substring(1));
+                }
+                return this;
+              }
+            });
+    return ByteString.copyFrom(
+        new Fingerprint().addStrings(enabledBoolFlags).addStringMap(otherFlags).digestAndReset());
   }
 
   // StarlarkSemantics keys used by Bazel
