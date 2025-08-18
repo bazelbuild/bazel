@@ -307,7 +307,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                     .cfg(
                         ExecutionTransitionFactory.createFactory(
                             DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
-                    .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
             // Input files for test actions collecting code coverage
             .add(
