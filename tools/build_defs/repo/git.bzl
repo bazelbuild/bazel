@@ -55,7 +55,7 @@ def _clone_or_update_repo(ctx):
         # 2. Delete all other top-level entries.
         for entry in root.readdir():
             if entry.basename != _STRIP_PREFIX_TMP_DIR and entry.basename != ".git":
-                ctx.delete(root.get_child(entry.basename))
+                ctx.delete(entry)
 
         # 3. Move the contents of the hidden directory to the root.
         for entry in root.get_child(_STRIP_PREFIX_TMP_DIR).readdir():
