@@ -121,7 +121,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   protected FileSystem createFileSystem() {
     return new DelegateFileSystem(super.createFileSystem()) {
       @Override
-      protected FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
           throws IOException {
         if (pathsToPretendDontExist.contains(path)) {
           return null;

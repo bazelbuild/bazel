@@ -125,12 +125,12 @@ public /*final*/ class ConfiguredRuleClassProvider
     // See b/226379109 for details.
 
     @Override
-    protected synchronized byte[] getFastDigest(PathFragment path) {
+    public synchronized byte[] getFastDigest(PathFragment path) {
       return getDigest(path);
     }
 
     @Override
-    protected synchronized byte[] getDigest(PathFragment path) {
+    public synchronized byte[] getDigest(PathFragment path) {
       return getDigestFunction()
           .getHashFunction()
           .hashBytes(StringUnsafe.getInternalStringBytes(path.getPathString()))

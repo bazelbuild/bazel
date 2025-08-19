@@ -81,7 +81,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
   public FileSystem createFileSystem() throws Exception {
     return new DelegateFileSystem(super.createFileSystem()) {
       @Override
-      protected FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
           throws IOException {
         IOException e = throwOnNextStatIfFound.remove(path);
         if (e != null) {

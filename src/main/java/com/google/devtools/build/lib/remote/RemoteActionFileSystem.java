@@ -178,7 +178,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   /**
    * Caches the contents of intermediate subdirectories of tree artifact inputs, to speed up {@link
-   * #stat} and {@link #readdir} operations. Note that actions are not expected to modify their
+   * FileSystem#stat} and {@link FileSystem#readdir} operations. Note that actions are not expected to modify their
    * inputs.
    *
    * <p>Safe for concurrent access.
@@ -314,7 +314,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+  public Path resolveSymbolicLinks(PathFragment path) throws IOException {
     return getPath(pathCanonicalizer.resolveSymbolicLinks(path));
   }
 
@@ -345,7 +345,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
+  public boolean delete(PathFragment path) throws IOException {
     try {
       path = resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
@@ -366,7 +366,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected InputStream getInputStream(PathFragment path) throws IOException {
+  public InputStream getInputStream(PathFragment path) throws IOException {
     try {
       downloadIfRemote(path);
     } catch (BulkTransferException e) {
@@ -405,13 +405,13 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     return localFs.getPath(path).getOutputStream(append, internal);
   }
 
   @Override
-  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     return localFs.getPath(path).createReadWriteByteChannel();
   }
 
@@ -452,7 +452,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   @Nullable
-  protected byte[] getFastDigest(PathFragment path) throws IOException {
+  public byte[] getFastDigest(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
@@ -465,7 +465,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
+  public byte[] getDigest(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
@@ -478,7 +478,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean isReadable(PathFragment path) throws IOException {
+  public boolean isReadable(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       return localFs.getPath(path).isReadable();
@@ -489,7 +489,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean isWritable(PathFragment path) throws IOException {
+  public boolean isWritable(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       return localFs.getPath(path).isWritable();
@@ -500,7 +500,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected boolean isExecutable(PathFragment path) throws IOException {
+  public boolean isExecutable(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       return localFs.getPath(path).isExecutable();
@@ -511,7 +511,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void setReadable(PathFragment path, boolean readable) throws IOException {
+  public void setReadable(PathFragment path, boolean readable) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setReadable(readable);
@@ -531,7 +531,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+  public void setExecutable(PathFragment path, boolean executable) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setExecutable(executable);
@@ -541,7 +541,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void chmod(PathFragment path, int mode) throws IOException {
+  public void chmod(PathFragment path, int mode) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).chmod(mode);
@@ -551,7 +551,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     return readSymbolicLinkInternal(resolveSymbolicLinksForParent(path));
   }
 
@@ -586,7 +586,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     linkPath = resolveSymbolicLinksForParent(linkPath);
 
@@ -598,19 +598,19 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = stat(path, followSymlinks);
     return stat.getLastModifiedTime();
   }
 
   @Override
-  protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = stat(path, followSymlinks);
     return stat.getSize();
   }
 
   @Override
-  protected boolean exists(PathFragment path, boolean followSymlinks) {
+  public boolean exists(PathFragment path, boolean followSymlinks) {
     try {
       return statIfFound(path, followSymlinks) != null;
     } catch (IOException e) {
@@ -619,7 +619,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = statIfFound(path, followSymlinks);
     if (stat == null) {
       throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
@@ -629,14 +629,14 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Nullable
   @Override
-  protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     return statInternal(
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
   @Nullable
   @Override
-  protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     try {
       return statIfFound(path, followSymlinks);
     } catch (IOException e) {
@@ -814,12 +814,12 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+  public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     return getDirectoryContents(path, /* followSymlinks= */ false, Dirent::getName);
   }
 
   @Override
-  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
       throws IOException {
     return getDirectoryContents(path, followSymlinks, Function.identity());
   }
@@ -892,14 +892,14 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     // Only called by the AbstractFileSystem#createHardLink base implementation, overridden below.
     throw new UnsupportedOperationException();
   }
 
   @Override
-  protected void createHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     localFs.getPath(linkPath).createHardLink(getPath(originalPath));
   }
@@ -925,7 +925,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     }
 
     @Override
-    protected synchronized OutputStream getOutputStream(
+    public synchronized OutputStream getOutputStream(
         PathFragment path, boolean append, boolean internal) throws IOException {
       // To get an output stream from remote file, we need to first stage it.
       throw new IllegalStateException("Shouldn't be called directly");
@@ -951,7 +951,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     // Override for access within this class
     @Nullable
     @Override
-    protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+    public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
       return super.statNullable(path, followSymlinks);
     }
   }

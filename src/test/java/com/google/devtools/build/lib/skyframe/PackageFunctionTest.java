@@ -2368,7 +2368,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
+    public synchronized InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

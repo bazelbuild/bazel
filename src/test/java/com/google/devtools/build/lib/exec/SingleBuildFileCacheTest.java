@@ -53,7 +53,7 @@ public class SingleBuildFileCacheTest {
     fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          protected InputStream getInputStream(PathFragment path) throws IOException {
+          public InputStream getInputStream(PathFragment path) throws IOException {
             int c = calls.containsKey(path.toString()) ? calls.get(path.toString()) : 0;
             c++;
             calls.put(path.toString(), c);
@@ -61,13 +61,13 @@ public class SingleBuildFileCacheTest {
           }
 
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          public byte[] getDigest(PathFragment path) throws IOException {
             byte[] override = digestOverrides.get(path.getPathString());
             return override != null ? override : super.getDigest(path);
           }
 
           @Override
-          protected byte[] getFastDigest(PathFragment path) throws IOException {
+          public byte[] getFastDigest(PathFragment path) throws IOException {
             return null;
           }
         };
