@@ -95,18 +95,22 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(
       name = "combine_cc_toolchain_variables",
       documented = false,
-      parameters = {},
+      parameters = {
+        @Param(
+            name = "parent",
+            allowedTypes = {@ParamType(type = CcToolchainVariables.class)})
+      },
       extraPositionals =
           @Param(
               name = "variables",
               allowedTypes = {
                 @ParamType(type = Sequence.class, generic1 = CcToolchainVariables.class)
               }))
-  public CcToolchainVariables combineCcToolchainVariables(Sequence<?> variablesSequenceUnchecked)
-      throws EvalException {
+  public CcToolchainVariables combineCcToolchainVariables(
+      CcToolchainVariables parent, Sequence<?> variablesSequenceUnchecked) throws EvalException {
     Sequence<CcToolchainVariables> variablesSequence =
         Sequence.cast(variablesSequenceUnchecked, CcToolchainVariables.class, "variables");
-    CcToolchainVariables.Builder builder = CcToolchainVariables.builder();
+    CcToolchainVariables.Builder builder = CcToolchainVariables.builder(parent);
     for (CcToolchainVariables variables : variablesSequence) {
       builder.addAllNonTransitive(variables);
     }
