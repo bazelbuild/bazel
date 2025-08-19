@@ -73,7 +73,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2204:
+  ubuntu2404:
     shards: 4
     shell_commands:
       - rm -rf $HOME/bazeltest
