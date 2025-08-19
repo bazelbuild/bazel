@@ -791,17 +791,23 @@ def _create_cc_compile_actions(
                 label = cpp_source.label,
             ),
         )
-        header_token_file = cc_internal.create_parse_header_action(
+        compile_variables = cc_internal.combine_cc_toolchain_variables(
+            common_compile_build_variables,
+            specific_compile_build_variables,
+        )
+
+        # This creates the action to parse a header file.
+        # If we generate pic actions, we prefer the header actions to use the pic artifacts.
+        cc_internal.create_cpp_compile_action(
             action_construction_context = action_construction_context,
             configuration = configuration,
             feature_configuration = feature_configuration,
             use_pic = generate_pic_action,
-            common_compile_build_variables = common_compile_build_variables,
-            specific_compile_build_variables = specific_compile_build_variables,
+            compile_build_variables = compile_variables,
             cpp_semantics = native_cc_semantics,
-            cpp_compile_action_builder = cpp_compile_action_builder,
+            compile_action_builder = cpp_compile_action_builder,
         )
-        outputs.add_header_token_file(header_token_file)
+        outputs.add_header_token_file(output_file)
 
 def _create_module_codegen_action(
         action_construction_context,

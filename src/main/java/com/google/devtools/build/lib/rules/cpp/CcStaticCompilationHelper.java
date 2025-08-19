@@ -425,30 +425,6 @@ public final class CcStaticCompilationHelper {
     return outputFiles;
   }
 
-  static Artifact createParseHeaderAction(
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
-      FeatureConfiguration featureConfiguration,
-      boolean generatePicAction,
-      CcToolchainVariables commonToolchainVariables,
-      CcToolchainVariables specificToolchainVariables,
-      RuleErrorConsumer ruleErrorConsumer,
-      CppSemantics semantics,
-      CppCompileActionBuilder builder)
-      throws RuleErrorException, EvalException {
-    builder
-        // If we generate pic actions, we prefer the header actions to use the pic artifacts.
-        .setPicMode(generatePicAction);
-    builder.setVariables(
-        CcToolchainVariables.builder(commonToolchainVariables)
-            .addAllNonTransitive(specificToolchainVariables)
-            .build());
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-    CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
-    actionConstructionContext.registerAction(compileAction);
-    return compileAction.getPrimaryOutput();
-  }
-
   @CanIgnoreReturnValue
   static ImmutableList<Artifact> createCompileSourceActionFromBuilder(
       ActionConstructionContext actionConstructionContext,

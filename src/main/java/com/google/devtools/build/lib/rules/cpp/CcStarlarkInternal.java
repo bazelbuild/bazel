@@ -890,44 +890,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_parse_header_action",
-      documented = false,
-      parameters = {
-        @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true), // FeatureConfigurationForStarlark
-        @Param(name = "use_pic", positional = false, named = true),
-        @Param(name = "common_compile_build_variables", positional = false, named = true),
-        @Param(name = "specific_compile_build_variables", positional = false, named = true),
-        @Param(name = "cpp_semantics", positional = false, named = true),
-        @Param(name = "cpp_compile_action_builder", positional = false, named = true)
-      })
-  public Artifact createParseHeaderAction(
-      StarlarkRuleContext starlarkRuleContext,
-      BuildConfigurationValue configuration,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      boolean generatePicAction,
-      CcToolchainVariables commonCompileBuildVariables,
-      CcToolchainVariables specificCompileBuildVariables,
-      CppSemantics semantics,
-      CppCompileActionBuilder builder)
-      throws RuleErrorException, EvalException {
-    return CcStaticCompilationHelper.createParseHeaderAction(
-        starlarkRuleContext.getRuleContext(),
-        configuration,
-        featureConfigurationForStarlark.getFeatureConfiguration(),
-        generatePicAction,
-        commonCompileBuildVariables,
-        specificCompileBuildVariables,
-        starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
-        semantics,
-        builder);
-  }
-
-  @StarlarkMethod(
       name = "create_cc_compilation_outputs_builder",
       documented = false,
       parameters = {})
@@ -1079,6 +1041,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
         @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
       })
   public void createCppCompileAction(
       StarlarkRuleContext actionConstructionContext,
@@ -1086,9 +1049,10 @@ public class CcStarlarkInternal implements StarlarkValue {
       CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
       BuildConfigurationValue configuration,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark)
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      boolean usePic)
       throws EvalException {
-    builder.setVariables(compileBuildVariables);
+    builder.setVariables(compileBuildVariables).setPicMode(usePic);
     semantics.finalizeCompileActionBuilder(
         configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
     try {
