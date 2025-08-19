@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -45,7 +46,8 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
-      TreeDeleter treeDeleter)
+      TreeDeleter treeDeleter,
+      RunfilesTreeUpdater runfilesTreeUpdater)
       throws IOException {
     Path inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxBase);
     Path inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
@@ -56,6 +58,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
         inaccessibleHelperFile,
         inaccessibleHelperDir,
         timeoutKillDelay,
-        treeDeleter);
+        treeDeleter,
+        runfilesTreeUpdater);
   }
 }

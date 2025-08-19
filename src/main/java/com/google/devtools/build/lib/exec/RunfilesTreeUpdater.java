@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,10 +56,6 @@ public class RunfilesTreeUpdater {
    */
   private final ConcurrentHashMap<PathFragment, CompletableFuture<Void>> updatedTrees =
       new ConcurrentHashMap<>();
-
-  public static RunfilesTreeUpdater forCommandEnvironment(CommandEnvironment env) {
-    return new RunfilesTreeUpdater(env.getExecRoot(), env.getXattrProvider());
-  }
 
   public RunfilesTreeUpdater(Path execRoot, XattrProvider xattrProvider) {
     this.execRoot = execRoot;
@@ -147,7 +142,9 @@ public class RunfilesTreeUpdater {
 
     if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
       helper.createRunfilesSymlinks(tree.getMapping());
+      outputManifest.getParentDirectory().setWritable(true);
       outputManifest.createSymbolicLink(inputManifest);
+      outputManifest.getParentDirectory().setWritable(false);
     } else {
       helper.clearRunfilesDirectory();
     }

@@ -20,9 +20,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -53,12 +58,10 @@ import javax.annotation.Nullable;
 final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   /** Path to the {@code getconf} system tool to use. */
-  @VisibleForTesting
-  static String getconfBinary = "/usr/bin/getconf";
+  @VisibleForTesting static String getconfBinary = "/usr/bin/getconf";
 
   /** Path to the {@code sandbox-exec} system tool to use. */
-  @VisibleForTesting
-  static String sandboxExecBinary = "/usr/bin/sandbox-exec";
+  @VisibleForTesting static String sandboxExecBinary = "/usr/bin/sandbox-exec";
 
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static Boolean isSupported = null;
@@ -106,6 +109,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final ProcessWrapper processWrapper;
   private final Path sandboxBase;
   private final TreeDeleter treeDeleter;
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
 
   /**
    * The set of directories that always should be writable, independent of the Spawn itself.
@@ -122,8 +126,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
+   * @param runfilesTreeUpdater
    */
-  DarwinSandboxedSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase, TreeDeleter treeDeleter)
+  DarwinSandboxedSpawnRunner(
+      CommandEnvironment cmdEnv,
+      Path sandboxBase,
+      TreeDeleter treeDeleter,
+      RunfilesTreeUpdater runfilesTreeUpdater)
       throws IOException, InterruptedException {
     super(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
@@ -133,6 +142,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
     this.treeDeleter = treeDeleter;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   private static void addPathToSetIfExists(FileSystem fs, Set<Path> paths, String path)
@@ -193,7 +203,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, ExecException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -216,10 +226,31 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);
     writableDirs.addAll(extraWritableDirs);
 
-    SandboxInputs inputs =
-        SandboxHelpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+    var runfilesMounts = ImmutableMap.<Path, Path>builder();
+    var runfilesTrees = new ArrayList<RunfilesTree>();
+    var inputMapping =
+        context.getInputMapping(
+            PathFragment.EMPTY_FRAGMENT,
+            /* willAccessRepeatedly= */ false,
+            /* expandRunfilesTrees= */ false);
+    var inputMappingWithoutRunfiles =
+        Maps.filterValues(
+            inputMapping,
+            input -> !(input instanceof Artifact artifact) || !artifact.isRunfilesTree());
+    inputMapping.forEach(
+        (execPath, input) -> {
+          if (input instanceof Artifact artifact && artifact.isRunfilesTree()) {
+            runfilesMounts.put(sandboxExecRoot.getRelative(execPath), artifact.getPath());
+            runfilesTrees.add(
+                context.getInputMetadataProvider().getRunfilesMetadata(artifact).getRunfilesTree());
+          }
+        });
+    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMappingWithoutRunfiles, execRoot);
+    runfilesTreeUpdater.updateRunfiles(runfilesTrees);
+    for (var entry : runfilesMounts.build().entrySet()) {
+      entry.getKey().getParentDirectory().createDirectoryAndParents();
+      entry.getKey().createSymbolicLink(entry.getValue());
+    }
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");

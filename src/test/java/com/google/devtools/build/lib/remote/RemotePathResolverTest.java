@@ -51,7 +51,7 @@ public class RemotePathResolverTest {
 
     input = ActionInputHelper.fromPath("foo");
     spawnExecutionContext = mock(SpawnExecutionContext.class);
-    when(spawnExecutionContext.getInputMapping(any(), anyBoolean()))
+    when(spawnExecutionContext.getInputMapping(any(), anyBoolean(), anyBoolean()))
         .thenAnswer(
             invocationOnMock -> {
               PathFragment baseDirectory = invocationOnMock.getArgument(0);
