@@ -148,6 +148,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
         throw new IOException("EXDEV");
       }
     }
+    SandboxHelpers.resetWarnedAboutMovesBeingCopiesForTesting();
     FileSystem fileSystem = new MultipleDeviceFS();
     Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
     testRoot.createDirectoryAndParents();
