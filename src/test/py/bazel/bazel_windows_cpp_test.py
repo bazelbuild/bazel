@@ -945,32 +945,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
-  def testBuildArmCppBinaryWithMsvcCL(self):
-    self.createModuleDotBazel()
-    self.ScratchFile('BUILD', [
-        'platform(',
-        '  name = "windows_arm",',
-        '  constraint_values = [',
-        '    "@platforms//cpu:arm",',
-        '    "@platforms//os:windows",',
-        '  ]',
-        ')',
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
-    self.ScratchFile('main.cc', [
-        'int main() {',
-        '  return 0;',
-        '}',
-    ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--platforms=//:windows_arm', '//:main']
-    )
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('arm\\cl.exe', '\n'.join(stderr))
-
   def testBuildArm64CppBinaryWithMsvcCLAndCpuX64Arm64Windows(self):
     self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
