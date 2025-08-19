@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -45,7 +46,17 @@ public final class ThreadDumpModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     var commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (commandOptions == null || commandOptions.threadDumpInterval.isZero()) {
+    if (commandOptions == null || !commandOptions.enableThreadDump) {
+      return;
+    }
+
+    if (commandOptions.threadDumpInterval.isZero()) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "--experimental_enable_thread_dump is set, but"
+                      + " --experimental_thread_dump_interval is 0. No thread dumps will be"
+                      + " written."));
       return;
     }
 
@@ -118,7 +129,8 @@ public final class ThreadDumpModule extends BlazeModule {
             Instant.ofEpochMilli(clock.currentTimeMillis())
                 .atZone(ZoneOffset.UTC)
                 .format(TIME_FORMAT);
-        Path dumpFile = dumpDirectory.getChild(String.format("dump.%d.%s.txt", pid, formattedTime));
+        Path dumpFile =
+            dumpDirectory.getChild(String.format("thread_dump.%d.%s.txt", pid, formattedTime));
         try (var sc = Profiler.instance().profile("Dumping threads");
             var out = dumpFile.getOutputStream()) {
           ThreadDumper.dumpThreads(out);

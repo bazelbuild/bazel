@@ -156,15 +156,23 @@ public class CommonCommandOptions extends OptionsBase {
   public Duration actionCacheGcMaxAge;
 
   @Option(
+      name = "experimental_enable_thread_dump",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Whether to enable thread dumps. If true, Bazel will dump the state of all threads"
+              + " (including virtual threads) to a file every --experimental_thread_dump_interval."
+              + " The dumps will be written to the <output_base>/server/thread_dumps/ directory.")
+  public boolean enableThreadDump;
+
+  @Option(
       name = "experimental_thread_dump_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = DurationConverter.class,
-      help =
-          "How often to dump the state of all threads (including virtual threads) to a file. The"
-              + " dumps will be written to the <output_base>/server/thread_dumps/ directory. If"
-              + " zero, no thread dumps are written.")
+      help = "How often to dump the threads. If zero, no thread dumps are written.")
   public Duration threadDumpInterval;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
