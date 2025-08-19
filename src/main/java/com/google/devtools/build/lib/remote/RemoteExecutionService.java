@@ -174,7 +174,7 @@ import javax.annotation.Nullable;
  */
 public class RemoteExecutionService {
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
-      comparing(StringEncoding::unicodeToInternal, String::compareTo);
+      comparing(StringEncoding::unicodeToInternal);
 
   private final Reporter reporter;
   private final boolean verboseFailures;
