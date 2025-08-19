@@ -626,7 +626,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           "attrs_for_reproducibility can only be specified if reproducible is False");
     }
     return new RepoMetadata(
-        reproducible ? RepoMetadata.Reproducibility.YES : RepoMetadata.Reproducibility.NO, attrs);
+        reproducible ? RepoMetadata.Reproducibility.YES : RepoMetadata.Reproducibility.NO,
+        Dict.cast(attrs, String.class, Object.class, "attrs_for_reproducibility"));
   }
 
   @Override
