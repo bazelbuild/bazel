@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <regex>
 #include <string>
 
 #ifndef _WIN32
@@ -401,6 +402,22 @@ bool OutputJar::AddJar(int jar_path_index) {
       exclude_entry = options_->exclude_zip_entries.find(
                           std::string(file_name, file_name_length)) !=
                       options_->exclude_zip_entries.end();
+    }
+    // Check if excluded by regex patterns
+    if (!exclude_entry && !options_->exclude_zip_entry_patterns.empty()) {
+      std::string file_name_str(file_name, file_name_length);
+      for (const auto &pattern : options_->exclude_zip_entry_patterns) {
+        try {
+          std::regex regex_pattern(pattern);
+          if (std::regex_match(file_name_str, regex_pattern)) {
+            exclude_entry = true;
+            break;
+          }
+        } catch (const std::regex_error &e) {
+          // Skip invalid regex patterns and continue
+          continue;
+        }
+      }
     }
     include_entry &= !exclude_entry;
     if (!include_entry) {
