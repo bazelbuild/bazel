@@ -785,21 +785,6 @@ public class BuildConfigurationValue
     return options.actionListeners;
   }
 
-  /**
-   * <b>>Experimental feature:</b> if true, qualifying outputs use path prefixes based on their
-   * content instead of the traditional <code>blaze-out/$CPU-$COMPILATION_MODE</code>.
-   *
-   * <p>This promises both more intrinsic correctness (outputs with different contents can't write
-   * to the same path) and efficiency (outputs with the <i>same</i> contents share the same path and
-   * therefore permit better action caching). But it's highly experimental and should not be relied
-   * on in any serious way any time soon.
-   *
-   * <p>See <a href="https://github.com/bazelbuild/bazel/issues/6526">#6526</a> for details.
-   */
-  public boolean useContentBasedOutputPaths() {
-    return options.outputPathsMode == CoreOptions.OutputPathsMode.CONTENT;
-  }
-
   public boolean allowUnresolvedSymlinks() {
     return options.allowUnresolvedSymlinks;
   }

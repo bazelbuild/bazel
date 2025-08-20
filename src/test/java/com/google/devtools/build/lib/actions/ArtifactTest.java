@@ -500,20 +500,6 @@ public final class ArtifactTest {
   }
 
   @Test
-  public void canDeclareContentBasedOutput() {
-    Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "newRoot");
-    assertThat(
-            DerivedArtifact.create(
-                    root,
-                    PathFragment.create("newRoot/my.output"),
-                    ActionsTestUtil.NULL_ARTIFACT_OWNER,
-                    /*contentBasedPath=*/ true)
-                .contentBasedPath())
-        .isTrue();
-  }
-
-  @Test
   public void testGetRepositoryRelativePathExternalSourceArtifacts() throws IOException {
     ArtifactRoot externalRoot =
         ArtifactRoot.asExternalSourceRoot(

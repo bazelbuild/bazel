@@ -797,16 +797,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     /** Use the production output path model. */
     OFF,
     /**
-     * Use <a href="https://github.com/bazelbuild/bazel/issues/6526#issuecomment-488103473">
-     * content-based paths</a>.
-     *
-     * <p>Rule implementations also have to individually opt into this. So this setting doesn't mean
-     * all outputs follow this. Non-opted-in outputs continue to use the production model.
-     *
-     * <p>Follow the above link for latest details on exact scope.
-     */
-    CONTENT,
-    /**
      * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
      * registered to support this feature.
      *
