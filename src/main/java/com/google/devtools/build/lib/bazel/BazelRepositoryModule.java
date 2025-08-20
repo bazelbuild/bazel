@@ -400,14 +400,12 @@ public class BazelRepositoryModule extends BlazeModule {
                   "could not acquire lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE),
               e);
         }
-        if (!repoOptions.repoContentsCacheGcMaxAge.isZero()) {
-          env.addIdleTask(
-              repositoryCache
-                  .getRepoContentsCache()
-                  .createGcIdleTask(
-                      repoOptions.repoContentsCacheGcMaxAge,
-                      repoOptions.repoContentsCacheGcIdleDelay));
-        }
+        env.addIdleTask(
+            repositoryCache
+                .getRepoContentsCache()
+                .createGcIdleTask(
+                    repoOptions.repoContentsCacheGcMaxAge,
+                    repoOptions.repoContentsCacheGcIdleDelay));
       }
 
       try {
