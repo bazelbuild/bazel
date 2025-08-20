@@ -327,7 +327,7 @@ function test_sha256_caching() {
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
   local repo_path="$(bazel info output_base)/external/+_repo_rules+endangered"
-  local marker_file="$(realpath $repo_path).recorded_inputs"
+  local marker_file="@${repo_path}.marker"
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"

@@ -52,7 +52,7 @@ public class RepositoryOptions extends OptionsBase {
       name = "repo_contents_cache",
       oldName = "repository_contents_cache",
       oldNameWarning = false,
-      defaultValue = "null",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       converter = OptionsUtils.PathFragmentConverter.class,
@@ -60,9 +60,7 @@ public class RepositoryOptions extends OptionsBase {
           """
           Specifies the location of the repo contents cache, which contains fetched repo \
           directories shareable across workspaces. An empty string as argument requests the repo \
-          contents cache to be disabled, otherwise the default of '<--repository_cache>/contents' \
-          is used. Note that this means setting '--repository_cache=' would by default disable the \
-          repo contents cache as well, unless '--repo_contents_cache=<some_path>' is also set.
+          contents cache to be disabled.
           """)
   public PathFragment repoContentsCache;
 
