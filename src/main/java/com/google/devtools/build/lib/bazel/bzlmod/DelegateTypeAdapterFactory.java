@@ -79,8 +79,8 @@ public final class DelegateTypeAdapterFactory<I, R extends I, D extends I>
           ImmutableSortedMap.class,
           SortedMap.class,
           TreeMap.class,
-          raw -> new TreeMap<>(raw),
-          delegate -> ImmutableSortedMap.copyOf(delegate));
+          raw -> new TreeMap<>((SortedMap<?, ?>) raw),
+          delegate -> ImmutableSortedMap.copyOf((SortedMap<?, ?>) delegate));
 
   public static final TypeAdapterFactory IMMUTABLE_BIMAP =
       new DelegateTypeAdapterFactory<>(
