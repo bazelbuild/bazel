@@ -307,6 +307,11 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('No more Orange Juice!', ''.join(stderr))
 
   def testForceFetchWithRepoCache(self):
+    repo_contents_cache = tempfile.mkdtemp(dir=self._tests_root).replace(
+        '\\', '/'
+    )
+    with open(self.Path('.bazelrc'), 'a') as f:
+      f.write('common --repo_contents_cache=%s\n' % repo_contents_cache)
     self.ScratchFile(
         'MODULE.bazel',
         [
