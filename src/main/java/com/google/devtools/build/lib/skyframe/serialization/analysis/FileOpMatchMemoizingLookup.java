@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static java.lang.Math.min;
 
@@ -110,6 +111,7 @@ final class FileOpMatchMemoizingLookup
     private volatile FileOpMatchResult result;
 
     private AggregatingFutureFileOpMatchResult(int version) {
+      super(directExecutor());
       this.result = FileOpMatchResult.create(version);
     }
 

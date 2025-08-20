@@ -35,6 +35,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /**
@@ -268,7 +269,9 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
         FingerprintValueService fingerprintValueService,
         List<WriteStatus> childWriteStatuses,
         byte[] childBytes) {
-      super(childWriteStatuses, childBytes);
+      // TODO: b/440049699 - the compression operation is expensive. Consider if it should be moved
+      // off of a completion notification thread.
+      super(childWriteStatuses, childBytes, directExecutor());
       this.fingerprintValueService = fingerprintValueService;
     }
 
@@ -390,7 +393,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
 
   private static final class WaitForChildByteCompletion extends WaitForChildBytes<Void> {
     private WaitForChildByteCompletion(List<WriteStatus> childWriteStatuses, byte[] childBytes) {
-      super(childWriteStatuses, childBytes);
+      super(childWriteStatuses, childBytes, directExecutor());
     }
 
     @Override
@@ -449,7 +452,9 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     final List<WriteStatus> childWriteStatuses;
     final byte[] childBytes;
 
-    private WaitForChildBytes(List<WriteStatus> childWriteStatuses, byte[] childBytes) {
+    private WaitForChildBytes(
+        List<WriteStatus> childWriteStatuses, byte[] childBytes, Executor getValueExecutor) {
+      super(getValueExecutor);
       this.childWriteStatuses = childWriteStatuses;
       this.childBytes = childBytes;
     }
