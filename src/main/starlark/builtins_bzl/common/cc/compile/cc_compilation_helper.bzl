@@ -191,6 +191,7 @@ _ModuleMapInfo = provider(
     fields = [
         "module_map",
         "public_headers",
+        "textual_headers",
         "private_headers",
         "dependency_module_maps",
         "additional_exported_headers",
