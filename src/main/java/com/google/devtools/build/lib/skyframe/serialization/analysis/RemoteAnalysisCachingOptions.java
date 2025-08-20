@@ -143,4 +143,16 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "An opaque string used as part of the cache key. Should only be used for testing.")
   public String analysisCacheKeyDistinguisherForTesting;
+
+  @Option(
+      name = "experimental_analysis_cache_enable_metadata_queries",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "A flag to switch on/off inserting and querying the metadata db (b/425247333). The idea"
+              + " is for this flag to only exist temporarily for a careful rollout of the feature"
+              + " then be deleted later. For writers it requires passing an analysis cache service"
+              + " address.")
+  public boolean analysisCacheEnableMetadataQueries;
 }

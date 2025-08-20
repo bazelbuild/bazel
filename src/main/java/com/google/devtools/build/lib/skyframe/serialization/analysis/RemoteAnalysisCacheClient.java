@@ -16,9 +16,14 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
+import java.util.Collection;
 
 /** Interface to the remote analysis cache. */
 public interface RemoteAnalysisCacheClient {
+
+  /** Timeout when accessing the future in order to shutdown the client. */
+  int SHUTDOWN_TIMEOUT_IN_SECONDS = 5;
+
   /** Usage statistics. */
   record Stats(long bytesSent, long bytesReceived, long requestsSent, long batches) {}
 
@@ -27,4 +32,23 @@ public interface RemoteAnalysisCacheClient {
 
   /** Returns the usage statistics. */
   Stats getStats();
+
+  /** Adds the cached targets into the metadata table */
+  ListenableFuture<Boolean> addTopLevelTargets(
+      String invocationId,
+      long evaluatingVersion,
+      String configurationHash,
+      String bazelVersion,
+      String area,
+      Collection<String> targets);
+
+  /** Looks up the targets in the metadata table */
+  ListenableFuture<String> lookupTopLevelTargets(
+      long evaluatingVersion,
+      String configurationHash,
+      String bazelVersion,
+      String area,
+      Collection<String> targets);
+
+  void shutdown();
 }

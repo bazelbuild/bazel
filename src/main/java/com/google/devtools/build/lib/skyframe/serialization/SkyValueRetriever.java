@@ -458,8 +458,11 @@ public final class SkyValueRetriever {
             Optional.of(new SnapshotClientId("for_testing", 123)));
 
     // Fingerprints of version components.
+    private final String topLevelConfigChecksum;
     private final byte[] topLevelConfigFingerprint;
+    private final HashCode blazeInstallMD5;
     private final byte[] blazeInstallMD5Fingerprint;
+    private final long evaluatingVersion;
     private final byte[] evaluatingVersionFingerprint;
 
     // Fingerprint of the distinguisher for allowing test cases to share a
@@ -480,8 +483,11 @@ public final class SkyValueRetriever {
         String distinguisherBytesForTesting,
         boolean useFakeStampData,
         Optional<ClientId> clientId) {
+      this.topLevelConfigChecksum = topLevelConfigChecksum;
       this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
+      this.blazeInstallMD5 = blazeInstallMD5;
       this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
+      this.evaluatingVersion = evaluatingVersion.getVal();
       this.evaluatingVersionFingerprint = Longs.toByteArray(evaluatingVersion.getVal());
       this.distinguisherBytesForTesting = distinguisherBytesForTesting.getBytes(UTF_8);
       this.useFakeStampData = useFakeStampData;
@@ -545,6 +551,22 @@ public final class SkyValueRetriever {
         return false;
       }
       return Arrays.equals(precomputedFingerprint, that.precomputedFingerprint);
+    }
+
+    public HashCode getBlazeInstallMD5() {
+      return blazeInstallMD5;
+    }
+
+    public long getEvaluatingVersion() {
+      return evaluatingVersion;
+    }
+
+    public boolean getUseFakeStampData() {
+      return useFakeStampData;
+    }
+
+    public String getTopLevelConfigChecksum() {
+      return topLevelConfigChecksum;
     }
   }
 }

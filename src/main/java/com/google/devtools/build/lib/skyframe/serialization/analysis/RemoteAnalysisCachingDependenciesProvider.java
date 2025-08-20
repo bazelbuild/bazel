@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -65,6 +66,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   void recordSerializationException(SerializationException e);
 
   void setTopLevelConfigChecksum(String checksum);
+
+  default void setTopLevelConfigMetadata(BuildOptions checksum) {}
 
   /**
    * Returns the set of SkyKeys to be invalidated.

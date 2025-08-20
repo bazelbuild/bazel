@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.Comparator.comparing;
@@ -38,6 +39,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -118,6 +121,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.AnalysisCacheInvalidator;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
@@ -152,6 +156,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -365,7 +370,9 @@ public class BuildTool {
       buildOptions = runtime.createBuildOptions(optionsParser);
       var analysisCachingDeps =
           RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
-              env, projectEvaluationResult.activeDirectoriesMatcher());
+              env,
+              projectEvaluationResult.activeDirectoriesMatcher(),
+              targetPatternPhaseValue.getTargetLabels());
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // a.k.a. Skymeld.
@@ -997,6 +1004,7 @@ public class BuildTool {
       case UPLOAD:
         uploadFrontier(dependenciesProvider);
         reportRemoteAnalysisServiceStats(dependenciesProvider);
+        tryWriteSkycacheMetadata(dependenciesProvider);
         break;
       case DUMP_UPLOAD_MANIFEST_ONLY:
         uploadFrontier(dependenciesProvider); // In this case, uploadFrontier() won't upload
@@ -1012,6 +1020,55 @@ public class BuildTool {
         break;
       case OFF:
         break;
+    }
+  }
+
+  private void tryWriteSkycacheMetadata(
+      RemoteAnalysisCachingDependenciesProvider dependenciesProvider) throws InterruptedException {
+    String message = "No local crash but the RPC failed in the backend";
+    boolean success = false;
+    SkycacheMetadataParams skycacheMetadataParams =
+        env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier().getSkycacheMetadataParams();
+    if (skycacheMetadataParams == null
+        || !env.getOptions()
+            .getOptions(RemoteAnalysisCachingOptions.class)
+            .analysisCacheEnableMetadataQueries) {
+      return;
+    }
+    if (!skycacheMetadataParams.getUseFakeStampData()) {
+      // TODO: b/425247333 - Once Skycache handles stamp data well we can remove this check.
+      env.getReporter()
+          .handle(
+              Event.warn("Skycache: Not writing metadata because use_fake_stamp_data is false"));
+      return;
+    }
+    try (SilentCloseable c = Profiler.instance().profile("skycache.metadata.upload")) {
+      // This is a blocking call. We cannot finish the build until the metadata has been written
+      // and at this point there is nothing else to do in the build that could be done in
+      // parallel.
+      success =
+          dependenciesProvider
+              .getAnalysisCacheClient()
+              .addTopLevelTargets(
+                  env.getCommandId().toString(),
+                  skycacheMetadataParams.getEvaluatingVersion(),
+                  skycacheMetadataParams.getConfigurationHash(),
+                  skycacheMetadataParams.getBazelVersion(),
+                  skycacheMetadataParams.getArea(),
+                  skycacheMetadataParams.getTargets())
+              .get(SkycacheMetadataParams.TIMEOUT.toSeconds(), SECONDS);
+    } catch (TimeoutException | ExecutionException e) {
+      // To avoid build failures for a UX-enhancing feature, errors writing build metadata do not
+      // cause the build to fail. Instead, we log the error and rely on external monitoring to
+      // detect issues with metadata writes.
+      message = e.getMessage();
+    }
+    if (success) {
+      env.getReporter().handle(Event.info("Skycache: Successfully wrote metadata to backend"));
+    } else {
+      env.getReporter()
+          .handle(Event.warn("Skycache: Failed to write metadata to backend:" + message));
+      logger.atSevere().log("Error writing metadata at end of build: %s", message);
     }
   }
 
@@ -1188,8 +1245,13 @@ public class BuildTool {
 
     private final ExtendedEventHandler eventHandler;
 
+    private final boolean isAnalysisCacheMetadataQueriesEnabled;
+    private final SkycacheMetadataParams skycacheMetadataParams;
+
     static RemoteAnalysisCachingDependenciesProvider forAnalysis(
-        CommandEnvironment env, Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher)
+        CommandEnvironment env,
+        Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher,
+        Collection<Label> targets)
         throws InterruptedException, AbruptExitException, InvalidConfigurationException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
@@ -1210,7 +1272,8 @@ public class BuildTool {
               env,
               maybeActiveDirectoriesMatcherFromFlags,
               options.mode,
-              options.serializedFrontierProfile);
+              options.serializedFrontierProfile,
+              targets);
 
       return switch (options.mode) {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
@@ -1282,7 +1345,8 @@ public class BuildTool {
         CommandEnvironment env,
         Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
         RemoteAnalysisCacheMode mode,
-        String serializedFrontierProfile)
+        String serializedFrontierProfile,
+        Collection<Label> targets)
         throws InterruptedException, AbruptExitException {
       this.mode = mode;
       this.serializedFrontierProfile = serializedFrontierProfile;
@@ -1335,6 +1399,22 @@ public class BuildTool {
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.eventHandler = env.getReporter();
+      this.skycacheMetadataParams =
+          env.getBlazeWorkspace()
+              .remoteAnalysisCachingServicesSupplier()
+              .getSkycacheMetadataParams();
+      this.isAnalysisCacheMetadataQueriesEnabled =
+          skycacheMetadataParams != null
+              && env.getOptions()
+                  .getOptions(RemoteAnalysisCachingOptions.class)
+                  .analysisCacheEnableMetadataQueries;
+      if (isAnalysisCacheMetadataQueriesEnabled) {
+        this.skycacheMetadataParams.init(
+            evaluatingVersion.getVal(),
+            String.format("%s-%s", BlazeVersionInfo.instance().getReleaseName(), blazeInstallMD5),
+            targets.stream().map(Label::toString).collect(toImmutableList()),
+            env.getUseFakeStampData());
+      }
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1459,6 +1539,63 @@ public class BuildTool {
     @Override
     public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
       this.topLevelConfigChecksum = topLevelConfigChecksum;
+    }
+
+    @Override
+    public void setTopLevelConfigMetadata(BuildOptions topLevelOptions) {
+      if (isAnalysisCacheMetadataQueriesEnabled) {
+        skycacheMetadataParams.setConfigurationHash(topLevelOptions.checksum());
+        if (mode == RemoteAnalysisCacheMode.DOWNLOAD) {
+          if (skycacheMetadataParams.getUseFakeStampData()) {
+            switch (skycacheMetadataParams.getTargets().size()) {
+              case 0:
+                eventHandler.handle(
+                    Event.warn(
+                        "Skycache: Not querying Skycache metadata because invocation has no"
+                            + " targets"));
+                break;
+              case 1:
+                tryReadSkycacheMetadata();
+                break;
+              default:
+                // TODO: b/425247333 - Add support for checking every target in the invocation. For
+                // now results will only be returned for the first target.
+                eventHandler.handle(
+                    Event.warn("Skycache: Only checking if the first target is cached"));
+                tryReadSkycacheMetadata();
+            }
+          } else {
+            eventHandler.handle(
+                Event.warn("Skycache: Not querying metadata because use_fake_stamp_data is false"));
+          }
+        }
+      }
+    }
+
+    private void tryReadSkycacheMetadata() {
+      // This is done asynchronously without blocking because we do not want to prevent builds from
+      // finishing while waiting for the metadata query.
+      Futures.addCallback(
+          getAnalysisCacheClient()
+              .lookupTopLevelTargets(
+                  skycacheMetadataParams.getEvaluatingVersion(),
+                  skycacheMetadataParams.getConfigurationHash(),
+                  skycacheMetadataParams.getBazelVersion(),
+                  skycacheMetadataParams.getArea(),
+                  skycacheMetadataParams.getTargets()),
+          new FutureCallback<String>() {
+            @Override
+            public void onSuccess(String result) {
+              eventHandler.handle(Event.info("Skycache: " + result));
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              eventHandler.handle(
+                  Event.warn("Skycache: Error with metadata store : " + t.getMessage()));
+            }
+          },
+          directExecutor());
     }
 
     @Override

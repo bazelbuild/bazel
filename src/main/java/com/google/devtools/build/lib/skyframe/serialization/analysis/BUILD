@@ -33,6 +33,7 @@ java_library(
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_server_state",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
