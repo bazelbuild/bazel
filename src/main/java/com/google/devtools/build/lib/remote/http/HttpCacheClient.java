@@ -753,7 +753,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ByteString serialized = actionResult.toByteString();
     return uploadAsync(
-        actionKey.getDigest().getHash(),
+        actionKey.digest().getHash(),
         serialized.size(),
         serialized.newInput(),
         /* casUpload= */ false);
