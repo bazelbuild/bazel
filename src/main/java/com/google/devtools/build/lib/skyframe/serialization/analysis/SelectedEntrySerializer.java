@@ -404,6 +404,10 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
 
   private static class WriteStatusesFuture extends QuiescingFuture<Void>
       implements FutureCallback<Void> {
+    private WriteStatusesFuture() {
+      super(directExecutor());
+    }
+
     private void selectedEntryStarting() {
       increment();
     }

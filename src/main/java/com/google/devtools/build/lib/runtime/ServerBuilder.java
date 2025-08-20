@@ -31,6 +31,7 @@ public final class ServerBuilder {
   private QueryEnvironmentFactory queryEnvironmentFactory;
   private final InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
   private final ImmutableList.Builder<BlazeCommand> commands = ImmutableList.builder();
+  private final BlazeServiceRegistry.Builder blazeServiceRegistry = BlazeServiceRegistry.builder();
   private final ImmutableMap.Builder<String, InfoItem> infoItems = ImmutableMap.builder();
   private final ImmutableList.Builder<QueryFunction> queryFunctions = ImmutableList.builder();
   private final ImmutableList.Builder<OutputFormatter> queryOutputFormatters =
@@ -69,6 +70,10 @@ public final class ServerBuilder {
   @VisibleForTesting
   public ImmutableList<BlazeCommand> getCommands() {
     return commands.build();
+  }
+
+  BlazeServiceRegistry getBlazeServiceRegistry() {
+    return blazeServiceRegistry.build();
   }
 
   public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderMap() {
@@ -122,6 +127,18 @@ public final class ServerBuilder {
   @CanIgnoreReturnValue
   public ServerBuilder addCommands(BlazeCommand... commands) {
     this.commands.add(commands);
+    return this;
+  }
+
+  /**
+   * Registers a service implementation for the given service class.
+   *
+   * <p>A service is identified by the canonical name of the service class. It is an error to
+   * register the service with the same identifier more than once.
+   */
+  @CanIgnoreReturnValue
+  public ServerBuilder registerService(Class<? extends BlazeService> service, BlazeService impl) {
+    blazeServiceRegistry.register(service, impl);
     return this;
   }
 

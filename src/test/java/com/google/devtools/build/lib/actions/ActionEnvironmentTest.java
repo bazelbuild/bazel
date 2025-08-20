@@ -47,10 +47,9 @@ public final class ActionEnvironmentTest {
   public void fixedInheritedInteraction() {
     ActionEnvironment env =
         ActionEnvironment.create(
-                ImmutableMap.of("FIXED_ONLY", "fixed"), ImmutableSet.of("INHERITED_ONLY"))
-            .withAdditionalVariables(
-                ImmutableMap.of("FIXED_AND_INHERITED", "fixed"),
-                ImmutableSet.of("FIXED_AND_INHERITED"));
+                ImmutableMap.of("FIXED_ONLY", "fixed"),
+                ImmutableSet.of("INHERITED_ONLY", "FIXED_AND_INHERITED"))
+            .withAdditionalFixedVariables(ImmutableMap.of("FIXED_AND_INHERITED", "fixed"));
     Map<String, String> clientEnv =
         ImmutableMap.of("INHERITED_ONLY", "inherited", "FIXED_AND_INHERITED", "inherited");
     Map<String, String> result = new HashMap<>();
@@ -75,7 +74,5 @@ public final class ActionEnvironmentTest {
     ActionEnvironment base =
         ActionEnvironment.create(ImmutableMap.of("FOO", "foo1"), ImmutableSet.of("baz"));
     assertThat(base.withAdditionalFixedVariables(ImmutableMap.of())).isSameInstanceAs(base);
-    assertThat(base.withAdditionalVariables(ImmutableMap.of(), ImmutableSet.of()))
-        .isSameInstanceAs(base);
   }
 }

@@ -96,6 +96,8 @@ _SHARED_LIBRARY = [".so", ".dylib", ".dll", ".wasm"]
 _INTERFACE_SHARED_LIBRARY = [".ifso", ".tbd", ".lib", ".dll.a"]
 _OBJECT_FILE = [".o", ".obj"]
 _PIC_OBJECT_FILE = [".pic.o"]
+_CPP_MODULE = [".pcm", ".gcm", ".ifc"]
+_CPP_MODULE_MAP = [".cppmap"]
 
 _CC_AND_OBJC = []
 _CC_AND_OBJC.extend(_CC_SOURCE)
@@ -138,6 +140,8 @@ extensions = struct(
     PIC_OBJECT_FILE = _PIC_OBJECT_FILE,
     CC_AND_OBJC = _CC_AND_OBJC,
     DISALLOWED_HDRS_FILES = _DISALLOWED_HDRS_FILES,  # Also includes VERSIONED_SHARED_LIBRARY files.
+    CPP_MODULE = _CPP_MODULE,
+    CPP_MODULE_MAP = _CPP_MODULE_MAP,
 )
 
 artifact_category = struct(
@@ -165,6 +169,15 @@ artifact_category = struct(
     PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
     COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
     CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
+)
+
+output_subdirectories = struct(
+    OBJS = "_objs",
+    PIC_OBJS = "_pic_objs",
+    DOTD_FILES = "_dotd",
+    PIC_DOTD_FILES = "_pic_dotd",
+    DIA_FILES = "_dia",
+    PIC_DIA_FILES = "_pic_dia",
 )
 
 def should_create_per_object_debug_info(feature_configuration, cpp_configuration):

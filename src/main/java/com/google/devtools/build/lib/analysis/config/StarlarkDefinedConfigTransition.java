@@ -100,16 +100,19 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       List<String> outputs,
       RepositoryMapping repoMapping,
       Label parentLabel,
-      Location location)
+      Location location,
+      List<String> disallowedOptions)
       throws EvalException {
     this.parentLabel = parentLabel;
     this.location = location;
     packageContext = Label.PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping);
 
     this.outputsCanonicalizedToGiven =
-        getCanonicalizedSettings(repoMapping, parentLabel, outputs, Settings.OUTPUTS);
+        getCanonicalizedSettings(
+            repoMapping, parentLabel, outputs, disallowedOptions, Settings.OUTPUTS);
     this.inputsCanonicalizedToGiven =
-        getCanonicalizedSettings(repoMapping, parentLabel, inputs, Settings.INPUTS);
+        getCanonicalizedSettings(
+            repoMapping, parentLabel, inputs, disallowedOptions, Settings.INPUTS);
   }
 
   public final PackageContext getPackageContext() {
@@ -152,6 +155,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       RepositoryMapping repoMapping,
       Label parentLabel,
       List<String> settings,
+      List<String> disallowedOptions,
       Settings inputsOrOutputs)
       throws EvalException {
     Map<String, String> canonicalizedToGiven = new HashMap<>();
@@ -162,6 +166,14 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       } catch (LabelSyntaxException unused) {
         throw Starlark.errorf(
             "Malformed label in transition %s parameter: '%s'", inputsOrOutputs, setting);
+      }
+      if (canonicalizedSetting.startsWith(LabelConstants.COMMAND_LINE_OPTION_PREFIX)) {
+        String optionName =
+            canonicalizedSetting.substring(LabelConstants.COMMAND_LINE_OPTION_PREFIX.length());
+        if (disallowedOptions.contains(optionName)) {
+          throw Starlark.errorf(
+              "Option '%s' is not allowed in transitions %s.", optionName, inputsOrOutputs);
+        }
       }
       String previousSetting = canonicalizedToGiven.put(canonicalizedSetting, setting);
       if (previousSetting != null) {
@@ -264,10 +276,11 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       StarlarkSemantics semantics,
       Label parentLabel,
       Location location,
-      RepositoryMapping repoMapping)
+      RepositoryMapping repoMapping,
+      List<String> disallowedOptions)
       throws EvalException {
     return new RegularTransition(
-        impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+        impl, inputs, outputs, semantics, parentLabel, location, repoMapping, disallowedOptions);
   }
 
   public static StarlarkDefinedConfigTransition newExecTransition(
@@ -277,18 +290,22 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       StarlarkSemantics semantics,
       Label parentLabel,
       Location location,
-      RepositoryMapping repoMapping)
+      RepositoryMapping repoMapping,
+      List<String> disallowedOptions)
       throws EvalException {
-    return new ExecTransition(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+    return new ExecTransition(
+        impl, inputs, outputs, semantics, parentLabel, location, repoMapping, disallowedOptions);
   }
 
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
       Map<String, Object> changedSettings,
       RepositoryMapping repoMapping,
       Label parentLabel,
-      Location location)
+      Location location,
+      List<String> disallowedOptions)
       throws EvalException {
-    return new AnalysisTestTransition(changedSettings, repoMapping, parentLabel, location);
+    return new AnalysisTestTransition(
+        changedSettings, repoMapping, parentLabel, location, disallowedOptions);
   }
 
   private static final class AnalysisTestTransition extends StarlarkDefinedConfigTransition {
@@ -299,14 +316,16 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         Map<String, Object> changedSettings,
         RepositoryMapping repoMapping,
         Label parentLabel,
-        Location location)
+        Location location,
+        List<String> disallowedOptions)
         throws EvalException {
       super(
           /* inputs= */ ImmutableList.of(),
           ImmutableList.copyOf(changedSettings.keySet()),
           repoMapping,
           parentLabel,
-          location);
+          location,
+          disallowedOptions);
       this.changedSettings = changedSettings;
       this.hashCode = HashCodes.hashObjects(getInputs(), getOutputs(), changedSettings);
     }
@@ -368,9 +387,10 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         StarlarkSemantics semantics,
         Label parentLabel,
         Location location,
-        RepositoryMapping repoMapping)
+        RepositoryMapping repoMapping,
+        List<String> disallowedOptions)
         throws EvalException {
-      super(inputs, outputs, repoMapping, parentLabel, location);
+      super(inputs, outputs, repoMapping, parentLabel, location, disallowedOptions);
       this.impl = impl;
       this.semantics = semantics;
       this.repoMapping = repoMapping;
@@ -740,9 +760,11 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         StarlarkSemantics semantics,
         Label parentLabel,
         Location location,
-        RepositoryMapping repoMapping)
+        RepositoryMapping repoMapping,
+        List<String> disallowedOptions)
         throws EvalException {
-      super(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+      super(
+          impl, inputs, outputs, semantics, parentLabel, location, repoMapping, disallowedOptions);
     }
 
     @Override

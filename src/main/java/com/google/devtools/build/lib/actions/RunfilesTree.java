@@ -79,4 +79,12 @@ public interface RunfilesTree {
 
   /** Fingerprints this runfiles tree. */
   void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths);
+
+  /**
+   * Whether the runfiles tree contains any {@link Artifact.SpecialArtifactType#CONSTANT_METADATA}
+   * artifacts.
+   */
+  default boolean containsConstantMetadata() {
+    return getArtifacts().toList().stream().anyMatch(Artifact::isConstantMetadata);
+  }
 }

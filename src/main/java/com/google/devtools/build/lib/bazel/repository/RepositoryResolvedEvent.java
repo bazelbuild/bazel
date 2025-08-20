@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.util.Pair;
-import java.util.List;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
+import com.google.common.collect.Maps;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -28,44 +30,78 @@ public class RepositoryResolvedEvent {
   private final boolean informationReturned;
   private final String message;
 
-  public RepositoryResolvedEvent(RepoDefinition repoDefinition, Map<?, ?> result) {
+  public RepositoryResolvedEvent(RepoDefinition repoDefinition, Map<String, Object> result) {
     if (result.isEmpty()) {
       // Repo claims to be already reproducible, so wants to be called as is.
       this.informationReturned = false;
       this.message = "Repo '" + repoDefinition.name() + "' finished fetching.";
     } else {
       // Repo claims that the returned (probably changed) arguments are a reproducible
-      // version of itself.
-      Pair<Map<String, Object>, List<String>> diff =
-          compare(repoDefinition.attrValues().attributes(), result);
-      if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
+      // version of itself. Diff them and report the changes, if any.
+      var modifiedAttributes =
+          repoDefinition.getFieldNames().stream()
+              // The "name" attribute is confusing as the value specified by the user is transformed
+              // to the canonical name for repository_ctx.attr.name. Since the name should never
+              // affect reproducibility, ignore it.
+              .filter(name -> !name.equals("name"))
+              // Filter out implicit attributes, which can't be modified by the user.
+              .filter(name -> !name.startsWith("_"))
+              .map(
+                  name -> {
+                    var defaultValue =
+                        repoDefinition
+                            .repoRule()
+                            .attributes()
+                            .get(repoDefinition.repoRule().attributeIndices().get(name))
+                            .getDefaultValueUnchecked();
+                    // Label attributes report a default of null rather than None.
+                    if (defaultValue == null) {
+                      defaultValue = Starlark.NONE;
+                    }
+                    var currentValue = repoDefinition.getValue(name);
+                    var newValue = result.getOrDefault(name, defaultValue);
+                    if (newValue.equals(currentValue)) {
+                      return null;
+                    }
+                    // Distinguish between "dropped" and non-trivially "modified" attributes.
+                    return Map.entry(
+                        name,
+                        newValue.equals(defaultValue) ? Optional.empty() : Optional.of(newValue));
+                  })
+              .filter(Objects::nonNull)
+              .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+      if (modifiedAttributes.isEmpty()) {
         this.informationReturned = false;
         this.message = "Repo '" + repoDefinition.name() + "' finished fetching.";
       } else {
         this.informationReturned = true;
-        if (diff.getFirst().isEmpty()) {
+        var modifiedToNonDefault = Maps.filterValues(modifiedAttributes, Optional::isPresent);
+        var dropped = Maps.filterValues(modifiedAttributes, Optional::isEmpty).keySet();
+        if (modifiedToNonDefault.isEmpty()) {
           this.message =
               "Repo '"
                   + repoDefinition.name()
                   + "' indicated that a canonical reproducible form can be obtained by"
                   + " dropping arguments "
-                  + Starlark.repr(diff.getSecond());
-        } else if (diff.getSecond().isEmpty()) {
+                  + Starlark.repr(dropped);
+        } else if (dropped.isEmpty()) {
           this.message =
               "Repo '"
                   + repoDefinition.name()
                   + "' indicated that a canonical reproducible form can be obtained by"
                   + " modifying arguments "
-                  + representModifications(diff.getFirst());
+                  + representModifications(
+                      Maps.transformValues(modifiedToNonDefault, Optional::get));
         } else {
           this.message =
               "Repo '"
                   + repoDefinition.name()
                   + "' indicated that a canonical reproducible form can be obtained by"
                   + " modifying arguments "
-                  + representModifications(diff.getFirst())
+                  + representModifications(
+                      Maps.transformValues(modifiedToNonDefault, Optional::get))
                   + " and dropping "
-                  + Starlark.repr(diff.getSecond());
+                  + Starlark.repr(dropped);
         }
       }
     }
@@ -97,41 +133,9 @@ public class RepositoryResolvedEvent {
             repoDefinition.repoRule().id().bzlFileLabel().getUnambiguousCanonicalForm());
   }
 
-  /**
-   * Compare two maps from Strings to objects, returning a pair of the map with all entries not in
-   * the original map or in the original map, but with a different value, and the keys dropped from
-   * the original map. However, ignore changes where a value is explicitly set to its default.
-   */
-  static Pair<Map<String, Object>, List<String>> compare(
-      Map<String, Object> orig, Map<?, ?> modified) {
-    ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.builder();
-    for (Map.Entry<?, ?> entry : modified.entrySet()) {
-      if (entry.getKey() instanceof String key) {
-        Object value = entry.getValue();
-        if (!value.equals(orig.get(key))) {
-          valuesChanged.put(key, value);
-        }
-      }
-    }
-    ImmutableList.Builder<String> keysDropped = ImmutableList.builder();
-    for (String key : orig.keySet()) {
-      if (!modified.containsKey(key)) {
-        keysDropped.add(key);
-      }
-    }
-    return Pair.of(valuesChanged.buildOrThrow(), keysDropped.build());
-  }
-
   static String representModifications(Map<String, Object> changes) {
-    StringBuilder representation = new StringBuilder();
-    boolean isFirst = true;
-    for (Map.Entry<String, Object> entry : changes.entrySet()) {
-      if (!isFirst) {
-        representation.append(", ");
-      }
-      representation.append(entry.getKey()).append(" = ").append(Starlark.repr(entry.getValue()));
-      isFirst = false;
-    }
-    return representation.toString();
+    return changes.entrySet().stream()
+        .map(entry -> "%s = %s".formatted(entry.getKey(), Starlark.repr(entry.getValue())))
+        .collect(Collectors.joining(", "));
   }
 }

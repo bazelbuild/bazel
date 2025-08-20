@@ -14,7 +14,7 @@
 //
 package com.google.devtools.build.lib.bazel.repository;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -108,7 +109,7 @@ class DigestWriter {
     }
     String content = builder.toString();
     try {
-      FileSystemUtils.writeContent(markerPath, UTF_8, content);
+      FileSystemUtils.writeContent(markerPath, ISO_8859_1, content);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -143,7 +144,7 @@ class DigestWriter {
     }
 
     try {
-      String content = FileSystemUtils.readContent(markerPath, UTF_8);
+      String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
       Map<RepoRecordedInput, String> recordedInputValues =
           readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
       Optional<String> outdatedReason =
@@ -204,9 +205,7 @@ class DigestWriter {
       RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics) {
     return new Fingerprint()
         .addInt(MARKER_FILE_VERSION)
-        // TODO: Using the hashCode() method for StarlarkSemantics here is suboptimal as
-        //   it doesn't include any default values.
-        .addInt(starlarkSemantics.hashCode())
+        .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
         .addString(repoDefinition.repoRule().id().bzlFileLabel().toString())
         .addString(repoDefinition.repoRule().id().ruleName())
         .addBytes(repoDefinition.repoRule().transitiveBzlDigest())

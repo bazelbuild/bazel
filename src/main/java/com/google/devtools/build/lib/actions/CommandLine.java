@@ -25,13 +25,13 @@ import javax.annotation.Nullable;
 /** A representation of a list of arguments. */
 public abstract class CommandLine {
 
-  public static CommandLine empty() {
-    return EmptyCommandLine.INSTANCE;
+  public static FlatCommandLine empty() {
+    return FlatCommandLine.EMPTY_INSTANCE;
   }
 
   /** Returns a {@link CommandLine} backed by the given list of arguments. */
-  public static CommandLine of(ImmutableList<String> arguments) {
-    return arguments.isEmpty() ? empty() : new SimpleCommandLine(arguments);
+  public static FlatCommandLine of(ImmutableList<String> arguments) {
+    return arguments.isEmpty() ? empty() : new FlatCommandLine(arguments);
   }
 
   /**
@@ -42,7 +42,7 @@ public abstract class CommandLine {
     if (args.isEmpty()) {
       return commandLine;
     }
-    if (commandLine == EmptyCommandLine.INSTANCE) {
+    if (commandLine == FlatCommandLine.EMPTY_INSTANCE) {
       return CommandLine.of(args);
     }
     return new SuffixedCommandLine(args, commandLine);
@@ -104,19 +104,17 @@ public abstract class CommandLine {
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException;
 
-  private static final class EmptyCommandLine extends AbstractCommandLine {
-    private static final EmptyCommandLine INSTANCE = new EmptyCommandLine();
+  /**
+   * A command line backed by a simple {@code ImmutableList<String>}.
+   *
+   * <p>{@link #arguments()} can be retrieved exception-free.
+   */
+  public static final class FlatCommandLine extends AbstractCommandLine {
+    private static final FlatCommandLine EMPTY_INSTANCE = new FlatCommandLine(ImmutableList.of());
 
-    @Override
-    public ImmutableList<String> arguments() {
-      return ImmutableList.of();
-    }
-  }
-
-  private static final class SimpleCommandLine extends AbstractCommandLine {
     private final ImmutableList<String> args;
 
-    SimpleCommandLine(ImmutableList<String> args) {
+    private FlatCommandLine(ImmutableList<String> args) {
       this.args = args;
     }
 

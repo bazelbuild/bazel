@@ -20,6 +20,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -33,6 +34,10 @@ import javax.annotation.Nullable;
  * </code>
  */
 public final class Types {
+
+  // TODO(ilist@): constructed types should probably be interned. In some cases it might help
+  // to precompute and memoize StarlarkTypes.getSupertypes.
+
   // Internal type used as a guard for a missing type annotations (for now).
   public static final StarlarkType ANY = new Any();
 
@@ -63,7 +68,8 @@ public final class Types {
         .put("list", wrapTypeConstructor("list", Types::list))
         .put("dict", wrapTypeConstructor("dict", Types::dict))
         .put("set", wrapTypeConstructor("set", Types::set))
-        .put("tuple", wrapTupleConstructorProxy());
+        .put("tuple", wrapTupleConstructorProxy())
+        .put("Iterable", wrapTypeConstructor("Iterable", Types::iterable));
     return env.buildOrThrow();
   }
 
@@ -384,6 +390,11 @@ public final class Types {
     public abstract StarlarkType getElementType();
 
     @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(iterable(getElementType()));
+    }
+
+    @Override
     public final String toString() {
       return "list[" + getElementType() + "]";
     }
@@ -401,6 +412,11 @@ public final class Types {
     public abstract StarlarkType getValueType();
 
     @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(iterable(getKeyType()));
+    }
+
+    @Override
     public final String toString() {
       return "dict[" + getKeyType() + ", " + getValueType() + "]";
     }
@@ -414,6 +430,11 @@ public final class Types {
   @AutoValue
   public abstract static class SetType extends StarlarkType {
     public abstract StarlarkType getElementType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(iterable(getElementType()));
+    }
 
     @Override
     public final String toString() {
@@ -431,10 +452,31 @@ public final class Types {
     public abstract ImmutableList<StarlarkType> getElementTypes();
 
     @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(iterable(union(ImmutableSet.copyOf(getElementTypes()))));
+    }
+
+    @Override
     public final String toString() {
       return "tuple["
           + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
           + "]";
+    }
+  }
+
+  /** Iterable type */
+  public static IterableType iterable(StarlarkType elementType) {
+    return new AutoValue_Types_IterableType(elementType);
+  }
+
+  /** Iterable type */
+  @AutoValue
+  public abstract static class IterableType extends StarlarkType {
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public final String toString() {
+      return "Iterable[" + getElementType() + "]";
     }
   }
 

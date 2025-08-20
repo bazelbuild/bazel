@@ -1020,6 +1020,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     builder.addToolchainTypes(parseToolchainTypes(toolchains, labelConverter));
 
     if (execGroups != Starlark.NONE) {
+      boolean override = parent != null;
       Map<String, DeclaredExecGroup> execGroupDict =
           Dict.cast(execGroups, String.class, DeclaredExecGroup.class, "exec_group");
       for (String group : execGroupDict.keySet()) {
@@ -1028,11 +1029,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           throw Starlark.errorf("Exec group name '%s' is not a valid name.", group);
         }
       }
-      builder.addExecGroups(execGroupDict);
+      builder.addExecGroups(execGroupDict, override);
     }
     if (test && !builder.hasExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME)) {
       builder.addExecGroups(
-          ImmutableMap.of(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME, DEFAULT_TEST_RUNNER_EXEC_GROUP));
+          ImmutableMap.of(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME, DEFAULT_TEST_RUNNER_EXEC_GROUP),
+          false);
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {

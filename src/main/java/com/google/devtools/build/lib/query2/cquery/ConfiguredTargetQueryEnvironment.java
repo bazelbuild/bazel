@@ -24,7 +24,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -62,6 +61,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -343,14 +343,45 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
    */
   private ImmutableList<CqueryNode> getConfiguredTargetsForLabel(Label label)
       throws InterruptedException {
-    ImmutableList.Builder<CqueryNode> ans = ImmutableList.builder();
-    for (BuildConfigurationValue config : transitiveConfigurations.values()) {
-      CqueryNode kct = getConfiguredTarget(label, config);
-      if (kct != null) {
-        ans.add(kct);
+    var ans = ImmutableList.<CqueryNode>builder();
+    HashSet<ConfiguredTargetKey> extraConfiguredTargetKeys = null;
+    for (var configurationValue : transitiveConfigurations.values()) {
+      var configurationKey = configurationValue.getKey();
+      var target =
+          getValueFromKey(
+              ConfiguredTargetKey.builder()
+                  .setLabel(label)
+                  .setConfigurationKey(configurationKey)
+                  .build());
+      if (target == null) {
+        continue;
       }
+      // The configurations might not match if the target's configuration changed due to a
+      // transition or trimming. Filter such targets, with one exception: if the target is subject
+      // to a non-idempotent rule transition, we have to keep it once if the keys requested above,
+      // which never have shouldApplyRuleTransition set to false, don't cover it. This case is rare,
+      // so we optimize for it not being hit.
+      if (!Objects.equals(configurationKey, target.getConfigurationKey())) {
+        var targetKey = ConfiguredTargetKey.fromConfiguredTarget(target);
+        if (targetKey.shouldApplyRuleTransition()
+            || getValueFromKey(
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfigurationKey(targetKey.getConfigurationKey())
+                        .build())
+                != null) {
+          continue;
+        }
+        if (extraConfiguredTargetKeys == null) {
+          extraConfiguredTargetKeys = new HashSet<>();
+        }
+        if (!extraConfiguredTargetKeys.add(targetKey)) {
+          continue;
+        }
+      }
+      ans.add(target);
     }
-    CqueryNode nullConfiguredTarget = getNullConfiguredTarget(label);
+    var nullConfiguredTarget = getNullConfiguredTarget(label);
     if (nullConfiguredTarget != null) {
       ans.add(nullConfiguredTarget);
     }

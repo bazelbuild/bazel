@@ -50,6 +50,16 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   }
 
   @Override
+  public NodeBatch getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    try {
+      return super.getBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @Override
   public Map<SkyKey, ? extends NodeEntry> getBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {

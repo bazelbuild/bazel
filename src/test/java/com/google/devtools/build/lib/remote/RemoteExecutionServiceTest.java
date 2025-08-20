@@ -1058,6 +1058,46 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_outputDirectoriesWithUnicodeFilenames_works() throws Exception {
+    // arrange
+    Digest internationalizationDigest = cache.addContents(remoteActionExecutionContext, "hello");
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("Iñtërnâtiônàlizætiøn")
+                            .setDigest(internationalizationDigest))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("東京都").setTarget("京都市")))
+            .build();
+    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputDirectoriesBuilder().setPath("outputs/dir").setTreeDigest(treeDigest);
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
+
+    // act
+    service.downloadOutputs(action, result);
+
+    // assert
+    assertThat(
+            readContent(
+                execRoot.getRelative(unicodeToInternal("outputs/dir/Iñtërnâtiônàlizætiøn")), UTF_8))
+        .isEqualTo("hello");
+    assertThat(execRoot.getRelative(unicodeToInternal("outputs/dir/東京都")).readSymbolicLink())
+        .isEqualTo(PathFragment.create(unicodeToInternal("京都市")));
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void downloadOutputs_relativeFileSymlink_success() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFileSymlinksBuilder().setPath("outputs/a/b/link").setTarget("../../foo");

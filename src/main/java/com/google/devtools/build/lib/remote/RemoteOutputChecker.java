@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -170,7 +171,12 @@ public class RemoteOutputChecker implements OutputChecker {
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
               .getImportantArtifacts();
       addOutputsToDownload(artifactsToBuild.toList());
-      addRunfiles(target);
+      // RunfileTrees are requested with this special output group. We lack access to an
+      // InputMetadataProvider that can expand arbitrary RunfileTrees, so we have to mirror that
+      // logic here.
+      if (topLevelArtifactContext.outputGroups().contains(OutputGroupInfo.HIDDEN_TOP_LEVEL)) {
+        addRunfiles(target);
+      }
       addExtraActionArtifacts(target);
     }
   }

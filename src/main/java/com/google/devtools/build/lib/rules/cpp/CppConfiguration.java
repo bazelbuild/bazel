@@ -168,7 +168,6 @@ public final class CppConfiguration extends Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
   private final boolean collectCodeCoverage;
-  private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
 
@@ -309,7 +308,6 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
     this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
@@ -762,6 +760,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
+  @StarlarkMethod(
+      name = "use_llvm_coverage_map_format",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useLlvmCoverageMapFormatStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return useLLVMCoverageMapFormat();
+  }
+
   @Nullable
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {
@@ -974,14 +981,5 @@ public final class CppConfiguration extends Fragment
   public boolean getProtoProfile(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.protoProfile;
-  }
-
-  @StarlarkMethod(
-      name = "experimental_starlark_compiling",
-      documented = false,
-      useStarlarkThread = true)
-  public boolean experimentalStarlarkCompiling(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.experimentalStarlarkCompiling;
   }
 }

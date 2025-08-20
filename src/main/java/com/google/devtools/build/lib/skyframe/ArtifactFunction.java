@@ -215,7 +215,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
-  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private static TreeArtifactValue createTreeArtifactValueFromActionKey(
       ArtifactDependencies artifactDependencies, Environment env) throws InterruptedException {

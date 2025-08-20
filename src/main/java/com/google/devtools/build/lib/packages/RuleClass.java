@@ -782,7 +782,7 @@ public class RuleClass implements RuleClassData {
         addToolchainTypes(parent.getToolchainTypes());
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
-          addExecGroups(parent.getDeclaredExecGroups());
+          addExecGroups(parent.getDeclaredExecGroups(), false);
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
@@ -1573,10 +1573,10 @@ public class RuleClass implements RuleClassData {
      * same name are added.
      */
     @CanIgnoreReturnValue
-    public Builder addExecGroups(Map<String, DeclaredExecGroup> execGroups) {
+    public Builder addExecGroups(Map<String, DeclaredExecGroup> execGroups, boolean override) {
       for (Map.Entry<String, DeclaredExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
-        if (this.execGroups.containsKey(name)) {
+        if (this.execGroups.containsKey(name) && !override) {
           // If trying to add a new execution group with the same name as a execution group that
           // already exists, check if they are equivalent and error out if not.
           DeclaredExecGroup existingGroup = this.execGroups.get(name);

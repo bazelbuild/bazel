@@ -989,15 +989,4 @@ public class CppOptions extends FragmentOptions {
           "If enabled, will estimate precise resource usage for local execution of"
               + " CppCompileAction.")
   public boolean experimentalCppCompileResourcesEstimation;
-
-  @Option(
-      name = "experimental_starlark_compiling",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, a Starlark version of compiling is used.")
-  public boolean experimentalStarlarkCompiling;
 }

@@ -29,6 +29,7 @@ load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "cre
 load(":common/cc/link/create_linkstamp.bzl", "create_linkstamp")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
+load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "create_cc_toolchain_config_info")
 
 cc_common_internal = _builtins.internal.cc_common
 
@@ -479,44 +480,6 @@ def _is_cc_toolchain_resolution_enabled_do_not_use(*, ctx):
     # TODO(b/218795674): remove once uses are cleaned up
     return True
 
-def _create_cc_toolchain_config_info(
-        *,
-        ctx,
-        toolchain_identifier,
-        compiler,
-        features = [],
-        action_configs = [],
-        artifact_name_patterns = [],
-        cxx_builtin_include_directories = [],
-        host_system_name = None,
-        target_system_name = None,
-        target_cpu = None,
-        target_libc = None,
-        abi_version = None,
-        abi_libc_version = None,
-        tool_paths = [],
-        make_variables = [],
-        builtin_sysroot = None,
-        cc_target_os = None):
-    return cc_common_internal.create_cc_toolchain_config_info(
-        ctx = ctx,
-        toolchain_identifier = toolchain_identifier,
-        target_system_name = target_system_name,
-        target_cpu = target_cpu,
-        target_libc = target_libc,
-        compiler = compiler,
-        features = features,
-        action_configs = action_configs,
-        artifact_name_patterns = artifact_name_patterns,
-        cxx_builtin_include_directories = cxx_builtin_include_directories,
-        host_system_name = host_system_name,
-        abi_version = abi_version,
-        abi_libc_version = abi_libc_version,
-        tool_paths = tool_paths,
-        make_variables = make_variables,
-        builtin_sysroot = builtin_sysroot,
-    )
-
 def _create_linking_context_from_compilation_outputs(
         *,
         actions,
@@ -707,11 +670,7 @@ def _compile(
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    if cc_toolchain._cpp_configuration.experimental_starlark_compiling():
-        compile_func = compile
-    else:
-        compile_func = cc_common_internal.compile
-    return compile_func(
+    return compile(
         actions = actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
@@ -885,7 +844,7 @@ cc_common = struct(
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
     add_go_exec_groups_to_binary_rules = _add_go_exec_groups_to_binary_rules,
     is_cc_toolchain_resolution_enabled_do_not_use = _is_cc_toolchain_resolution_enabled_do_not_use,
-    create_cc_toolchain_config_info = _create_cc_toolchain_config_info,
+    create_cc_toolchain_config_info = create_cc_toolchain_config_info,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
     merge_compilation_contexts = _merge_compilation_contexts,
     merge_linking_contexts = merge_linking_contexts,

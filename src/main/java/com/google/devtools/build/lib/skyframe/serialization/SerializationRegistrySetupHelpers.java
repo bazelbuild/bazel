@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -156,7 +157,8 @@ public final class SerializationRegistrySetupHelpers {
             FeatureConfiguration.class,
             RunfilesArtifactValue.class,
             AliasConfiguredTarget.class,
-            BuildConfigurationValue.class);
+            BuildConfigurationValue.class,
+            InlineFileArtifactValue.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 

@@ -50,10 +50,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /** Helper class to create test actions. */
@@ -75,13 +72,9 @@ public final class TestActionBuilder {
   private Artifact executable;
   private ExecutionInfo executionRequirements;
   private InstrumentedFilesInfo instrumentedFiles;
-  private final Map<String, String> extraEnv;
-  private final Set<String> extraInheritedEnv;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    this.extraEnv = new TreeMap<>();
-    this.extraInheritedEnv = new TreeSet<>();
     this.additionalTools = new ImmutableList.Builder<>();
   }
 
@@ -137,18 +130,6 @@ public final class TestActionBuilder {
   @CanIgnoreReturnValue
   public TestActionBuilder setExecutionRequirements(@Nullable ExecutionInfo executionRequirements) {
     this.executionRequirements = executionRequirements;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public TestActionBuilder addExtraEnv(Map<String, String> extraEnv) {
-    this.extraEnv.putAll(extraEnv);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public TestActionBuilder addExtraInheritedEnv(List<String> extraInheritedEnv) {
-    this.extraInheritedEnv.addAll(extraInheritedEnv);
     return this;
   }
 
@@ -346,8 +327,6 @@ public final class TestActionBuilder {
               ruleContext, runfilesSupport, executable, null, shardCount, runsPerTest);
     }
 
-    extraTestEnv.putAll(extraEnv);
-
     if (config.getRunUnder() != null) {
       Artifact runUnderExecutable = executionSettings.getRunUnderExecutable();
       if (runUnderExecutable != null) {
@@ -424,9 +403,7 @@ public final class TestActionBuilder {
                 coverageDirectory,
                 undeclaredOutputsDir,
                 testProperties,
-                runfilesSupport
-                    .getActionEnvironment()
-                    .withAdditionalVariables(extraTestEnv, extraInheritedEnv),
+                runfilesSupport.getActionEnvironment().withAdditionalFixedVariables(extraTestEnv),
                 executionSettings,
                 shard,
                 run,

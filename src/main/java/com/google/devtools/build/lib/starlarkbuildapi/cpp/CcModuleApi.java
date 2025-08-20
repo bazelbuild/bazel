@@ -384,7 +384,7 @@ public interface CcModuleApi<
             documented = false,
             defaultValue = "unbound"),
       })
-  Tuple compile(
+  default Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
@@ -426,7 +426,9 @@ public interface CcModuleApi<
       Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
 
   // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile_api)
 

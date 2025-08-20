@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
 
 import com.google.common.base.Strings;
@@ -89,6 +90,31 @@ public class CcStarlarkInternal implements StarlarkValue {
   public CcToolchainVariables getCcToolchainVariables(Dict<?, ?> buildVariables)
       throws EvalException {
     return new MapVariables(null, Dict.cast(buildVariables, String.class, Object.class, "vars"));
+  }
+
+  @StarlarkMethod(
+      name = "combine_cc_toolchain_variables",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "parent",
+            allowedTypes = {@ParamType(type = CcToolchainVariables.class)})
+      },
+      extraPositionals =
+          @Param(
+              name = "variables",
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = CcToolchainVariables.class)
+              }))
+  public CcToolchainVariables combineCcToolchainVariables(
+      CcToolchainVariables parent, Sequence<?> variablesSequenceUnchecked) throws EvalException {
+    Sequence<CcToolchainVariables> variablesSequence =
+        Sequence.cast(variablesSequenceUnchecked, CcToolchainVariables.class, "variables");
+    CcToolchainVariables.Builder builder = CcToolchainVariables.builder(parent);
+    for (CcToolchainVariables variables : variablesSequence) {
+      builder.addAllNonTransitive(variables);
+    }
+    return builder.build();
   }
 
   @StarlarkMethod(
@@ -637,91 +663,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_module_codegen_action",
-      documented = false,
-      parameters = {
-        @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "cc_compilation_context", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "copts_filter", positional = false, named = true, defaultValue = "None"),
-        @Param(name = "cpp_configuration", positional = false, named = true),
-        @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "fdo_context", positional = false, named = true, defaultValue = "None"),
-        @Param(
-            name = "auxiliary_fdo_inputs",
-            positional = false,
-            named = true,
-            defaultValue = "None"),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true), // FeatureConfigurationForStarlark
-        @Param(name = "is_code_coverage_enabled", positional = false, named = true),
-        @Param(name = "label", positional = false, named = true),
-        @Param(name = "common_toolchain_variables", positional = false, named = true),
-        @Param(name = "fdo_build_variables", positional = false, named = true, defaultValue = "{}"),
-        @Param(name = "cpp_semantics", positional = false, named = true), // CppSemantics
-        @Param(name = "outputs", positional = false, named = true), // CcCompilationOutputs.Builder
-        @Param(name = "source_label", positional = false, named = true),
-        @Param(name = "module", positional = false, named = true),
-        @Param(name = "cpp_compile_action_builder", positional = false, named = true),
-      })
-  public void createModuleCodegenActionForStarlark(
-      StarlarkRuleContext starlarkRuleContext,
-      CcCompilationContext ccCompilationContext,
-      StarlarkInfo ccToolchain,
-      BuildConfigurationValue configuration,
-      Sequence<?> conlyopts,
-      Sequence<?> copts,
-      CoptsFilter coptsFilter,
-      CppConfiguration cppConfiguration,
-      Sequence<?> cxxopts,
-      StructImpl fdoContext,
-      Depset auxiliaryFdoInputs,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      boolean isCodeCoverageEnabled,
-      Label label,
-      CcToolchainVariables commonToolchainVariables,
-      Dict<?, ?> fdoBuildVariables,
-      CppSemantics cppSemantics,
-      CcCompilationOutputs.Builder outputs,
-      Label sourceLabel,
-      Artifact module,
-      CppCompileActionBuilder builder)
-      throws EvalException, RuleErrorException, InterruptedException {
-    CcStaticCompilationHelper.createModuleCodegenAction(
-        starlarkRuleContext.getRuleContext(),
-        ccCompilationContext,
-        CcToolchainProvider.create(ccToolchain),
-        configuration,
-        Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
-        Sequence.cast(copts, String.class, "copts").getImmutableList(),
-        coptsFilter,
-        cppConfiguration,
-        Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
-        TargetUtils.getExecutionInfo(
-            starlarkRuleContext.getRuleContext().getRule(),
-            starlarkRuleContext.getRuleContext().isAllowTagsPropagation()),
-        new FdoContext(fdoContext),
-        Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
-        featureConfigurationForStarlark.getFeatureConfiguration(),
-        isCodeCoverageEnabled,
-        label,
-        commonToolchainVariables,
-        ImmutableMap.copyOf(
-            Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")),
-        starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
-        cppSemantics,
-        outputs,
-        sourceLabel,
-        module,
-        builder);
-  }
-
-  @StarlarkMethod(
       name = "create_compile_source_action_from_builder",
       documented = false,
       parameters = {
@@ -949,82 +890,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_parse_header_action",
-      documented = false,
-      parameters = {
-        @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "cc_compilation_context", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "cpp_configuration", positional = false, named = true),
-        @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "fdo_context", positional = false, named = true, defaultValue = "None"),
-        @Param(
-            name = "auxiliary_fdo_inputs",
-            positional = false,
-            named = true,
-            defaultValue = "None"),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true), // FeatureConfigurationForStarlark
-        @Param(name = "use_pic", positional = false, named = true),
-        @Param(name = "label", positional = false, named = true),
-        @Param(name = "common_compile_build_variables", positional = false, named = true),
-        @Param(name = "fdo_build_variables", positional = false, named = true),
-        @Param(name = "cpp_semantics", positional = false, named = true),
-        @Param(name = "source_label", positional = false, named = true),
-        @Param(name = "output_name_base", positional = false, named = true),
-        @Param(name = "cpp_compile_action_builder", positional = false, named = true)
-      })
-  public Artifact createParseHeaderAction(
-      StarlarkRuleContext starlarkRuleContext,
-      CcCompilationContext ccCompilationContext,
-      StarlarkInfo ccToolchain,
-      BuildConfigurationValue configuration,
-      Sequence<?> conlyopts,
-      Sequence<?> copts,
-      CppConfiguration cppConfiguration,
-      Sequence<?> cxxopts,
-      StructImpl fdoContext,
-      Depset auxiliaryFdoInputs,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      boolean generatePicAction,
-      Label label,
-      CcToolchainVariables commonCompileBuildVariables,
-      Dict<?, ?> fdoBuildVariables,
-      CppSemantics semantics,
-      Label sourceLabel,
-      String outputNameBase,
-      CppCompileActionBuilder builder)
-      throws RuleErrorException, EvalException {
-    return CcStaticCompilationHelper.createParseHeaderAction(
-        starlarkRuleContext.getRuleContext(),
-        ccCompilationContext,
-        CcToolchainProvider.create(ccToolchain),
-        configuration,
-        Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
-        Sequence.cast(copts, String.class, "copts").getImmutableList(),
-        cppConfiguration,
-        Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
-        new FdoContext(fdoContext),
-        Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
-        featureConfigurationForStarlark.getFeatureConfiguration(),
-        generatePicAction,
-        label,
-        commonCompileBuildVariables,
-        ImmutableMap.copyOf(
-            Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")),
-        starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
-        semantics,
-        sourceLabel,
-        outputNameBase,
-        builder);
-  }
-
-  @StarlarkMethod(
       name = "create_cc_compilation_outputs_builder",
       documented = false,
       parameters = {})
@@ -1100,6 +965,21 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "feature_configuration", positional = false, named = true),
         @Param(name = "semantics", positional = false, named = true),
         @Param(name = "source_artifact", positional = false, named = true),
+        @Param(
+            name = "additional_compilation_inputs",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_include_scanning_roots",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(name = "output_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "dotd_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "diagnostics_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "gcno_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "dwo_file", positional = false, named = true, defaultValue = "None"),
       })
   public CppCompileActionBuilder createCppCompileActionBuilder(
       StarlarkRuleContext actionConstructionContext,
@@ -1109,73 +989,81 @@ public class CcStarlarkInternal implements StarlarkValue {
       CoptsFilter coptsFilter,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       CppSemantics semantics,
-      Artifact sourceArtifact) {
-    return new CppCompileActionBuilder(
-            actionConstructionContext.getRuleContext(),
-            CcToolchainProvider.create(ccToolchain),
-            configuration,
-            semantics)
-        .setSourceFile(sourceArtifact)
-        .setCcCompilationContext(ccCompilationContext)
-        .setCoptsFilter(coptsFilter)
-        .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
-        .addExecutionInfo(
-            TargetUtils.getExecutionInfo(
-                actionConstructionContext.getRuleContext().getRule(),
-                actionConstructionContext.getRuleContext().isAllowTagsPropagation()));
+      Artifact sourceArtifact,
+      Sequence<?> additionalCompilationInputs,
+      Sequence<?> additionalIncludeScanningRoots,
+      Object outputFile,
+      Object dotdFile,
+      Object diagnosticsFile,
+      Object gcnoFile,
+      Object dwoFile)
+      throws EvalException {
+    CppCompileActionBuilder builder =
+        new CppCompileActionBuilder(
+                actionConstructionContext.getRuleContext(),
+                CcToolchainProvider.create(ccToolchain),
+                configuration,
+                semantics)
+            .setSourceFile(sourceArtifact)
+            .setCcCompilationContext(ccCompilationContext)
+            .setCoptsFilter(coptsFilter)
+            .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
+            .addExecutionInfo(
+                TargetUtils.getExecutionInfo(
+                    actionConstructionContext.getRuleContext().getRule(),
+                    actionConstructionContext.getRuleContext().isAllowTagsPropagation()));
+    if (additionalCompilationInputs.size() > 0) {
+      builder.addMandatoryInputs(
+          Sequence.cast(
+              additionalCompilationInputs, Artifact.class, "additional_compilation_inputs"));
+    }
+    if (additionalIncludeScanningRoots.size() > 0) {
+      builder.addAdditionalIncludeScanningRoots(
+          Sequence.cast(
+              additionalIncludeScanningRoots, Artifact.class, "additional_include_scanning_roots"));
+    }
+    builder.setGcnoFile(nullIfNone(gcnoFile, Artifact.class));
+    builder.setDwoFile(nullIfNone(dwoFile, Artifact.class));
+    builder.setOutputs(
+        nullIfNone(outputFile, Artifact.class),
+        nullIfNone(dotdFile, Artifact.class),
+        nullIfNone(diagnosticsFile, Artifact.class));
+    return builder;
   }
 
-  /**
-   * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
-   * initialized, plus the mandatoryInputs and additionalIncludeScanningRoots fields
-   */
   @StarlarkMethod(
-      name = "create_cpp_compile_action_builder_with_inputs",
+      name = "create_cpp_compile_action",
       documented = false,
       parameters = {
         @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "cc_compilation_context", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "compile_action_builder", positional = false, named = true),
+        @Param(name = "compile_build_variables", positional = false, named = true),
+        @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "copts_filter", positional = false, named = true),
         @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "semantics", positional = false, named = true),
-        @Param(name = "source_artifact", positional = false, named = true),
-        @Param(name = "additional_compilation_inputs", positional = false, named = true),
-        @Param(name = "additional_include_scanning_roots", positional = false, named = true),
+        @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
       })
-  public CppCompileActionBuilder createCppCompileActionBuilderWithInputs(
+  public void createCppCompileAction(
       StarlarkRuleContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
-      StarlarkInfo ccToolchain,
-      BuildConfigurationValue configuration,
-      CoptsFilter coptsFilter,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CppCompileActionBuilder builder,
+      CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
-      Artifact sourceArtifact,
-      Sequence<?> additionalCompilationInputs,
-      Sequence<?> additionalIncludeScanningRoots)
+      BuildConfigurationValue configuration,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      boolean usePic)
       throws EvalException {
-    CppCompileActionBuilder builder =
-        createCppCompileActionBuilder(
-            actionConstructionContext,
-            ccCompilationContext,
-            ccToolchain,
-            configuration,
-            coptsFilter,
-            featureConfigurationForStarlark,
-            semantics,
-            sourceArtifact);
-    builder
-        .addMandatoryInputs(
-            Sequence.cast(
-                additionalCompilationInputs, Artifact.class, "additional_compilation_inputs"))
-        .addAdditionalIncludeScanningRoots(
-            Sequence.cast(
-                additionalIncludeScanningRoots,
-                Artifact.class,
-                "additional_include_scanning_roots"));
-    return builder;
+    builder.setVariables(compileBuildVariables).setPicMode(usePic);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
+    try {
+      CppCompileAction compileAction = builder.buildAndVerify();
+      actionConstructionContext.getRuleContext().registerAction(compileAction);
+    } catch (CppCompileActionBuilder.UnconfiguredActionConfigException e) {
+      throw new EvalException(
+          String.format(
+              "Expected action_config for '%s' to be configured", builder.getActionName()),
+          e);
+    }
   }
 
   // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s, LinkerInputs

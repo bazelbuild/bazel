@@ -129,6 +129,7 @@ public class TypeCheckTest {
 
   @Test
   public void runtimeTypecheck_tuple() throws Exception {
+    ev.exec("def f(a: tuple[]): pass", "f(())");
     ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
     ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
     assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")
@@ -142,6 +143,23 @@ public class TypeCheckTest {
     ev.exec("def f(a: tuple[int, tuple[str, bool]]): pass", "f((1, ('a', True)))");
     // Covariance
     ev.exec("def f(a: tuple[None|int]): pass", "f((1,))");
+  }
+
+  @Test
+  public void runtimeTypecheck_iterable() throws Exception {
+    ev.exec("def f(a: Iterable[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: Iterable[str]): pass", "f({'a': 1, 'b': 2})");
+    ev.exec("def f(a: Iterable[str]): pass", "f(set(['a', 'b']))");
+    ev.exec("def f(a: Iterable[str]): pass", "f(('a', 'b'))");
+    ev.exec("def f(a: Iterable[list[str]]): pass", "f([['a', 'b'], ['c']])");
+    ev.exec("def f(a: Iterable[int|str]): pass", "f(['a', 'b'])");
+    ev.exec("def f(a: Iterable[int|str]): pass", "f(['a', 1])");
+    ev.exec("def f(a: Iterable[int|str]): pass", "f(('a', 1))");
+    ev.exec("def f(a: Iterable[Iterable[str]]): pass", "f([['a', 'b'], ['c']])");
+    assertExecThrows(EvalException.class, "def f(a: Iterable[int]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
+                + " 'Iterable[int]'");
   }
 
   @Test

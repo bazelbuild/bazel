@@ -463,13 +463,6 @@ public final class RuleConfiguredTargetBuilder {
                     providersBuilder.getProvider(
                         InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey()));
 
-    RunEnvironmentInfo environmentProvider =
-        (RunEnvironmentInfo) providersBuilder.getProvider(RunEnvironmentInfo.PROVIDER.getKey());
-    if (environmentProvider != null) {
-      testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
-      testActionBuilder.addExtraInheritedEnv(environmentProvider.getInheritedEnvironment());
-    }
-
     TestParams testParams =
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)

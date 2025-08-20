@@ -166,6 +166,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final FileSystem fileSystem;
   private final ImmutableList<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
+  private final BlazeServiceRegistry blazeServiceRegistry;
   private final Clock clock;
   private final Runnable abruptShutdownHandler;
 
@@ -228,6 +229,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       QueryRuntimeHelper.Factory queryRuntimeHelperFactory,
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
+      BlazeServiceRegistry blazeServiceRegistry,
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
@@ -237,6 +239,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
     overrideCommands(commands);
+    this.blazeServiceRegistry = blazeServiceRegistry;
 
     this.packageFactory = pkgFactory;
     this.projectFileProvider = projectFileProvider;
@@ -816,6 +819,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    */
   public Clock getClock() {
     return clock;
+  }
+
+  /**
+   * Returns the service implementation for the given service class, or {@code null} if it was not
+   * registered.
+   *
+   * <p>Service implementations are registered by modules via {@link ServerBuilder#registerService}
+   * during {@link BlazeModule#serverInit}. The instance returned by this method remains constant
+   * for the lifetime of the server.
+   */
+  @Nullable
+  public <T extends BlazeService> T getService(Class<T> service) {
+    return blazeServiceRegistry.get(service);
   }
 
   /**
@@ -1729,6 +1745,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               queryRuntimeHelperFactory,
               serverBuilder.getInvocationPolicy(),
               serverBuilder.getCommands(),
+              serverBuilder.getBlazeServiceRegistry(),
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getRepositoryRemoteExecutorFactory(),
