@@ -75,34 +75,22 @@ public final class SpawnStrategyResolver implements ActionContext {
             .collect(Collectors.toList());
 
     if (execableStrategies.isEmpty()) {
-      // Legacy implicit fallbacks should be a last-ditch option after all other strategies are
-      // found non-executable.
-      List<? extends SpawnStrategy> fallbackStrategies =
-          strategies.stream()
-              .filter(
-                  spawnActionContext ->
-                      spawnActionContext.canExecWithLegacyFallback(spawn, actionExecutionContext))
-              .collect(Collectors.toList());
-
-      if (fallbackStrategies.isEmpty()) {
-        String message =
-            String.format(
-                "%s spawn%s cannot be executed with any of the available strategies: %s. Your"
-                    + " --spawn_strategy, --genrule_strategy and/or --strategy flags are probably"
-                    + " too strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
-                    + " advice",
-                spawn.getMnemonic(),
-                Spawns.usesPathMapping(spawn)
-                    ? ", which requires sandboxing due to path mapping,"
-                    : "",
-                strategies);
-        throw new UserExecException(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
-                .build());
-      }
-      return fallbackStrategies;
+      String message =
+          String.format(
+              "%s spawn%s cannot be executed with any of the available strategies: %s. Your"
+                  + " --spawn_strategy, --genrule_strategy and/or --strategy flags are probably"
+                  + " too strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
+                  + " advice",
+              spawn.getMnemonic(),
+              Spawns.usesPathMapping(spawn)
+                  ? ", which requires sandboxing due to path mapping,"
+                  : "",
+              strategies);
+      throw new UserExecException(
+          FailureDetail.newBuilder()
+              .setMessage(message)
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
+              .build());
     }
 
     return execableStrategies;

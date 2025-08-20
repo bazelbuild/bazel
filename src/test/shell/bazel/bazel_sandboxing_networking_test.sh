@@ -191,8 +191,6 @@ function test_sandbox_block_network_access() {
 
 function test_sandbox_network_access_with_local() {
   cat >>$TEST_TMPDIR/bazelrc <<'EOF'
-# With `--incompatible_legacy_local_fallback` turned off, we need to explicitly
-# include a non-sandboxed strategy.
 build --spawn_strategy=sandboxed,standalone --genrule_strategy=sandboxed,standalone
 EOF
 
