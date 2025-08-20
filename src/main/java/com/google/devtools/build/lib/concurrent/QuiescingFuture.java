@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.util.concurrent.AbstractFuture;
-import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.Keep;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.util.concurrent.Executor;
 
 /**
  * A future that tracks in-flight tasks and completes when the tasks quiesce or an error occurs.
@@ -40,17 +38,13 @@ import java.util.concurrent.Executor;
  *   <li>The future completes once all the tasks complete (but not before step 3 above).
  * </ol>
  */
-public abstract class QuiescingFuture<T> extends AbstractFuture<T> implements Runnable {
+public abstract class QuiescingFuture<T> extends AbstractFuture<T> {
   /**
    * Handle for {@link #taskCount}.
    *
    * <p>This uses less memory than {@link java.util.concurrent.AtomicInteger}.
    */
   private static final VarHandle TASK_COUNT_HANDLE;
-
-  private static final VarHandle ERROR_COUNT_HANDLE;
-
-  private final Executor getValueExecutor;
 
   /**
    * Count of in-flight tasks.
@@ -64,18 +58,6 @@ public abstract class QuiescingFuture<T> extends AbstractFuture<T> implements Ru
   @Keep // used via TASK_COUNT_HANDLE
   private volatile int taskCount = 1;
 
-  @Keep // used via ERROR_COUNT_HANDLE
-  private volatile int errorCount = 0;
-
-  /**
-   * Constructor.
-   *
-   * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
-   */
-  public QuiescingFuture(Executor getValueExecutor) {
-    this.getValueExecutor = getValueExecutor;
-  }
-
   /** Increments the task count. */
   protected final void increment() {
     TASK_COUNT_HANDLE.getAndAdd(this, 1);
@@ -85,60 +67,33 @@ public abstract class QuiescingFuture<T> extends AbstractFuture<T> implements Ru
   protected final void decrement() {
     int countBeforeDecrement = (int) TASK_COUNT_HANDLE.getAndAdd(this, -1);
     if (countBeforeDecrement == 1) {
-      getValueExecutor.execute((Runnable) this);
+      set(getValue());
     }
   }
 
   /**
    * Sets the future as failing with {@code t}.
    *
-   * <p>If the client calls this, it should not call {@link #decrement} for the same task. It's
-   * already called.
+   * <p>If the client calls this, it should not call {@link #decrement} for the same task so {@link
+   * #getValue} is never called.
    */
   protected final void notifyException(Throwable t) {
     setException(t);
-    ERROR_COUNT_HANDLE.getAndAdd(this, 1);
-    decrement();
   }
 
   /**
    * The resulting value of this future.
    *
    * <p>Called after the final decrement. Implementations must guarantee that the value is ready at
-   * that time. Not called if there were any errors.
+   * that time.
    */
   @ForOverride
   protected abstract T getValue();
-
-  /**
-   * Called if there was an error, after all the associated tasks complete.
-   *
-   * <p>Allows clients to perform cleanup work if there is an error.
-   */
-  @ForOverride
-  protected void doneWithError() {}
-
-  /**
-   * Called when all tasks are complete.
-   *
-   * @deprecated only for {@link #decrement}
-   */
-  @Deprecated
-  @Override
-  @DoNotCall
-  public final void run() {
-    if ((int) ERROR_COUNT_HANDLE.getAcquire(this) > 0) {
-      doneWithError();
-    } else {
-      set(getValue());
-    }
-  }
 
   static {
     MethodHandles.Lookup lookup = MethodHandles.lookup();
     try {
       TASK_COUNT_HANDLE = lookup.findVarHandle(QuiescingFuture.class, "taskCount", int.class);
-      ERROR_COUNT_HANDLE = lookup.findVarHandle(QuiescingFuture.class, "errorCount", int.class);
     } catch (ReflectiveOperationException e) {
       throw new ExceptionInInitializerError(e);
     }

@@ -122,10 +122,6 @@ final class NestedMatchMemoizingLookup
     private volatile int earliestAnalysisMatch = VersionedChanges.NO_MATCH;
     private volatile int earliestSourceMatch = VersionedChanges.NO_MATCH;
 
-    private NestedFutureResultAggregator() {
-      super(directExecutor());
-    }
-
     private void addAnalysisResultOrFuture(FileOpMatchResultOrFuture resultOrFuture) {
       switch (resultOrFuture) {
         case FileOpMatchResult result:

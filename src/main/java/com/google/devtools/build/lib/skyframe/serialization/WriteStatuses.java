@@ -67,7 +67,7 @@ public class WriteStatuses {
    * Combines {@code writeStatuses} into a single future using <i>sparse</i> aggregation.
    *
    * <p>NB: This is not a general purpose aggregation and must only be used under certain
-   * conditions. See {@link SparseAggregateWriteStatus} for details.
+   * conditions. See {@link SparseaggregateWriteStatus} for details.
    */
   public static WriteStatus sparselyAggregateWriteStatuses(Collection<WriteStatus> writeStatuses) {
     if (writeStatuses.isEmpty()) {
@@ -105,12 +105,8 @@ public class WriteStatuses {
    * value.
    */
   public static final class SparseAggregateWriteStatus extends QuiescingFuture<Void>
-      implements WriteStatus, FutureCallback<Void> {
+      implements WriteStatus, Runnable, FutureCallback<Void> {
     private volatile SparseAggregateWriteStatus listeningAggregate = null;
-
-    public SparseAggregateWriteStatus() {
-      super(directExecutor());
-    }
 
     /** Creates an aggregate that depends on all the statuses in {@code writeStatuses}. */
     private static SparseAggregateWriteStatus create(Iterable<WriteStatus> writeStatuses) {
@@ -192,18 +188,26 @@ public class WriteStatuses {
       // The CAS here accepts the first listener, and ignores any additional ones.
       if (LISTENING_AGGREGATOR_HANDLE.compareAndSet(this, null, aggregate)) {
         aggregate.prepareForAddingWrite();
-        addListener(
-            () -> {
-              try {
-                var unusedNull = Futures.getDone(this);
-                listeningAggregate.notifyWriteSucceeded();
-              } catch (ExecutionException e) {
-                listeningAggregate.notifyWriteFailed(e);
-              } catch (CancellationException e) {
-                listeningAggregate.cancel(/* mayInterruptIfRunning= */ false); // nothing running
-              }
-            },
-            directExecutor());
+        addListener((Runnable) this, directExecutor());
+      }
+    }
+
+    /**
+     * Implements the aggregate listener.
+     *
+     * @deprecated only for use by {@link #addToAggregator} listener processing
+     */
+    @Deprecated
+    @Override
+    @DoNotCall
+    public void run() {
+      try {
+        var unusedNull = Futures.getDone(this);
+        listeningAggregate.notifyWriteSucceeded();
+      } catch (ExecutionException e) {
+        listeningAggregate.notifyWriteFailed(e);
+      } catch (CancellationException e) {
+        listeningAggregate.cancel(/* mayInterruptIfRunning= */ false); // nothing running
       }
     }
 
@@ -273,10 +277,6 @@ public class WriteStatuses {
       return aggregator;
     }
 
-    private AggregateWriteStatus() {
-      super(directExecutor());
-    }
-
     @Override
     protected Void getValue() {
       return null;
@@ -307,6 +307,8 @@ public class WriteStatuses {
       }
       notifyException(t);
     }
+
+    private AggregateWriteStatus() {}
   }
 
   /**

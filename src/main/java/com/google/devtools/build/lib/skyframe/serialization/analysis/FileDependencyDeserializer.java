@@ -657,7 +657,6 @@ final class FileDependencyDeserializer {
     private final FileDependencies[] sources;
 
     private PendingElementCountdown(FileSystemDependencies[] elements, FileDependencies[] sources) {
-      super(directExecutor());
       this.elements = elements;
       this.sources = sources;
     }
