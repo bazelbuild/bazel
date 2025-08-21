@@ -37,7 +37,6 @@ public class CcBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("", "tools/build_defs/cc"));
 
   private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
-  private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
 
   public CcBootstrap(
       CcModuleApi<
@@ -51,14 +50,11 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcToolchainVariablesApi,
               ? extends ConstraintValueInfoApi,
               ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
-              ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>,
               ? extends CppModuleMapApi<? extends FileApi>>
           ccModule,
-      CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
-      CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider) {
+      CcInfoApi.Provider<? extends FileApi> ccInfoProvider) {
     this.ccInfoProvider = ccInfoProvider;
-    this.ccToolchainConfigInfoProvider = ccToolchainConfigInfoProvider;
   }
 
   @Override
@@ -79,7 +75,7 @@ public class CcBootstrap implements Bootstrap {
         "CcToolchainConfigInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            ccToolchainConfigInfoProvider,
+            Starlark.NONE,
             allowedRepositories));
   }
 }

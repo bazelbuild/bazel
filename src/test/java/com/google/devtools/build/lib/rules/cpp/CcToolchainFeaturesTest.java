@@ -490,7 +490,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   private String getFlagParsingError(String value) {
-    return assertThrows(AssertionError.class, () -> getExpansionOfFlag(value)).getMessage();
+    return assertThrows(EvalException.class, () -> getExpansionOfFlag(value)).getMessage();
   }
 
   private String getFlagExpansionError(String value, CcToolchainVariables variables) {
@@ -1963,9 +1963,9 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   @Test
   public void testErrorForFlagFromActionConfigWithSpecifiedAction() {
-    AssertionError e =
+    EvalException e =
         assertThrows(
-            AssertionError.class,
+            EvalException.class,
             () ->
                 buildFeatures(
                         "action_configs = [",

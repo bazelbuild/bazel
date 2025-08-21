@@ -1599,7 +1599,8 @@ public class CcToolchainFeatures implements StarlarkValue {
     ImmutableMap.Builder<String, ActionConfig> actionConfigsByActionName = ImmutableMap.builder();
 
     ImmutableList.Builder<String> defaultSelectablesBuilder = ImmutableList.builder();
-    for (Feature feature : ccToolchainConfigInfo.getFeatures()) {
+    ImmutableList<Feature> features = ccToolchainConfigInfo.getFeatures();
+    for (Feature feature : features) {
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
       if (feature.isEnabled()) {
@@ -1607,7 +1608,8 @@ public class CcToolchainFeatures implements StarlarkValue {
       }
     }
 
-    for (ActionConfig actionConfig : ccToolchainConfigInfo.getActionConfigs()) {
+    ImmutableList<ActionConfig> actionConfigs = ccToolchainConfigInfo.getActionConfigs();
+    for (ActionConfig actionConfig : actionConfigs) {
       selectablesBuilder.add(actionConfig);
       selectablesByName.put(actionConfig.getName(), actionConfig);
       actionConfigsByActionName.put(actionConfig.getActionName(), actionConfig);
@@ -1620,7 +1622,7 @@ public class CcToolchainFeatures implements StarlarkValue {
     this.selectables = selectablesBuilder.build();
     this.selectablesByName = ImmutableMap.copyOf(selectablesByName);
 
-    checkForActionNameDups(ccToolchainConfigInfo.getActionConfigs());
+    checkForActionNameDups(actionConfigs);
     checkForActivatableDups(this.selectables);
 
     this.actionConfigsByActionName = actionConfigsByActionName.buildOrThrow();
@@ -1639,7 +1641,7 @@ public class CcToolchainFeatures implements StarlarkValue {
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> requiredBy =
         ImmutableMultimap.builder();
 
-    for (Feature feature : ccToolchainConfigInfo.getFeatures()) {
+    for (Feature feature : features) {
       String name = feature.getName();
       CrosstoolSelectable selectable = selectablesByName.get(name);
       for (ImmutableSet<String> requiredFeatures : feature.getRequires()) {
@@ -1661,7 +1663,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       }
     }
 
-    for (ActionConfig actionConfig : ccToolchainConfigInfo.getActionConfigs()) {
+    for (ActionConfig actionConfig : actionConfigs) {
       String name = actionConfig.getName();
       CrosstoolSelectable selectable = selectablesByName.get(name);
       for (String impliedName : actionConfig.getImplies()) {

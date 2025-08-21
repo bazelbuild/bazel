@@ -36,7 +36,6 @@ public interface BazelCcModuleApi<
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
-        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CppModuleMapT extends CppModuleMapApi<FileT>>
     extends CcModuleApi<
         StarlarkActionFactoryT,
@@ -47,6 +46,5 @@ public interface BazelCcModuleApi<
         CcToolchainVariablesT,
         ConstraintValueT,
         StarlarkRuleContextT,
-        CcToolchainConfigInfoT,
         CompilationOutputsT,
         CppModuleMapT> {}

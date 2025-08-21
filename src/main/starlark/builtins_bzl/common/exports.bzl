@@ -36,6 +36,7 @@ load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
 load(":common/cc/fdo/memprof_profile.bzl", "memprof_profile")
 load(":common/cc/fdo/propeller_optimize.bzl", "propeller_optimize")
+load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
 load(":common/objc/apple_common.bzl", "apple_common")
 
 exported_toplevels = {
@@ -46,6 +47,7 @@ exported_toplevels = {
     "DebugPackageInfo": DebugPackageInfo,
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
     "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
+    "CcToolchainConfigInfo": CcToolchainConfigInfo,
     "cc_common": cc_common,
     "apple_common": apple_common,
     "proto_common_do_not_use": struct(

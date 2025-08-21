@@ -54,7 +54,6 @@ public interface CcModuleApi<
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
@@ -1951,7 +1950,7 @@ public interface CcModuleApi<
                 "The built-in sysroot. If this attribute is not present, Bazel does not "
                     + "allow using a different sysroot, i.e. through the --grte_top option."),
       })
-  CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
+  default void ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> features, // <StructApi> expected
       Sequence<?> actionConfigs, // <StructApi> expected
@@ -1968,8 +1967,9 @@ public interface CcModuleApi<
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
-      StarlarkThread thread)
-      throws EvalException;
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   @StarlarkMethod(
       name = "create_linking_context_from_compilation_outputs",

@@ -5211,17 +5211,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigNames).containsAtLeast("assemble", "custom-action").inOrder();
   }
 
-  @Test
-  public void testWrongElementTypeInListParameter_artifactNamePatterns() throws Exception {
-    getBasicCcToolchainConfigInfoWithAdditionalParameter("artifact_name_patterns = [1]");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:r");
-    assertContainsEvent(
-        "'artifact_name_patterns' parameter of cc_common.create_cc_toolchain_config_info()"
-            + " contains an element of type 'int' instead of a 'ArtifactNamePatternInfo'"
-            + " provider.");
-  }
-
   private void getBasicCcToolchainConfigInfoWithAdditionalParameter(String s) throws Exception {
     scratch.file(
         "foo/crosstool.bzl",

@@ -109,7 +109,6 @@ public abstract class CcModule
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,
-        CcToolchainConfigInfo,
         CcCompilationOutputs,
         CppModuleMap> {
 
@@ -683,85 +682,6 @@ public abstract class CcModule
     return o instanceof Depset
         ? Depset.cast(o, type, fieldName)
         : NestedSetBuilder.wrap(Order.COMPILE_ORDER, Sequence.cast(o, type, fieldName));
-  }
-
-  @Override
-  public CcToolchainConfigInfo ccToolchainConfigInfoFromStarlark(
-      StarlarkRuleContext starlarkRuleContext,
-      Sequence<?> features, // <StarlarkInfo> expected
-      Sequence<?> actionConfigs, // <StarlarkInfo> expected
-      Sequence<?> artifactNamePatterns, // <StarlarkInfo> expected
-      Sequence<?> cxxBuiltInIncludeDirectoriesUnchecked, // <String> expected
-      String toolchainIdentifier,
-      Object hostSystemName,
-      Object targetSystemName,
-      Object targetCpu,
-      Object targetLibc,
-      String compiler,
-      Object abiVersion,
-      Object abiLibcVersion,
-      Sequence<?> toolPaths, // <StarlarkInfo> expected
-      Sequence<?> makeVariables, // <StarlarkInfo> expected
-      Object builtinSysroot,
-      StarlarkThread thread)
-      throws EvalException {
-    checkPrivateStarlarkificationAllowlist(thread);
-    List<String> cxxBuiltInIncludeDirectories =
-        Sequence.cast(
-            cxxBuiltInIncludeDirectoriesUnchecked, String.class, "cxx_builtin_include_directories");
-
-    ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
-    for (Object feature : features) {
-      checkRightStarlarkInfoProvider(feature, "features", "FeatureInfo");
-      featureBuilder.add(featureFromStarlark((StarlarkInfo) feature));
-    }
-    ImmutableList<Feature> featureList = featureBuilder.build();
-
-    OS execOs = starlarkRuleContext.getRuleContext().getExecutionPlatformOs();
-    ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
-    for (Object actionConfig : actionConfigs) {
-      checkRightStarlarkInfoProvider(actionConfig, "action_configs", "ActionConfigInfo");
-      actionConfigBuilder.add(actionConfigFromStarlark((StarlarkInfo) actionConfig, execOs));
-    }
-    ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
-
-    CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
-        new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
-    for (Object artifactNamePattern : artifactNamePatterns) {
-      checkRightStarlarkInfoProvider(
-          artifactNamePattern, "artifact_name_patterns", "ArtifactNamePatternInfo");
-      artifactNamePatternFromStarlark(
-          (StarlarkInfo) artifactNamePattern, artifactNamePatternBuilder::addOverride);
-    }
-
-    return new CcToolchainConfigInfo(
-        actionConfigList,
-        featureList,
-        artifactNamePatternBuilder.build(),
-        ImmutableList.copyOf(cxxBuiltInIncludeDirectories),
-        toolchainIdentifier,
-        convertFromNoneable(hostSystemName, /* defaultValue= */ ""),
-        convertFromNoneable(targetSystemName, /* defaultValue= */ ""),
-        convertFromNoneable(targetCpu, /* defaultValue= */ ""),
-        convertFromNoneable(targetLibc, /* defaultValue= */ ""),
-        compiler,
-        convertFromNoneable(abiVersion, /* defaultValue= */ ""),
-        convertFromNoneable(abiLibcVersion, /* defaultValue= */ ""),
-        Sequence.cast(toolPaths, StarlarkInfo.class, "tool_paths").getImmutableList(),
-        Sequence.cast(makeVariables, StarlarkInfo.class, "make_variables").getImmutableList(),
-        convertFromNoneable(builtinSysroot, /* defaultValue= */ ""));
-  }
-
-  private static void checkRightStarlarkInfoProvider(
-      Object o, String parameterName, String expectedProvider) throws EvalException {
-    if (!(o instanceof StarlarkInfo)) {
-      throw Starlark.errorf(
-          "'%s' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
-              + " of type '%s' instead of a '%s' provider. Use the methods provided in"
-              + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
-              + " for obtaining the right providers.",
-          parameterName, Starlark.type(o), expectedProvider);
-    }
   }
 
   @FormatMethod

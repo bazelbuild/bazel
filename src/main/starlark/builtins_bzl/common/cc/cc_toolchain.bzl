@@ -19,11 +19,11 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
 
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
-CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 
 def _files(ctx, attr_name):
     attr = getattr(ctx.attr, attr_name, None)

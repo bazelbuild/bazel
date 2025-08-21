@@ -14,200 +14,85 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CcModule.actionConfigFromStarlark;
+import static com.google.devtools.build.lib.rules.cpp.CcModule.featureFromStarlark;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePatternMapper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
-import java.util.List;
-import net.starlark.java.annot.StarlarkMethod;
+import com.google.devtools.build.lib.util.OS;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable
-public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConfigInfoApi {
+public class CcToolchainConfigInfo {
 
   /** Singleton provider instance for {@link CcToolchainConfigInfo}. */
   public static final Provider PROVIDER = new Provider();
 
-  private final ImmutableList<ActionConfig> actionConfigs;
-  private final ImmutableList<Feature> features;
-  private final ArtifactNamePatternMapper artifactNamePatterns;
-  private final ImmutableList<String> cxxBuiltinIncludeDirectories;
+  private final StarlarkInfo actual;
 
-  private final String toolchainIdentifier;
-  private final String hostSystemName;
-  private final String targetSystemName;
-  private final String targetCpu;
-  private final String targetLibc;
-  private final String compiler;
-  private final String abiVersion;
-  private final String abiLibcVersion;
-  private final ImmutableList<StarlarkInfo> toolPaths;
-  private final ImmutableList<StarlarkInfo> makeVariables;
-  private final String builtinSysroot;
-
-  CcToolchainConfigInfo(
-      ImmutableList<ActionConfig> actionConfigs,
-      ImmutableList<Feature> features,
-      ArtifactNamePatternMapper artifactNamePatterns,
-      ImmutableList<String> cxxBuiltinIncludeDirectories,
-      String toolchainIdentifier,
-      String hostSystemName,
-      String targetSystemName,
-      String targetCpu,
-      String targetLibc,
-      String compiler,
-      String abiVersion,
-      String abiLibcVersion,
-      ImmutableList<StarlarkInfo> toolPaths,
-      ImmutableList<StarlarkInfo> makeVariables,
-      String builtinSysroot) {
-    this.actionConfigs = actionConfigs;
-    this.features = features;
-    this.artifactNamePatterns = artifactNamePatterns;
-    this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
-    this.toolchainIdentifier = toolchainIdentifier;
-    this.hostSystemName = hostSystemName;
-    this.targetSystemName = targetSystemName;
-    this.targetCpu = targetCpu;
-    this.targetLibc = targetLibc;
-    this.compiler = compiler;
-    this.abiVersion = abiVersion;
-    this.abiLibcVersion = abiLibcVersion;
-    this.toolPaths = toolPaths;
-    this.makeVariables = makeVariables;
-    this.builtinSysroot = builtinSysroot;
+  CcToolchainConfigInfo(StarlarkInfo actual) {
+    this.actual = actual;
   }
 
-  @Override
-  public Provider getProvider() {
-    return PROVIDER;
+  public ImmutableList<ActionConfig> getActionConfigs() throws EvalException {
+    OS execOs = OS.valueOf(actual.getValue("_exec_os_DO_NOT_USE", String.class));
+    ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
+    for (StarlarkInfo actionConfig :
+        Sequence.cast(
+            actual.getValue("_action_configs_DO_NOT_USE"), StarlarkInfo.class, "_action_configs")) {
+      actionConfigBuilder.add(actionConfigFromStarlark(actionConfig, execOs));
+    }
+    return actionConfigBuilder.build();
   }
 
-  public ImmutableList<ActionConfig> getActionConfigs() {
-    return actionConfigs;
+  public ImmutableList<Feature> getFeatures() throws EvalException {
+    ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
+    for (StarlarkInfo feature :
+        Sequence.cast(actual.getValue("_features_DO_NOT_USE"), StarlarkInfo.class, "_features")) {
+      featureBuilder.add(featureFromStarlark(feature));
+    }
+    return featureBuilder.build();
   }
 
-  public ImmutableList<Feature> getFeatures() {
-    return features;
-  }
-
-  public ArtifactNamePatternMapper getArtifactNamePatterns() {
-    return artifactNamePatterns;
-  }
-
-  @StarlarkMethod(name = "cxx_builtin_include_directories", documented = false, structField = true)
-  public List<String> getCxxBuiltinIncludeDirectoriesForStarlark() {
-    return getCxxBuiltinIncludeDirectories();
-  }
-
-  public ImmutableList<String> getCxxBuiltinIncludeDirectories() {
-    return cxxBuiltinIncludeDirectories;
-  }
-
-  @StarlarkMethod(name = "toolchain_id", documented = false, structField = true)
-  public String getToolchainIdentifierForStarlark() {
-    return getToolchainIdentifier();
-  }
-
-  public String getToolchainIdentifier() {
-    return toolchainIdentifier;
-  }
-
-  @StarlarkMethod(name = "target_system_name", documented = false, structField = true)
-  public String getTargetSystemNameForStarlark() {
-    return getTargetSystemName();
-  }
-
-  public String getTargetSystemName() {
-    return targetSystemName;
-  }
-
-  @StarlarkMethod(name = "target_cpu", documented = false, structField = true)
-  public String getTargetCpuForStarlark() {
-    return getTargetCpu();
-  }
-
-  public String getTargetCpu() {
-    return targetCpu;
-  }
-
-  @StarlarkMethod(name = "target_libc", documented = false, structField = true)
-  public String getTargetLibcForStarlark() {
-    return getTargetLibc();
-  }
-
-  public String getTargetLibc() {
-    return targetLibc;
-  }
-
-  @StarlarkMethod(name = "compiler", documented = false, structField = true)
-  public String getCompilerForStarlark() {
-    return getCompiler();
-  }
-
-  public String getCompiler() {
-    return compiler;
-  }
-
-  @StarlarkMethod(name = "abi_version", documented = false, structField = true)
-  public String getAbiVersionForStarlark() {
-    return getAbiVersion();
-  }
-
-  public String getAbiVersion() {
-    return abiVersion;
-  }
-
-  @StarlarkMethod(name = "abi_libc_version", documented = false, structField = true)
-  public String getAbiLibcVersionForStarlark() {
-    return getAbiLibcVersion();
-  }
-
-  public String getAbiLibcVersion() {
-    return abiLibcVersion;
-  }
-
-  @StarlarkMethod(name = "tool_paths", documented = false, structField = true)
-  public ImmutableList<StarlarkInfo> getToolPathsForStarlark() {
-    return getToolPaths();
-  }
-
-  /** Returns a list of paths of the tools in the form Pair<toolName, path>. */
-  public ImmutableList<StarlarkInfo> getToolPaths() {
-    return toolPaths;
-  }
-
-  @StarlarkMethod(name = "make_variables", documented = false, structField = true)
-  public ImmutableList<StarlarkInfo> getMakevariablesForStarlark() {
-    return getMakeVariables();
-  }
-
-  /** Returns a list of make variables that have the form Pair<name, value>. */
-  public ImmutableList<StarlarkInfo> getMakeVariables() {
-    return makeVariables;
-  }
-
-  @StarlarkMethod(name = "builtin_sysroot", documented = false, structField = true)
-  public String getBuiltinSysrootForStarlark() {
-    return getBuiltinSysroot();
-  }
-
-  public String getBuiltinSysroot() {
-    return builtinSysroot;
+  public ArtifactNamePatternMapper getArtifactNamePatterns() throws EvalException {
+    CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
+        new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
+    for (StarlarkInfo artifactNamePattern :
+        Sequence.cast(
+            actual.getValue("_artifact_name_patterns_DO_NOT_USE"),
+            StarlarkInfo.class,
+            "_artifact_name_patterns")) {
+      CcModule.artifactNamePatternFromStarlark(
+          artifactNamePattern, artifactNamePatternBuilder::addOverride);
+    }
+    return artifactNamePatternBuilder.build();
   }
 
   /** Provider class for {@link CcToolchainConfigInfo} objects. */
-  public static class Provider extends BuiltinProvider<CcToolchainConfigInfo>
-      implements CcToolchainConfigInfoApi.Provider {
+  public static class Provider extends StarlarkProviderWrapper<CcToolchainConfigInfo> {
 
     private Provider() {
-      super("CcToolchainConfigInfo", CcToolchainConfigInfo.class);
+      super(
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked(
+                  "@_builtins//:common/cc/toolchain_config/cc_toolchain_config_info.bzl")),
+          "CcToolchainConfigInfo");
+    }
+
+    @Override
+    public CcToolchainConfigInfo wrap(Info value) throws RuleErrorException {
+      return new CcToolchainConfigInfo((StarlarkInfo) value);
     }
   }
 }

@@ -211,10 +211,11 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "tools_directory", positional = false, named = true),
       })
   public CcToolchainFeatures ccToolchainFeatures(
-      CcToolchainConfigInfo ccToolchainConfigInfo, String toolsDirectoryPathString)
-      throws EvalException {
+      StarlarkInfo ccToolchainConfigInfo, String toolsDirectoryPathString)
+      throws EvalException, RuleErrorException {
     return new CcToolchainFeatures(
-        ccToolchainConfigInfo, PathFragment.create(toolsDirectoryPathString));
+        CcToolchainConfigInfo.PROVIDER.wrap(ccToolchainConfigInfo),
+        PathFragment.create(toolsDirectoryPathString));
   }
 
   @StarlarkMethod(
@@ -552,6 +553,14 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public StarlarkRuleContext getStarlarkRuleContext(StarlarkActionFactory actions) {
     return actions.getRuleContext().getStarlarkRuleContext();
+  }
+
+  @StarlarkMethod(
+      name = "exec_os",
+      documented = false,
+      parameters = {@Param(name = "ctx")})
+  public String getExecOs(StarlarkRuleContext ctx) {
+    return ctx.getRuleContext().getExecutionPlatformOs().name();
   }
 
   @StarlarkMethod(

@@ -22,7 +22,35 @@ load(
 )
 load(":common/paths.bzl", "paths")
 
-_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
+
+def _init(**_kwargs):
+    fail("CcToolchainConfigInfo can only be instantiated via cc_common.create_cc_toolchain_config_info()")
+
+CcToolchainConfigInfo, _new_cc_toolchain_config_info = provider(
+    "Additional layer of configurability for C++ rules. Encapsulates platform-dependent " +
+    "specifics of C++ actions through features and action configs. It is used to " +
+    "configure the C++ toolchain, and later on for command line construction. " +
+    "Replaces the functionality of CROSSTOOL file.",
+    fields = [
+        "_action_configs_DO_NOT_USE",
+        "_artifact_name_patterns_DO_NOT_USE",
+        "_exec_os_DO_NOT_USE",
+        "_features_DO_NOT_USE",
+        "abi_libc_version",
+        "abi_version",
+        "builtin_sysroot",
+        "compiler",
+        "cxx_builtin_include_directories",
+        "make_variables",
+        "target_cpu",
+        "target_libc",
+        "target_system_name",
+        "tool_paths",
+        "toolchain_id",
+    ],
+    init = _init,
+)
 
 # buildifier: disable=function-docstring
 def create_cc_toolchain_config_info(
@@ -34,6 +62,7 @@ def create_cc_toolchain_config_info(
         action_configs = [],
         artifact_name_patterns = [],
         cxx_builtin_include_directories = [],
+        # buildifier: disable=unused-variable
         host_system_name = None,
         target_system_name = None,
         target_cpu = None,
@@ -92,21 +121,20 @@ def create_cc_toolchain_config_info(
         features = legacy_features
         action_configs = legacy_action_configs
 
-    return _cc_common_internal.create_cc_toolchain_config_info(
-        ctx = ctx,
-        toolchain_identifier = toolchain_identifier,
-        target_system_name = target_system_name,
-        target_cpu = target_cpu,
-        target_libc = target_libc,
+    return _new_cc_toolchain_config_info(
+        _action_configs_DO_NOT_USE = action_configs,
+        _artifact_name_patterns_DO_NOT_USE = artifact_name_patterns,
+        _features_DO_NOT_USE = features,
+        _exec_os_DO_NOT_USE = _cc_internal.exec_os(ctx),
+        abi_libc_version = abi_libc_version or "",
+        abi_version = abi_version or "",
+        builtin_sysroot = builtin_sysroot or "",
         compiler = compiler,
-        features = features,
-        action_configs = action_configs,
-        artifact_name_patterns = artifact_name_patterns,
         cxx_builtin_include_directories = cxx_builtin_include_directories,
-        host_system_name = host_system_name,
-        abi_version = abi_version,
-        abi_libc_version = abi_libc_version,
-        tool_paths = tool_paths,
         make_variables = make_variables,
-        builtin_sysroot = builtin_sysroot,
+        target_cpu = target_cpu or "",
+        target_libc = target_libc or "",
+        target_system_name = target_system_name or "",
+        tool_paths = tool_paths,
+        toolchain_id = toolchain_identifier,
     )

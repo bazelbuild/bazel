@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
@@ -61,8 +60,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
     builder.addRuleDefinition(new EmptyRule("propeller_optimize") {});
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
-    builder.addStarlarkBootstrap(
-        new CcBootstrap(bazelCcModule, CcInfo.PROVIDER, CcToolchainConfigInfo.PROVIDER));
+    builder.addStarlarkBootstrap(new CcBootstrap(bazelCcModule, CcInfo.PROVIDER));
   }
 
   @Override
