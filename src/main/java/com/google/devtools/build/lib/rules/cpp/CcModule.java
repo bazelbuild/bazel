@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -1005,7 +1004,7 @@ public abstract class CcModule
         getOptionalFieldFromStarlarkProvider(toolStruct, "tool", Artifact.class);
 
     PathFragment toolPath;
-    CToolchain.Tool.PathOrigin toolPathOrigin;
+    CcToolchainFeatures.Tool.PathOrigin toolPathOrigin;
     if (toolPathString != null) {
       if (toolArtifact != null) {
         throw infoError(toolStruct, "\"tool\" and \"path\" cannot be set at the same time.");
@@ -1017,13 +1016,13 @@ public abstract class CcModule
       }
 
       if (toolPath.isAbsolute()) {
-        toolPathOrigin = CToolchain.Tool.PathOrigin.FILESYSTEM_ROOT;
+        toolPathOrigin = CcToolchainFeatures.Tool.PathOrigin.FILESYSTEM_ROOT;
       } else {
-        toolPathOrigin = CToolchain.Tool.PathOrigin.CROSSTOOL_PACKAGE;
+        toolPathOrigin = CcToolchainFeatures.Tool.PathOrigin.CROSSTOOL_PACKAGE;
       }
     } else if (toolArtifact != null) {
       toolPath = toolArtifact.getExecPath();
-      toolPathOrigin = CToolchain.Tool.PathOrigin.WORKSPACE_ROOT;
+      toolPathOrigin = CcToolchainFeatures.Tool.PathOrigin.WORKSPACE_ROOT;
     } else {
       throw Starlark.errorf("Exactly one of \"tool\" and \"path\" must be set.");
     }

@@ -22,7 +22,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,13 +37,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SingleVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -214,13 +211,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableList<StringChunk> valueChunks;
     private final ImmutableSet<String> expandIfAllAvailable;
 
-    private EnvEntry(CToolchain.EnvEntry envEntry) throws EvalException {
-      this.key = envEntry.getKey();
-      StringValueParser parser = new StringValueParser(envEntry.getValue());
-      this.valueChunks = parser.getChunks();
-      this.expandIfAllAvailable = ImmutableSet.copyOf(envEntry.getExpandIfAllAvailableList());
-    }
-
     EnvEntry(
         String key,
         ImmutableList<StringChunk> valueChunks,
@@ -325,41 +315,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final String expandIfTrue;
     private final String expandIfFalse;
     private final VariableWithValue expandIfEqual;
-
-    private FlagGroup(CToolchain.FlagGroup flagGroup) throws EvalException {
-      ImmutableList.Builder<Expandable> expandables = ImmutableList.builder();
-      Collection<String> flags = flagGroup.getFlagList();
-      Collection<CToolchain.FlagGroup> groups = flagGroup.getFlagGroupList();
-      if (!flags.isEmpty() && !groups.isEmpty()) {
-        // If both flags and flag_groups are available, the original order is not preservable.
-        throw new ExpansionException(
-            "Invalid toolchain configuration: a flag_group must not contain both a flag "
-                + "and another flag_group.");
-      }
-      for (String flag : flags) {
-        StringValueParser parser = new StringValueParser(flag);
-        expandables.add(Flag.create(parser.getChunks()));
-      }
-      for (CToolchain.FlagGroup group : groups) {
-        FlagGroup subgroup = new FlagGroup(group);
-        expandables.add(subgroup);
-      }
-      if (flagGroup.hasIterateOver()) {
-        this.iterateOverVariable = flagGroup.getIterateOver();
-      }
-      this.expandables = expandables.build();
-      this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
-      this.expandIfNoneAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfNoneAvailableList());
-      this.expandIfTrue = Strings.emptyToNull(flagGroup.getExpandIfTrue());
-      this.expandIfFalse = Strings.emptyToNull(flagGroup.getExpandIfFalse());
-      if (flagGroup.hasExpandIfEqual()) {
-        this.expandIfEqual = new VariableWithValue(
-            flagGroup.getExpandIfEqual().getVariable(),
-            flagGroup.getExpandIfEqual().getValue());
-      } else {
-        this.expandIfEqual = null;
-      }
-    }
 
     FlagGroup(
         ImmutableList<Expandable> expandables,
@@ -546,26 +501,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
 
-    private FlagSet(CToolchain.FlagSet flagSet) throws EvalException {
-      this(flagSet, ImmutableSet.copyOf(flagSet.getActionList()));
-    }
-
-    /** Constructs a FlagSet for the given set of actions. */
-    private FlagSet(CToolchain.FlagSet flagSet, ImmutableSet<String> actions) throws EvalException {
-      this.actions = actions;
-      this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
-      ImmutableSet.Builder<WithFeatureSet> featureSetBuilder = ImmutableSet.builder();
-      for (CToolchain.WithFeatureSet withFeatureSet : flagSet.getWithFeatureList()) {
-        featureSetBuilder.add(new WithFeatureSet(withFeatureSet));
-      }
-      this.withFeatureSets = featureSetBuilder.build();
-      ImmutableList.Builder<FlagGroup> builder = ImmutableList.builder();
-      for (CToolchain.FlagGroup flagGroup : flagSet.getFlagGroupList()) {
-        builder.add(new FlagGroup(flagGroup));
-      }
-      this.flagGroups = builder.build();
-    }
-
     FlagSet(
         ImmutableSet<String> actions,
         ImmutableSet<String> expandIfAllAvailable,
@@ -644,11 +579,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableSet<String> features;
     private final ImmutableSet<String> notFeatures;
 
-    private WithFeatureSet(CToolchain.WithFeatureSet withFeatureSet) {
-      this.features = ImmutableSet.copyOf(withFeatureSet.getFeatureList());
-      this.notFeatures = ImmutableSet.copyOf(withFeatureSet.getNotFeatureList());
-    }
-
     WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
       this.features = features;
       this.notFeatures = notFeatures;
@@ -686,21 +616,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
-
-    private EnvSet(CToolchain.EnvSet envSet) throws EvalException {
-      this.actions = ImmutableSet.copyOf(envSet.getActionList());
-      ImmutableList.Builder<EnvEntry> builder = ImmutableList.builder();
-      for (CToolchain.EnvEntry envEntry : envSet.getEnvEntryList()) {
-        builder.add(new EnvEntry(envEntry));
-      }
-      ImmutableSet.Builder<WithFeatureSet> withFeatureSetsBuilder = ImmutableSet.builder();
-      for (CToolchain.WithFeatureSet withFeatureSet : envSet.getWithFeatureList()) {
-        withFeatureSetsBuilder.add(new WithFeatureSet(withFeatureSet));
-      }
-
-      this.envEntries = builder.build();
-      this.withFeatureSets = withFeatureSetsBuilder.build();
-    }
 
     EnvSet(
         ImmutableSet<String> actions,
@@ -792,31 +707,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableList<ImmutableSet<String>> requires;
     private final ImmutableList<String> implies;
     private final ImmutableList<String> provides;
-
-    Feature(CToolchain.Feature feature) throws EvalException {
-      this.name = feature.getName();
-      ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
-      for (CToolchain.FlagSet flagSet : feature.getFlagSetList()) {
-        flagSetBuilder.add(new FlagSet(flagSet));
-      }
-      this.flagSets = flagSetBuilder.build();
-
-      ImmutableList.Builder<EnvSet> envSetBuilder = ImmutableList.builder();
-      for (CToolchain.EnvSet flagSet : feature.getEnvSetList()) {
-        envSetBuilder.add(new EnvSet(flagSet));
-      }
-      this.envSets = envSetBuilder.build();
-      this.enabled = feature.getEnabled();
-
-      ImmutableList.Builder<ImmutableSet<String>> requiresBuilder = ImmutableList.builder();
-      for (CToolchain.FeatureSet requiresFeatureSet : feature.getRequiresList()) {
-        ImmutableSet<String> featureSet = ImmutableSet.copyOf(requiresFeatureSet.getFeatureList());
-        requiresBuilder.add(featureSet);
-      }
-      this.requires = requiresBuilder.build();
-      this.implies = ImmutableList.copyOf(feature.getImpliesList());
-      this.provides = ImmutableList.copyOf(feature.getProvidesList());
-    }
 
     public Feature(
         String name,
@@ -927,27 +817,24 @@ public class CcToolchainFeatures implements StarlarkValue {
    */
   @Immutable
   public static class Tool {
+    enum PathOrigin {
+      CROSSTOOL_PACKAGE,
+      FILESYSTEM_ROOT,
+      WORKSPACE_ROOT
+    }
+
     private final PathFragment toolPathFragment;
-    private final CToolchain.Tool.PathOrigin toolPathOrigin;
+    private final PathOrigin toolPathOrigin;
     private final ImmutableSet<String> executionRequirements;
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
     // Caching tool path string.
     @Nullable private String toolPathString = null;
 
-    private Tool(CToolchain.Tool tool, ImmutableSet<WithFeatureSet> withFeatureSetSets)
-        throws EvalException {
-      this(
-          PathFragment.create(tool.getToolPath()),
-          tool.getToolPathOrigin(),
-          ImmutableSet.copyOf(tool.getExecutionRequirementList()),
-          withFeatureSetSets);
-    }
-
     @VisibleForTesting
     public Tool(
         PathFragment toolPathFragment,
-        CToolchain.Tool.PathOrigin toolPathOrigin,
+        PathOrigin toolPathOrigin,
         ImmutableSet<String> executionRequirements,
         ImmutableSet<WithFeatureSet> withFeatureSetSets)
         throws EvalException {
@@ -967,12 +854,12 @@ public class CcToolchainFeatures implements StarlarkValue {
         throws EvalException {
       this(
           toolPathFragment,
-          CToolchain.Tool.PathOrigin.CROSSTOOL_PACKAGE,
+          PathOrigin.CROSSTOOL_PACKAGE,
           executionRequirements,
           withFeatureSetSets);
     }
 
-    private static void checkToolPath(PathFragment toolPath, CToolchain.Tool.PathOrigin origin)
+    private static void checkToolPath(PathFragment toolPath, PathOrigin origin)
         throws EvalException {
       switch (origin) {
         case CROSSTOOL_PACKAGE:
@@ -1033,7 +920,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       return toolPathFragment;
     }
 
-    CToolchain.Tool.PathOrigin getToolPathOrigin() {
+    PathOrigin getToolPathOrigin() {
       return toolPathOrigin;
     }
   }
@@ -1074,34 +961,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableList<FlagSet> flagSets;
     private final boolean enabled;
     private final ImmutableList<String> implies;
-
-    ActionConfig(CToolchain.ActionConfig actionConfig) throws EvalException {
-      this.configName = actionConfig.getConfigName();
-      this.actionName = actionConfig.getActionName();
-
-      ImmutableList.Builder<Tool> tools = ImmutableList.builder();
-      for (CToolchain.Tool tool : actionConfig.getToolList()) {
-        ImmutableSet<WithFeatureSet> withFeatureSetSets =
-            tool.getWithFeatureList().stream()
-                .map(f -> new WithFeatureSet(f))
-                .collect(ImmutableSet.toImmutableSet());
-        tools.add(new Tool(tool, withFeatureSetSets));
-      }
-      this.tools = tools.build();
-
-      ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
-      for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
-        if (!flagSet.getActionList().isEmpty()) {
-          throw Starlark.errorf(FLAG_SET_WITH_ACTION_ERROR, configName);
-        }
-
-        flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
-      }
-      this.flagSets = flagSetBuilder.build();
-
-      this.enabled = actionConfig.getEnabled();
-      this.implies = ImmutableList.copyOf(actionConfig.getImpliesList());
-    }
 
     public ActionConfig(
         String configName,

@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,13 +36,10 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Sequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueAdapter;
-import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Objects;
@@ -214,17 +210,6 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
     new SerializationTester(emptyConfiguration, emptyFeatures, featuresWithFlags, featureWithEnvSet)
         .runTests();
-  }
-
-  @Test
-  public void testCrosstoolProtoCanBeSerialized() throws Exception {
-    ObjectCodecs objectCodecs =
-        new ObjectCodecs(AutoRegistry.get().getBuilder().build(), ImmutableClassToInstanceMap.of());
-    objectCodecs.serialize(CToolchain.WithFeatureSet.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.VariableWithValue.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.FlagGroup.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.FlagSet.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.EnvSet.getDefaultInstance());
   }
 
   @Test
