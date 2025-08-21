@@ -98,7 +98,7 @@ public class BulkTransferException extends IOException {
           actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
     }
-    var byDigest = byDigestBuilder.buildOrThrow();
+    var byDigest = byDigestBuilder.buildKeepingLast();
     return new LostArtifacts(byDigest, Optional.empty());
   }
 
