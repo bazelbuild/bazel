@@ -26,8 +26,11 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.devtools.build.lib.util.ThreadDumpAnalyzer;
 import com.google.devtools.build.lib.util.ThreadDumper;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -125,17 +128,25 @@ public final class ThreadDumpModule extends BlazeModule {
           return;
         }
 
+        var bos = new ByteArrayOutputStream();
+        try (var sc = Profiler.instance().profile("Dumping threads")) {
+          ThreadDumper.dumpThreads(bos);
+        } catch (IOException e) {
+          logger.atWarning().withCause(e).log("Failed to dump threads.");
+        }
+
         String formattedTime =
             Instant.ofEpochMilli(clock.currentTimeMillis())
                 .atZone(ZoneOffset.UTC)
                 .format(TIME_FORMAT);
         Path dumpFile =
             dumpDirectory.getChild(String.format("thread_dump.%d.%s.txt", pid, formattedTime));
-        try (var sc = Profiler.instance().profile("Dumping threads");
+        var analyzer = new ThreadDumpAnalyzer();
+        try (var sc = Profiler.instance().profile("Analyzing thread dump");
             var out = dumpFile.getOutputStream()) {
-          ThreadDumper.dumpThreads(out);
+          analyzer.analyze(new ByteArrayInputStream(bos.toByteArray()), out);
         } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Failed to dump threads.");
+          logger.atWarning().withCause(e).log("Failed to analyze threads.");
         }
       }
     }

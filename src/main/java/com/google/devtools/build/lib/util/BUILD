@@ -487,6 +487,11 @@ java_library(
 )
 
 java_library(
+    name = "thread_dump_analyzer",
+    srcs = ["ThreadDumpAnalyzer.java"],
+)
+
+java_library(
     name = "value_or_exception",
     srcs = ["ValueOrException.java"],
     deps = [
