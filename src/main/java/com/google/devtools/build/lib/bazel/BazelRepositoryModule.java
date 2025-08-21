@@ -205,8 +205,9 @@ public class BazelRepositoryModule extends BlazeModule {
     // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
     if ("bazel".equals(runtime.getProductName())) {
       builder.setSkyframeExecutorRepositoryHelpersHolder(
-          SkyframeExecutorRepositoryHelpersHolder.create(
-              new RepositoryDirectoryDirtinessChecker()));
+          new SkyframeExecutorRepositoryHelpersHolder(
+              new RepositoryDirectoryDirtinessChecker(),
+              repositoryCache.getRepoContentsCache()::getPath));
     }
 
     repositoryFetchFunction =

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -36,6 +35,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
@@ -44,6 +44,7 @@ public class ExternalFilesHelper {
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
+  private final Supplier<Path> repoContentsCachePath;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
   private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
@@ -61,35 +62,43 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath,
       int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
+    this.repoContentsCachePath = repoContentsCachePath;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return TestType.isInTest()
-        ? createForTesting(pkgLocator, externalFileAction, directories)
+        ? createForTesting(pkgLocator, externalFileAction, directories, repoContentsCachePath)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /*maxNumExternalFilesToLog=*/ 100);
+            pkgLocator,
+            externalFileAction,
+            directories,
+            repoContentsCachePath,
+            /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
+        repoContentsCachePath,
         // These log lines are mostly spam during unit and integration tests.
-        /*maxNumExternalFilesToLog=*/ 0);
+        /* maxNumExternalFilesToLog= */ 0);
   }
-
 
   /**
    * The action to take when an external path is encountered. See {@link FileType} for the
@@ -161,11 +170,10 @@ public class ExternalFilesHelper {
   }
 
   /**
-   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see
-   * {@link ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
+   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see {@link
+   * ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
    */
-  static class NonexistentImmutableExternalFileException extends Exception {
-  }
+  static class NonexistentImmutableExternalFileException extends Exception {}
 
   static class ExternalFilesKnowledge {
     final boolean anyOutputFilesSeen;
@@ -204,14 +212,14 @@ public class ExternalFilesHelper {
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
     return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
+        pkgLocator,
+        externalFileAction,
+        directories,
+        repoContentsCachePath,
+        maxNumExternalFilesToLog);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
-    return getFileTypeAndRepository(rootedPath).getFirst();
-  }
-
-  private Pair<FileType, RepositoryName> getFileTypeAndRepository(RootedPath rootedPath) {
     FileType fileType = detectFileType(rootedPath);
     if (fileType == FileType.EXTERNAL_OTHER) {
       if (externalOtherFilesSeen.size() >= MAX_EXTERNAL_FILES_TO_TRACK) {
@@ -226,7 +234,7 @@ public class ExternalFilesHelper {
     if (FileType.OUTPUT == fileType) {
       anyOutputFilesSeen = true;
     }
-    return Pair.of(fileType, null);
+    return fileType;
   }
 
   /**
@@ -245,6 +253,13 @@ public class ExternalFilesHelper {
     Path outputBase = packageLocator.getOutputBase();
     if (outputBase == null) {
       return FileType.EXTERNAL_OTHER;
+    }
+    // If using the repo contents cache, external repo directories are symlinks into the cache. The
+    // contents of the cache may be updated during a build and thus have to be treated just like
+    // regular external repo files for invalidation.
+    if (repoContentsCachePath.get() != null
+        && rootedPath.asPath().startsWith(repoContentsCachePath.get())) {
+      return FileType.EXTERNAL_REPO;
     }
     if (rootedPath.asPath().startsWith(outputBase)) {
       Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
@@ -267,9 +282,7 @@ public class ExternalFilesHelper {
   @ThreadSafe
   FileType maybeHandleExternalFile(RootedPath rootedPath, SkyFunction.Environment env)
       throws NonexistentImmutableExternalFileException, IOException, InterruptedException {
-    Pair<FileType, RepositoryName> pair = getFileTypeAndRepository(rootedPath);
-
-    FileType fileType = Preconditions.checkNotNull(pair.getFirst());
+    FileType fileType = Preconditions.checkNotNull(getAndNoteFileType(rootedPath));
     switch (fileType) {
       case BUNDLED:
       case INTERNAL:
@@ -278,7 +291,7 @@ public class ExternalFilesHelper {
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
           logger.atInfo().log("Encountered an external path %s", rootedPath);
         }
-        // fall through
+      // fall through
       case OUTPUT:
         if (externalFileAction
             == ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS) {
@@ -289,7 +302,7 @@ public class ExternalFilesHelper {
         Preconditions.checkState(
             externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             externalFileAction);
-        addExternalFilesDependencies(rootedPath, directories, env);
+        addExternalFilesDependencies(rootedPath, directories, repoContentsCachePath.get(), env);
         break;
     }
     return fileType;
@@ -307,23 +320,47 @@ public class ExternalFilesHelper {
    * encourage nor optimize for since it is not common. So the set of external files is small.
    */
   private static void addExternalFilesDependencies(
-      RootedPath rootedPath, BlazeDirectories directories, Environment env)
+      RootedPath rootedPath,
+      BlazeDirectories directories,
+      Path repoContentsCachePath,
+      Environment env)
       throws InterruptedException {
+    RepositoryName repositoryName;
     Path externalRepoDir =
         directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
-    if (repositoryPath.isEmpty()) {
-      // We are the top of the repository path (<outputBase>/external), not in an actual external
-      // repository path.
+    if (rootedPath.asPath().startsWith(externalRepoDir)) {
+      PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
+      if (repositoryPath.isEmpty()) {
+        // We are the top of the repository path (<outputBase>/external), not in an actual external
+        // repository path.
+        return;
+      }
+      try {
+        repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
+      } catch (LabelSyntaxException ignored) {
+        // The directory of a repository with an invalid name can never exist, so we don't need to
+        // add a dependency on it.
+        return;
+      }
+    } else {
       return;
-    }
-    RepositoryName repositoryName;
-    try {
-      repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
-    } catch (LabelSyntaxException ignored) {
-      // The directory of a repository with an invalid name can never exist, so we don't need to
-      // add a dependency on it.
-      return;
+//      PathFragment cachePath = rootedPath.asPath().relativeTo(repoContentsCachePath);
+//      if (cachePath.isEmpty()) {
+//        // We are at the top of the repo contents cache path, not in an actual external repo.
+//        return;
+//      }
+//      try {
+//        String firstSegment = cachePath.getSegment(0);
+//        if (!firstSegment.contains(".")) {
+//          return;
+//        }
+//        repositoryName =
+//            RepositoryName.create(firstSegment.substring(0, firstSegment.lastIndexOf('.')));
+//      } catch (LabelSyntaxException e) {
+//        // The directory of a repository with an invalid name can never exist, so we don't need to
+//        // add a dependency on it.
+//        return;
+//      }
     }
     env.getValue(RepositoryDirectoryValue.key(repositoryName));
   }

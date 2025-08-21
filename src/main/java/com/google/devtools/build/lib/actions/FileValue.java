@@ -144,6 +144,9 @@ public interface FileValue extends SkyValue {
   /** Returns a key for building a file value for the given root-relative path. */
   @ThreadSafe
   static FileKey key(RootedPath rootedPath) {
+    if (rootedPath.asPath().getPathString().contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+      new Throwable().printStackTrace();
+    }
     return FileKey.create(rootedPath);
   }
 

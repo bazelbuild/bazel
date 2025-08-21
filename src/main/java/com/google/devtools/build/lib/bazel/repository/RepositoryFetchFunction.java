@@ -147,6 +147,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
     @Nullable FetchResult result;
+    @Nullable Path cacheRepoDir;
   }
 
   @Nullable
@@ -159,6 +160,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
     }
 
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
+    if (repositoryName.getName().contains("my_repo")) {
+      System.err.println("compute for " + repositoryName);
+    }
     if (!repositoryName.isVisible()) {
       return new Failure(
           String.format(
@@ -226,6 +230,23 @@ public final class RepositoryFetchFunction implements SkyFunction {
       String predeclaredInputHash =
           DigestWriter.computePredeclaredInputHash(repoDefinition, starlarkSemantics);
 
+      var state = env.getState(State::new);
+      if (repositoryName.getName().contains("my_repo")) {
+        System.err.println(
+            "state.result: " + state.result + ", cacheRepoDir: " + state.cacheRepoDir);
+      }
+      if (state.result != null && state.cacheRepoDir != null) {
+        var value = registerCachedRepoDir(env, state.cacheRepoDir);
+        if (value == null) {
+          if (repositoryName.getName().contains("my_repo")) {
+            System.err.println("restart for finalized repo contents cache registration");
+          }
+          return null;
+        }
+        if (repositoryName.getName().contains("my_repo")) {
+          System.err.printf("Done restart: %s %s %s%n", value, repositoryName, state.cacheRepoDir);
+        }
+      }
       if (shouldUseCachedRepoContents(env, repoDefinition)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(env);
@@ -241,11 +262,17 @@ public final class RepositoryFetchFunction implements SkyFunction {
         if (repoContentsCache.isEnabled()) {
           for (CandidateRepo candidate :
               repoContentsCache.getCandidateRepos(predeclaredInputHash)) {
+            if (repositoryName.getName().contains("my_repo")) {
+              System.err.println(candidate);
+            }
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     env, candidate.recordedInputsFile());
             if (repoState == null) {
               return null;
+            }
+            if (repositoryName.getName().contains("my_repo")) {
+              System.err.println(repoState + " for " + candidate.contentsDir());
             }
             if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
               if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
@@ -291,14 +318,18 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     e),
                 Transience.TRANSIENT);
           }
+          env.getState(State::new).cacheRepoDir = cachedRepoDir;
           // Don't forget to register a FileValue on the cache repo dir, so that we know to refetch
           // if the cache entry gets GC'd from under us.
-          if (env.getValue(
-                  FileValue.key(
-                      RootedPath.toRootedPath(
-                          Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
-              == null) {
+          FileValue value;
+          if ((value = registerCachedRepoDir(env, cachedRepoDir)) == null) {
+            if (repositoryName.getName().contains("my_repo")) {
+              System.err.println("restart for repo contents cache registration");
+            }
             return null;
+          }
+          if (repositoryName.getName().contains("my_repo")) {
+            System.err.printf("Done: %s %s %s%n", value, repositoryName, cachedRepoDir);
           }
         }
         return new RepositoryDirectoryValue.Success(
@@ -327,6 +358,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return new RepositoryDirectoryValue.Success(
           repoRoot, /* isFetchingDelayed= */ true, excludeRepoFromVendoring);
     }
+  }
+
+  private static FileValue registerCachedRepoDir(Environment env, Path cachedRepoDir)
+      throws InterruptedException {
+    return (FileValue)
+        env.getValue(
+            FileValue.key(
+                RootedPath.toRootedPath(
+                    Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)));
   }
 
   @Nullable
@@ -414,6 +454,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private boolean shouldUseCachedRepoContents(Environment env, RepoDefinition repoDefinition)
       throws InterruptedException {
     if (env.getState(State::new).result != null) {
+      if (((String) repoDefinition.getValue("name")).contains("my_repo")) {
+        System.err.println("Just cached result, using it: " + env.getState(State::new).result);
+      }
       // If this SkyFunction has finished fetching once, then we should always use the cached
       // result. This means that we _very_ recently (as in, in the same command invocation) fetched
       // this repo (possibly with --force or --configure), and are only here again due to a Skyframe
@@ -498,6 +541,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
       var state = env.getState(State::new);
+      if (repoDefinition.name().contains("my_repo")) {
+        System.err.println(
+            "fetching "
+                + repoDefinition.name()
+                + " with state: "
+                + state.result
+                + " "
+                + state.cacheRepoDir);
+      }
       if (state.result != null) {
         // Escape early if we've already finished fetching once. This can happen if
         // a Skyframe restart is triggered _after_ fetch() is finished.

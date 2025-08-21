@@ -53,12 +53,13 @@ public class TargetPatternFunction implements SkyFunction {
         ((TargetPatternValue.TargetPatternKey) key.argument());
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
-    IgnoredSubdirectoriesValue ignoredSubdirectories =
-        (IgnoredSubdirectoriesValue)
-            env.getValue(IgnoredSubdirectoriesValue.key(parsedPattern.getRepository()));
-    if (ignoredSubdirectories == null) {
-      return null;
-    }
+    IgnoredSubdirectoriesValue ignoredSubdirectories = IgnoredSubdirectoriesValue.EMPTY;
+    //    IgnoredSubdirectoriesValue ignoredSubdirectories =
+    //        (IgnoredSubdirectoriesValue)
+    //            env.getValue(IgnoredSubdirectoriesValue.key(parsedPattern.getRepository()));
+    //    if (ignoredSubdirectories == null) {
+    //      return null;
+    //    }
 
     ResolvedTargets<Target> resolvedTargets;
     EnvironmentBackedRecursivePackageProvider provider =

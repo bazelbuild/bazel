@@ -279,6 +279,10 @@ public class SkyfocusExecutor {
     // may be an issue with packages from a different package_path root.
     // TODO: b/312819241  - handle multiple package_path roots.
     Root packageRoot = pkgLocator.getPathEntries().get(0);
-    return RootedPath.toRootedPath(packageRoot, PathFragment.create(rootRelativePathFragment));
+    var rootedPath = RootedPath.toRootedPath(packageRoot, PathFragment.create(rootRelativePathFragment));
+    if (rootedPath.asPath().getPathString().contains("f78d5ae0e15b74c9722b97fef389903af16c5e20703516d2a391624758aa24ac")) {
+      new Throwable().printStackTrace();
+    }
+    return rootedPath;
   }
 }

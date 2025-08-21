@@ -42,8 +42,9 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
   protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
     // Transitive packages are needed for RepoMappingManifestAction and are only stored when
     // external repositories are enabled.
-    return SkyframeExecutorRepositoryHelpersHolder.create(
-        new RepositoryDirectoryDirtinessChecker());
+    RepositoryDirectoryDirtinessChecker repositoryDirectoryDirtinessChecker = new RepositoryDirectoryDirtinessChecker();
+    return new SkyframeExecutorRepositoryHelpersHolder(
+        repositoryDirectoryDirtinessChecker, null);
   }
 
   /**
