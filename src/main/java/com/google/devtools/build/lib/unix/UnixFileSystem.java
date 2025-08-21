@@ -91,18 +91,12 @@ public class UnixFileSystem extends AbstractFileSystem {
    * {@link com.google.devtools.build.lib.vfs.Dirent.Type}.
    */
   private static Dirent.Type convertToDirentType(Dirents.Type type) {
-    switch (type) {
-      case FILE:
-        return Dirent.Type.FILE;
-      case DIRECTORY:
-        return Dirent.Type.DIRECTORY;
-      case SYMLINK:
-        return Dirent.Type.SYMLINK;
-      case UNKNOWN:
-        return Dirent.Type.UNKNOWN;
-      default:
-        throw new IllegalArgumentException("Unknown type " + type);
-    }
+    return switch (type) {
+      case FILE -> Dirent.Type.FILE;
+      case DIRECTORY -> Dirent.Type.DIRECTORY;
+      case SYMLINK -> Dirent.Type.SYMLINK;
+      case UNKNOWN -> Dirent.Type.UNKNOWN;
+    };
   }
 
   @Override
