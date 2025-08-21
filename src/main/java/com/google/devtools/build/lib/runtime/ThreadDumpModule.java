@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -28,7 +29,7 @@ import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.lib.util.ThreadDumpAnalyzer;
 import com.google.devtools.build.lib.util.ThreadDumper;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -81,12 +82,20 @@ public final class ThreadDumpModule extends BlazeModule {
                   .build()),
           e);
     }
+    var outputBaseRelativeDumpDirectory =
+        dumpDirectory.relativeTo(env.getDirectories().getOutputBase());
 
     var pid = ProcessHandle.current().pid();
     checkState(dumpThread == null);
     dumpThread =
         new Thread(
-            new ThreadDumpTask(pid, clock, new JavaSleeper(), threadDumpInterval, dumpDirectory),
+            new ThreadDumpTask(
+                env,
+                pid,
+                clock,
+                new JavaSleeper(),
+                threadDumpInterval,
+                outputBaseRelativeDumpDirectory),
             "thread-dumper");
     dumpThread.start();
   }
@@ -103,19 +112,26 @@ public final class ThreadDumpModule extends BlazeModule {
   }
 
   private static final class ThreadDumpTask implements Runnable {
+    private final CommandEnvironment env;
     private final long pid;
     private final Clock clock;
     private final Sleeper sleeper;
     private final Duration threadDumpInterval;
-    private final Path dumpDirectory;
+    private final PathFragment outputBaseRelativeDumpDirectory;
 
     private ThreadDumpTask(
-        long pid, Clock clock, Sleeper sleeper, Duration threadDumpInterval, Path dumpDirectory) {
+        CommandEnvironment env,
+        long pid,
+        Clock clock,
+        Sleeper sleeper,
+        Duration threadDumpInterval,
+        PathFragment outputBaseRelativeDumpDirectory) {
+      this.env = env;
       this.pid = pid;
       this.clock = clock;
       this.sleeper = sleeper;
       this.threadDumpInterval = threadDumpInterval;
-      this.dumpDirectory = dumpDirectory;
+      this.outputBaseRelativeDumpDirectory = outputBaseRelativeDumpDirectory;
     }
 
     @Override
@@ -139,16 +155,29 @@ public final class ThreadDumpModule extends BlazeModule {
             Instant.ofEpochMilli(clock.currentTimeMillis())
                 .atZone(ZoneOffset.UTC)
                 .format(TIME_FORMAT);
-        Path dumpFile =
-            dumpDirectory.getChild(String.format("thread_dump.%d.%s.txt", pid, formattedTime));
+        var dumpOutput =
+            createThreadDumpOutput(String.format("thread_dump.%d.%s.txt", pid, formattedTime));
         var analyzer = new ThreadDumpAnalyzer();
         try (var sc = Profiler.instance().profile("Analyzing thread dump");
-            var out = dumpFile.getOutputStream()) {
+            var out = dumpOutput.createOutputStream()) {
           analyzer.analyze(new ByteArrayInputStream(bos.toByteArray()), out);
         } catch (IOException e) {
           logger.atWarning().withCause(e).log("Failed to analyze threads.");
         }
       }
+    }
+
+    private InstrumentationOutput createThreadDumpOutput(String name) {
+      var outputFactory = env.getRuntime().getInstrumentationOutputFactory();
+      return outputFactory.createInstrumentationOutput(
+          /* name= */ name,
+          /* destination= */ outputBaseRelativeDumpDirectory.getRelative(name),
+          DestinationRelativeTo.OUTPUT_BASE,
+          env,
+          env.getReporter(),
+          /* append= */ null,
+          /* internal= */ null,
+          /* createParent= */ true);
     }
   }
 }
