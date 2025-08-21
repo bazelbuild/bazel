@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
+import com.google.devtools.build.lib.actions.ActionExecutionInactivityEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -40,6 +41,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.text.NumberFormat;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -220,12 +222,13 @@ public final class ExecutionProgressReceiver
       final AtomicBoolean isBuildingExclusiveArtifacts) {
     return new ActionExecutionInactivityWatchdog.InactivityReporter() {
       @Override
-      public void maybeReportInactivity() {
+      public void maybeReportInactivity(Instant lastActionCompletedAt) {
         // Do not report inactivity if we are currently running an exclusive test or a streaming
         // action (in practice only tests can stream and it implicitly makes them exclusive).
         if (!isBuildingExclusiveArtifacts.get()) {
           statusReporter.showCurrentlyExecutingActions(
               ExecutionProgressReceiver.this.getProgressString() + " ");
+          eventBus.post(new ActionExecutionInactivityEvent(lastActionCompletedAt));
         }
       }
     };

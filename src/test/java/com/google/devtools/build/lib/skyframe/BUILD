@@ -1771,6 +1771,7 @@ java_test(
     srcs = ["ActionExecutionInactivityWatchdogTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],

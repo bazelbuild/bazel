@@ -461,6 +461,7 @@ java_library(
     srcs = ["ActionExecutionInactivityWatchdog.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:guava",
     ],
 )

@@ -574,3 +574,8 @@ java_library(
     name = "total_and_configured_target_only_metric",
     srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
 )
+
+java_library(
+    name = "action_execution_inactivity_event",
+    srcs = ["ActionExecutionInactivityEvent.java"],
+)

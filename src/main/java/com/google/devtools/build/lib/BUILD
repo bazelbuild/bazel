@@ -347,6 +347,7 @@ java_library(
         ":runtime/test_summary_options",
         ":starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_execution_inactivity_event",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
