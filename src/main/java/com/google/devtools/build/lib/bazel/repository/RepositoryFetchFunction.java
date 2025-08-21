@@ -70,9 +70,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SequencedMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -143,7 +145,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
    * @param reproducible Whether the fetched repo contents are reproducible, hence cacheable.
    */
   private record FetchResult(
-      Map<? extends RepoRecordedInput, String> recordedInputValues, Reproducibility reproducible) {}
+      SequencedMap<? extends RepoRecordedInput, String> recordedInputValues,
+      Reproducibility reproducible) {}
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
     @Nullable FetchResult result;
@@ -196,8 +199,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
       }
 
-      DigestWriter digestWriter =
-          new DigestWriter(directories, repositoryName, repoDefinition, starlarkSemantics);
+      var digestWriter =
+          DigestWriter.create(env, directories, repositoryName, repoDefinition, starlarkSemantics);
+      if (digestWriter == null) {
+        return null;
+      }
 
       boolean excludeRepoFromVendoring = true;
       if (RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).isPresent()) { // If vendor mode is on
@@ -223,9 +229,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 || vendorFile.pinnedRepos().contains(repositoryName);
       }
 
-      String predeclaredInputHash =
-          DigestWriter.computePredeclaredInputHash(repoDefinition, starlarkSemantics);
-
       if (shouldUseCachedRepoContents(env, repoDefinition)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(env);
@@ -240,7 +243,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
           for (CandidateRepo candidate :
-              repoContentsCache.getCandidateRepos(predeclaredInputHash)) {
+              repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash)) {
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     env, candidate.recordedInputsFile());
@@ -282,7 +285,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           try {
             cachedRepoDir =
                 repoContentsCache.moveToCache(
-                    repoRoot, digestWriter.markerPath, predeclaredInputHash);
+                    repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
           } catch (IOException e) {
             throw new RepositoryFunctionException(
                 new IOException(
@@ -576,7 +579,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return null;
     }
 
-    Map<RepoRecordedInput, String> recordedInputValues = new LinkedHashMap<>();
+    var recordedInputValues = new LinkedHashMap<RepoRecordedInput, String>();
     RepoMetadata repoMetadata;
     try (Mutability mu = Mutability.create("Starlark repository");
         StarlarkRepositoryContext starlarkRepositoryContext =
@@ -646,8 +649,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
       // Modify marker data to include the files/dirents/env vars used by the rule's implementation
       // function.
-      recordedInputValues.putAll(
-          Maps.transformValues(RepoRecordedInput.EnvVar.wrap(envVarValues), v -> v.orElse(null)));
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
@@ -707,7 +708,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
       }
     }
 
-    return new FetchResult(recordedInputValues, repoMetadata.reproducible());
+    return new FetchResult(
+        Collections.unmodifiableSequencedMap(recordedInputValues), repoMetadata.reproducible());
   }
 
   @Nullable

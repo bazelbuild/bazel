@@ -49,17 +49,31 @@ class DigestWriter {
       ImmutableMap.of(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, "");
 
   private final BlazeDirectories directories;
+  final String predeclaredInputHash;
   final Path markerPath;
-  private final String predeclaredInputHash;
 
-  DigestWriter(
+  private DigestWriter(
+      BlazeDirectories directories, RepositoryName repositoryName, String predeclaredInputHash) {
+    this.directories = directories;
+    this.predeclaredInputHash = predeclaredInputHash;
+    this.markerPath = getMarkerPath(directories, repositoryName);
+  }
+
+  /** Returns null if and only if a Skyframe restart is needed. */
+  @Nullable
+  public static DigestWriter create(
+      Environment env,
       BlazeDirectories directories,
       RepositoryName repositoryName,
       RepoDefinition repoDefinition,
-      StarlarkSemantics starlarkSemantics) {
-    this.directories = directories;
-    predeclaredInputHash = computePredeclaredInputHash(repoDefinition, starlarkSemantics);
-    markerPath = getMarkerPath(directories, repositoryName);
+      StarlarkSemantics starlarkSemantics)
+      throws InterruptedException {
+    String predeclaredInputHash =
+        computePredeclaredInputHash(env, repoDefinition, starlarkSemantics);
+    if (predeclaredInputHash == null) {
+      return null;
+    }
+    return new DigestWriter(directories, repositoryName, predeclaredInputHash);
   }
 
   // Escape a value for the marker file
@@ -201,19 +215,30 @@ class DigestWriter {
     return Preconditions.checkNotNull(recordedInputValues);
   }
 
+  @Nullable
   static String computePredeclaredInputHash(
-      RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics) {
-    return new Fingerprint()
-        .addInt(MARKER_FILE_VERSION)
-        .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
-        .addString(repoDefinition.repoRule().id().bzlFileLabel().toString())
-        .addString(repoDefinition.repoRule().id().ruleName())
-        .addBytes(repoDefinition.repoRule().transitiveBzlDigest())
-        .addString(repoDefinition.name())
-        .addString(
-            GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
-                repoDefinition.attrValues()))
-        .hexDigestAndReset();
+      Environment env, RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics)
+      throws InterruptedException {
+    var unsortedEnviron = RepositoryUtils.getEnvVarValues(env, repoDefinition.repoRule().environ());
+    if (unsortedEnviron == null) {
+      return null;
+    }
+    var environ = RepoRecordedInput.EnvVar.wrap(unsortedEnviron);
+    var fp =
+        new Fingerprint()
+            .addInt(MARKER_FILE_VERSION)
+            .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
+            .addString(repoDefinition.repoRule().id().bzlFileLabel().toString())
+            .addString(repoDefinition.repoRule().id().ruleName())
+            .addBytes(repoDefinition.repoRule().transitiveBzlDigest())
+            .addString(repoDefinition.name())
+            .addString(
+                GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
+                    repoDefinition.attrValues()))
+            .addInt(environ.size());
+    environ.forEach(
+        (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
+    return fp.hexDigestAndReset();
   }
 
   private static Path getMarkerPath(BlazeDirectories directories, RepositoryName repo) {
