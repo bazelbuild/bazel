@@ -14,22 +14,18 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePatternMapper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
-import com.google.devtools.build.lib.util.Pair;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.Tuple;
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable
@@ -51,8 +47,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String compiler;
   private final String abiVersion;
   private final String abiLibcVersion;
-  private final ImmutableList<Pair<String, String>> toolPaths;
-  private final ImmutableList<Pair<String, String>> makeVariables;
+  private final ImmutableList<StarlarkInfo> toolPaths;
+  private final ImmutableList<StarlarkInfo> makeVariables;
   private final String builtinSysroot;
 
   CcToolchainConfigInfo(
@@ -68,8 +64,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      ImmutableList<Pair<String, String>> toolPaths,
-      ImmutableList<Pair<String, String>> makeVariables,
+      ImmutableList<StarlarkInfo> toolPaths,
+      ImmutableList<StarlarkInfo> makeVariables,
       String builtinSysroot) {
     this.actionConfigs = actionConfigs;
     this.features = features;
@@ -105,13 +101,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return artifactNamePatterns;
   }
 
-  @StarlarkMethod(
-      name = "cxx_builtin_include_directories",
-      documented = false,
-      useStarlarkThread = true)
-  public List<String> getCxxBuiltinIncludeDirectoriesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "cxx_builtin_include_directories", documented = false, structField = true)
+  public List<String> getCxxBuiltinIncludeDirectoriesForStarlark() {
     return getCxxBuiltinIncludeDirectories();
   }
 
@@ -119,9 +110,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return cxxBuiltinIncludeDirectories;
   }
 
-  @StarlarkMethod(name = "toolchain_id", documented = false, useStarlarkThread = true)
-  public String getToolchainIdentifierForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "toolchain_id", documented = false, structField = true)
+  public String getToolchainIdentifierForStarlark() {
     return getToolchainIdentifier();
   }
 
@@ -129,9 +119,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return toolchainIdentifier;
   }
 
-  @StarlarkMethod(name = "target_system_name", documented = false, useStarlarkThread = true)
-  public String getTargetSystemNameForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "target_system_name", documented = false, structField = true)
+  public String getTargetSystemNameForStarlark() {
     return getTargetSystemName();
   }
 
@@ -139,9 +128,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return targetSystemName;
   }
 
-  @StarlarkMethod(name = "target_cpu", documented = false, useStarlarkThread = true)
-  public String getTargetCpuForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "target_cpu", documented = false, structField = true)
+  public String getTargetCpuForStarlark() {
     return getTargetCpu();
   }
 
@@ -149,9 +137,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return targetCpu;
   }
 
-  @StarlarkMethod(name = "target_libc", documented = false, useStarlarkThread = true)
-  public String getTargetLibcForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "target_libc", documented = false, structField = true)
+  public String getTargetLibcForStarlark() {
     return getTargetLibc();
   }
 
@@ -159,9 +146,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return targetLibc;
   }
 
-  @StarlarkMethod(name = "compiler", documented = false, useStarlarkThread = true)
-  public String getCompilerForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "compiler", documented = false, structField = true)
+  public String getCompilerForStarlark() {
     return getCompiler();
   }
 
@@ -169,9 +155,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return compiler;
   }
 
-  @StarlarkMethod(name = "abi_version", documented = false, useStarlarkThread = true)
-  public String getAbiVersionForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "abi_version", documented = false, structField = true)
+  public String getAbiVersionForStarlark() {
     return getAbiVersion();
   }
 
@@ -179,9 +164,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return abiVersion;
   }
 
-  @StarlarkMethod(name = "abi_libc_version", documented = false, useStarlarkThread = true)
-  public String getAbiLibcVersionForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "abi_libc_version", documented = false, structField = true)
+  public String getAbiLibcVersionForStarlark() {
     return getAbiLibcVersion();
   }
 
@@ -189,36 +173,28 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return abiLibcVersion;
   }
 
-  @StarlarkMethod(name = "tool_paths", documented = false, useStarlarkThread = true)
-  public ImmutableList<Tuple> getToolPathsForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getToolPaths().stream()
-        .map(p -> Tuple.of(p.getFirst(), p.getSecond()))
-        .collect(toImmutableList());
+  @StarlarkMethod(name = "tool_paths", documented = false, structField = true)
+  public ImmutableList<StarlarkInfo> getToolPathsForStarlark() {
+    return getToolPaths();
   }
 
   /** Returns a list of paths of the tools in the form Pair<toolName, path>. */
-  public ImmutableList<Pair<String, String>> getToolPaths() {
+  public ImmutableList<StarlarkInfo> getToolPaths() {
     return toolPaths;
   }
 
-  @StarlarkMethod(name = "make_variables", documented = false, useStarlarkThread = true)
-  public ImmutableList<Tuple> getMakevariablesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getMakeVariables().stream()
-        .map(p -> Tuple.of(p.getFirst(), p.getSecond()))
-        .collect(toImmutableList());
+  @StarlarkMethod(name = "make_variables", documented = false, structField = true)
+  public ImmutableList<StarlarkInfo> getMakevariablesForStarlark() {
+    return getMakeVariables();
   }
 
   /** Returns a list of make variables that have the form Pair<name, value>. */
-  public ImmutableList<Pair<String, String>> getMakeVariables() {
+  public ImmutableList<StarlarkInfo> getMakeVariables() {
     return makeVariables;
   }
 
-  @StarlarkMethod(name = "builtin_sysroot", documented = false, useStarlarkThread = true)
-  public String getBuiltinSysrootForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  @StarlarkMethod(name = "builtin_sysroot", documented = false, structField = true)
+  public String getBuiltinSysrootForStarlark() {
     return getBuiltinSysroot();
   }
 

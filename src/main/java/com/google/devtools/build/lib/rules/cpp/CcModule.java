@@ -734,22 +734,6 @@ public abstract class CcModule
           (StarlarkInfo) artifactNamePattern, artifactNamePatternBuilder::addOverride);
     }
 
-    // Pairs (toolName, toolPath)
-    ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
-    for (Object toolPath : toolPaths) {
-      checkRightStarlarkInfoProvider(toolPath, "tool_paths", "ToolPathInfo");
-      Pair<String, String> toolPathPair = toolPathFromStarlark((StarlarkInfo) toolPath);
-      toolPathPairs.add(toolPathPair);
-    }
-    ImmutableList<Pair<String, String>> toolPathList = toolPathPairs.build();
-
-    ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
-    for (Object makeVariable : makeVariables) {
-      checkRightStarlarkInfoProvider(makeVariable, "make_variables", "MakeVariableInfo");
-      Pair<String, String> makeVariablePair = makeVariableFromStarlark((StarlarkInfo) makeVariable);
-      makeVariablePairs.add(makeVariablePair);
-    }
-
     return new CcToolchainConfigInfo(
         actionConfigList,
         featureList,
@@ -763,8 +747,8 @@ public abstract class CcModule
         compiler,
         convertFromNoneable(abiVersion, /* defaultValue= */ ""),
         convertFromNoneable(abiLibcVersion, /* defaultValue= */ ""),
-        toolPathList,
-        makeVariablePairs.build(),
+        Sequence.cast(toolPaths, StarlarkInfo.class, "tool_paths").getImmutableList(),
+        Sequence.cast(makeVariables, StarlarkInfo.class, "make_variables").getImmutableList(),
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""));
   }
 

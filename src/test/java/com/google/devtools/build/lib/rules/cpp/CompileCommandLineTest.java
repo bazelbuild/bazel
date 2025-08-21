@@ -105,7 +105,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//mock_crosstool:r");
     assertThat(target).isNotNull();
-    return (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    return target.get(CcToolchainConfigInfo.PROVIDER);
   }
 
   private FeatureConfiguration getMockFeatureConfigurationFromStarlark(String... starlark)

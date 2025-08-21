@@ -94,8 +94,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo configInfo =
-        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    CcToolchainConfigInfo configInfo = target.get(CcToolchainConfigInfo.PROVIDER);
     return new CcToolchainFeatures(configInfo, PathFragment.create(""));
   }
 

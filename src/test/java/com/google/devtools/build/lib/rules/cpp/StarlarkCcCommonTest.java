@@ -4981,8 +4981,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo =
-        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
     assertThat(ccToolchainConfigInfo).isNotNull();
   }
 
@@ -5007,8 +5006,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupStarlarkRuleForStringFieldsTesting("");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo =
-        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
     assertThat(ccToolchainConfigInfo).isNotNull();
   }
 
@@ -5112,8 +5110,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo =
-        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
     ImmutableSet<String> featureNames =
         ccToolchainConfigInfo.getFeatures().stream()
             .map(Feature::getName)
@@ -5192,8 +5189,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo =
-        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
     ImmutableList<String> featureNames =
         ccToolchainConfigInfo.getFeatures().stream()
             .map(Feature::getName)
@@ -5224,16 +5220,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "'artifact_name_patterns' parameter of cc_common.create_cc_toolchain_config_info()"
             + " contains an element of type 'int' instead of a 'ArtifactNamePatternInfo'"
             + " provider.");
-  }
-
-  @Test
-  public void testWrongElementTypeInListParameter_makeVariables() throws Exception {
-    getBasicCcToolchainConfigInfoWithAdditionalParameter("make_variables = [True]");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:r");
-    assertContainsEvent(
-        "'make_variables' parameter of cc_common.create_cc_toolchain_config_info() contains an"
-            + " element of type 'bool' instead of a 'MakeVariableInfo' provider.");
   }
 
   private void getBasicCcToolchainConfigInfoWithAdditionalParameter(String s) throws Exception {

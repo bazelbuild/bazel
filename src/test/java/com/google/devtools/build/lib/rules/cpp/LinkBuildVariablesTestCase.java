@@ -200,8 +200,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo configInfo =
-        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    CcToolchainConfigInfo configInfo = target.get(CcToolchainConfigInfo.PROVIDER);
     return new CcToolchainFeatures(configInfo, PathFragment.create("crosstool"));
   }
 }
