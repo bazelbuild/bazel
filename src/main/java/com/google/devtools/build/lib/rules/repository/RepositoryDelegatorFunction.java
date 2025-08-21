@@ -22,6 +22,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
@@ -62,6 +64,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -195,7 +198,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
 
       DigestWriter digestWriter =
-          new DigestWriter(directories, repositoryName, rule, starlarkSemantics);
+          DigestWriter.create(env, directories, repositoryName, rule, starlarkSemantics);
+      if (digestWriter == null) {
+        return null;
+      }
 
       boolean excludeRepoFromVendoring = true;
       if (VENDOR_DIRECTORY.get(env).isPresent()) { // If vendor mode is on
@@ -221,9 +227,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                 || vendorFile.pinnedRepos().contains(repositoryName);
       }
 
-      String predeclaredInputHash =
-          DigestWriter.computePredeclaredInputHash(rule, starlarkSemantics);
-
       if (shouldUseCachedRepos(env, handler, rule)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
@@ -238,7 +241,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
           for (CandidateRepo candidate :
-              repoContentsCache.getCandidateRepos(predeclaredInputHash)) {
+              repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash)) {
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     handler, env, candidate.recordedInputsFile());
@@ -281,7 +284,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           try {
             cachedRepoDir =
                 repoContentsCache.moveToCache(
-                    repoRoot, digestWriter.markerPath, predeclaredInputHash);
+                    repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
           } catch (IOException e) {
             throw new RepositoryFunctionException(
                 new IOException(
@@ -679,23 +682,39 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         ImmutableMap.of(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, "");
 
     private final BlazeDirectories directories;
-    private final Path markerPath;
-    private final String ruleKey;
+    final String predeclaredInputHash;
+    final Path markerPath;
 
-    DigestWriter(
+    private DigestWriter(
+        BlazeDirectories directories,
+        RepositoryName repositoryName,
+        String predeclaredInputHash) {
+      this.directories = directories;
+      this.predeclaredInputHash = predeclaredInputHash;
+      this.markerPath = getMarkerPath(directories, repositoryName);
+    }
+
+    /** Returns null if and only if a Skyframe restart is needed. */
+    @Nullable
+    static DigestWriter create(
+        Environment env,
         BlazeDirectories directories,
         RepositoryName repositoryName,
         Rule rule,
-        StarlarkSemantics starlarkSemantics) {
-      this.directories = directories;
-      ruleKey = computePredeclaredInputHash(rule, starlarkSemantics);
-      markerPath = getMarkerPath(directories, repositoryName);
+        StarlarkSemantics starlarkSemantics)
+        throws InterruptedException {
+      String predeclaredInputHash =
+          computePredeclaredInputHash(env, rule, starlarkSemantics);
+      if (predeclaredInputHash == null) {
+        return null;
+      }
+      return new DigestWriter(directories, repositoryName, predeclaredInputHash);
     }
 
     void writeMarkerFile(Map<? extends RepoRecordedInput, String> recordedInputValues)
         throws RepositoryFunctionException {
       StringBuilder builder = new StringBuilder();
-      builder.append(ruleKey).append("\n");
+      builder.append(predeclaredInputHash).append("\n");
       for (Map.Entry<RepoRecordedInput, String> recordedInput :
           new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
         String key = recordedInput.getKey().toString();
@@ -743,7 +762,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       try {
         String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
         Map<RepoRecordedInput, String> recordedInputValues =
-            readMarkerFile(content, Preconditions.checkNotNull(ruleKey));
+            readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
         Optional<String> outdatedReason =
             handler.isAnyRecordedInputOutdated(directories, recordedInputValues, env);
         if (env.valuesMissing()) {
@@ -798,12 +817,28 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return Preconditions.checkNotNull(recordedInputValues);
     }
 
-    static String computePredeclaredInputHash(Rule rule, StarlarkSemantics starlarkSemantics) {
-      return new Fingerprint()
-          .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
-          .addInt(MARKER_FILE_VERSION)
-          .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
-          .hexDigestAndReset();
+    @Nullable
+    @SuppressWarnings("unchecked")
+    static String computePredeclaredInputHash(
+        Environment env, Rule rule, StarlarkSemantics starlarkSemantics)
+        throws InterruptedException {
+      Iterable<String> environAttr = (Iterable<String>) rule.getAttr("$environ");
+      ImmutableSet<String> environKeys =
+          environAttr != null ? ImmutableSet.copyOf(environAttr) : ImmutableSet.of();
+      var unsortedEnviron = RepositoryFunction.getEnvVarValues(env, environKeys);
+      if (unsortedEnviron == null) {
+        return null;
+      }
+      var environ = RepoRecordedInput.EnvVar.wrap(unsortedEnviron);
+      var fp =
+          new Fingerprint()
+              .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
+              .addInt(MARKER_FILE_VERSION)
+              .addBytes(BuildLanguageOptions.stableFingerprint(starlarkSemantics))
+              .addInt(environ.size());
+      environ.forEach(
+          (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
+      return fp.hexDigestAndReset();
     }
 
     private static Path getMarkerPath(BlazeDirectories directories, RepositoryName repo) {
