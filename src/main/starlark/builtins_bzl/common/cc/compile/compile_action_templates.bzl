@@ -35,21 +35,36 @@ def create_compile_action_templates(
         common_compile_build_variables,
         fdo_build_variables,
         cpp_source,
+        source_artifact,
         label,
         copts,
         conlyopts,
         cxxopts,
+        copts_filter,
         fdo_context,
         auxiliary_fdo_inputs,
         generate_pic_action,
         generate_no_pic_action,
+        additional_compilation_inputs,
+        additional_include_scanning_roots,
         output_name,
         outputs,
-        bitcode_output,
-        cpp_compile_action_builder):
+        bitcode_output):
     if cpp_source.type not in [CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER]:
         fail("Encountered invalid source types when creating CppCompileActionTemplates: " + cpp_source.type)
     if cpp_source.type == CPP_SOURCE_TYPE_HEADER:
+        cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
+            action_construction_context = action_construction_context,
+            cc_compilation_context = cc_compilation_context,
+            cc_toolchain = cc_toolchain,
+            configuration = configuration,
+            copts_filter = copts_filter,
+            feature_configuration = feature_configuration,
+            semantics = native_cc_semantics,
+            source_artifact = source_artifact,
+            additional_compilation_inputs = additional_compilation_inputs,
+            additional_include_scanning_roots = additional_include_scanning_roots,
+        )
         header_token_file = _cc_internal.create_compile_action_template(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
@@ -77,6 +92,18 @@ def create_compile_action_templates(
         outputs.add_header_token_file(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
         if generate_no_pic_action:
+            cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                copts_filter = copts_filter,
+                feature_configuration = feature_configuration,
+                semantics = native_cc_semantics,
+                source_artifact = source_artifact,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
+            )
             object_file = _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
@@ -103,6 +130,18 @@ def create_compile_action_templates(
             )
             outputs.add_object_file(object_file)
         if generate_pic_action:
+            cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                copts_filter = copts_filter,
+                feature_configuration = feature_configuration,
+                semantics = native_cc_semantics,
+                source_artifact = source_artifact,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
+            )
             pic_object_file = _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,

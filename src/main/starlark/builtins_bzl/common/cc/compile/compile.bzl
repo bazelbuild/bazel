@@ -586,20 +586,19 @@ def _create_cc_compile_actions(
         source_label = cpp_source.label
         bitcode_output = feature_configuration.is_enabled("thin_lto") and (("." + source_artifact.extension) in LTO_SOURCE_EXTENSIONS)
 
-        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
-            action_construction_context = action_construction_context,
-            cc_compilation_context = cc_compilation_context,
-            cc_toolchain = cc_toolchain,
-            configuration = configuration,
-            copts_filter = copts_filter,
-            feature_configuration = feature_configuration,
-            semantics = native_cc_semantics,
-            source_artifact = source_artifact,
-            additional_compilation_inputs = additional_compilation_inputs,
-            additional_include_scanning_roots = additional_include_scanning_roots,
-        )
-
         if not cc_internal.is_tree_artifact(source_artifact):
+            cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                copts_filter = copts_filter,
+                feature_configuration = feature_configuration,
+                semantics = native_cc_semantics,
+                source_artifact = source_artifact,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
+            )
             compiled_basenames.add(_basename_without_extension(source_artifact))
             cc_internal.create_compile_source_action_from_builder(
                 action_construction_context = action_construction_context,
@@ -643,18 +642,21 @@ def _create_cc_compile_actions(
                 common_compile_build_variables = common_compile_build_variables,
                 fdo_build_variables = fdo_build_variables,
                 cpp_source = cpp_source,
+                source_artifact = source_artifact,
                 label = label,
                 copts = copts,
                 conlyopts = conlyopts,
                 cxxopts = cxxopts,
+                copts_filter = copts_filter,
                 fdo_context = fdo_context,
                 auxiliary_fdo_inputs = auxiliary_fdo_inputs,
                 generate_pic_action = generate_pic_action,
                 generate_no_pic_action = generate_no_pic_action,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
                 output_name = output_name,
                 outputs = outputs,
                 bitcode_output = bitcode_output,
-                cpp_compile_action_builder = cpp_compile_action_builder,
             )
     for cpp_source in compilation_unit_sources.values():
         source_artifact = cpp_source.file
