@@ -695,6 +695,15 @@ def _mt_aspect_impl(target, ctx):
 
 mt_aspect = aspect(
     implementation = _mt_aspect_impl,
+    attrs = {
+        # Context creation code is shared between aspects and rules, so having this aspect
+        # dependency in the test ensure that materializer dependency validation is only performed
+        # for rules and not for aspects.
+        "_tool": attr.label(
+            default = Label("//:aspect_tool"),
+            cfg = "exec",
+        ),
+    }
 )
 
 # Binary #########################################
@@ -742,6 +751,13 @@ component(name = "b_yes")
 component(name = "a_no")
 component(name = "b_no")
 component(name = "zzz")
+
+genrule(
+    name = "aspect_tool",
+    outs = ["tool"],
+    executable = True,
+    cmd = "echo 'touch $$1' > $@",
+)
 """);
 
     update("//:bin_dormant");

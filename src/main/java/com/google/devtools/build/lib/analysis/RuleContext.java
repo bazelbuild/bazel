@@ -1741,22 +1741,27 @@ public class RuleContext extends TargetContext
             }
           }
 
-          // Materializer rules can depend only on dependency resolution rules via "normal" /
-          // non-dormant attributes, and everything else only via dormant attributes, except
-          // for PackageGroupConfiguredTargets and build settings.
-          if (target.getAssociatedRule().getRuleClassObject().isMaterializerRule()
-              && !(attribute.getType() == BuildType.DORMANT_LABEL
-                  || attribute.getType() == BuildType.DORMANT_LABEL_LIST)
-              && !configuredTarget.isForDependencyResolution()
-              && !(configuredTarget.getConfiguredTarget()
-                  instanceof PackageGroupConfiguredTarget)) {
-            attributeError(
-                attribute.getName(),
-                String.format(
-                    "materializer rules can depend on only dependency resolution rules via"
-                        + " non-dormant attributes; %s is a non-dormant attribute, and %s is not a"
-                        + " dependency resolution rule",
-                    attribute.getName(), configuredTarget.getTargetLabel()));
+          // Run materializer attribute validation only when constructing a context for rules and
+          // not for aspects because aspects aren't materializers. In particular doing this would
+          // break any aspect that has dependencies when it encounters a materializer rule.
+          if (!forAspect()) {
+            // Materializer rules can depend only on dependency resolution rules via "normal" /
+            // non-dormant attributes, and everything else only via dormant attributes, except
+            // for PackageGroupConfiguredTargets and build settings.
+            if (target.getAssociatedRule().getRuleClassObject().isMaterializerRule()
+                && !(attribute.getType() == BuildType.DORMANT_LABEL
+                    || attribute.getType() == BuildType.DORMANT_LABEL_LIST)
+                && !configuredTarget.isForDependencyResolution()
+                && !(configuredTarget.getConfiguredTarget()
+                    instanceof PackageGroupConfiguredTarget)) {
+              attributeError(
+                  attribute.getName(),
+                  String.format(
+                      "materializer rules can depend on only dependency resolution rules via"
+                          + " non-dormant attributes; %s is a non-dormant attribute, and %s is not"
+                          + " a dependency resolution rule",
+                      attribute.getName(), configuredTarget.getTargetLabel()));
+            }
           }
         }
       }
