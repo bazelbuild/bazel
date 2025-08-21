@@ -594,7 +594,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         })
                     .onErrorResumeNext(
                         error -> {
-                          if (error instanceof CacheNotFoundException) {
+                          if (error instanceof CacheNotFoundException
+                              || error instanceof RuntimeException
+                              || error instanceof Error) {
                             return Completable.error(error);
                           }
 
