@@ -19,22 +19,22 @@ Used for C++ compiling.
 
 load(
     ":common/cc/cc_helper_internal.bzl",
+    "CPP_SOURCE_TYPE_CLIF_INPUT_PROTO",
+    "CPP_SOURCE_TYPE_HEADER",
+    "CPP_SOURCE_TYPE_SOURCE",
     "artifact_category",
     "extensions",
     "output_subdirectories",
     "should_create_per_object_debug_info",
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
+load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
 load(":common/cc/compile/compile_build_variables.bzl", "get_specific_compile_build_variables")
 load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
 cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
-
-CPP_SOURCE_TYPE_HEADER = "HEADER"
-CPP_SOURCE_TYPE_SOURCE = "SOURCE"
-CPP_SOURCE_TYPE_CLIF_INPUT_PROTO = "CLIF_INPUT_PROTO"
 
 SOURCE_CATEGORY_CC = set(
     extensions.CC_SOURCE +
@@ -632,88 +632,30 @@ def _create_cc_compile_actions(
                 bitcode_output = bitcode_output,
             )
         else:  # Tree artifact
-            if cpp_source.type not in [CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER]:
-                fail("Encountered invalid source types when creating CppCompileActionTemplates: " + cpp_source.type)
-            if cpp_source.type == CPP_SOURCE_TYPE_HEADER:
-                header_token_file = cc_internal.create_compile_action_template(
-                    action_construction_context = action_construction_context,
-                    cc_compilation_context = cc_compilation_context,
-                    cc_toolchain = cc_toolchain,
-                    configuration = configuration,
-                    conlyopts = conlyopts,
-                    copts = copts,
-                    cpp_configuration = cpp_configuration,
-                    cxxopts = cxxopts,
-                    fdo_context = fdo_context,
-                    auxiliary_fdo_inputs = auxiliary_fdo_inputs,
-                    feature_configuration = feature_configuration,
-                    label = label,
-                    common_compile_build_variables = common_compile_build_variables,
-                    fdo_build_variables = fdo_build_variables,
-                    cpp_semantics = native_cc_semantics,
-                    source = cpp_source,
-                    output_name = output_name,
-                    cpp_compile_action_builder = cpp_compile_action_builder,
-                    outputs = outputs,
-                    output_categories = [artifact_category.GENERATED_HEADER, artifact_category.PROCESSED_HEADER],
-                    use_pic = generate_pic_action,
-                    bitcode_output = bitcode_output,
-                )
-                outputs.add_header_token_file(header_token_file)
-            else:  # CPP_SOURCE_TYPE_SOURCE
-                if generate_no_pic_action:
-                    object_file = cc_internal.create_compile_action_template(
-                        action_construction_context = action_construction_context,
-                        cc_compilation_context = cc_compilation_context,
-                        cc_toolchain = cc_toolchain,
-                        configuration = configuration,
-                        conlyopts = conlyopts,
-                        copts = copts,
-                        cpp_configuration = cpp_configuration,
-                        cxxopts = cxxopts,
-                        fdo_context = fdo_context,
-                        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
-                        feature_configuration = feature_configuration,
-                        label = label,
-                        common_compile_build_variables = common_compile_build_variables,
-                        fdo_build_variables = fdo_build_variables,
-                        cpp_semantics = native_cc_semantics,
-                        source = cpp_source,
-                        output_name = output_name,
-                        cpp_compile_action_builder = cpp_compile_action_builder,
-                        outputs = outputs,
-                        output_categories = [artifact_category.OBJECT_FILE],
-                        use_pic = False,
-                        bitcode_output = feature_configuration.is_enabled("thin_lto"),
-                    )
-                    outputs.add_object_file(object_file)
-                if generate_pic_action:
-                    pic_object_file = cc_internal.create_compile_action_template(
-                        action_construction_context = action_construction_context,
-                        cc_compilation_context = cc_compilation_context,
-                        cc_toolchain = cc_toolchain,
-                        configuration = configuration,
-                        conlyopts = conlyopts,
-                        copts = copts,
-                        cpp_configuration = cpp_configuration,
-                        cxxopts = cxxopts,
-                        fdo_context = fdo_context,
-                        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
-                        feature_configuration = feature_configuration,
-                        label = label,
-                        common_compile_build_variables = common_compile_build_variables,
-                        fdo_build_variables = fdo_build_variables,
-                        cpp_semantics = native_cc_semantics,
-                        source = cpp_source,
-                        output_name = output_name,
-                        cpp_compile_action_builder = cpp_compile_action_builder,
-                        outputs = outputs,
-                        output_categories = [artifact_category.PIC_OBJECT_FILE],
-                        use_pic = True,
-                        bitcode_output = feature_configuration.is_enabled("thin_lto"),
-                    )
-                    outputs.add_pic_object_file(pic_object_file)
-
+            create_compile_action_templates(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                cpp_configuration = cpp_configuration,
+                feature_configuration = feature_configuration,
+                native_cc_semantics = native_cc_semantics,
+                common_compile_build_variables = common_compile_build_variables,
+                fdo_build_variables = fdo_build_variables,
+                cpp_source = cpp_source,
+                label = label,
+                copts = copts,
+                conlyopts = conlyopts,
+                cxxopts = cxxopts,
+                fdo_context = fdo_context,
+                auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+                generate_pic_action = generate_pic_action,
+                generate_no_pic_action = generate_no_pic_action,
+                output_name = output_name,
+                outputs = outputs,
+                bitcode_output = bitcode_output,
+                cpp_compile_action_builder = cpp_compile_action_builder,
+            )
     for cpp_source in compilation_unit_sources.values():
         source_artifact = cpp_source.file
         if cpp_source.type != CPP_SOURCE_TYPE_HEADER or cc_internal.is_tree_artifact(source_artifact):
