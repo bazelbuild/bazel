@@ -115,7 +115,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   @Test
   public void testTargetCpuFromCpuFlag() throws Exception {
     BuildConfigurationValue config =
-        create("--cpu=piii", "--platforms=" + TestConstants.PLATFORM_LABEL);
+        create("--noincompatible_target_cpu_from_platform", "--cpu=piii", "--platforms=" + TestConstants.PLATFORM_LABEL);
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "piii");
   }
 
