@@ -1547,21 +1547,12 @@ public class BuildTool {
         skycacheMetadataParams.setConfigurationHash(topLevelOptions.checksum());
         if (mode == RemoteAnalysisCacheMode.DOWNLOAD) {
           if (skycacheMetadataParams.getUseFakeStampData()) {
-            switch (skycacheMetadataParams.getTargets().size()) {
-              case 0:
+            if (skycacheMetadataParams.getTargets().isEmpty()) {
                 eventHandler.handle(
                     Event.warn(
                         "Skycache: Not querying Skycache metadata because invocation has no"
                             + " targets"));
-                break;
-              case 1:
-                tryReadSkycacheMetadata();
-                break;
-              default:
-                // TODO: b/425247333 - Add support for checking every target in the invocation. For
-                // now results will only be returned for the first target.
-                eventHandler.handle(
-                    Event.warn("Skycache: Only checking if the first target is cached"));
+            } else {
                 tryReadSkycacheMetadata();
             }
           } else {
