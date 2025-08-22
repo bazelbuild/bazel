@@ -162,8 +162,10 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Whether to enable thread dumps. If true, Bazel will dump the state of all threads"
-              + " (including virtual threads) to a file every --experimental_thread_dump_interval."
-              + " The dumps will be written to the <output_base>/server/thread_dumps/ directory.")
+              + " (including virtual threads) to a file every --experimental_thread_dump_interval,"
+              + " or after action execution being inactive for"
+              + " --experimental_thread_dump_action_execution_inactivity_duration. The dumps will"
+              + " be written to the <output_base>/server/thread_dumps/ directory.")
   public boolean enableThreadDump;
 
   @Option(
@@ -172,8 +174,21 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = DurationConverter.class,
-      help = "How often to dump the threads. If zero, no thread dumps are written.")
+      help =
+          "How often to dump the threads periodically. If zero, no thread dumps are written"
+              + " periodically.")
   public Duration threadDumpInterval;
+
+  @Option(
+      name = "experimental_thread_dump_action_execution_inactivity_duration",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "Dump the threads when action execution being inactive for this duration. If zero, no"
+              + " thread dumps are written for action execution being inactive.")
+  public Duration threadDumpActionExecutionInactivityDuration;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter extends Converter.Contextless<UUID> {
