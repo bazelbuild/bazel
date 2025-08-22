@@ -5394,7 +5394,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
     createFilesForTestingCompilation(
-        scratch, "tools/build_defs/foo", String.join("", "disallow_nopic_outputs=True"));
+        scratch, "tools/build_defs/foo", "disallow_nopic_outputs=True");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(getFilenamesToBuild(target)).doesNotContain("starlark_lib.o");
@@ -5403,8 +5403,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCreateOnlyNoPic() throws Exception {
-    createFilesForTestingCompilation(
-        scratch, "tools/build_defs/foo", String.join("", "disallow_pic_outputs=True"));
+    createFilesForTestingCompilation(scratch, "tools/build_defs/foo", "disallow_pic_outputs=True");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(getFilenamesToBuild(target)).contains("starlark_lib.o");
@@ -5428,9 +5427,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testDoNotCreateEitherPicOrNoPic() throws Exception {
     createFilesForTestingCompilation(
-        scratch,
-        "tools/build_defs/foo",
-        String.join("", "disallow_nopic_outputs=True, disallow_pic_outputs=True"));
+        scratch, "tools/build_defs/foo", "disallow_nopic_outputs=True, disallow_pic_outputs=True");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//foo:bin");
     assertContainsEvent("Either PIC or no PIC actions have to be created.");
