@@ -136,7 +136,7 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
 
     @Override
     @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-    protected byte[] getFastDigest(PathFragment path) throws IOException {
+    public byte[] getFastDigest(PathFragment path) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }

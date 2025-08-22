@@ -88,7 +88,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
       }
 
       @Override
-      protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+      public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
           throws IOException {
         Collection<Dirent> defaultResult = super.readdir(path, followSymlinks);
         return transformer.readdir(defaultResult, path, followSymlinks);

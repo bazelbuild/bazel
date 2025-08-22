@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import org.junit.Test;
 
-/** Test for {@link com.google.devtools.build.lib.unix.UnixFileSystem#getFastDigest}. */
+/** Test for {@link FileSystem#getFastDigest}. */
 public class UnixDigestHashAttributeNameTest extends FileSystemTest {
   private static final byte[] FAKE_DIGEST = {
     0x18, 0x5f, 0x3d, 0x33, 0x22, 0x71, 0x7e, 0x25,
