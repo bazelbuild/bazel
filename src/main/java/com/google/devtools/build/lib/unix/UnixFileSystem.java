@@ -66,7 +66,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+  public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     String name = path.getPathString();
     String[] entries;
     long startTime = Profiler.nanoTimeMaybe();
@@ -80,7 +80,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   @Nullable
-  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
+  public PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
     return stat(path, false).isSymbolicLink() ? readSymbolicLink(path) : null;
@@ -100,8 +100,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
-      throws IOException {
+  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
@@ -120,7 +119,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     var comp = Blocker.begin();
@@ -139,7 +138,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   // catch and don't re-throw.
   @Override
   @Nullable
-  protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     var comp = Blocker.begin();
@@ -156,7 +155,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean exists(PathFragment path, boolean followSymlinks) {
+  public boolean exists(PathFragment path, boolean followSymlinks) {
     return statNullable(path, followSymlinks) != null;
   }
 
@@ -166,7 +165,7 @@ public class UnixFileSystem extends AbstractFileSystem {
    */
   @Override
   @Nullable
-  protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     var comp = Blocker.begin();
@@ -181,17 +180,17 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean isReadable(PathFragment path) throws IOException {
+  public boolean isReadable(PathFragment path) throws IOException {
     return (stat(path, true).getPermissions() & 0400) != 0;
   }
 
   @Override
-  protected boolean isWritable(PathFragment path) throws IOException {
+  public boolean isWritable(PathFragment path) throws IOException {
     return (stat(path, true).getPermissions() & 0200) != 0;
   }
 
   @Override
-  protected boolean isExecutable(PathFragment path) throws IOException {
+  public boolean isExecutable(PathFragment path) throws IOException {
     return (stat(path, true).getPermissions() & 0100) != 0;
   }
 
@@ -215,7 +214,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void setReadable(PathFragment path, boolean readable) throws IOException {
+  public void setReadable(PathFragment path, boolean readable) throws IOException {
     modifyPermissionBits(path, 0400, readable);
   }
 
@@ -225,12 +224,12 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+  public void setExecutable(PathFragment path, boolean executable) throws IOException {
     modifyPermissionBits(path, 0111, executable);
   }
 
   @Override
-  protected void chmod(PathFragment path, int mode) throws IOException {
+  public void chmod(PathFragment path, int mode) throws IOException {
     var comp = Blocker.begin();
     try {
       NativePosixFiles.chmod(path.toString(), mode);
@@ -282,7 +281,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+  public boolean createWritableDirectory(PathFragment path) throws IOException {
     var comp = Blocker.begin();
     try {
       return NativePosixFiles.mkdirWritable(path.toString());
@@ -303,7 +302,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     var comp = Blocker.begin();
     try {
@@ -314,7 +313,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     // Note that the default implementation of readSymbolicLinkUnchecked calls this method and thus
     // is optimal since we only make one system call in here.
     String name = path.toString();
@@ -341,12 +340,12 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getSize();
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
+  public boolean delete(PathFragment path) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     var comp = Blocker.begin();
@@ -359,7 +358,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getLastModifiedTime();
   }
 
@@ -396,14 +395,14 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   @Nullable
-  protected byte[] getFastDigest(PathFragment path) throws IOException {
+  public byte[] getFastDigest(PathFragment path) throws IOException {
     // Attempt to obtain the digest from an extended attribute attached to the file. This is much
     // faster than reading and digesting the file's contents on the fly, especially for large files.
     return hashAttributeName.isEmpty() ? null : getxattr(path, hashAttributeName, true);
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
+  public byte[] getDigest(PathFragment path) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
@@ -414,7 +413,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     var comp = Blocker.begin();
     try {
@@ -425,7 +424,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void deleteTreesBelow(PathFragment dir) throws IOException {
+  public void deleteTreesBelow(PathFragment dir) throws IOException {
     if (isDirectory(dir, /*followSymlinks=*/ false)) {
       long startTime = Profiler.nanoTimeMaybe();
       var comp = Blocker.begin();
@@ -439,12 +438,12 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected File getIoFile(PathFragment path) {
+  public File getIoFile(PathFragment path) {
     return new File(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override
-  protected java.nio.file.Path getNioPath(PathFragment path) {
+  public java.nio.file.Path getNioPath(PathFragment path) {
     return java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
