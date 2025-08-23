@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -591,20 +590,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           finalizeDownload(
                               metadata, tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
-                        })
-                    .onErrorResumeNext(
-                        error -> {
-                          if (error instanceof CacheNotFoundException
-                              || error instanceof RuntimeException
-                              || error instanceof Error) {
-                            return Completable.error(error);
-                          }
-
-                          // Treat other download error as CacheNotFoundException so that Bazel can
-                          // correctly rewind the action/build.
-                          var digest =
-                              DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-                          return Completable.error(new CacheNotFoundException(digest, execPath));
                         }));
 
     return downloadCache.executeIfNot(
