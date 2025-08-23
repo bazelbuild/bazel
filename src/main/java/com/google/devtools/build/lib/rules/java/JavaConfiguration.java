@@ -227,15 +227,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useIjars;
   }
 
-  /** Returns true iff Java header compilation is enabled. */
-  public boolean useHeaderCompilation() {
-    return useHeaderCompilation;
-  }
-
   @Override
   public boolean useHeaderCompilationStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    return useHeaderCompilation();
+    return useHeaderCompilation;
   }
 
   /** Returns true iff dependency information is generated after compilation. */
@@ -384,25 +379,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
    * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
    * dependencies instead of accidentally obtaining them from the TestRunner's dependencies.
    */
-  public boolean explicitJavaTestDeps() {
-    return explicitJavaTestDeps;
-  }
-
   @Override
   public boolean explicitJavaTestDepsStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    return explicitJavaTestDeps();
-  }
-
-  /**
-   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
-   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
-   *
-   * <p>One-version correctness will inspect for multiple non-identical versions of java classes in
-   * the transitive dependencies for a java_binary.
-   */
-  public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
-    return enforceOneVersion;
+    return explicitJavaTestDeps;
   }
 
   @Override
@@ -418,9 +398,16 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return disallowJavaImportExports;
   }
 
+  /**
+   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
+   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
+   *
+   * <p>One-version correctness will inspect for multiple non-identical versions of java classes in
+   * the transitive dependencies for a java_binary.
+   */
   @Override
   public String starlarkOneVersionEnforcementLevel() {
-    return oneVersionEnforcementLevel().name();
+    return enforceOneVersion.name();
   }
 
   @Override

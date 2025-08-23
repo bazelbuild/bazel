@@ -2659,10 +2659,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             srcs = ["custom.java"],
         )
         """);
-    useConfiguration(
-        "--java_header_compilation=true",
-        "--experimental_java_header_input_pruning",
-        "--incompatible_auto_exec_groups=True");
+    useConfiguration("--java_header_compilation=true", "--incompatible_auto_exec_groups=True");
 
     ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
     ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");

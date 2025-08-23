@@ -497,6 +497,88 @@ public final class BazelRulesModule extends BlazeModule {
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     @Option(
+        name = "legacy_bazel_java_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean legacyBazelJavaTest;
+
+    @Option(
+        name = "strict_deps_java_protos",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean strictDepsJavaProtos;
+
+    @Option(
+        name = "disallow_strict_deps_for_jpl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean isDisallowStrictDepsForJpl;
+
+    @Option(
+        name = "experimental_import_deps_checking",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String importDepsCheckingLevel;
+
+    @Option(
+        name = "experimental_allow_runtime_deps_on_neverlink",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean allowRuntimeDepsOnNeverLink;
+
+    @Option(
+        name = "experimental_limit_android_lint_to_android_constrained_java",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean limitAndroidLintToAndroidCompatible;
+
+    @Option(
+        name = "experimental_java_header_input_pruning",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean experimentalJavaHeaderInputPruning;
+
+    @Deprecated
+    @Option(
+        name = "incompatible_dont_collect_native_libraries_in_data",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean dontCollectDataLibraries;
+
+    @Deprecated
+    @Option(
+        name = "experimental_java_header_compilation_direct_deps",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean javaHeaderCompilationDirectDeps;
+
+    @Option(
+        name = "jplPropagateCcLinkParamsStore",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean jplPropagateCcLinkParamsStore;
+
+    @Option(
         name = "incompatible_require_linker_input_cc_api",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
