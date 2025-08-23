@@ -2008,8 +2008,6 @@ EOF
 
   bazel coverage \
     --test_output=all \
-    --experimental_fetch_all_coverage_outputs \
-    --experimental_split_coverage_postprocessing \
     --remote_download_minimal \
     --combined_report=lcov \
     --spawn_strategy=remote \
