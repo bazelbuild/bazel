@@ -232,6 +232,31 @@ LF:6
 end_of_record"
 
   assert_coverage_result "$expected_result" "./bazel-out/_coverage/_coverage_report.dat"
+
+  local expected_baseline_result="SF:src/main/com/example/Collatz.java
+FN:3,com/example/Collatz::<init> ()V
+FN:6,com/example/Collatz::getCollatzFinal (I)I
+FNDA:0,com/example/Collatz::<init> ()V
+FNDA:0,com/example/Collatz::getCollatzFinal (I)I
+FNF:2
+FNH:0
+BRDA:6,0,0,-
+BRDA:6,0,1,-
+BRDA:9,0,0,-
+BRDA:9,0,1,-
+BRF:4
+BRH:0
+DA:3,0
+DA:6,0
+DA:7,0
+DA:9,0
+DA:10,0
+DA:12,0
+LH:0
+LF:6
+end_of_record"
+  # TODO(#5716): Enable this check after the next rules_java update.
+  # assert_coverage_result "$expected_baseline_result" "./bazel-out/_coverage/_baseline_report.dat"
 }
 
 function test_java_test_java_import_coverage() {
