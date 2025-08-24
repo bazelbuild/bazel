@@ -1,3 +1,4 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(":default_test_toolchain.bzl", "bool_flag", "empty_toolchain")
 
 package(default_visibility = ["//visibility:public"])
@@ -17,7 +18,6 @@ behavior by registering a custom toolchain for \
 @bazel_tools//tools/test:default_test_toolchain_type.""",
 )
 
-
 # A target that provides an empty platform_common.ToolchainInfo for use
 # in test toolchains that do not need to carry any data, just
 # constraints.
@@ -35,11 +35,11 @@ bool_flag(
 
 config_setting(
     name = "use_default_test_toolchain",
-    values = {
-        "use_target_platform_for_tests": "false",
-    },
     flag_values = {
         ":incompatible_use_default_test_toolchain": "true",
+    },
+    values = {
+        "use_target_platform_for_tests": "false",
     },
     visibility = ["//visibility:private"],
 )
@@ -64,10 +64,10 @@ config_setting(
 # specified by the target platform.
 toolchain(
     name = "default_test_toolchain",
-    toolchain_type = ":default_test_toolchain_type",
-    use_target_platform_constraints = True,
     target_settings = [":use_default_test_toolchain"],
     toolchain = ":empty_toolchain",
+    toolchain_type = ":default_test_toolchain_type",
+    use_target_platform_constraints = True,
     visibility = ["//visibility:private"],
 )
 
@@ -76,17 +76,17 @@ toolchain(
 # toolchain.
 toolchain(
     name = "legacy_test_toolchain",
-    toolchain_type = ":default_test_toolchain_type",
     target_settings = [":use_legacy_test_toolchain_due_to_incompatible_flag"],
     toolchain = ":empty_toolchain",
+    toolchain_type = ":default_test_toolchain_type",
     visibility = ["//visibility:private"],
 )
 
 toolchain(
     name = "legacy_test_toolchain_use_target_platform_for_tests",
-    toolchain_type = ":default_test_toolchain_type",
     target_settings = [":use_legacy_test_toolchain_due_to_use_target_platform_for_tests"],
     toolchain = ":empty_toolchain",
+    toolchain_type = ":default_test_toolchain_type",
     visibility = ["//visibility:private"],
 )
 
@@ -108,7 +108,7 @@ filegroup(
     srcs = ["generate-xml.sh"],
 )
 
-filegroup(
+sh_binary(
     name = "collect_coverage",
     srcs = ["collect_coverage.sh"],
 )

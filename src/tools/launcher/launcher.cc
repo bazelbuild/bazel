@@ -188,8 +188,8 @@ wstring BinaryLauncherBase::Rlocation(wstring path,
 
   auto entry = manifest_file_map.find(path);
   if (entry == manifest_file_map.end()) {
-    die(L"Rlocation failed on %s, path doesn't exist in MANIFEST file",
-        path.c_str());
+    die(L"Rlocation failed on %s, path doesn't exist in MANIFEST file %s",
+        path.c_str(), manifest_file.c_str());
   }
   return entry->second;
 }

@@ -49,6 +49,16 @@ function resolve_links() {
   fi
 }
 
+# tw.exe prefixes the runfiles env variables so that this script can find its
+# own runfiles, which are not part of the test's runfiles.
+for name in RUNFILES_DIR RUNFILES_MANIFEST_FILE JAVA_RUNFILES PYTHON_RUNFILES; do
+  wrapper_name="BAZEL_COVERAGE_INTERNAL_${name}"
+  if [[ -n "${!wrapper_name}" ]]; then
+    export ${name}="${!wrapper_name}"
+    unset BAZEL_COVERAGE_INTERNAL_${name}
+  fi
+done
+
 if [[ -z "$COVERAGE_MANIFEST" ]]; then
   echo --
   echo Coverage runner: \$COVERAGE_MANIFEST is not set
@@ -254,7 +264,7 @@ if [[ $DISPLAY_LCOV_CMD ]] ; then
   echo "-----------------"
 fi
 
-# JAVA_RUNFILES is set to the runfiles of the test, which does not necessarily
-# contain a JVM (it does only if the test has a Java binary somewhere). So let
-# the LCOV merger discover where its own runfiles tree is.
-JAVA_RUNFILES= exec $LCOV_MERGER_CMD
+# Runfiles variables are set to the runfiles of the test, which does not contain
+# the runfiles of the LCOV merger. Unset them so that it can find its own
+# runfiles tree.
+JAVA_RUNFILES= RUNFILES_DIR= RUNFILES_MANIFEST_FILE= exec $LCOV_MERGER_CMD

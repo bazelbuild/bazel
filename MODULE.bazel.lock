@@ -870,7 +870,7 @@
     },
     "@@rules_perl+//perl:extensions.bzl%perl_repositories": {
       "general": {
-        "bzlTransitiveDigest": "DKAbT5Hv75ng+7437HBGby62c24WsBEitNFQsKvxS6U=",
+        "bzlTransitiveDigest": "ZY5hHpju2JyEfszPhEPZro0EoDc4lS8rz2jKaUsvsew=",
         "usagesDigest": "qSSNDdCNVxNhY36wMndEAFacdhR0ooLTmumfad0km9s=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},

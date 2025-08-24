@@ -50,9 +50,16 @@ function uses_llvm() {
 }
 
 # Returns 0 if gcov must be used, 1 otherwise.
+# The uses_gcov function determines whether gcov should be used for coverage.
+# Originally, it returned 0 (success) only if GCOV_COVERAGE=1, but GCOV_COVERAGE
+# was not set anywhere, causing the function to return 1 (failure) by default.
+# This led to CI failures when checking uses_gcov before calling init_gcov.
+# To fix this, the logic was reversed: now, GCOV_COVERAGE=0 means "do not use gcov".
+# If you are using llvm, set GCOV_COVERAGE=0 in your bazelrc to disable gcov.
+# This ensures the function works correctly even if GCOV_COVERAGE is unset.
 function uses_gcov() {
-  [[ "$GCOV_COVERAGE" -eq "1"  ]] && return 0
-  return 1
+  [[ "$GCOV_COVERAGE" -eq "0"  ]] && return 1
+  return 0
 }
 
 function init_gcov() {
@@ -186,7 +193,9 @@ function gcov_coverage() {
 }
 
 function main() {
-  init_gcov
+  if uses_gcov; then
+      init_gcov
+  fi
 
   # If llvm code coverage is used, we output the raw code coverage report in
   # the $COVERAGE_OUTPUT_FILE. This report will not be converted to any other

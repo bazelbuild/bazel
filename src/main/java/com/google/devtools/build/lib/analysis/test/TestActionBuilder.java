@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -221,19 +220,21 @@ public final class TestActionBuilder {
             : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorExecutable);
 
-    Artifact collectCoverageScript = null;
+    FilesToRunProvider collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
 
     int runsPerTest = getRunsPerTest(ruleContext);
     int shardCount = getShardCount(ruleContext);
 
-    NestedSetBuilder<Artifact> lcovMergerFilesToRun = NestedSetBuilder.compileOrder();
-    Artifact lcovMergerRunfilesTree = null;
+    NestedSet<Artifact> lcovMergerFilesToRun = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
-      collectCoverageScript = ruleContext.getPrerequisiteArtifact("$collect_coverage_script");
-      inputsBuilder.add(collectCoverageScript);
+      collectCoverageScript =
+          ruleContext
+              .getPrerequisite("$collect_coverage_script")
+              .getProvider(FilesToRunProvider.class);
+      inputsBuilder.addTransitive(collectCoverageScript.getFilesToRun());
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
       // exec paths of all source files that should be included into the code coverage output.
@@ -283,28 +284,15 @@ public final class TestActionBuilder {
       if (lcovMergerAttr != null) {
         TransitiveInfoCollection lcovMerger = ruleContext.getPrerequisite(lcovMergerAttr);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
-        if (lcovFilesToRun != null) {
-          extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
-          inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
-          lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
-          if (lcovFilesToRun.getRunfilesSupport() != null) {
-            lcovMergerRunfilesTree = lcovFilesToRun.getRunfilesSupport().getRunfilesTreeArtifact();
-          }
-        } else {
-          NestedSet<Artifact> filesToBuild =
-              lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
-
-          if (filesToBuild.isSingleton()) {
-            Artifact lcovMergerArtifact = filesToBuild.getSingleton();
-            extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
-            inputsBuilder.add(lcovMergerArtifact);
-            lcovMergerFilesToRun.add(lcovMergerArtifact);
-          } else {
-            ruleContext.attributeError(
-                lcovMergerAttr,
-                "the LCOV merger should be either an executable or a single artifact");
-          }
+        // Both executable targets and single artifacts have a FilesToRunProvider.
+        if (lcovFilesToRun == null) {
+          ruleContext.attributeError(
+              lcovMergerAttr,
+              "the LCOV merger should be either an executable or a single artifact");
         }
+        extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
+        inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
+        lcovMergerFilesToRun = lcovFilesToRun.getFilesToRun();
       }
 
       Artifact instrumentedFileManifest =
@@ -417,7 +405,6 @@ public final class TestActionBuilder {
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
                 lcovMergerFilesToRun,
-                lcovMergerRunfilesTree,
                 // Network allowlist only makes sense in workspaces which explicitly add it, use an
                 // empty one as a fallback.
                 MoreObjects.firstNonNull(

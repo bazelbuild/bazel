@@ -49,6 +49,7 @@ static constexpr const char* JAR_BIN_PATH = "jar_bin_path";
 static constexpr const char* CLASSPATH = "classpath";
 static constexpr const char* JAVA_START_CLASS = "java_start_class";
 static constexpr const char* JVM_FLAGS = "jvm_flags";
+static constexpr const char* JACOCO_MAIN_CLASS = "jacoco_main_class";
 
 // Check if a string start with a certain prefix.
 // If it's true, store the substring without the prefix in value.
@@ -312,6 +313,8 @@ ExitCode JavaBinaryLauncher::Launch() {
     wprintf(L"%s\n", java_bin.c_str());
     return 0;
   }
+  wstring jacoco_main_class = this->GetLaunchInfoByKey(JACOCO_MAIN_CLASS);
+  SetEnv(L"JACOCO_MAIN_CLASS", jacoco_main_class);
 
   wostringstream classpath;
 
