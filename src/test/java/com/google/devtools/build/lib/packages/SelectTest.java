@@ -16,9 +16,20 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -31,22 +42,27 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests of {@code select} function and data type. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class SelectTest {
 
-  private static Object eval(String expr)
+  private static Object eval(
+      String expr, StarlarkSemantics semantics, @Nullable BazelModuleContext bazelModuleContext)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(expr);
     Module module =
-        Module.withPredeclared(
-            StarlarkSemantics.DEFAULT, StarlarkGlobalsImpl.INSTANCE.getUtilToplevels());
+        Module.withPredeclaredAndData(
+            semantics, StarlarkGlobalsImpl.INSTANCE.getUtilToplevels(), bazelModuleContext);
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
       return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
     }
+  }
+
+  private static Object eval(String expr)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
+    return eval(expr, StarlarkSemantics.DEFAULT, /* bazelModuleContext= */ null);
   }
 
   private static void assertFails(String expr, String wantError) {
@@ -137,5 +153,52 @@ public class SelectTest {
 
     assertThat(eval("repr(select({'foo': {'FOO': 123}})|select({'bar': {'BAR': 456}}))"))
         .isEqualTo("select({\"foo\": {\"FOO\": 123}}) | select({\"bar\": {\"BAR\": 456}})");
+  }
+
+  @Test
+  public void testKeyResolution(@TestParameter boolean resolveSelectKeysEagerly) throws Exception {
+    var ctx =
+        BazelModuleContext.create(
+            BazelModuleKey.createFakeModuleKeyForTesting(
+                Label.parseCanonicalUnchecked("//other/pkg:def.bzl")),
+            RepositoryMapping.create(
+                ImmutableMap.of(
+                    "",
+                    RepositoryName.MAIN,
+                    "other_repo",
+                    RepositoryName.createUnvalidated("other_repo+")),
+                RepositoryName.MAIN),
+            "other/pkg/def.bzl",
+            /* loads= */ ImmutableList.of(),
+            /* bzlTransitiveDigest= */ new byte[0]);
+    var semantics =
+        StarlarkSemantics.builder()
+            .setBool(
+                BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY,
+                resolveSelectKeysEagerly)
+            .build();
+    var result =
+        (SelectorList)
+            eval("select({'a': 1, '//pkg:b': 2, '@other_repo//:file': 3})", semantics, ctx);
+    var selectDict =
+        ((SelectorValue) Iterables.getOnlyElement(result.getElements())).getDictionary();
+    if (resolveSelectKeysEagerly) {
+      assertThat(selectDict)
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//other/pkg:a"),
+              StarlarkInt.of(1),
+              Label.parseCanonicalUnchecked("//pkg:b"),
+              StarlarkInt.of(2),
+              Label.parseCanonicalUnchecked("@@other_repo+//:file"),
+              StarlarkInt.of(3))
+          .inOrder();
+    } else {
+      assertThat(selectDict)
+          .containsExactly(
+              "a", StarlarkInt.of(1),
+              "//pkg:b", StarlarkInt.of(2),
+              "@other_repo//:file", StarlarkInt.of(3))
+          .inOrder();
+    }
   }
 }
