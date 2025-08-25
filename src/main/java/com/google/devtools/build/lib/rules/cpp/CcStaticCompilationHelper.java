@@ -307,20 +307,15 @@ public final class CcStaticCompilationHelper {
 
   static void createCompileActionTemplate(
       ActionConstructionContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
-      FdoContext fdoContext,
-      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       Label label,
-      CcToolchainVariables commonToolchainVariables,
-      ImmutableMap<String, String> fdoBuildVariables,
-      RuleErrorConsumer unusedRuleErrorConsumer,
+      CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
       CppSource source,
       String outputName,
@@ -332,30 +327,7 @@ public final class CcStaticCompilationHelper {
       SpecialArtifact outputFiles)
       throws RuleErrorException, EvalException {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
-    builder.setVariables(
-        setupSpecificCompileBuildVariables(
-            commonToolchainVariables,
-            ccCompilationContext,
-            conlyopts,
-            copts,
-            cppConfiguration,
-            cxxopts,
-            fdoContext,
-            auxiliaryFdoInputs,
-            featureConfiguration,
-            semantics,
-            builder,
-            /* sourceLabel= */ null,
-            usePic,
-            /* needsFdoBuildVariables= */ false,
-            fdoBuildVariables,
-            ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
-            /* gcnoFile= */ null,
-            /* isUsingFission= */ false,
-            /* dwoFile= */ null,
-            /* ltoIndexingFile= */ null,
-            /* additionalBuildVariables= */ ImmutableMap.of()));
+    builder.setVariables(compileBuildVariables);
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
     SpecialArtifact dotdTreeArtifact = null;
