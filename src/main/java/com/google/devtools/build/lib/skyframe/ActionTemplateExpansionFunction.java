@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -54,16 +53,10 @@ import javax.annotation.Nullable;
  */
 public class ActionTemplateExpansionFunction implements SkyFunction {
   private final ActionKeyContext actionKeyContext;
-  private final BugReporter bugReporter;
-
-  ActionTemplateExpansionFunction(ActionKeyContext actionKeyContext) {
-    this(actionKeyContext, BugReporter.defaultInstance());
-  }
 
   @VisibleForTesting
-  ActionTemplateExpansionFunction(ActionKeyContext actionKeyContext, BugReporter bugReporter) {
+  ActionTemplateExpansionFunction(ActionKeyContext actionKeyContext) {
     this.actionKeyContext = actionKeyContext;
-    this.bugReporter = bugReporter;
   }
 
   @Nullable
@@ -106,11 +99,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
     try {
       checkActionAndArtifactConflicts(actions, key);
-      // It is currently not possible for Starlark actions to create action template actions, so
-      // no exceptions here are expected. However, they may be possible in the future.
     } catch (ActionConflictException e) {
-      bugReporter.sendBugReport(
-          new IllegalStateException("Unexpected action conflict for " + skyKey, e));
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
     } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
@@ -142,7 +131,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       ActionTemplate<?> actionTemplate,
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
       ActionTemplateExpansionKey key)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     Set<Artifact> outputs = actionTemplate.getOutputs();
     for (Artifact output : outputs) {
       Preconditions.checkState(

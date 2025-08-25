@@ -73,7 +73,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    */
   ImmutableList<T> generateActionsForInputArtifacts(
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
-      throws ActionExecutionException;
+      throws ActionExecutionException, InterruptedException;
 
   /** Returns the input TreeArtifact. */
   SpecialArtifact getInputTreeArtifact();

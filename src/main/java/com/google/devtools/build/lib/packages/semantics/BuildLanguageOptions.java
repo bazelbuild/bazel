@@ -670,6 +670,15 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalRuleExtensionApi;
 
   @Option(
+      name = "experimental_starlark_action_templates_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Enable experimental Starlark action templates API.")
+  public boolean experimentalStarlarkActionTemplatesApi;
+
+  @Option(
       name = "experimental_dormant_deps",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -902,6 +911,8 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS,
                 incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
+            .setBool(
+                EXPERIMENTAL_STARLARK_ACTION_TEMPLATES_API, experimentalStarlarkActionTemplatesApi)
             .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
             .setBool(EXPERIMENTAL_STARLARK_TYPES, experimentalStarlarkTypes)
             .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
@@ -1073,6 +1084,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_target_default_provider_fields";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API =
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
+  public static final String EXPERIMENTAL_STARLARK_ACTION_TEMPLATES_API =
+      "-experimental_starlark_action_templates_api";
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
 
   public static final String EXPERIMENTAL_STARLARK_TYPES = "-experimental_starlark_types";

@@ -19,11 +19,14 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -46,6 +49,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
+import com.google.devtools.build.lib.analysis.actions.StarlarkActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -133,27 +137,22 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public Artifact declareFile(String filename, Object sibling) throws EvalException {
+  public Artifact declareFile(
+      String filename, Object siblingUnchecked, Object directoryOrSiblingUnchecked)
+      throws EvalException {
     context.checkMutable("actions.declare_file");
-    RuleContext ruleContext = getRuleContext();
-
-    PathFragment fragment;
-    if (Starlark.NONE.equals(sibling)) {
-      fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
-    } else {
-      PathFragment original =
-          ((Artifact) sibling)
-              .getOutputDirRelativePath(
-                  getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
-      fragment = original.replaceName(filename);
-    }
-
-    if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+    if (siblingUnchecked != Starlark.NONE && directoryOrSiblingUnchecked != Starlark.NONE) {
       throw Starlark.errorf(
-          "the output artifact '%s' is not under package directory '%s' for target '%s'",
-          fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
+          "Only one of `sibling` or `directory_or_sibling` can be specified in a"
+              + " actions.declare_file() call.");
     }
-    return ruleContext.getDerivedArtifact(fragment, newFileRoot());
+
+    if (directoryOrSiblingUnchecked instanceof SpecialArtifact treeArtifact) {
+      return context.declareTreeFileArtifact(filename, treeArtifact);
+    }
+    Object sibling =
+        siblingUnchecked == Starlark.NONE ? directoryOrSiblingUnchecked : siblingUnchecked;
+    return context.declareFile(filename, sibling);
   }
 
   @Override
@@ -510,14 +509,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  /**
-   * Registers action in the context of this {@link StarlarkActionFactory}.
-   *
-   * <p>Use {@link #getRuleContext()} to obtain the context required to create this action.
-   */
+  /** Registers action in the context of this {@link StarlarkActionFactory}. */
   public void registerAction(ActionAnalysisMetadata action) throws EvalException {
     validateActionCreation();
-    getRuleContext().registerAction(action);
+    context.registerAction(action);
   }
 
   public RuleContext getRuleContext() {
@@ -998,6 +993,84 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
+  public void transformDirectory(
+      FileApi inputDirectory,
+      FileApi outputDirectory,
+      Sequence<?> additionalOutputsUnchecked,
+      StarlarkFunction implementation,
+      Object executionRequirementsUnchecked,
+      Object execGroupUnchecked,
+      Object toolchainUnchecked,
+      Dict<String, Object> kwargs,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    if (!getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_ACTION_TEMPLATES_API)) {
+      throw Starlark.errorf(
+          "actions.transform_directory() is an experimental API and is subjected to change. "
+              + "Please set the flag --experimental_starlark_action_templates_api to enable it.");
+    }
+
+    context.checkMutable("actions.transform_directory");
+
+    SpecialArtifact inputTreeArtifact =
+        SpecialArtifact.cast(inputDirectory, SpecialArtifactType.TREE, "input_directory");
+    SpecialArtifact outputTreeArtifact =
+        SpecialArtifact.cast(outputDirectory, SpecialArtifactType.TREE, "output_directory");
+
+    StarlarkActionTemplate.Builder builder =
+        new StarlarkActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
+            .setImplementation(implementation)
+            .setExecGroup(execGroupUnchecked)
+            .setToolchain(toolchainUnchecked);
+
+    ImmutableSet.Builder<Artifact> allOutputsBuilder =
+        ImmutableSet.<Artifact>builder().add(outputTreeArtifact);
+    Sequence<Artifact> additionalOutputs =
+        Sequence.cast(additionalOutputsUnchecked, Artifact.class, "additional_outputs");
+    for (int i = 0; i < additionalOutputs.size(); i++) {
+      SpecialArtifact additionalOutputTreeArtifact =
+          SpecialArtifact.cast(
+              additionalOutputs.get(i),
+              SpecialArtifactType.TREE,
+              String.format("additional_outputs[%d]", i));
+      builder.addAdditionalOutput(additionalOutputTreeArtifact);
+      allOutputsBuilder.add(additionalOutputTreeArtifact);
+    }
+
+    ImmutableSet<Artifact> allOutputs = allOutputsBuilder.build();
+    // In order to satisfy the contract of {@link ActionTemplate}, whereby inputs/outputs of the
+    // template need to be supersets of the inputs/outputs of expanded actions, kwargs are added as
+    // inputs if they aren't outputs of the template.
+    for (Object value : kwargs.values()) {
+      if (allOutputs.contains(value)) {
+        continue;
+      }
+      // Only allow Artifact(s) and FilesToRunProvider(s) as kwargs for now, we can relax this later
+      // if needed.
+      if (value instanceof Artifact artifact) {
+        builder.addAdditionalInput(artifact);
+      } else if (value instanceof FilesToRunProvider filesToRun) {
+        builder.addAdditionalInput(filesToRun);
+      } else {
+        throw Starlark.errorf(
+            "Only File(s) and FilesToRunProvider(s) are allowed as kwargs in"
+                + "ctx.actions.transform_directory(), but got %s instead",
+            Starlark.type(value));
+      }
+    }
+    builder.setKwargs(kwargs);
+
+    ImmutableMap<String, String> executionInfo =
+        TargetUtils.getFilteredExecutionInfo(
+            executionRequirementsUnchecked,
+            getRuleContext().getRule(),
+            getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+    builder.setExecutionInfo(executionInfo);
+
+    registerAction(builder.build(context, thread.getSemantics()));
+  }
+
+  @Override
   public void expandTemplate(
       FileApi template,
       FileApi output,
@@ -1095,6 +1168,38 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     default Object maybeOverrideToolchain(Object toolchainUnchecked) throws EvalException {
       return toolchainUnchecked;
+    }
+
+    default void registerAction(ActionAnalysisMetadata action) throws EvalException {
+      getRuleContext().registerAction(action);
+    }
+
+    default Artifact declareFile(String filename, Object sibling) throws EvalException {
+      RuleContext ruleContext = getRuleContext();
+      PathFragment fragment;
+      if (sibling == Starlark.NONE) {
+        fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
+      } else {
+        PathFragment original =
+            ((Artifact) sibling)
+                .getOutputDirRelativePath(
+                    getStarlarkSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+        fragment = original.replaceName(filename);
+      }
+
+      if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+        throw Starlark.errorf(
+            "the output artifact '%s' is not under package directory '%s' for target '%s'",
+            fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
+      }
+      return ruleContext.getDerivedArtifact(fragment, newFileRoot());
+    }
+
+    default Artifact declareTreeFileArtifact(String name, SpecialArtifact treeArtifact)
+        throws EvalException {
+      throw Starlark.errorf(
+          "Cannot declare a directory file outside of a ctx.actions.transform_directory"
+              + " `implementation` function.");
     }
   }
 }

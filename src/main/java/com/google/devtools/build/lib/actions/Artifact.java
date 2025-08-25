@@ -884,6 +884,28 @@ public abstract sealed class Artifact
     SpecialArtifactType getSpecialArtifactType() {
       return type;
     }
+
+    /**
+     * Casts a non-null Starlark value to a {@code SpecialArtifact} and returns it.
+     *
+     * @throws EvalException if the value is not a {@code SpecialArtifact}.
+     */
+    public static SpecialArtifact cast(Object value, SpecialArtifactType type, String what)
+        throws EvalException {
+      Preconditions.checkNotNull(value);
+      if (value instanceof SpecialArtifact specialArtifact) {
+
+        if (specialArtifact.getSpecialArtifactType() != type) {
+          throw Starlark.errorf(
+              "Expected directory artifact for %s, but got a File[%s] instead.",
+              what, specialArtifact.getSpecialArtifactType());
+        }
+
+        return specialArtifact;
+      }
+      throw Starlark.errorf(
+          "Expected directory artifact for %s, but got a %s", what, Starlark.type(value));
+    }
   }
 
   /**
