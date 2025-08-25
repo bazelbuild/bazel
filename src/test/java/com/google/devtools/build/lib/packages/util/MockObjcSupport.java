@@ -103,11 +103,6 @@ public final class MockObjcSupport {
       argsBuilder.add("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     }
 
-    // Set a crosstool_top that is compatible with Apple transitions. Currently, even though this
-    // references the old cc_toolchain_suite, it's still required of cc builds even when the
-    // incompatible_enable_cc_toolchain_resolution flag is active.
-    argsBuilder.add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-
     argsBuilder.add("--incompatible_enable_apple_toolchain_resolution");
 
     return argsBuilder.build();
@@ -125,11 +120,6 @@ public final class MockObjcSupport {
       argsBuilder.add("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     }
 
-    // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
-    // AppleCrosstoolTransition
-    argsBuilder
-        .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     return argsBuilder.build();
   }
 

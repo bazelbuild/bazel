@@ -289,7 +289,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    'watchos_arm64_32': '" + MockObjcSupport.WATCHOS_ARM64_32 + "',",
         "}",
         "_apple_platform_transition_inputs = [",
-        "    '//command_line_option:apple_crosstool_top',",
         "    '//command_line_option:cpu',",
         "    '//command_line_option:ios_multi_cpus',",
         "    '//command_line_option:macos_cpus',",

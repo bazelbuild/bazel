@@ -193,17 +193,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
 
   @Option(
-      name = "apple_crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "The label of the crosstool package to be used in Apple and Objc rules and their"
-              + " dependencies.")
-  public Label appleCrosstoolTop;
-
-  @Option(
       name = "apple_platform_type",
       defaultValue = "macos",
       converter = PlatformTypeConverter.class,

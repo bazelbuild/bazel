@@ -497,6 +497,14 @@ public final class BazelRulesModule extends BlazeModule {
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     @Option(
+        name = "apple_crosstool_top",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String appleCrosstoolTop;
+
+    @Option(
         name = "legacy_bazel_java_test",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
