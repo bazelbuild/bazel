@@ -314,11 +314,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public SpawnInputExpander getSpawnInputExpander() {
-      return spawnInputExpander;
-    }
-
-    @Override
     public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
         throws InterruptedException {
       if (stopConcurrentSpawns != null) {

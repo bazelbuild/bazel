@@ -116,11 +116,6 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public SpawnInputExpander getSpawnInputExpander() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Duration getTimeout() {
       return timeout;
     }
