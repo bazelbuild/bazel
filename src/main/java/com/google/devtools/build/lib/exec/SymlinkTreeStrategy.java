@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -131,11 +132,10 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext, Path inputManifest)
       throws EnvironmentalExecException {
     Path outputManifest = actionExecutionContext.getInputPath(action.getOutputManifest());
-    // Link output manifest on success. We avoid a file copy as these manifests may be
-    // large. Note that this step has to come last because the OutputService may delete any
-    // pre-existing symlink tree before creating a new one.
+    // Note that this step has to come last because the OutputService may delete any pre-existing
+    // symlink tree before creating a new one.
     try {
-      outputManifest.createSymbolicLink(inputManifest);
+      FileSystemUtils.copyFile(inputManifest, outputManifest);
     } catch (IOException e) {
       throw createLinkFailureException(outputManifest, e);
     }

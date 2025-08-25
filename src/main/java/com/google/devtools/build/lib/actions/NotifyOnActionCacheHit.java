@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -37,6 +38,9 @@ public interface NotifyOnActionCacheHit extends Action {
 
     /** Returns the {@link ArtifactPathResolver} for this action. */
     ArtifactPathResolver getPathResolver();
+
+    /** Returns the {@link OutputMetadataStore} for this action. */
+    OutputMetadataStore getOutputMetadataStore();
 
     /**
      * Looks up and returns an action context implementation of the given interface type.

@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.RichArtifactData;
 import com.google.devtools.build.lib.actions.RichDataProducingAction;
+import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -39,13 +41,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import javax.annotation.Nullable;
+import java.io.IOException;
 
 /**
  * Action responsible for the symlink tree creation. Used to generate runfiles and fileset symlink
  * trees.
  */
 @Immutable
-public final class SymlinkTreeAction extends AbstractAction implements RichDataProducingAction {
+public final class SymlinkTreeAction extends AbstractAction
+    implements RichDataProducingAction, NotifyOnActionCacheHit {
 
   private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
 
@@ -250,5 +254,18 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   @Override
   public boolean mayInsensitivelyPropagateInputs() {
     return true;
+  }
+
+  @Override
+  public boolean actionCacheHit(ActionCachedContext context) {
+    try {
+      var metadata = context.getOutputMetadataStore().getOutputMetadata(getOutputManifest());
+      return metadata != null && metadata.getResolvedPath() == null;
+    } catch (IOException e) {
+      return false;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
   }
 }
