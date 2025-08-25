@@ -330,7 +330,6 @@ public final class CcStaticCompilationHelper {
       boolean usePic,
       boolean bitcodeOutput)
       throws RuleErrorException, EvalException {
-    builder.setPicMode(usePic);
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(

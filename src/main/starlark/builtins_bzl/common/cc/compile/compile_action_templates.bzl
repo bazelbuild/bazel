@@ -64,6 +64,7 @@ def create_compile_action_templates(
             source_artifact = source_artifact,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
+            use_pic = generate_pic_action,
         )
         header_token_file = _cc_internal.create_compile_action_template(
             action_construction_context = action_construction_context,
@@ -103,6 +104,7 @@ def create_compile_action_templates(
                 source_artifact = source_artifact,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
+                use_pic = False,
             )
             object_file = _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
@@ -141,6 +143,7 @@ def create_compile_action_templates(
                 source_artifact = source_artifact,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
+                use_pic = True,
             )
             pic_object_file = _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,

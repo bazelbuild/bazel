@@ -715,6 +715,7 @@ def _create_cc_compile_actions(
             output_file = output_file,
             dotd_file = dotd_file,
             diagnostics_file = diagnostics_file,
+            use_pic = generate_pic_action,
         )
         specific_compile_build_variables = get_specific_compile_build_variables(
             feature_configuration,
@@ -746,7 +747,6 @@ def _create_cc_compile_actions(
             action_construction_context = action_construction_context,
             configuration = configuration,
             feature_configuration = feature_configuration,
-            use_pic = generate_pic_action,
             compile_build_variables = compile_variables,
             cpp_semantics = native_cc_semantics,
             compile_action_builder = cpp_compile_action_builder,

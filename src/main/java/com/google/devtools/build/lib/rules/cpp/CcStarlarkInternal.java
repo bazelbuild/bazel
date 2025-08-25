@@ -989,6 +989,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "diagnostics_file", positional = false, named = true, defaultValue = "None"),
         @Param(name = "gcno_file", positional = false, named = true, defaultValue = "None"),
         @Param(name = "dwo_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
       })
   public CppCompileActionBuilder createCppCompileActionBuilder(
       StarlarkRuleContext actionConstructionContext,
@@ -1005,7 +1006,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object dotdFile,
       Object diagnosticsFile,
       Object gcnoFile,
-      Object dwoFile)
+      Object dwoFile,
+      boolean usePic)
       throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
@@ -1037,6 +1039,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         nullIfNone(outputFile, Artifact.class),
         nullIfNone(dotdFile, Artifact.class),
         nullIfNone(diagnosticsFile, Artifact.class));
+    builder.setPicMode(usePic);
     return builder;
   }
 
@@ -1050,7 +1053,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
         @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
+        @Param(name = "use_pic", positional = false, named = true, defaultValue = "None"),
       })
   public void createCppCompileAction(
       StarlarkRuleContext actionConstructionContext,
@@ -1059,9 +1062,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       CppSemantics semantics,
       BuildConfigurationValue configuration,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      boolean usePic)
+      Object usePic)
       throws EvalException {
-    builder.setVariables(compileBuildVariables).setPicMode(usePic);
+    builder.setVariables(compileBuildVariables);
+    if (usePic != Starlark.NONE) {
+      builder.setPicMode((Boolean) usePic);
+    }
     semantics.finalizeCompileActionBuilder(
         configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
     try {
