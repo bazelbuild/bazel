@@ -305,7 +305,7 @@ public final class CcStaticCompilationHelper {
 
   // Methods creating actions:
 
-  static Artifact createCompileActionTemplate(
+  static void createCompileActionTemplate(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -328,14 +328,10 @@ public final class CcStaticCompilationHelper {
       CcCompilationOutputs.Builder result,
       ImmutableList<ArtifactCategory> outputCategories,
       boolean usePic,
-      boolean bitcodeOutput)
+      boolean bitcodeOutput,
+      SpecialArtifact outputFiles)
       throws RuleErrorException, EvalException {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
-    SpecialArtifact outputFiles =
-        CppHelper.getCompileOutputTreeArtifact(
-            actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // Dotd and dia file outputs are specified in the execution phase.
-    builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
     builder.setVariables(
         setupSpecificCompileBuildVariables(
             commonToolchainVariables,
@@ -418,8 +414,6 @@ public final class CcStaticCompilationHelper {
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }
-
-    return outputFiles;
   }
 
   @CanIgnoreReturnValue

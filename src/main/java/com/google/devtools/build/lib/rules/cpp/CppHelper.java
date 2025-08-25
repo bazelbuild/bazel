@@ -266,22 +266,6 @@ public class CppHelper {
         objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));
   }
 
-  /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
-  public static SpecialArtifact getCompileOutputTreeArtifact(
-      ActionConstructionContext actionConstructionContext,
-      Label label,
-      Artifact sourceTreeArtifact,
-      String outputName,
-      boolean usePic) {
-    return actionConstructionContext.getTreeArtifact(
-        getObjDirectory(
-                label,
-                usePic,
-                actionConstructionContext.getConfiguration().isSiblingRepositoryLayout())
-            .getRelative(outputName),
-        sourceTreeArtifact.getRoot());
-  }
-
   /** Returns the corresponding dotd files TreeArtifact given the source TreeArtifact. */
   public static SpecialArtifact getDotdOutputTreeArtifact(
       ActionConstructionContext actionConstructionContext,

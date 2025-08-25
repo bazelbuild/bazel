@@ -19,6 +19,7 @@ load(
     "CPP_SOURCE_TYPE_SOURCE",
     "artifact_category",
 )
+load(":common/paths.bzl", "paths")
 
 _cc_internal = _builtins.internal.cc_internal
 
@@ -53,6 +54,12 @@ def create_compile_action_templates(
     if cpp_source.type not in [CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER]:
         fail("Encountered invalid source types when creating CppCompileActionTemplates: " + cpp_source.type)
     if cpp_source.type == CPP_SOURCE_TYPE_HEADER:
+        header_token_file = _declare_compile_output_tree_artifact(
+            action_construction_context,
+            label,
+            output_name,
+            generate_pic_action,
+        )
         cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
@@ -65,8 +72,9 @@ def create_compile_action_templates(
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
             use_pic = generate_pic_action,
+            output_file = header_token_file,
         )
-        header_token_file = _cc_internal.create_compile_action_template(
+        _cc_internal.create_compile_action_template(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
@@ -89,10 +97,17 @@ def create_compile_action_templates(
             output_categories = [artifact_category.GENERATED_HEADER, artifact_category.PROCESSED_HEADER],
             use_pic = generate_pic_action,
             bitcode_output = bitcode_output,
+            output_files = header_token_file,
         )
         outputs.add_header_token_file(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
         if generate_no_pic_action:
+            object_file = _declare_compile_output_tree_artifact(
+                action_construction_context,
+                label,
+                output_name,
+                generate_pic_action = False,
+            )
             cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
@@ -105,8 +120,9 @@ def create_compile_action_templates(
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
                 use_pic = False,
+                output_file = object_file,
             )
-            object_file = _cc_internal.create_compile_action_template(
+            _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
@@ -129,9 +145,16 @@ def create_compile_action_templates(
                 output_categories = [artifact_category.OBJECT_FILE],
                 use_pic = False,
                 bitcode_output = feature_configuration.is_enabled("thin_lto"),
+                output_files = object_file,
             )
             outputs.add_object_file(object_file)
         if generate_pic_action:
+            pic_object_file = _declare_compile_output_tree_artifact(
+                action_construction_context,
+                label,
+                output_name,
+                generate_pic_action = True,
+            )
             cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
@@ -144,8 +167,9 @@ def create_compile_action_templates(
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
                 use_pic = True,
+                output_file = pic_object_file,
             )
-            pic_object_file = _cc_internal.create_compile_action_template(
+            _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
@@ -168,5 +192,17 @@ def create_compile_action_templates(
                 output_categories = [artifact_category.PIC_OBJECT_FILE],
                 use_pic = True,
                 bitcode_output = feature_configuration.is_enabled("thin_lto"),
+                output_files = pic_object_file,
             )
             outputs.add_pic_object_file(pic_object_file)
+
+def _declare_compile_output_tree_artifact(
+        ctx,
+        label,
+        output_name,
+        generate_pic_action):
+    return ctx.actions.declare_directory(paths.join(
+        "_pic_objs" if generate_pic_action else "_objs",
+        label.name,
+        output_name,
+    ))

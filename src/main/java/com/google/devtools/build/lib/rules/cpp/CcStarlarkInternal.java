@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -827,9 +828,10 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "outputs", positional = false, named = true),
         @Param(name = "output_categories", positional = false, named = true),
         @Param(name = "use_pic", positional = false, named = true),
-        @Param(name = "bitcode_output", positional = false, named = true)
+        @Param(name = "bitcode_output", positional = false, named = true),
+        @Param(name = "output_files", positional = false, named = true)
       })
-  public Artifact createCompileActionTemplate(
+  public void createCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
       CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
@@ -851,7 +853,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       CcCompilationOutputs.Builder outputs,
       Sequence<?> outputCategoriesUnchecked,
       boolean usePic,
-      boolean bitcodeOutput)
+      boolean bitcodeOutput,
+      SpecialArtifact outputFiles)
       throws RuleErrorException, EvalException {
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
@@ -871,7 +874,7 @@ public class CcStarlarkInternal implements StarlarkValue {
                 outputCategoryObject));
       }
     }
-    return CcStaticCompilationHelper.createCompileActionTemplate(
+    CcStaticCompilationHelper.createCompileActionTemplate(
         starlarkRuleContext.getRuleContext(),
         ccCompilationContext,
         CcToolchainProvider.create(ccToolchain),
@@ -895,7 +898,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         outputs,
         outputCategories.build(),
         usePic,
-        bitcodeOutput);
+        bitcodeOutput,
+        outputFiles);
   }
 
   @StarlarkMethod(
