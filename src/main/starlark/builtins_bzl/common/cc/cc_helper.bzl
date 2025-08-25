@@ -102,18 +102,6 @@ def _rule_error(msg):
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
 
-# NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
-# it has better performance (checking for extension in a short list rather than multiple
-# string.endswith() checks)
-def _is_valid_shared_library_name(shared_library_name):
-    if (shared_library_name.endswith(".so") or
-        shared_library_name.endswith(".dll") or
-        shared_library_name.endswith(".dylib") or
-        shared_library_name.endswith(".wasm")):
-        return True
-
-    return is_versioned_shared_library_extension_valid(shared_library_name)
-
 def _libraries_from_linking_context(linking_context):
     libraries = []
     for linker_input in linking_context.linker_inputs.to_list():
@@ -133,6 +121,18 @@ cpp_file_types = struct(
 )
 
 artifact_category = _artifact_category
+
+# NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
+# it has better performance (checking for extension in a short list rather than multiple
+# string.endswith() checks)
+def _is_valid_shared_library_name(shared_library_name):
+    if (shared_library_name.endswith(".so") or
+        shared_library_name.endswith(".dll") or
+        shared_library_name.endswith(".dylib") or
+        shared_library_name.endswith(".wasm")):
+        return True
+
+    return is_versioned_shared_library_extension_valid(shared_library_name)
 
 def _replace_name(name, new_name):
     last_slash = name.rfind("/")
