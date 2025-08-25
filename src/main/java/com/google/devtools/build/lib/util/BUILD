@@ -311,6 +311,7 @@ java_library(
         "FileTypeSet.java",
     ],
     deps = [
+        ":os",
         ":string",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
