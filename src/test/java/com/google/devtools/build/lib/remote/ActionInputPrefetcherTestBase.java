@@ -302,7 +302,7 @@ public abstract class ActionInputPrefetcherTestBase {
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     verify(prefetcher, never())
-        .doDownloadFile(eq(action), any(), any(), any(), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
@@ -321,7 +321,7 @@ public abstract class ActionInputPrefetcherTestBase {
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     verify(prefetcher)
-        .doDownloadFile(eq(action), any(), any(), eq(a.getExecPath()), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
@@ -911,7 +911,7 @@ public abstract class ActionInputPrefetcherTestBase {
       throws IOException {
     doAnswer(
             invocation -> {
-              Path path = invocation.getArgument(2);
+              Path path = invocation.getArgument(3);
               FileArtifactValue metadata = invocation.getArgument(4);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
