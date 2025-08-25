@@ -36,8 +36,15 @@ class LcovPrinter {
   }
 
   static void print(OutputStream outputStream, Coverage coverage) throws IOException {
+    // Emit consistent line endings across all platforms.
     try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8);
-        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter); ) {
+        BufferedWriter bufferedWriter =
+            new BufferedWriter(fileWriter) {
+              @Override
+              public void newLine() throws IOException {
+                write('\n');
+              }
+            }) {
       LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter);
       lcovPrinter.print(coverage);
     }

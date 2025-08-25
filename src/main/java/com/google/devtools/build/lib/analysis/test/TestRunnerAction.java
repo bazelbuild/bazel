@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -59,7 +60,6 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -115,7 +115,7 @@ public class TestRunnerAction extends AbstractAction
   private final Artifact runfilesMiddleman;
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
-  private final Artifact collectCoverageScript;
+  private final FilesToRunProvider collectCoverageScript;
   private final BuildConfigurationValue configuration;
   private final TestConfiguration testConfiguration;
   private final Artifact testLog;
@@ -167,8 +167,8 @@ public class TestRunnerAction extends AbstractAction
   private final CancelConcurrentTests cancelConcurrentTests;
 
   private final boolean splitCoveragePostProcessing;
-  private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
-  @Nullable private final Artifact lcovMergerRunfilesMiddleman;
+
+  private final NestedSet<Artifact> lcovMergerFilesToRun;
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
   private final PackageSpecificationProvider networkAllowlist;
@@ -197,7 +197,8 @@ public class TestRunnerAction extends AbstractAction
       Artifact runfilesMiddleman,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
-      @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
+      @Nullable
+          FilesToRunProvider collectCoverageScript, // filesToRun must be in input, if not null
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
@@ -213,8 +214,7 @@ public class TestRunnerAction extends AbstractAction
       @Nullable PathFragment shExecutable,
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
-      NestedSetBuilder<Artifact> lcovMergerFilesToRun,
-      @Nullable Artifact lcovMergerRunfilesMiddleman,
+      NestedSet<Artifact> lcovMergerFilesToRun,
       PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
@@ -272,7 +272,6 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.lcovMergerRunfilesMiddleman = lcovMergerRunfilesMiddleman;
     this.networkAllowlist = networkAllowlist;
 
     // Mark all possible test outputs for deletion before test execution.
@@ -331,11 +330,6 @@ public class TestRunnerAction extends AbstractAction
     return configuration.getActionEnvironment();
   }
 
-  @Nullable
-  public Artifact getLcovMergerRunfilesMiddleman() {
-    return lcovMergerRunfilesMiddleman;
-  }
-
   public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
@@ -348,7 +342,7 @@ public class TestRunnerAction extends AbstractAction
     return splitCoveragePostProcessing;
   }
 
-  public NestedSetBuilder<Artifact> getLcovMergerFilesToRun() {
+  public NestedSet<Artifact> getLcovMergerFilesToRun() {
     return lcovMergerFilesToRun;
   }
 
@@ -1071,7 +1065,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Nullable
-  public Artifact getCollectCoverageScript() {
+  public FilesToRunProvider getCollectCoverageScript() {
     return collectCoverageScript;
   }
 
