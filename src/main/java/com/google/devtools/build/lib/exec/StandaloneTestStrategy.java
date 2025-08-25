@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -449,7 +448,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 .getExecPath()
                 .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
             action.getTestLog().getExecPathString(),
-            action.getXmlOutputPath().getPathString(),
+            action.getTestXml().getExecPathString(),
             Integer.toString(result.getWallTimeInMs() / 1000),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
@@ -474,7 +473,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* inputs= */ NestedSetBuilder.create(
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
