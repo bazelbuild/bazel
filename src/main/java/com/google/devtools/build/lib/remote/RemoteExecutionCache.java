@@ -27,7 +27,6 @@ import static java.lang.String.format;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,8 +47,8 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.util.DeterministicWriterInputStream;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -179,30 +178,19 @@ public class RemoteExecutionCache extends CombinedCache {
 
   private static final class VirtualActionInputBlob implements Blob {
     private VirtualActionInput virtualActionInput;
-    // Can be large compared to the retained size of the VirtualActionInput and thus shouldn't be
-    // kept in memory for an extended period of time.
-    private volatile ByteString data;
 
     VirtualActionInputBlob(VirtualActionInput virtualActionInput) {
-      this.virtualActionInput = Preconditions.checkNotNull(virtualActionInput);
+      this.virtualActionInput = checkNotNull(virtualActionInput);
     }
 
     @Override
-    public InputStream get() throws IOException {
-      if (data == null) {
-        synchronized (this) {
-          if (data == null) {
-            data = Preconditions.checkNotNull(virtualActionInput, "used after close()").getBytes();
-          }
-        }
-      }
-      return data.newInput();
+    public InputStream get() {
+      return new DeterministicWriterInputStream(virtualActionInput);
     }
 
     @Override
     public void close() {
       virtualActionInput = null;
-      data = null;
     }
   }
 
