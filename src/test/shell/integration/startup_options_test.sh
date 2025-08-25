@@ -96,19 +96,23 @@ function test_multiple_bazelrc_later_overwrites_earlier() {
 }
 
 function test_multiple_bazelrc_set_different_options() {
+  # Set host platform to avoid using the default value which only works for Bazel.
+  echo "common --host_platform=${default_host_platform}" > host_platform.rc
   echo "common --verbose_failures" > 1.rc
   echo "common --test_output=all" > 2.rc
-  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" info --announce_rc &> $TEST_log || fail "Should pass"
+  bazel "--${PRODUCT_NAME}rc=host_platform.rc" "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" info --announce_rc &> $TEST_log || fail "Should pass"
   expect_log "Inherited 'common' options: --verbose_failures"
   expect_log "Inherited 'common' options: --test_output=all"
 }
 
 function test_bazelrc_after_devnull_ignored() {
+  # Set host platform to avoid using the default value which only works for Bazel.
+  echo "common --host_platform=${default_host_platform}" > host_platform.rc
   echo "common --verbose_failures" > 1.rc
   echo "common --test_output=all" > 2.rc
   echo "common --definitely_invalid_config" > 3.rc
 
-  bazel "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" "--${PRODUCT_NAME}rc=/dev/null" \
+  bazel "--${PRODUCT_NAME}rc=host_platform.rc" "--${PRODUCT_NAME}rc=1.rc" "--${PRODUCT_NAME}rc=2.rc" "--${PRODUCT_NAME}rc=/dev/null" \
    "--${PRODUCT_NAME}rc=3.rc" info --announce_rc &> $TEST_log || fail "Should pass"
   expect_log "Inherited 'common' options: --verbose_failures"
   expect_log "Inherited 'common' options: --test_output=all"
