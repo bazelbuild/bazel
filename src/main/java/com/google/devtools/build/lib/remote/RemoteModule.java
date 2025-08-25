@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -138,6 +139,7 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
+  private boolean useRemoteRepoContentsCache;
 
   @Nullable private PathFragment outputBase;
   @Nullable private AsynchronousMessageOutputStream<LogEntry> rpcLogFile;
@@ -182,12 +184,22 @@ public final class RemoteModule extends BlazeModule {
   private CredentialModule credentialModule;
 
   @Override
+  public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
+    return ImmutableList.of(RemoteStartupOptions.class);
+  }
+
+  @Override
   public void globalInit(OptionsParsingResult startupOptions) {
     outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).outputBase;
+    useRemoteRepoContentsCache =
+        startupOptions.getOptions(RemoteStartupOptions.class).useRemoteRepoContentsCache;
   }
 
   @Override
   public FileSystem getFileSystemForBuildArtifacts(FileSystem nativeFs) {
+    if (!useRemoteRepoContentsCache) {
+      return null;
+    }
     return new RemoteOverlayFileSystem(
         outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION), nativeFs);
   }
@@ -771,12 +783,14 @@ public final class RemoteModule extends BlazeModule {
             invocationId,
             remoteOptions.remoteInstanceName,
             remoteOptions.remoteAcceptCached));
-    ((RemoteOverlayFileSystem) env.getDirectories().getOutputBase().getFileSystem())
-        .beforeCommand(
-            actionContextProvider.getCombinedCache(),
-            env.getReporter(),
-            buildRequestId,
-            invocationId);
+    if (env.getDirectories().getOutputBase().getFileSystem()
+        instanceof RemoteOverlayFileSystem remoteFs) {
+      remoteFs.beforeCommand(
+          actionContextProvider.getCombinedCache(),
+          env.getReporter(),
+          buildRequestId,
+          invocationId);
+    }
 
     buildEventArtifactUploaderFactoryDelegate.init(
         new ByteStreamBuildEventArtifactUploaderFactory(
@@ -977,7 +991,10 @@ public final class RemoteModule extends BlazeModule {
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryHelpersFactoryDelegate.reset();
-    ((RemoteOverlayFileSystem) env.getDirectories().getOutputBase().getFileSystem()).afterCommand();
+    if (env.getDirectories().getOutputBase().getFileSystem()
+        instanceof RemoteOverlayFileSystem remoteFs) {
+      remoteFs.afterCommand();
+    }
     remoteDownloader = null;
     actionContextProvider = null;
     actionInputFetcher = null;
