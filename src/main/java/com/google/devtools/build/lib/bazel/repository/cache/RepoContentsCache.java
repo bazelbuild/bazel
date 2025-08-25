@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -164,9 +163,13 @@ public final class RepoContentsCache {
     if (!entryDir.isDirectory()) {
       entryDir.delete();
     }
-    String counter = getNextCounterInDir(entryDir);
-    Path cacheRecordedInputsFile = entryDir.getChild(counter + RECORDED_INPUTS_SUFFIX);
-    Path cacheRepoDir = entryDir.getChild(counter);
+    // The name of the entry must be unique and remain so over time, even in case of data loss: If
+    // the name of an entry is ever reused, a Bazel output base that linked to the previous version
+    // of the entry would pick up the new version of the entry without invalidation as the marker
+    // file is not symlinked, but kept under that particular output base.
+    String uniqueEntryName = UUID.randomUUID().toString();
+    Path cacheRecordedInputsFile = entryDir.getChild(uniqueEntryName + RECORDED_INPUTS_SUFFIX);
+    Path cacheRepoDir = entryDir.getChild(uniqueEntryName);
 
     cacheRepoDir.deleteTree();
     cacheRepoDir.getParentDirectory().createDirectoryAndParents();
@@ -186,23 +189,6 @@ public final class RepoContentsCache {
     fetchedRepoDir.deleteTree();
     FileSystemUtils.ensureSymbolicLink(fetchedRepoDir, cacheRepoDir);
     return cacheRepoDir;
-  }
-
-  private static String getNextCounterInDir(Path entryDir) throws IOException {
-    Path counterFile = entryDir.getRelative("counter");
-    try (var lock = FileSystemLock.get(entryDir.getRelative("lock"), LockMode.EXCLUSIVE)) {
-      int c = 0;
-      if (counterFile.exists()) {
-        try {
-          c = Integer.parseInt(FileSystemUtils.readContent(counterFile, StandardCharsets.UTF_8));
-        } catch (NumberFormatException e) {
-          // ignored
-        }
-      }
-      String counter = Integer.toString(c + 1);
-      FileSystemUtils.writeContent(counterFile, StandardCharsets.UTF_8, counter);
-      return counter;
-    }
   }
 
   public void acquireSharedLock() throws IOException {
