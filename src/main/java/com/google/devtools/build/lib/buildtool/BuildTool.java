@@ -268,6 +268,7 @@ public class BuildTool {
       buildOptions = runtime.createBuildOptions(request);
     }
 
+    RemoteAnalysisCachingDependenciesProvider analysisCachingDeps = null;
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
@@ -368,7 +369,7 @@ public class BuildTool {
                         CommandLineEvent.CanonicalCommandLineEvent.LABEL)));
       }
       buildOptions = runtime.createBuildOptions(optionsParser);
-      var analysisCachingDeps =
+      analysisCachingDeps =
           RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
               env,
               projectEvaluationResult.activeDirectoriesMatcher(),
@@ -383,7 +384,9 @@ public class BuildTool {
             request, result, targetPatternPhaseValue, buildOptions, analysisCachingDeps);
       }
 
-      logAnalysisCachingStatsAndMaybeUploadFrontier(analysisCachingDeps);
+      if (analysisCachingDeps.mode().serializesValues()) {
+        serializeValues(analysisCachingDeps);
+      }
 
       if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
         // Skyfocus only works at the end of a successful build.
@@ -403,8 +406,6 @@ public class BuildTool {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;
       throw e;
-    } catch (Exception e) {
-      throw e;
     } finally {
       if (!catastrophe) {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
@@ -415,6 +416,11 @@ public class BuildTool {
         // The workspace status actions will not run with certain flags, or if an error occurs early
         // in the build. Ensure that build info is posted on every build.
         env.ensureBuildInfoPosted();
+
+        // Log stats and sync state even on failure.
+        if (analysisCachingDeps != null) {
+          logAnalysisCachingStats(analysisCachingDeps);
+        }
       }
     }
   }
@@ -973,9 +979,15 @@ public class BuildTool {
   }
 
   private void reportRemoteAnalysisServiceStats(
-      RemoteAnalysisCachingDependenciesProvider dependenciesProvider) throws InterruptedException {
-    FingerprintValueStore.Stats fvsStats =
-        dependenciesProvider.getFingerprintValueService().getStats();
+      RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
+    FingerprintValueStore.Stats fvsStats;
+    try {
+      fvsStats = dependenciesProvider.getFingerprintValueService().getStats();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt(); // Restore the interrupt status.
+      logger.atWarning().withCause(e).log("Interrupted while trying to report service stats.");
+      return;
+    }
     RemoteAnalysisCacheClient.Stats raccStats =
         dependenciesProvider.getAnalysisCacheClient() == null
             ? null
@@ -993,23 +1005,15 @@ public class BuildTool {
    *       downloading the frontier Skyframe values during analysis.
    * </ol>
    */
-  private void logAnalysisCachingStatsAndMaybeUploadFrontier(
-      RemoteAnalysisCachingDependenciesProvider dependenciesProvider)
-      throws InterruptedException, AbruptExitException {
+  private void logAnalysisCachingStats(
+      RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
     if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
       return;
     }
 
     switch (dependenciesProvider.mode()) {
-      case UPLOAD:
-        uploadFrontier(dependenciesProvider);
-        reportRemoteAnalysisServiceStats(dependenciesProvider);
-        tryWriteSkycacheMetadata(dependenciesProvider);
-        break;
-      case DUMP_UPLOAD_MANIFEST_ONLY:
-        uploadFrontier(dependenciesProvider); // In this case, uploadFrontier() won't upload
-        break;
-      case DOWNLOAD:
+      case UPLOAD -> reportRemoteAnalysisServiceStats(dependenciesProvider);
+      case DOWNLOAD -> {
         reportRemoteAnalysisServiceStats(dependenciesProvider);
         reportRemoteAnalysisCachingStats();
         env.getSkyframeExecutor()
@@ -1017,9 +1021,8 @@ public class BuildTool {
                 env.getRemoteAnalysisCachingEventListener().getCacheHits(),
                 env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
                 env.getRemoteAnalysisCachingEventListener().getClientId());
-        break;
-      case OFF:
-        break;
+      }
+      case DUMP_UPLOAD_MANIFEST_ONLY, OFF -> {}
     }
   }
 
@@ -1633,8 +1636,14 @@ public class BuildTool {
     }
   }
 
-  private void uploadFrontier(RemoteAnalysisCachingDependenciesProvider dependenciesProvider)
+  private void serializeValues(RemoteAnalysisCachingDependenciesProvider dependenciesProvider)
       throws InterruptedException, AbruptExitException {
+    if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
+      return;
+    }
+
+    checkState(dependenciesProvider.mode().serializesValues());
+
     try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
       Optional<FailureDetail> maybeFailureDetail =
           FrontierSerializer.serializeAndUploadFrontier(
@@ -1647,6 +1656,10 @@ public class BuildTool {
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }
+    }
+
+    if (dependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+      tryWriteSkycacheMetadata(dependenciesProvider);
     }
   }
 

@@ -60,7 +60,22 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
 
     /** Returns true if the selected mode needs to connect to a backend. */
     public boolean requiresBackendConnectivity() {
-      return this == DOWNLOAD || this == UPLOAD;
+      return switch (this) {
+        case UPLOAD, DOWNLOAD -> true;
+        case DUMP_UPLOAD_MANIFEST_ONLY, OFF -> false;
+      };
+    }
+
+    /**
+     * Returns true if the mode serializes <i>values</i>.
+     *
+     * <p>{@link DOWNLOAD} serializes keys, but not values.
+     */
+    public boolean serializesValues() {
+      return switch (this) {
+        case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY -> true;
+        case DOWNLOAD, OFF -> false;
+      };
     }
   }
 
