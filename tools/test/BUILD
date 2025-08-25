@@ -1,7 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 package(default_visibility = ["//visibility:public"])
 
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
@@ -22,9 +22,12 @@ filegroup(
     srcs = ["generate-xml.sh"],
 )
 
-filegroup(
+alias(
     name = "collect_coverage",
-    srcs = ["collect_coverage.sh"],
+    actual = select({
+        "@platforms//os:windows": ":collect_coverage_wrapper.bat",
+        "//conditions:default": ":collect_coverage.sh",
+    }),
 )
 
 filegroup(
@@ -125,6 +128,7 @@ filegroup(
         "@bazel_tools//src/conditions:windows": [
             "tw",
             "xml",
+            "collect_coverage_wrapper.bat",
         ],
         "//conditions:default": [
             "dummy.sh",
