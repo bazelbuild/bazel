@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -20,6 +21,8 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionExecutionInactivityEvent;
+import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -38,6 +41,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
@@ -94,9 +100,7 @@ public final class ThreadDumpModule extends BlazeModule {
               MILLISECONDS);
     }
 
-    if (!commandOptions.threadDumpActionExecutionInactivityDuration.isZero()) {
-      env.getEventBus().register(this);
-    }
+    env.getEventBus().register(this);
   }
 
   private PathFragment prepareDumpDirectory(CommandEnvironment env) throws AbruptExitException {
@@ -107,15 +111,17 @@ public final class ThreadDumpModule extends BlazeModule {
       dumpDirectory.deleteTree();
       dumpDirectory.createDirectoryAndParents();
     } catch (IOException e) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
-              FailureDetail.newBuilder()
-                  .setMessage("Failed to setup thread dump directory")
-                  .build()),
-          e);
+      throw createAbruptExitException("Failed to setup thread dump directory", e);
     }
     return dumpDirectory.relativeTo(env.getDirectories().getOutputBase());
+  }
+
+  private static AbruptExitException createAbruptExitException(String message, Throwable cause) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+            FailureDetail.newBuilder().setMessage(message).build()),
+        cause);
   }
 
   @Subscribe
@@ -128,17 +134,21 @@ public final class ThreadDumpModule extends BlazeModule {
     }
   }
 
-  @Override
-  public void afterCommand() {
-    if (scheduledExecutor != null) {
-      scheduledExecutor.shutdownNow();
-      try (var sc = Profiler.instance().profile("Joining dump thread")) {
-        Uninterruptibles.awaitTerminationUninterruptibly(scheduledExecutor);
-      }
+  @Subscribe
+  public void buildComplete(BuildCompleteEvent event) {
+    checkNotNull(scheduledExecutor);
+    checkNotNull(threadDumpTask);
 
-      scheduledExecutor = null;
-      threadDumpTask = null;
+    scheduledExecutor.shutdownNow();
+    try (var sc = Profiler.instance().profile("Joining dump thread")) {
+      Uninterruptibles.awaitTerminationUninterruptibly(scheduledExecutor);
     }
+
+    var buildToolLogCollection = event.getResult().getBuildToolLogCollection();
+    threadDumpTask.shutdown(buildToolLogCollection);
+
+    scheduledExecutor = null;
+    threadDumpTask = null;
   }
 
   private static final class ThreadDumpTask implements Runnable {
@@ -147,6 +157,9 @@ public final class ThreadDumpModule extends BlazeModule {
     private final Clock clock;
     private final PathFragment outputBaseRelativeDumpDirectory;
     private final Duration dumpActionExecutionInactivityDuration;
+
+    private final List<InstrumentationOutput> instrumentationOutputs =
+        Collections.synchronizedList(new ArrayList<>());
 
     private Instant lastDumpAt = Instant.EPOCH;
 
@@ -178,6 +191,7 @@ public final class ThreadDumpModule extends BlazeModule {
               .format(TIME_FORMAT);
       var dumpOutput =
           createThreadDumpOutput(String.format("thread_dump.%d.%s.txt", pid, formattedTime));
+      instrumentationOutputs.add(dumpOutput);
       var analyzer = new ThreadDumpAnalyzer();
       try (var sc = Profiler.instance().profile("Analyzing thread dump");
           var out = dumpOutput.createOutputStream()) {
@@ -190,12 +204,22 @@ public final class ThreadDumpModule extends BlazeModule {
     }
 
     boolean shouldDumpForActionExecutionInactivity(ActionExecutionInactivityEvent event) {
+      if (dumpActionExecutionInactivityDuration.isZero()) {
+        return false;
+      }
+
       var now = clock.now();
       if (now.isBefore(event.lastActionCompletedAt().plus(dumpActionExecutionInactivityDuration))) {
         return false;
       }
 
       return now.isAfter(lastDumpAt.plus(dumpActionExecutionInactivityDuration));
+    }
+
+    void shutdown(BuildToolLogCollection buildToolLogCollection) {
+      for (var output : instrumentationOutputs) {
+        output.publish(buildToolLogCollection);
+      }
     }
 
     private InstrumentationOutput createThreadDumpOutput(String name) {
