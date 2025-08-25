@@ -109,7 +109,11 @@ def _cc_library_impl(ctx):
     empty_archive_linking_context = CcInfo().linking_context
 
     linking_contexts = cc_helper.get_linking_contexts_from_deps(ctx.attr.deps)
-    linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
+    linking_contexts.extend(
+        cc_helper.get_linking_contexts_from_deps(
+            ctx.attr.implementation_deps + semantics.get_cc_runtimes(ctx, True),
+        ),
+    )
     if ctx.file.linkstamp != None:
         linkstamps = []
         linkstamps.append(cc_common.create_linkstamp(

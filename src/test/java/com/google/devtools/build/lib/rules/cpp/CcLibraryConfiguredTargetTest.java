@@ -1406,13 +1406,32 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     }
   }
 
+  // Returns the libraries to link from the CcLinkingContext of the given target, excluding
+  // toolchain runtimes.
+  private ImmutableList<LibraryToLink> librariesToLinkExcludingCxxRuntimes(ConfiguredTarget target)
+      throws Exception {
+    return target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
+        .filter(
+            x -> {
+              // A LibraryToLink object doesn't have a path we can check.
+              // We arbitrarily use its static library field to check against third_party/stl.
+              Artifact staticLibrary = x.getStaticLibrary();
+              return staticLibrary == null
+                  || !staticLibrary
+                      .getRootRelativePath()
+                      .startsWith(PathFragment.create("third_party/stl"));
+            })
+        .collect(ImmutableList.toImmutableList());
+  }
+
   @Test
   public void addStaticLibraryToStaticSharedLinkParamsWhenBuilding() throws Exception {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
-    LibraryToLink library =
-        target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().getSingleton();
+    ImmutableList<LibraryToLink> libraries = librariesToLinkExcludingCxxRuntimes(target);
+    assertThat(libraries).hasSize(1);
+    LibraryToLink library = libraries.get(0);
     Artifact libraryToUse = library.getPicStaticLibrary();
     if (libraryToUse == null) {
       // We may get either a static library or pic static library depending on platform.
@@ -1428,8 +1447,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['libfoo.so'])");
 
-    LibraryToLink library =
-        target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().getSingleton();
+    ImmutableList<LibraryToLink> libraries = librariesToLinkExcludingCxxRuntimes(target);
+    assertThat(libraries).hasSize(1);
+    LibraryToLink library = libraries.get(0);
     assertThat(library.getStaticLibrary()).isNull();
     assertThat(artifactsToStrings(ImmutableList.of(library.getResolvedSymlinkDynamicLibrary())))
         .contains("src a/libfoo.so");
@@ -1441,8 +1461,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "a", "foo", "cc_library(name = 'foo', srcs = ['libfoo.lo', 'libfoo.so'])");
 
-    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList())
-        .hasSize(1);
+    assertThat(librariesToLinkExcludingCxxRuntimes(target)).hasSize(1);
   }
 
   @Test
@@ -1589,6 +1608,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             target.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
                 .map(x -> LinkerInput.getOwner(x).toString())
+                .filter(x -> !x.startsWith("//third_party/stl"))
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
         .inOrder();
@@ -2432,7 +2452,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .getLinkerInputs()
                 .toList()
                 .stream()
-                .map(x -> LinkerInput.getOwner(x).toString()))
+                .map(x -> LinkerInput.getOwner(x).toString())
+                .filter(x -> !x.startsWith("//third_party/stl")))
         .containsExactly("//foo:lib")
         .inOrder();
   }

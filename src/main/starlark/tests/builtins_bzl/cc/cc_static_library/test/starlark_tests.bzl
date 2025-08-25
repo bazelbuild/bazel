@@ -124,11 +124,14 @@ def _test_default_outputs_impl(env, target):
         "/usr/bin/my-ar",
         "abc",
     ]).in_order()
+
+    # cc_static_library forces topological order when creating argv, so it
+    # doesn't necessarily match the ordering in the inputs list.
     argv.contains_at_least([
         file.path
         for file in action.actual.inputs.to_list()
         if file.basename.endswith(".o")
-    ]).in_order()
+    ])
     argv.contains("--check-symbols")
 
 def _test_output_groups(name):
@@ -154,6 +157,10 @@ def _test_output_groups_impl(env, target):
     ]).in_order()
 
     subject.output_group("linkopts").contains_exactly([path_prefix + "_linkopts.txt"])
+
+    # RUNTIMES_LINKOPTS is modified by copybara on export.
+    RUNTIMES_LINKOPTS = []
+
     subject.action_generating(path_prefix + "_linkopts.txt").content().split("\n").contains_exactly([
         "dep_1_arg_1",
         "dep_1_arg_2",
@@ -164,6 +171,7 @@ def _test_output_groups_impl(env, target):
         "linkopts_only_arg_1",
         "linkopts_only_arg_2",
         "linkopts_only_arg_1",
+    ] + RUNTIMES_LINKOPTS + [
         "",
     ]).in_order()
 

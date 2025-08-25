@@ -1608,9 +1608,22 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.PIC,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    var picStaticLibraries =
+        ImmutableList.of(
+            "a.pic.a",
+            "b.rlib",
+            "e.pic.a",
+            "libdep1.a",
+            "c.pic.a",
+            "libdep2.a",
+            "libstl_cc_library.a");
+    if (AnalysisMock.get().isThisBazel()) {
+      picStaticLibraries =
+          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
+    }
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
-        ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a"),
+        picStaticLibraries,
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
@@ -1625,9 +1638,22 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.PIC,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+    var picStaticLibraries =
+        ImmutableList.of(
+            "a.pic.a",
+            "libdep2.a",
+            "b.rlib",
+            "c.pic.a",
+            "e.pic.a",
+            "libdep1.a",
+            "libstl_cc_library.a");
+    if (AnalysisMock.get().isThisBazel()) {
+      picStaticLibraries =
+          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
+    }
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
-        ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a"),
+        picStaticLibraries,
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
@@ -6276,12 +6302,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Provider.Key key =
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
-        Iterables.getOnlyElement(
+        Iterables.getFirst(
             getConfiguredTarget("//foo:dep")
                 .get(CcInfo.PROVIDER)
                 .getCcLinkingContext()
                 .getLibraries()
-                .toList());
+                .toList(),
+            null);
     StarlarkInfo fooInfo =
         (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
@@ -6337,12 +6364,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Provider.Key key =
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
-        Iterables.getOnlyElement(
+        Iterables.getFirst(
             getConfiguredTarget("//foo:dep")
                 .get(CcInfo.PROVIDER)
                 .getCcLinkingContext()
                 .getLibraries()
-                .toList());
+                .toList(),
+            null);
     StarlarkInfo fooInfo =
         (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
@@ -7484,8 +7512,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
 
     ImmutableList<String> calls =
-        ImmutableList.of(
-            "lto_backend_artifacts_info.lto_backend_artifacts.object_file()");
+        ImmutableList.of("lto_backend_artifacts_info.lto_backend_artifacts.object_file()");
     scratch.overwriteFile(
         "a/BUILD",
         """
