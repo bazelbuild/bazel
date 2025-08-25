@@ -494,7 +494,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       List<ActionInput> expandedCoverageDir,
       Path tmpDirRoot) {
     ImmutableList<String> args =
-        ImmutableList.of(action.getCollectCoverageScript().getExecPathString());
+        ImmutableList.of(action.getCollectCoverageScript().getExecutable().getExecPathString());
 
     Map<String, String> testEnvironment =
         createEnvironment(actionExecutionContext, action, tmpDirRoot);
@@ -504,6 +504,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
     testEnvironment.put(TEST_NAME_ENV, action.getTestName());
     testEnvironment.put("IS_COVERAGE_SPAWN", "1");
+    // Let the coverage script locate its own runfiles tree, which is separate from the test
+    // runfiles.
+    testEnvironment.remove("RUNFILES_DIR");
+    testEnvironment.remove("JAVA_RUNFILES");
+    testEnvironment.remove("PYTHON_RUNFILES");
 
     return new SimpleSpawn(
         action,
@@ -513,13 +518,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
-            .add(action.getCollectCoverageScript())
             .add(action.getCoverageManifest())
-            .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(
-            ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
