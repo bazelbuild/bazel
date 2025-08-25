@@ -184,3 +184,17 @@ TEST(OptionTest, DefaultCreatedBy) {
   options.ParseCommandLine(arraysize(args), args);
   EXPECT_EQ("singlejar", options.output_jar_creator);
 }
+
+TEST(OptionsTest, ExcludeZipEntryPatterns) {
+  const char *args[] = {"--output", "output_file",
+                        "--exclude_zip_entry_patterns", ".*\\.class$",
+                        "META-INF/.*",
+                        ".*test.*"};
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
+  
+  ASSERT_EQ(3UL, options.exclude_zip_entry_patterns.size());
+  EXPECT_EQ(".*\\.class$", options.exclude_zip_entry_patterns[0]);
+  EXPECT_EQ("META-INF/.*", options.exclude_zip_entry_patterns[1]);
+  EXPECT_EQ(".*test.*", options.exclude_zip_entry_patterns[2]);
+}
