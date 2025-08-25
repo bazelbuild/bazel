@@ -29,7 +29,7 @@ load(
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
 load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
-load(":common/cc/compile/compile_build_variables.bzl", "get_specific_compile_build_variables")
+load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables")
 load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
@@ -726,7 +726,7 @@ def _create_cc_compile_actions(
             diagnostics_file = diagnostics_file,
             cpp_module_map = cc_compilation_context.module_map(),
             direct_module_maps = cc_compilation_context.direct_module_maps,
-            user_compile_flags = _get_copts(
+            user_compile_flags = get_copts(
                 language = language,
                 cpp_configuration = cpp_configuration,
                 source_file = source_artifact,
@@ -798,7 +798,7 @@ def _create_module_codegen_action(
     if bitcode_output:
         fail("bitcode output not currently supported for feature header_module_codegen")
 
-    complete_copts = _get_copts(
+    complete_copts = get_copts(
         language = language,
         cpp_configuration = cpp_configuration,
         source_file = module,
@@ -995,47 +995,6 @@ def _dotd_files_enabled(cpp_semantics, configuration, feature_configuration):
 
 def _serialized_diagnostics_file_enabled(feature_configuration):
     return feature_configuration.is_enabled("serialized_diagnostics_file")
-
-_SOURCE_TYPES_FOR_CXXOPTS = set(
-    extensions.CC_SOURCE +
-    extensions.CC_HEADER +
-    extensions.CLIF_INPUT_PROTO +
-    extensions.CPP_MODULE_MAP +
-    extensions.OBJCPP_SOURCE,
-)
-
-def _get_copts(
-        language,
-        cpp_configuration,
-        source_file,
-        conlyopts,
-        copts,
-        cxxopts,
-        label):
-    extension = "." + source_file.extension if source_file.extension else ""
-    result = []
-    result.extend(_copts_from_options(language, cpp_configuration, extension))
-    result.extend(copts)
-    if extension in extensions.C_SOURCE:
-        result.extend(conlyopts)
-    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
-        result.extend(cxxopts)
-    if label:
-        result.extend(cc_internal.per_file_copts(cpp_configuration, source_file, label))
-    return result
-
-def _copts_from_options(language, cpp_configuration, extension):
-    result = []
-    result.extend(cpp_configuration.copts)
-    if extension in extensions.C_SOURCE:
-        result.extend(cpp_configuration.conlyopts)
-    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
-        result.extend(cpp_configuration.cxxopts)
-    if extension in [extensions.OBJC_SOURCE, extensions.OBJCPP_SOURCE] or (
-        language == "objc" and extension in extensions.CC_HEADER
-    ):
-        result.extend(cpp_configuration.objccopts)
-    return result
 
 def _calculate_output_name_map_by_type(sources, prefix_dir):
     return (

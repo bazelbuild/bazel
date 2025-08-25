@@ -15,6 +15,8 @@
 All build variables we create for various `CppCompileAction`s
 """
 
+load(":common/cc/cc_helper_internal.bzl", "extensions")
+
 _cc_internal = _builtins.internal.cc_internal
 
 # deliberately short name for less clutter while using in this file, we can have
@@ -152,3 +154,45 @@ def get_specific_compile_build_variables(
     result = result | additional_build_variables
     result = result | fdo_build_variables
     return _cc_internal.cc_toolchain_variables(vars = result)
+
+_SOURCE_TYPES_FOR_CXXOPTS = set(
+    extensions.CC_SOURCE +
+    extensions.CC_HEADER +
+    extensions.CLIF_INPUT_PROTO +
+    extensions.CPP_MODULE_MAP +
+    extensions.OBJCPP_SOURCE,
+)
+
+# buildifier: disable=function-docstring
+def get_copts(
+        language,
+        cpp_configuration,
+        source_file,
+        conlyopts,
+        copts,
+        cxxopts,
+        label):
+    extension = "." + source_file.extension if source_file.extension else ""
+    result = []
+    result.extend(_copts_from_options(language, cpp_configuration, extension))
+    result.extend(copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cxxopts)
+    if label:
+        result.extend(_cc_internal.per_file_copts(cpp_configuration, source_file, label))
+    return result
+
+def _copts_from_options(language, cpp_configuration, extension):
+    result = []
+    result.extend(cpp_configuration.copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(cpp_configuration.conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cpp_configuration.cxxopts)
+    if extension in [extensions.OBJC_SOURCE, extensions.OBJCPP_SOURCE] or (
+        language == "objc" and extension in extensions.CC_HEADER
+    ):
+        result.extend(cpp_configuration.objccopts)
+    return result
