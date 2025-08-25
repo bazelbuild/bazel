@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -124,7 +126,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     // them should return empty set
     Action shadowedAction =
         createShadowedAction(
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER), /*discoversInputs=*/ false, null);
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER), /* discoversInputs= */ false, null);
     StarlarkAction starlarkAction =
         (StarlarkAction)
             new StarlarkAction.Builder()
@@ -164,7 +166,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     Action shadowedAction =
         createShadowedAction(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /*discoversInputs=*/ true,
+            /* discoversInputs= */ true,
             discoveredInputs);
     StarlarkAction starlarkAction =
         (StarlarkAction)
@@ -236,7 +238,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     // Test using Starlark actions's inputs with shadowed action's inputs
     Action shadowedAction =
         createShadowedAction(
-            shadowedActionInputs, /*discoversInputs=*/ false, /*discoveredInputs=*/ null);
+            shadowedActionInputs, /* discoversInputs= */ false, /* discoveredInputs= */ null);
     starlarkAction =
         (StarlarkAction)
             new StarlarkAction.Builder()
@@ -307,13 +309,13 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
                 .build(NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(starlarkAction);
 
-    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of()))
+    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP))
         .containsExactlyEntriesIn(starlarkActionEnvironment);
 
     // Test using shadowed action's environment without Starlark actions's environment
     Action shadowedAction =
         createShadowedAction(
-            shadowedActionInputs, /*discoversInputs=*/ false, /*discoveredInputs=*/ null);
+            shadowedActionInputs, /* discoversInputs= */ false, /* discoveredInputs= */ null);
     starlarkAction =
         (StarlarkAction)
             new StarlarkAction.Builder()
@@ -324,7 +326,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
                 .build(NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(starlarkAction);
 
-    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of()))
+    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP))
         .containsExactlyEntriesIn(shadowedActionEnvironment);
 
     // Test using Starlark actions's environment with shadowed action's environment
@@ -344,7 +346,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     expectedEnvironment.putAll(starlarkActionEnvironment);
 
     ImmutableMap<String, String> actualEnvironment =
-        starlarkAction.getEffectiveEnvironment(ImmutableMap.of());
+        starlarkAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP);
     assertThat(actualEnvironment).hasSize(5);
     // Starlark action's env overwrites any repeated variable from the shadowed action env
     assertThat(actualEnvironment).containsEntry("repeated_var", "starlark_val");
@@ -363,7 +365,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
         .thenReturn(discoveredInputs);
     when(shadowedAction.inputsKnown()).thenReturn(true);
     when(shadowedAction.getOwner()).thenReturn(NULL_ACTION_OWNER);
-    when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.anyMap()))
+    when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.anyMap(), any()))
         .thenReturn(ImmutableMap.copyOf(shadowedActionEnvironment));
 
     return shadowedAction;
