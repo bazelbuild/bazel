@@ -405,6 +405,7 @@ java_test(
 java_test(
     name = "StarlarkActionTemplateTest",
     size = "small",
+    timeout = "moderate",
     srcs = ["StarlarkActionTemplateTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
