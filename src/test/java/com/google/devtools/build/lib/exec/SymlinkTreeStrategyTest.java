@@ -129,7 +129,6 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     OutputService outputService = mock(OutputService.class);
     StoredEventHandler eventHandler = new StoredEventHandler();
 
-    when(context.getExecRoot()).thenReturn(getExecRoot());
     when(context.getContext(SymlinkTreeActionContext.class))
         .thenReturn(new SymlinkTreeStrategy(outputService, "__main__"));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());

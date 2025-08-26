@@ -113,7 +113,6 @@ public class RunfilesTreeUpdater {
     if (!inputManifest.exists()) {
       return;
     }
-
     Path outputManifest =
         execRoot.getRelative(RunfilesSupport.outputManifestExecPath(tree.getExecPath()));
     try {
@@ -143,8 +142,14 @@ public class RunfilesTreeUpdater {
       runfilesDir.createDirectoryAndParents();
     }
 
+    // Changes made to a file referenced by a symlink tree should be reflected in the symlink tree
+    // without having to rebuild. Therefore, if a snapshotting file system is used, we must use the
+    // underlying non-snapshotting file system instead to create the symlink tree.
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifest, runfilesDir, tree.getWorkspaceName());
+        new SymlinkTreeHelper(
+            inputManifest.onUnderlyingFileSystem(),
+            runfilesDir.onUnderlyingFileSystem(),
+            tree.getWorkspaceName());
 
     if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
       helper.createRunfilesSymlinks(tree.getMapping());

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SnapshottingFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
@@ -54,19 +53,9 @@ public final class SymlinkTreeHelper {
    * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
   public SymlinkTreeHelper(Path inputManifest, Path symlinkTreeRoot, String workspaceName) {
-    this.inputManifest = ensureNonSnapshotting(inputManifest);
-    this.symlinkTreeRoot = ensureNonSnapshotting(symlinkTreeRoot);
+    this.inputManifest = inputManifest;
+    this.symlinkTreeRoot = symlinkTreeRoot;
     this.workspaceName = workspaceName;
-  }
-
-  private static Path ensureNonSnapshotting(Path path) {
-    // Changes made to a file referenced by a symlink tree should be reflected in the symlink tree
-    // without having to rebuild. Therefore, if a snapshotting file system is used, we must use the
-    // underlying non-snapshotting file system instead to create the symlink tree.
-    if (path.getFileSystem() instanceof SnapshottingFileSystem snapshottingFs) {
-      return snapshottingFs.getUnderlyingNonSnapshottingFileSystem().getPath(path.asFragment());
-    }
-    return path;
   }
 
   private Path getOutputManifest() {
@@ -84,9 +73,10 @@ public final class SymlinkTreeHelper {
   }
 
   /** Creates a symlink tree for a runfiles by making VFS calls. */
-  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinkMap) throws IOException {
+  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks)
+      throws IOException {
     createSymlinks(
-        symlinkMap,
+        symlinks,
         (artifact) ->
             artifact.isSymlink()
                 // Unresolved symlinks are created textually.
