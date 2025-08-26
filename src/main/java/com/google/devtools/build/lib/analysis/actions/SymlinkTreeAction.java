@@ -258,14 +258,15 @@ public final class SymlinkTreeAction extends AbstractAction
 
   @Override
   public boolean actionCacheHit(ActionCachedContext context) {
-    try {
-      var metadata = context.getOutputMetadataStore().getOutputMetadata(getOutputManifest());
-      return metadata != null && metadata.getResolvedPath() == null;
-    } catch (IOException e) {
-      return false;
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
-  }
+    return true;
+//    try {
+//      var metadata = context.getOutputMetadataStore().getOutputMetadata(getOutputManifest());
+//      return metadata != null && metadata.getResolvedPath() == null;
+//    } catch (IOException e) {
+//      return false;
+//    } catch (InterruptedException e) {
+//      Thread.currentThread().interrupt();
+//      return false;
+//    }
+//  }
 }
