@@ -767,7 +767,16 @@ public class RuleClass implements RuleClassData {
         starlarkParent = parents[0];
         Preconditions.checkArgument(starlarkParent.isExtendable());
       }
+
       for (RuleClass parent : parents) {
+
+        if (parent.isMaterializerRule()) {
+          isMaterializerRule = true;
+        } else if (isMaterializerRule) {
+          throw new IllegalArgumentException(
+              "Inconsistent value of isMaterializerRule among parents");
+        }
+
         if (parent.dependencyResolutionRule) {
           dependencyResolutionRule = true;
         } else if (dependencyResolutionRule) {

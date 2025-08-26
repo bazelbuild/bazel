@@ -204,6 +204,24 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .removeAttribute("compatible_with")
           .removeAttribute("restricted_to")
           .removeAttribute("$config_dependencies")
+          // Dependency resolution rules can't have package defaults.
+          .removeAttribute("package_metadata")
+          .build();
+
+  public static final RuleClass materializerBaseRule =
+      new RuleClass.Builder("$materializer_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+          .setIsMaterializerRule(true)
+          .removeAttribute(":action_listener")
+          .removeAttribute("aspect_hints")
+          .removeAttribute("toolchains")
+          .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
+          .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
+          .removeAttribute(RuleClass.TARGET_COMPATIBLE_WITH_ATTR)
+          .removeAttribute("compatible_with")
+          .removeAttribute("restricted_to")
+          // Materializer rules can't have package defaults, in particular because materializer
+          // rules can't have dependencies on non-dependency-resolution-rules or dependencies
+          // through non-dormant attributes.
           .removeAttribute("package_metadata")
           .build();
 
@@ -728,8 +746,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (parent != null) {
         throw Starlark.errorf("materializer rules cannot have a parent");
       }
-      builder = new RuleClass.Builder("", type, true, baseRule);
-      builder.setIsMaterializerRule(true);
+      builder = new RuleClass.Builder("", type, true, materializerBaseRule);
     } else if (dependencyResolutionRule) {
       if (parent != null) {
         throw Starlark.errorf("rules used in dependency resolution cannot have a parent");

@@ -1721,6 +1721,43 @@ materializer_rule_with_doc(
   }
 
   @Test
+  public void materializerRuleInWithDefaultApplicableLicenses_works() throws Exception {
+
+    scratch.file(
+        "fake_licenses/BUILD",
+"""
+filegroup(
+    name = "license",
+    srcs = ["LICENSE"],
+)
+""");
+
+    scratch.file(
+        "defs.bzl",
+"""
+mr = materializer_rule(
+    implementation = lambda ctx: MaterializedDepsInfo(deps = []),
+)
+""");
+
+    scratch.file(
+        "BUILD",
+"""
+load(":defs.bzl", "mr")
+
+package(
+    default_applicable_licenses = ["//fake_licenses:license"],
+)
+
+mr(
+    name = "materializer_rule",
+)
+""");
+
+    update("//:materializer_rule");
+  }
+
+  @Test
   public void materializerAllowList_nonAllowedThrowsError() throws Exception {
 
     scratch.overwriteFile(
