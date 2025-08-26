@@ -27,7 +27,7 @@ load(
     "output_subdirectories",
     "should_create_per_object_debug_info",
 )
-load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper", "dotd_files_enabled")
+load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper", "dotd_files_enabled", "serialized_diagnostics_file_enabled")
 load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
 load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables")
 load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
@@ -698,7 +698,7 @@ def _create_cc_compile_actions(
                 category = artifact_category.SERIALIZED_DIAGNOSTICS_FILE,
                 output_name = output_name_base,
             ),
-        ) if _serialized_diagnostics_file_enabled(feature_configuration) else None
+        ) if serialized_diagnostics_file_enabled(feature_configuration) else None
         cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
@@ -980,9 +980,6 @@ def _use_dotd_file(feature_configuration, source_file):
         extension in extensions.CC_SOURCE + extensions.CC_HEADER + extensions.CPP_MODULE_MAP
     )
     return header_discover_required and not use_header_modules
-
-def _serialized_diagnostics_file_enabled(feature_configuration):
-    return feature_configuration.is_enabled("serialized_diagnostics_file")
 
 def _calculate_output_name_map_by_type(sources, prefix_dir):
     return (

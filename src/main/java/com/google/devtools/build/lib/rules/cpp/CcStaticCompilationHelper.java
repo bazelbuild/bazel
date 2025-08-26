@@ -314,29 +314,20 @@ public final class CcStaticCompilationHelper {
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FeatureConfiguration featureConfiguration,
-      Label label,
       CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
       CppSource source,
-      String outputName,
       CppCompileActionBuilder builder,
       CcCompilationOutputs.Builder result,
       ImmutableList<ArtifactCategory> outputCategories,
-      boolean usePic,
       boolean bitcodeOutput,
       SpecialArtifact outputFiles,
-      SpecialArtifact dotdTreeArtifact)
+      SpecialArtifact dotdTreeArtifact,
+      SpecialArtifact diagnosticsTreeArtifact)
       throws RuleErrorException, EvalException {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     builder.setVariables(compileBuildVariables);
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-    SpecialArtifact diagnosticsTreeArtifact = null;
-    if (builder.serializedDiagnosticsFilesEnabled()) {
-      diagnosticsTreeArtifact =
-          CppHelper.getDiagnosticsOutputTreeArtifact(
-              actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    }
-
     // Currently we do not generate minimized bitcode files for tree artifacts because of issues
     // with the indexing step.
     // If ltoIndexTreeArtifact is set to a tree artifact, the minimized bitcode files will be

@@ -811,18 +811,16 @@ public class CcStarlarkInternal implements StarlarkValue {
             name = "feature_configuration",
             positional = false,
             named = true), // FeatureConfigurationForStarlark
-        @Param(name = "label", positional = false, named = true),
         @Param(name = "compile_build_variables", positional = false, named = true),
         @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "source", positional = false, named = true),
-        @Param(name = "output_name", positional = false, named = true),
         @Param(name = "cpp_compile_action_builder", positional = false, named = true),
         @Param(name = "outputs", positional = false, named = true),
         @Param(name = "output_categories", positional = false, named = true),
-        @Param(name = "use_pic", positional = false, named = true),
         @Param(name = "bitcode_output", positional = false, named = true),
         @Param(name = "output_files", positional = false, named = true),
-        @Param(name = "dotd_tree_artifact", positional = false, named = true)
+        @Param(name = "dotd_tree_artifact", positional = false, named = true),
+        @Param(name = "diagnostics_tree_artifact", positional = false, named = true)
       })
   public void createCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
@@ -833,18 +831,16 @@ public class CcStarlarkInternal implements StarlarkValue {
       CppConfiguration cppConfiguration,
       Sequence<?> cxxopts,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Label label,
       CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
       CppSource source,
-      String outputName,
       CppCompileActionBuilder builder,
       CcCompilationOutputs.Builder outputs,
       Sequence<?> outputCategoriesUnchecked,
-      boolean usePic,
       boolean bitcodeOutput,
       SpecialArtifact outputFiles,
-      Object dotdTreeArtifact)
+      Object dotdTreeArtifact,
+      Object diagnosticsTreeArtifact)
       throws RuleErrorException, EvalException {
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
@@ -873,18 +869,16 @@ public class CcStarlarkInternal implements StarlarkValue {
         cppConfiguration,
         Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
         featureConfigurationForStarlark.getFeatureConfiguration(),
-        label,
         compileBuildVariables,
         semantics,
         source,
-        outputName,
         builder,
         outputs,
         outputCategories.build(),
-        usePic,
         bitcodeOutput,
         outputFiles,
-        CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class));
+        CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class),
+        CcModule.nullIfNone(diagnosticsTreeArtifact, SpecialArtifact.class));
   }
 
   @StarlarkMethod(

@@ -623,6 +623,10 @@ def dotd_files_enabled(cpp_semantics, configuration, feature_configuration):
         not feature_configuration.is_enabled("no_dotd_file")
     )
 
+# buildifier: disable=function-docstring
+def serialized_diagnostics_file_enabled(feature_configuration):
+    return feature_configuration.is_enabled("serialized_diagnostics_file")
+
 cc_compilation_helper = struct(
     init_cc_compilation_context = _init_cc_compilation_context,
 )
