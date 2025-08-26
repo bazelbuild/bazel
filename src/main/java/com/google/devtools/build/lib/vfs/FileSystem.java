@@ -74,17 +74,28 @@ public abstract class FileSystem {
    * structured/parsed representation, it will not cause any IO. (e.g., it will not resolve symbolic
    * links if it's a Unix file system.
    */
-  public Path getPath(String path) {
+  public final Path getPath(String path) {
     return Path.create(path, this);
   }
 
   /** Returns an absolute path instance, given an absolute path fragment. */
-  public Path getPath(PathFragment pathFragment) {
+  public final Path getPath(PathFragment pathFragment) {
     return Path.create(pathFragment, this);
   }
 
   final Root getAbsoluteRoot() {
     return absoluteRoot;
+  }
+
+  /**
+   * Returns the underlying file system if the current file system is a partial overlay of another
+   * file system. Otherwise, returns this.
+   *
+   * <p>Note that the returned file system may still be an in-memory file system (in tests, for
+   * example), but should be treated as the "native" file system for the host machine.
+   */
+  public FileSystem getUnderlyingFileSystem() {
+    return this;
   }
 
   /**
