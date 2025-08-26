@@ -420,7 +420,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 .build()
                 .start();
         break;
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
+        // NettyServerBuilder.build() can throw a RuntimeException on epoll failures.
         if (attempt == maxRetries) {
           throw e;
         }
@@ -460,7 +461,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 .directExecutor()
                 .build()
                 .start();
-      } catch (IOException ipv4Exception) {
+      } catch (IOException | RuntimeException ipv4Exception) {
+        // NettyServerBuilder.build() can throw a RuntimeException on epoll failures.
         throw new AbruptExitException(
             DetailedExitCode.of(
                 createFailureDetail(
