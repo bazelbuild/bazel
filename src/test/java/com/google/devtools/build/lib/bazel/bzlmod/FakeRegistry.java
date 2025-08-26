@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -140,7 +142,8 @@ public class FakeRegistry implements Registry {
         LockfileMode lockfileMode,
         ImmutableMap<String, Optional<Checksum>> fileHashes,
         ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
-        Optional<Path> vendorDir) {
+        Optional<Path> vendorDir,
+        ImmutableSet<String> moduleMirrors) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

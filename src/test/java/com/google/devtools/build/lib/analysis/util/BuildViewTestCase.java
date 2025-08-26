@@ -106,6 +106,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -310,6 +311,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .add(
                 PrecomputedValue.injected(
                     ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+            .add(PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =

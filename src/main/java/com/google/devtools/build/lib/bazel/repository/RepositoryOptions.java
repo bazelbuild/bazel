@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -103,6 +104,19 @@ public class RepositoryOptions extends OptionsBase {
               + " important: modules will be looked up in earlier registries first, and only fall"
               + " back to later registries when they're missing from the earlier ones.")
   public List<String> registries;
+
+  @Option(
+      name = "module_mirrors",
+      defaultValue = "null",
+      converter = Converters.CommaSeparatedNonEmptyOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          """
+          A comma-separated list of URLs under which the source URLs of Bazel modules can be found,
+          in addition to any registry-provided mirror URLs.
+          """)
+  public List<String> moduleMirrors;
 
   @Option(
       name = "allow_yanked_versions",

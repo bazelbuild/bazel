@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -389,6 +390,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .add(
                 PrecomputedValue.injected(
                     ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+            .add(PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()))
             .build();
     PackageFactory pkgFactory =
         ((PackageFactoryBuilderWithSkyframeForTesting)
