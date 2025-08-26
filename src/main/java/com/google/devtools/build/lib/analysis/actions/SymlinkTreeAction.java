@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.RichArtifactData;
 import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -45,7 +46,8 @@ import javax.annotation.Nullable;
  * trees.
  */
 @Immutable
-public final class SymlinkTreeAction extends AbstractAction implements RichDataProducingAction {
+public final class SymlinkTreeAction extends AbstractAction
+    implements RichDataProducingAction, NotifyOnActionCacheHit {
 
   private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
 
@@ -250,5 +252,15 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   @Override
   public boolean mayInsensitivelyPropagateInputs() {
     return true;
+  }
+
+  @Override
+  public boolean actionCacheHit(NotifyOnActionCacheHit.ActionCachedContext context) {
+    // Before 8.4.0, Bazel created the output manifest as a symlink to the input manifest, which
+    // makes it infeasible to reliably detect stale runfiles directories, which are only created as
+    // a side effect of this action and not tracked in the action cache.
+    // https://github.com/bazelbuild/bazel/issues/26818
+    // TODO: Consider removing this when Bazel 7 is no longer supported.
+    return !context.getPathResolver().toPath(getPrimaryOutput()).isSymbolicLink();
   }
 }
