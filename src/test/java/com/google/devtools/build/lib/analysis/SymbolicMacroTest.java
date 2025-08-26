@@ -2069,6 +2069,7 @@ my_macro = macro(
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getGeneratorName()).isEqualTo("foo");
     assertThat(foo.getBuildFileLocation())
         .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 9));
     assertThat(foo.reconstructParentCallStack())
@@ -2115,6 +2116,67 @@ my_macro = macro(
   }
 
   @Test
+  public void generatorInfoAndCallStack_withLegacyWrapperWithoutName() throws Exception {
+    // my_macro is a symbolic macro that instantiates a cc_binary rule
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility, **kwargs):
+            native.cc_binary(name = name + "_bin")
+
+        my_macro = macro(implementation = _impl)
+        """);
+    // legacy_wrapper is a legacy wrapper of my_macro which doesn't have a `name` parameter
+    scratch.file(
+        "pkg/legacy_nameless_wrapper.bzl",
+        """
+        load(":my_macro.bzl", "my_macro")
+
+        def legacy_nameless_wrapper(praenomen):
+            my_macro(name = praenomen)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":legacy_nameless_wrapper.bzl", "legacy_nameless_wrapper")
+
+        legacy_nameless_wrapper(praenomen = "foo")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getGeneratorName()).isNull();
+    assertThat(foo.getBuildFileLocation())
+        .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 24));
+    assertThat(foo.reconstructParentCallStack())
+        .containsExactly(
+            StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, foo.getBuildFileLocation()),
+            StarlarkThread.callStackEntry(
+                "legacy_nameless_wrapper",
+                Location.fromFileLineColumn("/workspace/pkg/legacy_nameless_wrapper.bzl", 4, 13)),
+            StarlarkThread.callStackEntry(
+                "my_macro", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 4, 1)))
+        .inOrder();
+
+    Rule fooBin = pkg.getRule("foo_bin");
+    assertThat(fooBin.isRuleCreatedInMacro()).isTrue();
+    assertThat(fooBin.getLocation()).isEqualTo(foo.getBuildFileLocation());
+    assertThat(fooBin.getAttr("generator_name", Type.STRING)).isEqualTo("foo_bin");
+    assertThat(fooBin.getAttr("generator_function", Type.STRING))
+        .isEqualTo("legacy_nameless_wrapper");
+    assertThat(fooBin.getAttr("generator_location", Type.STRING)).isEqualTo("pkg/BUILD:3:24");
+    assertThat(fooBin.reconstructCallStack())
+        .isEqualTo(
+            ImmutableList.builder()
+                .addAll(foo.reconstructParentCallStack())
+                .add(
+                    StarlarkThread.callStackEntry(
+                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 2, 21)))
+                .build());
+  }
+
+  @Test
   public void generatorInfoAndCallStack_nestedMacros() throws Exception {
     // inner_legacy_wrapper is a legacy macro wrapper around inner_macro, which is a symbolic macro
     // that instantiates a cc_binary rule.
@@ -2155,6 +2217,7 @@ my_macro = macro(
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getGeneratorName()).isEqualTo("foo");
     assertThat(foo.getBuildFileLocation())
         .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 21));
     assertThat(foo.reconstructParentCallStack())
@@ -2168,6 +2231,7 @@ my_macro = macro(
         .inOrder();
 
     MacroInstance fooInner = getMacroById(pkg, "foo_inner:1");
+    assertThat(fooInner.getGeneratorName()).isEqualTo(foo.getGeneratorName());
     assertThat(fooInner.getBuildFileLocation()).isEqualTo(foo.getBuildFileLocation());
     assertThat(fooInner.reconstructParentCallStack())
         .containsExactly(

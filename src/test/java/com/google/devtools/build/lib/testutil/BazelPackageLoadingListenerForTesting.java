@@ -57,7 +57,7 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
 
   @Override
   public void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+      Package pkg, StarlarkSemantics starlarkSemantics, Metrics metrics) {
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
 

@@ -23,6 +23,7 @@ load(":common/cc/semantics.bzl", "semantics")
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
+    semantics.validate(ctx, "cc_library")
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
     semantics.check_cc_shared_library_tags(ctx)
@@ -111,10 +112,9 @@ def _cc_library_impl(ctx):
     linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
     if ctx.file.linkstamp != None:
         linkstamps = []
-        linkstamps.append(cc_internal.create_linkstamp(
-            actions = ctx.actions,
+        linkstamps.append(cc_common.create_linkstamp(
             linkstamp = ctx.file.linkstamp,
-            compilation_context = compilation_context,
+            headers = compilation_context.headers,
         ))
         linkstamps_linker_input = cc_common.create_linker_input(
             owner = ctx.label,
@@ -510,7 +510,7 @@ def _check_no_repeated_srcs(ctx):
     seen = {}
     for target in ctx.attr.srcs:
         if DefaultInfo in target:
-            for file in target.files.to_list():
+            for file in target[DefaultInfo].files.to_list():
                 extension = "." + file.extension
                 if extension not in cc_helper.extensions.CC_HEADER:
                     if extension in cc_helper.extensions.CC_AND_OBJC:

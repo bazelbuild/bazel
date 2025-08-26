@@ -49,6 +49,7 @@ import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.resources.CompilerProperties.Errors;
 import com.sun.tools.javac.resources.CompilerProperties.Warnings;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
@@ -403,13 +404,26 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     @Override
     public Void visitVariable(VariableTree variable, Void unused) {
       scan(variable.getModifiers(), null);
-      JCTree vartype = ((JCTree.JCVariableDecl) variable).vartype;
-      if (vartype != null && vartype.pos != Position.NOPOS) {
-        scan(vartype, null);
+      if (!hasImplicitType(variable)) {
+        scan(variable.getType(), null);
       }
       scan(variable.getNameExpression(), null);
       scan(variable.getInitializer(), null);
       return null;
+    }
+
+    private boolean hasImplicitType(VariableTree tree) {
+      JCTree.JCVariableDecl varDecl = (JCTree.JCVariableDecl) tree;
+      if (varDecl.declaredUsingVar()) {
+        return true;
+      }
+      JCTree vartype = varDecl.vartype;
+      JCCompilationUnit unit = (JCCompilationUnit) getCurrentPath().getCompilationUnit();
+      if (vartype.pos == Position.NOPOS
+          || vartype.getEndPosition(unit.endPositions) == Position.NOPOS) {
+        return true;
+      }
+      return false;
     }
 
     /** Visits an identifier in the AST. We only care about type symbols. */

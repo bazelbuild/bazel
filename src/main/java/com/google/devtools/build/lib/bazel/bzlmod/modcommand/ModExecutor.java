@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionUsage;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
@@ -39,15 +38,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsExpanded;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
-import com.google.devtools.build.lib.packages.LabelPrinter;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
-import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
-import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
+import com.google.devtools.build.lib.bazel.repository.RepoRule;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.ArrayDeque;
@@ -131,11 +125,10 @@ public class ModExecutor {
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
-  public void showRepo(ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues) {
-    RuleDisplayOutputter outputter = new RuleDisplayOutputter(printer);
-    for (Entry<String, BzlmodRepoRuleValue> e : targetRepoRuleValues.entrySet()) {
+  public void showRepo(ImmutableMap<String, RepoDefinition> targetRepoDefinitions) {
+    for (Map.Entry<String, RepoDefinition> e : targetRepoDefinitions.entrySet()) {
       printer.printf("## %s:\n", e.getKey());
-      outputter.outputRule(e.getValue().getRule());
+      printRepoDefinition(e.getValue());
     }
     printer.flush();
   }
@@ -531,8 +524,7 @@ public class ModExecutor {
   }
 
   private boolean isBuiltin(ModuleKey key) {
-    return key.equals(new ModuleKey("bazel_tools", Version.EMPTY))
-        || key.equals(new ModuleKey("local_config_platform", Version.EMPTY));
+    return key.equals(new ModuleKey("bazel_tools", Version.EMPTY));
   }
 
   /** A node representing a module that forms the result graph. */
@@ -624,34 +616,26 @@ public class ModExecutor {
     }
   }
 
-  /**
-   * Uses Query's {@link TargetOutputter} to display the generating repo rule and other information.
-   */
-  static class RuleDisplayOutputter {
-    private static final AttributeReader attrReader =
-        (rule, attr) ->
-            // Query's implementation copied
-            PossibleAttributeValues.forRuleAndAttribute(
-                rule, attr, /* mayTreatMultipleAsNone= */ true);
-    private final TargetOutputter targetOutputter;
-    private final PrintWriter printer;
-
-    RuleDisplayOutputter(PrintWriter printer) {
-      this.printer = printer;
-      this.targetOutputter =
-          new TargetOutputter(
-              this.printer,
-              (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
-              "\n",
-              LabelPrinter.legacy());
+  private void printRepoDefinition(RepoDefinition repoDefinition) {
+    RepoRule repoRule = repoDefinition.repoRule();
+    printer
+        .append("load(\"")
+        .append(repoRule.id().bzlFileLabel().getUnambiguousCanonicalForm())
+        .append("\", \"")
+        .append(repoRule.id().ruleName())
+        .append("\")\n");
+    printer.append(repoRule.id().ruleName()).append("(\n");
+    printer.append("  name = \"").append(repoDefinition.name()).append("\",\n");
+    for (Map.Entry<String, Object> attr : repoDefinition.attrValues().attributes().entrySet()) {
+      printer
+          .append("  ")
+          .append(attr.getKey())
+          .append(" = ")
+          .append(Starlark.repr(attr.getValue()))
+          .append(",\n");
     }
-
-    private void outputRule(Rule rule) {
-      try {
-        targetOutputter.outputRule(rule, attrReader, this.printer);
-      } catch (IOException e) {
-        throw new IllegalStateException(e);
-      }
-    }
+    printer.append(")\n");
+    // TODO: record and print the call stack for the repo definition itself?
+    printer.append("\n");
   }
 }

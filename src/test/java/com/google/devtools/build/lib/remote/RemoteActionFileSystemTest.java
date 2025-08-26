@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
@@ -75,8 +74,7 @@ import org.mockito.stubbing.Answer;
 @RunWith(TestParameterInjector.class)
 public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTestBase {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
-      new RemoteOutputChecker(
-          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+      new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
 
   private static final String RELATIVE_OUTPUT_PATH = "out";
 
@@ -85,7 +83,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   private final Path execRoot = fs.getPath("/exec");
   private final ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, RELATIVE_OUTPUT_PATH);
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, RELATIVE_OUTPUT_PATH);
 
   enum FilesystemTestParam {
     LOCAL,

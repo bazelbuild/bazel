@@ -18,21 +18,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
 /** Helper class for looking up data from the external package. */
@@ -47,20 +39,6 @@ public class ExternalPackageHelper {
   public ExternalPackageHelper(ImmutableList<BuildFileName> workspaceFilesByPriority) {
     Preconditions.checkArgument(!workspaceFilesByPriority.isEmpty());
     this.workspaceFilesByPriority = workspaceFilesByPriority;
-  }
-
-  /** Uses a rule name to fetch the corresponding Rule from the external package. */
-  @Nullable
-  public Rule getRuleByName(String ruleName, Environment env)
-      throws ExternalPackageException, InterruptedException {
-
-    ExternalPackageRuleExtractor extractor = new ExternalPackageRuleExtractor(ruleName);
-    if (!iterateWorkspaceFragments(env, extractor)) {
-      // Values missing
-      return null;
-    }
-
-    return extractor.getRule();
   }
 
   @Nullable
@@ -138,67 +116,4 @@ public class ExternalPackageHelper {
     return "";
   }
 
-  /** Returns false if some SkyValues were missing. */
-  private boolean iterateWorkspaceFragments(Environment env, WorkspaceFileValueProcessor processor)
-      throws InterruptedException {
-    RootedPath workspacePath = findWorkspaceFile(env);
-    if (env.valuesMissing()) {
-      return false;
-    }
-
-    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
-    WorkspaceFileValue value;
-    do {
-      value = (WorkspaceFileValue) env.getValue(workspaceKey);
-      if (value == null) {
-        return false;
-      }
-    } while (processor.processAndShouldContinue(value) && (workspaceKey = value.next()) != null);
-    return true;
-  }
-
-  private static class ExternalPackageRuleExtractor implements WorkspaceFileValueProcessor {
-    private final String ruleName;
-    private ExternalPackageException exception;
-    private Rule rule;
-
-    private ExternalPackageRuleExtractor(String ruleName) {
-      this.ruleName = ruleName;
-    }
-
-    @Override
-    public boolean processAndShouldContinue(WorkspaceFileValue workspaceFileValue) {
-      Package externalPackage = workspaceFileValue.getPackage();
-      if (externalPackage.containsErrors()) {
-        exception =
-            new ExternalPackageException(
-                new BuildFileContainsErrorsException(
-                    LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-                    "Could not load //external package"),
-                Transience.PERSISTENT);
-        // Stop iteration when encountered errors.
-        return false;
-      }
-      Target target = externalPackage.getTargets().get(ruleName);
-      if (target instanceof Rule r) {
-        rule = r;
-        return false;
-      }
-      return true;
-    }
-
-    public Rule getRule() throws ExternalPackageException {
-      if (exception != null) {
-        throw exception;
-      }
-      if (rule == null) {
-        throw new ExternalRuleNotFoundException(ruleName);
-      }
-      return rule;
-    }
-  }
-
-  private interface WorkspaceFileValueProcessor {
-    boolean processAndShouldContinue(WorkspaceFileValue value);
-  }
 }

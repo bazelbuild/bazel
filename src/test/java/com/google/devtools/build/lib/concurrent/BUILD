@@ -19,6 +19,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
@@ -36,6 +37,9 @@ java_library(
 java_test(
     name = "ConcurrentTests",
     size = "medium",
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     tags = [
         "foundations",
     ],

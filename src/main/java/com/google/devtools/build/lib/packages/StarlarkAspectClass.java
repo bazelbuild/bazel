@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 
@@ -72,5 +73,49 @@ public final class StarlarkAspectClass implements AspectClass {
   @Override
   public String toString() {
     return getName();
+  }
+
+  public static StarlarkAspectClass getAspectClassFromName(String aspect)
+      throws AspectClassCreationException {
+    int delimiterPosition = aspect.indexOf('%');
+    if (delimiterPosition >= 0) {
+      String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);
+      if (!bzlFileLoadLikeString.startsWith("//") && !bzlFileLoadLikeString.startsWith("@")) {
+        throw new AspectClassCreationException(
+            "--exec_aspects must be specified with absolute labels, e.g."
+                + " //foo/bar:baz.bzl%my_aspect, @repo//foo/bar:baz%my_aspect, or"
+                + " /foo/bar:baz.bzl%my_aspect. Found: "
+                + aspect);
+      } else if (!bzlFileLoadLikeString.endsWith(".bzl")) {
+        throw new AspectClassCreationException(
+            "--exec_aspects files must end with .bzl. Found: " + aspect);
+      } else {
+        Label starlarkFileLabel = null;
+        try {
+          starlarkFileLabel = Label.parseCanonical(bzlFileLoadLikeString);
+          String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
+          return new StarlarkAspectClass(
+              BzlLoadValue.keyForBuild(starlarkFileLabel), starlarkFunctionName);
+        } catch (LabelSyntaxException e) {
+          throw new AspectClassCreationException(
+              String.format("Invalid aspect '%s': %s", aspect, e.getMessage()));
+        }
+      }
+    } else {
+      throw new AspectClassCreationException(
+          "--exec_aspects must include the aspect name, preceded by '%', e.g."
+              + " //foo/bar:baz.bzl%my_aspect, @repo//foo/bar:baz%my_aspect, or"
+              + " /foo/bar:baz.bzl%my_aspect. Found: "
+              + aspect);
+    }
+  }
+
+  /**
+   * An exception indicating that there was a problem creating a {@link StarlarkAspectClass} aspect.
+   */
+  public static class AspectClassCreationException extends Exception {
+    public AspectClassCreationException(String message) {
+      super(message);
+    }
   }
 }

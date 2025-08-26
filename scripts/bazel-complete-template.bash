@@ -682,7 +682,7 @@ _bazel__all_configs() {
   # specified by the user
   local build_inherit=("aquery" "clean" "coverage" "cquery" "info" "mobile-install" "print_action" "run" "test")
   local test_inherit=("coverage")
-  local command_match="$command"
+  local command_match="$command|common|always"
   if [[ "${build_inherit[@]}" =~ "$command" ]]; then
     command_match="$command_match|build"
   fi

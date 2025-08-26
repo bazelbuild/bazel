@@ -931,9 +931,7 @@ the dependencies' sources should be instrumented:
 ```python
 # Are this rule's sources or any of the sources for its direct dependencies
 # in deps instrumented?
-if (ctx.configuration.coverage_enabled and
-    (ctx.coverage_instrumented() or
-     any([ctx.coverage_instrumented(dep) for dep in ctx.attr.deps]))):
+if ctx.coverage_instrumented() or any([ctx.coverage_instrumented(dep) for dep in ctx.attr.deps]):
     # Do something to turn on coverage for this compile action
 ```
 
@@ -967,6 +965,63 @@ non-tool [dependency attribute](#dependency_attributes) that doesn't set
 like `srcs` in `dependency_attributes` instead of `source_attributes`, but it
 avoids the need for explicit coverage configuration for all rules in the
 dependency chain.)
+
+#### Test rules
+
+Test rules require additional setup to generate coverage reports. The rule
+itself has to add the following implicit attributes:
+
+```python
+my_test = rule(
+    ...,
+    attrs = {
+        ...,
+        # Implicit dependencies used by Bazel to generate coverage reports.
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            executable = True,
+            cfg = config.exec(exec_group = "test"),
+        ),
+        "_collect_cc_coverage": attr.label(
+            default = "@bazel_tools//tools/test:collect_cc_coverage",
+            executable = True,
+            cfg = config.exec(exec_group = "test"),
+        )
+    },
+    test = True,
+)
+```
+
+By using `configuration_field`, the dependency on the Java LCOV merger tool can
+be avoided as long as coverage is not requested.
+
+When the test is run, it should emit coverage information in the form of one or
+more [LCOV files]
+(https://manpages.debian.org/unstable/lcov/geninfo.1.en.html#TRACEFILE_FORMAT)
+with unique names into the directory specified by the `COVERAGE_DIR` environment
+variable. Bazel will then merge these files into a single LCOV file using the
+`_lcov_merger` tool. If present, it will also collect C/C++ coverage using the
+`_collect_cc_coverage` tool.
+
+### Baseline coverage
+
+Since coverage is only collected for code that ends up in the dependency tree of
+a test, coverage reports can be misleading as they don't necessarily cover all
+the code matched by the `--instrumentation_filter` flag.
+
+For this reason, Bazel allows rules to specify baseline coverage files using the
+`baseline_coverage_files` attribute of `ctx.instrumented_files_info`). These
+files must be generated in LCOV format by a user-defined action and are supposed
+to list all lines, branches, functions and/or blocks in the target's source
+files (according to the `sources_attributes` and `extensions` parameters). For
+source files in targets that are instrumented for coverage, Bazel merges their
+baseline coverage into the combined coverage report generated with
+`--combined_report` and thus ensures that untested files still show up as
+uncovered.
+
+If a rule doesn't provide any baseline coverage files, Bazel generates synthetic
+coverage information that only mentions the source file paths, but doesn't
+contain any information about their contents.
 
 ### Validation Actions
 

@@ -45,7 +45,6 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       ImmutableSet<ConfiguredTarget> exclusiveTests,
       ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests,
       TopLevelArtifactContext topLevelContext,
-      String workspaceName,
       Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     super(
         configuration,
@@ -61,7 +60,6 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
         exclusiveIfLocalTests,
         topLevelContext,
         /* packageRoots= */ null,
-        workspaceName,
         topLevelTargetsWithConfigs);
     this.executionDetailedExitCode = executionDetailedExitCode;
   }

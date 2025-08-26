@@ -897,9 +897,6 @@ public class AspectTest extends AnalysisTestCase {
     assertContainsEvent(
         "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
             + " does not provide advertised provider 'RequiredProvider'");
-    assertContainsEvent(
-        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
-            + " does not provide advertised provider 'advertised_provider'");
   }
 
   @Test
@@ -977,7 +974,7 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
+  public void duplicateTopLevelAspects_allowedAndDeduplicated() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
@@ -985,16 +982,13 @@ public class AspectTest extends AnalysisTestCase {
         "load('@rules_java//java:defs.bzl', 'java_binary')",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
     reporter.removeHandler(failFastHandler);
-
-    assertThrows(
-        ViewCreationFailedException.class,
-        () ->
-            update(
-                new EventBus(),
-                defaultFlags(),
-                ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
-                "//a:x_deploy.jar"));
-    assertContainsEvent("Aspect AspectApplyingToFiles has already been added");
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
+            "//a:x_deploy.jar");
+    assertThat(analysisResult.getAspectsMap()).hasSize(1);
   }
 
   @Test

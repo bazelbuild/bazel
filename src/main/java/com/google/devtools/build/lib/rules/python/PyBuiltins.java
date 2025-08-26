@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,16 +31,13 @@ import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -56,7 +51,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
 
 /** Bridge to allow builtins bzl code to call Java code. */
 @StarlarkBuiltin(name = "py_builtins", documented = false)
@@ -76,11 +70,7 @@ public abstract class PyBuiltins implements StarlarkValue {
         @Param(name = "ctx", positional = true, named = true, defaultValue = "unbound")
       })
   public boolean isBzlmodEnabled(StarlarkRuleContext starlarkCtx) {
-    return starlarkCtx
-        .getRuleContext()
-        .getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    return true;
   }
 
   @StarlarkMethod(
@@ -222,7 +212,12 @@ public abstract class PyBuiltins implements StarlarkValue {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName()));
+                ruleContext.getWorkspaceName(),
+                ruleContext
+                    .getConfiguration()
+                    .getOptions()
+                    .get(CoreOptions.class)
+                    .compactRepoMapping));
   }
 
   @StarlarkMethod(
@@ -421,20 +416,5 @@ public abstract class PyBuiltins implements StarlarkValue {
             "dependency_transitive_python_sources");
     PyCommon.registerPyExtraActionPseudoAction(
         starlarkCtx.getRuleContext(), dependencyTransitivePythonSources);
-  }
-
-  @SerializationConstant @VisibleForSerialization
-  static final StarlarkProvider starlarkVisibleForTestingInfo =
-      StarlarkProvider.builder(Location.BUILTIN)
-          .buildExported(
-              new StarlarkProvider.Key(
-                  keyForBuild(
-                      Label.parseCanonicalUnchecked(
-                          "//tools/build_defs/python/tests/base_rules:util.bzl")),
-                  "VisibleForTestingInfo"));
-
-  @StarlarkMethod(name = "VisibleForTestingInfo", documented = false, structField = true)
-  public StarlarkProvider visibleForTestingInfo() throws EvalException {
-    return starlarkVisibleForTestingInfo;
   }
 }

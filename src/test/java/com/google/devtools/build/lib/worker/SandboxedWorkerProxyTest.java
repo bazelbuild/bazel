@@ -86,7 +86,8 @@ public class SandboxedWorkerProxyTest {
     proxy.prepareExecution(
         sandboxHelper.getSandboxInputs(),
         sandboxHelper.getSandboxOutputs(),
-        sandboxHelper.getWorkerFiles());
+        sandboxHelper.getWorkerFiles(),
+        ImmutableMap.copyOf(System.getenv()));
 
     assertThat(workDir.isDirectory()).isTrue();
     assertThat(workDir.getChild("worker.sh").exists()).isTrue();
@@ -114,7 +115,8 @@ public class SandboxedWorkerProxyTest {
     worker.prepareExecution(
         sandboxHelper.getSandboxInputs(),
         sandboxHelper.getSandboxOutputs(),
-        sandboxHelper.getWorkerFiles());
+        sandboxHelper.getWorkerFiles(),
+        ImmutableMap.copyOf(System.getenv()));
     worker.putRequest(WorkRequest.newBuilder().setRequestId(2).build());
     assertThat(worker.workerMultiplexer.pendingRequests).isNotEmpty();
     WorkRequest actualRequest = worker.workerMultiplexer.pendingRequests.take();
@@ -140,7 +142,8 @@ public class SandboxedWorkerProxyTest {
     worker.prepareExecution(
         sandboxHelper.getSandboxInputs(),
         sandboxHelper.getSandboxOutputs(),
-        sandboxHelper.getWorkerFiles());
+        sandboxHelper.getWorkerFiles(),
+        ImmutableMap.copyOf(System.getenv()));
     worker.putRequest(WorkRequest.newBuilder().setRequestId(2).build());
     WorkRequest actualRequest = worker.workerMultiplexer.pendingRequests.take();
     String requestSandboxSubdir = actualRequest.getSandboxDir();
@@ -271,7 +274,8 @@ public class SandboxedWorkerProxyTest {
         key,
         new WorkerMultiplexer(globalExecRoot.getChild("testWorker.log"), key, 0) {
           @Override
-          public synchronized void createProcess(Path workDir) throws IOException {
+          public synchronized void createProcess(
+              Path workDir, ImmutableMap<String, String> clientEnv) throws IOException {
             PipedInputStream serverInputStream = new PipedInputStream();
             super.process = new FakeSubprocess(serverInputStream);
           }

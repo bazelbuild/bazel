@@ -114,13 +114,14 @@ public interface InputMetadataProvider {
   ActionInput getInput(String execPath);
 
   /**
-   * Expands runfiles trees and tree artifacts in a sequence of {@link ActionInput}s.
+   * Expands tree artifacts in a sequence of {@link ActionInput}s.
    *
    * <p>If {@code keepEmptyTreeArtifacts} is true, a tree artifact will be included in the
    * constructed list when it expands into zero file artifacts. Otherwise, only the file artifacts
    * the tree artifact expands into will be included.
    *
-   * <p>Runfiles tree artifacts will be returned if {@code keepRunfilesTrees} is set.
+   * <p>Runfiles tree artifacts will be returned if {@code keepRunfilesTrees} is set, otherwise they
+   * will be filtered out.
    *
    * <p>Non-runfiles, non-tree artifacts are returned untouched.
    */

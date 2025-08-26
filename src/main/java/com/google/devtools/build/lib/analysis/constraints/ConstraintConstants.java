@@ -29,39 +29,37 @@ public final class ConstraintConstants {
       ConstraintSettingInfo.create(
           Label.parseCanonicalUnchecked("@platforms//os:os"));
 
+  public static final ConstraintSettingInfo CPU_CONSTRAINT_SETTING =
+      ConstraintSettingInfo.create(
+          Label.parseCanonicalUnchecked("@platforms//cpu:cpu"));
+
   // Standard mapping between OS and the corresponding platform constraints.
   public static final ImmutableBiMap<OS, ConstraintValueInfo> OS_TO_CONSTRAINTS =
-      ImmutableBiMap.<OS, ConstraintValueInfo>builder()
-          .put(
-              OS.LINUX,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:linux")))
-          .put(
-              OS.DARWIN,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:osx")))
-          .put(
-              OS.WINDOWS,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:windows")))
-          .put(
-              OS.FREEBSD,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:freebsd")))
-          .put(
-              OS.OPENBSD,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:openbsd")))
-          .put(
-              OS.UNKNOWN,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:none")))
-          .buildOrThrow();
+      ImmutableBiMap.of(
+          OS.LINUX,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:linux")),
+          OS.DARWIN,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:osx")),
+          OS.WINDOWS,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:windows")),
+          OS.FREEBSD,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:freebsd")),
+          OS.OPENBSD,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:openbsd")),
+          OS.UNKNOWN,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:none")));
 
   /**
    * Returns the OS corresponding to the given constraint collection based on the contained platform

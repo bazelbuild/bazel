@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1129,12 +1128,12 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    useConfiguration("--compilation_mode=fastbuild");
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file(
         "conflict/BUILD",
         """
-        config_setting(name = 'a', values = {'cpu': 'unobtainiumx'})
+        config_setting(name = 'a', values = {'compilation_mode': 'dbg'})
         cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))
         cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])
         """);

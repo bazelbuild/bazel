@@ -34,14 +34,9 @@ public interface BazelCcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
-        LinkingOutputsT extends CcLinkingOutputsApi<FileT, LtoBackendArtifactsT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
-        LinkingContextT extends CcLinkingContextApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
-        DebugContextT extends CcDebugInfoContextApi,
         CppModuleMapT extends CppModuleMapApi<FileT>>
     extends CcModuleApi<
         StarlarkActionFactoryT,
@@ -49,14 +44,9 @@ public interface BazelCcModuleApi<
         FeatureConfigurationT,
         CompilationContextT,
         LtoBackendArtifactsT,
-        LinkerInputT,
-        LinkingContextT,
-        LibraryToLinkT,
         CcToolchainVariablesT,
         ConstraintValueT,
         StarlarkRuleContextT,
         CcToolchainConfigInfoT,
         CompilationOutputsT,
-        DebugContextT,
-        CppModuleMapT,
-        LinkingOutputsT> {}
+        CppModuleMapT> {}

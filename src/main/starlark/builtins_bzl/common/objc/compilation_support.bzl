@@ -659,7 +659,7 @@ def _linkstamp_map(ctx, linkstamps, output, build_config):
     linkstamps_map = {}
 
     stamp_output_dir = paths.join(ctx.label.package, "_objs", output.basename)
-    for linkstamp in linkstamps.to_list():
+    for linkstamp in linkstamps:
         linkstamp_file = linkstamp.file()
         stamp_output_path = paths.join(
             stamp_output_dir,
@@ -889,13 +889,8 @@ def _create_deduped_linkopts_linking_context(owner, cc_linking_context, seen_fla
                 libraries = depset(linker_input.libraries),
                 user_link_flags = new_flags,
                 additional_inputs = depset(linker_input.additional_inputs),
+                linkstamps = depset(linker_input.linkstamps),
             ))
-
-    # Why does linker_input not expose linkstamp?  This needs to be fixed.
-    linker_inputs.append(cc_common.create_linker_input(
-        owner = owner,
-        linkstamps = cc_linking_context.linkstamps(),
-    ))
 
     return (
         cc_common.create_linking_context(
@@ -939,7 +934,12 @@ def _register_configuration_specific_link_actions_with_objc_variables(
     # returning linkstamp objects)
     # We replicate the linkstamp objects names (guess them) and generate input_file_list
     # which is input to linking action.
-    linkstamp_map = _linkstamp_map(ctx, cc_linking_context.linkstamps(), binary, build_config)
+    linkstamps = [
+        linkstamp
+        for linker_input in cc_linking_context.linker_inputs.to_list()
+        for linkstamp in linker_input.linkstamps
+    ]
+    linkstamp_map = _linkstamp_map(ctx, linkstamps, binary, build_config)
     input_file_list = _register_obj_filelist_action(
         ctx,
         build_config,
@@ -978,7 +978,7 @@ def _register_configuration_specific_link_actions_with_objc_variables(
         linking_contexts = [cc_common.create_linking_context(linker_inputs = depset(
             [cc_common.create_linker_input(
                 owner = ctx.label,
-                linkstamps = cc_linking_context.linkstamps(),
+                linkstamps = depset(linkstamps),
             )],
         ))],
         output_type = "executable",

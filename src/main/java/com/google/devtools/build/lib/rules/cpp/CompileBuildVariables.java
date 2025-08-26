@@ -309,18 +309,17 @@ public enum CompileBuildVariables {
         buildVariables,
         featureConfiguration,
         includes,
-        cppModuleMap,
         fdoStamp,
         isUsingMemProf,
         variablesExtensions,
         additionalBuildVariables,
-        directModuleMaps,
         includeDirs,
         quoteIncludeDirs,
         systemIncludeDirs,
         frameworkIncludeDirs,
         defines,
-        localDefines);
+        localDefines,
+        ImmutableList.of());
     setupSpecificVariables(
         buildVariables,
         sourceFile,
@@ -337,7 +336,9 @@ public enum CompileBuildVariables {
         dotdFile,
         diagnosticsFile,
         usePic,
-        ImmutableList.of(),
+        featureConfiguration,
+        cppModuleMap,
+        directModuleMaps,
         ImmutableMap.of());
     return buildVariables.build();
   }
@@ -355,7 +356,9 @@ public enum CompileBuildVariables {
       Artifact dotdFile,
       Artifact diagnosticsFile,
       boolean usePic,
-      ImmutableList<PathFragment> externalIncludeDirs,
+      FeatureConfiguration featureConfiguration,
+      CppModuleMap cppModuleMap,
+      ImmutableList<Artifact> directModuleMaps,
       Map<String, String> additionalBuildVariables) {
     setupSpecificVariables(
         buildVariables,
@@ -373,7 +376,9 @@ public enum CompileBuildVariables {
         dotdFile,
         diagnosticsFile,
         usePic,
-        externalIncludeDirs,
+        featureConfiguration,
+        cppModuleMap,
+        directModuleMaps,
         additionalBuildVariables);
   }
 
@@ -393,8 +398,20 @@ public enum CompileBuildVariables {
       Artifact dotdFile,
       Artifact diagnosticsFile,
       boolean usePic,
-      ImmutableList<PathFragment> externalIncludeDirs,
+      FeatureConfiguration featureConfiguration,
+      CppModuleMap cppModuleMap,
+      ImmutableList<Artifact> directModuleMaps,
       Map<String, String> additionalBuildVariables) {
+    Preconditions.checkNotNull(directModuleMaps);
+
+    if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
+      buildVariables.addVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
+      buildVariables.addVariable(MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact());
+      buildVariables.addVariable(
+          DEPENDENT_MODULE_MAP_FILES.getVariableName(),
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, directModuleMaps));
+    }
+
     buildVariables.addStringSequenceVariable(
         USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
@@ -451,12 +468,6 @@ public enum CompileBuildVariables {
       buildVariables.addVariable(PIC.getVariableName(), "");
     }
 
-    if (!externalIncludeDirs.isEmpty()) {
-      buildVariables.addVariable(
-          EXTERNAL_INCLUDE_PATHS.getVariableName(),
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, externalIncludeDirs));
-    }
-
     buildVariables.addAllStringVariables(additionalBuildVariables);
   }
 
@@ -464,28 +475,25 @@ public enum CompileBuildVariables {
       CcToolchainVariables.Builder buildVariables,
       FeatureConfiguration featureConfiguration,
       List<String> includes,
-      CppModuleMap cppModuleMap,
       String fdoStamp,
       boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
-      ImmutableList<Artifact> directModuleMaps,
       ImmutableList<PathFragment> includeDirs,
       ImmutableList<PathFragment> quoteIncludeDirs,
       ImmutableList<PathFragment> systemIncludeDirs,
       ImmutableList<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines) {
+      Iterable<String> localDefines,
+      ImmutableList<PathFragment> externalIncludeDirs) {
     setupCommonVariablesInternal(
         buildVariables,
         featureConfiguration,
         includes,
-        cppModuleMap,
         fdoStamp,
         isUsingMemProf,
         variablesExtensions,
         additionalBuildVariables,
-        directModuleMaps,
         // Stable order NestedSets wrapping ImmutableLists are interned, otherwise this would be
         // a clear waste of memory as the single caller ensure that there are no duplicates.
         NestedSetBuilder.wrap(Order.STABLE_ORDER, includeDirs),
@@ -493,26 +501,25 @@ public enum CompileBuildVariables {
         NestedSetBuilder.wrap(Order.STABLE_ORDER, systemIncludeDirs),
         NestedSetBuilder.wrap(Order.STABLE_ORDER, frameworkIncludeDirs),
         defines,
-        localDefines);
+        localDefines,
+        externalIncludeDirs);
   }
 
   private static void setupCommonVariablesInternal(
       CcToolchainVariables.Builder buildVariables,
       FeatureConfiguration featureConfiguration,
       List<String> includes,
-      CppModuleMap cppModuleMap,
       String fdoStamp,
       boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
-      ImmutableList<Artifact> directModuleMaps,
       NestedSet<PathFragment> includeDirs,
       NestedSet<PathFragment> quoteIncludeDirs,
       NestedSet<PathFragment> systemIncludeDirs,
       NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines) {
-    Preconditions.checkNotNull(directModuleMaps);
+      Iterable<String> localDefines,
+      ImmutableList<PathFragment> externalIncludeDirs) {
     Preconditions.checkNotNull(includeDirs);
     Preconditions.checkNotNull(quoteIncludeDirs);
     Preconditions.checkNotNull(systemIncludeDirs);
@@ -520,13 +527,6 @@ public enum CompileBuildVariables {
     Preconditions.checkNotNull(defines);
     Preconditions.checkNotNull(localDefines);
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
-      buildVariables.addVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
-      buildVariables.addVariable(MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact());
-      buildVariables.addVariable(
-          DEPENDENT_MODULE_MAP_FILES.getVariableName(),
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, directModuleMaps));
-    }
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       // Module inputs will be set later when the action is executed.
       buildVariables.addStringSequenceVariable(MODULE_FILES.getVariableName(), ImmutableSet.of());
@@ -562,6 +562,12 @@ public enum CompileBuildVariables {
     buildVariables.addAllStringVariables(additionalBuildVariables);
     for (VariablesExtension extension : variablesExtensions) {
       extension.addVariables(buildVariables);
+    }
+
+    if (!externalIncludeDirs.isEmpty()) {
+      buildVariables.addVariable(
+          EXTERNAL_INCLUDE_PATHS.getVariableName(),
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, externalIncludeDirs));
     }
   }
 

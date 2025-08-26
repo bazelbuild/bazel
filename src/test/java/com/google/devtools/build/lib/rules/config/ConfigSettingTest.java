@@ -67,6 +67,22 @@ public class ConfigSettingTest extends BuildViewTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP})
     public List<String> allowMultipleOption;
+
+    @Option(
+        name = "new_option_name",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "",
+        oldName = "old_option_name")
+    public String optionWithOldName;
+
+    @Option(
+        name = "non_configurable_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "non-configurable",
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+    public String nonConfigurableOption;
   }
 
   /** Test fragment. */
@@ -211,6 +227,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "config_setting(",
         "    name = 'badoption',",
         "    values = {'internal_option': 'bar'})");
+  }
+
+  @Test
+  public void oldNameReference() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {"old_option_name": "foo"},
+        )
+        """);
+    assertThat(getConfiguredTarget("//test:match")).isNotNull();
+    assertNoEvents();
   }
 
   /**
@@ -468,9 +498,41 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(matchExpected);
   }
 
+  @Test
+  public void flagWithOldName_NoMatch() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "old_option_name": "different_setting",
+            },
+        )
+        """);
+    useConfiguration("--new_option_name=is_set");
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
+  }
+
+  @Test
+  public void flagWithOldName_Match() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "old_option_name": "is_set",
+            },
+        )
+        """);
+    useConfiguration("--new_option_name=is_set");
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
+  }
+
   /**
    * Tests multi-value flags that don't support multiple values <b></b>in the same instance<b>. See
-   * comments on {@link #multiValueListMultipleExpectedValues()} for details.
+   * comments on {@link #multiValueListMultipleExpectedValues(List, boolean)} for details.
    */
   @Test
   public void multiValueListSingleValueThatLooksLikeMultiple() throws Exception {
@@ -2951,6 +3013,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
         )
         """
             .formatted(flag));
+    // empty --incompatible_disable_select_on to get the warning.
+    useConfiguration("--incompatible_disable_select_on=");
     assertThat(getConfiguredTarget("//test:match")).isNotNull();
     assertContainsEvent(
         "select() on %s is deprecated. Use platform constraints instead".formatted(flag));
@@ -2975,7 +3039,188 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:match")).isNull();
     assertContainsEvent(
         "in values attribute of config_setting rule //test:match: error while parsing configuration"
-            + " settings: select() on %s is not allowed. Use platform constraints instead"
+            + " settings: select() on '%s' is not allowed. Use platform constraints instead"
                 .formatted(flag));
+  }
+
+  @Test
+  public void selectDisabledOnNonPlatformsFlag() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "compilation_mode": "opt",
+            },
+        )
+        """);
+    useConfiguration("--incompatible_disable_select_on=compilation_mode");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: error while parsing configuration"
+            + " settings: select() on 'compilation_mode' is not allowed.");
+    assertDoesNotContainEvent("Use platform constraints instead");
+  }
+
+  @Test
+  // If --foo has oldName --old_foo, let disabling flag selection have fine-grained control over
+  // which name is permitted. For example, if we want to force all config_settings to use the
+  // new name, we could set --incompatible_disable-select_on=old_foo.
+  @TestParameters({
+    "{configSettingName: new_option_name, disabledName: new_option_name, expectSuccess:"
+        + " false}",
+    "{configSettingName: old_option_name, disabledName: old_option_name,"
+        + " expectSuccess: false}",
+    "{configSettingName: new_option_name, disabledName: old_option_name," + " expectSuccess: true}",
+    "{configSettingName: old_option_name, disabledName: new_option_name," + " expectSuccess: true}",
+  })
+  public void selectOnDisabledFlagwithOldName(
+      String configSettingName, String disabledName, boolean expectSuccess) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(configSettingName));
+    useConfiguration("--incompatible_disable_select_on=%s".formatted(disabledName));
+    reporter.removeHandler(failFastHandler);
+
+    if (expectSuccess) {
+      assertThat(getConfiguredTarget("//test:match")).isNotNull();
+      assertNoEvents();
+    } else {
+      assertThat(getConfiguredTarget("//test:match")).isNull();
+      assertContainsEvent(
+          "in values attribute of config_setting rule //test:match: error while parsing"
+              + " configuration"
+              + " settings: select() on '%s' is not allowed.".formatted(disabledName));
+    }
+  }
+
+  @Test
+  @TestParameters({
+    // Alias --nativeform to --//test:myflag, config_setting matches --nativeform on default value:
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: true,
+  expectedError: ''
+}\
+""",
+    // Alias --nativeform to --//test:myflag, config_setting doesn't match --nativeform because it
+    // expects a different value:
+"""
+{
+  valuesAttr: '"nativeform": "other_expected_value"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: false,
+  expectedError: ''
+}\
+""",
+    // Alias --nativeform to --//test:doesnt_exist, config_setting on --nativeform fails because the
+    // target doesn't exist.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:doesnt_exist'],
+  expectMatch: false,
+  expectedError: "target 'doesnt_exist' not declared"
+}\
+""",
+    // Alias --nativeform not set, config_setting on --nativeform errors.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: [],
+  expectMatch: false,
+  expectedError: "unknown option: 'nativeform'"
+}\
+""",
+    // config_setting reads both alias and actual flags and matches because their value is the same.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '"//test:myflag": "parmesan"',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: true,
+  expectedError: ""
+}\
+""",
+    // config_setting reads both alias and actual flags and errors because of mismatching values.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '"//test:myflag": "other_value"',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: false,
+  expectedError: "Conflicting flag value expectations"
+}\
+"""
+  })
+  public void flagAlias(
+      String valuesAttr,
+      String flagValuesAttr,
+      List<String> config,
+      boolean expectMatch,
+      String expectedError)
+      throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        config_setting(
+            name = "match",
+            values = {%s},
+            flag_values = {%s}
+        )
+        string_flag(
+            name = "myflag",
+            build_setting_default = "parmesan",
+        )
+        """
+            .formatted(valuesAttr, flagValuesAttr));
+
+    reporter.removeHandler(failFastHandler);
+    useConfiguration(config.toArray(new String[0]));
+
+    if (expectedError.isEmpty()) {
+      assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(expectMatch);
+    } else {
+      assertThat(getConfiguredTarget("//test:match")).isNull();
+      assertContainsEvent(expectedError);
+    }
+  }
+
+  @Test
+  public void nonConfigurableOption() throws Exception {
+    checkError(
+        "foo",
+        "non_configurable_option",
+        "select() on 'non_configurable_option' is not allowed.",
+        """
+        config_setting(
+            name = "non_configurable_option",
+            values = {"non_configurable_option": "foo"},
+        )
+        """);
   }
 }

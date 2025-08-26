@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.ThreadUtils;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
@@ -33,21 +34,26 @@ import javax.annotation.concurrent.GuardedBy;
 class CommandManager {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  // The list of currently running commands.
-  // Note that, even though most commands run serially because of the output base lock, they're
-  // registered here before blocking for the lock, so the map is effectively unbounded.
+  /**
+   * The list of currently running commands. Note that, even though most commands run serially
+   * because of the output base lock, they're registered here before blocking for the lock, so the
+   * map is effectively unbounded.
+   */
   @GuardedBy("runningCommandsMap")
   private final Map<String, RunningCommand> runningCommandsMap = new HashMap<>();
 
+  /** Whether idle tasks are enabled. */
   private final boolean doIdleServerTasks;
 
-  // The current IdleTaskManager. Null when a command is running or if idle tasks are disabled.
+  /** The current IdleTaskManager. Null when a command is running or if idle tasks are disabled. */
   @GuardedBy("this")
   @Nullable
   private IdleTaskManager idleTaskManager;
 
-  // Idle task results from the most recent idle period. Null after a subsequent command retrieves
-  // them or if idle tasks are disabled.
+  /**
+   * Idle task results from the most recent idle period following a command that registered idle
+   * tasks. Null after a subsequent command retrieves them or if idle tasks are disabled.
+   */
   @GuardedBy("this")
   @Nullable
   private ImmutableList<IdleTask.Result> idleTaskResults;
@@ -58,7 +64,7 @@ class CommandManager {
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
-    idle(ImmutableList.of());
+    idle(Optional.empty());
   }
 
   void preemptEligibleCommands() {
@@ -147,20 +153,31 @@ class CommandManager {
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
   }
 
-  private void idle(ImmutableList<IdleTask> idleTasks) {
-    if (doIdleServerTasks) {
+  /**
+   * Enters an idle period.
+   *
+   * <p>Called when the set of running commands becomes empty.
+   *
+   * @param idleTasks idle tasks to run during the idle period, if any.
+   */
+  private void idle(Optional<ImmutableList<IdleTask>> idleTasks) {
+    if (doIdleServerTasks && idleTasks.isPresent()) {
       synchronized (this) {
         checkState(idleTaskManager == null);
-        idleTaskManager = new IdleTaskManager(idleTasks);
+        idleTaskManager = new IdleTaskManager(idleTasks.get());
         idleTaskManager.idle();
       }
     }
   }
 
+  /**
+   * Leaves an idle period.
+   *
+   * <p>Called when the set of running commands becomes non-empty.
+   */
   private void busy() {
-    if (doIdleServerTasks) {
-      synchronized (this) {
-        checkState(idleTaskManager != null);
+    synchronized (this) {
+      if (idleTaskManager != null) {
         idleTaskResults = idleTaskManager.busy();
         idleTaskManager = null;
       }
@@ -196,8 +213,8 @@ class CommandManager {
   }
 
   /**
-   * Returns idle task results returned by {@link IdleTaskManager} during the previous idle period,
-   * if available and not yet retrieved.
+   * Returns idle task results returned by {@link IdleTaskManager} during a previous idle period, if
+   * available and not yet retrieved.
    *
    * <p>Clears the stored idle task results as a side effect.
    */
@@ -212,7 +229,7 @@ class CommandManager {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
-    private ImmutableList<IdleTask> idleTasks = ImmutableList.of();
+    private Optional<ImmutableList<IdleTask>> idleTasks = Optional.empty();
 
     private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
@@ -241,9 +258,12 @@ class CommandManager {
       return preemptible;
     }
 
-    /** Set idle tasks to be run by {@link IdleTaskManager} during the next idle period. */
+    /**
+     * Set idle tasks to be run by {@link IdleTaskManager} during an idle period immediately
+     * following this command, if one occurs and idle tasks are enabled.
+     */
     void setIdleTasks(ImmutableList<IdleTask> idleTasks) {
-      this.idleTasks = idleTasks;
+      this.idleTasks = Optional.of(idleTasks);
     }
   }
 }

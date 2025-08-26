@@ -72,6 +72,8 @@ public final class TargetSummaryPublisher {
   /**
    * Extracts how many aspect completions per target to expect. This must happen before {@link
    * #populateTargets}.
+   *
+   * <p>This excludes --exec_aspects.
    */
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {

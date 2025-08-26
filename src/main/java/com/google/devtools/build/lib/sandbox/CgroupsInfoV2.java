@@ -75,6 +75,10 @@ public class CgroupsInfoV2 extends CgroupsInfo {
         Files.asCharSink(new File(spawnCgroupDir, "memory.oom.group"), UTF_8).write("1\n");
         Files.asCharSink(new File(spawnCgroupDir, "memory.max"), UTF_8)
             .write(Long.toString(memoryLimitMb * 1024L * 1024L));
+        // Set swap to 0 so that it doesn't unexpecedly consume more than
+        // the memory limit when swap is enabled.
+        Files.asCharSink(new File(spawnCgroupDir, "memory.swap.max"), UTF_8)
+            .write(Long.toString(0L));
       }
     } catch (Exception e) {
       return new InvalidCgroupsInfo(Type.SPAWN, getVersion(), e);

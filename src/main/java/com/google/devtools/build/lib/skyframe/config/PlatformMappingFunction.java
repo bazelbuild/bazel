@@ -209,7 +209,13 @@ public final class PlatformMappingFunction implements SkyFunction {
       ImmutableList<String> rawFlags, Environment env, RepoContext mainRepoContext)
       throws PlatformMappingParsingException, InterruptedException {
     PackageContext rootPackage = mainRepoContext.rootPackage();
-    ParsedFlagsValue.Key parsedFlagsKey = ParsedFlagsValue.Key.create(rawFlags, rootPackage);
+    // Passing an empty flagAliasMappings means platform mappings don't support flag aliases: if
+    // a mapping sets --foo=bar but --foo is an alias for --//actual:flag, the mapping must be
+    // updated to set --actual:flag=bar. Since this is a deprecated API we won't support mappings
+    // here unless a compelling case demands it.
+    ParsedFlagsValue.Key parsedFlagsKey =
+        ParsedFlagsValue.Key.create(
+            rawFlags, rootPackage, /* flagAliasMappings= */ ImmutableList.of());
     try {
       return (ParsedFlagsValue) env.getValueOrThrow(parsedFlagsKey, OptionsParsingException.class);
     } catch (OptionsParsingException e) {

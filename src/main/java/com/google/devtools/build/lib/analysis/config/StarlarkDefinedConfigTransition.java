@@ -22,14 +22,9 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.ExecConfigurationDistinguisherScheme;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputDirectoryNamingScheme;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
@@ -48,7 +43,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -446,26 +440,6 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     }
 
     /**
-     * Native flag types known to serialize and deserialize cleanly to strings for Starlark
-     * evaluation.
-     *
-     * <p>This is an intentionally conservative list intended to support Starlark exec transitions
-     * ({@link ExecutionTransitionFactory}).
-     *
-     * <p>We'd ideally represent these directly as class types instead of strings. But that would
-     * add dependencies on rule-related library to this class, which breaks Bazel linking.
-     */
-    private static final ImmutableSet<String> SAFE_NATIVE_FLAG_TYPES =
-        ImmutableSet.of(
-            "AndroidManifestMerger",
-            "ManifestMergerOrder",
-            "ImportDepsCheckingLevel",
-            "JavaClasspathMode",
-            "StrictDepsMode",
-            "PythonVersion",
-            "OneVersionEnforcementLevel");
-
-    /**
      * Converts a Java-native flag value to a Starlark-readable string, or throws an exception if
      * the flag's type can't be represented in Starlark.
      *
@@ -484,15 +458,9 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         // Call toOriginalString, to do that properly.
         return Verify.verifyNotNull(((RegexFilter) value).toOriginalString());
       }
-      if (value instanceof PathFragment
-          || value instanceof TriState
-          || value instanceof ExecConfigurationDistinguisherScheme
-          || value instanceof OutputDirectoryNamingScheme
-          || value instanceof OutputPathsMode
-          || value instanceof IncludeConfigFragmentsEnum
-          || SAFE_NATIVE_FLAG_TYPES.contains(value.getClass().getSimpleName())) {
-        // Starlark#fromJava doesn't understand these Bazel-specific Java types. But their
-        // toString() methods serialize cleanly.
+      if (value instanceof PathFragment) {
+        // Starlark#fromJava doesn't understand this Bazel-specific Java type. But its toString()
+        // method serializes cleanly.
         return value.toString();
       }
       // See if the option's converter knows how to produce to Starlark values.

@@ -44,6 +44,7 @@ java_library(
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/syntax",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 

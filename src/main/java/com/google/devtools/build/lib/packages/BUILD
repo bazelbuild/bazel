@@ -54,9 +54,11 @@ java_library(
             "Globber.java",
             "GlobberUtils.java",
             "LabelPrinter.java",
+            "PackageGroupsRuleVisibility.java",
             "PackagePieceIdentifier.java",
             "PackageSpecification.java",
             "RuleClassUtils.java",
+            "RuleVisibility.java",
         ],
     ),
     deps = [
@@ -67,6 +69,7 @@ java_library(
         ":label_printer",
         ":package_piece_identifier",
         ":package_specification",
+        ":rule_visibility",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
@@ -86,6 +89,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect:collection_utils",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
@@ -110,7 +114,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
@@ -123,6 +126,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -242,5 +246,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "rule_visibility",
+    srcs = [
+        "PackageGroupsRuleVisibility.java",
+        "RuleVisibility.java",
+    ],
+    deps = [
+        ":package_specification",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

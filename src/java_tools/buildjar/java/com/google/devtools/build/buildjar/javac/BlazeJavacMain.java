@@ -297,8 +297,7 @@ public class BlazeJavacMain {
     try {
       fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, arguments.classPath());
       // modular dependencies must be on the module path, not the classpath
-      fileManager.setLocationFromPaths(
-          StandardLocation.locationFor("MODULE_PATH"), arguments.classPath());
+      fileManager.setLocationFromPaths(StandardLocation.MODULE_PATH, arguments.classPath());
 
       fileManager.setLocationFromPaths(
           StandardLocation.CLASS_OUTPUT, ImmutableList.of(arguments.classOutput()));
@@ -325,8 +324,7 @@ public class BlazeJavacMain {
 
       Path system = arguments.system();
       if (system != null) {
-        fileManager.setLocationFromPaths(
-            StandardLocation.locationFor("SYSTEM_MODULES"), ImmutableList.of(system));
+        fileManager.setLocationFromPaths(StandardLocation.SYSTEM_MODULES, ImmutableList.of(system));
       }
       // The bootclasspath may legitimately be empty if --release is being used.
       Collection<Path> bootClassPath = arguments.bootClassPath();

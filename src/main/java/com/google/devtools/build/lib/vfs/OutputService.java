@@ -15,17 +15,14 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
@@ -248,9 +245,7 @@ public interface OutputService {
       String relativeOutputPath,
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
-      ActionInputMap actionInputMap,
-      Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-      Map<Artifact, FilesetOutputTree> filesets) {
+      ActionInputMap actionInputMap) {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 

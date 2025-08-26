@@ -20,7 +20,10 @@ filegroup(
 
 java_library(
     name = "repository_module",
-    srcs = ["BazelRepositoryModule.java"],
+    srcs = [
+        "BazelRepositoryModule.java",
+        "CacheHitReportingModule.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -38,47 +41,36 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:tidy_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:vendor",
         "//src/main/java/com/google/devtools/build/lib/bazel/commands",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_fetch_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:events",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/new_local_repository_function",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/new_local_repository_rule",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_executor_repository_helpers_holder",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "bazel_configuration",
-    srcs = ["BazelConfiguration.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/common/options",
     ],
 )
 
@@ -184,7 +176,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:bazel_lockfile_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
@@ -208,15 +199,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "resolved_event",
-    srcs = ["ResolvedEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
 

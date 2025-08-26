@@ -468,7 +468,16 @@ class MethodLibrary {
               + "Any other value causes an error. With no argument, <code>float()</code> returns"
               + " 0.0.",
       parameters = {
-        @Param(name = "x", doc = "The value to convert.", defaultValue = "unbound"),
+        @Param(
+            name = "x",
+            doc = "The value to convert.",
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Boolean.class),
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            }),
       })
   public StarlarkFloat floatForStarlark(Object x) throws EvalException {
     if (x instanceof String s) {
@@ -573,7 +582,15 @@ class MethodLibrary {
               + "int(\"123.456\") == 123\n"
               + "</pre>",
       parameters = {
-        @Param(name = "x", doc = "The string to convert."),
+        @Param(
+            name = "x",
+            doc = "The string to convert.",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Boolean.class),
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            }),
         @Param(
             name = "base",
             defaultValue = "unbound",
@@ -582,7 +599,8 @@ class MethodLibrary {
                     + "and 36 (inclusive), or 0 to detect the base as if <code>x</code> were an "
                     + "integer literal. This parameter must not be supplied if the value is not a "
                     + "string.",
-            named = true)
+            named = true,
+            allowedTypes = {@ParamType(type = StarlarkInt.class)})
       })
   public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
@@ -641,7 +659,7 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "set",
       doc =
-          """
+"""
 Creates a new <a href=\"../core/set.html\">set</a> containing the unique elements of a given
 iterable, preserving iteration order.
 

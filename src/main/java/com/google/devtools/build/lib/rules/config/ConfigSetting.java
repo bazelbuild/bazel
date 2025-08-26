@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -30,6 +33,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
@@ -72,9 +76,11 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -87,8 +93,20 @@ import javax.annotation.Nullable;
 public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
   /** Flags we'd like to remove once there are no more repo references. */
-  private static final ImmutableSet<String> DEPRECATED_FLAGS =
+  private static final ImmutableSet<String> DEPRECATED_PRE_PLATFORMS_FLAGS =
       ImmutableSet.of("cpu", "host_cpu", "crosstool_top");
+
+  /**
+   * The settings this {@code config_setting} expects.
+   *
+   * @param nativeFlagSettings native flags that match this rule (defined in Bazel code)
+   * @param userDefinedFlagSettings user-defined flags that match this rule (defined in Starlark)
+   * @param constraintValueSettings the current platform's expected {@code constraint_value}s
+   */
+  record Settings(
+      ImmutableMultimap<String, String> nativeFlagSettings,
+      ImmutableMap<Label, String> userDefinedFlagSettings,
+      ImmutableList<Label> constraintValueSettings) {}
 
   @Override
   @Nullable
@@ -110,42 +128,19 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    // Get the built-in Blaze flag settings that match this rule.
-    ImmutableMultimap<String, String> nativeFlagSettings =
-        ImmutableMultimap.<String, String>builder()
-            .putAll(
-                attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT).entrySet())
-            .putAll(
-                attributes
-                    .get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT)
-                    .entrySet()
-                    .stream()
-                    .map(in -> Maps.immutableEntry("define", in.getKey() + "=" + in.getValue()))
-                    .collect(ImmutableList.toImmutableList()))
-            .build();
-
-    // Get the user-defined flag settings that match this rule.
-    Map<Label, String> userDefinedFlagSettings =
-        attributes.get(
-            ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, BuildType.LABEL_KEYED_STRING_DICT);
-
-    // Get the platform constraint settings that match this rule.
-    List<Label> constraintValueSettings =
-        attributes.get(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, BuildType.LABEL_LIST);
-
+    Settings settings = getSettings(ruleContext, attributes);
     // Check that this config_setting contains at least one of {values, define_values,
     // constraint_values}
-    if (!valuesAreSet(
-        nativeFlagSettings, userDefinedFlagSettings, constraintValueSettings, ruleContext)) {
+    if (!valuesAreSet(settings, ruleContext)) {
       return null;
     }
 
     BuildOptionDetails optionDetails = ruleContext.getConfiguration().getBuildOptionDetails();
     MatchResult nativeFlagsResult =
-        diffNativeFlags(nativeFlagSettings.entries(), optionDetails, ruleContext);
+        diffNativeFlags(settings.nativeFlagSettings.entries(), optionDetails, ruleContext);
     UserDefinedFlagMatch userDefinedFlags =
         UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
-            userDefinedFlagSettings, optionDetails, ruleContext);
+            settings.userDefinedFlagSettings, optionDetails, ruleContext);
     MatchResult constraintValuesResult = diffConstraintValues(ruleContext);
 
     if (ruleContext.hasErrors()) {
@@ -155,9 +150,9 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     ConfigMatchingProvider configMatcher =
         ConfigMatchingProvider.create(
             ruleContext.getLabel(),
-            nativeFlagSettings,
+            settings.nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            ImmutableSet.copyOf(constraintValueSettings),
+            ImmutableSet.copyOf(settings.constraintValueSettings),
             Stream.of(userDefinedFlags.result(), nativeFlagsResult, constraintValuesResult)
                 .reduce(MatchResult::combine)
                 .get());
@@ -168,6 +163,105 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
         .build();
+  }
+
+  /** Returns this {@code config_setting}'s expected settings. */
+  private Settings getSettings(RuleContext ruleContext, AttributeMap attributes) {
+    // Collect expected flags from "values" and "define_values" attributes.
+    ImmutableMultimap<String, String> nativeValueAttributes =
+        ImmutableMultimap.<String, String>builder()
+            .putAll(
+                attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT).entrySet())
+            .putAll(
+                attributes
+                    .get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT)
+                    .entrySet()
+                    .stream()
+                    .map(in -> Maps.immutableEntry("define", in.getKey() + "=" + in.getValue()))
+                    .collect(toImmutableList()))
+            .build();
+
+    // Find --flag_alias=foo=//bar settings. When these are set, "--foo" isn't a native flag but an
+    // alias to "//bar". Since Bazel's options parsing replaces "--foo" with "//bar", we want to do
+    // the same here to match the parsed options. Generally, all logic reading any user API that
+    // sets "--foo" should do this.
+    ImmutableMap<String, String> commandLineFlagAliases =
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .commandLineFlagAliases
+            .stream()
+            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    // Partition expected "--foo" settings (native flag style) by whether they're flag aliases.
+    var nativeValuesParitionedByAlias =
+        nativeValueAttributes.entries().stream()
+            .collect(
+                Collectors.partitioningBy(
+                    entry -> commandLineFlagAliases.containsKey(entry.getKey())));
+
+    // Collect actual native flags that aren't flag aliases.
+    var nativeFlagSettings =
+        ImmutableMultimap.copyOf(
+            (ListMultimap<String, String>)
+                nativeValuesParitionedByAlias.get(false).stream()
+                    .collect(
+                        toMultimap(
+                            Map.Entry::getKey,
+                            Map.Entry::getValue,
+                            MultimapBuilder.linkedHashKeys().arrayListValues()::build)));
+
+    // Collect user-defined flags.
+    LinkedHashMap<Label, String> userDefinedFlagSettings = new LinkedHashMap<>();
+    userDefinedFlagSettings.putAll(
+        attributes.get(
+            ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, BuildType.LABEL_KEYED_STRING_DICT));
+    for (var flagAlias : nativeValuesParitionedByAlias.get(true)) {
+      try {
+        Label userDefinedFlag =
+            Label.parseCanonical(commandLineFlagAliases.get(flagAlias.getKey()));
+        String aliasValue = flagAlias.getValue();
+        String flagSettingsAttributeValue = userDefinedFlagSettings.get(userDefinedFlag);
+        if (flagSettingsAttributeValue != null && !flagSettingsAttributeValue.equals(aliasValue)) {
+          ruleContext.ruleError(
+"""
+\nConflicting flag value expectations:
+ - %s has '%s = {"%s": "%s"}'.
+ - Because --%s is a flag alias for --%s, this translates to '%s = {"%s: "%s"}'.
+ - %s also has '%s = {"%s": "%s"}', which matches a different value.
+
+Either remove one of these settings or ensure they match the same value.
+
+"""
+                  .formatted(
+                      ruleContext.getLabel(),
+                      ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
+                      flagAlias.getKey(),
+                      aliasValue,
+                      flagAlias.getKey(),
+                      userDefinedFlag,
+                      ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                      userDefinedFlag,
+                      aliasValue,
+                      ruleContext.getLabel(),
+                      ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                      userDefinedFlag,
+                      flagSettingsAttributeValue));
+        }
+        userDefinedFlagSettings.put(userDefinedFlag, aliasValue);
+      } catch (LabelSyntaxException e) {
+        ruleContext.ruleError("Cannot parse label: " + e.getMessage());
+      }
+    }
+
+    // Collect platform constraint settings.
+    ImmutableList<Label> constraintValueSettings =
+        ImmutableList.copyOf(
+            attributes.get(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, BuildType.LABEL_LIST));
+
+    return new Settings(
+        nativeFlagSettings, ImmutableMap.copyOf(userDefinedFlagSettings), constraintValueSettings);
   }
 
   @Override
@@ -294,14 +388,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * Check to make sure this config_setting contains and sets least one of {values, define_values,
    * flag_value or constraint_values}.
    */
-  private static boolean valuesAreSet(
-      ImmutableMultimap<String, String> nativeFlagSettings,
-      Map<Label, String> userDefinedFlagSettings,
-      Iterable<Label> constraintValues,
-      RuleErrorConsumer errors) {
-    if (nativeFlagSettings.isEmpty()
-        && userDefinedFlagSettings.isEmpty()
-        && Iterables.isEmpty(constraintValues)) {
+  private static boolean valuesAreSet(Settings settings, RuleErrorConsumer errors) {
+    if (settings.nativeFlagSettings.isEmpty()
+        && settings.userDefinedFlagSettings.isEmpty()
+        && settings.constraintValueSettings.isEmpty()) {
       errors.ruleError(
           String.format(
               "Either %s, %s or %s must be specified and non-empty",
@@ -342,27 +432,32 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
     ImmutableList<String> disabledSelectOptions =
         ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
-    if (disabledSelectOptions.contains(optionName)) {
+    if (disabledSelectOptions.contains(optionName) || options.isNonConfigurable(optionName)) {
+      String message = PARSE_ERROR_MESSAGE + "select() on '%s' is not allowed.";
+      if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)) {
+        message +=
+            " Use platform constraints instead:"
+                + " https://bazel.build/docs/configurable-attributes#platforms.";
+      }
       ruleContext.attributeError(
-          ConfigSettingRule.SETTINGS_ATTRIBUTE,
-          String.format(
-              PARSE_ERROR_MESSAGE
-                  + "select() on %s is not allowed. Use platform constraints instead:"
-                  + " https://bazel.build/docs/configurable-attributes#platforms.",
-              optionName));
+          ConfigSettingRule.SETTINGS_ATTRIBUTE, String.format(message, optionName));
       return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
-    if (DEPRECATED_FLAGS.contains(optionName) && ruleContext.getLabel().getRepository().isMain()) {
+    if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)
+        && ruleContext.getLabel().getRepository().isMain()) {
       ruleContext.ruleWarning(
           String.format(
               "select() on %s is deprecated. Use platform constraints instead:"
                   + " https://bazel.build/docs/configurable-attributes#platforms.",
               optionName));
     }
-    Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
+    // If option --foo has oldName --old_foo and the config_setting references --old_foo, get the
+    // canonical name, which is where the actual option is stored.
+    String canonicalOptionName = options.getCanonicalName(optionName);
+    Class<? extends FragmentOptions> optionClass = options.getOptionClass(canonicalOptionName);
     if (optionClass == null) {
-      if (isTestOption(optionName)) {
+      if (isTestOption(canonicalOptionName)) {
         // If TestOptions isn't present then they were trimmed, so any test options set are
         // considered unset by default.
         return new NoMatch(
@@ -389,8 +484,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
-    Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
-    return optionMatches(options, optionName, expectedParsedValue);
+    Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(canonicalOptionName);
+    return optionMatches(options, canonicalOptionName, expectedParsedValue);
   }
 
   // Special hard-coded check to allow config_setting to handle test options even when the test
@@ -552,8 +647,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       boolean foundDuplicate = false;
 
       // Get the actual targets the 'flag_values' keys reference.
-      Iterable<? extends TransitiveInfoCollection> prerequisites =
-          ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE);
+      LinkedHashSet<TransitiveInfoCollection> prerequisites = new LinkedHashSet<>();
+      prerequisites.addAll(ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE));
+      prerequisites.addAll(
+          ruleContext.getPrerequisites(ConfigSettingRule.FLAG_ALIAS_SETTINGS_ATTRIBUTE));
 
       for (TransitiveInfoCollection target : prerequisites) {
         Label actualLabel = target.getLabel();

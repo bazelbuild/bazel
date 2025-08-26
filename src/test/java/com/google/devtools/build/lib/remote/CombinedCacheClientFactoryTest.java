@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -55,7 +56,7 @@ public class CombinedCacheClientFactoryTest {
   private RemoteRetrier retrier =
       new RemoteRetrier(
           () -> RemoteRetrier.RETRIES_DISABLED,
-          (e) -> false,
+          (e) -> Result.SUCCESS,
           retryScheduler,
           Retrier.ALLOW_ALL_CALLS);
 

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.sparselyAggregateWriteStatuses;
 
+import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.FutureCallback;
@@ -44,6 +45,10 @@ import javax.annotation.Nullable;
  * #createFutureToBlockWritingOn} and {@link SerializationResult#getFutureToBlockWritesOn}.
  */
 abstract class SharedValueSerializationContext extends MemoizingSerializationContext {
+
+  /** Size of serialized shared value after which we will compress the node. */
+  public static final int COMPRESSION_THRESHOLD_IN_BYTES = 1024;
+
   final FingerprintValueService fingerprintValueService;
 
   /**
@@ -219,6 +224,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     }
 
     if (childDeferredBytes == null) {
+      childBytes = maybeCompressBytes(childBytes);
       // There are no deferred bytes so `childBytes` is complete. Starts the upload.
       PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
       fingerprint.writeTo(codedOut); // Writes only the fingerprint to the stream.
@@ -240,6 +246,21 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     recordFuturePut(upload, codedOut);
   }
 
+  private static byte[] maybeCompressBytes(byte[] childBytes) throws IOException {
+    if (childBytes.length > COMPRESSION_THRESHOLD_IN_BYTES) {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      outputStream.write((byte) 1);
+      try (ZstdOutputStream zstdOutputStream = new ZstdOutputStream(outputStream)) {
+        zstdOutputStream.write(childBytes);
+      }
+      return outputStream.toByteArray();
+    }
+    byte[] newChildBytes = new byte[childBytes.length + 1];
+    newChildBytes[0] = (byte) 0;
+    System.arraycopy(childBytes, 0, newChildBytes, 1, childBytes.length);
+    return newChildBytes;
+  }
+
   private static final class UploadOnceChildBytesReady extends WaitForChildBytes<PutOperation> {
     private final FingerprintValueService fingerprintValueService;
 
@@ -251,11 +272,20 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
       this.fingerprintValueService = fingerprintValueService;
     }
 
+    @Nullable
     @Override
     protected PutOperation getValue() {
       // All placeholders are filled-in. Starts the upload.
-      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
-      childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
+      byte[] maybeCompressedBytes;
+      try {
+        maybeCompressedBytes = maybeCompressBytes(childBytes);
+      } catch (IOException exception) {
+        return new PutOperation(
+            fingerprintValueService.fingerprint(childBytes),
+            WriteStatuses.immediateFailedWriteStatus(exception));
+      }
+      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(maybeCompressedBytes);
+      childWriteStatuses.add(fingerprintValueService.put(fingerprint, maybeCompressedBytes));
       return new PutOperation(fingerprint, sparselyAggregateWriteStatuses(childWriteStatuses));
     }
   }

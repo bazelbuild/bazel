@@ -79,6 +79,13 @@ final class VersionedChanges {
    */
   static final int CLIENT_CHANGE = Integer.MAX_VALUE - 1;
 
+  /**
+   * Version indicating a match at any change.
+   *
+   * <p>Used when there is missing data and correct invalidation is impossible.
+   */
+  static final int ALWAYS_MATCH = -1;
+
   // TODO: b/364831651 - if sorted int[] does not scale, it can be replaced with TreeSet<Integer>
   // but we expect the number of changes per entry to be small.
   private final ConcurrentHashMap<String, int[]> fileChanges = new ConcurrentHashMap<>();

@@ -12,6 +12,74 @@ Bazel.
 
 ## MODULE.bazel {:#module-bazel}
 
+### How should I version a Bazel module? {:#module-versioning-best-practices}
+
+Setting `version` with the [`module`] directive in the source archive
+`MODULE.bazel` can have several downsides and unintended side effects if not
+managed carefully:
+
+*   Duplication: releasing a new version of a module typically involves both
+    incrementing the version in `MODULE.bazel` and tagging the release, two
+    separate steps that can fall out of sync. While automation can
+    reduce this risk, it's simpler and safer to avoid it altogether.
+
+*   Inconsistency: users overriding a module with a specific commit using a
+    [non-registry override] will see an incorrect version. for example, if the
+    `MODULE.bazel` in the source archive sets `version = "0.3.0"` but
+    additional commits have been made since that release, a user overriding
+    with one of those commits would still see `0.3.0`. In reality, the version
+    should reflect that it's ahead of the release, for example `0.3.1-rc1`.
+
+*   Non-registry override issues: using placeholder values can cause issues
+    when users override a module with a non-registry override. For example,
+    `0.0.0` doesn't sort as the highest version, which is usually the expected
+    behavior users want when doing a non-registry override.
+
+Thus, it's best to avoid setting the version in the source archive
+`MODULE.bazel`. Instead, set it in the `MODULE.bazel` stored in the registry
+(e.g., the [Bazel Central Registry]), which is the actual source of truth for
+the module version during Bazel's external dependency resolution (see [Bazel
+registries]).
+
+This is usually automated, for example the [`rules-template`] example rule
+repository uses a [bazel-contrib/publish-to-bcr publish.yaml GitHub Action] to
+publish the release to the BCR. The action [generates a patch for the source
+archive `MODULE.bazel`] with the release version. This patch is stored in the
+registry and is applied when the module is fetched during Bazel's external
+dependency resolution.
+
+This way, the version in the releases in the registry will be correctly set to
+the released version and thus, `bazel_dep`, `single_version_override` and
+`multiple_version_override` will work as expected, while avoiding potential
+issues when doing a non-registry override because the version in the source
+archive will be the default value (`''`), which will always be handled
+correctly (it's the default version value after all) and will behave as
+expected when sorting (the empty string is treated as the highest version).
+
+[Bazel Central Registry]: https://registry.bazel.build/
+[Bazel registries]: https://bazel.build/external/registry
+[bazel-contrib/publish-to-bcr publish.yaml GitHub Action]: https://github.com/bazel-contrib/publish-to-bcr/blob/v0.2.2/.github/workflows/publish.yaml
+[generates a patch for the source archive `MODULE.bazel`]: https://github.com/bazel-contrib/publish-to-bcr/blob/v0.2.2/src/domain/create-entry.ts#L176-L216
+[`module`]: /rules/lib/globals/module#module
+[non-registry override]: module.md#non-registry_overrides
+[`rules-template`]: https://github.com/bazel-contrib/rules-template
+
+### When should I increment the compatibility level? {:#incrementing-compatibility-level}
+
+The [`compatibility_level`](module.md#compatibility_level) of a Bazel module
+should be incremented _in the same commit_ that introduces a backwards
+incompatible ("breaking") change.
+
+However, Bazel can throw an error if it detects that versions of the _same
+module_ with _different compatibility levels_ exist in the resolved dependency
+graph. This can happen when for example' two modules depend on versions of a
+third module with different compatibility levels.
+
+Thus, incrementing `compatibility_level` too frequently can be very disruptive
+and is discouraged. To avoid this situation, the `compatibility_level` should be
+incremented _only_ when the breaking change affects most use cases and isn't
+easy to migrate and/or work-around.
+
 ### Why does MODULE.bazel not support `load`s? {:#why-does-module-bazel-not-support-loads}
 
 During dependency resolution, the MODULE.bazel file of all referenced external

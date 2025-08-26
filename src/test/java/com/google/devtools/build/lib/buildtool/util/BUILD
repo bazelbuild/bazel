@@ -30,6 +30,7 @@ java_library(
 java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
+    data = ["//src/main/protobuf/project:project_proto_scl_filegroup"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
@@ -73,6 +74,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:collect_local_resource_usage",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
@@ -122,5 +124,6 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
+        "@rules_java//java/runfiles",
     ],
 )

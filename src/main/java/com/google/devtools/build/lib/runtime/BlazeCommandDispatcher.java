@@ -17,6 +17,8 @@ import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTIO
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -63,6 +65,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
@@ -79,6 +82,7 @@ import com.google.protobuf.Any;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -531,6 +535,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
+      warnIfUsingUnusupportedEncoding(runtime.getProductName(), reporter);
+
       try (SilentCloseable closeable = Profiler.instance().profile("replay stored events")) {
         // Now we're ready to replay the events.
         storedEventHandler.replayOn(reporter);
@@ -633,6 +639,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";
+          logger.atInfo().withCause(e).log("%s", message);
           reporter.handle(Event.error(message));
           earlyExitCode = InterruptedFailureDetails.detailedExitCode(message);
         } catch (RepositoryMappingResolutionException e) {
@@ -701,9 +708,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getExplicitStarlarkOptions(
                   CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
               startupOptionsTaggedWithBazelRc);
-      // If flagsets are applied, a CanonicalCommandLineEvent is also emitted by
-      // BuildTool.buildTargets(). This is a duplicate event, and consumers are expected to
-      // handle it correctly, by accepting the last event.
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
               runtime,
@@ -713,7 +717,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getExplicitStarlarkOptions(
                   CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
               options.getStarlarkOptions(),
-              options.asListOfCanonicalOptions());
+              options.asListOfCanonicalOptions(),
+              // If this is a command that analyzes with BuildTool, PROJECT.scl might set extra
+              // canonical flags. In that case give BuildTool a chance to post a final updated
+              // CanonicalCommandLineEvent. Then this one is dropped. But if that event doesn't post
+              // for any reason, including a build error or crash, post this one so the build still
+              // registers a canonical command line. That guarantees BuildEventStream always posts
+              // exactly one CanonicalCommandLineEvent message for all builds.
+              /* replaceable= */ commandAnnotation.buildPhase().analyzes());
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
       if (commandName.equals("run") && !includeResidueInRunBepEvent) {
         unstructuredServerCommandLineEvent =
@@ -971,5 +982,19 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 .setMessage(message)
                 .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))
                 .build()));
+  }
+
+  private static void warnIfUsingUnusupportedEncoding(String productName, Reporter reporter) {
+    // The user can only influence the JVM's encoding on Linux. See blaze.cc for details.
+    if (OS.getCurrent() != OS.LINUX) {
+      return;
+    }
+    var sunJnuEncoding = Charset.forName(System.getProperty("sun.jnu.encoding"));
+    if (!sunJnuEncoding.equals(UTF_8) && !sunJnuEncoding.equals(ISO_8859_1)) {
+      reporter.handle(
+          Event.warn(
+              "%1$s has been started with an unsupported encoding (%2$s) and may not support Unicode filenames. Make sure that the C.UTF-8 or en_US.UTF-8 locale is installed on your system and restart %1$s."
+                  .formatted(productName, sunJnuEncoding)));
+    }
   }
 }

@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -56,7 +57,34 @@ public final class ParsedFlagsFunction implements SkyFunction {
 
     ImmutableList.Builder<String> nativeFlags = ImmutableList.builder();
     ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
+    ImmutableMap<String, String> flagAliasMappings = ImmutableMap.copyOf(key.flagAliasMappings());
     for (String flagSetting : key.rawFlags()) {
+      if (!flagSetting.startsWith("--")) {
+        // This is either something like "-c" or an invalid setting. Let options parsing handle it.
+        nativeFlags.add(flagSetting);
+        continue;
+      }
+      String flagName;
+      String flagValue = "";
+      int delimiterIndex = flagSetting.indexOf("=");
+      boolean noPrefix = false;
+      if (delimiterIndex != -1) {
+        flagName = flagSetting.substring(2, delimiterIndex); // --flag=value
+        flagValue = flagSetting.substring(delimiterIndex + 1);
+      } else if (flagSetting.startsWith("--no")) {
+        flagName = flagSetting.substring(4); // --no<flag>
+        noPrefix = true;
+      } else {
+        flagName = flagSetting.substring(2); // --<flag>
+      }
+      // If --flag_alias=foo=//bar and we see --foo=1, use the canonical setting --//bar=1.
+      String actualFlag = flagAliasMappings.get(flagName);
+      if (actualFlag != null) {
+        flagSetting =
+            "--%s%s%s"
+                .formatted(
+                    noPrefix ? "no" : "", actualFlag, delimiterIndex == -1 ? "" : "=" + flagValue);
+      }
       if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(flagSetting::startsWith)) {
         nativeFlags.add(flagSetting);
       } else {

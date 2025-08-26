@@ -68,7 +68,6 @@ public class OutputDirectories {
     BIN("bin"),
     GENFILES("genfiles"),
     TESTLOGS("testlogs"),
-    COVERAGE("coverage-metadata"),
     OUTPUT("");
 
     private final String name;
@@ -87,7 +86,7 @@ public class OutputDirectories {
       Path execRoot = directories.getExecRoot(workspaceName);
       // e.g., [[execroot/my_workspace]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
-          execRoot, RootType.Output, directories.getRelativeOutputPath(), outputDirName, name);
+          execRoot, RootType.OUTPUT, directories.getRelativeOutputPath(), outputDirName, name);
     }
   }
 
@@ -97,7 +96,6 @@ public class OutputDirectories {
   private final ArtifactRoot outputDirectory;
   private final ArtifactRoot binDirectory;
   private final ArtifactRoot genfilesDirectory;
-  private final ArtifactRoot coverageDirectory;
   private final ArtifactRoot testlogsDirectory;
 
   private final boolean mergeGenfilesDirectory;
@@ -119,7 +117,6 @@ public class OutputDirectories {
     this.outputDirectory = OutputDirectory.OUTPUT.getRoot(mnemonic, directories, workspaceName);
     this.binDirectory = OutputDirectory.BIN.getRoot(mnemonic, directories, workspaceName);
     this.genfilesDirectory = OutputDirectory.GENFILES.getRoot(mnemonic, directories, workspaceName);
-    this.coverageDirectory = OutputDirectory.COVERAGE.getRoot(mnemonic, directories, workspaceName);
     this.testlogsDirectory = OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, workspaceName);
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
@@ -134,7 +131,7 @@ public class OutputDirectories {
         // TODO(jungjw): Ideally, we would like to do execroot_base/repoName/bazel-out/config/bin
         // instead. However, it requires individually symlinking the top-level elements of external
         // repositories, which is blocked by a Windows symlink issue #8704.
-        repository.isMain() ? RootType.SiblingMainOutput : RootType.SiblingExternalOutput,
+        repository.isMain() ? RootType.SIBLING_MAIN_OUTPUT : RootType.SIBLING_EXTERNAL_OUTPUT,
         directories.getRelativeOutputPath(),
         repository.getName(),
         mnemonic,
@@ -158,17 +155,6 @@ public class OutputDirectories {
         : siblingRepositoryLayout
             ? buildDerivedRoot("genfiles", repositoryName)
             : genfilesDirectory;
-  }
-
-  /**
-   * Returns the directory where coverage-related artifacts and metadata files should be stored.
-   * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
-   * tools.
-   */
-  ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return siblingRepositoryLayout
-        ? buildDerivedRoot("coverage-metadata", repositoryName)
-        : coverageDirectory;
   }
 
   /** Returns the testlogs directory for this build configuration. */

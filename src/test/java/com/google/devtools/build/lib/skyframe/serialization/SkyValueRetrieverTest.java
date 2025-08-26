@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.ExampleValue.exampleValueCodec;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion.CONSTANT_FOR_TESTING;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData.NO_CACHED_DATA;
@@ -24,15 +22,15 @@ import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetri
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus.NOT_DONE;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart.RESTART;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FakeInvalidationDataHelper.prependFakeInvalidationData;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus;
@@ -45,7 +43,8 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureValueBytes;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
 import com.google.devtools.build.skyframe.IntVersion;
@@ -145,7 +144,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     var fingerprintValueService = FingerprintValueService.createForTesting();
     var data = new HashMap<ByteString, ByteString>();
     var captured = new ArrayList<SettableFuture<ByteString>>();
-    RequestBatcher<ByteString, ByteString> analysisCacheClient =
+    RemoteAnalysisCacheClient analysisCacheClient =
         switch (testCase) {
           case IMMEDIATE_EMPTY_VALUE, IMMEDIATE_MISSING_VALUE ->
               createFakeAnalysisCacheClient(data);
@@ -219,7 +218,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void waitingForCacheServiceResponse_returnsValue() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
     var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
-    RequestBatcher<ByteString, ByteString> analysisCacheClient =
+    RemoteAnalysisCacheClient analysisCacheClient =
         createFakeAnalysisCacheClient(analysisCacheServiceData);
 
     var key = new TrivialKey("a");
@@ -247,7 +246,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   private RetrievalResult maybeWaitForAnalysisCacheService(
       FingerprintValueService fingerprintValueService,
-      RequestBatcher<ByteString, ByteString> analysisCacheClient,
+      RemoteAnalysisCacheClient analysisCacheClient,
       SkyKey key,
       RetrievalResult previousResult)
       throws SerializationException, ExecutionException, InterruptedException {
@@ -301,7 +300,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             /* blazeInstallMD5= */ HashCode.fromInt(42),
             /* evaluatingVersion= */ IntVersion.of(9000),
             /* distinguisherBytesForTesting= */ "distinguisher",
-            /* clientId= */ Optional.of(new ClientId("for/testing", 123)));
+            /* useFakeStampData= */ true,
+            /* clientId= */ Optional.of(new SnapshotClientId("for/testing", 123)));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -331,7 +331,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             /* blazeInstallMD5= */ HashCode.fromInt(42),
             /* evaluatingVersion= */ IntVersion.of(1234),
             /* distinguisherBytesForTesting= */ "distinguisher",
-            /* clientId= */ Optional.of(new ClientId("for/testing", 123)));
+            /* useFakeStampData= */ true,
+            /* clientId= */ Optional.of(new SnapshotClientId("for/testing", 123)));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -348,7 +349,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                 /* blazeInstallMD5= */ HashCode.fromInt(9000),
                 /* evaluatingVersion= */ IntVersion.of(5678),
                 /* distinguisherBytesForTesting= */ "distinguisher",
-                /* clientId= */ Optional.of(new ClientId("for/testing", 123))));
+                /* useFakeStampData= */ true,
+                /* clientId= */ Optional.of(new SnapshotClientId("for/testing", 123))));
 
     assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
   }
@@ -773,10 +775,20 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void frontierNodeVersions_areEqual_ifTupleComponentsAreEqual() {
     var first =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
     var second =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isEqualTo(second);
@@ -786,13 +798,19 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void frontierNodeVersions_areNotEqual_ifTopLevelConfigChecksumIsDifferent() {
     var first =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
     var second =
         new FrontierNodeVersion(
             "CHANGED",
             HashCode.fromInt(42),
             IntVersion.of(9000),
             "distinguisher",
+            true,
             Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
@@ -803,10 +821,20 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void frontierNodeVersions_areNotEqual_ifBlazeInstallMD5IsDifferent() {
     var first =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
     var second =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(9000), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(9000),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
@@ -816,10 +844,20 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void frontierNodeVersions_areNotEqual_ifEvaluatingVersionIsDifferent() {
     var first =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
     var second =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(9000), IntVersion.of(10000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(9000),
+            IntVersion.of(10000),
+            "distinguisher",
+            true,
+            Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
@@ -829,10 +867,37 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void frontierNodeVersions_areNotEqual_ifDistinguisherIsDifferent() {
     var first =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
     var second =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "CHANGED", Optional.empty());
+            "foo", HashCode.fromInt(42), IntVersion.of(9000), "changed", true, Optional.empty());
+    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isNotEqualTo(second);
+  }
+
+  @Test
+  public void frontierNodeVersions_areNotEqual_ifUseFakeStampDataIsDifferent() {
+    var first =
+        new FrontierNodeVersion(
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
+    var second =
+        new FrontierNodeVersion(
+            "foo",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            false,
+            Optional.empty());
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
   }
@@ -845,10 +910,16 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             HashCode.fromInt(42),
             IntVersion.of(9000),
             "distinguisher",
-            Optional.of(new ClientId("changed", 123)));
+            true,
+            Optional.of(new SnapshotClientId("changed", 123)));
     var second =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(9000), IntVersion.of(9000), "distinguisher", Optional.empty());
+            "foo",
+            HashCode.fromInt(9000),
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
@@ -931,17 +1002,17 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     }
   }
 
-  private static RequestBatcher<ByteString, ByteString> createFakeAnalysisCacheClient(
+  private static RemoteAnalysisCacheClient createFakeAnalysisCacheClient(
       Map<ByteString, ByteString> data) {
-    return RequestBatcher.create(
-        commonPool(),
-        keys ->
-            immediateFuture(
-                keys.stream()
-                    .map(key -> data.getOrDefault(key, ByteString.empty()))
-                    .collect(toImmutableList())),
-        /* maxBatchSize= */ 1,
-        /* maxConcurrentRequests= */ 1);
+    RemoteAnalysisCacheClient result = mock(RemoteAnalysisCacheClient.class);
+    when(result.lookup(any()))
+        .thenAnswer(
+            invocation -> {
+              ByteString key = invocation.getArgument(0);
+              return immediateFuture(data.getOrDefault(key, ByteString.empty()));
+            });
+
+    return result;
   }
 
   /**
@@ -949,17 +1020,19 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
    *
    * <p>The client sets the {@link SettableFuture} to complete the request.
    */
-  private static RequestBatcher<ByteString, ByteString> createCapturingAnalysisCacheClient(
+  private static RemoteAnalysisCacheClient createCapturingAnalysisCacheClient(
       Consumer<SettableFuture<ByteString>> capturer) {
-    return RequestBatcher.create(
-        commonPool(),
-        keys -> {
-          var settable = SettableFuture.<ByteString>create();
-          capturer.accept(settable);
-          return Futures.transform(settable, ImmutableList::of, directExecutor());
-        },
-        /* maxBatchSize= */ 1,
-        /* maxConcurrentRequests= */ 1);
+    RemoteAnalysisCacheClient result = mock(RemoteAnalysisCacheClient.class);
+
+    when(result.lookup(any()))
+        .thenAnswer(
+            invocation -> {
+              var settable = SettableFuture.<ByteString>create();
+              capturer.accept(settable);
+              return settable;
+            });
+
+    return result;
   }
 
   private static ObservedFutureStatus dependOnFutureImpl(ListenableFuture<?> future) {

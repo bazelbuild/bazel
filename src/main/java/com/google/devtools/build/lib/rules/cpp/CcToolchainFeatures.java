@@ -91,6 +91,10 @@ public class CcToolchainFeatures implements StarlarkValue {
     ExpansionException(String message) {
       super(message);
     }
+
+    ExpansionException(String message, @Nullable Throwable cause) {
+      super(message, cause);
+    }
   }
 
   /** Thrown when multiple features provide the same string symbol. */
@@ -998,21 +1002,16 @@ public class CcToolchainFeatures implements StarlarkValue {
 
     /** Returns the path to this action's tool relative to the provided crosstool path. */
     String getToolPathString(PathFragment ccToolchainPath) {
-      switch (toolPathOrigin) {
-        case CROSSTOOL_PACKAGE:
+      return switch (toolPathOrigin) {
+        case CROSSTOOL_PACKAGE -> {
           // Legacy behavior.
           if (toolPathString == null) {
             toolPathString = ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
           }
-          return toolPathString;
-
-        case FILESYSTEM_ROOT: // fallthrough.
-        case WORKSPACE_ROOT:
-          return toolPathFragment.getSafePathString();
-      }
-
-      // Unreached.
-      throw new IllegalStateException();
+          yield toolPathString;
+        }
+        case FILESYSTEM_ROOT, WORKSPACE_ROOT -> toolPathFragment.getSafePathString();
+      };
     }
 
     /**

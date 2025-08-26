@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSortedMap;
@@ -40,6 +41,12 @@ import javax.annotation.Nullable;
 public abstract class Packageoid {
   /** Sentinel value for package overhead being empty. */
   protected static final long PACKAGE_OVERHEAD_UNSET = -1;
+
+  // ==== General package metadata fields ====
+
+  protected final Package.Metadata metadata;
+
+  protected Package.Declarations declarations;
 
   // ==== Common metadata fields ====
 
@@ -77,21 +84,12 @@ public abstract class Packageoid {
   @Nullable protected ImmutableSortedMap<String, Target> targets;
 
   /**
-   * The collection of all symbolic macro instances defined in this packageoid, indexed by their
-   * {@link MacroInstance#getId id} (not name). Null until the packageoid is fully initialized by
-   * its builder's {@code finishBuild()}.
-   */
-  // TODO(bazel-team): Consider enforcing that macro namespaces are "exclusive", meaning that target
-  // names may only suffix a macro name when the target is created (transitively) within the macro.
-  // This would be a major change that would break the (common) use case where a BUILD file
-  // declares both "foo" and "foo_test".
-  @Nullable protected ImmutableSortedMap<String, MacroInstance> macros;
-
-  /**
    * Returns the metadata of the package; in other words, information which is known about a package
    * before BUILD file evaluation has started.
    */
-  public abstract Package.Metadata getMetadata();
+  public Package.Metadata getMetadata() {
+    return metadata;
+  }
 
   /**
    * Returns the package's identifier. This is a convenience wrapper for {@link
@@ -105,26 +103,19 @@ public abstract class Packageoid {
    * Returns data about the package which is known after BUILD file evaluation without expanding
    * symbolic macros.
    */
-  public abstract Package.Declarations getDeclarations();
+  public Package.Declarations getDeclarations() {
+    return declarations;
+  }
 
   /**
-   * Returns the InputFile target for this package's BUILD file.
-   *
-   * <p>Note that if this packageoid a {@link PackagePiece.ForMacro}, then {@code
-   * this.getBuildFile().getPackageoid()} would be a different packageoid -- the corresponding
-   * {@link PackagePiece.ForBuildFile}.
-   */
-  public abstract InputFile getBuildFile();
-
-  /**
-   * Returns the label for this package's BUILD file.
+   * Returns the label for the package's BUILD file.
    *
    * <p>Typically, <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
    * necessarily: data in a subdirectory of a test package may use a different filename to avoid
    * inadvertently creating a new package.
    */
   public Label getBuildFileLabel() {
-    return getBuildFile().getLabel();
+    return getMetadata().buildFileLabel();
   }
 
   /**
@@ -212,4 +203,9 @@ public abstract class Packageoid {
    * @throws NoSuchTargetException if the specified target was not found in this packageoid.
    */
   public abstract Target getTarget(String targetName) throws NoSuchTargetException;
+
+  protected Packageoid(Package.Metadata metadata, Package.Declarations declarations) {
+    this.metadata = checkNotNull(metadata);
+    this.declarations = checkNotNull(declarations);
+  }
 }

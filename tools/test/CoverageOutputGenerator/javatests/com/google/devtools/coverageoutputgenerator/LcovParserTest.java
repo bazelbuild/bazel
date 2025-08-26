@@ -15,18 +15,12 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE2;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,31 +40,49 @@ public class LcovParserTest {
   }
 
   @Test
-  public void testParseTracefileWithOneSourcefile() throws IOException {
+  public void testParseTracefile() throws IOException {
+    ImmutableList<String> lcovLines =
+        ImmutableList.of(
+            "SF:src1.foo",
+            "FN:4,bar",
+            "FN:2,foo",
+            "FNDA:0,bar",
+            "FNDA:3,foo",
+            "FNF:2",
+            "FNH:1",
+            "DA:2,3",
+            "DA:4,0",
+            "LH:1",
+            "LF:2",
+            "end_of_record",
+            "SF:src2.foo",
+            "FN:3,foo",
+            "FNDA:1,foo",
+            "FNF:1",
+            "FNH:1",
+            "DA:3,1",
+            "DA:4,1",
+            "LH:2",
+            "LF:2",
+            "end_of_record");
+
     List<SourceFileCoverage> sourceFiles =
-        LcovParser.parse(
-            new ByteArrayInputStream(Joiner.on("\n").join(TRACEFILE1).getBytes(UTF_8)));
-    assertThat(sourceFiles).hasSize(1);
-    assertTracefile1(sourceFiles.get(0));
-  }
-
-  @Test
-  public void testParseTracefileWithTwoSourcefiles() throws IOException {
-    List<String> tracefile2ModifiedLines = new ArrayList<>();
-    tracefile2ModifiedLines.addAll(TRACEFILE2);
-    tracefile2ModifiedLines.set(0, "SF:BSOME_OTHER_FILE_THAT_IS_NOT_MERGED");
-
-    List<String> tracefileLines = new ArrayList<>();
-    tracefileLines.addAll(TRACEFILE1);
-    tracefileLines.addAll(tracefile2ModifiedLines);
-
-    InputStream inputStream =
-        new ByteArrayInputStream(Joiner.on("\n").join(tracefileLines).getBytes(UTF_8));
-    List<SourceFileCoverage> sourceFiles = LcovParser.parse(inputStream);
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(lcovLines).getBytes(UTF_8)));
 
     assertThat(sourceFiles).hasSize(2);
-    assertTracefile1(sourceFiles.get(0));
-    assertTracefile2(sourceFiles.get(1));
+    assertThat(sourceFiles.get(0).sourceFileName()).isEqualTo("src1.foo");
+    assertThat(sourceFiles.get(1).sourceFileName()).isEqualTo("src2.foo");
+    assertThat(sourceFiles.get(0).getLines())
+        .containsExactly(
+            2, 3L,
+            4, 0L);
+    assertThat(sourceFiles.get(1).getLines()).containsExactly(3, 1L, 4, 1L);
+    assertThat(sourceFiles.get(0).getFunctionLineNumbers()).containsExactly("bar", 4, "foo", 2);
+    assertThat(sourceFiles.get(1).getFunctionLineNumbers()).containsExactly("foo", 3);
+    assertThat(sourceFiles.get(0).getFunctionsExecution()).containsExactly("bar", 0L, "foo", 3L);
+    assertThat(sourceFiles.get(1).getFunctionsExecution()).containsExactly("foo", 1L);
+    assertThat(sourceFiles.get(0).getAllBranches()).isEmpty();
+    assertThat(sourceFiles.get(1).getAllBranches()).isEmpty();
   }
 
   @Test
@@ -95,9 +107,7 @@ public class LcovParserTest {
     Map<String, Long> functions = sourceFile.getFunctionsExecution();
     assertThat(functions).containsEntry("file1-func1", 1000000000000L);
 
-    Map<Integer, LineCoverage> lines = sourceFile.getLines();
-    assertThat(lines.get(4).executionCount()).isEqualTo(1000000000000L);
-    assertThat(lines.get(5).executionCount()).isEqualTo(1000000000000L);
+    assertThat(sourceFile.getLines()).containsExactly(4, 1000000000000L, 5, 1000000000000L);
   }
 
   @Test
@@ -134,12 +144,12 @@ public class LcovParserTest {
         sourceFile.getAllBranches().stream().collect(Collectors.toList());
     assertThat(branches)
         .containsExactly(
-            BranchCoverage.createWithBlockAndBranch(6, "0", "0", true, 1),
-            BranchCoverage.createWithBlockAndBranch(6, "0", "1", true, 0),
-            BranchCoverage.createWithBlockAndBranch(7, "0", "0", true, 12),
-            BranchCoverage.createWithBlockAndBranch(7, "0", "1", true, 1),
-            BranchCoverage.createWithBlockAndBranch(12, "0", "0", false, 0),
-            BranchCoverage.createWithBlockAndBranch(12, "0", "1", false, 0));
+            BranchCoverage.create(6, "0", "0", true, 1),
+            BranchCoverage.create(6, "0", "1", true, 0),
+            BranchCoverage.create(7, "0", "0", true, 12),
+            BranchCoverage.create(7, "0", "1", true, 1),
+            BranchCoverage.create(12, "0", "0", false, 0),
+            BranchCoverage.create(12, "0", "1", false, 0));
   }
 
   @Test
@@ -172,13 +182,13 @@ public class LcovParserTest {
         sourceFile.getAllBranches().stream().collect(Collectors.toList());
     assertThat(branches)
         .containsExactly(
-            BranchCoverage.create(2, 1),
-            BranchCoverage.create(2, 2),
-            BranchCoverage.create(4, 0),
-            BranchCoverage.create(4, 0),
-            BranchCoverage.create(7, 2),
-            BranchCoverage.create(7, 1),
-            BranchCoverage.create(7, 2));
+            BranchCoverage.create(2, "0", "0", true, 0),
+            BranchCoverage.create(2, "0", "1", true, 1),
+            BranchCoverage.create(4, "0", "0", false, 0),
+            BranchCoverage.create(4, "0", "1", false, 0),
+            BranchCoverage.create(7, "0", "0", true, 1),
+            BranchCoverage.create(7, "0", "1", true, 0),
+            BranchCoverage.create(7, "0", "2", true, 1));
   }
 
   @Test
@@ -188,6 +198,17 @@ public class LcovParserTest {
         LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
     SourceFileCoverage sourceFile = sourceFiles.get(0);
 
-    assertThat(sourceFile.getAllLineNumbers()).containsExactly(Map.entry("func", 2));
+    assertThat(sourceFile.getAllFunctionLineNumbers()).containsExactly(Map.entry("func", 2));
+  }
+
+  @Test
+  public void testParseLineWithHash() throws IOException {
+    ImmutableList<String> traceFile =
+        ImmutableList.of("SF:src.foo", "DA:1,1,hash", "end_of_record");
+
+    List<SourceFileCoverage> sourceFiles =
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
+
+    assertThat(sourceFiles.get(0).getLines()).containsExactly(1, 1L);
   }
 }

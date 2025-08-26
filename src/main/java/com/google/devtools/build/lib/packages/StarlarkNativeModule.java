@@ -437,12 +437,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
     TargetDefinitionContext targetDefinitionContext =
         TargetDefinitionContext.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
-    if (!(targetDefinitionContext instanceof Package.Builder)) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/25539): support native.existing_rule()
-      // in finalizers under lazy symbolic macro expansion. Figure out what to do if we encounter
-      // native.existing_rule() under PackagePiece.ForBuildFile.Builder (it's not obvious).
+    if (targetDefinitionContext instanceof PackagePiece.ForBuildFile.Builder) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/25539): Figure out what to do if we
+      // encounter native.existing_rule() under PackagePiece.ForBuildFile.Builder.
       throw Starlark.errorf(
-          "existing_rule() is not yet supported under lazy symbolic macro expansion");
+          "under lazy macro expansion, existing_rule() is supported only in finalizer macros");
     }
     @Nullable Rule rule = targetDefinitionContext.getNonFinalizerInstantiatedRule(name);
     if (rule != null) {
@@ -510,12 +509,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
     TargetDefinitionContext targetDefinitionContext =
         TargetDefinitionContext.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rules()");
-    if (!(targetDefinitionContext instanceof Package.Builder)) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/25539): support native.existing_rules()
-      // in finalizers under lazy symbolic macro expansion. Figure out what to do if we encounter
-      // native.existing_rules() under PackagePiece.ForBuildFile.Builder (it's not obvious).
+    if (targetDefinitionContext instanceof PackagePiece.ForBuildFile.Builder) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/25539): figure out what to do if we
+      // encounter native.existing_rules() under PackagePiece.ForBuildFile.Builder.
       throw Starlark.errorf(
-          "existing_rules() is not yet supported under lazy symbolic macro expansion");
+          "under lazy macro expansion, existing_rules() is supported only in finalizer macros");
     }
     return new ExistingRulesView(targetDefinitionContext.getRulesSnapshotView());
   }
@@ -525,7 +523,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       String name, Sequence<?> packagesO, Sequence<?> includesO, StarlarkThread thread)
       throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
-        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_group()");
+        TargetDefinitionContext.fromOrFail(thread, "package_group()");
 
     List<String> packages =
         Types.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
@@ -563,7 +561,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Sequence<?> srcs, Object visibilityO, Object licensesO, StarlarkThread thread)
       throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
-        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "exports_files()");
+        TargetDefinitionContext.fromOrFail(thread, "exports_files()");
     List<String> files = Types.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility =
@@ -615,14 +613,14 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   public String packageName(StarlarkThread thread) throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
-        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_name()");
+        TargetDefinitionContext.fromOrFail(thread, "package_name()");
     return targetDefinitionContext.getPackageIdentifier().getPackageFragment().getPathString();
   }
 
   @Override
   public List<Label> packageDefaultVisibility(StarlarkThread thread) throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
-        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_default_visibility()");
+        TargetDefinitionContext.fromOrFail(thread, "package_default_visibility()");
     return targetDefinitionContext
         .getPartialPackageArgs()
         .defaultVisibility()
@@ -635,14 +633,14 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   public String repositoryName(StarlarkThread thread) throws EvalException {
     // for legacy reasons, this is prefixed with a single '@'.
-    TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "repository_name()");
+    TargetDefinitionContext.fromOrFail(thread, "repository_name()");
     return '@' + repoName(thread);
   }
 
   @Override
   public String repoName(StarlarkThread thread) throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
-        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "repo_name()");
+        TargetDefinitionContext.fromOrFail(thread, "repo_name()");
     return targetDefinitionContext.getPackageIdentifier().getRepository().getName();
   }
 
@@ -652,7 +650,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     LabelConverter labelConverter = thread.getThreadLocal(LabelConverter.class);
     if (labelConverter == null) {
       TargetDefinitionContext targetDefinitionContext =
-          TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_relative_label()");
+          TargetDefinitionContext.fromOrFail(thread, "package_relative_label()");
       labelConverter = targetDefinitionContext.getLabelConverter();
     }
     if (input instanceof Label inputLabel) {
@@ -669,7 +667,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
-        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "module_name()");
+        TargetDefinitionContext.fromOrFail(thread, "module_name()");
     return targetDefinitionContext.getAssociatedModuleName().orElse(null);
   }
 
@@ -677,7 +675,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
     TargetDefinitionContext targetDefinitionContext =
-        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "module_version()");
+        TargetDefinitionContext.fromOrFail(thread, "module_version()");
     return targetDefinitionContext.getAssociatedModuleVersion().orElse(null);
   }
 
@@ -872,8 +870,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         // being acquired more times than it is released.
         cpuSemaphore.release();
       }
-      // getGlobber() is not null because we're called from glob() and subpackages(), both of which
-      // are guarded with Package.AbstractBuilder.fromOrFailDisallowingWorkspace().
       Globber.Token globToken =
           pkgBuilder.getGlobber().runAsync(includes, excludes, operation, allowEmpty);
       return pkgBuilder.getGlobber().fetchUnsorted(globToken);

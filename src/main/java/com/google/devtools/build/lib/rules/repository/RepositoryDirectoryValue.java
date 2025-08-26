@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -23,9 +24,10 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Optional;
 
 /**
- * A local view of an external repository.
+ * The result of fetching a repo.
  *
  * <p>Note that we explicitly disable change pruning here by extending {@link
  * NotComparableSkyValue}. The reason is that, after fetching a repo successfully, the resultant
@@ -35,6 +37,14 @@ import com.google.devtools.build.skyframe.SkyKey;
  * pruning, we force dependent SkyValues to be marked dirty whenever a repo is re-fetched.
  */
 public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
+
+  String FORCE_FETCH_DISABLED = "";
+  Precomputed<String> FORCE_FETCH = new Precomputed<>("dependency_for_force_fetching_repository");
+  Precomputed<String> FORCE_FETCH_CONFIGURE =
+      new Precomputed<>("dependency_for_force_fetching_configure_repositories");
+  Precomputed<Boolean> IS_VENDOR_COMMAND = new Precomputed<>("is_vendor_command");
+  Precomputed<Optional<Path>> VENDOR_DIRECTORY = new Precomputed<>("vendor_directory");
+
   /**
    * Represents a successful repository lookup.
    *

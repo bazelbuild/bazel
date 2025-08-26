@@ -21,17 +21,12 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcDebugInfoContext;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 
@@ -45,14 +40,9 @@ public class BazelCcModule extends CcModule
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         CcCompilationOutputs,
-        CcLinkingOutputs,
         LtoBackendArtifacts,
-        LinkerInput,
-        LibraryToLink,
-        CcLinkingContext,
         CcToolchainVariables,
         CcToolchainConfigInfo,
-        CcDebugInfoContext,
         CppModuleMap> {
 
   @Override

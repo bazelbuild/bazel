@@ -183,6 +183,7 @@ final class RemoteActionContextProvider {
               env.getCommandId().toString(),
               digestUtil,
               checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
+              checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)),
               combinedCache,
               remoteExecutor,
               tempPathGenerator,
@@ -207,9 +208,7 @@ final class RemoteActionContextProvider {
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteSpawnRunner spawnRunner =
         new RemoteSpawnRunner(
-            env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
-            env.getOptions().getOptions(ExecutionOptions.class),
             executionOptions.verboseFailures,
             env.getReporter(),
             retryScheduler,

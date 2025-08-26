@@ -50,9 +50,9 @@ java_binary(
     main_class = "com.google.devtools.build.importdeps.Main",
     deps = [
         ":import_deps_checker",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:deps_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "@maven//:args4j_args4j",
     ],
 )

@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.RunnableExtension.RunModuleExtensionResult;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -100,8 +100,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       return null;
     }
     RepositoryMappingValue mainRepoMappingValue =
-        (RepositoryMappingValue)
-            env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (mainRepoMappingValue == null) {
       return null;
     }
@@ -115,9 +114,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     RunnableExtension extension;
     try {
       if (extensionId.isInnate()) {
-        extension =
-            InnateRunnableExtension.load(
-                extensionId, usagesValue, starlarkSemantics, env, directories);
+        extension = InnateRunnableExtension.load(extensionId, usagesValue, starlarkSemantics, env);
       } else {
         extension =
             RegularRunnableExtension.load(
@@ -143,13 +140,23 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     LockFileModuleExtension lockedExtension = null;
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
     if (!lockfileMode.equals(LockfileMode.OFF)) {
-      BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
-      if (lockfile == null) {
+      var lockfiles =
+          env.getValuesAndExceptions(
+              ImmutableList.of(BazelLockFileValue.KEY, BazelLockFileValue.HIDDEN_KEY));
+      BazelLockFileValue lockfile = (BazelLockFileValue) lockfiles.get(BazelLockFileValue.KEY);
+      BazelLockFileValue hiddenLockfile =
+          (BazelLockFileValue) lockfiles.get(BazelLockFileValue.HIDDEN_KEY);
+      if (lockfile == null || hiddenLockfile == null) {
         return null;
       }
       var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
       lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
+      if (lockedExtension == null) {
+        lockedExtensionMap = hiddenLockfile.getModuleExtensions().get(extensionId);
+        lockedExtension =
+            lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
+      }
       if (lockedExtension != null) {
         try (SilentCloseable c =
             Profiler.instance()
@@ -207,21 +214,18 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                         extensionId, nonVisibleRepoNames)));
       }
     }
-    if (lockfileMode.equals(LockfileMode.ERROR)) {
-      boolean extensionShouldHaveBeenLocked =
-          moduleExtensionMetadata.map(metadata -> !metadata.getReproducible()).orElse(true);
-      // If this extension was not found in the lockfile, and after evaluation we found that it is
-      // not reproducible, then error indicating that it was expected to be in the lockfile.
-      if (lockedExtension == null && extensionShouldHaveBeenLocked) {
-        throw new SingleExtensionEvalFunctionException(
-            ExternalDepsException.withMessage(
-                Code.BAD_LOCKFILE,
-                "The module extension '%s'%s does not exist in the lockfile",
-                extensionId,
-                extension.getEvalFactors().isEmpty()
-                    ? ""
-                    : " for platform " + extension.getEvalFactors()));
-      }
+    if (lockfileMode.equals(LockfileMode.ERROR)
+        && !moduleExtensionMetadata.map(ModuleExtensionMetadata::getReproducible).orElse(false)) {
+      // The extension is not reproducible and can't be in the lockfile, since an existing (but
+      // possibly out-of-date) entry would have been handled by tryGettingValueFromLockFile above.
+      throw new SingleExtensionEvalFunctionException(
+          ExternalDepsException.withMessage(
+              Code.BAD_LOCKFILE,
+              "The module extension '%s'%s does not exist in the lockfile",
+              extensionId,
+              extension.getEvalFactors().isEmpty()
+                  ? ""
+                  : " for platform " + extension.getEvalFactors()));
     }
 
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo;
@@ -340,7 +344,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           Optional.of(new LockFileModuleExtension.WithFactors(evalFactors, lockedExtension)),
           env);
     }
-    if (lockfileMode.equals(LockfileMode.ERROR)) {
+    // Reproducible extensions are always locked in the hidden lockfile to provide best-effort
+    // speedups, but should never result in an error if out-of-date.
+    if (lockfileMode.equals(LockfileMode.ERROR) && !lockedExtension.isReproducible()) {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
               Code.BAD_LOCKFILE,
@@ -383,18 +389,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       Environment env, ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings)
       throws InterruptedException, NeedsSkyframeRestartException {
     // Request repo mappings for any 'source repos' in the recorded mapping entries.
-    // Note specially that the main repo needs to be treated differently: if any .bzl file from the
-    // main repo was used for module extension eval, it _has_ to be before WORKSPACE is evaluated
-    // (see relevant code in BzlLoadFunction#getRepositoryMapping), so we only request the main repo
-    // mapping _without_ WORKSPACE repos. See #20942 for more information.
     SkyframeLookupResult result =
         env.getValuesAndExceptions(
             recordedRepoMappings.rowKeySet().stream()
-                .map(
-                    repoName ->
-                        repoName.isMain()
-                            ? RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS
-                            : RepositoryMappingValue.key(repoName))
+                .map(RepositoryMappingValue::key)
                 .collect(toImmutableSet()));
     if (env.valuesMissing()) {
       // This likely means that one of the 'source repos' in the recorded mapping entries is no
@@ -403,11 +401,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
     for (Table.Cell<RepositoryName, String, RepositoryName> cell : recordedRepoMappings.cellSet()) {
       RepositoryMappingValue repoMappingValue =
-          (RepositoryMappingValue)
-              result.get(
-                  cell.getRowKey().isMain()
-                      ? RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS
-                      : RepositoryMappingValue.key(cell.getRowKey()));
+          (RepositoryMappingValue) result.get(RepositoryMappingValue.key(cell.getRowKey()));
       if (repoMappingValue == null) {
         throw new NeedsSkyframeRestartException();
       }
@@ -477,7 +471,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    return SingleExtensionValue.create(
+    return new SingleExtensionValue(
         generatedRepoSpecs,
         generatedRepoSpecs.keySet().stream()
             .collect(

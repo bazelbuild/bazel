@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 
 /**
  * Configured build variables usable by the toolchain configuration.
@@ -595,334 +595,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
             variableName, value.getVariableTypeName()));
   }
 
-  /**
-   * A sequence of structure values. Exists as a memory optimization - a typical build can contain
-   * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
-   * significantly reduces memory overhead.
-   */
-  @Immutable
-  public abstract static class LibraryToLinkValue extends VariableValueAdapter
-      implements StarlarkValue {
-
-    private static final Interner<LibraryToLinkValue> interner = BlazeInterners.newWeakInterner();
-
-    public static final String OBJECT_FILES_FIELD_NAME = "object_files";
-    public static final String NAME_FIELD_NAME = "name";
-    public static final String PATH_FIELD_NAME = "path";
-    public static final String TYPE_FIELD_NAME = "type";
-    public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
-
-    private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
-
-    public static LibraryToLinkValue forDynamicLibrary(String name) {
-      return interner.intern(new ForDynamicLibrary(name));
-    }
-
-    public static LibraryToLinkValue forVersionedDynamicLibrary(String name, String path) {
-      return interner.intern(new ForVersionedDynamicLibrary(name, path));
-    }
-
-    public static LibraryToLinkValue forInterfaceLibrary(String name) {
-      return interner.intern(new ForInterfaceLibrary(name));
-    }
-
-    public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
-      return isWholeArchive
-          ? interner.intern(new ForStaticLibraryWholeArchive(name))
-          : interner.intern(new ForStaticLibrary(name));
-    }
-
-    public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
-      return isWholeArchive
-          ? interner.intern(new ForObjectFileWholeArchive(name))
-          : interner.intern(new ForObjectFile(name));
-    }
-
-    public static LibraryToLinkValue forObjectFileGroup(
-        ImmutableList<Artifact> objects, boolean isWholeArchive) {
-      Preconditions.checkNotNull(objects);
-      Preconditions.checkArgument(!objects.isEmpty());
-      return isWholeArchive
-          ? interner.intern(new ForObjectFileGroupWholeArchive(objects))
-          : interner.intern(new ForObjectFileGroup(objects));
-    }
-
-    @Override
-    @Nullable
-    public VariableValue getFieldValue(
-        String variableName,
-        String field,
-        @Nullable InputMetadataProvider inputMetadataProvider,
-        PathMapper pathMapper,
-        boolean throwOnMissingVariable) {
-      if (TYPE_FIELD_NAME.equals(field)) {
-        return new StringValue(getTypeName());
-      } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
-        return BooleanValue.of(getIsWholeArchive());
-      }
-      return null;
-    }
-
-    protected boolean getIsWholeArchive() {
-      return false;
-    }
-
-    protected abstract String getTypeName();
-
-    @Override
-    public String getVariableTypeName() {
-      return LIBRARY_TO_LINK_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return true;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!(obj instanceof LibraryToLinkValue other)) {
-        return false;
-      }
-      if (this == obj) {
-        return true;
-      }
-      return this.getTypeName().equals(other.getTypeName())
-          && getIsWholeArchive() == other.getIsWholeArchive();
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(getTypeName(), getIsWholeArchive());
-    }
-
-    private abstract static class LibraryToLinkValueWithName extends LibraryToLinkValue {
-      private final String name;
-
-      LibraryToLinkValueWithName(String name) {
-        this.name = Preconditions.checkNotNull(name);
-      }
-
-      @Override
-      public VariableValue getFieldValue(
-          String variableName,
-          String field,
-          @Nullable InputMetadataProvider inputMetadataProvider,
-          PathMapper pathMapper,
-          boolean throwOnMissingVariable) {
-        if (NAME_FIELD_NAME.equals(field)) {
-          if (pathMapper.isNoop()) {
-            return new StringValue(name);
-          }
-          return new StringValue(
-              pathMapper.map(PathFragment.createAlreadyNormalized(name)).getPathString());
-        }
-        return super.getFieldValue(
-            variableName, field, inputMetadataProvider, pathMapper, throwOnMissingVariable);
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        if (!(obj instanceof LibraryToLinkValueWithName other)) {
-          return false;
-        }
-        if (this == obj) {
-          return true;
-        }
-        return this.name.equals(other.name) && super.equals(other);
-      }
-
-      @Override
-      public int hashCode() {
-        return 31 * super.hashCode() + name.hashCode();
-      }
-    }
-
-    private static final class ForDynamicLibrary extends LibraryToLinkValueWithName {
-      private ForDynamicLibrary(String name) {
-        super(name);
-      }
-
-      @Override
-      protected String getTypeName() {
-        return "dynamic_library";
-      }
-    }
-
-    private static final class ForVersionedDynamicLibrary extends LibraryToLinkValueWithName {
-      private final String path;
-
-      private ForVersionedDynamicLibrary(String name, String path) {
-        super(name);
-        this.path = path;
-      }
-
-      @Override
-      public VariableValue getFieldValue(
-          String variableName,
-          String field,
-          @Nullable InputMetadataProvider inputMetadataProvider,
-          PathMapper pathMapper,
-          boolean throwOnMissingVariable) {
-        if (PATH_FIELD_NAME.equals(field)) {
-          return new StringValue(path);
-        }
-        return super.getFieldValue(
-            variableName, field, inputMetadataProvider, pathMapper, throwOnMissingVariable);
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        if (!(obj instanceof ForVersionedDynamicLibrary other)) {
-          return false;
-        }
-        if (this == obj) {
-          return true;
-        }
-        return this.path.equals(other.path) && super.equals(other);
-      }
-
-      @Override
-      public int hashCode() {
-        return 31 * super.hashCode() + path.hashCode();
-      }
-
-      @Override
-      protected String getTypeName() {
-        return "versioned_dynamic_library";
-      }
-    }
-
-    private static final class ForInterfaceLibrary extends LibraryToLinkValueWithName {
-      private ForInterfaceLibrary(String name) {
-        super(name);
-      }
-
-      @Override
-      protected String getTypeName() {
-        return "interface_library";
-      }
-    }
-
-    private static class ForStaticLibrary extends LibraryToLinkValueWithName {
-      private ForStaticLibrary(String name) {
-        super(name);
-      }
-
-      @Override
-      protected String getTypeName() {
-        return "static_library";
-      }
-    }
-
-    private static final class ForStaticLibraryWholeArchive extends ForStaticLibrary {
-      private ForStaticLibraryWholeArchive(String name) {
-        super(name);
-      }
-
-      @Override
-      protected boolean getIsWholeArchive() {
-        return true;
-      }
-    }
-
-    private static class ForObjectFile extends LibraryToLinkValueWithName {
-      private ForObjectFile(String name) {
-        super(name);
-      }
-
-      @Override
-      protected String getTypeName() {
-        return "object_file";
-      }
-    }
-
-    private static final class ForObjectFileWholeArchive extends ForObjectFile {
-      private ForObjectFileWholeArchive(String name) {
-        super(name);
-      }
-
-      @Override
-      protected boolean getIsWholeArchive() {
-        return true;
-      }
-    }
-
-    private static class ForObjectFileGroup extends LibraryToLinkValue {
-      private final ImmutableList<Artifact> objectFiles;
-
-      private ForObjectFileGroup(ImmutableList<Artifact> objectFiles) {
-        this.objectFiles = objectFiles;
-      }
-
-      @Nullable
-      @Override
-      public VariableValue getFieldValue(
-          String variableName,
-          String field,
-          @Nullable InputMetadataProvider inputMetadataProvider,
-          PathMapper pathMapper,
-          boolean throwOnMissingVariable) {
-        if (NAME_FIELD_NAME.equals(field)) {
-          return null;
-        }
-
-        if (OBJECT_FILES_FIELD_NAME.equals(field)) {
-          ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
-          for (Artifact objectFile : objectFiles) {
-            if (objectFile.isTreeArtifact() && inputMetadataProvider != null) {
-              TreeArtifactValue treeArtifactValue =
-                  inputMetadataProvider.getTreeMetadata(objectFile);
-              if (treeArtifactValue != null) {
-                expandedObjectFiles.addAll(
-                    Collections2.transform(
-                        treeArtifactValue.getChildren(), pathMapper::getMappedExecPathString));
-              }
-            } else {
-              expandedObjectFiles.add(pathMapper.getMappedExecPathString(objectFile));
-            }
-          }
-          return new Sequence(expandedObjectFiles.build());
-        }
-
-        return super.getFieldValue(
-            variableName, field, inputMetadataProvider, pathMapper, throwOnMissingVariable);
-      }
-
-      @Override
-      protected String getTypeName() {
-        return "object_file_group";
-      }
-
-      @Override
-      public boolean equals(Object obj) {
-        if (!(obj instanceof ForObjectFileGroup other)) {
-          return false;
-        }
-        if (this == obj) {
-          return true;
-        }
-        return this.objectFiles.equals(other.objectFiles) && super.equals(other);
-      }
-
-      @Override
-      public int hashCode() {
-        return 31 * super.hashCode() + objectFiles.hashCode();
-      }
-    }
-
-    private static final class ForObjectFileGroupWholeArchive extends ForObjectFileGroup {
-      private ForObjectFileGroupWholeArchive(ImmutableList<Artifact> objectFiles) {
-        super(objectFiles);
-      }
-
-      @Override
-      protected boolean getIsWholeArchive() {
-        return true;
-      }
-    }
-  }
-
   /** Sequence of arbitrary VariableValue objects. */
   @Immutable
   static final class Sequence extends VariableValueAdapter {
@@ -945,7 +617,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public boolean isTruthy() {
-      return values.isEmpty();
+      return !values.isEmpty();
     }
 
     @Override
@@ -1255,8 +927,81 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       case Iterable<?> iterable -> new Sequence(ImmutableList.copyOf(iterable));
       case NestedSet<?> nestedSet -> new Sequence(nestedSet.toList());
       case Depset depset -> new Sequence(depset.toList());
+      case Structure val -> new StarlarkStructureAdapter(val);
       default -> (VariableValue) o;
     };
+  }
+
+  /**
+   * Adapts Starlark structures.
+   *
+   * <p>It's used to support NamedLibraryInfo, ObjectFileGroupInfo and VersionedLibraryInfo
+   * structures create in {@code create_libraries_to_link_values.bzl}
+   */
+  public static class StarlarkStructureAdapter extends VariableValueAdapter {
+    private final Structure val;
+
+    StarlarkStructureAdapter(Structure val) {
+      this.val = val;
+    }
+
+    @Nullable
+    @Override
+    public VariableValue getFieldValue(
+        String variableName,
+        String field,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
+        boolean throwOnMissingVariable)
+        throws ExpansionException {
+      try {
+        Object fieldValue = val.getValue(field);
+
+        // Special handling for tree artifacts. Needed for ObjectFileGroupInfo containing a tree
+        // artifact. When this code is migrated to Starlark, the expansion should happen on Starlark
+        // command lines.
+        if (fieldValue instanceof Iterable<?> iterable) {
+          ImmutableList.Builder<Object> expandedIterable = ImmutableList.builder();
+          for (Object element : iterable) {
+            if (element instanceof Artifact artifact
+                && artifact.isTreeArtifact()
+                && inputMetadataProvider != null) {
+              TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+              if (treeArtifactValue != null) {
+                expandedIterable.addAll(
+                    Collections2.transform(
+                        treeArtifactValue.getChildren(), pathMapper::getMappedExecPathString));
+              }
+            } else {
+              expandedIterable.add(element);
+            }
+          }
+          return new Sequence(expandedIterable.build());
+        }
+        return asVariableValue(fieldValue);
+      } catch (EvalException e) {
+        if (throwOnMissingVariable) {
+          throw new ExpansionException(
+              String.format(
+                  "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s'"
+                      + " is %s, expected structure",
+                  variableName, field, variableName, getVariableTypeName()),
+              e);
+        } else {
+          return null;
+        }
+      }
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Starlark.type(val);
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return val.truth();
+    }
   }
 
   /**

@@ -18,13 +18,7 @@ namespace blaze_jni {
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersNative(
-    JNIEnv *env, jclass clazz, jobject counters_list) {
-  // Currently not implemented.
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIfAddrsNative(
-    JNIEnv *env, jclass clazz, jobject addrs_list) {
+    JNIEnv *env, jclass clazz, jobject counters_map) {
   // Currently not implemented.
 }
 

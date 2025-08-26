@@ -17,16 +17,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <ifaddrs.h>
 #include <jni.h>
 #include <limits.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -96,10 +91,6 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
       exception_classname =
           "com/google/devtools/build/lib/vfs/FileAccessException";
       break;
-    case EPERM:   // Operation not permitted
-      exception_classname =
-          "com/google/devtools/build/lib/unix/FilePermissionException";
-      break;
     case EINTR:   // Interrupted system call
       exception_classname = "java/io/InterruptedIOException";
       break;
@@ -125,6 +116,7 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
 #if defined(EMULTIHOP)
     case EMULTIHOP:  // Multihop attempted
 #endif
+    case EPERM:      // Operation not permitted
     case ENOLINK:    // Link has been severed
     case EIO:        // I/O error
     case EAGAIN:     // Try again
@@ -441,18 +433,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
-}
-
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    umask
- * Signature: (I)I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_umask(JNIEnv *env,
-                                                  jclass clazz,
-                                                  jint new_umask) {
-  return ::umask(new_umask);
 }
 
 /*
@@ -1471,103 +1451,6 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_cpuSpeed(
     JNIEnv *env, jclass) {
   return portable_cpu_speed();
-}
-
-static int convert_ipaddr(struct sockaddr *addr, int family, char *buf,
-                          int buf_len) {
-  if (buf_len > 0) {
-    buf[0] = 0;
-  }
-  int addr_len = 0;
-  if (family == AF_INET) {
-    addr_len = sizeof(struct sockaddr_in);
-  } else if (family == AF_INET6) {
-    addr_len = sizeof(struct sockaddr_in6);
-  }
-  if (addr_len != 0) {
-    int err =
-        getnameinfo(addr, addr_len, buf, buf_len, nullptr, 0, NI_NUMERICHOST);
-    if (err != 0) {
-      return err;
-    }
-  }
-  return 0;
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIfAddrsNative(
-    JNIEnv *env, jclass clazz, jobject addrs_list) {
-  ifaddrs *ifaddr;
-  if (getifaddrs(&ifaddr) == -1) {
-    POST_EXCEPTION_FROM_ERRNO(env, errno, "getifaddrs");
-    return;
-  }
-
-  jclass list_class = env->GetObjectClass(addrs_list);
-  jmethodID list_add =
-      env->GetMethodID(list_class, "add", "(Ljava/lang/Object;)Z");
-
-  jclass addr_class = env->FindClass(
-      "com/google/devtools/build/lib/profiler/SystemNetworkStats$NetIfAddr");
-  jmethodID addr_create = env->GetStaticMethodID(
-      addr_class, "create",
-      "(Ljava/lang/String;Lcom/google/devtools/build/lib/profiler/"
-      "SystemNetworkStats$NetIfAddr$Family;Ljava/lang/String;)Lcom/google/"
-      "devtools/build/lib/profiler/SystemNetworkStats$NetIfAddr;");
-
-  jclass family_class = env->FindClass(
-      "com/google/devtools/build/lib/profiler/"
-      "SystemNetworkStats$NetIfAddr$Family");
-  const char *family_class_sig =
-      "Lcom/google/devtools/build/lib/profiler/"
-      "SystemNetworkStats$NetIfAddr$Family;";
-  jfieldID family_af_inet_id =
-      env->GetStaticFieldID(family_class, "AF_INET", family_class_sig);
-  jobject family_af_inet =
-      env->GetStaticObjectField(family_class, family_af_inet_id);
-  jfieldID family_af_inet6_id =
-      env->GetStaticFieldID(family_class, "AF_INET6", family_class_sig);
-  jobject family_af_inet6 =
-      env->GetStaticObjectField(family_class, family_af_inet6_id);
-  jfieldID family_unknown_id =
-      env->GetStaticFieldID(family_class, "UNKNOWN", family_class_sig);
-  jobject family_unknown =
-      env->GetStaticObjectField(family_class, family_unknown_id);
-
-  for (ifaddrs *ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
-    if (!ifa->ifa_addr) {
-      continue;
-    }
-    jstring name = env->NewStringUTF(ifa->ifa_name);
-
-    int family = ifa->ifa_addr->sa_family;
-
-    jobject family_enum;
-    switch (family) {
-      case AF_INET:
-        family_enum = family_af_inet;
-        break;
-      case AF_INET6:
-        family_enum = family_af_inet6;
-        break;
-      default:
-        family_enum = family_unknown;
-    }
-
-    char buf[NI_MAXHOST];
-    int err = convert_ipaddr(ifa->ifa_addr, family, buf, sizeof(buf));
-    if (err != 0) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, "convert_ipaddr");
-      return;
-    }
-    jstring ipaddr = env->NewStringUTF(buf);
-
-    jobject addr = env->CallStaticObjectMethod(addr_class, addr_create, name,
-                                               family_enum, ipaddr);
-    env->CallObjectMethod(addrs_list, list_add, addr);
-  }
-
-  freeifaddrs(ifaddr);
 }
 
 }  // namespace blaze_jni

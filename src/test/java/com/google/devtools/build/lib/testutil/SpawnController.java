@@ -23,6 +23,7 @@ import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
@@ -133,11 +134,20 @@ public final class SpawnController {
     checkState(spawnShims.isEmpty(), "Remaining spawn shims: %s", spawnShims);
   }
 
-  private final class ControllableSpawnStrategy implements SpawnStrategy {
+  private final class ControllableSpawnStrategy implements SandboxedSpawnStrategy {
     private final SpawnStrategy delegate;
 
     ControllableSpawnStrategy(SpawnStrategy delegate) {
       this.delegate = checkNotNull(delegate);
+    }
+
+    @Override
+    public ImmutableList<SpawnResult> exec(
+        Spawn spawn,
+        ActionExecutionContext actionExecutionContext,
+        @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
+        throws ExecException, InterruptedException {
+      return exec(spawn, actionExecutionContext);
     }
 
     @Override

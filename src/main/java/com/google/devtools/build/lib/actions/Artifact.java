@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathStrippable;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -356,7 +355,7 @@ public abstract sealed class Artifact
   /** Supplies {@link SourceArtifact} instances and allows for interning of derived artifacts. */
   public interface ArtifactSerializationContext {
 
-    SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
+    SourceArtifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner);
 
     /**
      * Whether to include the generating action key when serializing the given derived artifact in
@@ -983,7 +982,7 @@ public abstract sealed class Artifact
       PathFragment archiveRoot = embedDerivedTreeRoot(treeRoot.getExecPath(), derivedTreeRoot);
       return new ArchivedTreeArtifact(
           treeArtifact,
-          ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.Output, archiveRoot),
+          ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.OUTPUT, archiveRoot),
           archiveRoot.getRelative(rootRelativePath),
           treeArtifact.getGeneratingActionKey());
     }

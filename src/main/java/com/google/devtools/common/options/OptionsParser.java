@@ -30,7 +30,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.MoreCollectors;
-import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -431,17 +430,16 @@ public class OptionsParser implements OptionsParsingResult {
    * intuitive short description for the options. Options of the same category (see {@link
    * OptionDocumentationCategory}) will be grouped together.
    *
-   * @param productName the name of this product (blaze, bazel)
    * @param helpVerbosity if {@code long}, the options will be described verbosely, including their
    *     types, defaults and descriptions. If {@code medium}, the descriptions are omitted, and if
    *     {@code short}, the options are just enumerated.
    */
-  public String describeOptions(String productName, HelpVerbosity helpVerbosity) {
+  public String describeOptions(HelpVerbosity helpVerbosity) {
     StringBuilder desc = new StringBuilder();
     LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
         getOptionsSortedByCategory();
     ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
-        OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
+        OptionFilterDescriptions.getOptionCategoriesEnumDescription();
     for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
       String categoryDescription = optionCategoryDescriptions.get(e.getKey());
@@ -543,45 +541,6 @@ public class OptionsParser implements OptionsParsingResult {
       }
     }
     return desc.toString().trim();
-  }
-
-  /**
-   * Returns a description of all the options this parser can digest. In addition to {@link Option}
-   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
-   * intuitive short description for the options.
-   */
-  public String describeOptionsHtml(
-      Escaper escaper, String productName, List<String> optionsToIgnore, String commandName) {
-    StringBuilder desc = new StringBuilder();
-    LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
-        getOptionsSortedByCategory();
-    ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
-        OptionFilterDescriptions.getOptionCategoriesEnumDescription(productName);
-
-    for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
-        optionsByCategory.entrySet()) {
-      List<OptionDefinition> categorizedOptionsList = e.getValue();
-      categorizedOptionsList =
-          categorizedOptionsList.stream()
-              .filter(
-                  optionDef ->
-                      Arrays.stream(optionDef.getOptionEffectTags())
-                          .noneMatch(effectTag -> effectTag.equals(OptionEffectTag.NO_OP)))
-              .filter(optionDef -> !optionsToIgnore.contains(optionDef.getOptionName()))
-              .collect(toImmutableList());
-      if (categorizedOptionsList.isEmpty()) {
-        continue;
-      }
-      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
-
-      desc.append("<dl>").append(escaper.escape(categoryDescription)).append(":\n");
-      for (OptionDefinition optionDef : categorizedOptionsList) {
-        OptionsUsage.getUsageHtml(
-            optionDef, desc, escaper, impl.getOptionsData(), true, commandName);
-      }
-      desc.append("</dl>\n");
-    }
-    return desc.toString();
   }
 
   /**
@@ -831,9 +790,11 @@ public class OptionsParser implements OptionsParsingResult {
             .collect(toImmutableList());
   }
 
-  /* Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part
+  /**
+   * Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part
    * of the residue that follows the double-dash on the command line, {@code postDoubleDashResidue}.
-   * {@code postDoubleDashResidue} must be a subset of {@code residue}. */
+   * {@code postDoubleDashResidue} must be a subset of {@code residue}.
+   */
   public void setResidue(List<String> residue, List<String> postDoubleDashResidue) {
     Preconditions.checkArgument(residue.containsAll(postDoubleDashResidue));
     this.residue.clear();

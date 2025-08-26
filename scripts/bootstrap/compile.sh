@@ -296,6 +296,10 @@ EOF
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles
   link_file "${PWD}/tools/java/runfiles/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/BUILD"
 
+  # Create @bazel_tools/tools/launcher/BUILD
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/launcher
+  link_file "${PWD}/tools/launcher/BUILD.bootstrap" "${BAZEL_TOOLS_REPO}/tools/launcher/BUILD"
+
   # Create @bazel_tools/tools/python/BUILD
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python
   link_file "${PWD}/tools/python/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/python/BUILD"

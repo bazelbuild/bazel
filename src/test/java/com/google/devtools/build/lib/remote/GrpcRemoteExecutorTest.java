@@ -48,7 +48,7 @@ public class GrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBase {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+            RemoteRetrier.GRPC_RESULT_CLASSIFIER,
             retryService);
 
     return new GrpcRemoteExecutor(channel, CallCredentialsProvider.NO_CREDENTIALS, retrier);

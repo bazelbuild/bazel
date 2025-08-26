@@ -51,7 +51,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
     Path execRoot = outputBase.getRelative("exec");
     String outSegment = "root";
     Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, outSegment);
     try {
       return ActionsTestUtil.createArtifact(
           root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));

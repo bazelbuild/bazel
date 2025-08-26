@@ -34,7 +34,6 @@ public class RepositoryResolvedEventTest {
     Pair<Map<String, Object>, List<String>> result =
         RepositoryResolvedEvent.compare(
             ImmutableMap.of("foo", "orig"),
-            ImmutableMap.<String, Object>of(),
             ImmutableMap.of("foo", "changed"));
     assertThat(result.getFirst()).containsExactly("foo", "changed");
     assertThat(result.getSecond()).isEmpty();
@@ -43,8 +42,7 @@ public class RepositoryResolvedEventTest {
   @Test
   public void testCompareDrop() {
     Pair<Map<String, Object>, List<String>> result =
-        RepositoryResolvedEvent.compare(
-            ImmutableMap.of("foo", "orig"), ImmutableMap.<String, Object>of(), ImmutableMap.of());
+        RepositoryResolvedEvent.compare(ImmutableMap.of("foo", "orig"), ImmutableMap.of());
     assertThat(result.getFirst()).isEmpty();
     assertThat(result.getSecond()).containsExactly("foo");
   }
@@ -54,31 +52,8 @@ public class RepositoryResolvedEventTest {
     Pair<Map<String, Object>, List<String>> result =
         RepositoryResolvedEvent.compare(
             ImmutableMap.<String, Object>of(),
-            ImmutableMap.<String, Object>of(),
             ImmutableMap.of("foo", "new"));
     assertThat(result.getFirst()).containsExactly("foo", "new");
-    assertThat(result.getSecond()).isEmpty();
-  }
-
-  @Test
-  public void testCompareAddDefault() {
-    Pair<Map<String, Object>, List<String>> result =
-        RepositoryResolvedEvent.compare(
-            ImmutableMap.<String, Object>of(),
-            ImmutableMap.of("bar", "default", "unreleated", "xyz"),
-            ImmutableMap.of("foo", "new", "bar", "default"));
-    assertThat(result.getFirst()).containsExactly("foo", "new");
-    assertThat(result.getSecond()).isEmpty();
-  }
-
-  @Test
-  public void testCompareAddDifferentFromDefault() {
-    Pair<Map<String, Object>, List<String>> result =
-        RepositoryResolvedEvent.compare(
-            ImmutableMap.<String, Object>of(),
-            ImmutableMap.of("bar", "default", "unreleated", "xyz"),
-            ImmutableMap.of("foo", "new", "bar", "otherValue"));
-    assertThat(result.getFirst()).containsExactly("foo", "new", "bar", "otherValue");
     assertThat(result.getSecond()).isEmpty();
   }
 

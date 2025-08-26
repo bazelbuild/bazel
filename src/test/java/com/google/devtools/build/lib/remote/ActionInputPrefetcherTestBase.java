@@ -135,7 +135,7 @@ public abstract class ActionInputPrefetcherTestBase {
             new DelayedChmodFileSystem(new InMemoryFileSystem(DigestHashFunction.SHA256)));
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     Path tempDir = fs.getPath("/tmp");
     tempDir.createDirectoryAndParents();

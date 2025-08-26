@@ -338,31 +338,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalCcSharedLibrary;
 
   @Option(
-      name = "experimental_cc_static_library",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, rule attributes and Starlark API methods needed for the rule "
-              + "cc_static_library will be available")
-  public boolean experimentalCcStaticLibrary;
-
-  @Option(
-      name = "incompatible_require_linker_input_cc_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, rule create_linking_context will require linker_inputs instead of "
-              + "libraries_to_link. The old getters of linking_context will also be disabled and "
-              + "just linker_inputs will be available.")
-  public boolean incompatibleRequireLinkerInputCcApi;
-
-  @Option(
       name = "experimental_repo_remote_exec",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -572,17 +547,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " the behavior of repr() is unchanged. See"
               + " https://github.com/bazelbuild/bazel/issues/15916 for more information.")
   public boolean incompatibleUnambiguousLabelStringification;
-
-  @Option(
-      name = "incompatible_depset_for_libraries_to_link_getter",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When true, Bazel no longer returns a list from linking_context.libraries_to_link but "
-              + "returns a depset instead.")
-  public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
   @Option(
       name = "incompatible_java_info_merge_runtime_module_flags",
@@ -818,6 +782,15 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " files which are not UTF-8 encoded can cause Bazel to behave inconsistently.")
   public Utf8EnforcementMode incompatibleEnforceStarlarkUtf8;
 
+  @Option(
+      name = "experimental_repository_ctx_execute_wasm",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true enables the repository_ctx `load_wasm` and `execute_wasm` methods.")
+  public boolean repositoryCtxExecuteWasm;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -857,7 +830,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
-            .setBool(EXPERIMENTAL_CC_STATIC_LIBRARY, experimentalCcStaticLibrary)
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
             .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
@@ -886,10 +858,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
                 incompatibleUnambiguousLabelStringification)
-            .setBool(
-                INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
-                incompatibleDepsetForLibrariesToLinkGetter)
-            .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(
@@ -927,6 +895,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
                 internalStarlarkUtf8ByteStrings)
+            .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -951,7 +920,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
-  public static final String EXPERIMENTAL_CC_STATIC_LIBRARY = "-experimental_cc_static_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
@@ -961,8 +929,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "+experimental_enable_first_class_macros";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
-  public static final String ENABLE_BZLMOD = "+enable_bzlmod";
-  public static final String ENABLE_WORKSPACE = "-enable_workspace";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
@@ -974,10 +940,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
-  public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
-      "+incompatible_depset_for_libraries_to_link_getter";
-  public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
-      "-incompatible_disable_target_provider_fields";
+
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
@@ -993,8 +956,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_no_implicit_file_export";
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
       "-incompatible_no_rule_outputs_param";
-  public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
-      "+incompatible_require_linker_input_cc_api";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =
       "+incompatible_run_shell_command_string";
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
@@ -1030,6 +991,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_simplify_unconditional_selects_in_rule_attrs";
   public static final String INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE =
       "+incompatible_locations_prefers_executable";
+  public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
+      "-experimental_repository_ctx_execute_wasm";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");

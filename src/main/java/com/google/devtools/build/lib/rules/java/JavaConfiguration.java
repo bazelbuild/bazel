@@ -38,6 +38,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A java compiler configuration containing the flags required for compilation. */
 @Immutable
@@ -45,7 +46,7 @@ import net.starlark.java.eval.StarlarkThread;
 public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
 
   /** Values for the --java_classpath option */
-  public enum JavaClasspathMode {
+  public enum JavaClasspathMode implements StarlarkValue {
     /** Use full transitive classpaths, the default behavior. */
     OFF,
     /** JavaBuilder computes the reduced classpath before invoking javac. */
@@ -57,7 +58,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Values for the --experimental_one_version_enforcement option */
-  public enum OneVersionEnforcementLevel {
+  public enum OneVersionEnforcementLevel implements StarlarkValue {
     /** Don't attempt to check for one version violations (the default) */
     OFF,
     /**
@@ -99,7 +100,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean experimentalEnableJspecify;
   private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
-  private final boolean disallowJavaImportEmptyJars;
   private final boolean autoCreateDeployJarForJavaTests;
 
   public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
@@ -129,7 +129,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.runAndroidLint = javaOptions.runAndroidLint;
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
     this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
-    this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
     this.autoCreateDeployJarForJavaTests = javaOptions.autoCreateDeployJarForJavaTests;
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
     if (optimizers.size() != 1) {
@@ -411,14 +410,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return multiReleaseDeployJars;
   }
 
-  /** Returns true if empty java_import jars are not allowed. */
-  @Override
-  public boolean getDisallowJavaImportEmptyJarsInStarlark(StarlarkThread thread)
-      throws EvalException {
-    checkPrivateAccess(thread);
-    return disallowJavaImportEmptyJars;
-  }
-
   /** Returns true if java_import exports are not allowed. */
   @Override
   public boolean getDisallowJavaImportExportsInStarlark(StarlarkThread thread)
@@ -464,5 +455,13 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   public boolean autoCreateJavaTestDeployJars(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return autoCreateDeployJarForJavaTests;
+  }
+
+  // TODO: b/417791104 - Remove this method once usages are removed.
+  @Override
+  public boolean getUseHeaderCompilationDirectDepsInStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return true;
   }
 }

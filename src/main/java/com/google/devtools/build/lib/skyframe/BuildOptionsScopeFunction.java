@@ -164,13 +164,12 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
   private Scope.ScopeType getScopeType(
       Environment env, Label label, PackageIdentifier packageIdentifier)
       throws BuildOptionsScopeFunctionException, InterruptedException {
-    PackageContext packageContext =
-        PackageContext.of(packageIdentifier, RepositoryMapping.ALWAYS_FALLBACK);
+    PackageContext packageContext = PackageContext.of(packageIdentifier, RepositoryMapping.EMPTY);
     SkyframeTargetLoader targetLoader = new SkyframeTargetLoader(env, packageContext);
 
     Target target;
     try {
-      target = targetLoader.loadBuildSetting(label.toString());
+      target = targetLoader.loadBuildSetting(label.getUnambiguousCanonicalForm());
     } catch (TargetParsingException e) {
       throw new BuildOptionsScopeFunctionException(e);
     }

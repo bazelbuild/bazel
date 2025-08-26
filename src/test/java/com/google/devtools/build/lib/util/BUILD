@@ -11,6 +11,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/util/io:srcs",
+        "//src/test/java/com/google/devtools/build/lib/util/regex:srcs",
         "//src/test/java/com/google/devtools/build/lib/util/subjects:srcs",
     ],
     visibility = ["//src:__subpackages__"],

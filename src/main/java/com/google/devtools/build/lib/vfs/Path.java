@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.FileSystem.PathDevirtualizer;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -83,12 +82,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
 
   public String getPathString() {
     return pathFragment.getPathString();
-  }
-
-  public Path devirtualize() {
-    return fileSystem instanceof PathDevirtualizer pathDevirtualizer
-        ? pathDevirtualizer.devirtualizePath(this)
-        : this;
   }
 
   @Override
@@ -311,12 +304,22 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return fileSystem.stat(asFragment(), followSymlinks.toBoolean());
   }
 
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
+  /**
+   * Like stat(), but returns null in case of any error instead of throwing.
+   *
+   * <p>Use {@link #statIfFound()} instead to throw for errors due to any causes other than
+   * non-existence.
+   */
   public FileStatus statNullable() {
     return statNullable(Symlinks.FOLLOW);
   }
 
-  /** Like stat(), but returns null on file-nonexistence instead of throwing. */
+  /**
+   * Like stat(), but returns null in case of any error instead of throwing.
+   *
+   * <p>Use {@link #statIfFound(Symlinks)} instead to throw for errors due to any causes other than
+   * non-existence.
+   */
   public FileStatus statNullable(Symlinks symlinks) {
     return fileSystem.statNullable(asFragment(), symlinks.toBoolean());
   }
@@ -325,6 +328,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
    * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Follows symbolic
    * links.
+   *
+   * <p>Use {@link #statNullable(Symlinks)} instead to ignore all types of errors.
    */
   public FileStatus statIfFound() throws IOException {
     return fileSystem.statIfFound(asFragment(), true);
@@ -333,6 +338,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   /**
    * Like {@link #stat}, but may return null if the file is not found (corresponding to {@code
    * ENOENT} and {@code ENOTDIR} in Unix's stat(2) function) instead of throwing.
+   *
+   * <p>Use {@link #statNullable(Symlinks)} instead to ignore all types of errors.
    *
    * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
    *     link is dereferenced until a file other than a symbolic link is found

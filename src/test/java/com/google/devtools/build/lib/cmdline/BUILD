@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline:parallel_visitor",
         "//src/main/java/com/google/devtools/build/lib/cmdline:query_exception_marker_interface",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

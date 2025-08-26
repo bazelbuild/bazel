@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -106,8 +105,8 @@ public final class FetchCommand implements BlazeCommand {
               ImmutableList.of(
                   PrecomputedValue.injected(
                       fetchOptions.configure
-                          ? RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE
-                          : RepositoryDelegatorFunction.FORCE_FETCH,
+                          ? RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE
+                          : RepositoryDirectoryValue.FORCE_FETCH,
                       env.getCommandId().toString())));
     }
 

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.Project;
 import com.google.devtools.build.lib.analysis.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,6 +36,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ProjectResolutionTest extends BuildViewTestCase {
+  @Before
+  public void setUp() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    writeProjectSclDefinition("test/project_proto.scl");
+    scratch.file("test/BUILD");
+  }
+
   @Test
   public void buildWithNoProjectFiles() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
@@ -51,7 +59,12 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   @Test
   public void buildWithOneProjectFile() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("pkg/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "pkg/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -64,8 +77,18 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void buildWithTwoProjectFiles() throws Exception {
     scratch.file("foo/bar/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
     scratch.file("foo/BUILD");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
-    scratch.file("foo/bar/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
+    scratch.file(
+        "foo/bar/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -79,7 +102,12 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void twoTargetsSameProjectFile() throws Exception {
     scratch.file("foo/bar/BUILD", "genrule(name='child', cmd = '', srcs=[], outs=['c.out'])");
     scratch.file("foo/BUILD", "genrule(name='parent', cmd = '', srcs=[], outs=['p.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -95,8 +123,18 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void twoTargetsDifferentProjectFiles() throws Exception {
     scratch.file("foo/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['f.out'])");
     scratch.file("bar/BUILD", "genrule(name='g', cmd = '', srcs=[], outs=['g.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
-    scratch.file("bar/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
+    scratch.file(
+        "bar/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -120,7 +158,12 @@ Targets have different project settings:
   public void twoTargetsOnlyOneHasProjectFile() throws Exception {
     scratch.file("foo/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['f.out'])");
     scratch.file("bar/BUILD", "genrule(name='g', cmd = '', srcs=[], outs=['g.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -141,10 +184,20 @@ Targets have different project settings:
   @Test
   public void innermostPackageIsAParentDirectory() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("pkg/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "pkg/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
     scratch.file("pkg/subdir/not_a_build_file");
     // Doesn't count because it's not colocated with a BUILD file:
-    scratch.file("pkg/subdir" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "pkg/subdir/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -166,7 +219,12 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical/BUILD");
-    scratch.file("canonical/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -299,7 +357,12 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical/BUILD");
-    scratch.file("canonical/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -327,7 +390,12 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical/BUILD");
-    scratch.file("canonical/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -357,9 +425,19 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical1/BUILD");
-    scratch.file("canonical1/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical1/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
     scratch.file("canonical2/BUILD");
-    scratch.file("canonical2/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical2/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(

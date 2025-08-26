@@ -14,8 +14,10 @@
 //
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,17 +33,41 @@ import java.util.Collection;
  */
 public abstract class PathTransformingDelegateFileSystem extends FileSystem {
 
-  protected final FileSystem delegateFs;
+  private FileSystem delegateFs;
 
-  public PathTransformingDelegateFileSystem(FileSystem delegateFs) {
-    super(Preconditions.checkNotNull(delegateFs, "delegateFs").getDigestFunction());
+  /**
+   * Constructs an instance with no initial delegate {@link FileSystem}.
+   *
+   * <p>{@link #setDelegateFs} must be called prior to any {@link FileSystem} operations.
+   */
+  protected PathTransformingDelegateFileSystem(DigestHashFunction hashFunction) {
+    super(hashFunction);
+  }
+
+  /** Constructs an instance with an initial delegate {@link FileSystem}. */
+  protected PathTransformingDelegateFileSystem(FileSystem delegateFs) {
+    this(delegateFs.getDigestFunction());
+    setDelegateFs(delegateFs);
+  }
+
+  public final FileSystem getDelegateFs() {
+    return checkNotNull(delegateFs);
+  }
+
+  public final void setDelegateFs(FileSystem delegateFs) {
+    checkNotNull(delegateFs);
+    checkArgument(
+        delegateFs.getDigestFunction().equals(getDigestFunction()),
+        "Digest function mismatch: initialized with %s, but delegate %s has %s",
+        getDigestFunction(),
+        delegateFs,
+        delegateFs.getDigestFunction());
     this.delegateFs = delegateFs;
+    onDelegateFsChange(delegateFs);
   }
 
-  @VisibleForTesting
-  public FileSystem getDelegateFs() {
-    return delegateFs;
-  }
+  @ForOverride
+  protected void onDelegateFsChange(FileSystem delegateFs) {}
 
   @Override
   public boolean supportsModifications(PathFragment path) {

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -46,7 +45,6 @@ import net.starlark.java.eval.Starlark;
  */
 @VisibleForTesting
 public final class PyRuntimeInfo {
-  private static final BuiltinProvider BUILTIN_PROVIDER = new BuiltinProvider();
   private static final RulesPythonProvider RULES_PYTHON_PROVIDER = new RulesPythonProvider();
 
   private final StarlarkInfo info;
@@ -69,10 +67,6 @@ public final class PyRuntimeInfo {
   public static PyRuntimeInfo fromTargetNullable(ConfiguredTarget target)
       throws RuleErrorException {
     PyRuntimeInfo provider = target.get(RULES_PYTHON_PROVIDER);
-    if (provider != null) {
-      return provider;
-    }
-    provider = target.get(BUILTIN_PROVIDER);
     if (provider != null) {
       return provider;
     }
@@ -123,16 +117,6 @@ public final class PyRuntimeInfo {
     @Override
     public PyRuntimeInfo wrap(Info value) {
       return new PyRuntimeInfo((StarlarkInfo) value);
-    }
-  }
-
-  /** Provider instance for the builtin PyRuntimeInfo provider. */
-  private static class BuiltinProvider extends BaseProvider {
-
-    private BuiltinProvider() {
-      super(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl")));
     }
   }
 

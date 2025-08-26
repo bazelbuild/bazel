@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.ref.WeakReference;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -435,32 +435,6 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Returns the files pointed to by the symlinks in the runfiles symlink farm. This method is slow.
-   */
-  @VisibleForTesting
-  public Collection<Artifact> getRunfilesSymlinkTargets() {
-    return getRunfilesSymlinks().values();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  // We should make this VisibleForTesting, but it is still used by TestHelper
-  public Set<PathFragment> getRunfilesSymlinkNames() {
-    return getRunfilesSymlinks().keySet();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  @VisibleForTesting
-  public Map<PathFragment, Artifact> getRunfilesSymlinks() {
-    return runfilesTree.runfiles.asMapWithoutRootSymlinks();
-  }
-
-  /**
    * Returns the runfiles tree artifact that depends on getExecutable(), getRunfilesManifest(), and
    * getRunfilesSymlinkTargets(). Anything which needs to actually run the executable should depend
    * on this.
@@ -707,7 +681,12 @@ public final class RunfilesSupport {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName()));
+                ruleContext.getWorkspaceName(),
+                ruleContext
+                    .getConfiguration()
+                    .getOptions()
+                    .get(CoreOptions.class)
+                    .compactRepoMapping));
     return repoMappingManifest;
   }
 

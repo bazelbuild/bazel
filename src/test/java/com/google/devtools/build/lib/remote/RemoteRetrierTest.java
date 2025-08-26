@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.Retrier.Sleeper;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -99,7 +100,9 @@ public class RemoteRetrierTest {
     options.remoteMaxRetryAttempts = 0;
 
     RemoteRetrier retrier =
-        Mockito.spy(new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS));
+        Mockito.spy(
+            new RemoteRetrier(
+                options, (e) -> Result.TRANSIENT_FAILURE, retryService, Retrier.ALLOW_ALL_CALLS));
     when(fooMock.foo())
         .thenReturn("bla")
         .thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
@@ -116,7 +119,7 @@ public class RemoteRetrierTest {
         Mockito.spy(
             new RemoteRetrier(
                 s,
-                (e) -> false,
+                (e) -> Result.PERMANENT_FAILURE,
                 retryService,
                 Retrier.ALLOW_ALL_CALLS,
                 Mockito.mock(Sleeper.class)));
@@ -132,7 +135,12 @@ public class RemoteRetrierTest {
     Sleeper sleeper = Mockito.mock(Sleeper.class);
     RemoteRetrier retrier =
         Mockito.spy(
-            new RemoteRetrier(s, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS, sleeper));
+            new RemoteRetrier(
+                s,
+                (e) -> Result.TRANSIENT_FAILURE,
+                retryService,
+                Retrier.ALLOW_ALL_CALLS,
+                sleeper));
 
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
     assertThrows(StatusRuntimeException.class, () -> retrier.execute(fooMock::foo));
@@ -149,7 +157,8 @@ public class RemoteRetrierTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteMaxRetryAttempts = 0;
     RemoteRetrier retrier =
-        new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+        new RemoteRetrier(
+            options, (e) -> Result.TRANSIENT_FAILURE, retryService, Retrier.ALLOW_ALL_CALLS);
     InterruptedException expected =
         assertThrows(
             InterruptedException.class,

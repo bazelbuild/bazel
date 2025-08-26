@@ -17,12 +17,39 @@ load(":common/cc/cc_helper_internal.bzl", "is_shared_library", "is_versioned_sha
 
 cc_internal = _builtins.internal.cc_internal
 
+# Types of LibraryToLinkValues
+_TYPE = struct(
+    STATIC_LIBRARY = "static_library",
+    DYNAMIC_LIBRARY = "dynamic_library",
+    INTERFACE_LIBRARY = "interface_library",
+    OBJECT_FILE = "object_file",
+    OBJECT_FILE_GROUP = "object_file_group",
+    VERSIONED_DYNAMIC_LIBRARY = "versioned_dynamic_library",
+)
+
+# Structures exposed to cc_toolchain configuration, representing LibraryToLinkValues.
+_NamedLibraryInfo = provider(
+    """
+    NamedLibraryInfo represents following types of libraries: "static_library", "dynamic_library",
+    "interface_library", and "object_file".
+    """,
+    fields = ["type", "name", "is_whole_archive"],
+)
+_ObjectFileGroupInfo = provider(
+    """ObjectFileGroupInfo. The type is always "object_file_group".""",
+    fields = ["type", "object_files", "is_whole_archive"],
+)
+_VersionedLibraryInfo = provider(
+    """VersionedLibraryInfo. The type is always "versioned_dynamic_library".""",
+    fields = ["type", "name", "path", "is_whole_archive"],
+)
+
 def add_object_files_to_link(object_files, libraries_to_link_values):
     """Adds object files to libraries_to_link_values.
 
-    Object files are repacked into two flavours of LibraryToLinkValues:
-        - for_object_file
-        - for_object_file_group (handling tree artifacts)
+    Object files are repacked into two types of LibraryToLinkValues:
+        - "object_file"
+        - "object_file_group" (handling tree artifacts)
 
     Args:
         object_files: (list[File]) Object files (.o, .pic.o)
@@ -31,11 +58,19 @@ def add_object_files_to_link(object_files, libraries_to_link_values):
     for object_file in object_files:
         if object_file.is_directory:
             libraries_to_link_values.append(
-                cc_internal.for_object_file_group([object_file], False),
+                _ObjectFileGroupInfo(
+                    type = _TYPE.OBJECT_FILE_GROUP,
+                    object_files = [object_file],
+                    is_whole_archive = False,
+                ),
             )
         else:
             libraries_to_link_values.append(
-                cc_internal.for_object_file(object_file.path, False),
+                _NamedLibraryInfo(
+                    type = _TYPE.OBJECT_FILE,
+                    name = object_file.path,
+                    is_whole_archive = False,
+                ),
             )
 
 def add_libraries_to_link(
@@ -59,11 +94,11 @@ def add_libraries_to_link(
     Static library use `prefer_pic_libs` for selection.
 
     When start-end library is used, static libraries are unpacked into following
-    flavours of LibraryToLinkValues:
-    - for_object_file
-    - for_object_file_group
+    types of LibraryToLinkValues:
+    - "object_file"
+    - "object_file_group"
 
-    When start-end library isn't used, static libraries are converted to for_static_library
+    When start-end library isn't used, static libraries are converted to "static_library"
     LibraryToLinkValue.
 
     Either whole library or library's object files are expanded and added to
@@ -72,11 +107,11 @@ def add_libraries_to_link(
     When library is expanded, object files are processed for LTO.
     See also `process_objects_for_lto`
 
-    For dynamic libraries one of three flavours of LibraryToLinkValue are appended
+    For dynamic libraries one of three types of LibraryToLinkValue are appended
     to libraries_to_link_values:
-    - for_dynamic_library
-    - for_versioned_dynamic_library
-    - for_interface_library
+    - "dynamic_library"
+    - "versioned_dynamic_library"
+    - "interface_library"
 
     Args:
         libraries: (list[LibraryToLink]) Libraries to Link (all of them).
@@ -155,19 +190,19 @@ def _add_static_library_to_link(
         expanded_linker_inputs,
         libraries_to_link_values):
     # input.disable_whole_archive should only be true for libstdc++/libc++ etc.
-    input_is_whole_archive = not library.disable_whole_archive() and (
+    input_is_whole_archive = not library._disable_whole_archive and (
         library.alwayslink or need_whole_archive
     )
 
     pic = (prefer_pic_libs and library.pic_static_library != None) or \
           library.static_library == None
     library_file = library.pic_static_library if pic else library.static_library
-    objects = library.pic_objects_private() if pic else library.objects_private()
+    objects = library.pic_objects if pic else library.objects
 
     # start-lib/end-lib library: adds its input object files.
     # TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
     # linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8
-    if use_start_end_lib and (objects != None):
+    if use_start_end_lib and library._contains_objects:
         # If we had any LTO artifacts, lto_map whould be non-null. In that case,
         # we should have created a thinlto_param_file which the LTO indexing
         # step will populate with the exec paths that correspond to the LTO
@@ -190,22 +225,38 @@ def _add_static_library_to_link(
                     # wrapped with --start/--end-lib. There's currently no way to force these
                     # objects to be linked in.
                     libraries_to_link_values.append(
-                        cc_internal.for_object_file_group([object], is_whole_archive = True),
+                        _ObjectFileGroupInfo(
+                            type = _TYPE.OBJECT_FILE_GROUP,
+                            object_files = [object],
+                            is_whole_archive = True,
+                        ),
                     )
                 else:
                     # TODO(b/78189629): These each need to be their own LibraryToLinkValue so
                     # they're not wrapped in --start/--end-lib (which lets the linker leave out
                     # objects with unreferenced code).
                     libraries_to_link_values.append(
-                        cc_internal.for_object_file(object.path, is_whole_archive = True),
+                        _NamedLibraryInfo(
+                            type = _TYPE.OBJECT_FILE,
+                            name = object.path,
+                            is_whole_archive = True,
+                        ),
                     )
         elif objects:
             libraries_to_link_values.append(
-                cc_internal.for_object_file_group(objects, is_whole_archive = False),
+                _ObjectFileGroupInfo(
+                    type = _TYPE.OBJECT_FILE_GROUP,
+                    object_files = objects,
+                    is_whole_archive = False,
+                ),
             )
     else:
         libraries_to_link_values.append(
-            cc_internal.for_static_library(library_file.path, input_is_whole_archive),
+            _NamedLibraryInfo(
+                type = _TYPE.STATIC_LIBRARY,
+                name = library_file.path,
+                is_whole_archive = input_is_whole_archive,
+            ),
         )
         expanded_linker_inputs.append(library_file)
 
@@ -241,10 +292,21 @@ def _add_dynamic_library_to_link(
     if shared_library and has_compatible_name:
         lib_name = name.removeprefix("lib").removesuffix(".so").removesuffix(".dylib") \
             .removesuffix(".dll")
-        libraries_to_link_values.append(cc_internal.for_dynamic_library(lib_name))
+        libraries_to_link_values.append(
+            _NamedLibraryInfo(
+                type = _TYPE.DYNAMIC_LIBRARY,
+                name = lib_name,
+                is_whole_archive = False,
+            ),
+        )
     elif shared_library or is_versioned_shared_library(input_file):
         libraries_to_link_values.append(
-            cc_internal.for_versioned_dynamic_library(name, input_file.path),
+            _VersionedLibraryInfo(
+                type = _TYPE.VERSIONED_DYNAMIC_LIBRARY,
+                name = name,
+                path = input_file.path,
+                is_whole_archive = False,
+            ),
         )
     else:
         # Interface shared objects have a non-standard extension
@@ -252,7 +314,11 @@ def _add_dynamic_library_to_link(
         # filename directly rather than a -l option.  Since the
         #  library has an SONAME attribute, this will work fine.
         libraries_to_link_values.append(
-            cc_internal.for_interface_library(input_file.path),
+            _NamedLibraryInfo(
+                type = _TYPE.INTERFACE_LIBRARY,
+                name = input_file.path,
+                is_whole_archive = False,
+            ),
         )
 
 def process_objects_for_lto(

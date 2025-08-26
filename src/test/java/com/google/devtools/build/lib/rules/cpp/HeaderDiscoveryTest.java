@@ -46,7 +46,7 @@ public final class HeaderDiscoveryTest {
   private final Path execRoot = fs.getPath("/execroot");
   private final Path derivedRoot = execRoot.getChild(DERIVED_SEGMENT);
   private final ArtifactRoot artifactRoot =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, DERIVED_SEGMENT);
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, DERIVED_SEGMENT);
 
   @Test
   public void errorsWhenMissingHeaders() {

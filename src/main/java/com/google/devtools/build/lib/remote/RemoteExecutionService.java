@@ -66,6 +66,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -82,6 +83,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -183,6 +185,7 @@ public class RemoteExecutionService {
   private final String commandId;
   private final DigestUtil digestUtil;
   private final RemoteOptions remoteOptions;
+  private final ExecutionOptions executionOptions;
   @Nullable private final CombinedCache combinedCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final TempPathGenerator tempPathGenerator;
@@ -214,6 +217,7 @@ public class RemoteExecutionService {
       String commandId,
       DigestUtil digestUtil,
       RemoteOptions remoteOptions,
+      ExecutionOptions executionOptions,
       @Nullable CombinedCache combinedCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
@@ -229,6 +233,7 @@ public class RemoteExecutionService {
     this.commandId = commandId;
     this.digestUtil = digestUtil;
     this.remoteOptions = remoteOptions;
+    this.executionOptions = executionOptions;
     this.combinedCache = combinedCache;
     this.remoteExecutor = remoteExecutor;
 
@@ -1012,13 +1017,20 @@ public class RemoteExecutionService {
               "Failed creating directory and parents for %s",
               symlink.path())
           .createDirectoryAndParents();
-      // If a directory output is being materialized as a symlink, we must first delete the
-      // preexisting empty directory.
-      if (symlink.path().exists(Symlinks.NOFOLLOW)
-          && symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+      // If a directory output is being materialized as a symlink, creating the symlink fails as we
+      // must first delete the preexisting empty directory. Since this is rare (and in the future
+      // BwoB may no longer eagerly create these directories), we don't delete the directory
+      // beforehand.
+      try {
+        symlink.path().createSymbolicLink(symlink.target());
+      } catch (IOException e) {
+        if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+          throw e;
+        }
+        // Retry after deleting the directory.
         symlink.path().delete();
+        symlink.path().createSymbolicLink(symlink.target());
       }
-      symlink.path().createSymbolicLink(symlink.target());
     }
   }
 
@@ -1334,7 +1346,7 @@ public class RemoteExecutionService {
 
       var execPath = file.path.relativeTo(execRoot);
       var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
-      if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
+      if (!isInMemoryOutputFile && shouldDownload(result, execPath, /* treeRootExecPath= */ null)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         downloadsBuilder.add(
@@ -1380,28 +1392,28 @@ public class RemoteExecutionService {
     }
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      PathFragment treeRootExecPath = entry.getKey().relativeTo(execRoot);
+
       for (FileMetadata file : entry.getValue().files()) {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
 
-        if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+        if (shouldDownload(result, file.path.relativeTo(execRoot), treeRootExecPath)) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           downloadsBuilder.add(
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
+        } else if (hasBazelOutputService) {
+          downloadsBuilder.add(immediateFuture(file));
         } else {
-          if (hasBazelOutputService) {
-            downloadsBuilder.add(immediateFuture(file));
-          } else {
-            checkNotNull(remoteActionFileSystem)
-                .injectRemoteFile(
-                    file.path().asFragment(),
-                    DigestUtil.toBinaryDigest(file.digest()),
-                    file.digest().getSizeBytes(),
-                    expirationTime);
-          }
+          checkNotNull(remoteActionFileSystem)
+              .injectRemoteFile(
+                  file.path().asFragment(),
+                  DigestUtil.toBinaryDigest(file.digest()),
+                  file.digest().getSizeBytes(),
+                  expirationTime);
         }
       }
     }
@@ -1759,7 +1771,8 @@ public class RemoteExecutionService {
     return previousSpawnResult;
   }
 
-  private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
+  private boolean shouldDownload(
+      RemoteActionResult result, PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
     if (outputService instanceof BazelOutputService) {
       return false;
     }
@@ -1769,7 +1782,7 @@ public class RemoteExecutionService {
     if (result.getExitCode() != 0) {
       return true;
     }
-    return remoteOutputChecker.shouldDownloadOutput(execPath);
+    return remoteOutputChecker.shouldDownloadOutput(execPath, treeRootExecPath);
   }
 
   private static String prettyPrint(ActionInput actionInput) {
@@ -2125,6 +2138,20 @@ public class RemoteExecutionService {
 
     if (remoteExecutor != null) {
       remoteExecutor.close();
+    }
+  }
+
+  /**
+   * Whether parameter files should be written locally, even when using remote execution or caching.
+   */
+  public void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
+    if (!executionOptions.shouldMaterializeParamFiles()) {
+      return;
+    }
+    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
+      if (actionInput instanceof CommandLines.ParamFileActionInput paramFileActionInput) {
+        paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
+      }
     }
   }
 

@@ -323,10 +323,6 @@ public class RuleContext extends TargetContext
     return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
 
-  public ArtifactRoot getCoverageMetadataDirectory() {
-    return getConfiguration().getCoverageMetadataDirectory(getLabel().getRepository());
-  }
-
   public ArtifactRoot getTestLogsDirectory() {
     return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
   }
@@ -384,7 +380,7 @@ public class RuleContext extends TargetContext
 
   /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
-    return rule.getPackageDeclarations().getWorkspaceName();
+    return rule.getPackageMetadata().workspaceName();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
@@ -1269,6 +1265,15 @@ public class RuleContext extends TargetContext
     return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 
+  @Nullable
+  public PlatformInfo getExecutionPlatformForToolchainType(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext = getToolchainContextForToolchainType(toolchainType);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
+  }
+
   /**
    * For the specified attribute "attributeName" (which must be of type list(label)), resolve all
    * the labels into ConfiguredTargets (for the configuration appropriate to the attribute) and
@@ -1440,6 +1445,17 @@ public class RuleContext extends TargetContext
     return getExecutionPlatform()
         .constraints()
         .hasConstraintValue(OS_TO_CONSTRAINTS.get(OS.WINDOWS));
+  }
+
+  /** Returns the OS of the execution platform. */
+  public OS getExecutionPlatformOs() {
+    for (var osToConstraint : OS_TO_CONSTRAINTS.entrySet()) {
+      if (getExecutionPlatform().constraints().hasConstraintValue(osToConstraint.getValue())) {
+        return osToConstraint.getKey();
+      }
+    }
+    // Fall back to assuming exec OS == host OS.
+    return OS.getCurrent();
   }
 
   /**

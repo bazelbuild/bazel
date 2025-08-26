@@ -75,7 +75,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     fakeManifest.put(buildFilePath.relativeTo(rootDirectory), buildFile);
     fakeManifest.put(pythonSourcePath.relativeTo(rootDirectory), pythonSourceFile);
     ArtifactRoot outputDir =
-        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "blaze-output");
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "blaze-output");
     outputDir.getRoot().asPath().createDirectoryAndParents();
     manifestOutputFile =
         ActionsTestUtil.createArtifact(

@@ -225,6 +225,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                     .setConfiguration(targetAndConfiguration.getConfiguration())
                     .build(),
                 /* aspects= */ ImmutableList.of(),
+                /* loadExecAspectsKey= */ null,
                 stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
                 starlarkExecTransition.orElse(null),
                 env,

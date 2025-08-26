@@ -151,7 +151,8 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 optionsParser.getExplicitStarlarkOptions(
                     OriginalCommandLineEvent::commandLinePriority),
                 optionsParser.getStarlarkOptions(),
-                optionsParser.asListOfCanonicalOptions())
+                optionsParser.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
@@ -188,7 +189,8 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 optionsParser.getExplicitStarlarkOptions(
                     OriginalCommandLineEvent::commandLinePriority),
                 optionsParser.getStarlarkOptions(),
-                optionsParser.asListOfCanonicalOptions())
+                optionsParser.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
@@ -250,7 +252,8 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 optionsParser.getExplicitStarlarkOptions(
                     OriginalCommandLineEvent::commandLinePriority),
                 optionsParser.getStarlarkOptions(),
-                optionsParser.asListOfCanonicalOptions())
+                optionsParser.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 

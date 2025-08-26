@@ -1,0 +1,33 @@
+<p>List of <a href="${link build-ref#labels}">labels</a>; default is <code>[]</code></p>
+
+<p>A list of arbitrary labels which is exposed to <a href="${link aspects}">aspects</a> (in
+particular - aspects invoked by this rule's reverse dependencies), but isn't exposed to this rule's
+own implementation. Consult documentation for language-specific rule sets for details about what
+effect a particular aspect hint would have.</p>
+
+<p>You could think of an aspect hint as a richer alternative to a <a href="#common.tags">tag</a>:
+while a tag conveys only a boolean state (the tag is either present or absent in the
+<code>tags</code> list), an aspect hint can convey arbitrary structured information in its
+<a href="${link providers}">providers</a>.</p>
+
+<p>In practice, aspect hints are used for interoperability between different language-specific
+rule sets. For example, imagine you have a <code>mylang_binary</code> target which needs to depend
+on an <code>otherlang_library</code> target. The MyLang-specific logic needs some additional
+information about the OtherLang target in order to use it, but <code>otherlang_library</code>
+doesn't provide this information because it knows nothing about MyLang. One solution might be for
+the MyLang rule set to define a <code>mylang_hint</code> rule which can be used to encode that
+additional information; the user can add the hint to their <code>otherlang_library</code>'s
+<code>aspect_hints</code>, and <code>mylang_binary</code> can use an aspect to collect the
+additional information from a MyLang-specific provider in the <code>mylang_hint</code>.</p>
+
+<p>For a concrete example, see
+<a href="https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_interop_hint"><code>swift_interop_hint</code></a>
+and <a href="https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_overlay"><code>swift_overlay</code></a>
+in <code>rules_swift</code>.</p>
+
+<p>Best practices:</p>
+<ul>
+  <li>Targets listed in <code>aspect_hints</code> should be lightweight and minimal.</li>
+  <li>Language-specific logic should consider only aspect hints having providers relevant to that
+    language, and should ignore any other aspect hints.</li>
+</ul>

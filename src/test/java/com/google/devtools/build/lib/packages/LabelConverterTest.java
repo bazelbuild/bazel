@@ -35,8 +35,9 @@ public class LabelConverterTest {
     LabelConverter converter =
         new LabelConverter(
             basePackage,
-            RepositoryMapping.createAllowingFallback(
-                ImmutableMap.of("orig_repo", RepositoryName.create("new_repo"))));
+            RepositoryMapping.create(
+                ImmutableMap.of("orig_repo", RepositoryName.create("new_repo")),
+                RepositoryName.MAIN));
     assertThat(converter.convert("@orig_repo//foo:bar"))
         .isEqualTo(Label.parseCanonical("@new_repo//foo:bar"));
     assertThat(converter.convert("//foo:bar")).isEqualTo(Label.parseCanonical("@quux//foo:bar"));

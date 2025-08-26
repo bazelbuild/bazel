@@ -1480,6 +1480,8 @@ EOF
   assert_not_contains "actions" output
 
   bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
+  bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
@@ -1512,6 +1514,8 @@ EOF
 
   bazel clean
   bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
+  bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=textproto --skyframe_state ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
@@ -1538,6 +1542,8 @@ EOF
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
+  bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
   bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
@@ -1569,6 +1575,8 @@ EOF
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
+  bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
   bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \

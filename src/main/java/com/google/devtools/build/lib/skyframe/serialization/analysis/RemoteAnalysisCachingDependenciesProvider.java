@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -23,7 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Fr
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.protobuf.ByteString;
+import java.util.Set;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -33,7 +32,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   RemoteAnalysisCacheMode mode();
 
-  default boolean isRemoteFetchEnabled() {
+  default boolean isRetrievalEnabled() {
     return mode() == RemoteAnalysisCacheMode.DOWNLOAD;
   }
 
@@ -54,12 +53,12 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>Calling this can be an expensive process as the codec registry will be initialized.
    */
-  ObjectCodecs getObjectCodecs();
+  ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
-  RequestBatcher<ByteString, ByteString> getAnalysisCacheClient();
+  RemoteAnalysisCacheClient getAnalysisCacheClient();
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
@@ -72,7 +71,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>May call the remote analysis cache to get the set of keys to invalidate.
    */
-  ImmutableSet<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingState remoteAnalysisCachingState)
+  Set<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingServerState remoteAnalysisCachingState)
       throws InterruptedException;
 
   /** A stub dependencies provider for when analysis caching is disabled. */
@@ -113,7 +112,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public RequestBatcher<ByteString, ByteString> getAnalysisCacheClient() {
+    public RemoteAnalysisCacheClient getAnalysisCacheClient() {
       throw new UnsupportedOperationException();
     }
 
@@ -134,7 +133,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-        RemoteAnalysisCachingState remoteAnalysisCachingState) {
+        RemoteAnalysisCachingServerState remoteAnalysisCachingState) {
       throw new UnsupportedOperationException();
     }
   }

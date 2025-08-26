@@ -41,6 +41,24 @@ tasks:
     include_json_profile:
       - build
       - test
+  rockylinux8_arm64:
+    shell_commands:
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--config=ci-linux"
+    build_targets:
+      - "//:bazel-distfile.zip"
+      - "//scripts/packages/debian:bazel-debian.deb"
+      - "//scripts/packages:with-jdk/install.sh"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
+      - "//src/main/java/..."
+      - "//src/tools/diskcache/..."
+      - "//src/tools/execlog/..."
+    include_json_profile:
+      - build
   fedora39:
     shell_commands:
       - rm -rf $HOME/bazeltest
@@ -324,7 +342,6 @@ tasks:
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
       - "-//src/test/shell/bazel:starlark_repository_test"
-      - "-//src/test/shell/bazel:verify_workspace"
     include_json_profile:
       - build
       - test

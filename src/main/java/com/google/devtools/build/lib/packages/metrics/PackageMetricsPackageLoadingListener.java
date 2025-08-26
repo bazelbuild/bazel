@@ -43,7 +43,7 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
   @Override
   public synchronized void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+      Package pkg, StarlarkSemantics starlarkSemantics, Metrics metrics) {
     if (recorder == null) {
       // Micro-optimization - no need to track.
       return;
@@ -51,7 +51,8 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
     PackageLoadMetrics.Builder builder =
         PackageLoadMetrics.newBuilder()
-            .setLoadDuration(Durations.fromNanos(loadTimeNanos))
+            .setLoadDuration(Durations.fromNanos(metrics.loadTimeNanos()))
+            .setGlobFilesystemOperationCost(metrics.globFilesystemOperationCost())
             .setComputationSteps(pkg.getComputationSteps())
             .setNumTargets(pkg.getTargets().size())
             .setNumTransitiveLoads(pkg.getDeclarations().countTransitivelyLoadedStarlarkFiles());

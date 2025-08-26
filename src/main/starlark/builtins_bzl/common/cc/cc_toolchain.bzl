@@ -89,7 +89,6 @@ def _attributes(ctx):
         supports_param_files = ctx.attr.supports_param_files,
         runtime_solib_dir_base = "_solib__" + cc_internal.escape_label(label = ctx.label),
         cc_toolchain_config_info = _provider(ctx.attr.toolchain_config, CcToolchainConfigInfo),
-        licenses_provider = cc_internal.licenses(ctx = ctx),
         static_runtime_lib = ctx.attr.static_runtime_lib,
         dynamic_runtime_lib = ctx.attr.dynamic_runtime_lib,
         supports_header_parsing = ctx.attr.supports_header_parsing,
@@ -100,7 +99,7 @@ def _attributes(ctx):
         link_dynamic_library_tool = ctx.file._link_dynamic_library_tool,
         grep_includes = grep_includes,
         aggregate_ddi = _single_file(ctx, "_aggregate_ddi"),
-        generate_modmap = _single_file(ctx, "_generate_modmap"),
+        generate_modmap = ctx.attr.generate_modmap[DefaultInfo].files_to_run if getattr(ctx.attr, "generate_modmap", None) else None,
         module_map = ctx.attr.module_map,
         as_files = _files(ctx, "as_files"),
         ar_files = _files(ctx, "ar_files"),
@@ -128,8 +127,6 @@ def _attributes(ctx):
 def _cc_toolchain_impl(ctx):
     attributes = _attributes(ctx)
     providers = []
-    if attributes.licenses_provider != None:
-        providers.append(attributes.licenses_provider)
 
     cc_toolchain = get_cc_toolchain_provider(ctx, attributes)
     if cc_toolchain == None:

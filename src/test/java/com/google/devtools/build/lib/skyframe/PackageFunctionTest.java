@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,7 +38,6 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
@@ -57,17 +59,16 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.GlobsValue.GlobRequest;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -95,11 +96,9 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -142,24 +141,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-      BuildLanguageOptions buildLanguageOptions, Path... roots) {
+      BuildLanguageOptions buildLanguageOptions, Path... roots)
+      throws InterruptedException, AbruptExitException {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.packagePath = stream(roots).map(Path::getPathString).collect(toImmutableList());
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
-    getSkyframeExecutor()
-        .preparePackageLoading(
-            new PathPackageLocator(
-                outputBase,
-                Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
-                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageOptions,
-            buildLanguageOptions,
-            UUID.randomUUID(),
-            ImmutableMap.of(),
-            QuiescingExecutorsImpl.forTesting(),
-            new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.of());
+    setPackageAndBuildLanguageOptions(packageOptions, buildLanguageOptions);
   }
 
   @Override
@@ -191,10 +180,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
       throws InterruptedException {
     SkyKey skyKey = getSkyKey(pkg);
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     EvaluationResult<PackageoidValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, skyKey, /* keepGoing= */ false, reporter);
@@ -213,13 +198,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     return value;
   }
 
-  private static PackagePieceIdentifier.ForBuildFile getPackagePieceId(String pkg) {
-    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(pkg);
-    return new PackagePieceIdentifier.ForBuildFile(pkgId, Label.createUnvalidated(pkgId, "BUILD"));
-  }
-
   private SkyKey getSkyKey(String pkg) {
-    return computePackagePiece ? getPackagePieceId(pkg) : PackageIdentifier.createInMainRepo(pkg);
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(pkg);
+    return computePackagePiece ? new PackagePieceIdentifier.ForBuildFile(pkgId) : pkgId;
   }
 
   @CanIgnoreReturnValue
@@ -303,13 +284,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
             inv -> {
               Package pkg = inv.getArgument(0, Package.class);
               if (pkg.getName().equals("pkg")) {
-                inv.getArgument(1, ExtendedEventHandler.class).handle(Event.warn("warning event"));
+                inv.getArgument(2, ExtendedEventHandler.class).handle(Event.warn("warning event"));
                 throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
               }
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(Metrics.class), any(ExtendedEventHandler.class));
 
     invalidatePackages();
 
@@ -340,7 +321,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), getSkyKey("pkg"), /* keepGoing= */ false, reporter);
 
-    verify(mockPackageValidator).validate(packageCaptor.capture(), any(ExtendedEventHandler.class));
+    verify(mockPackageValidator)
+        .validate(packageCaptor.capture(), any(Metrics.class), any(ExtendedEventHandler.class));
     List<Package> packages = packageCaptor.getAllValues();
     assertThat(packages.get(0).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
   }
@@ -367,7 +349,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(Metrics.class), any(ExtendedEventHandler.class));
 
     SkyKey skyKey = getSkyKey("pkg");
     EvaluationResult<PackageoidValue> result1 =
@@ -388,7 +370,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testPropagatesFilesystemInconsistencies() throws Exception {
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
-    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPackagePathEntries().getFirst();
     Path fooBuildFile = scratch.file("foo/BUILD");
     Path fooDir = fooBuildFile.getParentDirectory();
 
@@ -458,7 +440,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testPropagatesFilesystemInconsistencies_globbing() throws Exception {
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
-    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPackagePathEntries().getFirst();
     scratch.file(
         "foo/BUILD",
         """
@@ -1723,7 +1705,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testGlobbingSkyframeDependencyStructure() throws Exception {
     reporter.removeHandler(failFastHandler);
 
-    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPackagePathEntries().getFirst();
 
     Path fooBuildPath =
         scratch.file("foo/BUILD", "glob(['dir/*.sh'])", "subpackages(include = ['subpkg/**'])");

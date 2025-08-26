@@ -188,6 +188,16 @@ public class PackageOptions extends OptionsBase {
               + "previous run's cache.")
   public boolean checkOutputFiles;
 
+  @Option(
+      name = "experimental_check_external_other_files",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Check for modifications made to the non-output, non-repo external files, e.g. host"
+              + " files.")
+  public boolean checkExternalOtherFiles;
+
   /** A converter from strings containing comma-separated names of packages to lists of strings. */
   public static class CommaSeparatedPackageNameListConverter
       extends Converter.Contextless<List<PackageIdentifier>> {

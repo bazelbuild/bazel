@@ -22,7 +22,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -32,8 +34,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
@@ -177,7 +177,7 @@ final class RegularRunnableExtension implements RunnableExtension {
     }
 
     ImmutableMap<String, Optional<String>> envVars =
-        RepositoryFunction.getEnvVarValues(env, ImmutableSet.copyOf(extension.envVariables()));
+        RepositoryUtils.getEnvVarValues(env, ImmutableSet.copyOf(extension.envVariables()));
     if (envVars == null) {
       return null;
     }
@@ -259,7 +259,6 @@ final class RegularRunnableExtension implements RunnableExtension {
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
             usagesValue.getRepoOverrides(),
             mainRepositoryMapping,
-            directories,
             env.getListener());
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
     var repoMappingRecorder = new Label.RepoMappingRecorder();
@@ -286,7 +285,7 @@ final class RegularRunnableExtension implements RunnableExtension {
             Starlark.positionalOnlyCall(thread, extension.implementation(), moduleContext);
         if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
           throw ExternalDepsException.withMessage(
-              ExternalDeps.Code.BAD_MODULE,
+              ExternalDeps.Code.EXTENSION_EVAL_ERROR,
               "expected module extension %s to return None or extension_metadata, got %s",
               extensionId,
               Starlark.type(returnValue));
@@ -306,13 +305,18 @@ final class RegularRunnableExtension implements RunnableExtension {
           moduleContext.getRecordedFileInputs(),
           moduleContext.getRecordedDirentsInputs(),
           moduleContext.getRecordedEnvVarInputs(),
-          threadContext.createRepos(starlarkSemantics),
+          threadContext.createRepos(),
           moduleExtensionMetadata,
           repoMappingRecorder.recordedEntries());
     } catch (EvalException e) {
-      env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
+      if (!(e.getCause() instanceof ExternalDepsException)) {
+        // ExternalDepsException events should already have been reported.
+        env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
+      }
       throw ExternalDepsException.withMessage(
-          ExternalDeps.Code.BAD_MODULE, "error evaluating module extension %s", extensionId);
+          ExternalDeps.Code.EXTENSION_EVAL_ERROR,
+          "error evaluating module extension %s",
+          extensionId);
     } catch (IOException e) {
       throw ExternalDepsException.withCauseAndMessage(
           ExternalDeps.Code.EXTERNAL_DEPS_UNKNOWN,

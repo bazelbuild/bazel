@@ -91,8 +91,9 @@ public final class StringUnsafe {
       // Truncation is ASCII only and thus doesn't change the encoding.
       String truncatedString = Ascii.truncate(obj, 1000, "...");
       throw new IllegalArgumentException(
-          "Expected internal string with Latin-1 coder, got: %s (%s)"
-              .formatted(truncatedString, Arrays.toString(getByteArray(truncatedString))));
+          String.format(
+              "Expected internal string with Latin-1 coder, got: %s (%s)",
+              truncatedString, Arrays.toString(getByteArray(truncatedString))));
     }
     return getByteArray(obj);
   }

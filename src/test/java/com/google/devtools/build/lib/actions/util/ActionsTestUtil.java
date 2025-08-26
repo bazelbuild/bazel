@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -173,6 +174,18 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
     return createContext(new DummyExecutor(), eventHandler);
+  }
+
+  public static ActionExecutionContext createContextForFileWriteAction(
+      ExtendedEventHandler eventHandler) {
+    return createContext(
+        new DummyExecutor(),
+        eventHandler,
+        new ActionKeyContext(),
+        null,
+        new FakeActionInputFileCache(),
+        null,
+        ImmutableMap.of());
   }
 
   public static ActionExecutionContext createContext(
@@ -306,7 +319,7 @@ public final class ActionsTestUtil {
   }
 
   public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
-    return ArtifactRoot.asDerivedRoot(root, RootType.Output, execPath.relativeTo(root));
+    return ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, execPath.relativeTo(root));
   }
 
   /**
@@ -363,7 +376,7 @@ public final class ActionsTestUtil {
       };
 
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
-      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /*actionIndex=*/ 0);
+      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /* actionIndex= */ 0);
 
   @SerializationConstant
   static final InMemoryFileSystem DUMMY_ARTIFACT_FILE_SYSTEM =
@@ -473,9 +486,7 @@ public final class ActionsTestUtil {
     }
 
     public MockAction(
-        Iterable<Artifact> inputs,
-        ImmutableSet<Artifact> outputs,
-        boolean isShareable) {
+        Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs, boolean isShareable) {
       super(
           NULL_ACTION_OWNER,
           NestedSetBuilder.<Artifact>stableOrder().addAll(inputs).build(),

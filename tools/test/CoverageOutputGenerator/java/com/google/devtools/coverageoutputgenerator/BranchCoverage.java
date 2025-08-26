@@ -15,7 +15,6 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.base.Verify.verify;
-import static java.lang.Math.max;
 
 import com.google.auto.value.AutoValue;
 
@@ -42,57 +41,22 @@ import com.google.auto.value.AutoValue;
  * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
  *
  * where the block and branch numbers are internal identifiers, and taken is either "-" if the
- * branch condition was never evaluated or a number indicating how often the branch was taken(which
+ * branch condition was never evaluated or a number indicating how often the branch was taken (which
  * may be 0).
  */
 @AutoValue
 abstract class BranchCoverage {
 
   /**
-   * Create a BranchCoverage object corresponding to a BA line
+   * Creates an instance of a BranchCoverage.
    *
-   * <pre>BA:[line_number],[taken]</pre>
-   *
-   * @param lineNumber line number the branch comes from
-   * @param value the taken value, 0, 1, 2
-   * @return corresponding BranchCoverage
+   * @param lineNumber The line number the branch is on
+   * @param blockNumber GCC internal ID - often "0"
+   * @param branchNumber ID for the specific branch at this line
+   * @param evaluated Whether the branches were ever evaluated
+   * @param nrOfExecutions How many times this particular branch was taken
    */
-  static BranchCoverage create(int lineNumber, long value) {
-    verify(0 <= value && value < 3, "Taken value must be one of {0, 1, 2}");
-    return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", value > 0, value);
-  }
-
-  /**
-   * Create a BranchCoverage object corresponding to a BRDA line with a dummy block number
-   *
-   * <pre>BRDA:[line_number],[block_number=0],[branch_number],[taken]</pre>
-   *
-   * @param lineNumber line number the branch comes from
-   * @param branchNumber id for the specific branch at this line
-   * @param evaluated if this branch was evaluated (taken != "-")
-   * @param nrOfExecutions how many times the branch was taken (the value of taken if taken != "-")
-   * @return corresponding BranchCoverage
-   */
-  static BranchCoverage createWithBranch(
-      int lineNumber, String branchNumber, boolean evaluated, long nrOfExecutions) {
-    return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "0", branchNumber, evaluated, nrOfExecutions);
-  }
-
-  /**
-   * Create a BranchCoverage object corresponding to a BRDA line
-   *
-   * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
-   *
-   * @param lineNumber line number the branch comes from
-   * @param blockNumber GCC internal block id
-   * @param branchNumber id for the specific branch at this line
-   * @param evaluated if this branch was evaluated (taken != "-")
-   * @param nrOfExecutions how many times the branch was taken (the value of taken if taken != "-")
-   * @return corresponding BranchCoverage
-   */
-  static BranchCoverage createWithBlockAndBranch(
+  static BranchCoverage create(
       int lineNumber,
       String blockNumber,
       String branchNumber,
@@ -112,14 +76,8 @@ abstract class BranchCoverage {
     verify(first.lineNumber() == second.lineNumber(), "Branch line numbers must match");
     verify(first.blockNumber().equals(second.blockNumber()), "Branch block numbers must match");
     verify(first.branchNumber().equals(second.branchNumber()), "Branch branch numbers must match");
-    return first.blockNumber().isEmpty()
-        ? mergeWithNoBlockAndBranch(first, second)
-        : mergeWithBlockAndBranch(first, second);
-  }
 
-  private static BranchCoverage mergeWithBlockAndBranch(
-      BranchCoverage first, BranchCoverage second) {
-    return createWithBlockAndBranch(
+    return create(
         first.lineNumber(),
         first.blockNumber(),
         first.branchNumber(),
@@ -127,18 +85,17 @@ abstract class BranchCoverage {
         first.nrOfExecutions() + second.nrOfExecutions());
   }
 
-  private static BranchCoverage mergeWithNoBlockAndBranch(
-      BranchCoverage first, BranchCoverage second) {
-    long value = max(first.nrOfExecutions(), second.nrOfExecutions());
-    verify(0 <= value && value < 3, "Taken value must be one of {0, 1, 2}");
-    return create(first.lineNumber(), value);
-  }
-
   abstract int lineNumber();
 
-  abstract String blockNumber(); // internal gcc ID for the branch
+  /**
+   * Internal GCC ID for the branch.
+   *
+   * <p>Empty for BA lines.
+   */
+  abstract String blockNumber();
 
-  abstract String branchNumber(); // internal gcc ID for the branch
+  /** Either the internal GCC ID for the branch or an increasing counter for BA lines. */
+  abstract String branchNumber();
 
   abstract boolean evaluated();
 

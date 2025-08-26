@@ -14,32 +14,19 @@
 
 package com.google.devtools.build.lib.events;
 
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.regex.Pattern;
 
-/**
- * An output filter for warnings.
- */
+/** An output filter for warnings. */
 public interface OutputFilter {
 
   /** An output filter that matches everything. */
-  public static final OutputFilter OUTPUT_EVERYTHING = new OutputFilter() {
-    @Override
-    public boolean showOutput(String tag) {
-      return true;
-    }
-  };
+  OutputFilter OUTPUT_EVERYTHING = tag -> true;
 
   /** An output filter that matches nothing. */
-  public static final OutputFilter OUTPUT_NOTHING = new OutputFilter() {
-    @Override
-    public boolean showOutput(String tag) {
-      return false;
-    }
-  };
+  OutputFilter OUTPUT_NOTHING = tag -> false;
 
-  /**
-   * Returns true iff the given tag matches the output filter.
-   */
+  /** Returns true iff the given tag matches the output filter. */
   boolean showOutput(String tag);
 
   /** An output filter using regular expression matching. */
@@ -62,7 +49,7 @@ public interface OutputFilter {
 
     @Override
     public boolean showOutput(String tag) {
-      return pattern.matcher(tag).find();
+      return pattern.matcher(StringEncoding.internalToUnicode(tag)).find();
     }
 
     @Override

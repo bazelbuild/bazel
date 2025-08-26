@@ -572,68 +572,43 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
     boolean isListOfProviders = true;
     for (Object o : obj) {
-      if (!isProvider(o)) {
+      if (!(o instanceof Provider)) {
         isListOfProviders = false;
         break;
       }
     }
     if (isListOfProviders) {
-      return ImmutableList.of(getStarlarkProviderIdentifiers(obj));
+      return ImmutableList.of(getStarlarkProviderIdentifiers(obj, argumentName));
     } else {
-      return getProvidersList(obj, argumentName);
+      @SuppressWarnings("unchecked") // safe
+      Sequence<Sequence<?>> listOfLists =
+          (Sequence) Sequence.cast(obj, Sequence.class, argumentName);
+      return getProvidersList(listOfLists, argumentName);
     }
   }
 
-  /**
-   * Returns true if {@code o} is a Starlark provider (either a declared provider or a legacy
-   * provider name.
-   */
-  static boolean isProvider(Object o) {
-    return o instanceof String || o instanceof Provider;
-  }
+  /** Converts Starlark identifiers of providers to their internal representations. */
+  static ImmutableSet<StarlarkProviderIdentifier> getStarlarkProviderIdentifiers(
+      Sequence<?> listArg, String argumentName) throws EvalException {
+    Sequence<Provider> list = Sequence.cast(listArg, Provider.class, argumentName);
 
-  /**
-   * Converts Starlark identifiers of providers (either a string or a provider value) to their
-   * internal representations.
-   */
-  static ImmutableSet<StarlarkProviderIdentifier> getStarlarkProviderIdentifiers(Sequence<?> list)
-      throws EvalException {
     ImmutableList.Builder<StarlarkProviderIdentifier> result = ImmutableList.builder();
-
-    for (Object obj : list) {
-      if (obj instanceof String string) {
-        result.add(StarlarkProviderIdentifier.forLegacy(string));
-      } else if (obj instanceof Provider constructor) {
-        if (!constructor.isExported()) {
-          throw Starlark.errorf(
-              "Providers should be top-level values in extension files that define them.");
-        }
-        result.add(StarlarkProviderIdentifier.forKey(constructor.getKey()));
+    for (Provider constructor : list) {
+      if (!constructor.isExported()) {
+        throw Starlark.errorf(
+            "Providers should be top-level values in extension files that define them.");
       }
+      result.add(StarlarkProviderIdentifier.forKey(constructor.getKey()));
     }
     return ImmutableSet.copyOf(result.build());
   }
 
   private static ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getProvidersList(
-      Sequence<?> starlarkList, String argumentName) throws EvalException {
+      Sequence<Sequence<?>> starlarkList, String argumentName) throws EvalException {
     ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>> providersList =
         ImmutableList.builder();
-    String errorMsg =
-        "Illegal argument: element in '%s' is of unexpected type. "
-            + "Either all elements should be providers, "
-            + "or all elements should be lists of providers, but got %s.";
-
-    for (Object o : starlarkList) {
-      if (!(o instanceof Sequence)) {
-        throw Starlark.errorf(errorMsg, argumentName, "an element of type " + Starlark.type(o));
-      }
-      for (Object value : (Sequence) o) {
-        if (!isProvider(value)) {
-          throw Starlark.errorf(
-              errorMsg, argumentName, "list with an element of type " + Starlark.type(value));
-        }
-      }
-      providersList.add(getStarlarkProviderIdentifiers((Sequence<?>) o));
+    for (Sequence<?> sublist : starlarkList) {
+      providersList.add(getStarlarkProviderIdentifiers(sublist, argumentName));
     }
     return providersList.build();
   }

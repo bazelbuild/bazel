@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -36,10 +38,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
-import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -57,29 +59,27 @@ public class RemoteOutputChecker implements OutputChecker {
     COVERAGE;
   }
 
-  private final Clock clock;
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
   private final ImmutableList<Predicate<String>> patternsToDownload;
   @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
 
-  private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
+  @Nullable private Clock clock;
+
+  private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
 
   public RemoteOutputChecker(
-      Clock clock,
       String commandName,
       RemoteOutputsMode outputsMode,
       ImmutableList<Predicate<String>> patternsToDownload) {
-    this(clock, commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
+    this(commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
   }
 
   public RemoteOutputChecker(
-      Clock clock,
       String commandName,
       RemoteOutputsMode outputsMode,
       ImmutableList<Predicate<String>> patternsToDownload,
       RemoteOutputChecker lastRemoteOutputChecker) {
-    this.clock = clock;
     this.commandMode =
         switch (commandName) {
           case "build" -> CommandMode.BUILD;
@@ -91,6 +91,11 @@ public class RemoteOutputChecker implements OutputChecker {
     this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
+  }
+
+  /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */
+  public void setCheckMetadataTtl(Clock clock) {
+    this.clock = clock;
   }
 
   // Skymeld-only.
@@ -243,11 +248,7 @@ public class RemoteOutputChecker implements OutputChecker {
   }
 
   public void addOutputToDownload(ActionInput file) {
-    if (file instanceof Artifact && ((Artifact) file).isTreeArtifact()) {
-      pathsToDownload.addPrefix(file.getExecPath());
-    } else {
-      pathsToDownload.add(file.getExecPath());
-    }
+    pathsToDownload.add(file);
   }
 
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
@@ -279,16 +280,28 @@ public class RemoteOutputChecker implements OutputChecker {
   @Override
   public boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {
     checkState(
-        !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
+        !(output instanceof Artifact artifact && artifact.isTreeArtifact()),
         "shouldDownloadOutput should not be called on a tree artifact");
-    return metadata.isRemote() && shouldDownloadOutput(output.getExecPath());
+    return metadata.isRemote()
+        && shouldDownloadOutput(
+            output.getExecPath(),
+            output instanceof TreeFileArtifact artifact
+                ? artifact.getParent().getExecPath()
+                : null);
   }
 
-  /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
-  public boolean shouldDownloadOutput(PathFragment execPath) {
+  /**
+   * Returns whether a remote {@link ActionInput} with the given path should be downloaded.
+   *
+   * @param treeRootExecPath the path of the tree artifact if the given {@link ActionInput} is
+   *     contained in one
+   */
+  public boolean shouldDownloadOutput(
+      PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
-        || matchesPattern(execPath);
+        || matchesPattern(execPath)
+        || (treeRootExecPath != null && matchesPattern(treeRootExecPath));
   }
 
   @Override
@@ -314,7 +327,20 @@ public class RemoteOutputChecker implements OutputChecker {
       return false;
     }
 
-    return metadata.isAlive(clock.now());
+    if (clock != null) {
+      return isAlive(metadata);
+    }
+
+    // The remote metadata may have passed its TTL, but we are requested to optimistically assume
+    // that it's still available remotely. If it isn't, build or action rewinding will take care
+    // of rerunning the actions needed to produce the file and also evict the stale metadata. This
+    // incurs roughly the same performance hit, but only when actually needed.
+    return true;
+  }
+
+  private boolean isAlive(FileArtifactValue metadata) {
+    var expirationTime = metadata.getExpirationTime();
+    return expirationTime == null || expirationTime.isAfter(clock.now());
   }
 
   public void maybeInvalidateSkyframeValues(MemoizingEvaluator memoizingEvaluator) {
@@ -332,6 +358,41 @@ public class RemoteOutputChecker implements OutputChecker {
             return functionName.equals(SkyFunctions.TARGET_COMPLETION)
                 || functionName.equals(SkyFunctions.ASPECT_COMPLETION);
           });
+    }
+  }
+
+  /**
+   * A specialized concurrent trie that stores paths of artifacts and allows checking whether a
+   * given path is contained in (in the case of a tree artifact) or exactly matches (in any other
+   * case) an artifact in the trie.
+   */
+  private static final class ConcurrentArtifactPathTrie {
+    // Invariant: no path in this set is a prefix of another path.
+    private final ConcurrentSkipListSet<PathFragment> paths = new ConcurrentSkipListSet<>();
+
+    /**
+     * Adds the given {@link ActionInput} to the trie.
+     *
+     * <p>The caller must ensure that no object's path passed to this method is a prefix of any
+     * previously added object's path. Bazel enforces this for non-aggregate artifacts. Callers must
+     * not pass in {@link TreeFileArtifact}s (which have exec paths that have their parent tree
+     * artifact's exec path as a prefix) or non-Artifact {@link ActionInput}s that violate this
+     * invariant.
+     */
+    void add(ActionInput input) {
+      checkArgument(
+          !(input instanceof TreeFileArtifact),
+          "TreeFileArtifacts should not be added to the trie: %s",
+          input);
+      paths.add(input.getExecPath());
+    }
+
+    /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
+    boolean contains(PathFragment execPath) {
+      // By the invariant of this set, if a prefix of execPath is present, it must sort right before
+      // it (or be equal to it).
+      var floorPath = paths.floor(execPath);
+      return floorPath != null && execPath.startsWith(floorPath);
     }
   }
 }

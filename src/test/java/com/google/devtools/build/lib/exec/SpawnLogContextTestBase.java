@@ -127,7 +127,6 @@ public abstract class SpawnLogContextTestBase {
         BuildConfigurationValue.createForTesting(
             defaultBuildOptions,
             "k8-fastbuild",
-            WORKSPACE_NAME,
             siblingRepositoryLayout,
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
@@ -149,6 +148,11 @@ public abstract class SpawnLogContextTestBase {
               @Override
               public ImmutableSet<String> getReservedActionMnemonics() {
                 return ImmutableSet.of();
+              }
+
+              @Override
+              public String getRunfilesPrefix() {
+                return WORKSPACE_NAME;
               }
             },
             new FragmentFactory());

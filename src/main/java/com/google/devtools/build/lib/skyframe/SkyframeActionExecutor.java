@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -54,6 +56,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
@@ -188,6 +191,7 @@ public final class SkyframeActionExecutor {
   private final MetadataConsumerForMetrics outputArtifactsFromActionCache;
   private final SyscallCache syscallCache;
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
+  private final ExistingActionLookupValuePeeker actionLookupValuePeeker;
   private Reporter reporter;
   private ImmutableMap<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
@@ -266,7 +270,8 @@ public final class SkyframeActionExecutor {
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
       SyscallCache syscallCache,
-      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
+      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory,
+      ExistingActionLookupValuePeeker actionLookupValuePeeker) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
@@ -274,6 +279,23 @@ public final class SkyframeActionExecutor {
     this.sourceRootSupplier = sourceRootSupplier;
     this.syscallCache = syscallCache;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
+    this.actionLookupValuePeeker = actionLookupValuePeeker;
+  }
+
+  /**
+   * Helper for determining if an {@link ActionLookupData} has been rewound.
+   *
+   * <p>This is used during action execution when the {@link ActionLookupData} is available, but the
+   * corresponding {@link Action} is not, to determine if the action has been rewound, without
+   * creating a dependency.
+   *
+   * <p>The absence of an {@link ActionLookupValue} implies that the action has not been rewound,
+   * without needing to declare a Skyframe dependency. This is useful in the case where the values
+   * can be retrieved remotely.
+   */
+  static interface ExistingActionLookupValuePeeker {
+    @Nullable // null if the value is not in Skyframe
+    ActionLookupValue getExistingActionLookupValue(ActionLookupKey key) throws InterruptedException;
   }
 
   SharedActionCallback getSharedActionCallback(
@@ -475,8 +497,26 @@ public final class SkyframeActionExecutor {
   }
 
   /** Determines whether the given action was rewound during the current build. */
-  public boolean wasRewound(Action action) {
+  public boolean wasRewound(ActionAnalysisMetadata action) {
     return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+  }
+
+  /**
+   * True if remote retrieval should be skipped for this {@code lookupData} because it was rewound.
+   *
+   * <p>This happens when an action fails to execute because one of its inputs was lost. It usually
+   * indicates that the remotely retrieved {@code ActionExecutionValue} references remote data that
+   * is inaccessible.
+   */
+  public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
+    ActionLookupValue lookupValue =
+        actionLookupValuePeeker.getExistingActionLookupValue(lookupData.getActionLookupKey());
+    if (lookupValue == null) {
+      // Since rewinding causes the owner of the corresponding action to be analyzed, if the action
+      // owner is missing, then rewinding has not occurred.
+      return false;
+    }
+    return wasRewound(lookupValue.getActions().get(lookupData.getActionIndex()));
   }
 
   /**
@@ -503,7 +543,9 @@ public final class SkyframeActionExecutor {
    * lost inputs.
    */
   public void prepareForRewinding(
-      ActionLookupData failedKey, Action failedAction, ImmutableList<Action> depsToRewind) {
+      ActionLookupData failedKey,
+      Action failedAction,
+      ImmutableList<ActionAnalysisMetadata> depsToRewind) {
     var ownerlessArtifactWrapper = new OwnerlessArtifactWrapper(failedAction.getPrimaryOutput());
     ActionExecutionState state = buildActionMap.get(ownerlessArtifactWrapper);
     if (state != null) {
@@ -514,25 +556,32 @@ public final class SkyframeActionExecutor {
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(failedAction.getOutputs());
     }
-    for (Action dep : depsToRewind) {
+    for (ActionAnalysisMetadata dep : depsToRewind) {
       prepareDepForRewinding(failedKey, dep);
     }
   }
 
-  public void prepareDepForRewinding(SkyKey failedKey, Action dep) {
+  public void prepareDepForRewinding(SkyKey failedKey, ActionAnalysisMetadata dep) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(dep.getPrimaryOutput());
+    if (!(dep instanceof Action action)) {
+      // ActionTemplate does not have an ActionExecutionState and it is not executed, so we just
+      // mark it as rewound.
+      checkState(dep instanceof ActionTemplate, "dep of unexpected type %s", dep);
+      rewoundActions.add(ownerlessArtifactWrapper);
+      return;
+    }
     ActionExecutionState actionExecutionState = buildActionMap.get(ownerlessArtifactWrapper);
     if (actionExecutionState != null) {
       actionExecutionState.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
     }
     rewoundActions.add(ownerlessArtifactWrapper);
     if (!actionFileSystemType().inMemoryFileSystem()) {
-      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(dep.getOutputs());
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
     }
     // Evict the rewinding action from the action cache to ensure that it is executed.
     if (actionCacheChecker.enabled()) {
-      actionCacheChecker.removeCacheEntry(dep);
+      actionCacheChecker.removeCacheEntry(action);
     }
   }
 

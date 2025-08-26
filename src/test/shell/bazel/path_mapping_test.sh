@@ -97,6 +97,17 @@ function tear_down() {
   stop_worker
 }
 
+function test_path_stripping_local_fails() {
+  cache_dir=$(mktemp -d)
+
+  bazel build -c fastbuild \
+    --disk_cache=$cache_dir \
+    --experimental_output_paths=strip \
+    --strategy=Javac=local \
+    //src/main/java/com/example:Main &> $TEST_log && fail "build succeeded unexpectedly"
+  expect_log 'Javac spawn, which requires sandboxing due to path mapping, cannot be executed with any of the available strategies'
+}
+
 function test_path_stripping_sandboxed() {
   if is_windows; then
     echo "Skipping test_path_stripping_sandboxed on Windows as it requires sandboxing"
@@ -105,10 +116,12 @@ function test_path_stripping_sandboxed() {
 
   cache_dir=$(mktemp -d)
 
+  # Validate that the sandboxed strategy is preferred over the local strategy
+  # with path mapping.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
-    --strategy=Javac=sandboxed \
+    --strategy=Javac=local,sandboxed \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
   # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, 1x header compilation and 2x
@@ -127,19 +140,14 @@ function test_path_stripping_sandboxed() {
 }
 
 function test_path_stripping_singleplex_worker() {
-  if is_windows; then
-    echo "Skipping test_path_stripping_singleplex_worker on Windows as it requires sandboxing"
-    return
-  fi
-
   cache_dir=$(mktemp -d)
 
+  # Worker sandboxing is enabled automatically, multiplexing is disabled since
+  # the default toolchain does not support sandboxing yet.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --worker_sandboxing \
-    --noexperimental_worker_multiplex \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
   # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses and header compilation.
@@ -152,8 +160,6 @@ function test_path_stripping_singleplex_worker() {
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --worker_sandboxing \
-    --noexperimental_worker_multiplex \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
   expect_log '5 disk cache hit'
@@ -162,11 +168,6 @@ function test_path_stripping_singleplex_worker() {
 }
 
 function test_path_stripping_multiplex_worker() {
-  if is_windows; then
-    echo "Skipping test_path_stripping_multiplex_worker on Windows as it requires sandboxing"
-    return
-  fi
-
   mkdir toolchain
   cat > toolchain/BUILD <<'EOF'
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
@@ -745,6 +746,7 @@ std::string AsGreeting(const std::string& name) {
 EOF
 
   bazel run \
+    --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
@@ -759,6 +761,7 @@ EOF
   expect_not_log 'remote cache hit'
 
   bazel run \
+    --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \

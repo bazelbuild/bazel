@@ -178,4 +178,9 @@ public final class LtoCompilationContext implements StarlarkValue, LtoCompilatio
   public int hashCode() {
     return ltoBitcodeFiles.hashCode();
   }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
 }

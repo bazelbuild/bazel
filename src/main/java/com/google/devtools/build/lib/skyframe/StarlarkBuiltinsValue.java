@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -34,27 +33,10 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public final class StarlarkBuiltinsValue implements SkyValue {
 
-  static final String BUILTINS_NAME = "_builtins";
-
-  /**
-   * The builtins pseudo-repository.
-   *
-   * <p>It is illegal to declare a repository in WORKSPACE whose name collides with this one.
-   * Whether a collision has in fact occurred is determined by {@link RepositoryName#equals}, and
-   * hence depends on the OS path policy (i.e. the case sensitivity of the host system).
-   *
-   * <p>Regardless of path policy, all actual uses of the builtins pseudo-repo are case sensitive
-   * and must match {@link #BUILTINS_NAME} exactly.
-   */
-  // TODO(#11437): Add actual enforcement that users cannot define a repo named "@_builtins".
-  @SerializationConstant
-  public static final RepositoryName BUILTINS_REPO =
-      RepositoryName.createUnvalidated(BUILTINS_NAME);
-
   /** Reports whether the given repository is the special builtins pseudo-repository. */
   public static boolean isBuiltinsRepo(RepositoryName repo) {
     // Use String.equals(), not RepositoryName.equals(), to force case sensitivity.
-    return repo.getName().equals(BUILTINS_NAME);
+    return repo.getName().equals(RepositoryName.BUILTINS.getName()) && repo.isVisible();
   }
 
   // These are all (except transitiveDigest) deeply immutable since the Starlark values are already
@@ -67,10 +49,10 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public final ImmutableMap<String, Object> predeclaredForBuildBzl;
 
   /**
-   * Top-level predeclared symbols for a .bzl file loaded on behalf of a WORKSPACE file after
-   * builtins injection has been applied.
+   * Top-level predeclared symbols for a .bzl file loaded on behalf of a MODULE file after builtins
+   * injection has been applied.
    */
-  public final ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
+  public final ImmutableMap<String, Object> predeclaredForModuleBzl;
 
   /**
    * Top-level predeclared symbols for a BUILD file, after builtins injection but before any prelude
@@ -89,13 +71,13 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   private StarlarkBuiltinsValue(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
-      ImmutableMap<String, Object> predeclaredForWorkspaceBzl,
+      ImmutableMap<String, Object> predeclaredForModuleBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     this.predeclaredForBuildBzl = predeclaredForBuildBzl;
-    this.predeclaredForWorkspaceBzl = predeclaredForWorkspaceBzl;
+    this.predeclaredForModuleBzl = predeclaredForModuleBzl;
     this.predeclaredForBuild = predeclaredForBuild;
     this.exportedToJava = exportedToJava;
     this.transitiveDigest = transitiveDigest;
@@ -104,14 +86,14 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   public static StarlarkBuiltinsValue create(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
-      ImmutableMap<String, Object> predeclaredForWorkspaceBzl,
+      ImmutableMap<String, Object> predeclaredForModuleBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         predeclaredForBuildBzl,
-        predeclaredForWorkspaceBzl,
+        predeclaredForModuleBzl,
         predeclaredForBuild,
         exportedToJava,
         transitiveDigest,
@@ -129,7 +111,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public static StarlarkBuiltinsValue createEmpty(StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         /* predeclaredForBuildBzl= */ ImmutableMap.of(),
-        /* predeclaredForWorkspaceBzl= */ ImmutableMap.of(),
+        /* predeclaredForModuleBzl= */ ImmutableMap.of(),
         /* predeclaredForBuild= */ ImmutableMap.of(),
         /* exportedToJava= */ ImmutableMap.of(),
         /* transitiveDigest= */ new byte[] {},

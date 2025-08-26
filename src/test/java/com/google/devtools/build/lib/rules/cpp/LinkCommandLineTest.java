@@ -18,7 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -28,8 +30,9 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.List;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -147,9 +151,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
         getMockBuildVariables()
             .addVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                ImmutableList.of(
-                    LibraryToLinkValue.forStaticLibrary("foo", false),
-                    LibraryToLinkValue.forStaticLibrary("bar", true)));
+                ImmutableList.of(forStaticLibrary("foo", false), forStaticLibrary("bar", true)));
 
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
@@ -320,9 +322,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
             .addVariable(LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
             .addVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                ImmutableList.of(
-                    LibraryToLinkValue.forObjectFile("foo.o", false),
-                    LibraryToLinkValue.forObjectFile("bar.o", false)));
+                ImmutableList.of(forObjectFile("foo.o", false), forObjectFile("bar.o", false)));
 
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
@@ -343,7 +343,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"), execPath);
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out"), execPath);
   }
 
   private static void verifyArguments(
@@ -383,8 +383,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
                     .addVariable(
                         LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                         ImmutableList.of(
-                            LibraryToLinkValue.forObjectFileGroup(
-                                ImmutableList.of(testTreeArtifact), false))))
+                            forObjectFileGroup(ImmutableList.of(testTreeArtifact), false))))
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
             .setSplitCommandLine(true)
@@ -412,5 +411,30 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
         linkConfig.getParamCommandLine(fakeActionInputFileCache, PathMapper.NOOP),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
+  }
+
+  private StarlarkInfo forStaticLibrary(String name, boolean isWholeArchive) {
+    return StructProvider.STRUCT.create(
+        ImmutableMap.of("type", "static_library", "name", name, "is_whole_archive", isWholeArchive),
+        "");
+  }
+
+  private StarlarkInfo forObjectFile(String path, boolean isWholeArchive) {
+    return StructProvider.STRUCT.create(
+        ImmutableMap.of("type", "object_file", "name", path, "is_whole_archive", isWholeArchive),
+        "");
+  }
+
+  private StarlarkInfo forObjectFileGroup(
+      ImmutableList<Artifact> objectFiles, boolean isWholeArchive) {
+    return StructProvider.STRUCT.create(
+        ImmutableMap.of(
+            "type",
+            "object_file_group",
+            "object_files",
+            StarlarkList.immutableCopyOf(objectFiles),
+            "is_whole_archive",
+            isWholeArchive),
+        "");
   }
 }

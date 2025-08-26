@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -131,7 +132,11 @@ public final class BuildConfigurationKeyProducer<C>
       // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
       //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
       tasks.enqueue(
-          new PlatformProducer(targetPlatforms.getFirst(), this, this::checkTargetPlatformFlags));
+          new PlatformProducer(
+              targetPlatforms.getFirst(),
+              options.get(CoreOptions.class).commandLineFlagAliases,
+              this,
+              this::checkTargetPlatformFlags));
       return runAfter;
     } else {
       Verify.verify(targetPlatforms.isEmpty());

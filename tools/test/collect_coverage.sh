@@ -169,6 +169,9 @@ fi
 # ------------------EXPERIMENTAL---------------------
 # After this point we can run the code necessary for the coverage spawn
 
+# Make sure no binaries run later produce coverage data.
+unset LLVM_PROFILE_FILE
+
 if [[ "$SPLIT_COVERAGE_POST_PROCESSING" == "1" && "$IS_COVERAGE_SPAWN" == "0" ]]; then
   exit 0
 fi

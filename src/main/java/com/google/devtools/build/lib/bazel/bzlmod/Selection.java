@@ -327,7 +327,7 @@ final class Selection {
                 Maps.transformValues(
                     depGraph,
                     module ->
-                        module.withDepSpecsTransformed(
+                        module.withDepsTransformed(
                             depSpec -> DepSpec.fromModuleKey(resolutionStrategy.apply(depSpec)))));
         return new Result(prunedDepGraph, unprunedDepGraph);
       } catch (ExternalDepsException e) {
@@ -378,7 +378,7 @@ final class Selection {
         InterimModule module =
             oldDepGraph
                 .get(key)
-                .withDepSpecsTransformed(
+                .withDepsTransformed(
                     depSpec -> DepSpec.fromModuleKey(resolutionStrategy.apply(depSpec)));
         visit(key, module, moduleKeyAndDependent.dependent(), moduleByName);
 

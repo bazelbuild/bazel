@@ -496,7 +496,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     String configHash = getConfiguration(Iterables.getOnlyElement(result)).checksum();
     String rightPrefix = configHash.substring(0, configHash.length() / 2);
     char lastChar = rightPrefix.charAt(rightPrefix.length() - 1);
-    String wrongPrefix = rightPrefix.substring(0, rightPrefix.length() - 1) + (lastChar + 1);
+    String wrongPrefix = rightPrefix.substring(0, rightPrefix.length() - 1) + (char) (lastChar + 1);
 
     QueryException e =
         assertThrows(

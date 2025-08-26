@@ -876,7 +876,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * Main method for the Blaze server startup. Note: This method logs exceptions to remote servers.
    * Do not add this to a unittest.
    */
-  @SuppressWarnings("SystemExitOutsideMain")
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     // Transform args into Bazel's internal string representation.
     args = Arrays.stream(args).map(StringEncoding::platformToInternal).toArray(String[]::new);
@@ -885,19 +884,27 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // blaze.cc will put --batch first if the user set it.
     if (args.length >= 1 && args[0].equals("--batch")) {
       // Run Blaze in batch mode.
-      System.exit(batchMain(modules, args));
+      exit(batchMain(modules, args));
     }
     logger.atInfo().log(
         "Starting Bazel server with pid %d, args %s",
         ProcessHandle.current().pid(), Arrays.toString(args));
     try {
       // Run Blaze in server mode.
-      System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
+      exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
       Crash crash = Crash.from(e);
       BugReport.handleCrash(crash, CrashContext.keepAlive().withArgs(args));
-      System.exit(crash.getDetailedExitCode().getExitCode().getNumericExitCode());
+      exit(crash.getDetailedExitCode().getExitCode().getNumericExitCode());
     }
+  }
+
+  @SuppressWarnings("SystemExitOutsideMain")
+  private static void exit(int exitCode) {
+    // b/177077523: Best effort to kill all child processes. If there is any child process running,
+    // System.exit will block forever.
+    ProcessHandle.current().children().forEach(ProcessHandle::destroyForcibly);
+    System.exit(exitCode);
   }
 
   @VisibleForTesting
@@ -1167,7 +1174,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       pidFileWatcher.start();
 
       ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
-      shutdownHooks.deleteAtExit(pidFile);
+      shutdownHooks.cleanupPidFile(pidFile, pidFileWatcher);
 
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =

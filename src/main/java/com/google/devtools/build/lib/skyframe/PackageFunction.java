@@ -48,6 +48,8 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
@@ -336,87 +338,16 @@ public abstract class PackageFunction implements SkyFunction {
       throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException;
 
   /**
-   * Adds a dependency on the WORKSPACE file, representing it as a special type of package.
-   *
-   * @throws PackageFunctionException if there is an error computing the workspace file or adding
-   *     its rules to the //external package.
-   */
-  @Nullable
-  private SkyValue getExternalPackage(Environment env)
-      throws PackageFunctionException, InterruptedException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (!starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setTransience(Transience.PERSISTENT)
-          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-          .setMessage(
-              "//external package is not available since the WORKSPACE file is disabled, please"
-                  + " migrate to Bzlmod or temporarily enable WORKSPACE via --enable_workspace. See"
-                  + " https://bazel.build/external/migration#bind-targets.")
-          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
-          .build();
-    }
-
-    SkyKey workspaceKey = ExternalPackageFunction.key();
-    PackageValue workspace = null;
-    try {
-      // This may throw a NoSuchPackageException if the WORKSPACE file was malformed or had other
-      // problems. Since this function can't add much context, we silently bubble it up.
-      workspace =
-          (PackageValue)
-              env.getValueOrThrow(
-                  workspaceKey,
-                  IOException.class,
-                  EvalException.class,
-                  BzlLoadFailedException.class);
-    } catch (IOException | EvalException | BzlLoadFailedException e) {
-      String message = "Error encountered while dealing with the WORKSPACE file: " + e.getMessage();
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setTransience(Transience.PERSISTENT)
-          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-          .setMessage(message)
-          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
-          .build();
-    }
-    if (workspace == null) {
-      return null;
-    }
-
-    Package pkg = workspace.getPackage();
-    if (packageFactory != null) {
-      try {
-        packageFactory.afterDoneLoadingPackage(
-            pkg,
-            starlarkSemantics,
-            // This is a lie.
-            /* loadTimeNanos= */ 0L,
-            env.getListener());
-      } catch (InvalidPackageException e) {
-        throw new PackageFunctionException(e, Transience.PERSISTENT);
-      }
-    }
-    if (!pkg.containsErrors()) {
-      numPackagesSuccessfullyLoaded.incrementAndGet();
-    }
-    return new PackageValue(pkg);
-  }
-
-  /**
    * Stores information needed to load the package. Subclasses are expected to provide different
    * types of containers which store glob deps information.
    */
   protected abstract static class LoadedPackage {
     final Package.AbstractBuilder builder;
-    final long loadTimeNanos;
+    final Metrics metrics;
 
-    LoadedPackage(Package.AbstractBuilder builder, long loadTimeNanos) {
+    LoadedPackage(Package.AbstractBuilder builder, Metrics metrics) {
       this.builder = builder;
-      this.loadTimeNanos = loadTimeNanos;
+      this.metrics = metrics;
     }
   }
 
@@ -445,17 +376,15 @@ public abstract class PackageFunction implements SkyFunction {
       packageId = packagePieceId.getPackageIdentifier();
     }
     if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-      if (packagePieceId != null) {
-        throw new PackageFunctionException(
-            new NoSuchPackagePieceException(
-                packagePieceId,
-                "The legacy "
-                    + LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER
-                    + " package does not support symbolic macros and cannot be"
-                    + " loaded in lazy symbolic macro expansion mode."),
-            Transience.PERSISTENT);
-      }
-      return getExternalPackage(env);
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
+          .setTransience(Transience.PERSISTENT)
+          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+          .setMessage(
+              "//external package is not available since the WORKSPACE file is deprecated, please"
+                  + " migrate to Bzlmod. See https://bazel.build/external/migration#bind-targets.")
+          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
+          .build();
     }
 
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
@@ -655,7 +584,7 @@ public abstract class PackageFunction implements SkyFunction {
         packageFactory.afterDoneLoadingPackage(
             pkg,
             starlarkBuiltinsValue.starlarkSemantics,
-            state.loadedPackage.loadTimeNanos,
+            state.loadedPackage.metrics,
             env.getListener());
       } catch (InvalidPackageException e) {
         throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -665,7 +594,7 @@ public abstract class PackageFunction implements SkyFunction {
         packageFactory.afterDoneLoadingPackagePiece(
             (PackagePiece.ForBuildFile) packageoid,
             starlarkBuiltinsValue.starlarkSemantics,
-            state.loadedPackage.loadTimeNanos,
+            state.loadedPackage.metrics,
             env.getListener());
       } catch (InvalidPackagePieceException e) {
         throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -686,7 +615,8 @@ public abstract class PackageFunction implements SkyFunction {
     if (packageoid instanceof Package pkg) {
       return new PackageValue(pkg);
     } else if (packageoid instanceof PackagePiece.ForBuildFile pkgPiece) {
-      return new PackagePieceValue.ForBuildFile(pkgPiece);
+      return new PackagePieceValue.ForBuildFile(
+          pkgPiece, starlarkBuiltinsValue.starlarkSemantics, pkgBuilder.getMainRepoMapping());
     } else {
       throw new IllegalStateException("Unexpected packageoid type: " + packageoid.getClass());
     }
@@ -722,17 +652,16 @@ public abstract class PackageFunction implements SkyFunction {
    *
    * <p>The {@code packageId} is used only for error reporting.
    *
-   * <p>This function is called for load statements in BUILD and WORKSPACE files. For loads in .bzl
-   * files, see {@link BzlLoadFunction}.
+   * <p>This function is called for load statements in BUILD files. For loads in .bzl files, see
+   * {@link BzlLoadFunction}.
    */
   /*
    * TODO(b/237658764): This logic has several problems:
    *
    * - It is partly duplicated by loadPrelude() below.
    * - The meaty computeBzlLoads* helpers are almost copies of BzlLoadFunction#computeBzlLoads*.
-   * - This function is called from WorkspaceFileFunction and BzlmodRepoRuleFunction (and morally
-   *   probably should be called by SingleExtensionEvalFunction rather than requesting a BzlLoadKey
-   *   directly). But the API is awkward for these callers.
+   * - This function should morally probably be called by {Innate,Regular}RunnableExtension rather
+   *   than requesting a BzlLoadKey directly. But the API is awkward for these callers.
    * - InliningState is not shared across all callers within a BUILD file; see the comment in
    *   computeBzlLoadsWithInlining.
    *
@@ -771,8 +700,7 @@ public abstract class PackageFunction implements SkyFunction {
       if (bzlLoads == null) {
         return null; // Skyframe deps unavailable
       }
-      // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
-      // load visibility.
+      // Validate that the current BUILD file satisfies each loaded dependency's load visibility.
       if (checkVisibility) {
         BzlLoadFunction.checkLoadVisibilities(
             packageId,
@@ -1058,8 +986,6 @@ public abstract class PackageFunction implements SkyFunction {
       SkyKey keyForMetrics,
       State state)
       throws InterruptedException, PackageFunctionException {
-    WorkspaceNameValue workspaceNameValue =
-        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
             env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
@@ -1093,7 +1019,6 @@ public abstract class PackageFunction implements SkyFunction {
       return null;
     }
 
-    String workspaceName = workspaceNameValue.getName();
     RepositoryMapping repositoryMapping = repositoryMappingValue.repositoryMapping();
     RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.repositoryMapping();
     Label preludeLabel = null;
@@ -1221,17 +1146,14 @@ public abstract class PackageFunction implements SkyFunction {
 
       long startTimeNanos = BlazeClock.nanoTime();
 
-      Globber globber =
-          makeGlobber(
-              packageFactory.createNonSkyframeGlobber(
-                  buildFileRootedPath.asPath().getParentDirectory(),
-                  packageId,
-                  repositoryIgnoredSubdirectories.asIgnoredSubdirectories(),
-                  packageLocator,
-                  threadStateReceiverFactoryForMetrics.apply(keyForMetrics)),
+      NonSkyframeGlobber nonSkyframeGlobber =
+          packageFactory.createNonSkyframeGlobber(
+              buildFileRootedPath.asPath().getParentDirectory(),
               packageId,
-              packageRoot,
-              env);
+              repositoryIgnoredSubdirectories.asIgnoredSubdirectories(),
+              packageLocator,
+              threadStateReceiverFactoryForMetrics.apply(keyForMetrics));
+      Globber globber = makeGlobber(nonSkyframeGlobber, packageId, packageRoot, env);
 
       // Create the package,
       // even if it will be empty because we cannot attempt execution.
@@ -1240,7 +1162,6 @@ public abstract class PackageFunction implements SkyFunction {
               ? packageFactory.newPackageBuilder(
                   packageId,
                   buildFileRootedPath,
-                  workspaceName,
                   repositoryMappingValue.associatedModuleName(),
                   repositoryMappingValue.associatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
@@ -1253,7 +1174,6 @@ public abstract class PackageFunction implements SkyFunction {
               : packageFactory.newPackagePieceForBuildFileBuilder(
                   packagePieceId,
                   buildFileRootedPath,
-                  workspaceName,
                   repositoryMappingValue.associatedModuleName(),
                   repositoryMappingValue.associatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
@@ -1301,7 +1221,10 @@ public abstract class PackageFunction implements SkyFunction {
       }
 
       long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
-      return newLoadedPackage(pkgBuilder, globber, loadTimeNanos);
+      return newLoadedPackage(
+          pkgBuilder,
+          globber,
+          new Metrics(loadTimeNanos, nonSkyframeGlobber.getGlobFilesystemOperationCost()));
     } finally {
       if (committed) {
         // We're done executing the BUILD file. Therefore, we can discard the compiled BUILD file...
@@ -1316,7 +1239,9 @@ public abstract class PackageFunction implements SkyFunction {
 
   @ForOverride
   protected abstract LoadedPackage newLoadedPackage(
-      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, long loadTimeNanos);
+      Package.AbstractBuilder packageBuilder,
+      @Nullable Globber globber,
+      PackageLoadingListener.Metrics metrics);
 
   // Reads, parses, resolves, and compiles a BUILD file.
   // A read error is reported as PackageFunctionException.

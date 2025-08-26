@@ -122,7 +122,7 @@ public final class CppConfiguration extends Fragment
   }
 
   /** This enumeration is used for the --strip option. */
-  public enum StripMode {
+  public enum StripMode implements StarlarkValue {
     ALWAYS("always"), // Always strip.
     SOMETIMES("sometimes"), // Strip iff compilationMode == FASTBUILD.
     NEVER("never"); // Never strip.
@@ -863,6 +863,15 @@ public final class CppConfiguration extends Fragment
 
   public boolean experimentalIncludeScanning() {
     return cppOptions.experimentalIncludeScanning;
+  }
+
+  @StarlarkMethod(
+      name = "objc_should_generate_dotd_files",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean objcShouldGenerateDotdFilesStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return objcShouldGenerateDotdFiles();
   }
 
   public boolean objcShouldGenerateDotdFiles() {

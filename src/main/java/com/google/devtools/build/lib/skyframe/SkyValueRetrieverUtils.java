@@ -35,7 +35,7 @@ import java.util.function.Supplier;
  */
 public final class SkyValueRetrieverUtils {
 
-  public static RetrievalResult fetchRemoteSkyValue(
+  public static RetrievalResult retrieveRemoteSkyValue(
       SkyKey key,
       Environment env,
       RemoteAnalysisCachingDependenciesProvider analysisCachingDeps,

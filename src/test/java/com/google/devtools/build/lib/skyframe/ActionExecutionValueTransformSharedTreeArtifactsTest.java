@@ -64,7 +64,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   @Before
   public void createDerivedRoot() throws IOException {
     derivedRoot =
-        ArtifactRoot.asDerivedRoot(scratch.dir("/execroot"), RootType.Output, DERIVED_PATH_PREFIX);
+        ArtifactRoot.asDerivedRoot(scratch.dir("/execroot"), RootType.OUTPUT, DERIVED_PATH_PREFIX);
   }
 
   @Test

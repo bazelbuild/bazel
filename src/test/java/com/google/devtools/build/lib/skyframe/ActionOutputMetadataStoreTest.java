@@ -96,7 +96,7 @@ public final class ActionOutputMetadataStoreTest {
   private final Path execRoot = scratch.resolve("/workspace");
   private final ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
 
   @Before
   public void createRootDirs() throws Exception {

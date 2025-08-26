@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
@@ -322,14 +322,12 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
                 RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.FORCE_FETCH,
-                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+                RepositoryDirectoryValue.FORCE_FETCH,
+                RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+                RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty())));
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);

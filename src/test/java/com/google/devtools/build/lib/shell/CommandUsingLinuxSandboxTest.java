@@ -43,7 +43,7 @@ public final class CommandUsingLinuxSandboxTest {
 
   @Before
   public final void createFileSystem() {
-    testFS = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    testFS = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
     runfilesDir = testFS.getPath(BlazeTestUtils.runfilesDir());
   }
 
@@ -59,7 +59,7 @@ public final class CommandUsingLinuxSandboxTest {
   public void testCommand_echo() throws Exception {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "colorless green ideas");
 
-    Command command = new Command(commandArguments.toArray(new String[0]));
+    Command command = new Command(commandArguments.toArray(new String[0]), System.getenv());
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.terminationStatus().success()).isTrue();
@@ -79,7 +79,7 @@ public final class CommandUsingLinuxSandboxTest {
         LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath())
             .buildForCommand(commandArguments);
 
-    Command command = new Command(fullCommandLine.toArray(new String[0]));
+    Command command = new Command(fullCommandLine.toArray(new String[0]), System.getenv());
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.terminationStatus().success()).isTrue();

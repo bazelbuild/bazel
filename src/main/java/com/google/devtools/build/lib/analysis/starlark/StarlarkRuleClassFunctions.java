@@ -86,7 +86,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -533,7 +532,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> hostFragments,
       boolean starlarkTestable,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
       boolean dependencyResolutionRule,
@@ -1014,15 +1012,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME,
         FunctionSplitTransitionAllowlist.LABEL);
 
-    for (Object o : providesArg) {
-      if (!StarlarkAttrModule.isProvider(o)) {
-        throw Starlark.errorf(
-            "Illegal argument: element in 'provides' is of unexpected type. "
-                + "Should be list of providers, but got item of type %s.",
-            Starlark.type(o));
-      }
-    }
-
     if (dependencyResolutionRule) {
       if (!subrules.isEmpty()) {
         throw Starlark.errorf("Rules that can be required for materializers cannot have subrules");
@@ -1046,7 +1035,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     for (StarlarkProviderIdentifier starlarkProvider :
-        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg)) {
+        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg, "provides")) {
       builder.advertiseStarlarkProvider(starlarkProvider);
     }
 
@@ -1219,7 +1208,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
       Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> rawExecCompatibleWith,
@@ -1334,15 +1322,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       attributes.add(attribute);
     }
 
-    for (Object o : providesArg) {
-      if (!StarlarkAttrModule.isProvider(o)) {
-        throw Starlark.errorf(
-            "Illegal argument: element in 'provides' is of unexpected type. "
-                + "Should be list of providers, but got item of type %s. ",
-            Starlark.type(o));
-      }
-    }
-
     if (applyToGeneratingRules && !requiredProvidersArg.isEmpty()) {
       throw Starlark.errorf(
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
@@ -1398,7 +1377,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
         StarlarkAttrModule.buildProviderPredicate(
             requiredAspectProvidersArg, "required_aspect_providers"),
-        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg),
+        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg, "provides"),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
         propagationPredicate,
@@ -1494,8 +1473,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       TargetDefinitionContext targetDefinitionContext =
-          TargetDefinitionContext.fromOrFailDisallowWorkspace(
-              thread, "a symbolic macro", "instantiated");
+          TargetDefinitionContext.fromOrFail(thread, "a symbolic macro", "instantiated");
 
       if (macroClass == null) {
         throw Starlark.errorf(
@@ -1670,11 +1648,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
       TargetDefinitionContext targetDefinitionContext =
-          ruleClass.getWorkspaceOnly()
-              ? Package.Builder.fromOrFailAllowWorkspaceOrModuleExtension(
-                  thread, "a repository rule", "instantiated")
-              : TargetDefinitionContext.fromOrFailDisallowWorkspace(
-                  thread, "a rule", "instantiated");
+          TargetDefinitionContext.fromOrFail(thread, "a rule", "instantiated");
 
       validateRulePropagatedAspects(ruleClass);
 
@@ -1750,7 +1724,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               Label definitionLabel = currentRuleClass.getRuleDefinitionEnvironmentLabel();
               BuiltinRestriction.failIfLabelOutsideAllowlist(
                   definitionLabel,
-                  RepositoryMapping.ALWAYS_FALLBACK,
+                  RepositoryMapping.EMPTY,
                   ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
             }
             String nativeName = arg.startsWith("_") ? "$" + arg.substring(1) : arg;

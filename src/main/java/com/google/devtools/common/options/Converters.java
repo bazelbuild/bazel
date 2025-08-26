@@ -22,10 +22,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -422,7 +425,8 @@ public final class Converters {
     @Override
     public RegexPatternOption convert(String input) throws OptionsParsingException {
       try {
-        return RegexPatternOption.create(Pattern.compile(input, Pattern.DOTALL));
+        return RegexPatternOption.create(
+            Pattern.compile(StringEncoding.internalToUnicode(input), Pattern.DOTALL));
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
       }
@@ -640,27 +644,51 @@ public final class Converters {
     }
   }
 
+  /** A request to set or unset a particular environment variable. */
+  public sealed interface EnvVar {
+    /** The name of the environment variable. */
+    String name();
+
+    /** Set the environment variable to the given value. */
+    @AutoCodec
+    record Set(String name, String value) implements EnvVar {}
+
+    /** Inherit the value of the environment variable from the client environment. */
+    @AutoCodec
+    record Inherit(String name) implements EnvVar {}
+
+    /**
+     * Unset the environment variable, i.e., remove any previous assignment or even explicitly unset
+     * it if implicitly inheriting the client environment.
+     */
+    @AutoCodec
+    record Unset(String name) implements EnvVar {}
+  }
+
   /**
    * A converter for variable assignments from the parameter list of a blaze command invocation.
    * Assignments are expected to have the form "name[=value]", where names and values are defined to
    * be as permissive as possible and value part can be optional (in which case it is considered to
-   * be null).
+   * be inherited). The special syntax "=name" is also supported and interpreted as a request to
+   * unset the variable with the given name.
    */
-  public static class OptionalAssignmentConverter
-      extends Converter.Contextless<Map.Entry<String, String>> {
+  public static class EnvVarsConverter extends Converter.Contextless<EnvVar> {
 
     @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
+    public EnvVar convert(String input) throws OptionsParsingException {
       int pos = input.indexOf('=');
-      if (pos == 0 || input.length() == 0) {
+      if (input.isEmpty() || input.equals("=")) {
         throw new OptionsParsingException(
-            "Variable definitions must be in the form of a 'name=value' or 'name' assignment");
+            "Variable definitions must be in the form of a 'name=value', 'name', or '=name'"
+                + " assignment");
+      } else if (pos == 0) {
+        return new EnvVar.Unset(input.substring(1));
       } else if (pos < 0) {
-        return Maps.immutableEntry(input, null);
+        return new EnvVar.Inherit(input);
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
-      return Maps.immutableEntry(name, value);
+      return new EnvVar.Set(name, value);
     }
 
     @Override
@@ -670,16 +698,22 @@ public final class Converters {
 
     @Override
     public String reverseForStarlark(Object converted) {
-      @SuppressWarnings("unchecked")
-      Map.Entry<String, String> typedValue = (Map.Entry<String, String>) converted;
-      return typedValue.getValue() == null
-          ? typedValue.getKey()
-          : String.format("%s=%s", typedValue.getKey(), typedValue.getValue());
+      if (converted instanceof EnvVar.Set set) {
+        return set.name() + "=" + set.value();
+      } else if (converted instanceof EnvVar.Inherit inherit) {
+        return inherit.name();
+      } else if (converted instanceof EnvVar.Unset unset) {
+        return "=" + unset.name();
+      } else {
+        throw new IllegalArgumentException(
+            "EnvVarsConverter can only reverse EnvVar types, got: " + converted);
+      }
     }
 
     @Override
     public String getTypeDescription() {
-      return "a 'name=value' assignment with an optional value part";
+      return "a 'name[=value]' assignment with an optional value part or the special syntax '=name'"
+          + " to unset a variable";
     }
   }
 
@@ -695,6 +729,24 @@ public final class Converters {
   public static class PercentageConverter extends RangeConverter {
     public PercentageConverter() {
       super(0, 100);
+    }
+  }
+
+  /** Same as {@link PercentageConverter} but also supports being unset. */
+  public static class OptionalPercentageConverter extends Converter.Contextless<OptionalInt> {
+    public static final String UNSET = "-1";
+    private static final PercentageConverter PERCENTAGE_CONVERTER = new PercentageConverter();
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer";
+    }
+
+    @Override
+    public OptionalInt convert(String input) throws OptionsParsingException {
+      return input.equals(UNSET)
+          ? OptionalInt.empty()
+          : OptionalInt.of(PERCENTAGE_CONVERTER.convert(input));
     }
   }
 

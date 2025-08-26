@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -28,11 +29,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -58,7 +61,9 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
   private final CommandLine commandLine;
   private final ParameterFileType type;
-  private final boolean hasInputArtifactToExpand;
+  private final boolean makeExecutable;
+  private final String mnemonic;
+  private final boolean usePathStripping;
 
   /**
    * Creates a new instance.
@@ -67,10 +72,24 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
+   * @param makeExecutable whether the output file should be made executable
    */
   public ParameterFileWriteAction(
-      ActionOwner owner, Artifact output, CommandLine commandLine, ParameterFileType type) {
-    this(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, commandLine, type);
+      ActionOwner owner,
+      Artifact output,
+      CommandLine commandLine,
+      ParameterFileType type,
+      boolean makeExecutable) {
+    this(
+        owner,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        output,
+        commandLine,
+        type,
+        makeExecutable,
+        AbstractFileWriteAction.MNEMONIC,
+        /* executionInfo= */ ImmutableMap.of(),
+        CoreOptions.OutputPathsMode.OFF);
   }
 
   /**
@@ -82,17 +101,53 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
+   * @param makeExecutable whether the output file should be made executable
+   * @param mnemonic the mnemonic for this action, or null if the default should be used
+   * @param executionInfo the execution info for this action (only supports-path-mapping is used)
+   * @param outputPathsMode the output paths mode obtained via {@link
+   *     PathMappers#getOutputPathsMode(BuildConfigurationValue)}
    */
   public ParameterFileWriteAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       Artifact output,
       CommandLine commandLine,
-      ParameterFileType type) {
+      ParameterFileType type,
+      boolean makeExecutable,
+      String mnemonic,
+      ImmutableMap<String, String> executionInfo,
+      CoreOptions.OutputPathsMode outputPathsMode) {
     super(owner, inputs, output);
     this.commandLine = commandLine;
     this.type = type;
-    this.hasInputArtifactToExpand = !inputs.isEmpty();
+    this.makeExecutable = makeExecutable;
+    this.mnemonic = mnemonic;
+    // Save memory by not storing the full execution info, but only what matters for this particular
+    // action.
+    this.usePathStripping =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), executionInfo)
+            == CoreOptions.OutputPathsMode.STRIP;
+  }
+
+  @Override
+  public boolean makeExecutable() {
+    return makeExecutable;
+  }
+
+  @Override
+  public String getMnemonic() {
+    return mnemonic;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return usePathStripping
+        ? ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "")
+        : ImmutableMap.of();
+  }
+
+  private CoreOptions.OutputPathsMode getOutputPathsMode() {
+    return usePathStripping ? CoreOptions.OutputPathsMode.STRIP : CoreOptions.OutputPathsMode.OFF;
   }
 
   @VisibleForTesting
@@ -108,7 +163,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * includeParamFile option is flag-guarded with warning regarding output size to user.
    *
    * <p>TODO(b/161359171): The list of arguments will be incorrect if the arguments contain tree
-   * artifacts.
+   * artifacts or path mapping is used.
    */
   public Iterable<String> getArguments()
       throws CommandLineExpansionException, InterruptedException {
@@ -126,7 +181,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   @Nullable
   @Override
   public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
-    if (hasInputArtifactToExpand) {
+    if (!getInputs().isEmpty()) {
       // Tree artifact information isn't available at analysis time.
       return null;
     }
@@ -141,10 +196,16 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws ExecException, InterruptedException {
     final ArgChunk arguments;
+    // Other actions consuming this parameter file may have path mapping disabled due to inputs
+    // conflicting across configurations, in which case paths written to the file will not match.
+    // Since this depends on the consumer but the decision is only made at execution time, it is not
+    // clear how to improve that situation. Actions that are prone to such collisions should avoid
+    // depending on parameter files.
+    var pathMapper = PathMappers.create(this, getOutputPathsMode(), /* isStarlarkAction= */ false);
     try {
       InputMetadataProvider inputMetadataProvider =
           Preconditions.checkNotNull(ctx.getInputMetadataProvider());
-      arguments = commandLine.expand(inputMetadataProvider, PathMapper.NOOP);
+      arguments = commandLine.expand(inputMetadataProvider, pathMapper);
     } catch (CommandLineExpansionException e) {
       throw new UserExecException(
           e,
@@ -153,21 +214,23 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
               .setSpawn(Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
               .build());
     }
-    return new ParamFileWriter(arguments, type);
+    return new ParamFileWriter(arguments, pathMapper, type);
   }
 
   private static class ParamFileWriter implements DeterministicWriter {
     private final ArgChunk arguments;
+    private final PathMapper pathMapper;
     private final ParameterFileType type;
 
-    ParamFileWriter(ArgChunk arguments, ParameterFileType type) {
+    ParamFileWriter(ArgChunk arguments, PathMapper pathMapper, ParameterFileType type) {
       this.arguments = arguments;
+      this.pathMapper = pathMapper;
       this.type = type;
     }
 
     @Override
     public void writeTo(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(out, arguments.arguments(PathMapper.NOOP), type);
+      ParameterFile.writeParameterFile(out, arguments.arguments(pathMapper), type);
     }
   }
 
@@ -180,7 +243,11 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     fp.addString(GUID);
     fp.addString(type.toString());
     commandLine.addToFingerprint(
-        actionKeyContext, inputMetadataProvider, CoreOptions.OutputPathsMode.OFF, fp);
+        actionKeyContext,
+        inputMetadataProvider,
+        PathMappers.getEffectiveOutputPathsMode(
+            getOutputPathsMode(), getMnemonic(), getExecutionInfo()),
+        fp);
   }
 
   @Override
@@ -197,7 +264,11 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       // tell if two contents are equal or not.
       var fp = new Fingerprint();
       commandLine.addToFingerprint(
-          new ActionKeyContext(), null, CoreOptions.OutputPathsMode.OFF, fp);
+          new ActionKeyContext(),
+          null,
+          PathMappers.getEffectiveOutputPathsMode(
+              getOutputPathsMode(), getMnemonic(), getExecutionInfo()),
+          fp);
       message.append(BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()));
       message.append(
           "\n"

@@ -30,7 +30,11 @@ An index registry must have the following format:
     *   `MODULE.bazel`: The `MODULE.bazel` file of this module version. Note
         that this is the `MODULE.bazel` file read during Bazel's external
         dependency resolution, _not_ the one from the source archive (unless
-        there's a non-registry override).
+        there's a [non-registry
+        override](/external/module#non-registry_overrides)). Also note that it's
+        best to use this file to set the version of a release and avoid doing so
+        in the source archive `MODULE.bazel` file. To learn more about module
+        versioning, [see the FAQ](faq.md#module-versioning-best-practices).
     *   [`source.json`](#source-json): A JSON file containing information on how
         to fetch the source of this module version
     *   `patches/`: An optional directory containing patch files, only used when
@@ -98,7 +102,8 @@ field, which defaults to `archive`.
         extracted archive. The patch files are located under the
         `/modules/$MODULE/$VERSION/patches` directory. The keys are the
         patch file names, and the values are the integrity checksum of
-        the patch files. The patches are applied after the overlay files.
+        the patch files. The patches are applied after the overlay files and in
+        the order they appear in `patches`.
     *   `patch_strip`: A number; the same as the `--strip` argument of Unix
         `patch`.
     *   `archive_type`: A string, the archive type of the downloaded file (Same

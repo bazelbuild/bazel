@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -139,9 +139,6 @@ public final class PackageFactory {
    * <p>Do not call this constructor directly in tests; please use
    * TestConstants#PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING instead.
    */
-  // TODO(bazel-team): Maybe store `version` in the RuleClassProvider rather than passing it in
-  // here? It's an extra constructor parameter that all the tests have to give, and it's only needed
-  // so WorkspaceFactory can add an extra top-level builtin.
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       ForkJoinPool executorForGlobbing,
@@ -208,23 +205,6 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  public Package.Builder newExternalPackageBuilder(
-      WorkspaceFileKey workspaceFileKey,
-      String workspaceName,
-      RepositoryMapping mainRepoMapping,
-      StarlarkSemantics starlarkSemantics) {
-    return Package.newExternalPackageBuilder(
-        packageSettings,
-        workspaceFileKey,
-        workspaceName,
-        mainRepoMapping,
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-        starlarkSemantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-        packageOverheadEstimator,
-        packageValidator.getPackageLimits());
-  }
-
   // This function is public only for the benefit of skyframe.PackageFunction,
   // which is morally part of lib.packages, so that it can create empty packages
   // in case of error before BUILD execution. Do not call it from anywhere else.
@@ -232,7 +212,6 @@ public final class PackageFactory {
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
       RootedPath filename,
-      String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
@@ -246,7 +225,7 @@ public final class PackageFactory {
         packageSettings,
         packageId,
         filename,
-        workspaceName,
+        ruleClassProvider.getRunfilesPrefix(),
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
@@ -270,7 +249,6 @@ public final class PackageFactory {
   public PackagePiece.ForBuildFile.Builder newPackagePieceForBuildFileBuilder(
       PackagePieceIdentifier.ForBuildFile packagePieceId,
       RootedPath filename,
-      String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
@@ -284,7 +262,7 @@ public final class PackageFactory {
         packageSettings,
         packagePieceId,
         filename,
-        workspaceName,
+        ruleClassProvider.getRunfilesPrefix(),
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
@@ -300,6 +278,34 @@ public final class PackageFactory {
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
         packageValidator.getPackageLimits());
+  }
+
+  // This function is public only for the benefit of skyframe.EvalMacroFunction, which is morally
+  // part of lib.packages, so that it can create empty package pieces in case of error before macro
+  // execution. Do not call it from anywhere else.
+  public PackagePiece.ForMacro.Builder newPackagePieceForMacroBuilder(
+      Package.Metadata metadata,
+      Package.Declarations declarations,
+      MacroInstance macro,
+      PackagePieceIdentifier parentIdentifier,
+      StarlarkSemantics starlarkSemantics,
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<String, Rule> existingRulesMapForFinalizer) {
+    return PackagePiece.ForMacro.newBuilder(
+        metadata,
+        declarations,
+        macro,
+        parentIdentifier,
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        mainRepositoryMapping,
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits(),
+        existingRulesMapForFinalizer);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -331,11 +337,11 @@ public final class PackageFactory {
   public void afterDoneLoadingPackage(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
+      Metrics metrics,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
 
-    packageValidator.validate(pkg, eventHandler);
+    packageValidator.validate(pkg, metrics, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
     long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
@@ -358,7 +364,7 @@ public final class PackageFactory {
                   .build()));
     }
 
-    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, metrics);
   }
 
   /**
@@ -370,7 +376,7 @@ public final class PackageFactory {
   public void afterDoneLoadingPackagePiece(
       PackagePiece pkgPiece,
       StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
+      Metrics metrics,
       ExtendedEventHandler eventHandler)
       throws InvalidPackagePieceException {
     // TODO(https://github.com/bazelbuild/bazel/issues/23852): add package piece validation.

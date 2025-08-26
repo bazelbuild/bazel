@@ -23,6 +23,99 @@ cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
 _EMPTY_LTO = cc_common_internal.create_lto_compilation_context()
 
+_warning = """ Don't use this field. It's intended for internal use and will be changed or removed
+    without warning."""
+
+# A library the user can link to. This is different from a simple linker input in that it also has
+# a library identifier.
+LibraryToLinkInfo = provider(
+    "A library the user can link against.",
+    fields = {
+        "static_library": "Artifact of static library to be linked.",
+        "pic_static_library": "Artifact of pic static library to be linked.",
+        "dynamic_library": """Artifact of dynamic library to be linked. Always used for runtime
+            and used for linking if `interface_library` is not passed.""",
+        "interface_library": "Artifact of interface library to be linked.",
+        "resolved_symlink_dynamic_library": """The resolved `Artifact` of the dynamic library
+            to be linked if `dynamic_library` is a symlink, otherwise this is None.""",
+        "resolved_symlink_interface_library": """The resolved `Artifact` of the interface library
+            to be linked if `interface_library` is a symlink, otherwise this is None.""",
+        "objects": "List of object files in the library.",
+        "pic_objects": "List of pic object files in the library.",
+        "alwayslink": "Whether to link the static library/objects in the --whole_archive block.",
+        "lto_bitcode_files": "List of LTO bitcode files in the library.",
+        "pic_lto_bitcode_files": "List of pic LTO bitcode files in the library.",
+        "_library_identifier": _warning,
+        "_contains_objects": """
+This is essential for start-end library functionality. _contains_objects is False when calling
+cc_common.create_library_to_link with empty object files. This signifies to start-end that an
+archive needs to be used. On the other hand cc_common.link will set object files to exactly
+what's in the archive. Start-end library functionality may correctly expand the object files.
+In case they are empty, this means also the archive is empty.""" + _warning,
+        "_disable_whole_archive": _warning,
+        "_must_keep_debug": """
+TODO(b/338618120): This is just needed for Go, do not expose to Starlark and try to remove it.
+This was introduced to let a linker input declare that it needs debug info in the executable.
+Specifically, this was introduced for linking Go into a C++ binary when using the gccgo compiler.
+        """ + _warning,
+        "_lto_compilation_context": _warning,
+        "_pic_lto_compilation_context": _warning,
+        "_shared_non_lto_backends": _warning,
+        "_pic_shared_non_lto_backends": _warning,
+    },
+)
+
+# buildifier: disable=function-docstring-args
+# buildifier: disable=function-docstring-return
+def make_library_to_link(
+        *,
+        static_library = None,
+        pic_static_library = None,
+        dynamic_library = None,
+        interface_library = None,
+        resolved_symlink_dynamic_library = None,
+        resolved_symlink_interface_library = None,
+        objects = [],
+        pic_objects = [],
+        alwayslink = False,
+        _library_identifier,
+        _contains_objects = False,
+        _disable_whole_archive = False,
+        _must_keep_debug = False,
+        _lto_compilation_context = None,
+        _pic_lto_compilation_context = None,
+        _shared_non_lto_backends = {},
+        _pic_shared_non_lto_backends = {}):
+    """Constructs a frozen LibraryToLink."""
+    if not (static_library or pic_static_library or dynamic_library or interface_library):
+        fail("At least on library artifact must be non null")
+    if resolved_symlink_dynamic_library and not dynamic_library:
+        fail("resolved_symlink_dynamic_library without dynamic_library")
+    if resolved_symlink_interface_library and not interface_library:
+        fail("resolved_symlink_interface_library without interface_library")
+    return LibraryToLinkInfo(
+        static_library = static_library,
+        pic_static_library = pic_static_library,
+        interface_library = interface_library,
+        dynamic_library = dynamic_library,
+        resolved_symlink_dynamic_library = resolved_symlink_dynamic_library,
+        resolved_symlink_interface_library = resolved_symlink_interface_library,
+        objects = cc_internal.freeze(objects),
+        pic_objects = cc_internal.freeze(pic_objects),
+        alwayslink = alwayslink,
+        # LTO data duplication is forced by public APIs
+        lto_bitcode_files = cc_internal.freeze(_lto_compilation_context.lto_bitcode_inputs().keys() if _lto_compilation_context else []),
+        pic_lto_bitcode_files = cc_internal.freeze(_pic_lto_compilation_context.lto_bitcode_inputs().keys() if _pic_lto_compilation_context else []),
+        _library_identifier = _library_identifier,
+        _contains_objects = _contains_objects,
+        _must_keep_debug = _must_keep_debug,
+        _disable_whole_archive = _disable_whole_archive,
+        _lto_compilation_context = _lto_compilation_context,
+        _pic_lto_compilation_context = _pic_lto_compilation_context,
+        _shared_non_lto_backends = cc_internal.freeze(_shared_non_lto_backends),
+        _pic_shared_non_lto_backends = cc_internal.freeze(_pic_shared_non_lto_backends),
+    )
+
 def create_library_to_link(
         *,
         actions,
@@ -86,9 +179,9 @@ def create_library_to_link(
 
     if static_library:
         if alwayslink:
-            _validate_ext(static_library, [".a", ".lib", ".rlib"] + [".lo"], not_ext = [".pic.a", ".pic.lo", ".if.lib"], empty_ext = True)
+            _validate_ext(static_library, [".a", ".lib", ".rlib"] + [".lo"], not_ext = [".pic.lo", ".if.lib"], empty_ext = True)
         else:
-            _validate_ext(static_library, [".a", ".lib", ".rlib"], not_ext = [".pic.a", ".lo.lib", ".if.lib"], empty_ext = True)
+            _validate_ext(static_library, [".a", ".lib", ".rlib"], not_ext = [".lo.lib", ".if.lib"], empty_ext = True)
 
     if pic_static_library:
         if alwayslink:
@@ -141,8 +234,8 @@ def create_library_to_link(
     library_identifier = identifier.short_path.removesuffix(".pic.a").removesuffix(".nopic.a").removesuffix(".pic.lo")
     library_identifier = paths.replace_extension(library_identifier, "")
 
-    objects = objects or None
-    pic_objects = pic_objects or None
+    objects = objects or []
+    pic_objects = pic_objects or []
 
     if lto_compilation_context and static_library and objects != None:
         shared_non_lto_backends = create_shared_non_lto_artifacts(
@@ -158,22 +251,21 @@ def create_library_to_link(
         shared_non_lto_backends = None
     lto_compilation_context = lto_compilation_context or _EMPTY_LTO
 
-    return cc_internal.create_library_to_link(
-        struct(
-            library_identifier = library_identifier,
-            static_library = static_library,
-            pic_static_library = pic_static_library,
-            object_files = objects,
-            pic_object_files = pic_objects,
-            dynamic_library = dynamic_library,
-            resolved_symlink_dynamic_library = resolved_symlink_dynamic_library,
-            interface_library = interface_library,
-            resolve_symlink_interface_library = resolved_symlink_interface_library,
-            alwayslink = alwayslink,
-            must_keep_debug = must_keep_debug,
-            lto_compilation_context = lto_compilation_context,
-            shared_non_lto_backends = shared_non_lto_backends,
-        ),
+    return make_library_to_link(
+        static_library = static_library,
+        pic_static_library = pic_static_library,
+        objects = objects,
+        pic_objects = pic_objects,
+        dynamic_library = dynamic_library,
+        resolved_symlink_dynamic_library = resolved_symlink_dynamic_library,
+        interface_library = interface_library,
+        resolved_symlink_interface_library = resolved_symlink_interface_library,
+        alwayslink = alwayslink,
+        _library_identifier = library_identifier,
+        _must_keep_debug = must_keep_debug,
+        _lto_compilation_context = lto_compilation_context,
+        _shared_non_lto_backends = shared_non_lto_backends,
+        _contains_objects = bool(objects) or bool(pic_objects),
     )
 
 def _validate_symlink_path(attr, path):

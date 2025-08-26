@@ -160,22 +160,27 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
+  public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
+    return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
+  }
+
+  @Override
   public SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
-    Preconditions.checkArgument(
-        execPath.isAbsolute() == root.isAbsolute(), "%s %s %s", execPath, root, owner);
-    Preconditions.checkNotNull(owner, "%s %s", execPath, root);
     // TODO(jungjw): Come up with a more reliable way to distinguish external source roots.
     ArtifactRoot artifactRoot =
         root.asPath() != null && root.asPath().startsWith(externalSourceBase)
             ? ArtifactRoot.asExternalSourceRoot(root)
             : ArtifactRoot.asSourceRoot(root);
-    return (SourceArtifact)
-        getArtifact(artifactRoot, execPath, owner, null, /*contentBasedPath=*/ false);
+    return getSourceArtifact(execPath, artifactRoot, owner);
   }
 
-  @Override
-  public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
-    return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
+  public SourceArtifact getSourceArtifact(
+      PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
+    Preconditions.checkArgument(
+        execPath.isAbsolute() == root.getRoot().isAbsolute(), "%s %s %s", execPath, root, owner);
+    Preconditions.checkNotNull(owner, "%s %s", execPath, root);
+    return (SourceArtifact)
+        getArtifact(root, execPath, owner, /* type= */ null, /* contentBasedPath= */ false);
   }
 
   private void validatePath(PathFragment rootRelativePath, ArtifactRoot root) {

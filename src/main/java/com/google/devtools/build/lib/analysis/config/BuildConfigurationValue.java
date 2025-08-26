@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.TriState;
 import java.io.PrintStream;
 import java.util.HashMap;
@@ -93,6 +96,8 @@ public class BuildConfigurationValue
     FragmentRegistry getFragmentRegistry();
 
     ImmutableSet<String> getReservedActionMnemonics();
+
+    String getRunfilesPrefix();
   }
 
   private final OutputDirectories outputDirectories;
@@ -172,8 +177,12 @@ public class BuildConfigurationValue
     }
     // Order doesn't matter here as ActionEnvironment sorts by key.
     Map<String, String> testEnv = new HashMap<>();
-    for (Map.Entry<String, String> entry : buildOptions.get(TestOptions.class).testEnvironment) {
-      testEnv.put(entry.getKey(), entry.getValue());
+    for (Converters.EnvVar envVar : buildOptions.get(TestOptions.class).testEnvironment) {
+      switch (envVar) {
+        case Converters.EnvVar.Set(String name, String value) -> testEnv.put(name, value);
+        case Converters.EnvVar.Inherit(String name) -> testEnv.put(name, null);
+        case Converters.EnvVar.Unset(String name) -> testEnv.remove(name);
+      }
     }
     return ActionEnvironment.split(testEnv);
   }
@@ -182,8 +191,8 @@ public class BuildConfigurationValue
   public static BuildConfigurationValue create(
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
-      String workspaceName,
       boolean siblingRepositoryLayout,
+      String targetCpu,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -203,8 +212,9 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
-        workspaceName,
         siblingRepositoryLayout,
+        targetCpu,
+        globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -218,7 +228,6 @@ public class BuildConfigurationValue
   public static BuildConfigurationValue createForTesting(
       BuildOptions buildOptions,
       String mnemonic,
-      String workspaceName,
       boolean siblingRepositoryLayout,
       // Arguments below this are server-global.
       BlazeDirectories directories,
@@ -236,8 +245,9 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
-        workspaceName,
         siblingRepositoryLayout,
+        "",
+        globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -262,9 +272,10 @@ public class BuildConfigurationValue
   BuildConfigurationValue(
       BuildOptions buildOptions,
       String mnemonic,
-      String workspaceName,
       boolean siblingRepositoryLayout,
+      String targetCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
+      String workspaceName,
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
       ImmutableSet<String> reservedActionMnemonics,
@@ -304,7 +315,7 @@ public class BuildConfigurationValue
     globalMakeEnv =
         ImmutableMap.of(
             "TARGET_CPU",
-            options.cpu,
+            targetCpu,
             "COMPILATION_MODE",
             options.compilationMode.toString(),
             "BINDIR",
@@ -432,18 +443,6 @@ public class BuildConfigurationValue
       throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return hasSeparateGenfilesDirectory();
-  }
-
-  /**
-   * Returns the directory where coverage-related artifacts and metadata files should be stored.
-   * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
-   * tools.
-   *
-   * @deprecated Use {@code RuleContext#getCoverageMetadataDirectory} instead whenever possible.
-   */
-  @Deprecated
-  public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getCoverageMetadataDirectory(repositoryName);
   }
 
   /**
@@ -655,6 +654,10 @@ public class BuildConfigurationValue
 
   public BlazeDirectories getDirectories() {
     return outputDirectories.getDirectories();
+  }
+
+  public String targetCpu() {
+    return this.globalMakeEnv.get("TARGET_CPU");
   }
 
   /** Returns true if non-functional build stamps are enabled. */
@@ -926,6 +929,11 @@ public class BuildConfigurationValue
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
+  }
+
+  public ImmutableMap<String, String> getCommandLineFlagAliases() {
+    return options.commandLineFlagAliases.stream()
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Nullable

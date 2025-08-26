@@ -10,6 +10,12 @@ package(
 
 licenses(["notice"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
 _TURBINE_MAIN_CLASS = "com.google.turbine.main.Main"
 
 java_library(
@@ -154,14 +160,4 @@ sh_binary(
 sh_binary(
     name = "update_turbine_pgo",
     srcs = ["update_turbine_pgo.sh"],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(
-        ["**/*.java"],
-        allow_empty = True,
-    ) + [
-        "BUILD",
-    ],
 )

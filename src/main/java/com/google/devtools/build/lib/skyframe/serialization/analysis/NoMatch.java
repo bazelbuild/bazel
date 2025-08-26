@@ -17,8 +17,13 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatch
 import com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.NestedMatchResult;
 
 /** The delta didn't match the set of dependencies, meaning a <b>cache hit</b>. */
-enum NoMatch implements FileOpMatchResult, NestedMatchResult {
+enum NoMatch implements FileOpMatchResult, NestedMatchResult, MatchIndicator {
   NO_MATCH_RESULT;
+
+  @Override
+  public boolean isMatch() {
+    return false;
+  }
 
   @Override
   public final int version() {

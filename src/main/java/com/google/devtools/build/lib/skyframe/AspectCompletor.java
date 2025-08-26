@@ -66,8 +66,7 @@ final class AspectCompletor
     checkNotNull(baseTargetValue, "Base configured target value should be ready!");
 
     ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
-            baseTargetValue.getConfiguredTarget(), env);
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(baseTargetValue, env);
 
     return Event.error(
         configuredTargetAndData.getLocation(),

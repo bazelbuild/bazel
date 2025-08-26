@@ -220,7 +220,7 @@ It can be used to <a href="https://msdn.microsoft.com/en-us/library/d91k01sh.asp
 export symbols</a> during linking a shared library.</p>
 """,
     ),
-}
+} | semantics.allowlist_attrs
 
 linkstatic_doc = """
 For <a href="${link cc_binary}"><code>cc_binary</code></a> and

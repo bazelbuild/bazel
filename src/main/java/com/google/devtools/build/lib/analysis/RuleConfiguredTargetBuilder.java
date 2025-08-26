@@ -84,7 +84,6 @@ public final class RuleConfiguredTargetBuilder {
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
-  private final NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
   private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
@@ -347,7 +346,7 @@ public final class RuleConfiguredTargetBuilder {
       if (rdeLabel != null
           && BuiltinRestriction.isNotAllowed(
               rdeLabel,
-              RepositoryMapping.ALWAYS_FALLBACK,
+              RepositoryMapping.EMPTY,
               BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
@@ -404,23 +403,24 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Compute the artifacts to put into the {@link FilesToRunProvider} for this target. These are the
-   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles
-   * tree of the rule if it exists.
+   * filesToBuild, the runfiles tree of the rule if it exists, as well as the executable.
    */
   private NestedSet<Artifact> buildFilesToRun(
       NestedSet<Artifact> runfilesTrees, NestedSet<Artifact> filesToBuild) {
-    filesToRunBuilder.addTransitive(filesToBuild);
-    filesToRunBuilder.addTransitive(runfilesTrees);
+    var builder =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(filesToBuild)
+            .addTransitive(runfilesTrees);
     if (executable != null && ruleContext.getRule().getRuleClassObject().isStarlark()) {
-      filesToRunBuilder.add(executable);
+      builder.add(executable);
     }
-    return filesToRunBuilder.build();
+    return builder.build();
   }
 
   /**
-   * Invokes Blaze's constraint enforcement system: checks that this rule's dependencies
-   * support its environments and reports appropriate errors if violations are found. Also
-   * publishes this rule's supported environments for the rules that depend on it.
+   * Invokes Blaze's constraint enforcement system: checks that this rule's dependencies support its
+   * environments and reports appropriate errors if violations are found. Also publishes this rule's
+   * supported environments for the rules that depend on it.
    */
   private void checkConstraints() {
     if (!ruleContext.getRule().getRuleClassObject().supportsConstraintChecking()) {
@@ -433,8 +433,8 @@ public final class RuleConfiguredTargetBuilder {
     if (supportedEnvironments != null) {
       EnvironmentCollection.Builder refinedEnvironments = new EnvironmentCollection.Builder();
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
-      constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
-          removedEnvironmentCulprits);
+      constraintSemantics.checkConstraints(
+          ruleContext, supportedEnvironments, refinedEnvironments, removedEnvironmentCulprits);
       add(
           SupportedEnvironmentsProvider.class,
           SupportedEnvironments.create(
@@ -451,9 +451,10 @@ public final class RuleConfiguredTargetBuilder {
       ruleContext.attributeError("shard_count", "Must not be negative.");
     }
     if (explicitShardCount > 50) {
-      ruleContext.attributeError("shard_count",
+      ruleContext.attributeError(
+          "shard_count",
           "Having more than 50 shards is indicative of poor test organization. "
-          + "Please reduce the number of shards.");
+              + "Please reduce the number of shards.");
     }
     TestActionBuilder testActionBuilder =
         new TestActionBuilder(ruleContext)
@@ -477,16 +478,6 @@ public final class RuleConfiguredTargetBuilder {
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
             .build();
     return new TestProvider(testParams);
-  }
-
-  /**
-   * Add files required to run the target. Artifacts from {@link #setFilesToBuild} and the runfiles
-   * tree, if any, are added automatically.
-   */
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addFilesToRun(NestedSet<Artifact> files) {
-    filesToRunBuilder.addTransitive(files);
-    return this;
   }
 
   /**
@@ -520,6 +511,7 @@ public final class RuleConfiguredTargetBuilder {
     providersBuilder.addAll(providers);
     return this;
   }
+
   /**
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
    * providers defined in Starlark. The provider symbol must be exported.

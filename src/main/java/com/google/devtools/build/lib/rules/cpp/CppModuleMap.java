@@ -48,6 +48,19 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   }
 
   @Override
+  public String getNameForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return name;
+  }
+
+  @Override
+  public CppModuleMapApi<Artifact> createSeparateModuleMap(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return new CppModuleMap(artifact, name + SEPARATE_MODULE_SUFFIX);
+  }
+
+  @Override
   public int hashCode() {
     // It would be incorrect for two CppModuleMap instances in the same build graph to have the same
     // artifact but different names or umbrella headers. Since Artifacts' hash codes are cached, use

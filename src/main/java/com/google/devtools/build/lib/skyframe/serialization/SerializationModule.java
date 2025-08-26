@@ -48,10 +48,14 @@ public class SerializationModule extends BlazeModule {
   @ForOverride
   protected Supplier<ObjectCodecRegistry> getAnalysisCodecRegistrySupplier(
       BlazeRuntime runtime, BlazeDirectories directories) {
-    return SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier(
-        runtime.getRuleClassProvider(),
-        SerializationRegistrySetupHelpers.makeReferenceConstants(
-            directories, runtime.getRuleClassProvider(), directories.getWorkspace().getBaseName()));
+    return () ->
+        SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder(
+                runtime.getRuleClassProvider(),
+                SerializationRegistrySetupHelpers.makeReferenceConstants(
+                    directories,
+                    runtime.getRuleClassProvider(),
+                    directories.getWorkspace().getBaseName()))
+            .build();
   }
 
   @ForOverride

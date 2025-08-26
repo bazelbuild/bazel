@@ -39,11 +39,17 @@ public class GoogleAutoProfilerUtils {
   }
 
   public static AutoProfiler logged(String description) {
-    return AutoProfiler.create(createSimpleLogger(description));
+    return AutoProfiler.create(
+        createSimpleLogger(description, /* minTimeForLogging= */ Duration.ZERO));
   }
 
-  private static ElapsedTimeReceiver createSimpleLogger(String description) {
-    return elapsedTimeNanos -> log(selfLogger, elapsedTimeNanos, description);
+  private static ElapsedTimeReceiver createSimpleLogger(
+      String description, Duration minTimeForLogging) {
+    return elapsedTimeNanos -> {
+      if (elapsedTimeNanos >= minTimeForLogging.toNanos()) {
+        log(selfLogger, elapsedTimeNanos, description);
+      }
+    };
   }
 
   /**
@@ -54,10 +60,24 @@ public class GoogleAutoProfilerUtils {
    */
   public static AutoProfiler profiledAndLogged(
       String taskDescription, ProfilerTask profilerTaskType) {
+    return profiledAndLogged(
+        taskDescription, profilerTaskType, /* minTimeForLogging= */ Duration.ZERO);
+  }
+
+  /**
+   * Like {@link #profiledAndLogged(String, ProfilerTask)} but only logs if the task takes at least
+   * {@code minTimeForLogging}.
+   *
+   * <p>The elapsed time is recorded using {@link Profiler} even if it is less than {@code
+   * minTimeForLogging}.
+   */
+  public static AutoProfiler profiledAndLogged(
+      String taskDescription, ProfilerTask profilerTaskType, Duration minTimeForLogging) {
     ElapsedTimeReceiver profilingReceiver =
         new AutoProfiler.ProfilingElapsedTimeReceiver(taskDescription, profilerTaskType);
     return AutoProfiler.create(
-        new SequencedElapsedTimeReceiver(profilingReceiver, createSimpleLogger(taskDescription)));
+        new SequencedElapsedTimeReceiver(
+            profilingReceiver, createSimpleLogger(taskDescription, minTimeForLogging)));
   }
 
   /**

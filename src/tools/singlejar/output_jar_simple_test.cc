@@ -642,6 +642,35 @@ TEST_F(OutputJarSimpleTest, IncludeHeaders) {
   EXPECT_EQ(expected_entries, jar_entries);
 }
 
+// --exclude_zip_entries
+TEST_F(OutputJarSimpleTest, ExcludeFilenames) {
+  string resolvedLibDataPath1 = runfiles->Rlocation(kPathLibData1);
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(
+      out_path,
+      {"--sources",
+       runfiles
+           ->Rlocation(
+               "io_bazel/src/tools/singlejar/libtest1.jar")
+           .c_str(),
+       resolvedLibDataPath1.c_str(), "--exclude_zip_entries",
+       "tools/singlejar/data/extra_file1", "--include_prefixes",
+       "tools/singlejar/data"});
+  std::vector<string> expected_entries(
+      {"META-INF/", "META-INF/MANIFEST.MF", "build-data.properties",
+       "tools/singlejar/data/", "tools/singlejar/data/extra_file2"});
+  std::vector<string> jar_entries;
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    jar_entries.push_back(cdh->file_name_string());
+  }
+  input_jar.Close();
+  EXPECT_EQ(expected_entries, jar_entries);
+}
+
 // --normalize
 TEST_F(OutputJarSimpleTest, Normalize) {
   // Creates output jar containing entries from all possible sources:

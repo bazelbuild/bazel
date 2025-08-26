@@ -838,15 +838,135 @@ set -euo pipefail
 echo "FROMBUILD: '$FROMBUILD'"
 echo "OVERRIDDEN_RUN_ENV: '$OVERRIDDEN_RUN_ENV'"
 echo "RUN_ENV_ONLY: '$RUN_ENV_ONLY'"
+echo "EMPTY_RUN_ENV: '$EMPTY_RUN_ENV'"
+echo "INHERITED_RUN_ENV: '$INHERITED_RUN_ENV'"
+echo "REMOVED_RUN_ENV: '${REMOVED_RUN_ENV:=<unset>}'"
+echo "SET_UNSET_SET: '$SET_UNSET_SET'"
 EOF
 
   chmod +x "$pkg/foo.sh"
 
-  bazel run --run_env=OVERRIDDEN_RUN_ENV=FOO --run_env=RUN_ENV_ONLY=BAR "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+  INHERITED_RUN_ENV=BAZ REMOVED_RUN_ENV=QUZ bazel run \
+      --run_env=OVERRIDDEN_RUN_ENV=FOO \
+      --run_env=RUN_ENV_ONLY=BAR \
+      --run_env=EMPTY_RUN_ENV= \
+      --run_env=INHERITED_RUN_ENV \
+      --run_env==REMOVED_RUN_ENV \
+      --run_env=SET_UNSET_SET=set1 \
+      --run_env==SET_UNSET_SET \
+      --run_env=SET_UNSET_SET=set2 \
+      "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
 
   expect_log "FROMBUILD: '1'"
   expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
   expect_log "RUN_ENV_ONLY: 'BAR'"
+  expect_log "EMPTY_RUN_ENV: ''"
+  expect_log "INHERITED_RUN_ENV: 'BAZ'"
+  expect_log "REMOVED_RUN_ENV: '<unset>'"
+  expect_log "SET_UNSET_SET: 'set2'"
+}
+
+function test_test_env() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+  env = {
+    "FROMBUILD": "1",
+    "OVERRIDDEN_RUN_ENV": "2",
+  }
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "FROMBUILD: '$FROMBUILD'"
+echo "OVERRIDDEN_TEST_ENV: '$OVERRIDDEN_TEST_ENV'"
+echo "TEST_ENV_ONLY: '$TEST_ENV_ONLY'"
+echo "EMPTY_TEST_ENV: '$EMPTY_TEST_ENV'"
+echo "INHERITED_TEST_ENV: '$INHERITED_TEST_ENV'"
+echo "REMOVED_TEST_ENV: '${REMOVED_TEST_ENV:=<unset>}'"
+echo "SET_UNSET_SET: '$SET_UNSET_SET'"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+
+  INHERITED_TEST_ENV=BAZ REMOVED_TEST_ENV=QUZ bazel run \
+      --test_env=OVERRIDDEN_TEST_ENV=FOO \
+      --test_env=TEST_ENV_ONLY=BAR \
+      --test_env=EMPTY_TEST_ENV= \
+      --test_env=INHERITED_TEST_ENV \
+      --test_env==REMOVED_TEST_ENV \
+      --test_env=SET_UNSET_SET=set1 \
+      --test_env==SET_UNSET_SET \
+      --test_env=SET_UNSET_SET=set2 \
+      "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+
+  expect_log "FROMBUILD: '1'"
+  expect_log "OVERRIDDEN_TEST_ENV: 'FOO'"
+  expect_log "TEST_ENV_ONLY: 'BAR'"
+  expect_log "EMPTY_TEST_ENV: ''"
+  expect_log "INHERITED_TEST_ENV: 'BAZ'"
+  # --test_env==NAME is specified to only remove previous --test_env uses for
+  # NAME, it doesn't remove the NAME from the environment when running the test
+  # non-hermetically via bazel run.
+  expect_log "REMOVED_TEST_ENV: 'QUZ'"
+  expect_log "SET_UNSET_SET: 'set2'"
+}
+
+# Test that --run_env does not apply when running a test. Note that this may or
+# may not be desired, but it is the current behavior.
+function test_run_and_test_env() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "INHERITED_TEST_ENV: '$INHERITED_TEST_ENV'"
+echo "INHERITED_RUN_ENV: '$INHERITED_RUN_ENV'"
+echo "FIXED_TEST_AND_RUN_ENV: '$FIXED_TEST_AND_RUN_ENV'"
+echo "FIXED_TEST_ENV: '$FIXED_TEST_ENV'"
+echo "FIXED_RUN_ENV: '${FIXED_RUN_ENV:=<unset>}'"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+
+  INHERITED_TEST_ENV=inherited INHERITED_RUN_ENV=inherited bazel run \
+      --test_env=INHERITED_TEST_ENV \
+      --run_env=INHERITED_TEST_ENV=run \
+      --run_env=INHERITED_RUN_ENV \
+      --test_env=INHERITED_RUN_ENV=test \
+      --test_env=FIXED_TEST_AND_RUN_ENV=test \
+      --run_env=FIXED_TEST_AND_RUN_ENV=run \
+      --test_env=FIXED_TEST_ENV=test \
+      --run_env==FIXED_TEST_ENV \
+      --run_env=FIXED_RUN_ENV=run \
+      --test_env==FIXED_RUN_ENV \
+      "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+
+  expect_log "INHERITED_TEST_ENV: 'inherited'"
+  expect_log "INHERITED_RUN_ENV: 'test'"
+  expect_log "FIXED_TEST_AND_RUN_ENV: 'test'"
+  expect_log "FIXED_TEST_ENV: 'test'"
+  expect_log "FIXED_RUN_ENV: '<unset>'"
 }
 
 function test_run_env_script_path() {

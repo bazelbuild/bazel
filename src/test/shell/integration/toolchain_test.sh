@@ -1838,15 +1838,6 @@ EOF
   expect_log 'Using toolchain: value "foo"'
 }
 
-function test_local_config_platform() {
-  if [ "${PRODUCT_NAME}" != "bazel" ]; then
-    # Tests of external repositories only work under bazel.
-    return 0
-  fi
-  bazel query @local_config_platform//... &> $TEST_log || fail "Build failed"
-  expect_log '@local_config_platform//:host'
-}
-
 # Test cycles in registered toolchains, which can only happen when
 # registered_toolchains is called for something that is not actually
 # using the "toolchain" rule.

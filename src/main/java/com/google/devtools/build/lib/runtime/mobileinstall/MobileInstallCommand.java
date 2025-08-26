@@ -207,7 +207,8 @@ public class MobileInstallCommand implements BlazeCommand {
                 successfulTargets ->
                     doMobileInstall(
                         env, options, runTargetArgs, successfulTargets, deployerRequestRef),
-                options);
+                options,
+                /* targetsForProjectResolution= */ null);
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running mobile-install on target."));
       return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
@@ -289,7 +290,7 @@ public class MobileInstallCommand implements BlazeCommand {
     // Collect relevant test options.
     TestOptions testOptions = options.getOptions(TestOptions.class);
     // Default value of testFilter is null.
-    if (!Strings.isNullOrEmpty(testOptions.testFilter)){
+    if (!Strings.isNullOrEmpty(testOptions.testFilter)) {
       cmdLine.add("--test_filter=" + testOptions.testFilter);
     }
     for (String arg : testOptions.testArguments) {
@@ -299,10 +300,7 @@ public class MobileInstallCommand implements BlazeCommand {
     }
 
     Path workingDir =
-        env.getDirectories()
-            .getOutputPath(env.getWorkspaceName())
-            .getParentDirectory()
-            .devirtualize();
+        env.getDirectories().getOutputPath(env.getWorkspaceName()).getParentDirectory();
 
     if (mobileInstallOptions.runInClient) {
       deployerRequestRef.set(createExecRequest(env, workingDir, cmdLine.build()));
@@ -318,7 +316,7 @@ public class MobileInstallCommand implements BlazeCommand {
       CommandEnvironment env, Path workingDir, ImmutableList<String> cmdLine)
       throws InterruptedException {
     com.google.devtools.build.lib.shell.Command command =
-        new CommandBuilder()
+        new CommandBuilder(env.getClientEnv())
             .addArgs(cmdLine)
             .setEnv(env.getClientEnv())
             .setWorkingDir(workingDir)

@@ -40,9 +40,10 @@ import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Builder class to construct C++ compile actions. */
-public final class CppCompileActionBuilder {
+public final class CppCompileActionBuilder implements StarlarkValue {
 
   private final ActionOwner owner;
   private boolean shareable;
@@ -86,7 +87,8 @@ public final class CppCompileActionBuilder {
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext
         && ruleContext.useAutoExecGroups()) {
-      actionOwner = actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());
+      actionOwner =
+          actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType().toString());
     }
 
     this.owner = actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;

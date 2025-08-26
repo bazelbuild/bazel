@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -71,7 +72,7 @@ public class WorkerMultiplexerTest {
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(1).build();
     WorkerProxy worker =
         new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
-    worker.prepareExecution(null, null, null);
+    worker.prepareExecution(null, null, null, ImmutableMap.of());
     worker.putRequest(request1);
     WorkResponse response1 = WorkResponse.newBuilder().setRequestId(1).build();
     response1.writeDelimitedTo(workerOutputStream);
@@ -95,13 +96,13 @@ public class WorkerMultiplexerTest {
 
     WorkerProxy worker1 =
         new WorkerProxy(workerKey, 1, logPath, multiplexer, workerKey.getExecRoot());
-    worker1.prepareExecution(null, null, null);
+    worker1.prepareExecution(null, null, null, ImmutableMap.of());
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
     WorkerProxy worker2 =
         new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
-    worker2.prepareExecution(null, null, null);
+    worker2.prepareExecution(null, null, null, ImmutableMap.of());
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);
 
@@ -133,13 +134,13 @@ public class WorkerMultiplexerTest {
 
     WorkerProxy worker1 =
         new WorkerProxy(workerKey, 1, logPath, multiplexer, workerKey.getExecRoot());
-    worker1.prepareExecution(null, null, null);
+    worker1.prepareExecution(null, null, null, ImmutableMap.of());
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
     WorkerProxy worker2 =
         new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
-    worker2.prepareExecution(null, null, null);
+    worker2.prepareExecution(null, null, null, ImmutableMap.of());
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);
 
@@ -203,13 +204,13 @@ public class WorkerMultiplexerTest {
 
     WorkerProxy worker1 =
         new WorkerProxy(workerKey, 1, logPath, multiplexer, workerKey.getExecRoot());
-    worker1.prepareExecution(null, null, null);
+    worker1.prepareExecution(null, null, null, ImmutableMap.of());
     WorkRequest request1 = WorkRequest.newBuilder().setRequestId(3).build();
     worker1.putRequest(request1);
 
     WorkerProxy worker2 =
         new WorkerProxy(workerKey, 2, logPath, multiplexer, workerKey.getExecRoot());
-    worker2.prepareExecution(null, null, null);
+    worker2.prepareExecution(null, null, null, ImmutableMap.of());
     WorkRequest request2 = WorkRequest.newBuilder().setRequestId(42).build();
     worker2.putRequest(request2);
 

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retrieveRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Joiner;
@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.Artifact
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlanResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
@@ -177,8 +178,9 @@ public final class ActionExecutionFunction implements SkyFunction {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
-      switch (fetchRemoteSkyValue(
+    if (remoteCachingDependencies.isRetrievalEnabled()
+        && !skyframeActionExecutor.shouldSkipRetrieval(actionLookupData)) {
+      switch (retrieveRemoteSkyValue(
           actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
@@ -192,7 +194,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         ActionUtils.getActionForLookupData(
             env,
             actionLookupData,
-            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRemoteFetchEnabled());
+            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRetrievalEnabled());
     if (action == null) {
       return null;
     }
@@ -448,9 +450,10 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   /**
    * Cleans up state associated with the current action execution attempt and returns a {@link
-   * SkyFunction.Reset} value which rewinds the actions that generate the lost inputs.
+   * Reset} value which rewinds the actions that generate the lost inputs.
    */
-  private SkyFunction.Reset handleLostInputs(
+  @Nullable // null if there were missing dependencies
+  private Reset handleLostInputs(
       LostInputsActionExecutionException e,
       ActionLookupData actionLookupData,
       Action action,
@@ -488,9 +491,9 @@ public final class ActionExecutionFunction implements SkyFunction {
       failedActionDeps = inputDepKeys;
     }
 
-    Reset rewindPlan = null;
+    RewindPlanResult rewindPlanResult = null;
     try {
-      rewindPlan =
+      rewindPlanResult =
           actionRewindStrategy.prepareRewindPlanForLostInputs(
               actionLookupData,
               action,
@@ -514,7 +517,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                   e.getFileOutErr(),
                   ErrorTiming.AFTER_EXECUTION)));
     } finally {
-      if (e.isActionStartedEventAlreadyEmitted() && rewindPlan == null) {
+      if (e.isActionStartedEventAlreadyEmitted() && rewindPlanResult == null) {
         // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
@@ -530,8 +533,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                     actionLookupData));
       }
     }
-
-    return rewindPlan;
+    return rewindPlanResult.toNullIfMissingDependenciesElseReset();
   }
 
   /**
@@ -1040,11 +1042,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
       if (value != null) {
         ActionInputMapHelper.addToMap(
-            inputArtifactData,
-            (treeArtifact, treeValue) -> {},
-            input,
-            value,
-            MetadataConsumerForMetrics.NO_OP);
+            inputArtifactData, input, value, MetadataConsumerForMetrics.NO_OP);
       } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
         // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
         // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the
@@ -1530,11 +1528,15 @@ public final class ActionExecutionFunction implements SkyFunction {
                             "Code " + code + " had no failure detail for " + debugInfo));
                     return;
                   }
+                  if (code.getFailureDetail().hasFilesystem()) {
+                    sawSourceArtifactException.set(true);
+                    return;
+                  }
                   switch (code.getFailureDetail().getExecution().getCode()) {
                     case SOURCE_INPUT_IO_EXCEPTION -> sawSourceArtifactException.set(true);
                     case SOURCE_INPUT_MISSING -> sawMissingFile.set(true);
                     default ->
-                        BugReport.sendBugReport(
+                        BugReport.sendNonFatalBugReport(
                             new IllegalStateException(
                                 "Unexpected error code in " + code + " for " + debugInfo));
                   }

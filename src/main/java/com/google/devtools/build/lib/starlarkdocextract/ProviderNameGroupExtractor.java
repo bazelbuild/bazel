@@ -37,14 +37,12 @@ final class ProviderNameGroupExtractor {
           internalToUnicode(context.getDocumentedProviderName(provider)));
       OriginKey.Builder providerKeyBuilder =
           OriginKey.newBuilder().setName(internalToUnicode(provider.toString()));
-      if (!provider.isLegacy()) {
-        if (provider.getKey() instanceof StarlarkProvider.Key) {
-          Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
-          providerKeyBuilder.setFile(
-              internalToUnicode(context.labelRenderer().render(definingModule)));
-        } else if (provider.getKey() instanceof BuiltinProvider.Key) {
-          providerKeyBuilder.setFile("<native>");
-        }
+      if (provider.getKey() instanceof StarlarkProvider.Key) {
+        Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
+        providerKeyBuilder.setFile(
+            internalToUnicode(context.labelRenderer().render(definingModule)));
+      } else if (provider.getKey() instanceof BuiltinProvider.Key) {
+        providerKeyBuilder.setFile("<native>");
       }
       providerNameGroupBuilder.addOriginKey(providerKeyBuilder.build());
     }

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -61,6 +60,8 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -111,6 +112,7 @@ import io.grpc.ManagedChannel;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -196,7 +198,7 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteOutputService);
   }
 
-  public static final Predicate<? super Exception> RETRIABLE_HTTP_ERRORS =
+  public static final ResultClassifier HTTP_RESULT_CLASSIFIER =
       e -> {
         boolean retry = false;
         if (e instanceof ClosedChannelException) {
@@ -205,6 +207,9 @@ public final class RemoteModule extends BlazeModule {
           retry = true;
         } else if (e instanceof HttpException httpException) {
           int status = httpException.response().status().code();
+          if (status == HttpResponseStatus.NOT_FOUND.code()) {
+            return Result.SUCCESS;
+          }
           retry =
               status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
                   || status == HttpResponseStatus.BAD_GATEWAY.code()
@@ -225,7 +230,7 @@ public final class RemoteModule extends BlazeModule {
             retry = true;
           }
         }
-        return retry;
+        return retry ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
       };
 
   private void initHttpAndDiskCache(
@@ -248,7 +253,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               executorService,
               new RemoteRetrier(
-                  remoteOptions, RETRIABLE_HTTP_ERRORS, retryScheduler, circuitBreaker));
+                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker));
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
@@ -344,6 +349,38 @@ public final class RemoteModule extends BlazeModule {
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
 
     if (enableDiskCache) {
+      // Check that the disk cache directory, which is managed by a garbage collecting idle task,
+      // does not contain the output base. Since the specified output base path may be a symlink,
+      // we resolve it fully. Intermediate symlinks do not have to be checked as the garbage
+      // collector ignores symlinks. We also resolve the disk cache directory, where intermediate
+      // symlinks also don't matter since deletion only occurs under the fully resolved path.
+      Path resolvedOutputBase = env.getOutputBase();
+      try {
+        resolvedOutputBase = resolvedOutputBase.resolveSymbolicLinks();
+      } catch (FileNotFoundException ignored) {
+        // Will be created later.
+      } catch (IOException e) {
+        throw createOptionsExitException(
+            "Failed to resolve output base: %s".formatted(e.getMessage()),
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
+      Path resolvedDiskCache = env.getWorkingDirectory().getRelative(remoteOptions.diskCache);
+      try {
+        resolvedDiskCache = resolvedDiskCache.resolveSymbolicLinks();
+      } catch (FileNotFoundException ignored) {
+        // Will be created later.
+      } catch (IOException e) {
+        throw createOptionsExitException(
+            "Failed to resolve disk cache directory: %s".formatted(e.getMessage()),
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
+      if (resolvedOutputBase.startsWith(resolvedDiskCache)) {
+        // This is dangerous as the disk cache GC may delete files in the output base.
+        throw createOptionsExitException(
+            "The output base [%s] cannot be a subdirectory of the --disk_cache directory [%s]"
+                .formatted(resolvedOutputBase, resolvedDiskCache),
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
       var gcIdleTask =
           DiskCacheGarbageCollectorIdleTask.create(remoteOptions, env.getWorkingDirectory());
       if (gcIdleTask != null) {
@@ -401,7 +438,6 @@ public final class RemoteModule extends BlazeModule {
 
     remoteOutputChecker =
         new RemoteOutputChecker(
-            new JavaClock(),
             env.getCommandName(),
             remoteOptions.remoteOutputsMode,
             patternsToDownloadBuilder.build(),
@@ -475,7 +511,10 @@ public final class RemoteModule extends BlazeModule {
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     RemoteRetrier retrier =
         new RemoteRetrier(
-            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
+            remoteOptions,
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
+            retryScheduler,
+            circuitBreaker);
 
     if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
       var bazelOutputServiceChannel =
@@ -647,7 +686,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
+                RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, // Handle NOT_FOUND internally
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
@@ -657,7 +696,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+                RemoteRetrier.GRPC_RESULT_CLASSIFIER,
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
@@ -1199,8 +1238,7 @@ public final class RemoteModule extends BlazeModule {
             authAndTlsOptions);
 
     try {
-      if (credentials != null
-          && remoteOptions.remoteCache != null
+      if (remoteOptions.remoteCache != null
           && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
           && !credentials.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
         // TODO(yannic): Make this a error aborting the build.
@@ -1223,5 +1261,4 @@ public final class RemoteModule extends BlazeModule {
   Downloader getRemoteDownloader() {
     return remoteDownloader;
   }
-
 }

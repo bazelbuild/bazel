@@ -28,14 +28,16 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.Runfiles.ConflictType;
+import com.google.devtools.build.lib.analysis.Runfiles.RunfilesConflictReceiver;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -52,7 +54,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -228,14 +229,26 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws ExecException {
     StoredEventHandler eventHandler = new StoredEventHandler();
-    BiConsumer<ConflictType, String> eventReceiver =
-        runfiles.eventRunfilesConflictReceiver(eventHandler, getOwner().getLocation());
     boolean[] seenNestedRunfilesTree = new boolean[] {false};
-    BiConsumer<ConflictType, String> receiver =
-        (conflictType, message) -> {
-          eventReceiver.accept(conflictType, message);
-          if (conflictType == ConflictType.NESTED_RUNFILES_TREE) {
+    RunfilesConflictReceiver receiver =
+        new RunfilesConflictReceiver() {
+          @Override
+          public void nestedRunfilesTree(Artifact runfilesTree) {
             seenNestedRunfilesTree[0] = true;
+            eventHandler.handle(
+                Event.error(
+                    getOwner().getLocation(),
+                    "Runfiles must not contain runfiles tree artifacts: " + runfilesTree));
+          }
+
+          @Override
+          public void prefixConflict(String message) {
+            EventKind eventKind =
+                switch (runfiles.getConflictPolicy()) {
+                  case ERROR -> EventKind.ERROR;
+                  case WARN -> EventKind.WARNING;
+                };
+            eventHandler.handle(Event.of(eventKind, getOwner().getLocation(), message));
           }
         };
 

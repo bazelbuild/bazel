@@ -81,7 +81,7 @@ public final class StateMachineTest {
             GraphInconsistencyReceiver.THROWING,
             AbstractQueueVisitor.create(
                 "test-pool", TEST_PARALLELISM, ParallelEvaluatorErrorClassifier.instance()),
-            new SimpleCycleDetector(),
+            new SimpleCycleDetector(/* storeExactCycles= */ true),
             UnnecessaryTemporaryStateDropperReceiver.NULL,
             /* keepGoing= */ skyKey -> keepGoing)
         .eval(ImmutableList.of(root));

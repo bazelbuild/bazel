@@ -38,14 +38,15 @@ load(
 # Temporary directory for downloading remote patch files.
 _REMOTE_PATCH_DIR = ".tmp_remote_patches"
 
+# Name preserved for backwards compatibility only - this function used to
+# write a WORKSPACE file if requested.
 def workspace_and_buildfile(ctx):
-    """Utility function for writing WORKSPACE and, if requested, a BUILD file.
+    """Utility function for writing a BUILD file.
 
     This rule is intended to be used in the implementation function of a
     repository rule.
-    It assumes the parameters `name`, `build_file`, `build_file_content`,
-    `workspace_file`, and `workspace_file_content` to be
-    present in `ctx.attr`; the latter four possibly with value None.
+    It assumes the parameters `name`, `build_file`, and `build_file_content` to
+    be present in `ctx.attr`; the latter two possibly with value None.
 
     Args:
       ctx: The repository context of the repository rule calling this utility
@@ -53,16 +54,6 @@ def workspace_and_buildfile(ctx):
     """
     if ctx.attr.build_file and ctx.attr.build_file_content:
         ctx.fail("Only one of build_file and build_file_content can be provided.")
-
-    if ctx.attr.workspace_file and ctx.attr.workspace_file_content:
-        ctx.fail("Only one of workspace_file and workspace_file_content can be provided.")
-
-    if ctx.attr.workspace_file:
-        ctx.file("WORKSPACE", ctx.read(ctx.attr.workspace_file))
-    elif ctx.attr.workspace_file_content:
-        ctx.file("WORKSPACE", ctx.attr.workspace_file_content)
-    else:
-        ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
 
     if ctx.attr.build_file:
         ctx.file("BUILD.bazel", ctx.read(ctx.attr.build_file))
@@ -290,7 +281,7 @@ def read_netrc(ctx, filename):
     contents = ctx.read(filename, watch = "no")
     return parse_netrc(contents, filename)
 
-def parse_netrc(contents, filename = None):
+def parse_netrc(contents, filename = "a .netrc file"):
     """Utility function to parse at least a basic .netrc file.
 
     Args:
@@ -373,10 +364,7 @@ def parse_netrc(contents, filename = None):
                     currentmachinename = ""
                     currentmachine = {}
                 else:
-                    if filename == None:
-                        filename = "a .netrc file"
-                    fail("Unexpected token '%s' while reading %s" %
-                         (token, filename))
+                    fail("Unexpected token '%s' while reading %s" % (token, filename))
     if not currentmachinename == None:
         netrc[currentmachinename] = currentmachine
     return netrc
@@ -426,12 +414,22 @@ def use_netrc(netrc, urls, patterns):
                 auth_dict["password"] = authforhost["password"]
 
             auth[url] = auth_dict
-        elif "login" in authforhost and "password" in authforhost:
-            auth[url] = {
-                "type": "basic",
-                "login": authforhost["login"],
-                "password": authforhost["password"],
-            }
+        elif "password" in authforhost:
+            if "login" in authforhost:
+                auth[url] = {
+                    "type": "basic",
+                    "login": authforhost["login"],
+                    "password": authforhost["password"],
+                }
+            else:
+                auth[url] = {
+                    "type": "pattern",
+                    "pattern": "Bearer <password>",
+                    "password": authforhost["password"],
+                }
+        else:
+            # buildifier: disable=print
+            print("WARNING: Found machine in .netrc for URL %s, but no password." % url)
 
     return auth
 

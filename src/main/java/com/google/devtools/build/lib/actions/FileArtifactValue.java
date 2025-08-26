@@ -170,8 +170,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Returns the time when the remote file contents expire. If the contents never expire, including
-   * when they're not remote, returns null.
+   * Returns the time when the remote file contents may expire. If the contents never expire,
+   * including when they're not remote, returns null.
    *
    * <p>The expiration time does not factor into equality, as it can be mutated by {@link
    * #setExpirationTime}.
@@ -186,13 +186,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * nothing.
    */
   public void setExpirationTime(Instant newExpirationTime) {}
-
-  /**
-   * Returns whether the file contents are available (either locally, or remotely and not expired).
-   */
-  public final boolean isAlive(Instant now) {
-    return getExpirationTime() == null || getExpirationTime().isAfter(now);
-  }
 
   /**
    * Provides a best-effort determination whether the file was changed since the digest was
@@ -600,8 +593,35 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       if (proxy == null) {
         return false;
       }
-      FileStatus stat = path.statIfFound(Symlinks.FOLLOW);
-      return stat == null || !stat.isFile() || !proxy.equals(FileContentsProxy.create(stat));
+      var stat = path.statIfFound(Symlinks.FOLLOW);
+      if (stat == null || !stat.isFile()) {
+        // The file no longer exists or changed type, so it certainly has changed.
+        return true;
+      }
+      var newProxy = FileContentsProxy.create(stat);
+      if (proxy.equals(newProxy)) {
+        // If the proxy is the same, then the file certainly hasn't been modified. This is the
+        // common case, so we check it first.
+        return false;
+      }
+      if (proxy.isModified(newProxy)) {
+        // If the non-ctime information in the proxy changed, the file has certainly been modified
+        // between the time the digest was computed and now.
+        return true;
+      }
+      // At this point the ctime changed, so some of the file's metadata has changed since we
+      // computed the digest. Returning true here would allow us to cautiously report modification
+      // even in complex ABA scenarios (file modified, then modified back with its mtime reset).
+      // However, we would also report modification in case a hardlink to the file was created or
+      // removed, such as by the hermetic Linux sandbox or certain optimized copy actions.
+      // As a compromise, we check whether the current state of the file differs from the previous
+      // one, ignoring any inbetween modifications that may have happened.
+      //
+      // Note that this path is always taken when using the hermetic Linux sandbox, but the
+      // associated cost should amortize over the next build as the digest will be cached under the
+      // new stat.
+      byte[] newDigest = DigestUtils.getDigestWithManualFallback(path, SyscallCache.NO_CACHE, stat);
+      return !Arrays.equals(digest, newDigest);
     }
 
     @Override
@@ -761,7 +781,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public void setContentsProxy(FileContentsProxy proxy) {
       this.proxy = proxy;
     }
-
 
     @Override
     public boolean equals(Object o) {

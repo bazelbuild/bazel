@@ -56,7 +56,7 @@ public final class ActionExecutionValueTest {
   private static final ActionLookupData ACTION_LOOKUP_DATA_2 = ActionLookupData.create(KEY, 2);
 
   private static final ArtifactRoot OUTPUT_ROOT =
-      ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.Output, "out");
+      ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.OUTPUT, "out");
 
   @Test
   public void equality() {
@@ -107,8 +107,6 @@ public final class ActionExecutionValueTest {
             createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink2))))
         .addEqualityGroup(
             createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))))
-        .addEqualityGroup(
-            createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink2, symlink1))))
         // discoveredModules
         .addEqualityGroup(
             createWithDiscoveredModules(

@@ -55,8 +55,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.DependencyException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
-import com.google.devtools.build.lib.skyframe.LoadTopLevelAspectsFunction.LoadTopLevelAspectsKey;
-import com.google.devtools.build.lib.skyframe.LoadTopLevelAspectsFunction.LoadTopLevelAspectsValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -111,8 +109,8 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
           ReportedException {
     TopLevelAspectsKey topLevelAspectsKey = (TopLevelAspectsKey) skyKey.argument();
 
-    LoadTopLevelAspectsKey loadAspectsKey =
-        LoadTopLevelAspectsKey.create(
+    LoadAspectsKey loadAspectsKey =
+        LoadAspectsKey.create(
             topLevelAspectsKey.getTopLevelAspectsClasses(),
             topLevelAspectsKey.getTopLevelAspectsParameters());
     PackageIdentifier packageIdentifier =
@@ -121,7 +119,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     SkyframeLookupResult initialLookupResult =
         env.getValuesAndExceptions(ImmutableList.of(loadAspectsKey, packageIdentifier));
 
-    var loadAspectsValue = (LoadTopLevelAspectsValue) initialLookupResult.get(loadAspectsKey);
+    var loadAspectsValue = (LoadAspectsValue) initialLookupResult.get(loadAspectsKey);
     if (loadAspectsValue == null) {
       return null; // aspects are not ready
     }
@@ -238,9 +236,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
                 aspects, target.getLabel(), target.getLocation());
       }
     } catch (InconsistentAspectOrderException e) {
-      // This exception should never happen because aspects duplicates are not allowed in top-level
-      // aspects and their existence should have been caught and reported by
-      // LoadTopLevelAspectsFunction.
+      // This is very unlikely, because AspectCollection should have deduplicated top level aspects.
       env.getListener().handle(Event.error(e.getMessage()));
       throw new TopLevelStarlarkAspectFunctionException(
           new TopLevelAspectsDetailsBuildFailedException(

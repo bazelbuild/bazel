@@ -23,6 +23,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
@@ -35,10 +36,17 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /** An {@link com.google.common.eventbus.EventBus} listener for remote analysis caching events. */
 @ThreadSafety.ThreadSafe
 public class RemoteAnalysisCachingEventListener {
+
+  private final DeserializedKeysSink deserializedKeysSink;
+
+  public RemoteAnalysisCachingEventListener(DeserializedKeysSink deserializedKeysSink) {
+    this.deserializedKeysSink = deserializedKeysSink;
+  }
 
   /**
    * An event for when a Skyframe node has been serialized, but its associated write futures (i.e.
@@ -60,6 +68,11 @@ public class RemoteAnalysisCachingEventListener {
       new ConcurrentHashMap<>();
 
   private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
+
+  @Nullable private FingerprintValueStore.Stats fingerprintValueStoreStats;
+  @Nullable private RemoteAnalysisCacheClient.Stats remoteAnalysisCacheStats;
+
+  @Nullable private ClientId clientId;
 
   @Subscribe
   @AllowConcurrentEvents
@@ -92,6 +105,21 @@ public class RemoteAnalysisCachingEventListener {
     return ImmutableSet.copyOf(cacheMisses);
   }
 
+  public void recordServiceStats(
+      @Nullable FingerprintValueStore.Stats fvsStats,
+      @Nullable RemoteAnalysisCacheClient.Stats raccStats) {
+    fingerprintValueStoreStats = fvsStats;
+    remoteAnalysisCacheStats = raccStats;
+  }
+
+  public FingerprintValueStore.Stats getFingerprintValueStoreStats() {
+    return fingerprintValueStoreStats;
+  }
+
+  public RemoteAnalysisCacheClient.Stats getRemoteAnalysisCacheStats() {
+    return remoteAnalysisCacheStats;
+  }
+
   @ThreadSafe
   public void recordRetrievalResult(RetrievalResult result, SkyKey key) {
     if (result instanceof Restart) {
@@ -103,6 +131,7 @@ public class RemoteAnalysisCachingEventListener {
         if (!cacheHits.add(key)) {
           return;
         }
+        deserializedKeysSink.addDeserializedKey(key);
         hitsBySkyFunctionName
             .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
             .incrementAndGet();
@@ -147,11 +176,16 @@ public class RemoteAnalysisCachingEventListener {
     this.skyValueVersion.set(version);
   }
 
-  /**
-   * Returns the {@link RemoteAnalysisCachingState} for this build with information about all the
-   * cache hits.
-   */
-  public RemoteAnalysisCachingState getRemoteAnalysisCachingState() {
-    return new RemoteAnalysisCachingState(skyValueVersion.get(), ImmutableSet.copyOf(cacheHits));
+  public FrontierNodeVersion getSkyValueVersion() {
+    return skyValueVersion.get();
   }
+
+  public void setClientId(ClientId clientId) {
+    this.clientId = clientId;
+  }
+
+  public ClientId getClientId() {
+    return clientId;
+  }
+
 }

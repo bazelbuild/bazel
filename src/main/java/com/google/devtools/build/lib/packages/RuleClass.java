@@ -29,7 +29,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.platform.PlatformConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -415,22 +413,6 @@ public class RuleClass implements RuleClassData {
       },
 
       /**
-       * Workspace rules can only be instantiated from a WORKSPACE file. Their names obey the rule
-       * for identifiers.
-       */
-      WORKSPACE {
-        @Override
-        public void checkName(String name) {
-          Preconditions.checkArgument(RULE_NAME_PATTERN.matcher(name).matches());
-        }
-
-        @Override
-        public void checkAttributes(Map<String, Attribute> attributes) {
-          // No required attributes.
-        }
-      },
-
-      /**
        * Test rules are instantiable by BUILD files and are handled specially when run with the
        * 'test' command. Their names must obey the rules for identifiers in the BUILD language and
        * {@link TargetUtils#isTestRuleName} must return true for the name.
@@ -710,7 +692,6 @@ public class RuleClass implements RuleClassData {
     private boolean starlarkTestable = false;
     private boolean documented;
     private boolean outputsToBindir = true;
-    private boolean workspaceOnly = false;
     private boolean dependencyResolutionRule = false;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
@@ -741,11 +722,6 @@ public class RuleClass implements RuleClassData {
 
     // May be non-null only if the rule is Starlark-defined.
     @Nullable private String starlarkDocumentation = null;
-
-    /** This field is non-null iff the rule is a Starlark repo rule. */
-    @Nullable
-    private ImmutableTable<RepositoryName, String, RepositoryName>
-        ruleDefinitionEnvironmentRepoMappingEntries;
 
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
@@ -860,17 +836,12 @@ public class RuleClass implements RuleClassData {
      * @param name rule class name; if the builder was initialized with an empty name, this value
      *     will override it.
      * @param starlarkExtensionLabel the label of the Starlark file where the rule class was
-     *     exported. Permitted to be null only as a workaround for unexported repository rules in
-     *     legacy code - see https://github.com/bazelbuild/bazel/issues/10441 and b/111199163.
+     *     exported.
      */
-    public RuleClass buildStarlark(String name, @Nullable Label starlarkExtensionLabel) {
+    public RuleClass buildStarlark(String name, Label starlarkExtensionLabel) {
       Preconditions.checkState(starlark);
       this.starlarkExtensionLabel = starlarkExtensionLabel;
-      Label keyLabel =
-          this.starlarkExtensionLabel != null
-              ? this.starlarkExtensionLabel
-              : ruleDefinitionEnvironmentLabel;
-      return build(name, keyLabel + "%" + name);
+      return build(name, starlarkExtensionLabel + "%" + name);
     }
 
     /**
@@ -899,7 +870,7 @@ public class RuleClass implements RuleClassData {
           type,
           configuredTargetFactory,
           configuredTargetFunction);
-      if (!workspaceOnly && starlark) {
+      if (starlark) {
         assertStarlarkRuleClassHasImplementationFunction();
         assertStarlarkRuleClassHasEnvironmentLabel();
       }
@@ -958,7 +929,6 @@ public class RuleClass implements RuleClassData {
           starlarkTestable,
           documented,
           outputsToBindir,
-          workspaceOnly,
           dependencyResolutionRule,
           isExecutableStarlark,
           isAnalysisTest,
@@ -973,7 +943,6 @@ public class RuleClass implements RuleClassData {
           optionReferenceFunction,
           ruleDefinitionEnvironmentLabel,
           ruleDefinitionEnvironmentDigest,
-          ruleDefinitionEnvironmentRepoMappingEntries,
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
           toolchainTypes,
@@ -1140,12 +1109,6 @@ public class RuleClass implements RuleClassData {
     @CanIgnoreReturnValue
     public Builder setUndocumented() {
       documented = false;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setWorkspaceOnly() {
-      workspaceOnly = true;
       return this;
     }
 
@@ -1429,13 +1392,6 @@ public class RuleClass implements RuleClassData {
 
     public Label getRuleDefinitionEnvironmentLabel() {
       return this.ruleDefinitionEnvironmentLabel;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setRuleDefinitionEnvironmentRepoMappingEntries(
-        ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {
-      this.ruleDefinitionEnvironmentRepoMappingEntries = recordedRepoMappingEntries;
-      return this;
     }
 
     /**
@@ -1722,7 +1678,6 @@ public class RuleClass implements RuleClassData {
   private final boolean starlarkTestable;
   private final boolean documented;
   private final boolean outputsToBindir;
-  private final boolean workspaceOnly;
   private final boolean dependencyResolutionRule;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
@@ -1775,10 +1730,6 @@ public class RuleClass implements RuleClassData {
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
 
   @Nullable private final byte[] ruleDefinitionEnvironmentDigest;
-
-  @Nullable
-  private final ImmutableTable<RepositoryName, String, RepositoryName>
-      ruleDefinitionEnvironmentRepoMappingEntries;
 
   private final OutputFile.Kind outputFileKind;
 
@@ -1837,7 +1788,6 @@ public class RuleClass implements RuleClassData {
       boolean starlarkTestable,
       boolean documented,
       boolean outputsToBindir,
-      boolean workspaceOnly,
       boolean dependencyResolutionRule,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
@@ -1852,9 +1802,6 @@ public class RuleClass implements RuleClassData {
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
       @Nullable byte[] ruleDefinitionEnvironmentDigest,
-      @Nullable
-          ImmutableTable<RepositoryName, String, RepositoryName>
-              ruleDefinitionEnvironmentRepoMappingEntries,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
       Set<ToolchainTypeRequirement> toolchainTypes,
@@ -1889,9 +1836,7 @@ public class RuleClass implements RuleClassData {
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
     this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
-    this.ruleDefinitionEnvironmentRepoMappingEntries = ruleDefinitionEnvironmentRepoMappingEntries;
     this.outputFileKind = outputFileKind;
-    this.workspaceOnly = workspaceOnly;
     this.dependencyResolutionRule = dependencyResolutionRule;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
@@ -1985,8 +1930,8 @@ public class RuleClass implements RuleClassData {
 
   /**
    * Returns the stack of Starlark active function calls at the moment this rule class was created.
-   * Entries appear outermost first, and exclude the built-in itself ('rule' or 'repository_rule').
-   * Empty for non-Starlark rules.
+   * Entries appear outermost first, and exclude the built-in itself ('rule'). Empty for
+   * non-Starlark rules.
    */
   public ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
     return callstack;
@@ -2011,10 +1956,6 @@ public class RuleClass implements RuleClassData {
   @Override
   public String getTargetKind() {
     return targetKind;
-  }
-
-  public boolean getWorkspaceOnly() {
-    return workspaceOnly;
   }
 
   /**
@@ -2114,7 +2055,6 @@ public class RuleClass implements RuleClassData {
     return rule;
   }
 
- 
   /**
    * Report an error for each label that appears more than once in a LABEL_LIST attribute of the
    * given rule.
@@ -2242,9 +2182,8 @@ public class RuleClass implements RuleClassData {
    * For Starlark rule classes, returns this RuleClass's rule definition environment's label, which
    * is never null. Is null for native rules' RuleClass objects.
    *
-   * <p>In certain unusual cases (for example, unexported repository rules or analysis test rule
-   * classes), the values of {@link #getRuleDefinitionEnvironmentLabel()} and {@link
-   * #getStarlarkExtensionLabel()} may differ.
+   * <p>In certain unusual cases (for example, analysis test rule classes), the values of {@link
+   * #getRuleDefinitionEnvironmentLabel()} and {@link #getStarlarkExtensionLabel()} may differ.
    */
   // TODO(b/366027483): unify starlarkExtensionLabel and ruleDefinitionEnvironmentLabel.
   @Nullable
@@ -2275,12 +2214,6 @@ public class RuleClass implements RuleClassData {
     return ruleDefinitionEnvironmentDigest;
   }
 
-  @Nullable
-  public ImmutableTable<RepositoryName, String, RepositoryName>
-      getRuleDefinitionEnvironmentRepoMappingEntries() {
-    return ruleDefinitionEnvironmentRepoMappingEntries;
-  }
-
   /** Returns true if this RuleClass is a Starlark-defined RuleClass. */
   @Override
   public boolean isStarlark() {
@@ -2295,11 +2228,9 @@ public class RuleClass implements RuleClassData {
    * <p>If a Starlark rule class has been exported, the tuple (rule name, starlark extension label)
    * uniquely identifies it.
    *
-   * <p>In certain unusual cases (for example, unexported repository rules or analysis test rule
-   * classes), the values of {@link #getRuleDefinitionEnvironmentLabel()} and {@link
-   * #getStarlarkExtensionLabel()} may differ.
+   * <p>In certain unusual cases (for example, analysis test rule classes), the values of {@link
+   * #getRuleDefinitionEnvironmentLabel()} and {@link #getStarlarkExtensionLabel()} may differ.
    */
-  // TODO(b/111199163): prohibit use of unexported repository rules.
   // TODO(b/366027483): unify starlarkExtensionLabel and ruleDefinitionEnvironmentLabel.
   @Nullable
   public Label getStarlarkExtensionLabel() {

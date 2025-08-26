@@ -176,8 +176,8 @@ public abstract class ImplicitOutputsFunction {
         };
 
     @Override
-    public abstract Iterable<String> getImplicitOutputs(
-        EventHandler eventHandler, AttributeMap map);
+    public abstract Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap map)
+        throws EvalException;
   }
 
   /**
@@ -186,8 +186,10 @@ public abstract class ImplicitOutputsFunction {
   public interface AttributeValueGetter {
     /**
      * Returns the value(s) of attribute "attr" in "rule", or empty set if attribute unknown.
+     *
+     * @throws EvalException if the getter does not support attributes of the given type
      */
-    Set<String> get(AttributeMap rule, String attr);
+    Set<String> get(AttributeMap rule, String attr) throws EvalException;
   }
 
   private static final Escaper PERCENT_ESCAPER = Escapers.builder().addEscape('%', "%%").build();
@@ -231,7 +233,8 @@ public abstract class ImplicitOutputsFunction {
 
     // TODO(bazel-team): parse the templates already here
     @Override
-    public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+    public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
+        throws EvalException {
         ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
         for (String template : templates) {
           List<String> substitutions = substitutePlaceholderIntoTemplate(template, rule);
@@ -329,7 +332,8 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+    public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
+        throws EvalException {
       Collection<String> result = new LinkedHashSet<>();
       for (SafeImplicitOutputsFunction function : functions) {
         Iterables.addAll(result, function.getImplicitOutputs(eventHandler, rule));
@@ -346,8 +350,11 @@ public abstract class ImplicitOutputsFunction {
   /**
    * Coerces attribute "attrName" of the specified rule into a sequence of strings. Helper function
    * for {@link #fromTemplates(Iterable)}.
+   *
+   * @throws EvalException if outputs templates don't support attributes of the given type.
    */
-  private static ImmutableSet<String> attributeValues(AttributeMap rule, String attrName) {
+  private static ImmutableSet<String> attributeValues(AttributeMap rule, String attrName)
+      throws EvalException {
     if (attrName.equals("dirname")) {
       PathFragment dir = PathFragment.create(rule.getLabel().getName()).getParentDirectory();
       return dir.isEmpty() ? ImmutableSet.of("") : ImmutableSet.of(dir.getPathString() + "/");
@@ -385,8 +392,10 @@ public abstract class ImplicitOutputsFunction {
           .map(Label::getName)
           .collect(toImmutableSet());
     }
-    throw new IllegalArgumentException(
-        "Don't know how to handle " + attrName + " : " + attrType);
+    throw Starlark.errorf(
+        "For attribute '%s' in outputs: Attributes of type %s cannot be used in an outputs"
+            + " substitution template",
+        attrName, attrType);
   }
 
   /**
@@ -434,7 +443,7 @@ public abstract class ImplicitOutputsFunction {
    * substitutions.
    */
   public static ImmutableList<String> substitutePlaceholderIntoTemplate(
-      String template, AttributeMap rule) {
+      String template, AttributeMap rule) throws EvalException {
     return substitutePlaceholderIntoTemplate(
         template, rule, ImplicitOutputsFunction::attributeValues);
   }
@@ -450,7 +459,8 @@ public abstract class ImplicitOutputsFunction {
    *     into the template; empty if any of the placeholders expands to no values
    */
   public static ImmutableList<String> substitutePlaceholderIntoTemplate(
-      String template, AttributeMap rule, AttributeValueGetter attributeGetter) {
+      String template, AttributeMap rule, AttributeValueGetter attributeGetter)
+      throws EvalException {
     // Parse the template to get the attribute names and format string.
     ParsedTemplate parsedTemplate = ParsedTemplate.parse(template);
 
@@ -475,7 +485,7 @@ public abstract class ImplicitOutputsFunction {
     }
 
     ImmutableList<String> substituteAttributes(
-        AttributeMap attributeMap, AttributeValueGetter attributeGetter) {
+        AttributeMap attributeMap, AttributeValueGetter attributeGetter) throws EvalException {
       if (attributeNames().isEmpty()) {
         return ImmutableList.of(template());
       }

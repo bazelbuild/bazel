@@ -2,7 +2,6 @@ load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -27,7 +26,6 @@ py_library(
     testonly = 1,
     srcs = ["test_base.py"],
     data = [
-        ":default_repos_stanza.txt",
         ":test-deps",
         "//src/test/tools/bzlmod:MODULE.bazel.lock",
     ],
@@ -42,22 +40,6 @@ py_library(
     deps = [
         "//third_party/py/abseil",
         requirement("bazel-runfiles"),
-    ],
-)
-
-gen_workspace_stanza(
-    name = "default_repos_stanza",
-    out = "default_repos_stanza.txt",
-    postamble = "load('@rules_python//python:repositories.bzl', 'py_repositories')\n" +
-                "py_repositories()",
-    preamble = "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
-    repos = [
-        "bazel_skylib",
-        "rules_license",
-        "rules_cc",
-        "rules_python",
-        "rules_shell",
-        "com_google_protobuf",
     ],
 )
 

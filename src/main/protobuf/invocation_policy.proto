@@ -62,6 +62,8 @@ message FlagPolicy {
     DisallowValues disallow_values = 5;
     AllowValues allow_values = 6;
   }
+
+  optional string custom_error_message = 7;
 }
 
 message SetValue {
@@ -119,9 +121,13 @@ message SetValue {
     // Matching old flag values: append = true, overridable = false.
     APPEND = 2;
     // Set a final value of the flag. Any overrides provided by the user for
-    // this flag will be ignored.
+    // this flag will be silently ignored.
     // Matching old flag values: append = false, overridable = false.
     FINAL_VALUE_IGNORE_OVERRIDES = 3;
+    // Set a final value of the flag and throw an error if the user provides
+    // an override.
+    // Matching old flag values: append = false, overridable = false.
+    FINAL_VALUE_THROW_ON_OVERRIDE = 4;
   }
 
   // Defines how invocation policy should interact with user settings for the

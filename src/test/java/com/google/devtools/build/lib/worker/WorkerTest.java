@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -85,7 +86,7 @@ public final class WorkerTest {
     SandboxInputs sandboxInputs = null;
     SandboxOutputs sandboxOutputs = null;
     worker.prepareExecution(
-        sandboxInputs, sandboxOutputs, key.getWorkerFilesWithDigests().keySet());
+        sandboxInputs, sandboxOutputs, key.getWorkerFilesWithDigests().keySet(), ImmutableMap.of());
 
     workerForCleanup = worker;
 

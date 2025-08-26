@@ -1080,6 +1080,37 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testIncludeManglingSmokeWithShortendVirtualIncludes() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SHORTEN_VIRTUAL_INCLUDES));
+    scratch.file(
+        "third_party/a/BUILD",
+        """
+        licenses(["notice"])
+
+        cc_library(
+            name = "a",
+            hdrs = ["v1/b/c.h"],
+            include_prefix = "lib",
+            strip_include_prefix = "v1",
+        )
+        """);
+
+    ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
+    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
+        .containsExactly("_virtual_includes/207132b2/lib/b/c.h", "third_party/a/v1/b/c.h");
+    assertThat(ccCompilationContext.getIncludeDirs())
+        .containsExactly(
+            getTargetConfiguration()
+                .getBinFragment(RepositoryName.MAIN)
+                .getRelative("_virtual_includes/207132b2"));
+  }
+
+  @Test
   public void testUpLevelReferencesInIncludeMangling() throws Exception {
     scratch.file(
         "third_party/a/BUILD",

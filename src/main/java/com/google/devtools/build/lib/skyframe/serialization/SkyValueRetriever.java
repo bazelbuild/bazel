@@ -24,10 +24,11 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -211,7 +212,7 @@ public final class SkyValueRetriever {
       DependOnFutureShim futuresShim,
       ObjectCodecs codecs,
       FingerprintValueService fingerprintValueService,
-      @Nullable RequestBatcher<ByteString, ByteString> analysisCacheClient,
+      @Nullable RemoteAnalysisCacheClient analysisCacheClient,
       SkyKey key,
       SerializationStateProvider stateProvider,
       FrontierNodeVersion frontierNodeVersion)
@@ -238,7 +239,7 @@ public final class SkyValueRetriever {
                 responseFuture = futureValueBytes;
               } else {
                 ListenableFuture<ByteString> futureResponseBytes =
-                    analysisCacheClient.submit(ByteString.copyFrom(cacheKey.toBytes()));
+                    analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
 
                 nextState = new WaitingForCacheServiceResponse(futureResponseBytes);
                 responseFuture = futureResponseBytes;
@@ -453,7 +454,8 @@ public final class SkyValueRetriever {
             HashCode.fromInt(42),
             IntVersion.of(9000),
             "distinguisher",
-            Optional.of(new ClientId("for_testing", 123)));
+            /* useFakeStampData= */ true,
+            Optional.of(new SnapshotClientId("for_testing", 123)));
 
     // Fingerprints of version components.
     private final byte[] topLevelConfigFingerprint;
@@ -463,6 +465,8 @@ public final class SkyValueRetriever {
     // Fingerprint of the distinguisher for allowing test cases to share a
     // static cache.
     private final byte[] distinguisherBytesForTesting;
+
+    private final boolean useFakeStampData;
 
     // Fingerprint of the full version.
     private final byte[] precomputedFingerprint;
@@ -474,18 +478,20 @@ public final class SkyValueRetriever {
         HashCode blazeInstallMD5,
         IntVersion evaluatingVersion,
         String distinguisherBytesForTesting,
+        boolean useFakeStampData,
         Optional<ClientId> clientId) {
-      // TODO: b/364831651 - add more fields like source and blaze versions.
       this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
       this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
       this.evaluatingVersionFingerprint = Longs.toByteArray(evaluatingVersion.getVal());
       this.distinguisherBytesForTesting = distinguisherBytesForTesting.getBytes(UTF_8);
+      this.useFakeStampData = useFakeStampData;
       this.precomputedFingerprint =
           Bytes.concat(
               this.topLevelConfigFingerprint,
               this.blazeInstallMD5Fingerprint,
               this.evaluatingVersionFingerprint,
-              this.distinguisherBytesForTesting);
+              this.distinguisherBytesForTesting,
+              this.useFakeStampData ? new byte[] {1} : new byte[] {0});
 
       // This is undigested.
       this.clientId = clientId;
@@ -520,6 +526,7 @@ public final class SkyValueRetriever {
           .add("blazeInstall", Arrays.hashCode(blazeInstallMD5Fingerprint))
           .add("evaluatingVersion", Arrays.hashCode(evaluatingVersionFingerprint))
           .add("distinguisherBytesForTesting", Arrays.hashCode(distinguisherBytesForTesting))
+          .add("useFakeStampData", useFakeStampData)
           .add("precomputed", hashCode())
           .toString();
     }

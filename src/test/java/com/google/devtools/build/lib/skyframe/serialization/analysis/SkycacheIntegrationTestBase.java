@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecked;
-import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
@@ -29,12 +28,14 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
@@ -63,7 +64,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase {
+public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase
+    implements SkycacheIntegrationTestHelpers {
 
   protected static final String UPLOAD_MODE_OPTION =
       "--experimental_remote_analysis_cache_mode=upload";
@@ -85,7 +87,20 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
   }
 
   @Test
-  public void serializingFrontierWithNoProjectFile_hasNoError_withNothingSerialized()
+  public void expectCheckedInvalidConfiguration_withDuplicateActiveDirectories() throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    addOptions("--experimental_active_directories=foo,foo", UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: foo has already been explicitly marked as"
+                + " included. Current state: [included: [foo], excluded: []]");
+  }
+
+  @Test
+  public void expectCheckedInvalidConfiguration_withNoActiveDirectoriesOrProjectScl()
       throws Exception {
     write(
         "foo/BUILD",
@@ -93,12 +108,65 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
         package_group(name = "empty")
         """);
     addOptions(UPLOAD_MODE_OPTION);
-    buildTarget("//foo:empty");
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isEqualTo(0);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:empty"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
+  }
+
+  @Test
+  public void expectCheckedInvalidConfiguration_withExplicitEmptyActiveDirectoriesFlag()
+      throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    addOptions("--experimental_active_directories=");
+    addOptions(UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
+  }
+
+  @Test
+  public void expectCheckedInvalidConfiguration_withNoActiveDirectoriesInProjectScl()
+      throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
+    write(
+        "foo/PROJECT.scl",
+"""
+load("//test:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = []) # empty
+""");
+    addOptions(UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
+  }
+
+  @Test
+  public void
+      expectCheckedInvalidConfiguration_withOnlyExcludedDirectories_withActiveDirectoriesFlag()
+          throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    addOptions("--experimental_active_directories=-foo");
+    addOptions(UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
   }
 
   @Test
@@ -522,10 +590,7 @@ genrule(
         .isAtLeast(1);
 
     var versionFromBuild =
-        getCommandEnvironment()
-            .getRemoteAnalysisCachingEventListener()
-            .getRemoteAnalysisCachingState()
-            .version();
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyValueVersion();
 
     getSkyframeExecutor().resetEvaluator();
 
@@ -538,10 +603,7 @@ genrule(
         .isAtLeast(1);
 
     var versionFromTest =
-        getCommandEnvironment()
-            .getRemoteAnalysisCachingEventListener()
-            .getRemoteAnalysisCachingState()
-            .version();
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyValueVersion();
 
     // Assert that the top level config checksum subcomponent is equal.
     assertThat(versionFromBuild.getTopLevelConfigFingerprint())
@@ -876,46 +938,9 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     assertDownloadSuccess(targets);
   }
 
-  protected final void assertUploadSuccess(String... targets) throws Exception {
-    addOptions(UPLOAD_MODE_OPTION);
-    buildTarget(targets);
-    assertWithMessage("expected to serialize at least one Skyframe node")
-        .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys())
-        .isNotEmpty();
-    assertWithMessage("expected to not have any SerializationExceptions")
-        .that(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializationExceptionCounts())
-        .isEqualTo(0);
-  }
-
-  protected final void assertDownloadSuccess(String... targets) throws Exception {
-    addOptions(DOWNLOAD_MODE_OPTION);
-    buildTarget(targets);
-    assertWithMessage("expected to deserialize at least one Skyframe node")
-        .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
-        .isNotEmpty();
-    assertWithMessage("expected to not have any SerializationExceptions")
-        .that(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializationExceptionCounts())
-        .isEqualTo(0);
-  }
-
-  protected final void writeProjectSclWithActiveDirs(String path, String... activeDirs)
-      throws IOException {
-    String activeDirsString = stream(activeDirs).map(s -> "\"" + s + "\"").collect(joining(", "));
-    write(
-        path + "/PROJECT.scl",
-        String.format(
-            "project = { \"active_directories\": { \"default\": [%s] } }", activeDirsString));
-  }
-
-  protected final void writeProjectSclWithActiveDirs(String path) throws IOException {
-    // Overload for the common case where the path is the only active directory.
-    writeProjectSclWithActiveDirs(path, path);
+  @Override
+  public CommandEnvironment getCommandEnvironment() {
+    return super.getCommandEnvironment();
   }
 
   @Override

@@ -82,13 +82,13 @@ public final class ModuleInfoExtractorTest {
   }
 
   private static ModuleInfoExtractor getExtractor() {
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     return new ModuleInfoExtractor(
         name -> true, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
 
   private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedQualifiedName) {
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     return new ModuleInfoExtractor(
         isWantedQualifiedName, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
@@ -1136,10 +1136,10 @@ my_macro = macro(
                 attrs = {
                     "label": attr.label(default = "//test:foo"),
                     "label_list": attr.label_list(
-                        default = ["//x", "@canonical//y", "@canonical//y:z"],
+                        default = ["//x", "@@canonical//y", "@@canonical//y:z"],
                     ),
                     "label_keyed_string_dict": attr.label_keyed_string_dict(
-                        default = {"//x": "label_in_main", "@canonical//y": "label_in_dep"},
+                        default = {"//x": "label_in_main", "@@canonical//y": "label_in_dep"},
                     ),
                 },
             )

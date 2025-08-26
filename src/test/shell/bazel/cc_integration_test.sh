@@ -914,10 +914,10 @@ cc_binary(
 EOF
   # As long as the default workspace suffix runs cc_configure the local_config_cc toolchain suite will be evaluated.
   # Ensure the fake cc_toolchain_suite target doesn't have any errors.
-  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 BAZEL_NO_APPLE_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
     fail "Fake toolchain target causes analysis errors"
 
-  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build  '//:ok' --toolchain_resolution_debug=@bazel_tools//tools/cpp:toolchain_type &>"$TEST_log" && \
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 BAZEL_NO_APPLE_CPP_TOOLCHAIN=1 bazel build  '//:ok' --toolchain_resolution_debug=@bazel_tools//tools/cpp:toolchain_type &>"$TEST_log" && \
     fail "Toolchains shouldn't be found"
   expect_log "ToolchainResolution: No @@bazel_tools//tools/cpp:toolchain_type toolchain found for target platform @@platforms//host:host."
 }
@@ -2111,7 +2111,8 @@ int main() {
 }
 EOF
 
-  bazel run //pkg:hello &> $TEST_log || fail "Expected success"
+  # Disabling autoloads, to get direct (non-macro) access to the rule
+  bazel run --incompatible_autoload_externally= //pkg:hello &> $TEST_log || fail "Expected success"
   expect_log "Hello from my_cc_binary"
   expect_log "Hello from main.cpp"
 }

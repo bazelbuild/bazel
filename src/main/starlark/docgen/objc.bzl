@@ -11,15 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Objective-C"""
+
+load("@rules_cc//cc/private/rules_impl:objc_import.bzl", "objc_import")  # buildifier: disable=bzl-visibility
+load("@rules_cc//cc/private/rules_impl:objc_library.bzl", "objc_library")  # buildifier: disable=bzl-visibility
+
 # Build Encyclopedia entry point for Objc rules implemented in Starlark in Blaze's @_builtins
 
 binary_rules = struct()
 
 library_rules = struct(
-    objc_library = native.objc_library,
-    objc_import = native.objc_import,
+    objc_library = objc_library,
+    objc_import = objc_import,
 )
 
 test_rules = struct()

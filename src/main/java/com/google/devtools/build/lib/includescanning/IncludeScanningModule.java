@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -198,7 +199,8 @@ public class IncludeScanningModule extends BlazeModule {
         Artifact source,
         ImmutableSet<Artifact> legalOutputPaths,
         ImmutableList<PathFragment> swigIncludePaths,
-        Artifact grepIncludes)
+        Artifact grepIncludes,
+        @Nullable PlatformInfo grepIncludesExecutionPlatform)
         throws IOException, ExecException, InterruptedException {
       SwigIncludeScanner scanner =
           new SwigIncludeScanner(
@@ -231,7 +233,8 @@ public class IncludeScanningModule extends BlazeModule {
             includes,
             actionExecutionMetadata,
             actionExecContext,
-            grepIncludes);
+            grepIncludes,
+            grepIncludesExecutionPlatform);
       } catch (UncheckedIOException e) {
         throw e.getCause();
       } catch (NoSuchPackageException e) {

@@ -53,6 +53,12 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   @Test
+  public void testPermissionsError() throws Exception {
+    Path file = absolutize("/");
+    assertThrows(IOException.class, () -> file.chmod(0777));
+  }
+
+  @Test
   public void testCircularSymlinkFound() throws Exception {
     Path linkA = absolutize("link-a");
     Path linkB = absolutize("link-b");

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retrieveRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.MoreObjects;
@@ -73,6 +73,7 @@ public final class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
   private final XattrProvider xattrProvider;
+  private final SkyframeActionExecutor actionExecutor;
   private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
 
   /** A {@link SkyValue} representing a missing input file. */
@@ -116,10 +117,12 @@ public final class ArtifactFunction implements SkyFunction {
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
       XattrProvider xattrProvider,
+      SkyframeActionExecutor actionExecutor,
       Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
     this.xattrProvider = xattrProvider;
+    this.actionExecutor = actionExecutor;
     this.cachingDependenciesSupplier = cachingDependenciesSupplier;
   }
 
@@ -135,10 +138,13 @@ public final class ArtifactFunction implements SkyFunction {
       return createSourceValue(artifact, env);
     }
 
+    Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
+
     RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
-      switch (fetchRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
+    if (remoteCachingDependencies.isRetrievalEnabled()
+        && !actionExecutor.shouldSkipRetrieval(derivedArtifact.getGeneratingActionKey())) {
+      switch (retrieveRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
@@ -148,13 +154,11 @@ public final class ArtifactFunction implements SkyFunction {
       }
     }
 
-    Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
-
     ArtifactDependencies artifactDependencies =
         ArtifactDependencies.discoverDependencies(
             derivedArtifact,
             env,
-            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRemoteFetchEnabled());
+            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRetrievalEnabled());
     if (artifactDependencies == null) {
       return null;
     }
@@ -371,7 +375,7 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   @Nullable
-  static ActionLookupValue getActionLookupValue(
+  public static ActionLookupValue getActionLookupValue(
       ActionLookupKey actionLookupKey,
       SkyFunction.Environment env,
       boolean crashIfActionOwnerMissing)

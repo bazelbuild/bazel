@@ -14,17 +14,16 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -34,18 +33,17 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
-  public static final CcInfo EMPTY = builder().build();
 
   private final CcCompilationContext ccCompilationContext;
-  private final CcLinkingContext ccLinkingContext;
-  private final CcDebugInfoContext ccDebugInfoContext;
-  private final CcNativeLibraryInfo ccNativeLibraryInfo;
+  private final StarlarkInfo ccLinkingContext;
+  private final StarlarkInfo ccDebugInfoContext;
+  private final StarlarkInfo ccNativeLibraryInfo;
 
   public CcInfo(
       CcCompilationContext ccCompilationContext,
-      CcLinkingContext ccLinkingContext,
-      CcDebugInfoContext ccDebugInfoContext,
-      CcNativeLibraryInfo ccNativeLibraryInfo) {
+      StarlarkInfo ccLinkingContext,
+      StarlarkInfo ccDebugInfoContext,
+      StarlarkInfo ccNativeLibraryInfo) {
     this.ccCompilationContext = ccCompilationContext;
     this.ccLinkingContext = ccLinkingContext;
     this.ccDebugInfoContext = ccDebugInfoContext;
@@ -62,13 +60,25 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
     return ccCompilationContext;
   }
 
-  @Override
+  /**
+   * @deprecated Only use in tests.
+   */
+  @Deprecated
   public CcLinkingContext getCcLinkingContext() {
+    return CcLinkingContext.of(ccLinkingContext);
+  }
+
+  @Override
+  public StarlarkInfo getCcLinkingContextForStarlark() {
+    return ccLinkingContext;
+  }
+
+  public StarlarkInfo getCcLinkingContextStruct() {
     return ccLinkingContext;
   }
 
   @Override
-  public CcDebugInfoContext getCcDebugInfoContextFromStarlark(StarlarkThread thread)
+  public StarlarkInfo getCcDebugInfoContextFromStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return getCcDebugInfoContext();
@@ -78,52 +88,16 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   public Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return Depset.of(
-        LibraryToLink.class, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+        StarlarkInfo.class,
+        CcNativeLibraryInfo.getTransitiveCcNativeLibraries(getCcNativeLibraryInfo()));
   }
 
-  public CcDebugInfoContext getCcDebugInfoContext() {
+  public StarlarkInfo getCcDebugInfoContext() {
     return ccDebugInfoContext;
   }
 
-  public CcNativeLibraryInfo getCcNativeLibraryInfo() {
+  public StarlarkInfo getCcNativeLibraryInfo() {
     return ccNativeLibraryInfo;
-  }
-
-  public static CcInfo merge(Collection<CcInfo> ccInfos) {
-    return merge(ImmutableList.of(), ccInfos);
-  }
-
-  public static CcInfo merge(Collection<CcInfo> directCcInfos, Collection<CcInfo> ccInfos) {
-    ImmutableList.Builder<CcCompilationContext> directCcCompilationContexts =
-        ImmutableList.builder();
-    ImmutableList.Builder<CcCompilationContext> ccCompilationContexts = ImmutableList.builder();
-    ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
-    ImmutableList.Builder<CcDebugInfoContext> ccDebugInfoContexts = ImmutableList.builder();
-    ImmutableList.Builder<CcNativeLibraryInfo> ccNativeLibraryInfos = ImmutableList.builder();
-
-    for (CcInfo ccInfo : directCcInfos) {
-      directCcCompilationContexts.add(ccInfo.getCcCompilationContext());
-      ccLinkingContexts.add(ccInfo.getCcLinkingContext());
-      ccDebugInfoContexts.add(ccInfo.getCcDebugInfoContext());
-      ccNativeLibraryInfos.add(ccInfo.getCcNativeLibraryInfo());
-    }
-    for (CcInfo ccInfo : ccInfos) {
-      ccCompilationContexts.add(ccInfo.getCcCompilationContext());
-      ccLinkingContexts.add(ccInfo.getCcLinkingContext());
-      ccDebugInfoContexts.add(ccInfo.getCcDebugInfoContext());
-      ccNativeLibraryInfos.add(ccInfo.getCcNativeLibraryInfo());
-    }
-
-    CcCompilationContext.Builder builder = CcCompilationContext.builder();
-
-    return new CcInfo(
-        builder
-            .addDependentCcCompilationContexts(
-                directCcCompilationContexts.build(), ccCompilationContexts.build())
-            .build(),
-        CcLinkingContext.merge(ccLinkingContexts.build()),
-        CcDebugInfoContext.merge(ccDebugInfoContexts.build()),
-        CcNativeLibraryInfo.merge(ccNativeLibraryInfos.build()));
   }
 
   @Override
@@ -145,7 +119,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(ccCompilationContext, ccLinkingContext, ccDebugInfoContext);
+    return Objects.hash(ccCompilationContext, ccLinkingContext, ccDebugInfoContext);
   }
 
   public static Builder builder() {
@@ -156,9 +130,9 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   /** A Builder for {@link CcInfo}. */
   public static class Builder {
     private CcCompilationContext ccCompilationContext;
-    private CcLinkingContext ccLinkingContext;
-    private CcDebugInfoContext ccDebugInfoContext;
-    private CcNativeLibraryInfo ccNativeLibraryInfo;
+    private StarlarkInfo ccLinkingContext;
+    private StarlarkInfo ccDebugInfoContext;
+    private StarlarkInfo ccNativeLibraryInfo;
 
     private Builder() {}
 
@@ -170,21 +144,21 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
     }
 
     @CanIgnoreReturnValue
-    public CcInfo.Builder setCcLinkingContext(CcLinkingContext ccLinkingContext) {
+    public CcInfo.Builder setCcLinkingContext(StarlarkInfo ccLinkingContext) {
       Preconditions.checkState(this.ccLinkingContext == null);
       this.ccLinkingContext = ccLinkingContext;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public CcInfo.Builder setCcDebugInfoContext(CcDebugInfoContext ccDebugInfoContext) {
+    public CcInfo.Builder setCcDebugInfoContext(StarlarkInfo ccDebugInfoContext) {
       Preconditions.checkState(this.ccDebugInfoContext == null);
       this.ccDebugInfoContext = ccDebugInfoContext;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public CcInfo.Builder setCcNativeLibraryInfo(CcNativeLibraryInfo ccNativeLibraryInfo) {
+    public CcInfo.Builder setCcNativeLibraryInfo(StarlarkInfo ccNativeLibraryInfo) {
       Preconditions.checkState(this.ccNativeLibraryInfo == null);
       this.ccNativeLibraryInfo = ccNativeLibraryInfo;
       return this;
@@ -225,11 +199,10 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
         throws EvalException {
       CcCompilationContext ccCompilationContext =
           nullIfNone(starlarkCcCompilationContext, CcCompilationContext.class);
-      CcLinkingContext ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, CcLinkingContext.class);
-      CcDebugInfoContext ccDebugInfoContext =
-          nullIfNone(starlarkCcDebugInfo, CcDebugInfoContext.class);
-      CcNativeLibraryInfo ccNativeLibraryInfo =
-          nullIfNone(starlarkCcNativeLibraryInfo, CcNativeLibraryInfo.class);
+      StarlarkInfo ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, StarlarkInfo.class);
+      StarlarkInfo ccDebugInfoContext = nullIfNone(starlarkCcDebugInfo, StarlarkInfo.class);
+      StarlarkInfo ccNativeLibraryInfo =
+          nullIfNone(starlarkCcNativeLibraryInfo, StarlarkInfo.class);
       CcInfo.Builder ccInfoBuilder = CcInfo.builder();
       if (ccCompilationContext != null) {
         ccInfoBuilder.setCcCompilationContext(ccCompilationContext);
