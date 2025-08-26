@@ -324,18 +324,12 @@ public final class CcStaticCompilationHelper {
       ImmutableList<ArtifactCategory> outputCategories,
       boolean usePic,
       boolean bitcodeOutput,
-      SpecialArtifact outputFiles)
+      SpecialArtifact outputFiles,
+      SpecialArtifact dotdTreeArtifact)
       throws RuleErrorException, EvalException {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     builder.setVariables(compileBuildVariables);
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-    // Make sure this builder doesn't reference ruleContext outside of analysis phase.
-    SpecialArtifact dotdTreeArtifact = null;
-    if (builder.dotdFilesEnabled()) {
-      dotdTreeArtifact =
-          CppHelper.getDotdOutputTreeArtifact(
-              actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    }
     SpecialArtifact diagnosticsTreeArtifact = null;
     if (builder.serializedDiagnosticsFilesEnabled()) {
       diagnosticsTreeArtifact =

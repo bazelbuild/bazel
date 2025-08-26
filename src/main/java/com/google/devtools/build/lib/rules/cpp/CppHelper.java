@@ -51,8 +51,6 @@ public class CppHelper {
 
   static final PathFragment OBJS = PathFragment.create("_objs");
   static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
-  static final PathFragment DOTD_FILES = PathFragment.create("_dotd");
-  static final PathFragment PIC_DOTD_FILES = PathFragment.create("_pic_dotd");
   static final PathFragment DIA_FILES = PathFragment.create("_dia");
   static final PathFragment PIC_DIA_FILES = PathFragment.create("_pic_dia");
 
@@ -103,13 +101,6 @@ public class CppHelper {
     } else {
       return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS, siblingRepositoryLayout);
     }
-  }
-
-  /** Returns the directory where dotd files are created. */
-  private static PathFragment getDotdDirectory(
-      Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
-    return AnalysisUtils.getUniqueDirectory(
-        ruleLabel, usePic ? PIC_DOTD_FILES : DOTD_FILES, siblingRepositoryLayout);
   }
 
   /** Returns the directory where serialized diagnostics files are created. */
@@ -264,22 +255,6 @@ public class CppHelper {
     PathFragment objectDir = getObjDirectory(label, config.isSiblingRepositoryLayout());
     return actionConstructionContext.getDerivedArtifact(
         objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));
-  }
-
-  /** Returns the corresponding dotd files TreeArtifact given the source TreeArtifact. */
-  public static SpecialArtifact getDotdOutputTreeArtifact(
-      ActionConstructionContext actionConstructionContext,
-      Label label,
-      Artifact sourceTreeArtifact,
-      String outputName,
-      boolean usePic) {
-    return actionConstructionContext.getTreeArtifact(
-        getDotdDirectory(
-                label,
-                usePic,
-                actionConstructionContext.getConfiguration().isSiblingRepositoryLayout())
-            .getRelative(outputName),
-        sourceTreeArtifact.getRoot());
   }
 
   /**

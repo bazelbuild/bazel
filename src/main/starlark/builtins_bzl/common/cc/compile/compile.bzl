@@ -27,7 +27,7 @@ load(
     "output_subdirectories",
     "should_create_per_object_debug_info",
 )
-load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
+load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper", "dotd_files_enabled")
 load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
 load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables")
 load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
@@ -687,7 +687,7 @@ def _create_cc_compile_actions(
                 output_name = output_name_base,
             ),
         ) if (
-            _dotd_files_enabled(native_cc_semantics, configuration, feature_configuration) and
+            dotd_files_enabled(native_cc_semantics, configuration, feature_configuration) and
             _use_dotd_file(feature_configuration, source_artifact)
         ) else None
         diagnostics_file = _get_compile_output_file(
@@ -817,7 +817,7 @@ def _create_module_codegen_action(
     )
 
     dotd_file = None
-    if (_dotd_files_enabled(cpp_semantics, configuration, feature_configuration) and
+    if (dotd_files_enabled(cpp_semantics, configuration, feature_configuration) and
         _use_dotd_file(feature_configuration, module)):
         dotd_file = _get_compile_output_file(
             ctx = action_construction_context,
@@ -980,16 +980,6 @@ def _use_dotd_file(feature_configuration, source_file):
         extension in extensions.CC_SOURCE + extensions.CC_HEADER + extensions.CPP_MODULE_MAP
     )
     return header_discover_required and not use_header_modules
-
-def _dotd_files_enabled(cpp_semantics, configuration, feature_configuration):
-    # TODO: b/396122076 - migrate callers of cc_common.compile() to request the
-    #  right fragment(s) and drop this API from cpp_semantics
-    enabled_in_config = cpp_semantics.needs_dotd_input_pruning(configuration)
-    return (
-        enabled_in_config and
-        not feature_configuration.is_enabled("parse_showincludes") and
-        not feature_configuration.is_enabled("no_dotd_file")
-    )
 
 def _serialized_diagnostics_file_enabled(feature_configuration):
     return feature_configuration.is_enabled("serialized_diagnostics_file")

@@ -821,7 +821,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "output_categories", positional = false, named = true),
         @Param(name = "use_pic", positional = false, named = true),
         @Param(name = "bitcode_output", positional = false, named = true),
-        @Param(name = "output_files", positional = false, named = true)
+        @Param(name = "output_files", positional = false, named = true),
+        @Param(name = "dotd_tree_artifact", positional = false, named = true)
       })
   public void createCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
@@ -842,7 +843,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       Sequence<?> outputCategoriesUnchecked,
       boolean usePic,
       boolean bitcodeOutput,
-      SpecialArtifact outputFiles)
+      SpecialArtifact outputFiles,
+      Object dotdTreeArtifact)
       throws RuleErrorException, EvalException {
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
@@ -881,7 +883,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         outputCategories.build(),
         usePic,
         bitcodeOutput,
-        outputFiles);
+        outputFiles,
+        CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class));
   }
 
   @StarlarkMethod(

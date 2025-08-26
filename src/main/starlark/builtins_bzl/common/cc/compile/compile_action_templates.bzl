@@ -19,6 +19,7 @@ load(
     "CPP_SOURCE_TYPE_SOURCE",
     "artifact_category",
 )
+load(":common/cc/compile/cc_compilation_helper.bzl", "dotd_files_enabled")
 load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables")
 load(":common/paths.bzl", "paths")
 
@@ -90,6 +91,15 @@ def create_compile_action_templates(
                 label = cpp_source.label,
             ),
         )
+        dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
+            action_construction_context,
+            configuration,
+            feature_configuration,
+            native_cc_semantics,
+            label,
+            output_name,
+            generate_pic_action,
+        )
         _cc_internal.create_compile_action_template(
             action_construction_context = action_construction_context,
             cc_toolchain = cc_toolchain,
@@ -113,6 +123,7 @@ def create_compile_action_templates(
             use_pic = generate_pic_action,
             bitcode_output = bitcode_output,
             output_files = header_token_file,
+            dotd_tree_artifact = dotd_tree_artifact,
         )
         outputs.add_header_token_file(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
@@ -154,6 +165,15 @@ def create_compile_action_templates(
                     label = cpp_source.label,
                 ),
             )
+            dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
+                action_construction_context,
+                configuration,
+                feature_configuration,
+                native_cc_semantics,
+                label,
+                output_name,
+                generate_pic_action = False,
+            )
             _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
@@ -177,6 +197,7 @@ def create_compile_action_templates(
                 use_pic = False,
                 bitcode_output = feature_configuration.is_enabled("thin_lto"),
                 output_files = object_file,
+                dotd_tree_artifact = dotd_tree_artifact,
             )
             outputs.add_object_file(object_file)
         if generate_pic_action:
@@ -217,6 +238,15 @@ def create_compile_action_templates(
                     label = cpp_source.label,
                 ),
             )
+            dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
+                action_construction_context,
+                configuration,
+                feature_configuration,
+                native_cc_semantics,
+                label,
+                output_name,
+                generate_pic_action = True,
+            )
             _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
@@ -240,6 +270,7 @@ def create_compile_action_templates(
                 use_pic = True,
                 bitcode_output = feature_configuration.is_enabled("thin_lto"),
                 output_files = pic_object_file,
+                dotd_tree_artifact = dotd_tree_artifact,
             )
             outputs.add_pic_object_file(pic_object_file)
 
@@ -250,6 +281,22 @@ def _declare_compile_output_tree_artifact(
         generate_pic_action):
     return ctx.actions.declare_directory(paths.join(
         "_pic_objs" if generate_pic_action else "_objs",
+        label.name,
+        output_name,
+    ))
+
+def _maybe_declare_dotd_tree_artifact(
+        ctx,
+        configuration,
+        feature_configuration,
+        native_cc_semantics,
+        label,
+        output_name,
+        generate_pic_action):
+    if not dotd_files_enabled(native_cc_semantics, configuration, feature_configuration):
+        return None
+    return ctx.actions.declare_directory(paths.join(
+        "_pic_dotd" if generate_pic_action else "_dotd",
         label.name,
         output_name,
     ))
