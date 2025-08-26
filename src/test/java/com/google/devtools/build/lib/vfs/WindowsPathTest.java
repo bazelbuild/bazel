@@ -80,6 +80,24 @@ public class WindowsPathTest extends PathAbstractTest {
   }
 
   @Test
+  public void testStartsWithIgnoringCaseWindows() {
+    assertThat(create("C:/").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("C:/").startsWithIgnoringCase(create("c:/"))).isTrue();
+    assertThat(create("c:/").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("c:/").startsWithIgnoringCase(create("c:/"))).isTrue();
+
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("c:/"))).isTrue();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("C:/"))).isTrue();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("c:/"))).isTrue();
+
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("D:/"))).isFalse();
+    assertThat(create("C:/foo").startsWithIgnoringCase(create("d:/"))).isFalse();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("D:/"))).isFalse();
+    assertThat(create("c:/foo").startsWithIgnoringCase(create("d:/"))).isFalse();
+  }
+
+  @Test
   public void testGetParentDirectoryWindows() {
     assertThat(create("C:/foo").getParentDirectory()).isEqualTo(create("C:/"));
     assertThat(create("C:/").getParentDirectory()).isNull();
