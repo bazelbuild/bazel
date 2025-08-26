@@ -229,7 +229,10 @@ public final class SolibSymlinkAction extends AbstractAction {
       ActionConstructionContext actionConstructionContext,
       Artifact library,
       PathFragment symlinkName) {
-    Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
+    Preconditions.checkArgument(
+        Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()),
+        "Library '%s' does not match expected filetype",
+        library.getFilename());
     Preconditions.checkArgument(
         !library.getRootRelativePath().getPathString().startsWith("_solib_"));
 
