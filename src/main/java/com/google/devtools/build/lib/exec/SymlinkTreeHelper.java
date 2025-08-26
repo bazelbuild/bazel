@@ -53,8 +53,19 @@ public final class SymlinkTreeHelper {
    * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
   public SymlinkTreeHelper(Path inputManifest, Path symlinkTreeRoot, String workspaceName) {
-    this.inputManifest = inputManifest;
-    this.symlinkTreeRoot = symlinkTreeRoot;
+    // Do not indirect paths through overlay filesystems (such as the action filesystem or a
+    // snapshotting filesystem), for a few reasons:
+    // (1) we always want to create the symlinks on disk, even if the overlay filesystem creates
+    //     them in memory (at the time of writing, no action filesystem implementations do so, but
+    //     this may change in the future).
+    // (2) current action filesystem implementations are not a true overlay filesystem, so errors
+    //     might occur in an incremental build when the parent directory of a symlink exists on disk
+    //     but not in memory (see https://github.com/bazelbuild/bazel/issues/24867).
+    // (3) Changes made to a file referenced by a symlink tree should be reflected in the symlink
+    //     tree without having to rebuild. Therefore, if a snapshotting file system is used, we must
+    //     use the underlying non-snapshotting file system instead to create the symlink tree.
+    this.inputManifest = inputManifest.onUnderlyingFileSystem();
+    this.symlinkTreeRoot = symlinkTreeRoot.onUnderlyingFileSystem();
     this.workspaceName = workspaceName;
   }
 

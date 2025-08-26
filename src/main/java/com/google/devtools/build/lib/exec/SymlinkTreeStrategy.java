@@ -143,20 +143,9 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
   private SymlinkTreeHelper createSymlinkTreeHelper(
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
-    // Do not indirect paths through overlay filesystems (such as the action filesystem), for two
-    // reasons:
-    // (1) we always want to create the symlinks on disk, even if the overlay filesystem creates
-    //     them in memory (at the time of writing, no action filesystem implementations do so, but
-    //     this may change in the future).
-    // (2) current action filesystem implementations are not a true overlay filesystem, so errors
-    //     might occur in an incremental build when the parent directory of a symlink exists on disk
-    //     but not in memory (see https://github.com/bazelbuild/bazel/issues/24867).
     return new SymlinkTreeHelper(
-        actionExecutionContext.getInputPath(action.getInputManifest()).onUnderlyingFileSystem(),
-        actionExecutionContext
-            .getInputPath(action.getOutputManifest())
-            .getParentDirectory()
-            .onUnderlyingFileSystem(),
+        actionExecutionContext.getInputPath(action.getInputManifest()),
+        actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
         workspaceName);
   }
 
