@@ -793,11 +793,6 @@ public final class SkyframeActionExecutor {
                 }
 
                 @Override
-                public OutputMetadataStore getOutputMetadataStore() {
-                  return outputMetadataStore;
-                }
-
-                @Override
                 public <T extends ActionContext> T getContext(Class<? extends T> type) {
                   return executorEngine.getContext(type);
                 }

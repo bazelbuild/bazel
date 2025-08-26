@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.RichArtifactData;
 import com.google.devtools.build.lib.actions.RichDataProducingAction;
-import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -48,10 +47,9 @@ import java.io.IOException;
  * trees.
  */
 @Immutable
-public final class SymlinkTreeAction extends AbstractAction
-    implements RichDataProducingAction, NotifyOnActionCacheHit {
+public final class SymlinkTreeAction extends AbstractAction implements RichDataProducingAction {
 
-  private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
+  private static final String GUID = "58f19d99-653f-403c-a1c1-051e5c8fa60b";
 
   private final Artifact inputManifest;
   private final Artifact outputManifest;
@@ -255,18 +253,4 @@ public final class SymlinkTreeAction extends AbstractAction
   public boolean mayInsensitivelyPropagateInputs() {
     return true;
   }
-
-  @Override
-  public boolean actionCacheHit(ActionCachedContext context) {
-    return true;
-//    try {
-//      var metadata = context.getOutputMetadataStore().getOutputMetadata(getOutputManifest());
-//      return metadata != null && metadata.getResolvedPath() == null;
-//    } catch (IOException e) {
-//      return false;
-//    } catch (InterruptedException e) {
-//      Thread.currentThread().interrupt();
-//      return false;
-//    }
-//  }
 }

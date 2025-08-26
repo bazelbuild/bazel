@@ -39,12 +39,7 @@ public interface NotifyOnActionCacheHit extends Action {
     /** Returns the {@link ArtifactPathResolver} for this action. */
     ArtifactPathResolver getPathResolver();
 
-    /** Returns the {@link OutputMetadataStore} for this action. */
-    OutputMetadataStore getOutputMetadataStore();
-
-    /**
-     * Looks up and returns an action context implementation of the given interface type.
-     */
+    /** Looks up and returns an action context implementation of the given interface type. */
     <T extends ActionContext> T getContext(Class<? extends T> type);
   }
 
