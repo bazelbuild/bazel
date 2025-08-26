@@ -113,6 +113,7 @@ public class RunfilesTreeUpdater {
     if (!inputManifest.exists()) {
       return;
     }
+
     Path outputManifest =
         execRoot.getRelative(RunfilesSupport.outputManifestExecPath(tree.getExecPath()));
     try {
@@ -143,7 +144,7 @@ public class RunfilesTreeUpdater {
     }
 
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifest, outputManifest, runfilesDir, tree.getWorkspaceName());
+        new SymlinkTreeHelper(inputManifest, runfilesDir, tree.getWorkspaceName());
 
     if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
       helper.createRunfilesSymlinks(tree.getMapping());

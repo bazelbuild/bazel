@@ -84,9 +84,8 @@ public final class SymlinkTreeHelperTest {
       throws Exception {
     Path treeRoot = execRoot.getRelative("foo.runfiles");
     Path inputManifestPath = execRoot.getRelative("foo.runfiles_manifest");
-    Path outputManifestPath = execRoot.getRelative("foo.runfiles/MANIFEST");
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot, WORKSPACE_NAME);
+        new SymlinkTreeHelper(inputManifestPath, treeRoot, WORKSPACE_NAME);
 
     Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
     Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "symlink");
