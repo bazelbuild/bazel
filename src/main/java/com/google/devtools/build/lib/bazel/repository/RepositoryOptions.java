@@ -114,7 +114,10 @@ public class RepositoryOptions extends OptionsBase {
       help =
           """
           A comma-separated list of URLs under which the source URLs of Bazel modules can be found,
-          in addition to any registry-provided mirror URLs.
+          in addition to and taking precedence over any registry-provided mirror URLs. Set this to
+          an empty value to disable the use of any mirrors not specified by the registries. The
+          default set of mirrors may change over time, but all downloads from mirrors are verified
+          by hashes stored in the registry (and thus pinned by the lockfile).
           """)
   public List<String> moduleMirrors;
 
