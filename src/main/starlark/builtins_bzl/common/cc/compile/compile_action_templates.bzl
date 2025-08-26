@@ -53,6 +53,15 @@ def create_compile_action_templates(
         bitcode_output):
     if cpp_source.type not in [CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER]:
         fail("Encountered invalid source types when creating CppCompileActionTemplates: " + cpp_source.type)
+    all_copts = get_copts(
+        language = language,
+        cpp_configuration = cpp_configuration,
+        source_file = source_artifact,
+        conlyopts = conlyopts,
+        copts = copts,
+        cxxopts = cxxopts,
+        label = cpp_source.label,
+    )
     if cpp_source.type == CPP_SOURCE_TYPE_HEADER:
         header_token_file = _declare_compile_output_tree_artifact(
             action_construction_context,
@@ -81,15 +90,7 @@ def create_compile_action_templates(
             output_file = header_token_file,
             cpp_module_map = cc_compilation_context.module_map(),
             direct_module_maps = cc_compilation_context.direct_module_maps,
-            user_compile_flags = get_copts(
-                language = language,
-                cpp_configuration = cpp_configuration,
-                source_file = source_artifact,
-                conlyopts = conlyopts,
-                copts = copts,
-                cxxopts = cxxopts,
-                label = cpp_source.label,
-            ),
+            user_compile_flags = all_copts,
         )
         dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
             action_construction_context,
@@ -111,10 +112,6 @@ def create_compile_action_templates(
             action_construction_context = action_construction_context,
             cc_toolchain = cc_toolchain,
             configuration = configuration,
-            conlyopts = conlyopts,
-            copts = copts,
-            cpp_configuration = cpp_configuration,
-            cxxopts = cxxopts,
             feature_configuration = feature_configuration,
             compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
                 common_compile_build_variables,
@@ -129,6 +126,7 @@ def create_compile_action_templates(
             output_files = header_token_file,
             dotd_tree_artifact = dotd_tree_artifact,
             diagnostics_tree_artifact = diagnostics_tree_artifact,
+            all_copts = all_copts,
         )
         outputs.add_header_token_file(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
@@ -160,15 +158,7 @@ def create_compile_action_templates(
                 output_file = object_file,
                 cpp_module_map = cc_compilation_context.module_map(),
                 direct_module_maps = cc_compilation_context.direct_module_maps,
-                user_compile_flags = get_copts(
-                    language = language,
-                    cpp_configuration = cpp_configuration,
-                    source_file = source_artifact,
-                    conlyopts = conlyopts,
-                    copts = copts,
-                    cxxopts = cxxopts,
-                    label = cpp_source.label,
-                ),
+                user_compile_flags = all_copts,
             )
             dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
                 action_construction_context,
@@ -190,10 +180,6 @@ def create_compile_action_templates(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
                 configuration = configuration,
-                conlyopts = conlyopts,
-                copts = copts,
-                cpp_configuration = cpp_configuration,
-                cxxopts = cxxopts,
                 feature_configuration = feature_configuration,
                 compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
                     common_compile_build_variables,
@@ -208,6 +194,7 @@ def create_compile_action_templates(
                 output_files = object_file,
                 dotd_tree_artifact = dotd_tree_artifact,
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
+                all_copts = all_copts,
             )
             outputs.add_object_file(object_file)
         if generate_pic_action:
@@ -238,15 +225,7 @@ def create_compile_action_templates(
                 output_file = pic_object_file,
                 cpp_module_map = cc_compilation_context.module_map(),
                 direct_module_maps = cc_compilation_context.direct_module_maps,
-                user_compile_flags = get_copts(
-                    language = language,
-                    cpp_configuration = cpp_configuration,
-                    source_file = source_artifact,
-                    conlyopts = conlyopts,
-                    copts = copts,
-                    cxxopts = cxxopts,
-                    label = cpp_source.label,
-                ),
+                user_compile_flags = all_copts,
             )
             dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
                 action_construction_context,
@@ -268,10 +247,6 @@ def create_compile_action_templates(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
                 configuration = configuration,
-                conlyopts = conlyopts,
-                copts = copts,
-                cpp_configuration = cpp_configuration,
-                cxxopts = cxxopts,
                 feature_configuration = feature_configuration,
                 compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
                     common_compile_build_variables,
@@ -286,6 +261,7 @@ def create_compile_action_templates(
                 output_files = pic_object_file,
                 dotd_tree_artifact = dotd_tree_artifact,
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
+                all_copts = all_copts,
             )
             outputs.add_pic_object_file(pic_object_file)
 

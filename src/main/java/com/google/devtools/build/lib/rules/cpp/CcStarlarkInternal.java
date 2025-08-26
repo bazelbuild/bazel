@@ -803,10 +803,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "action_construction_context", positional = false, named = true),
         @Param(name = "cc_toolchain", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "cpp_configuration", positional = false, named = true),
-        @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
         @Param(
             name = "feature_configuration",
             positional = false,
@@ -820,16 +816,13 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "bitcode_output", positional = false, named = true),
         @Param(name = "output_files", positional = false, named = true),
         @Param(name = "dotd_tree_artifact", positional = false, named = true),
-        @Param(name = "diagnostics_tree_artifact", positional = false, named = true)
+        @Param(name = "diagnostics_tree_artifact", positional = false, named = true),
+        @Param(name = "all_copts", positional = false, named = true)
       })
   public void createCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
-      Sequence<?> conlyopts,
-      Sequence<?> copts,
-      CppConfiguration cppConfiguration,
-      Sequence<?> cxxopts,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
@@ -840,7 +833,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       boolean bitcodeOutput,
       SpecialArtifact outputFiles,
       Object dotdTreeArtifact,
-      Object diagnosticsTreeArtifact)
+      Object diagnosticsTreeArtifact,
+      Sequence<?> allCopts)
       throws RuleErrorException, EvalException {
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
@@ -864,10 +858,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         starlarkRuleContext.getRuleContext(),
         CcToolchainProvider.create(ccToolchain),
         configuration,
-        Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
-        Sequence.cast(copts, String.class, "copts").getImmutableList(),
-        cppConfiguration,
-        Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
         featureConfigurationForStarlark.getFeatureConfiguration(),
         compileBuildVariables,
         semantics,
@@ -878,7 +868,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         bitcodeOutput,
         outputFiles,
         CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class),
-        CcModule.nullIfNone(diagnosticsTreeArtifact, SpecialArtifact.class));
+        CcModule.nullIfNone(diagnosticsTreeArtifact, SpecialArtifact.class),
+        Sequence.cast(allCopts, String.class, "all_copts").getImmutableList());
   }
 
   @StarlarkMethod(

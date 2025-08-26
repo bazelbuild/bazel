@@ -309,10 +309,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcToolchainProvider ccToolchain,
       BuildConfigurationValue configuration,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      CppConfiguration cppConfiguration,
-      ImmutableList<String> cxxopts,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
@@ -323,7 +319,8 @@ public final class CcStaticCompilationHelper {
       boolean bitcodeOutput,
       SpecialArtifact outputFiles,
       SpecialArtifact dotdTreeArtifact,
-      SpecialArtifact diagnosticsTreeArtifact)
+      SpecialArtifact diagnosticsTreeArtifact,
+      ImmutableList<String> allCopts)
       throws RuleErrorException, EvalException {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     builder.setVariables(compileBuildVariables);
@@ -341,12 +338,7 @@ public final class CcStaticCompilationHelper {
     SpecialArtifact ltoIndexTreeArtifact = null;
 
     if (bitcodeOutput) {
-      Label sourceLabel = source.getLabel();
-      result.addLtoBitcodeFile(
-          outputFiles,
-          ltoIndexTreeArtifact,
-          getCopts(
-              conlyopts, copts, cppConfiguration, cxxopts, semantics, sourceArtifact, sourceLabel));
+      result.addLtoBitcodeFile(outputFiles, ltoIndexTreeArtifact, allCopts);
     }
 
     ActionOwner actionOwner = null;
