@@ -366,6 +366,10 @@ public class IndexRegistry implements Registry {
             key);
       }
       case "local_path" -> {
+        if (!uri.getScheme().equals("file")) {
+          throw new IOException(
+              "local_path source type is only supported for file:// registries, got " + uri);
+        }
         LocalPathSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
         return createLocalPathRepoSpec(
@@ -420,19 +424,16 @@ public class IndexRegistry implements Registry {
       String moduleBase = bazelRegistryJson.get().moduleBasePath;
       path = moduleBase + "/" + path;
       if (!PathFragment.isAbsolute(moduleBase)) {
-        if (uri.getScheme().equals("file")) {
-          if (uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
-            throw new IOException(
-                String.format(
-                    "Provided non absolute local registry path for module %s: %s",
-                    key, uri.getPath()));
-          }
-          // Unix:    file:///tmp --> /tmp
-          // Windows: file:///C:/tmp --> C:/tmp
-          path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0) + "/" + path;
-        } else {
-          throw new IOException(String.format("Provided non local registry for module %s", key));
+        Preconditions.checkState(uri.getScheme().equals("file"));
+        if (uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
+          throw new IOException(
+              String.format(
+                  "Provided non absolute local registry path for module %s: %s",
+                  key, uri.getPath()));
         }
+        // Unix:    file:///tmp --> /tmp
+        // Windows: file:///C:/tmp --> C:/tmp
+        path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0) + "/" + path;
       }
     }
 
