@@ -30,12 +30,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -68,35 +64,6 @@ public final class CcStaticCompilationHelper {
   }
 
   // Methods setting up compile build variables:
-
-  static CcToolchainVariables setupCommonCompileBuildVariables(
-      CcCompilationContext ccCompilationContext,
-      CcToolchainVariables cctoolchainVariables,
-      FeatureConfiguration featureConfiguration,
-      List<VariablesExtension> variablesExtensions,
-      boolean isUsingMemProf,
-      String fdoBuildStamp) {
-    Map<String, String> genericAdditionalBuildVariables = new LinkedHashMap<>();
-    CcToolchainVariables.Builder buildVariables =
-        CcToolchainVariables.builder(cctoolchainVariables);
-    CompileBuildVariables.setupCommonVariables(
-        buildVariables,
-        featureConfiguration,
-        ImmutableList.of(),
-        fdoBuildStamp,
-        isUsingMemProf,
-        variablesExtensions,
-        genericAdditionalBuildVariables,
-        ccCompilationContext.getIncludeDirs(),
-        ccCompilationContext.getQuoteIncludeDirs(),
-        ccCompilationContext.getSystemIncludeDirs(),
-        ccCompilationContext.getFrameworkIncludeDirs(),
-        ccCompilationContext.getDefines(),
-        ccCompilationContext.getNonTransitiveDefines(),
-        ccCompilationContext.getExternalIncludeDirs());
-
-    return buildVariables.build();
-  }
 
   private static CcToolchainVariables setupSpecificCompileBuildVariables(
       CcToolchainVariables commonToolchainVariables,

@@ -7807,7 +7807,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           getVariablesExtensionStarlarkRule("compile", "dict = {'variable': " + value + "}"));
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Trying to build UserVariableExtension");
+      assertThat(e).hasMessageThat().contains("got element of type int, want string");
     }
   }
 

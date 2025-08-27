@@ -22,6 +22,8 @@ _cc_internal = _builtins.internal.cc_internal
 # deliberately short name for less clutter while using in this file, we can have
 # a different symbol with a more descriptive name if we ever export this
 _VARS = struct(
+    # Variable for the collection of framework include paths.
+    FRAMEWORK_PATHS = "framework_include_paths",
     # Variable for the path to the source file being compiled.
     SOURCE_FILE = "source_file",
     # Variable for all flags coming from copt rule attribute, and from --copt,
@@ -35,10 +37,22 @@ _VARS = struct(
     SERIALIZED_DIAGNOSTICS_FILE = "serialized_diagnostics_file",
     # Variable for the module file name.
     MODULE_NAME = "module_name",
+    # Variable for the collection of include paths.
+    INCLUDE_PATHS = "include_paths",
+    # Variable for the collection of quote include paths.
+    QUOTE_INCLUDE_PATHS = "quote_include_paths",
+    # Variable for the collection of system include paths.
+    SYSTEM_INCLUDE_PATHS = "system_include_paths",
+    # Variable for the collection of external include paths.
+    EXTERNAL_INCLUDE_PATHS = "external_include_paths",
     # Variable for the module map file name.
     MODULE_MAP_FILE = "module_map_file",
     # Variable for the dependent module map file name.
     DEPENDENT_MODULE_MAP_FILES = "dependent_module_map_files",
+    # Variable for the collection of module files.
+    MODULE_FILES = "module_files",
+    # Variable for the collection of macros defined for preprocessor. */
+    PREPROCESSOR_DEFINES = "preprocessor_defines",
     # Variable for the gcov coverage file path.
     GCOV_GCNO_FILE = "gcov_gcno_file",
     # Variable for the minimized LTO indexing bitcode file, used by the LTO
@@ -59,6 +73,10 @@ _VARS = struct(
     PER_OBJECT_DEBUG_INFO_FILE = "per_object_debug_info_file",
     # Variable present when the output is compiled as position independent.
     PIC = "pic",
+    # Variable marking memprof profile is being used
+    IS_USING_MEMPROF = "is_using_memprof",
+    # Variable for includes that compiler needs to include into sources.
+    INCLUDES = "includes",
 )
 
 # buildifier: disable=function-docstring
@@ -70,14 +88,73 @@ def setup_common_compile_build_variables(
         fdo_context,
         feature_configuration,
         variables_extension):
-    return _cc_internal.setup_common_compile_build_variables(
-        cc_compilation_context = cc_compilation_context,
-        cc_toolchain_variables = cc_toolchain._build_variables,
+    common_vars = _setup_common_compile_build_variables_internal(
         feature_configuration = feature_configuration,
-        variables_extension = variables_extension,
         is_using_memprof = getattr(fdo_context, "memprof_profile_artifact", None) != None,
         fdo_build_stamp = _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration),
+        variables_extension = variables_extension,
+        include_dirs = cc_compilation_context.includes,
+        quote_include_dirs = cc_compilation_context.quote_includes,
+        system_include_dirs = cc_compilation_context.system_includes,
+        framework_include_dirs = cc_compilation_context.framework_includes,
+        defines = cc_compilation_context.defines,
+        local_defines = cc_compilation_context.local_defines,
+        external_include_dirs = cc_compilation_context.external_includes,
     )
+    return _cc_internal.combine_cc_toolchain_variables(cc_toolchain._build_variables, common_vars)
+
+def _setup_common_compile_build_variables_internal(
+        *,
+        feature_configuration,
+        fdo_build_stamp,  # str
+        is_using_memprof,  # bool
+        includes = [],  # [str]
+        variables_extension = [],  # [dict{str,object}]
+        additional_build_variables = {},  # dict{str,str}
+        include_dirs = depset(),
+        quote_include_dirs = depset(),
+        system_include_dirs = depset(),
+        framework_include_dirs = depset(),
+        defines = depset(),
+        local_defines = depset(),
+        external_include_dirs = depset()):
+    result = {}
+
+    if feature_configuration.is_enabled("use_header_modules"):
+        result[_VARS.MODULE_FILES] = []
+    result[_VARS.INCLUDE_PATHS] = include_dirs
+    result[_VARS.QUOTE_INCLUDE_PATHS] = quote_include_dirs
+    result[_VARS.SYSTEM_INCLUDE_PATHS] = system_include_dirs
+    if includes:
+        result[_VARS.INCLUDES] = _cc_internal.intern_string_sequence_variable_value(includes)
+    result[_VARS.FRAMEWORK_PATHS] = framework_include_dirs
+
+    if is_using_memprof:
+        result[_VARS.IS_USING_MEMPROF] = "1"
+
+    # Stamp FDO builds with FDO subtype string
+    all_defines = defines.to_list() + local_defines.to_list() + (
+        ["BUILD_FDO_TYPE=\"" + fdo_build_stamp + "\""] if fdo_build_stamp else []
+    )
+    result[_VARS.PREPROCESSOR_DEFINES] = _cc_internal.intern_string_sequence_variable_value(all_defines)
+    result = result | additional_build_variables
+
+    for key, value in variables_extension.items():
+        if type(value) == type([]):
+            result[key] = _cc_internal.intern_string_sequence_variable_value(value)
+        elif type(value) == type(""):
+            result[key] = value
+        elif type(value) == type(depset()):
+            for e in value.to_list():
+                if type(e) != type(""):
+                    fail("for string_sequence_variables_extension, got element of type " + type(e) + ", want string")
+            result[key] = value
+        else:
+            fail("for variable extension key:" + key + ", got element of type " + type(value) + ", want string")
+
+    if external_include_dirs:
+        result[_VARS.EXTERNAL_INCLUDE_PATHS] = external_include_dirs
+    return _cc_internal.cc_toolchain_variables(vars = result)
 
 def _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration):
     branch_fdo_profile = getattr(fdo_context, "branch_fdo_profile", None)

@@ -471,40 +471,6 @@ public enum CompileBuildVariables {
     buildVariables.addAllStringVariables(additionalBuildVariables);
   }
 
-  public static void setupCommonVariables(
-      CcToolchainVariables.Builder buildVariables,
-      FeatureConfiguration featureConfiguration,
-      List<String> includes,
-      String fdoStamp,
-      boolean isUsingMemProf,
-      List<VariablesExtension> variablesExtensions,
-      Map<String, String> additionalBuildVariables,
-      ImmutableList<PathFragment> includeDirs,
-      ImmutableList<PathFragment> quoteIncludeDirs,
-      ImmutableList<PathFragment> systemIncludeDirs,
-      ImmutableList<PathFragment> frameworkIncludeDirs,
-      Iterable<String> defines,
-      Iterable<String> localDefines,
-      ImmutableList<PathFragment> externalIncludeDirs) {
-    setupCommonVariablesInternal(
-        buildVariables,
-        featureConfiguration,
-        includes,
-        fdoStamp,
-        isUsingMemProf,
-        variablesExtensions,
-        additionalBuildVariables,
-        // Stable order NestedSets wrapping ImmutableLists are interned, otherwise this would be
-        // a clear waste of memory as the single caller ensure that there are no duplicates.
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, includeDirs),
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, quoteIncludeDirs),
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, systemIncludeDirs),
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, frameworkIncludeDirs),
-        defines,
-        localDefines,
-        externalIncludeDirs);
-  }
-
   private static void setupCommonVariablesInternal(
       CcToolchainVariables.Builder buildVariables,
       FeatureConfiguration featureConfiguration,

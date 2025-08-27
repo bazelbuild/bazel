@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
-import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
@@ -811,50 +809,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   public String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
     return Objects.requireNonNullElse(
         CcStaticCompilationHelper.computeOutputNamePrefixDir(configuration, purpose), "");
-  }
-
-  @StarlarkMethod(
-      name = "setup_common_compile_build_variables",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "cc_compilation_context",
-            documented = false,
-            positional = false,
-            named = true),
-        @Param(
-            name = "cc_toolchain_variables",
-            documented = false,
-            positional = false,
-            named = true),
-        @Param(
-            name = "feature_configuration",
-            documented = false,
-            positional = false,
-            named = true),
-        @Param(name = "variables_extension", documented = false, positional = false, named = true),
-        @Param(name = "is_using_memprof", documented = false, positional = false, named = true),
-        @Param(name = "fdo_build_stamp", documented = false, positional = false, named = true),
-      })
-  public CcToolchainVariables setupCommonCompileBuildVariables(
-      CcCompilationContext ccCompilationContext,
-      CcToolchainVariables cctoolchainVariables,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Object variablesExtension,
-      boolean isUsingMemprof,
-      Object fdoBuildStamp)
-      throws EvalException {
-    ImmutableList<VariablesExtension> variablesExtensionsList =
-        asDict(variablesExtension).isEmpty()
-            ? ImmutableList.of()
-            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
-    return CcStaticCompilationHelper.setupCommonCompileBuildVariables(
-        ccCompilationContext,
-        cctoolchainVariables,
-        featureConfigurationForStarlark.getFeatureConfiguration(),
-        variablesExtensionsList,
-        isUsingMemprof,
-        CcModule.nullIfNone(fdoBuildStamp, String.class));
   }
 
   /**
