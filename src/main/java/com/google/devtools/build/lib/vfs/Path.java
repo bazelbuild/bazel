@@ -244,7 +244,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * <p>Note that the returned path may still reference an in-memory file system (in tests, for
    * example), but should be treated as being on the "native" file system for the host machine.
    */
-  public Path onUnderlyingFileSystem() {
+  public Path forUnderlyingFileSystem() {
     var underlyingFs = fileSystem.getUnderlyingFileSystem();
     if (underlyingFs.equals(fileSystem)) {
       return this;

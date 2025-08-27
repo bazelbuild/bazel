@@ -64,8 +64,8 @@ public final class SymlinkTreeHelper {
     // (3) Changes made to a file referenced by a symlink tree should be reflected in the symlink
     //     tree without having to rebuild. Therefore, if a snapshotting file system is used, we must
     //     use the underlying non-snapshotting file system instead to create the symlink tree.
-    this.inputManifest = inputManifest.onUnderlyingFileSystem();
-    this.symlinkTreeRoot = symlinkTreeRoot.onUnderlyingFileSystem();
+    this.inputManifest = inputManifest.forUnderlyingFileSystem();
+    this.symlinkTreeRoot = symlinkTreeRoot.forUnderlyingFileSystem();
     this.workspaceName = workspaceName;
   }
 
