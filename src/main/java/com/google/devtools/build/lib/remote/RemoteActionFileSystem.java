@@ -252,8 +252,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  public FileSystem getUnderlyingFileSystem() {
-    return localFs.getUnderlyingFileSystem();
+  public FileSystem getHostFileSystem() {
+    return localFs.getHostFileSystem();
   }
 
   @Override
