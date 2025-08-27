@@ -488,7 +488,7 @@ def _create_scan_deps_action(
         ddi_output_name):
     dotd_file = None
     if (
-        _dotd_files_enabled(native_cc_semantics, configuration, feature_configuration) and
+        dotd_files_enabled(native_cc_semantics, configuration, feature_configuration) and
         _use_dotd_file(feature_configuration, source_artifact)
     ):
         dotd_file = _get_compile_output_file(
@@ -508,7 +508,7 @@ def _create_scan_deps_action(
         dotd_file = dotd_file,
         cpp_module_map = cc_compilation_context.module_map(),
         direct_module_maps = cc_compilation_context.direct_module_maps,
-        user_compile_flags = _get_copts(
+        user_compile_flags = get_copts(
             language = language,
             cpp_configuration = cpp_configuration,
             source_file = source_artifact,
