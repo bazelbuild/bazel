@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -165,136 +163,6 @@ public final class CcStaticCompilationHelper {
       buildVariables.addAllStringVariables(fdoBuildVariables);
     }
     return buildVariables.build();
-  }
-
-  // FDO related methods:
-
-  /**
-   * Configures a compile action builder by setting up command line options and auxiliary inputs
-   * according to the FDO configuration. This method does nothing If FDO is disabled.
-   */
-  static ImmutableMap<String, String> setupFdoBuildVariables(
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      NestedSet<Artifact> auxiliaryFdoInputs,
-      FeatureConfiguration featureConfiguration,
-      String fdoInstrument,
-      String csFdoInstrument)
-      throws EvalException {
-    ImmutableMap.Builder<String, String> variablesBuilder = ImmutableMap.builder();
-    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      variablesBuilder.put(
-          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
-    }
-    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
-      variablesBuilder.put(
-          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
-    }
-
-    // FDO is disabled -> do nothing.
-    Preconditions.checkNotNull(fdoContext);
-    if (!fdoContext.hasArtifacts()) {
-      return variablesBuilder.buildOrThrow();
-    }
-
-    if (fdoContext.getPrefetchHintsArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
-          fdoContext.getPrefetchHintsArtifact().getExecPathString());
-    }
-
-    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
-      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-        variablesBuilder.put(
-            CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
-            fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
-      }
-
-      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-        variablesBuilder.put(
-            CompileBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
-            fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
-      }
-    }
-
-    if (fdoContext.getMemProfProfileArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.MEMPROF_PROFILE_PATH.getVariableName(),
-          fdoContext.getMemProfProfileArtifact().getExecPathString());
-    }
-
-    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
-    // Optimization phase
-    if (branchFdoProfile != null) {
-      if (!auxiliaryFdoInputs.isEmpty()) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
-            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
-          variablesBuilder.put(
-              CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-              branchFdoProfile.getProfileArtifact().getExecPathString());
-        }
-        if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (branchFdoProfile.isLlvmFdo() || branchFdoProfile.isLlvmCSFdo()) {
-            variablesBuilder.put(
-                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-                branchFdoProfile.getProfileArtifact().getExecPathString());
-          }
-        }
-      }
-    }
-    return variablesBuilder.buildOrThrow();
-  }
-
-  /** Returns whether Propeller profiles should be passed to a compile action. */
-  private static boolean shouldPassPropellerProfiles(
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    if (ccToolchain.isToolConfiguration()) {
-      // Propeller doesn't make much sense for host builds.
-      return false;
-    }
-
-    if (fdoContext.getPropellerOptimizeInputFile() == null) {
-      // No Propeller profiles to pass.
-      return false;
-    }
-    // Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
-    return !featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
-        || featureConfiguration.isEnabled(
-            CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS);
-  }
-
-  /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  static NestedSet<Artifact> getAuxiliaryFdoInputs(
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
-
-    if (fdoContext.getPrefetchHintsArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
-    }
-    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
-      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
-      }
-      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-      }
-    }
-    if (fdoContext.getMemProfProfileArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getMemProfProfileArtifact());
-    }
-    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
-    // If --fdo_optimize was not specified, we don't have any additional inputs.
-    if (branchFdoProfile != null) {
-      auxiliaryInputs.add(branchFdoProfile.getProfileArtifact());
-    }
-
-    return auxiliaryInputs.build();
   }
 
   // Methods creating actions:

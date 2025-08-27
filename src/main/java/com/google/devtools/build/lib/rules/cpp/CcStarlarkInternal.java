@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.Sta
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -425,84 +424,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return Args.forRegisteredAction(
         new CommandLineAndParamFileInfo(linkCommandLine, linkCommandLine.getParamFileInfo()),
         ImmutableSet.of());
-  }
-
-  @StarlarkMethod(
-      name = "setup_fdo_build_variables",
-      documented = false,
-      parameters = {
-        @Param(name = "cc_toolchain", documented = false, positional = false, named = true),
-        @Param(
-            name = "fdo_context",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = StructImpl.class),
-              @ParamType(type = NoneType.class)
-            }),
-        @Param(name = "auxiliary_fdo_inputs", documented = false, positional = false, named = true),
-        @Param(
-            name = "feature_configuration",
-            documented = false,
-            positional = false,
-            named = true),
-        @Param(
-            name = "fdo_instrument",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
-        @Param(
-            name = "cs_fdo_instrument",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
-      })
-  public Dict<String, String> setupFdoBuildVariables(
-      StarlarkInfo ccToolchain,
-      Object fdoContextObj,
-      Depset auxiliaryFdoInputs,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Object fdoInstrument,
-      Object csFdoInstrument)
-      throws EvalException, TypeException {
-    FdoContext fdoContext =
-        fdoContextObj == Starlark.NONE ? null : new FdoContext((StructImpl) fdoContextObj);
-    return Dict.immutableCopyOf(
-        CcStaticCompilationHelper.setupFdoBuildVariables(
-            CcToolchainProvider.create(ccToolchain),
-            fdoContext,
-            auxiliaryFdoInputs.getSet(Artifact.class),
-            featureConfigurationForStarlark.getFeatureConfiguration(),
-            CppHelper.stringFromNoneable(fdoInstrument, null),
-            CppHelper.stringFromNoneable(csFdoInstrument, null)));
-  }
-
-  @StarlarkMethod(
-      name = "get_auxiliary_fdo_inputs",
-      documented = false,
-      parameters = {
-        @Param(name = "cc_toolchain", documented = false, positional = false, named = true),
-        @Param(name = "fdo_context", documented = false, positional = false, named = true),
-        @Param(
-            name = "feature_configuration",
-            documented = false,
-            positional = false,
-            named = true),
-      })
-  public Depset getAuxiliaryFdoInputs(
-      StarlarkInfo ccToolchain,
-      StructImpl fdoContextStruct,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark)
-      throws EvalException {
-    return Depset.of(
-        Artifact.class,
-        CcStaticCompilationHelper.getAuxiliaryFdoInputs(
-            CcToolchainProvider.create(ccToolchain),
-            new FdoContext(fdoContextStruct),
-            featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
   @StarlarkMethod(name = "empty_compilation_outputs", documented = false)

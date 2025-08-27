@@ -296,19 +296,26 @@ def compile(
         feature_configuration = feature_configuration,
         variables_extension = variables_extension,
     )
-    auxiliary_fdo_inputs = cc_internal.get_auxiliary_fdo_inputs(
+
+    # TODO(b/396122076): bundle the next two calls into a single function returning
+    # fdo_build_variables and auxiliary_fdo_inputs and move it to compile_build_variables.bzl
+    auxiliary_fdo_inputs_list = _get_auxiliary_fdo_inputs_list(
         cc_toolchain = cc_toolchain,
         fdo_context = fdo_context,
         feature_configuration = feature_configuration,
     )
-    fdo_build_variables = cc_internal.setup_fdo_build_variables(
+    fdo_build_variables = _setup_fdo_build_variables(
         cc_toolchain = cc_toolchain,
         fdo_context = fdo_context,
-        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        auxiliary_fdo_inputs_list = auxiliary_fdo_inputs_list,
         feature_configuration = feature_configuration,
         fdo_instrument = cpp_configuration.fdo_instrument(),
         cs_fdo_instrument = cpp_configuration.cs_fdo_instrument(),
     )
+
+    # TODO(b/396122076): once starlarkification of CcStaticCompilationHelper is done, check whether
+    # we can change auxiliary_fdo_inputs from depset to list.
+    auxiliary_fdo_inputs = depset(direct = auxiliary_fdo_inputs_list)
 
     cc_outputs_builder = cc_internal.create_cc_compilation_outputs_builder()
     _create_cc_compile_actions(
@@ -1037,3 +1044,105 @@ def _declare_output_file(ctx, label, sub_dir, output_name):
     path = paths.join(label.package, sub_dir, label.name, output_name)
     output_file = ctx.actions.declare_file(path)
     return output_file
+
+def _setup_fdo_build_variables(
+        cc_toolchain,
+        fdo_context,
+        auxiliary_fdo_inputs_list,
+        feature_configuration,
+        fdo_instrument,
+        cs_fdo_instrument):
+    """Populates FDO build variables."""
+    variables = {}
+    if feature_configuration.is_enabled("fdo_instrument"):
+        variables["fdo_instrument_path"] = fdo_instrument
+    if feature_configuration.is_enabled("cs_fdo_instrument"):
+        variables["cs_fdo_instrument_path"] = cs_fdo_instrument
+
+    if not (getattr(fdo_context, "branch_fdo_profile", None) or
+            getattr(fdo_context, "prefetch_hints_artifact", None) or
+            getattr(fdo_context, "propeller_optimize_info", None) or
+            getattr(fdo_context, "memprof_profile_artifact", None)):
+        return variables
+
+    prefetch_hints_artifact = getattr(fdo_context, "prefetch_hints_artifact", None)
+    if prefetch_hints_artifact:
+        variables["fdo_prefetch_hints_path"] = prefetch_hints_artifact.path
+
+    if _should_pass_propeller_profiles(cc_toolchain, fdo_context, feature_configuration):
+        # _should_pass_propeller_profiles() ensures that fdo_context.propeller_optimize_info
+        # is not None.
+        cc_artifact = getattr(fdo_context.propeller_optimize_info, "cc_profile", None)
+        if cc_artifact:
+            variables["propeller_optimize_cc_path"] = cc_artifact.path
+        ld_artifact = getattr(fdo_context.propeller_optimize_info, "ld_profile", None)
+        if ld_artifact:
+            variables["propeller_optimize_ld_path"] = ld_artifact.path
+
+    memprof_profile_artifact = getattr(fdo_context, "memprof_profile_artifact", None)
+    if memprof_profile_artifact:
+        variables["memprof_profile_path"] = memprof_profile_artifact.path
+
+    branch_fdo_profile = getattr(fdo_context, "branch_fdo_profile", None)
+    if (branch_fdo_profile and
+        auxiliary_fdo_inputs_list and
+        (
+            feature_configuration.is_enabled("autofdo") or
+            feature_configuration.is_enabled("xbinaryfdo") or
+            (
+                feature_configuration.is_enabled("fdo_optimize") and
+                branch_fdo_profile.branch_fdo_mode in ("llvm_fdo", "llvm_cs_fdo")
+            )
+        )):
+        variables["fdo_profile_path"] = branch_fdo_profile.profile_artifact.path
+    return variables
+
+def _get_auxiliary_fdo_inputs_list(
+        cc_toolchain,
+        fdo_context,
+        feature_configuration):
+    """Returns the auxiliary files that need to be added to CppCompileAction."""
+    auxiliary_inputs = []
+
+    prefetch_hints_artifact = getattr(fdo_context, "prefetch_hints_artifact", None)
+    if prefetch_hints_artifact:
+        auxiliary_inputs.append(prefetch_hints_artifact)
+
+    if _should_pass_propeller_profiles(cc_toolchain, fdo_context, feature_configuration):
+        # _should_pass_propeller_profiles() ensures that fdo_context.propeller_optimize_info
+        # is not None.
+        cc_artifact = getattr(fdo_context.propeller_optimize_info, "cc_profile", None)
+        if cc_artifact:
+            auxiliary_inputs.append(cc_artifact)
+        ld_artifact = getattr(fdo_context.propeller_optimize_info, "ld_profile", None)
+        if ld_artifact:
+            auxiliary_inputs.append(ld_artifact)
+
+    memprof_profile_artifact = getattr(fdo_context, "memprof_profile_artifact", None)
+    if memprof_profile_artifact:
+        auxiliary_inputs.append(memprof_profile_artifact)
+
+    branch_fdo_profile = getattr(fdo_context, "branch_fdo_profile", None)
+
+    # If --fdo_optimize was not specified, we don't have any additional inputs.
+    if branch_fdo_profile:
+        auxiliary_inputs.append(branch_fdo_profile.profile_artifact)
+
+    return auxiliary_inputs
+
+def _should_pass_propeller_profiles(
+        cc_toolchain,
+        fdo_context,
+        feature_configuration):
+    """Returns whether Propeller profiles should be passed to a compile action."""
+    if cc_toolchain._is_tool_configuration:
+        # Propeller doesn't make much sense for host builds.
+        return False
+
+    if getattr(fdo_context, "propeller_optimize_info", None) == None:
+        # No Propeller profiles to pass.
+        return False
+
+    # Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
+    return (not feature_configuration.is_enabled("thin_lto") or
+            feature_configuration.is_enabled("propeller_optimize_thinlto_compile_actions"))
