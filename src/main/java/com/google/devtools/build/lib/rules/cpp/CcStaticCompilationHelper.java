@@ -73,19 +73,13 @@ public final class CcStaticCompilationHelper {
 
   static CcToolchainVariables setupCommonCompileBuildVariables(
       CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
+      CcToolchainVariables cctoolchainVariables,
       CppConfiguration cppConfiguration,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       List<VariablesExtension> variablesExtensions)
-      throws RuleErrorException, EvalException {
+      throws EvalException {
     Map<String, String> genericAdditionalBuildVariables = new LinkedHashMap<>();
-    CcToolchainVariables cctoolchainVariables;
-    try {
-      cctoolchainVariables = ccToolchain.getBuildVars();
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
     boolean isUsingMemProf = false;
     if (fdoContext != null && fdoContext.getMemProfProfileArtifact() != null) {
       isUsingMemProf = true;

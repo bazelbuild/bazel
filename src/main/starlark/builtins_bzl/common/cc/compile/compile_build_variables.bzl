@@ -72,7 +72,7 @@ def setup_common_compile_build_variables(
         variables_extension):
     return _cc_internal.setup_common_compile_build_variables(
         cc_compilation_context = cc_compilation_context,
-        cc_toolchain = cc_toolchain,
+        cc_toolchain_variables = cc_toolchain._build_variables,
         cpp_configuration = cpp_configuration,
         fdo_context = fdo_context,
         feature_configuration = feature_configuration,

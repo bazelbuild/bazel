@@ -901,7 +901,11 @@ public class CcStarlarkInternal implements StarlarkValue {
             documented = false,
             positional = false,
             named = true),
-        @Param(name = "cc_toolchain", documented = false, positional = false, named = true),
+        @Param(
+            name = "cc_toolchain_variables",
+            documented = false,
+            positional = false,
+            named = true),
         @Param(name = "cpp_configuration", documented = false, positional = false, named = true),
         @Param(name = "fdo_context", documented = false, positional = false, named = true),
         @Param(
@@ -913,19 +917,19 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public CcToolchainVariables setupCommonCompileBuildVariables(
       CcCompilationContext ccCompilationContext,
-      StarlarkInfo ccToolchain,
+      CcToolchainVariables cctoolchainVariables,
       CppConfiguration cppConfiguration,
       StructImpl fdoContextStruct,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Object variablesExtension)
-      throws RuleErrorException, EvalException {
+      throws EvalException {
     ImmutableList<VariablesExtension> variablesExtensionsList =
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
     return CcStaticCompilationHelper.setupCommonCompileBuildVariables(
         ccCompilationContext,
-        CcToolchainProvider.create(ccToolchain),
+        cctoolchainVariables,
         cppConfiguration,
         new FdoContext(fdoContextStruct),
         featureConfigurationForStarlark.getFeatureConfiguration(),
