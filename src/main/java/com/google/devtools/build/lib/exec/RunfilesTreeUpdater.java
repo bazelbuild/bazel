@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.Run
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -147,7 +148,8 @@ public class RunfilesTreeUpdater {
 
     if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
       helper.createRunfilesSymlinks(tree.getMapping());
-      outputManifest.createSymbolicLink(inputManifest);
+      // See SymlinkTreeStrategy#createOutput for why we copy instead of hardlink or symlink.
+      FileSystemUtils.copyFile(inputManifest, outputManifest);
     } else {
       helper.clearRunfilesDirectory();
     }
