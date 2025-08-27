@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -230,9 +229,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     .add(
                         PrecomputedValue.injected(
                             ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
-                    .add(
-                        PrecomputedValue.injected(
-                            RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()))
                     .build())
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
@@ -262,8 +258,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-            PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of())));
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl()))));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
