@@ -19,6 +19,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
@@ -34,6 +35,13 @@ public final class StringUnsafe {
   // Fields corresponding to the coder
   public static final byte LATIN1 = 0;
   public static final byte UTF16 = 1;
+
+  /**
+   * This only exists for RemoteWorker, which uses JavaIoFileSystem with Unicode strings and thus
+   * shouldn't be subject to any reencoding.
+   */
+  public static final boolean BAZEL_UNICODE_STRINGS =
+      Boolean.getBoolean("bazel.internal.UnicodeStrings");
 
   private static final MethodHandle CONSTRUCTOR;
   private static final MethodHandle HAS_NEGATIVES;
@@ -84,6 +92,9 @@ public final class StringUnsafe {
    * Ensure you do not mutate this byte array in any way.
    */
   public static byte[] getInternalStringBytes(String obj) {
+    if (BAZEL_UNICODE_STRINGS) {
+      return obj.getBytes(StandardCharsets.UTF_8);
+    }
     // This is both a performance optimization and a correctness check: internal strings must
     // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
     // that hasn't been converted to internal encoding.
