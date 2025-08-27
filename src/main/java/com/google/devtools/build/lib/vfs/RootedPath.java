@@ -36,12 +36,7 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
 
-  // Interning on Windows (case-insensitive) surfaces a bug where paths that only differ in casing
-  // use the same RootedPath instance.
-  // TODO(#17904): Investigate this bug and add test coverage.
-  @Nullable
-  private static final SkyKeyInterner<RootedPath> interner =
-      OsPathPolicy.getFilePathOs().isCaseSensitive() ? SkyKey.newInterner() : null;
+  @Nullable private static final SkyKeyInterner<RootedPath> interner = SkyKey.newInterner();
 
   private final Root root;
   private final PathFragment rootRelativePath;
