@@ -827,22 +827,22 @@ public class CcStarlarkInternal implements StarlarkValue {
             documented = false,
             positional = false,
             named = true),
-        @Param(name = "cpp_configuration", documented = false, positional = false, named = true),
-        @Param(name = "fdo_context", documented = false, positional = false, named = true),
         @Param(
             name = "feature_configuration",
             documented = false,
             positional = false,
             named = true),
         @Param(name = "variables_extension", documented = false, positional = false, named = true),
+        @Param(name = "is_using_memprof", documented = false, positional = false, named = true),
+        @Param(name = "fdo_build_stamp", documented = false, positional = false, named = true),
       })
   public CcToolchainVariables setupCommonCompileBuildVariables(
       CcCompilationContext ccCompilationContext,
       CcToolchainVariables cctoolchainVariables,
-      CppConfiguration cppConfiguration,
-      StructImpl fdoContextStruct,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Object variablesExtension)
+      Object variablesExtension,
+      boolean isUsingMemprof,
+      Object fdoBuildStamp)
       throws EvalException {
     ImmutableList<VariablesExtension> variablesExtensionsList =
         asDict(variablesExtension).isEmpty()
@@ -851,10 +851,10 @@ public class CcStarlarkInternal implements StarlarkValue {
     return CcStaticCompilationHelper.setupCommonCompileBuildVariables(
         ccCompilationContext,
         cctoolchainVariables,
-        cppConfiguration,
-        new FdoContext(fdoContextStruct),
         featureConfigurationForStarlark.getFeatureConfiguration(),
-        variablesExtensionsList);
+        variablesExtensionsList,
+        isUsingMemprof,
+        CcModule.nullIfNone(fdoBuildStamp, String.class));
   }
 
   /**

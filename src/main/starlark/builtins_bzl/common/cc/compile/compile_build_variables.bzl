@@ -73,11 +73,25 @@ def setup_common_compile_build_variables(
     return _cc_internal.setup_common_compile_build_variables(
         cc_compilation_context = cc_compilation_context,
         cc_toolchain_variables = cc_toolchain._build_variables,
-        cpp_configuration = cpp_configuration,
-        fdo_context = fdo_context,
         feature_configuration = feature_configuration,
         variables_extension = variables_extension,
+        is_using_memprof = getattr(fdo_context, "memprof_profile_artifact", None) != None,
+        fdo_build_stamp = _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration),
     )
+
+def _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration):
+    branch_fdo_profile = getattr(fdo_context, "branch_fdo_profile", None)
+    if branch_fdo_profile:
+        branch_fdo_mode = branch_fdo_profile.branch_fdo_mode
+        if branch_fdo_mode == "auto_fdo":
+            return "AFDO" if feature_configuration.is_enabled("autofdo") else None
+        if branch_fdo_mode == "xbinary_fdo":
+            return "XFDO" if feature_configuration.is_enabled("xbinaryfdo") else None
+        if branch_fdo_mode == "llvm_cs_fdo" or cpp_configuration.cs_fdo_instrument():
+            return "CSFDO"
+    if branch_fdo_profile or cpp_configuration.fdo_instrument():
+        return "FDO"
+    return None
 
 # Note: this method is side-effect free, callers should add fdo inputs to
 # cc_compile_action_builder themselves
