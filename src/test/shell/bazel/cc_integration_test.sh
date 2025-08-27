@@ -2130,7 +2130,7 @@ function test_cpp20_modules_with_clang() {
   add_rules_cc "MODULE.bazel"
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
-COPTS = ["-std=c++20", "-fmodules-embed-all-files"]
+COPTS = ["-std=c++20", "-Xclang", "-fmodules-embed-all-files"]
 FEATURES = ["cpp_modules"]
 cc_library(
   name = "base",
