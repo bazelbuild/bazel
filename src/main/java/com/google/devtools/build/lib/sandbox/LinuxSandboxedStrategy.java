@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -45,11 +47,22 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
-      TreeDeleter treeDeleter)
-      throws IOException {
-    Path inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxBase);
-    Path inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
-
+      TreeDeleter treeDeleter,
+      SandboxOptions options) {
+    Path inaccessibleHelperFile = null;
+    Path inaccessibleHelperDir = null;
+    if (!options.sandboxBlockPath.isEmpty()) {
+      try {
+        inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxBase);
+        inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
+      } catch (IOException e) {
+        cmdEnv
+            .getReporter()
+            .handle(
+                Event.warn(
+                    "Could not block access to: " + Joiner.on(",").join(options.sandboxBlockPath)));
+      }
+    }
     return new LinuxSandboxedSpawnRunner(
         cmdEnv,
         sandboxBase,

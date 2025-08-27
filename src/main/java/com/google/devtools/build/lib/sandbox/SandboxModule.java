@@ -320,7 +320,8 @@ public final class SandboxModule extends BlazeModule {
     // This is the preferred sandboxing strategy on Linux.
     if (linuxSandboxSupported) {
       SpawnRunner spawnRunner =
-          LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter);
+          LinuxSandboxedStrategy.create(
+              cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter, options);
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new LinuxSandboxedStrategy(spawnRunner, executionOptions), "sandboxed", "linux-sandbox");
