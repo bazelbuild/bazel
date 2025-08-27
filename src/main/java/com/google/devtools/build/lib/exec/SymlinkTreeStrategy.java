@@ -141,7 +141,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     try {
       FileSystemUtils.copyFile(inputManifest, outputManifest);
     } catch (IOException e) {
-      throw createLinkFailureException(outputManifest, e);
+      throw createCopyFailureException(outputManifest, e);
     }
   }
 
@@ -160,14 +160,15 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         workspaceName);
   }
 
-  private static EnvironmentalExecException createLinkFailureException(
+  private static EnvironmentalExecException createCopyFailureException(
       Path outputManifest, IOException e) {
     return new EnvironmentalExecException(
         e,
         FailureDetail.newBuilder()
-            .setMessage("Failed to link output manifest '" + outputManifest.getPathString() + "'")
+            .setMessage(
+                "Failed to copy output manifest '%s'".formatted(outputManifest.getPathString()))
             .setExecution(
-                Execution.newBuilder().setCode(Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION))
+                Execution.newBuilder().setCode(Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION))
             .build());
   }
 }

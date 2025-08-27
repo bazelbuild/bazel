@@ -175,7 +175,7 @@ public final class SymlinkTreeHelper {
       outputManifest.delete();
       FileSystemUtils.copyFile(inputManifest, outputManifest);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION);
     }
   }
 
