@@ -800,12 +800,7 @@ EOF
     //pkg:gen >&$TEST_log || fail "build failed"
 }
 
-function test_runfile_manifest_only_change_not_stale() {
-  if "$is_windows"; then
-    # Can't run shell scripts directly.
-    return
-  fi
-
+function setup_runfile_manifest_only_change() {
   mkdir -p pkg
   cat > pkg/constants.bzl <<'EOF'
 SYMLINK_PATH = "old_name"
@@ -843,16 +838,44 @@ my_script(
     name = "foo",
 )
 EOF
+}
+
+function test_runfile_manifest_only_change_not_stale_no_action_cache_entry() {
+  if "$is_windows"; then
+    # Can't run shell scripts directly.
+    return
+  fi
+
+  setup_runfile_manifest_only_change
 
   bazel run //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "first run failed"
 
   # Modify the symlink path only while not overwriting the existing action cache entry for the SymlinkTreeAction.
   inplace-sed 's/old_name/new_name/' pkg/constants.bzl
-  bazel run --nouse_action_cache //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "second run failed"
+  bazel run //pkg:foo --nouse_action_cache --nobuild_runfile_links $EXTRA_BUILD_FLAGS >&$TEST_log || fail "second run failed"
 
   # Revert the symlink path.
   inplace-sed 's/new_name/old_name/' pkg/constants.bzl
   bazel run //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "third run failed"
+}
+
+function test_runfile_manifest_only_change_not_stale_no_action_cache_entry_nobuild_runfile_links() {
+  if "$is_windows"; then
+    # Can't run shell scripts directly.
+    return
+  fi
+
+  setup_runfile_manifest_only_change
+
+  bazel run //pkg:foo --nobuild_runfile_links $EXTRA_BUILD_FLAGS >&$TEST_log || fail "first run failed"
+
+  # Modify the symlink path only while not overwriting the existing action cache entry for the SymlinkTreeAction.
+  inplace-sed 's/old_name/new_name/' pkg/constants.bzl
+  bazel run //pkg:foo --nouse_action_cache --nobuild_runfile_links $EXTRA_BUILD_FLAGS >&$TEST_log || fail "second run failed"
+
+  # Revert the symlink path.
+  inplace-sed 's/new_name/old_name/' pkg/constants.bzl
+  bazel run //pkg:foo --nobuild_runfile_links $EXTRA_BUILD_FLAGS >&$TEST_log || fail "third run failed"
 }
 
 function test_runfile_manifest_only_change_not_stale_legacy_bazel_version() {
@@ -861,48 +884,13 @@ function test_runfile_manifest_only_change_not_stale_legacy_bazel_version() {
     return
   fi
 
-  mkdir -p pkg
-  cat > pkg/constants.bzl <<'EOF'
-SYMLINK_PATH = "old_name"
-EOF
-  cat > pkg/defs.bzl <<'EOF'
-load(":constants.bzl", "SYMLINK_PATH")
-
-def _my_script_impl(ctx):
-    out = ctx.actions.declare_file(ctx.label.name)
-    print(SYMLINK_PATH)
-    ctx.actions.write(
-        out,
-        """#!/usr/bin/env sh
-set -eu
-[ -f {} ] || exit 1
-""".format(SYMLINK_PATH),
-        is_executable = True,
-    )
-    runfiles = ctx.runfiles(
-        symlinks = {
-            SYMLINK_PATH: out,
-        },
-    )
-    return [DefaultInfo(executable = out, runfiles = runfiles)]
-
-my_script = rule(
-    implementation = _my_script_impl,
-    executable = True,
-)
-EOF
-  cat > pkg/BUILD <<'EOF'
-load(":defs.bzl", "my_script")
-
-my_script(
-    name = "foo",
-)
-EOF
+  setup_runfile_manifest_only_change
 
   bazel run //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "first run failed"
 
-  # Simulate the effect of an old version of Bazel that doesn't override the action cache entry and also symlinks
-  # instead of copies the input manifest to the output manifest.
+  # Simulate the effect of an old version of Bazel that doesn't override the action cache entry (since a different
+  # version of the action cache used to use a different path under the output base) and also symlinks instead of copies
+  # the input manifest to the output manifest.
   inplace-sed 's/old_name/new_name/' bazel-bin/pkg/foo${EXT}.runfiles_manifest
   rm bazel-bin/pkg/foo${EXT}.runfiles/MANIFEST
   ln -s "$(pwd)/bazel-bin/pkg/foo${EXT}.runfiles_manifest" bazel-bin/pkg/foo${EXT}.runfiles/MANIFEST
@@ -911,6 +899,29 @@ EOF
   # Revert the symlink path.
   inplace-sed 's/new_name/old_name/' pkg/constants.bzl
   bazel run //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "third run failed"
+}
+
+function test_runfile_manifest_only_change_not_stale_legacy_bazel_version_nobuild_runfile_links() {
+  if "$is_windows"; then
+    # Can't run shell scripts directly.
+    return
+  fi
+
+  setup_runfile_manifest_only_change
+
+  bazel run //pkg:foo --nobuild_runfile_links $EXTRA_BUILD_FLAGS >&$TEST_log || fail "first run failed"
+
+  # Simulate the effect of an old version of Bazel that doesn't override the action cache entry (since a different
+  # version of the action cache used to use a different path under the output base) and also symlinks instead of copies
+  # the input manifest to the output manifest.
+  inplace-sed 's/old_name/new_name/' bazel-bin/pkg/foo${EXT}.runfiles_manifest
+  rm bazel-bin/pkg/foo${EXT}.runfiles/MANIFEST
+  ln -s "$(pwd)/bazel-bin/pkg/foo${EXT}.runfiles_manifest" bazel-bin/pkg/foo${EXT}.runfiles/MANIFEST
+  mv bazel-bin/pkg/foo${EXT}.runfiles/_main/old_name bazel-bin/pkg/foo${EXT}.runfiles/_main/new_name
+
+  # Revert the symlink path.
+  inplace-sed 's/new_name/old_name/' pkg/constants.bzl
+  bazel run //pkg:foo --nobuild_runfile_links $EXTRA_BUILD_FLAGS >&$TEST_log || fail "third run failed"
 }
 
 run_suite "runfiles"
