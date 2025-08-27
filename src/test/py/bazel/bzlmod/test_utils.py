@@ -66,6 +66,7 @@ class Module:
     self.strip_prefix = ''
     self.module_dot_bazel = None
     self.patches = []
+    self.overlay = {}
     self.patch_strip = 0
     self.archive_type = None
 
@@ -81,6 +82,10 @@ class Module:
   def set_patches(self, patches, patch_strip):
     self.patches = patches
     self.patch_strip = patch_strip
+    return self
+
+  def set_overlay(self, overlay):
+    self.overlay = overlay
     return self
 
   def set_archive_type(self, archive_type):
@@ -120,6 +125,10 @@ class BazelRegistry:
   def getURL(self):
     """Return the URL of this registry."""
     return self.http_server.getURL()
+
+  def getLocalURL(self):
+    """Return the local file:// URL of this registry."""
+    return self.root.as_uri()
 
   def generateCcSource(
       self,
@@ -267,6 +276,15 @@ class BazelRegistry:
         source['patches'][patch.name] = integrity(read(patch))
         shutil.copy(str(patch), str(patch_dir))
 
+    if module.overlay:
+      overlay_dir = module_dir.joinpath('overlay')
+      overlay_dir.mkdir()
+      source['overlay'] = {}
+      for overlay_rel_path, overlay_file in module.overlay.items():
+        file = pathlib.Path(overlay_file)
+        source['overlay'][overlay_rel_path] = integrity(read(file))
+        shutil.copy(str(file), str(overlay_dir.joinpath(overlay_rel_path)))
+
     if module.archive_type:
       source['archive_type'] = module.archive_type
 
@@ -281,6 +299,7 @@ class BazelRegistry:
       repo_names=None,
       patches=None,
       patch_strip=0,
+      overlay = None,
       archive_pattern=None,
       archive_type=None,
       extra_module_file_contents=None,
@@ -300,6 +319,8 @@ class BazelRegistry:
     module.set_module_dot_bazel(src_dir.joinpath('MODULE.bazel'))
     if patches:
       module.set_patches(patches, patch_strip)
+    if overlay:
+      module.set_overlay(overlay)
     if archive_type:
       module.set_archive_type(archive_type)
 
