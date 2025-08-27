@@ -29,7 +29,7 @@ load(
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper", "dotd_files_enabled", "serialized_diagnostics_file_enabled")
 load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
-load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables")
+load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables", "setup_common_compile_build_variables")
 load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
@@ -288,7 +288,7 @@ def compile(
     if feature_configuration.is_enabled("header_modules") and not public_compilation_context.module_map:
         fail("All cc rules must support module maps.")
 
-    common_compile_build_variables = cc_internal.setup_common_compile_build_variables(
+    common_compile_build_variables = setup_common_compile_build_variables(
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
         cpp_configuration = cpp_configuration,

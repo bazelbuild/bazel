@@ -61,6 +61,24 @@ _VARS = struct(
     PIC = "pic",
 )
 
+# buildifier: disable=function-docstring
+def setup_common_compile_build_variables(
+        *,
+        cc_compilation_context,
+        cc_toolchain,
+        cpp_configuration,
+        fdo_context,
+        feature_configuration,
+        variables_extension):
+    return _cc_internal.setup_common_compile_build_variables(
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        cpp_configuration = cpp_configuration,
+        fdo_context = fdo_context,
+        feature_configuration = feature_configuration,
+        variables_extension = variables_extension,
+    )
+
 # Note: this method is side-effect free, callers should add fdo inputs to
 # cc_compile_action_builder themselves
 def get_specific_compile_build_variables(
