@@ -85,8 +85,8 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return delegateFs.isFilePathCaseSensitive();
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return delegateFs.mayBeCaseOrNormalizationInsensitive();
   }
 
   @Override

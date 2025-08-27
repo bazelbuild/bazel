@@ -33,7 +33,7 @@ java_library(
     name = "SymlinkAwareFileSystemTest",
     srcs = ["SymlinkAwareFileSystemTest.java"],
     deps = [
-        ":testutil",
+        ":FileSystemTest_lib",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -86,6 +86,7 @@ java_library(
     name = "FileSystemTest_lib",
     srcs = ["FileSystemTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -137,22 +138,5 @@ java_test(
     runtime_deps = [
         ":VfsWindowsTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-    ],
-)
-
-java_library(
-    name = "testutil",
-    testonly = 1,
-    srcs = ["FileSystemTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
