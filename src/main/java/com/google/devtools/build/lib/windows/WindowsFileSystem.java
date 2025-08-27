@@ -115,8 +115,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return false;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return true;
   }
 
   @Override
