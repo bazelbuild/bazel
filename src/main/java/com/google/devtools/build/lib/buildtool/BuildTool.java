@@ -32,6 +32,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -1282,10 +1283,23 @@ public class BuildTool {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
             dependenciesProvider;
         case RemoteAnalysisCacheMode.DOWNLOAD -> {
-          checkNotNull(
-              dependenciesProvider.getAnalysisCacheClient(),
-              "Analysis cache client is null, did you forget to set"
-                  + " --experimental_analysis_cache_service?");
+          if (dependenciesProvider.getAnalysisCacheClient() == null) {
+            if (Strings.isNullOrEmpty(options.analysisCacheService)) {
+              env.getReporter()
+                  .handle(
+                      Event.warn(
+                          "--experimental_remote_analysis_cache_mode=DOWNLOAD was requested but"
+                              + " --experimental_analysis_cache_service was not specified. Falling"
+                              + " back on local evaluation."));
+            } else {
+              env.getReporter()
+                  .handle(
+                      Event.warn(
+                          "Failed to establish connection to AnalysisCacheService. Falling back to"
+                              + " on local evaluation."));
+            }
+            yield DisabledDependenciesProvider.INSTANCE;
+          }
           yield dependenciesProvider;
         }
         default ->
@@ -1525,7 +1539,8 @@ public class BuildTool {
       try {
         return analysisCacheClient.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
-        throw new IllegalStateException("Unable to initialize analysis cache service", e);
+        logger.atWarning().withCause(e).log("Unable to initialize analysis cache service");
+        return null;
       }
     }
 
