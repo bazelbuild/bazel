@@ -185,6 +185,15 @@ final class FileDependencySerializer {
     }
   }
 
+  /**
+   * Populates the {@link FileDataInfoOrFuture} for the given {@link FutureFileDataInfo}.
+   *
+   * <p>This method is responsible for resolving the {@link FileKey} and its dependencies, and
+   * uploading the resulting {@link FileInvalidationData} to the {@link #fingerprintValueService}.
+   *
+   * @param future The {@link FutureFileDataInfo} to populate.
+   * @return The populated {@link FileDataInfoOrFuture}.
+   */
   FileDataInfoOrFuture populateFutureFileDataInfo(FutureFileDataInfo future) {
     FileKey key = future.key();
     RootedPath rootedPath = key.argument();
@@ -217,6 +226,19 @@ final class FileDependencySerializer {
             /* realRootedPath= */ realRootedPath,
             value.exists(),
             initialMtsv);
+    // The following steps are performed to ensure that ancestors and ancestor symlinks are resolved
+    // to compute the correct MTSV:
+    // 1. Call fullyResolvePath to register all the parents of the current rootedPath as
+    //    dependencies first.
+    // 2. The transform() method takes the output of the first parameter (a future) and passes it to
+    //    the second parameter (a function).
+    // 3. The output of fullyResolvePath is Void, so the transform method is only being used as a
+    //    stop to not trigger the upload of the current rootedPath till its parents have been
+    //    registered.
+    // 4. The uploader itself is a Function that directly returns a FileDataInfo but gets wrapped as
+    //    a future by the transform method.
+    // 5. The upload happens through the put() operation in the fingerprintValueService inside the
+    //    uploader.
     return future.completeWith(
         Futures.transform(
             fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader),
