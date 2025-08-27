@@ -597,6 +597,7 @@ def _create_gen_modmap_action(
         arguments = [args],
         mnemonic = "CppGenModmap",
         progress_message = "Generating C++20 modules modmap %{output}",
+        execution_requirements = {"internal-inline-outputs": modmap_input_file.path},
         toolchain = None,
     )
 
