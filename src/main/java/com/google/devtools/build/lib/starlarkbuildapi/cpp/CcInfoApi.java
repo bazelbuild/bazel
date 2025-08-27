@@ -54,12 +54,11 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
   StarlarkInfo /* CcLinkingContextApi */ getCcLinkingContextForStarlark();
 
   @StarlarkMethod(
-      name = "debug_context",
+      name = "_debug_context",
       documented = false,
       doc = "Returns the <code>DebugContext</code>",
-      useStarlarkThread = true)
-  StarlarkInfo /* CcDebugInfoContextApi */ getCcDebugInfoContextFromStarlark(StarlarkThread thread)
-      throws EvalException;
+      structField = true)
+  StarlarkInfo /* CcDebugInfoContextApi */ getCcDebugInfoContext() throws EvalException;
 
   @StarlarkMethod(
       name = "_legacy_transitive_native_libraries",
