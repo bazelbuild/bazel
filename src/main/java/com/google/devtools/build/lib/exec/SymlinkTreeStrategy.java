@@ -145,6 +145,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
     return new SymlinkTreeHelper(
         actionExecutionContext.getInputPath(action.getInputManifest()),
+        actionExecutionContext.getInputPath(action.getOutputManifest()),
         actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
         workspaceName);
   }

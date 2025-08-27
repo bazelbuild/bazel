@@ -42,6 +42,7 @@ import javax.annotation.Nullable;
 public final class SymlinkTreeHelper {
 
   private final Path inputManifest;
+  private final Path outputManifest;
   private final Path symlinkTreeRoot;
   private final String workspaceName;
 
@@ -49,10 +50,12 @@ public final class SymlinkTreeHelper {
    * Creates SymlinkTreeHelper instance. Can be used independently of SymlinkTreeAction.
    *
    * @param inputManifest exec path to the input runfiles manifest
+   * @param outputManifest path to the output runfiles manifest
    * @param symlinkTreeRoot the root of the symlink tree to be created
    * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
-  public SymlinkTreeHelper(Path inputManifest, Path symlinkTreeRoot, String workspaceName) {
+  public SymlinkTreeHelper(
+      Path inputManifest, Path outputManifest, Path symlinkTreeRoot, String workspaceName) {
     // Do not indirect paths through overlay filesystems (such as the action filesystem or a
     // snapshotting filesystem), for a few reasons:
     // (1) we always want to create the symlinks on disk, even if the overlay filesystem creates
@@ -65,12 +68,9 @@ public final class SymlinkTreeHelper {
     //     tree without having to rebuild. Therefore, if a snapshotting file system is used, we must
     //     use the underlying non-snapshotting file system instead to create the symlink tree.
     this.inputManifest = inputManifest.forUnderlyingFileSystem();
+    this.outputManifest = outputManifest.forUnderlyingFileSystem();
     this.symlinkTreeRoot = symlinkTreeRoot.forUnderlyingFileSystem();
     this.workspaceName = workspaceName;
-  }
-
-  private Path getOutputManifest() {
-    return symlinkTreeRoot.getChild("MANIFEST");
   }
 
   interface TargetPathFunction<T> {
@@ -84,8 +84,7 @@ public final class SymlinkTreeHelper {
   }
 
   /** Creates a symlink tree for a runfiles by making VFS calls. */
-  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks)
-      throws IOException {
+  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks) throws IOException {
     createSymlinks(
         symlinks,
         (artifact) ->
@@ -169,7 +168,6 @@ public final class SymlinkTreeHelper {
   /** Links the output manifest to the input manifest. */
   private void linkManifest() throws ExecException {
     // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
-    Path outputManifest = getOutputManifest();
     try {
       symlinkTreeRoot.createDirectoryAndParents();
       outputManifest.delete();
