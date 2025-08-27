@@ -203,10 +203,8 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
       throws CommandLineExpansionException, InterruptedException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
-            sourceTreeArtifact,
             cppCompileActionBuilder.getCoptsFilter(),
             CppActionNames.CPP_COMPILE,
-            dotdTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
     try {

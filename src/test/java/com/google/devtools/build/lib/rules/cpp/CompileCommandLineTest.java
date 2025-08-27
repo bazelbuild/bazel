@@ -16,18 +16,13 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -49,19 +44,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
   @Before
   public void initializeRuleContext() throws Exception {
     scratch.file("foo/BUILD", "cc_library(name = 'foo')");
-  }
-
-  private Artifact scratchArtifact(String s) {
-    Path execRoot = outputBase.getRelative("exec");
-    String outSegment = "root";
-    Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, outSegment);
-    try {
-      return ActionsTestUtil.createArtifact(
-          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   private void loadCcToolchainConfigLib() throws IOException {
@@ -196,10 +178,6 @@ public class CompileCommandLineTest extends BuildViewTestCase {
   }
 
   private CompileCommandLine.Builder makeCompileCommandLineBuilder() throws Exception {
-    return CompileCommandLine.builder(
-        scratchArtifact("a/FakeInput"),
-        CoptsFilter.alwaysPasses(),
-        "c++-compile",
-        scratchArtifact("a/dotD"));
+    return CompileCommandLine.builder(CoptsFilter.alwaysPasses(), "c++-compile");
   }
 }
