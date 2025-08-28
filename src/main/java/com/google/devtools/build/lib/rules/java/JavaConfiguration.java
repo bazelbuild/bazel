@@ -243,7 +243,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   public boolean javaHeaderCompilationDirectDeps() {
-    return javaHeaderCompilationDirectDeps;
+    return false;
   }
 
   /** Returns true iff dependency information is generated after compilation. */
@@ -477,6 +477,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   public boolean getUseHeaderCompilationDirectDepsInStarlark(StarlarkThread thread)
       throws EvalException {
     checkPrivateAccess(thread);
-    return javaHeaderCompilationDirectDeps;
+    return false;
   }
 }
