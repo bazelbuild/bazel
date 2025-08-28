@@ -1610,62 +1610,68 @@ class BazelLockfileTest(test_base.TestBase):
 
   def testLockfileWithNoUserSpecificPath(self):
     self.my_registry = BazelRegistry(os.path.join(self._test_cwd, 'registry'))
-    self.my_registry.start()
-    try:
-      self.my_registry.setModuleBasePath('projects')
-      patch_file = self.ScratchFile(
-          'ss.patch',
-          [
-              '--- a/aaa.cc',
-              '+++ b/aaa.cc',
-              '@@ -1,6 +1,6 @@',
-              ' #include <stdio.h>',
-              ' #include "aaa.h"',
-              ' void hello_aaa(const std::string& caller) {',
-              '-    std::string lib_name = "aaa@1.1-1";',
-              '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
-              '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
-              ' }',
-          ],
-      )
-      # Module with a local patch & extension
-      self.my_registry.createCcModule(
-          'ss',
-          '1.3-1',
-          {'ext': '1.0'},
-          patches=[patch_file],
-          patch_strip=1,
-          extra_module_file_contents=[
-              'my_ext = use_extension("@ext//:ext.bzl", "ext")',
-              'use_repo(my_ext, "justRepo")',
-          ],
-      )
-      ext_src = [
-          'def _repo_impl(ctx): ctx.file("BUILD")',
-          'repo = repository_rule(_repo_impl)',
-          'def _ext_impl(ctx): repo(name=justRepo)',
-          'ext=module_extension(_ext_impl)',
-      ]
-      self.my_registry.createLocalPathModule('ext', '1.0', 'ext')
-      scratchFile(self.my_registry.projects.joinpath('ext', 'BUILD'))
-      scratchFile(self.my_registry.projects.joinpath('ext', 'ext.bzl'), ext_src)
+    self.my_registry.setModuleBasePath('projects')
+    patch_file = self.ScratchFile(
+        'ss.patch',
+        [
+            '--- a/aaa.cc',
+            '+++ b/aaa.cc',
+            '@@ -1,6 +1,6 @@',
+            ' #include <stdio.h>',
+            ' #include "aaa.h"',
+            ' void hello_aaa(const std::string& caller) {',
+            '-    std::string lib_name = "aaa@1.1-1";',
+            '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
+            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            ' }',
+        ],
+    )
+    overlay_file = self.ScratchFile(
+        'ss.overlay',
+        [
+            'def _repo_impl(ctx): ctx.file("BUILD")',
+            'repo = repository_rule(_repo_impl)',
+            'def _ext_impl(ctx): repo(name=justRepo)',
+            'ext=module_extension(_ext_impl)',
+        ],
+    )
+    # Module with a local patch, overlay & extension
+    self.my_registry.createCcModule(
+        'ss',
+        '1.3-1',
+        {'ext': '1.0'},
+        patches=[patch_file],
+        patch_strip=1,
+        overlay={
+            'ext.bzl': overlay_file,
+        },
+        extra_module_file_contents=[
+            'my_ext = use_extension("@ext//:ext.bzl", "ext")',
+            'use_repo(my_ext, "justRepo")',
+        ],
+    )
+    self.my_registry.createLocalPathModule('ext', '1.0', 'ext')
+    scratchFile(self.my_registry.projects.joinpath('ext', 'BUILD'))
 
-      self.ScratchFile(
-          'MODULE.bazel',
-          [
-              'bazel_dep(name = "ss", version = "1.3-1")',
-          ],
-      )
-      self.ScratchFile('BUILD.bazel', ['filegroup(name = "lala")'])
-      self.RunBazel(
-          ['build', '--registry=file:///%workspace%/registry', '//:lala']
-      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "ss", version = "1.3-1")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['filegroup(name = "lala")'])
+    self.RunBazel(
+        ['build', '--registry=' + self.my_registry.getLocalURL(), '//:lala']
+    )
 
-      with open('MODULE.bazel.lock', 'r') as f:
-        self.assertNotIn(self.my_registry.getURL(), f.read())
-
-    finally:
-      self.my_registry.stop()
+    with open('MODULE.bazel.lock', 'r') as f:
+      module_file = f.read()
+      # Ensure no user-specific path is in the lockfile, but only check the last
+      # two segments to avoid false negatives caused by minor differences in the
+      # absolute path segment (e.g. casing or symbolic links).
+      workspace_basename = pathlib.Path(self._test_cwd).name
+      forbidden_path = pathlib.Path(workspace_basename, 'registry')
+      self.assertNotIn(str(forbidden_path), module_file)
 
   def testExtensionEvaluationRerunsIfDepGraphOrderChanges(self):
     self.ScratchFile(
