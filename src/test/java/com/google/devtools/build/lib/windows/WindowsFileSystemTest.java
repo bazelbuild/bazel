@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -416,7 +417,7 @@ public class WindowsFileSystemTest {
   }
 
   @Test
-  public void testTypedSymlinkToFile(boolean createSymbolicLinks) throws Exception {
+  public void testTypedSymlinkToFile(@TestParameter boolean createSymbolicLinks) throws Exception {
     fs = new WindowsFileSystem(DigestHashFunction.SHA256, createSymbolicLinks);
     Path targetPath = scratchRoot.getRelative("target.txt");
     Path linkPath = scratchRoot.getRelative("link.txt");
@@ -431,7 +432,8 @@ public class WindowsFileSystemTest {
   }
 
   @Test
-  public void testTypedSymlinkToDirectory(boolean createSymbolicLinks) throws Exception {
+  public void testTypedSymlinkToDirectory(@TestParameter boolean createSymbolicLinks)
+      throws Exception {
     fs = new WindowsFileSystem(DigestHashFunction.SHA256, createSymbolicLinks);
     Path targetPath = scratchRoot.getRelative("targetDir");
     Path linkPath = scratchRoot.getRelative("linkDir");
