@@ -539,10 +539,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         NestedSet<Artifact> additionalArtifactsForPathMapping;
-        if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
-          classpath = directJars;
-//        if (!headerCompilationDirectJars.isEmpty() || classpathEntries.isEmpty()) {
-//          classpath = headerCompilationDirectJars;
+        if (!headerCompilationDirectJars.isEmpty() || classpathEntries.isEmpty()) {
+          classpath = headerCompilationDirectJars;
           // When using the direct classpath optimization, Turbine generates .jdeps entries based on
           // the transitive dependency information packages into META-INF/TRANSITIVE. When path
           // mapping is used, these entries may have been subject to it when they were generated.
