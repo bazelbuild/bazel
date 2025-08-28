@@ -40,8 +40,16 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */
   String serializedFrontierProfile();
 
+  /**
+   * True if matching for active directories is available.
+   *
+   * <p>If this is false, it is illegal to call {@link #withinActiveDirectories}.
+   */
+  boolean hasActiveDirectoriesMatcher();
+
   /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
   boolean withinActiveDirectories(PackageIdentifier pkg);
+
 
   /**
    * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
@@ -92,6 +100,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     @Override
     public String serializedFrontierProfile() {
       return "";
+    }
+
+    @Override
+    public boolean hasActiveDirectoriesMatcher() {
+      return false;
     }
 
     @Override

@@ -27,7 +27,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.proto.DataTyp
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_FILE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_LISTING;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureListingDataInfo;
@@ -63,7 +62,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -87,7 +85,7 @@ import javax.annotation.Nullable;
  * have relatively small immediate representations. When there is a large amount of data, it will be
  * expressed via references (e.g., keys to a other {@link FingerprintValueService} entries).
  */
-final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, SelectionMarking>> {
+final class SelectedEntrySerializer implements Consumer<SkyKey> {
   static final class SerializationStats {
     private final AtomicLong analysisNodes = new AtomicLong(0);
     private final AtomicLong executionNodes = new AtomicLong(0);
@@ -132,7 +130,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       LongVersionGetter versionGetter,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
-      ImmutableMap<SkyKey, SelectionMarking> selection,
+      ImmutableSet<SkyKey> selection,
       FingerprintValueService fingerprintValueService,
       EventBus eventBus,
       ProfileCollector profileCollector,
@@ -153,7 +151,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
             eventBus,
             profileCollector,
             serializationStats);
-    selection.entrySet().parallelStream().forEach(serializer);
+    selection.parallelStream().forEach(serializer);
     writeStatuses.notifyAllStarted();
     return writeStatuses;
   }
@@ -183,10 +181,9 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
   }
 
   @Override
-  public void accept(Map.Entry<SkyKey, SelectionMarking> entry) {
+  public void accept(SkyKey key) {
     // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
     // unaffected by local, un-submitted changes.
-    SkyKey key = entry.getKey();
     try {
       switch (key) {
         case ActionLookupKey actionLookupKey:

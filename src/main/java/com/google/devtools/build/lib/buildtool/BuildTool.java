@@ -1266,11 +1266,6 @@ public class BuildTool {
 
       Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcherFromFlags =
           finalizeActiveDirectoriesMatcher(env, maybeActiveDirectoriesMatcher, options.mode);
-      if (maybeActiveDirectoriesMatcherFromFlags.isEmpty()
-          && options.mode != RemoteAnalysisCacheMode.DOWNLOAD) {
-        // Allow active directories matcher to be empty for download.
-        return DisabledDependenciesProvider.INSTANCE;
-      }
       var dependenciesProvider =
           new RemoteAnalysisCachingDependenciesProviderImpl(
               env,
@@ -1320,11 +1315,9 @@ public class BuildTool {
         Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
         RemoteAnalysisCacheMode mode)
         throws InvalidConfigurationException {
-      switch (mode) {
-        case RemoteAnalysisCacheMode.DOWNLOAD:
-          return Optional.empty();
-        case RemoteAnalysisCacheMode.UPLOAD:
-        case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
+      return switch (mode) {
+        case DOWNLOAD, OFF -> Optional.empty();
+        case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY -> {
           // Upload or Dump mode: allow overriding the project file matcher with the active
           // directories flag.
           List<String> activeDirectoriesFromFlag =
@@ -1346,16 +1339,15 @@ public class BuildTool {
           }
 
           if (result.isEmpty() || !result.get().hasIncludedPaths()) {
-            throw new InvalidConfigurationException(
-                "Active directories configuration error: No active directories definitions found in"
-                    + " --experimental_active_directories or PROJECT.scl, they are necessary to"
-                    + " filter for targets to upload with Skycache.");
+            env.getReporter()
+                .handle(
+                    Event.warn(
+                        "No active directories were found. Falling back on full serialization."));
+            yield Optional.empty();
           }
-
-          return result;
-        default:
-          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + mode);
-      }
+          yield result;
+        }
+      };
     }
 
     private RemoteAnalysisCachingDependenciesProviderImpl(
@@ -1467,6 +1459,11 @@ public class BuildTool {
     @Override
     public String serializedFrontierProfile() {
       return serializedFrontierProfile;
+    }
+
+    @Override
+    public boolean hasActiveDirectoriesMatcher() {
+      return activeDirectoriesMatcher.isPresent();
     }
 
     @Override
