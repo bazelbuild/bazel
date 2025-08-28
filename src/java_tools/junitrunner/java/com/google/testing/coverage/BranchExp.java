@@ -16,7 +16,9 @@ package com.google.testing.coverage;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** A branch coverage that must be evaluated as a combination of probes. */
 public class BranchExp implements CovExp {
@@ -25,6 +27,11 @@ public class BranchExp implements CovExp {
   private boolean hasValue;
   private boolean[] probesUsed;
   private boolean value;
+
+  /** Create a BranchExp for a known number of branches but with no expression data. */
+  public static BranchExp initializeEmptyBranches() {
+    return new BranchExp(new ArrayList<>());
+  }
 
   public BranchExp(List<CovExp> branches) {
     this.branches = branches;
@@ -38,9 +45,34 @@ public class BranchExp implements CovExp {
     hasValue = false;
   }
 
-  /** Gets the expressions for the branches. */
+  /** Returns true if any branches been set for this BranchExp. */
+  public boolean hasBranches() {
+    return branches.stream().anyMatch(exp -> !exp.equals(NullExp.NULL_EXP));
+  }
+
+  /**
+   * Returns the expressions for the logical branches.
+   *
+   * <p>Expressions that have not been set are omitted.
+   */
   public List<CovExp> getBranches() {
-    return branches;
+    return branches.stream()
+        .filter(exp -> !exp.equals(NullExp.NULL_EXP))
+        .collect(Collectors.toList());
+  }
+
+  /** Set the expression at a given index for this branch. */
+  public void setBranchAtIndex(int index, CovExp exp) {
+    extendBranches(index + 1);
+    branches.set(index, exp);
+    hasValue = false;
+  }
+
+  /** Expands the current branch set to the new size */
+  private void extendBranches(int size) {
+    if (branches.size() < size) {
+      branches.addAll(Collections.nCopies(size - branches.size(), NullExp.NULL_EXP));
+    }
   }
 
   /**
@@ -51,11 +83,6 @@ public class BranchExp implements CovExp {
   public int add(CovExp exp) {
     branches.add(exp);
     return branches.size() - 1;
-  }
-
-  /** Update an existing branch expression. */
-  public void update(int idx, CovExp exp) {
-    branches.set(idx, exp);
   }
 
   /** Make a new BranchExp representing the concatenation of branches in inputs. */
