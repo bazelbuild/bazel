@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Function;
@@ -24,11 +25,15 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.file.Files;
@@ -39,10 +44,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link WindowsFileSystem}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 @TestSpec(supportedOs = OS.WINDOWS)
 public class WindowsFileSystemTest {
 
@@ -52,7 +56,7 @@ public class WindowsFileSystemTest {
 
   @Before
   public void loadJni() throws Exception {
-    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ false);
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /* createSymbolicLinks= */ false);
     scratchRoot = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("test").getRelative("x");
     scratchRoot.createDirectoryAndParents();
     testUtil = new WindowsTestUtil(scratchRoot.getPathString());
@@ -334,7 +338,7 @@ public class WindowsFileSystemTest {
 
   @Test
   public void testCreateSymbolicLinkWithRealSymlinks() throws Exception {
-    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ true);
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /* createSymbolicLinks= */ true);
     java.nio.file.Path helloPath = testUtil.scratchFile("hello.txt", "hello");
     PathFragment targetFragment = PathFragment.create(helloPath.toString());
     Path linkPath = scratchRoot.getRelative("link.txt");
@@ -409,6 +413,38 @@ public class WindowsFileSystemTest {
     assertNotWritable(fileViaJunction);
     fileViaJunction.setWritable(true);
     assertWritable(fileViaJunction);
+  }
+
+  @Test
+  public void testTypedSymlinkToFile(boolean createSymbolicLinks) throws Exception {
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, createSymbolicLinks);
+    Path targetPath = scratchRoot.getRelative("target.txt");
+    Path linkPath = scratchRoot.getRelative("link.txt");
+    // Create the symlink before the target file exists.
+    fs.createSymbolicLink(
+        linkPath.asFragment(), targetPath.asFragment(), FileSystem.TargetType.FILE);
+    FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
+
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(linkPath.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testTypedSymlinkToDirectory(boolean createSymbolicLinks) throws Exception {
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, createSymbolicLinks);
+    Path targetPath = scratchRoot.getRelative("targetDir");
+    Path linkPath = scratchRoot.getRelative("linkDir");
+    // Create the symlink before the target directory exists.
+    fs.createSymbolicLink(
+        linkPath.asFragment(), targetPath.asFragment(), FileSystem.TargetType.DIRECTORY);
+    targetPath.createDirectory();
+    FileSystemUtils.createEmptyFile(targetPath.getRelative("hello.txt"));
+
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(linkPath.isDirectory()).isTrue();
+    assertThat(linkPath.readdir(Symlinks.FOLLOW))
+        .containsExactly(new Dirent("hello.txt", Dirent.Type.FILE));
   }
 
   private static void assertWritable(Path path) throws Exception {

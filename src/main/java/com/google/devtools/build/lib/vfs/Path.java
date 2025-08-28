@@ -508,9 +508,20 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
-  public void createSymbolicLink(Path target) throws IOException {
+  public void createSymbolicLink(Path target, FileSystem.TargetType targetType) throws IOException {
     checkSameFileSystem(target);
-    fileSystem.createSymbolicLink(asFragment(), target.asFragment());
+    fileSystem.createSymbolicLink(asFragment(), target.asFragment(), targetType);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the absolute path "target"; it is not possible to create
+   * relative symbolic links via this method.
+   *
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(Path target) throws IOException {
+    createSymbolicLink(target, FileSystem.TargetType.UNSPECIFIED);
   }
 
   /**
@@ -521,7 +532,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(PathFragment target) throws IOException {
-    fileSystem.createSymbolicLink(asFragment(), target);
+    fileSystem.createSymbolicLink(asFragment(), target, FileSystem.TargetType.UNSPECIFIED);
   }
 
   /**

@@ -248,7 +248,7 @@ public abstract class FileSystem {
    * @throws IOException if the hierarchy cannot be removed successfully
    */
   public void deleteTreesBelow(PathFragment dir) throws IOException {
-    if (isDirectory(dir, /*followSymlinks=*/ false)) {
+    if (isDirectory(dir, /* followSymlinks= */ false)) {
       Collection<String> entries;
       try {
         entries = getDirectoryEntries(dir);
@@ -391,7 +391,9 @@ public abstract class FileSystem {
       } else if (name.equals("..")) {
         PathFragment parent = dir.getParentDirectory();
         // root's parent is root, when canonicalizing, so this is a no-op.
-        if (parent != null) { dir = parent; }
+        if (parent != null) {
+          dir = parent;
+        }
       } else {
         dir = appendSegment(dir, name, maxLinks);
       }
@@ -508,6 +510,24 @@ public abstract class FileSystem {
   public boolean isDirectory(PathFragment path, boolean followSymlinks) {
     FileStatus stat = statNullable(path, followSymlinks);
     return stat != null && stat.isDirectory();
+  }
+
+  public enum TargetType {
+    UNSPECIFIED,
+    FILE,
+    DIRECTORY,
+  }
+
+  /**
+   * Creates a symbolic link to a specified type of target. See {@link Path#createSymbolicLink(Path,
+   * TargetType)} for specification.
+   *
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
+   * returns false, this method will throw an {@link UnsupportedOperationException}
+   */
+  public void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, TargetType targetType) throws IOException {
+    createSymbolicLink(linkPath, targetFragment);
   }
 
   /**
