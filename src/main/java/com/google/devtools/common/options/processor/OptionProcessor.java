@@ -513,6 +513,22 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
+  private static void checkDeprecated(VariableElement optionField)
+      throws OptionProcessorException {
+    Option annotation = optionField.getAnnotation(Option.class);
+    ImmutableList<OptionEffectTag> effectTags = ImmutableList.copyOf(annotation.effectTags());
+    ImmutableList<OptionMetadataTag> metadataTags = ImmutableList.copyOf(annotation.metadataTags());
+    if (effectTags.contains(OptionEffectTag.NO_OP) && !metadataTags.contains(OptionMetadataTag.HIDDEN) && !metadataTags.contains(OptionMetadataTag.INTERNAL) && optionField.getAnnotation(Deprecated.class) == null) {
+      throw new OptionProcessorException(optionField, "No-op options must be annotated with @Deprecated, or have metadata tag HIDDEN or INTERNAL.");
+    }
+    if (metadataTags.contains(OptionMetadataTag.DEPRECATED) && optionField.getAnnotation(Deprecated.class) == null) {
+      throw new OptionProcessorException(optionField, "Options with metadata tag DEPRECATED must be annotated with @Deprecated.");
+    }
+    if (optionField.getAnnotation(Deprecated.class) != null && !metadataTags.contains(OptionMetadataTag.DEPRECATED)) {
+      throw new OptionProcessorException(optionField, "Options annotated with @Deprecated must have metadata tag DEPRECATED.");
+    }
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Option.class)) {
@@ -530,6 +546,7 @@ public final class OptionProcessor extends AbstractProcessor {
         checkEffectTagRationality(optionField);
         checkMetadataTagAndCategoryRationality(optionField);
         checkNoDefaultValueForMultipleOption(optionField);
+        checkDeprecated(optionField);
       } catch (OptionProcessorException e) {
         error(e.getElementInError(), e.getMessage());
       }

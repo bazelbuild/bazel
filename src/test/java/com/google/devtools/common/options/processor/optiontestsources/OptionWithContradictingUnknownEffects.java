@@ -16,6 +16,7 @@ package com.google.devtools.common.options.processor.optiontestsources;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** This example options class should fail to compile. */
@@ -24,7 +25,8 @@ public class OptionWithContradictingUnknownEffects extends OptionsBase {
     name = "affect_output_is_also_unknown",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN, OptionEffectTag.TERMINAL_OUTPUT}
+    effectTags = {OptionEffectTag.UNKNOWN, OptionEffectTag.TERMINAL_OUTPUT},
+    metadataTags = {OptionMetadataTag.HIDDEN}
   )
   public boolean effectAndUnknownEffect;
 }

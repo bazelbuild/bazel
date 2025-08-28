@@ -93,8 +93,9 @@ public class EnumConverterTest {
       name = "goo",
       allowMultiple = true,
       converter = AlphabetEnumConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null"
     )
     public List<AlphabetEnum> goo;

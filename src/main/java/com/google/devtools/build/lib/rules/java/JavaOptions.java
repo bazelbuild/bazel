@@ -67,6 +67,7 @@ public class JavaOptions extends FragmentOptions {
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "No-op. Kept here for backwards compatibility.")
   public Label javaBase;
 
@@ -77,6 +78,7 @@ public class JavaOptions extends FragmentOptions {
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "No-op. Kept here for backwards compatibility.")
   public Label javaToolchain;
 
@@ -87,6 +89,7 @@ public class JavaOptions extends FragmentOptions {
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "No-op. Kept here for backwards compatibility.")
   public Label hostJavaToolchain;
 
@@ -97,6 +100,7 @@ public class JavaOptions extends FragmentOptions {
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "No-op.  Kept here for backwards compatibility.")
   public Label hostJavaBase;
 

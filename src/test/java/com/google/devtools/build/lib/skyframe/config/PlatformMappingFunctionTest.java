@@ -60,6 +60,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         name = "str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String strOption;
 
@@ -76,6 +77,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         converter = CommaSeparatedOptionListConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public List<String> list;
   }

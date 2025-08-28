@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import com.google.devtools.common.options.OptionMetadataTag;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ public final class ParsedFlagsValueTest {
         name = "str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String strOption;
 
@@ -51,6 +53,7 @@ public final class ParsedFlagsValueTest {
         name = "another_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String anotherStrOption;
 
@@ -58,6 +61,7 @@ public final class ParsedFlagsValueTest {
         name = "bool_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false")
     public boolean boolOption;
 
@@ -66,6 +70,7 @@ public final class ParsedFlagsValueTest {
         converter = CommaSeparatedOptionListConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public List<String> listOption;
 
@@ -73,6 +78,7 @@ public final class ParsedFlagsValueTest {
         name = "null_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public String nullOption;
 
@@ -81,6 +87,7 @@ public final class ParsedFlagsValueTest {
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public List<String> accumulatingOption;
 
@@ -88,6 +95,7 @@ public final class ParsedFlagsValueTest {
         name = "dummy_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "internal_default",
         implicitRequirements = {"--implicit_option=set_implicitly"})
     public String dummyOption;
@@ -96,6 +104,7 @@ public final class ParsedFlagsValueTest {
         name = "implicit_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "implicit_default")
     public String implicitOption;
   }

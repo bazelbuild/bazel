@@ -1057,7 +1057,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     @Option(
         name = "probably_irrelevant",
         defaultValue = "(unset)",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is irrelevant to non-uses_irrelevant targets and is trimmed from them.")
     public String probablyIrrelevantOption;
@@ -1065,7 +1065,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     @Option(
         name = "also_irrelevant",
         defaultValue = "(unset)",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is irrelevant to non-uses_irrelevant targets and is trimmed from them.")
     public String alsoIrrelevantOption;
@@ -1073,7 +1073,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     @Option(
         name = "definitely_relevant",
         defaultValue = "(unset)",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all targets.")
     public String definitelyRelevantOption;
@@ -1081,7 +1081,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     @Option(
         name = "also_relevant",
         defaultValue = "(unset)",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all targets.")
     public String alsoRelevantOption;
@@ -1089,7 +1089,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     @Option(
         name = "host_relevant",
         defaultValue = "(unset)",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all host targets.")
     public String hostRelevantOption;

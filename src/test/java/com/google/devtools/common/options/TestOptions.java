@@ -27,8 +27,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_string",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = TEST_STRING_DEFAULT,
     help = "a string-valued option to test simple option operations"
   )
@@ -36,8 +37,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_string_null_by_default",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "null",
     help = "a string-valued option that has the special string 'null' as its default."
   )
@@ -49,8 +51,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
       name = "test_multiple_string",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null",
       allowMultiple = true,
       help = "a repeatable string-valued flag with its own unhelpful help text")
@@ -62,8 +65,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
       name = "test_list_converters",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null",
       allowMultiple = true,
       converter = ToListConverter.class,
@@ -83,8 +87,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_expansion",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "null",
     expansion = {
       "--noexpanded_a",
@@ -105,8 +110,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_recursive_expansion_top_level",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "null",
     expansion = {
       "--test_recursive_expansion_middle1",
@@ -118,8 +124,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_recursive_expansion_middle1",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "null",
     expansion = {
       "--expanded_a=false",
@@ -130,8 +137,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_recursive_expansion_middle2",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "null",
     expansion = {
       "--expanded_b=false",
@@ -144,7 +152,7 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "expanded_a",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     defaultValue = "true",
     help = "A boolean flag with unknown effect to test tagless usage text."
@@ -155,8 +163,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "expanded_b",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "true"
   )
   public boolean expandedB;
@@ -165,8 +174,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "expanded_c",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "12",
     help = "an int-value'd flag used to test expansion logic"
   )
@@ -176,8 +186,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "expanded_d",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "foo"
   )
   public String expandedD;
@@ -191,8 +202,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_expansion_to_repeatable",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "null",
     expansion = {
       "--test_multiple_string=expandedFirstValue",
@@ -211,8 +223,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_implicit_requirement",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = TEST_IMPLICIT_REQUIREMENT_DEFAULT,
     implicitRequirements = {"--implicit_requirement_a=" + IMPLICIT_REQUIREMENT_A_REQUIRED},
     help = "this option really needs that other one, isolation of purpose has failed."
@@ -223,8 +236,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "implicit_requirement_a",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = IMPLICIT_REQUIREMENT_A_DEFAULT
   )
   public String implicitRequirementA;
@@ -234,8 +248,9 @@ public class TestOptions extends OptionsBase {
 
   @Option(
     name = "test_recursive_implicit_requirement",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = TEST_RECURSIVE_IMPLICIT_REQUIREMENT_DEFAULT,
     implicitRequirements = {"--test_implicit_requirement=" + TEST_IMPLICIT_REQUIREMENT_REQUIRED}
   )
@@ -245,8 +260,9 @@ public class TestOptions extends OptionsBase {
       name = "test_deprecated",
       defaultValue = "default",
       deprecationWarning = "Flag for testing deprecation behavior.",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP})
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN})
   public String testDeprecated;
 
   @Option(
@@ -271,7 +287,8 @@ public class TestOptions extends OptionsBase {
 
           [ref]: /url (title)
           """,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP})
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN})
   public String markdownInHelp;
 }

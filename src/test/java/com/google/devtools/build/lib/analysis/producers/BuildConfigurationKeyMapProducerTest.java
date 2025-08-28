@@ -57,6 +57,7 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
         name = "option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "super secret")
     public String option;
 
@@ -65,7 +66,7 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "super secret",
-        metadataTags = {OptionMetadataTag.INTERNAL})
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.HIDDEN})
     public String internalOption;
 
     @Option(
@@ -73,6 +74,7 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public List<String> accumulating;
   }

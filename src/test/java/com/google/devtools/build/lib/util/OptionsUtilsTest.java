@@ -41,15 +41,17 @@ public class OptionsUtilsTest {
   public static class IntrospectionExample extends OptionsBase {
     @Option(
         name = "alpha",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "alpha")
     public String alpha;
 
     @Option(
         name = "beta",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "beta")
     public String beta;
 
@@ -57,6 +59,7 @@ public class OptionsUtilsTest {
         name = "gamma",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "gamma")
     public String gamma;
 
@@ -64,6 +67,7 @@ public class OptionsUtilsTest {
         name = "delta",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "delta")
     public String delta;
 
@@ -102,15 +106,17 @@ public class OptionsUtilsTest {
   public static class BooleanOpts extends OptionsBase {
     @Option(
         name = "b_one",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "true")
     public boolean bOne;
 
     @Option(
         name = "b_two",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false")
     public boolean bTwo;
   }
