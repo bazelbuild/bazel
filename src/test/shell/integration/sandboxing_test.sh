@@ -927,6 +927,43 @@ EOF
   bazel shutdown
 }
 
+function test_sandbox_reuse_stashes_works_for_actions_creating_unaccessible_dirs_in_runfiles() {
+  add_rules_shell "MODULE.bazel"
+
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = "create_readonly_dir_in_pwd",
+  srcs = [ "create_readonly_dir_in_pwd.sh" ],
+)
+EOF
+
+  cat > pkg/create_readonly_dir_in_pwd.sh <<EOF
+#!/bin/sh
+set -e
+mkdir readonly_dir
+touch readonly_dir/some_file
+chmod 000 readonly_dir/some_file
+chmod 000 readonly_dir
+EOF
+  chmod +x pkg/create_readonly_dir_in_pwd.sh
+
+  local output_base="$(bazel info output_base)"
+  local bazel_bin="$(bazel info bazel-bin)"
+
+  bazel test --reuse_sandbox_directories //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
+    || fail "Expected first test to succeed"
+
+  local sandbox_stash="${output_base}/sandbox/sandbox_stash"
+  [[ -d "${sandbox_stash}/TestRunner/3/execroot/_main/bazel-out/k8-fastbuild/bin/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
+    || fail "${sandbox_stash} did not stash readonly_dir"
+
+  bazel test --reuse_sandbox_directories --nocache_test_results //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
+    || fail "Expected second test to succeed"
+}
+
+
 function test_hermetic_tmp_with_tmp_sandbox_base() {
   mkdir pkg
   cat >pkg/BUILD <<EOF
