@@ -56,6 +56,7 @@ public final class DummyTestFragment extends Fragment {
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "An option that is sometimes set to null.")
     public Label nullable;
 
@@ -64,6 +65,7 @@ public final class DummyTestFragment extends Fragment {
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "A regular string-typed option")
     public String foo;
 
@@ -72,7 +74,7 @@ public final class DummyTestFragment extends Fragment {
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.INTERNAL},
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.HIDDEN},
         help = "A string-typed option that cannot be set on the commandline")
     public String internalFoo;
 
@@ -81,6 +83,7 @@ public final class DummyTestFragment extends Fragment {
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "A regular string-typed option")
     public String bar;
 
@@ -90,6 +93,7 @@ public final class DummyTestFragment extends Fragment {
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "A regular string-typed option")
     public List<String> bazes;
 
@@ -98,6 +102,7 @@ public final class DummyTestFragment extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "A regular bool-typed option")
     public boolean bool;
 
@@ -107,6 +112,7 @@ public final class DummyTestFragment extends Fragment {
         converter = UnreadableStringBoxConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "This cannot be used as an input to a Starlark transition")
     public UnreadableStringBox unreadableByStarlark;
 
@@ -117,6 +123,7 @@ public final class DummyTestFragment extends Fragment {
         converter = EnvVarsConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "allowMultiple flag with EnvVarsConverter")
     public List<Converters.EnvVar> allowMultipleWithEnvVarsConverter;
 
@@ -127,6 +134,7 @@ public final class DummyTestFragment extends Fragment {
         converter = CommaSeparatedOptionListConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         help = "allowMultiple flag where the converter returns a list")
     public List<String> allowMultipleWithListConverter;
 

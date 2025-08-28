@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.testing.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import com.google.devtools.common.options.OptionMetadataTag;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.common.options.Option;
@@ -117,6 +118,7 @@ public class FakeOptionsTest {
         name = "option1",
         defaultValue = "TestOptions default",
         effectTags = OptionEffectTag.NO_OP,
+        metadataTags = {OptionMetadataTag.HIDDEN},
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED)
     public String value;
   }
@@ -127,6 +129,7 @@ public class FakeOptionsTest {
         name = "option2",
         defaultValue = "TestOptions2 default",
         effectTags = OptionEffectTag.NO_OP,
+        metadataTags = {OptionMetadataTag.HIDDEN},
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED)
     public String value;
   }

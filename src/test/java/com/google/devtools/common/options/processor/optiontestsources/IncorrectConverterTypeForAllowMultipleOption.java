@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Converters.IntegerConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 
@@ -28,6 +29,7 @@ public class IncorrectConverterTypeForAllowMultipleOption extends OptionsBase {
     converter = IntegerConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     allowMultiple = true
   )
   public List<String> badOption;

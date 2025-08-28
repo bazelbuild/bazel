@@ -65,13 +65,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
         converter = CommaSeparatedOptionListConverter.class,
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP})
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN})
     public List<String> allowMultipleOption;
 
     @Option(
         name = "new_option_name",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "",
         oldName = "old_option_name")
     public String optionWithOldName;
@@ -81,7 +83,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "non-configurable",
-        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE, OptionMetadataTag.HIDDEN})
     public String nonConfigurableOption;
   }
 

@@ -42,21 +42,21 @@ public class OptionsUtilsTest {
     @Option(
         name = "alpha",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "alpha")
     public String alpha;
 
     @Option(
         name = "beta",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "beta")
     public String beta;
 
     @Option(
         name = "gamma",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "gamma")
     public String gamma;
 
@@ -64,6 +64,7 @@ public class OptionsUtilsTest {
         name = "delta",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "delta")
     public String delta;
 
@@ -103,14 +104,14 @@ public class OptionsUtilsTest {
     @Option(
         name = "b_one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "true")
     public boolean bOne;
 
     @Option(
         name = "b_two",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "false")
     public boolean bTwo;
   }

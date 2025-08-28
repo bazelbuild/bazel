@@ -67,37 +67,42 @@ public class BuildOptionDetailsTest {
   public static final class Options extends FragmentOptions {
     @Option(
         name = "boolean_option",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "true")
     public boolean booleanOption;
 
     @Option(
         name = "convertible_option",
         converter = Optionalizer.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "")
     public Optional<String> convertibleOption;
 
     @Option(
         name = "null_default",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public String nullDefault;
 
     @Option(
         name = "late_bound_default",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public String lateBoundDefault;
 
     @Option(
         name = "multi_option",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null",
         allowMultiple = true)
     public List<String> multiOption;
@@ -107,7 +112,7 @@ public class BuildOptionDetailsTest {
         defaultValue = "secret",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.INTERNAL})
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.HIDDEN})
     public String internalOption;
 
     @Option(
@@ -115,7 +120,7 @@ public class BuildOptionDetailsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null",
-        metadataTags = {OptionMetadataTag.INTERNAL},
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.HIDDEN},
         allowMultiple = true)
     public List<String> internalMultiOption;
   }
@@ -124,8 +129,9 @@ public class BuildOptionDetailsTest {
   public static final class MoreOptions extends FragmentOptions {
     @Option(
         name = "other_option",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "")
     public String otherOption;
   }

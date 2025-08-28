@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -49,16 +50,18 @@ public class BlazeCommandDispatcherRcoptionsTest {
   public static class FooOptions extends OptionsBase {
     @Option(
       name = "numoption",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int numOption;
 
     @Option(
       name = "stringoption",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "[unspecified]"
     )
     public String stringOption;
@@ -300,8 +303,9 @@ public class BlazeCommandDispatcherRcoptionsTest {
 
     @Option(
       name = "fake_opt",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false"
     )
     public boolean fakeOpt;

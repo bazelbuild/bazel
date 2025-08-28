@@ -16,6 +16,7 @@ package com.google.devtools.common.options.processor.optiontestsources;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.Collection;
 
@@ -26,6 +27,7 @@ public class CollectionTypeForAllowMultipleOption extends OptionsBase {
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     allowMultiple = true
   )
   public Collection<String> badOption;

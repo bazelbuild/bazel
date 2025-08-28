@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 
 /**
  * Rule and configuration class definitions for testing late-bound split attributes.
@@ -34,6 +35,7 @@ public class LateBoundSplitUtil {
       name = "foo",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = ""
     )
     public String fooFlag;
