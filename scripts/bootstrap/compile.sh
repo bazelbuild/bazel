@@ -135,6 +135,11 @@ function java_compilation() {
   # Useful if your system chooses too small of a max heap for javac.
   # We intentionally rely on shell word splitting to allow multiple
   # additional arguments to be passed to javac.
+
+  echo ">>> Compiling with javac version"
+  "${JAVAC}" -fullversion
+  echo "<<<"
+
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
