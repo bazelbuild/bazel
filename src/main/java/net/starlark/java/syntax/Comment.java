@@ -13,6 +13,8 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import javax.annotation.Nullable;
+
 /** Syntax node for comments. */
 public final class Comment extends Node {
 
@@ -28,6 +30,25 @@ public final class Comment extends Node {
   /** Returns the text of the comment, including the leading '#' but not the trailing newline. */
   public String getText() {
     return text;
+  }
+
+  /**
+   * Returns true if the comment starts with {@code #:}, like a Sphinx autodoc-style doc comment.
+   */
+  public boolean hasDocCommentPrefix() {
+    return text.startsWith("#:");
+  }
+
+  /**
+   * If the comment starts with a {@code #: } or {@code #:} prefix, returns the text following it;
+   * otherwise, returns null.
+   */
+  @Nullable
+  public String getDocCommentText() {
+    if (hasDocCommentPrefix()) {
+      return text.startsWith("#: ") ? text.substring(3) : text.substring(2);
+    }
+    return null;
   }
 
   @Override

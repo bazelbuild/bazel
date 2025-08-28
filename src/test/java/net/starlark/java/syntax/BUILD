@@ -34,6 +34,7 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/java/net/starlark/java/types",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],

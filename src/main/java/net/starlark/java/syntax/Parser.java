@@ -59,7 +59,7 @@ final class Parser {
   }
 
   private static final EnumSet<TokenKind> STATEMENT_TERMINATOR_SET =
-      EnumSet.of(TokenKind.EOF, TokenKind.NEWLINE, TokenKind.SEMI);
+      EnumSet.of(TokenKind.EOF, TokenKind.NEWLINE, TokenKind.DOC_COMMENT_TRAILING, TokenKind.SEMI);
 
   private static final EnumSet<TokenKind> LIST_TERMINATOR_SET =
       EnumSet.of(TokenKind.EOF, TokenKind.RBRACKET, TokenKind.SEMI);
@@ -71,6 +71,7 @@ final class Parser {
       EnumSet.of(
           TokenKind.EOF,
           TokenKind.NEWLINE,
+          TokenKind.DOC_COMMENT_TRAILING,
           TokenKind.EQUALS,
           TokenKind.RBRACE,
           TokenKind.RBRACKET,
@@ -100,6 +101,13 @@ final class Parser {
   private final Lexer lexer;
   private final FileLocations locs;
   private final List<SyntaxError> errors;
+
+  /**
+   * Doc comment block which may need to be attached to the next assignment statement. Set to null
+   * after parsing a statement. *Not* necessarily set to null after a blank or non-doc comment line;
+   * so should be accessed via {@link #getDocCommentBlockOnPreviousLine}.
+   */
+  private DocComments mostRecentDocCommentBlock = null;
 
   // TODO(adonovan): opt: compute this by subtraction.
   private static final Map<TokenKind, TokenKind> augmentedAssignments =
@@ -143,7 +151,7 @@ final class Parser {
           EnumSet.of(TokenKind.SLASH, TokenKind.SLASH_SLASH, TokenKind.STAR, TokenKind.PERCENT));
 
   private int errorsCount;
-  private boolean recoveryMode;  // stop reporting errors until next statement
+  private boolean recoveryMode; // stop reporting errors until next statement
 
   // Intern string literals, as some files contain many literals for the same string.
   //
@@ -209,7 +217,24 @@ final class Parser {
     }
   }
 
-  /** Parses an expression, possibly followed by newline tokens. */
+  // Saves the last doc comment block, so that it may be attached to the next assignment.
+  private void maybeParseDocCommentBlock() {
+    while (token.kind == TokenKind.DOC_COMMENT_BLOCK) {
+      mostRecentDocCommentBlock = (DocComments) token.value;
+      nextToken();
+    }
+  }
+
+  @Nullable
+  private DocComments getDocCommentBlockOnPreviousLine(int line) {
+    if (mostRecentDocCommentBlock != null
+        && mostRecentDocCommentBlock.getEndLocation().line() + 1 == line) {
+      return mostRecentDocCommentBlock;
+    }
+    return null;
+  }
+
+  /** Parses an expression, possibly preceded or followed by comments or whitespace. */
   static Expression parseExpression(ParserInput input, FileOptions options)
       throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
@@ -217,8 +242,15 @@ final class Parser {
     Parser parser = new Parser(lexer, errors, options);
     Expression result = null;
     try {
+      // Skip preceding doc comments (no-ops for an expression).
+      while (parser.token.kind == TokenKind.DOC_COMMENT_BLOCK) {
+        parser.nextToken();
+      }
       result = parser.parseExpression();
-      while (parser.token.kind == TokenKind.NEWLINE) {
+      // Skip following doc comments and newlines (no-ops for an expression).
+      while (parser.token.kind == TokenKind.NEWLINE
+          || parser.token.kind == TokenKind.DOC_COMMENT_BLOCK
+          || parser.token.kind == TokenKind.DOC_COMMENT_TRAILING) {
         parser.nextToken();
       }
       parser.expect(TokenKind.EOF);
@@ -254,7 +286,7 @@ final class Parser {
     // unparenthesized tuple
     ImmutableList.Builder<Expression> elems = ImmutableList.builder();
     elems.add(e);
-    parseExprList(elems, /*trailingCommaAllowed=*/ false);
+    parseExprList(elems, /* trailingCommaAllowed= */ false);
     return new ListExpression(locs, /* isTuple= */ true, -1, elems.build(), -1);
   }
 
@@ -314,8 +346,9 @@ final class Parser {
   }
 
   /**
-   * Consume tokens until we reach the first token that has a kind that is in
-   * the set of terminatingTokens.
+   * Consume tokens until we reach the first token that has a kind that is in the set of
+   * terminatingTokens.
+   *
    * @param terminatingTokens
    * @return the end offset of the terminating token.
    */
@@ -358,22 +391,20 @@ final class Parser {
     if (!FORBIDDEN_KEYWORDS.contains(token.kind)) {
       return;
     }
-    String error;
-    switch (token.kind) {
-      case ASSERT: error = "'assert' not supported, use 'fail' instead"; break;
-      case DEL:
-        error = "'del' not supported, use '.pop()' to delete an item from a dictionary or a list";
-        break;
-      case IMPORT: error = "'import' not supported, use 'load' instead"; break;
-      case IS: error = "'is' not supported, use '==' instead"; break;
-      case RAISE: error = "'raise' not supported, use 'fail' instead"; break;
-      case TRY: error = "'try' not supported, all exceptions are fatal"; break;
-      case WHILE: error = "'while' not supported, use 'for' instead"; break;
-      default:
-        error = "keyword '" + token.kind + "' not supported";
-        break;
-    }
-    reportError(token.start, "%s", error);
+    reportError(
+        token.start,
+        "%s",
+        switch (token.kind) {
+          case ASSERT -> "'assert' not supported, use 'fail' instead";
+          case DEL ->
+              "'del' not supported, use '.pop()' to delete an item from a dictionary or a list";
+          case IMPORT -> "'import' not supported, use 'load' instead";
+          case IS -> "'is' not supported, use '==' instead";
+          case RAISE -> "'raise' not supported, use 'fail' instead";
+          case TRY -> "'try' not supported, all exceptions are fatal";
+          case WHILE -> "'while' not supported, use 'for' instead";
+          default -> "keyword '" + token.kind + "' not supported";
+        });
   }
 
   private int nextToken() {
@@ -396,7 +427,6 @@ final class Parser {
     // even when it fails.
     return new Identifier(locs, lexer.bufferSlice(start, end), start);
   }
-
 
   // arg = IDENTIFIER '=' test
   //     | expr
@@ -631,7 +661,7 @@ final class Parser {
           if (token.kind == TokenKind.RPAREN) {
             int rparen = nextToken();
             return new ListExpression(
-                locs, /*isTuple=*/ true, lparenOffset, ImmutableList.of(), rparen);
+                locs, /* isTuple= */ true, lparenOffset, ImmutableList.of(), rparen);
           }
 
           Expression e = parseTest();
@@ -647,7 +677,7 @@ final class Parser {
           if (token.kind == TokenKind.COMMA) {
             ImmutableList.Builder<Expression> elems = ImmutableList.builder();
             elems.add(e);
-            parseExprList(elems, /*trailingCommaAllowed=*/ true);
+            parseExprList(elems, /* trailingCommaAllowed= */ true);
             int rparenOffset = expect(TokenKind.RPAREN);
             return new ListExpression(
                 locs, /* isTuple= */ true, lparenOffset, elems.build(), rparenOffset);
@@ -799,7 +829,7 @@ final class Parser {
     if (token.kind == TokenKind.RBRACKET) { // empty List
       int rbracketOffset = nextToken();
       return new ListExpression(
-          locs, /*isTuple=*/ false, lbracketOffset, ImmutableList.of(), rbracketOffset);
+          locs, /* isTuple= */ false, lbracketOffset, ImmutableList.of(), rbracketOffset);
     }
 
     Expression expression = parseTest();
@@ -810,7 +840,7 @@ final class Parser {
           int rbracketOffset = nextToken();
           return new ListExpression(
               locs,
-              /*isTuple=*/ false,
+              /* isTuple= */ false,
               lbracketOffset,
               ImmutableList.of(expression),
               rbracketOffset);
@@ -825,7 +855,7 @@ final class Parser {
         {
           ImmutableList.Builder<Expression> elems = ImmutableList.builder();
           elems.add(expression);
-          parseExprList(elems, /*trailingCommaAllowed=*/ true);
+          parseExprList(elems, /* trailingCommaAllowed= */ true);
           if (token.kind == TokenKind.RBRACKET) {
             int rbracketOffset = nextToken();
             return new ListExpression(
@@ -899,7 +929,7 @@ final class Parser {
     // The loop is not strictly needed, but it prevents risks of stack overflow. Depth is
     // limited to number of different precedence levels (operatorPrecedence.size()).
     TokenKind lastOp = null;
-    for (;;) {
+    for (; ; ) {
       if (token.kind == TokenKind.NOT) {
         // If NOT appears when we expect a binary operator, it must be followed by IN.
         // Since the code expects every operator to be a single token, we push a NOT_IN token.
@@ -1119,7 +1149,7 @@ final class Parser {
   // consuming a trailing 'if expr else expr'.
   private Expression parseTestNoCond() {
     if (token.kind == TokenKind.LAMBDA) {
-      return parseLambda(/*allowCond=*/ false);
+      return parseLambda(/* allowCond= */ false);
     }
     return parseTest(0);
   }
@@ -1131,7 +1161,9 @@ final class Parser {
     return new UnaryOperatorExpression(locs, TokenKind.NOT, notOffset, x);
   }
 
-  // file_input = ('\n' | stmt)* EOF
+  // file_input = EOF
+  //            | ('\n' | DOC_COMMENT_BLOCK | stmt)* '\n' EOF
+  // The terminating newline is injected by the lexer even if not present in the input.
   private ImmutableList<Statement> parseFileInput() {
     ImmutableList.Builder<Statement> list = ImmutableList.builder();
     try {
@@ -1144,6 +1176,10 @@ final class Parser {
           syncTo(STATEMENT_TERMINATOR_SET);
           recoveryMode = false;
         } else {
+          maybeParseDocCommentBlock();
+          if (token.kind == TokenKind.EOF) {
+            break;
+          }
           parseStatement(list);
         }
       }
@@ -1242,16 +1278,23 @@ final class Parser {
     symbols.add(new LoadStatement.Binding(local, original));
   }
 
-  // simple_stmt = small_stmt (';' small_stmt)* ';'? NEWLINE
+  // simple_stmt = small_stmt (';' small_stmt)* ';'? DOC_COMMENT_TRAILING? NEWLINE
+  // Note that the DOC_COMMENT_TRAILING will be absorbed by the first small_stmt iff it is an
+  // assign_stmt and there are no other tokens between it and the DOC_COMMENT_TRAILING.
   private void parseSimpleStatement(ImmutableList.Builder<Statement> list) {
     list.add(parseSmallStatement());
+    mostRecentDocCommentBlock = null;
 
     while (token.kind == TokenKind.SEMI) {
       nextToken();
-      if (token.kind == TokenKind.NEWLINE) {
+      if (token.kind == TokenKind.NEWLINE || token.kind == TokenKind.DOC_COMMENT_TRAILING) {
         break;
       }
       list.add(parseSmallStatement());
+    }
+    if (token.kind == TokenKind.DOC_COMMENT_TRAILING) {
+      // Absorb trailing doc comments that weren't attached to an assignment.
+      nextToken();
     }
     expectAndRecover(TokenKind.NEWLINE);
   }
@@ -1262,7 +1305,7 @@ final class Parser {
   //                | return_stmt
   //                | BREAK | CONTINUE | PASS
   //
-  //     assign_stmt = expr ('=' | augassign) expr
+  //     assign_stmt = expr ('=' | augassign) expr DOC_COMMENT_TRAILING?
   //
   //     augassign = '+=' | '-=' | '*=' | '/=' | '%=' | '//=' | '&=' | '|=' | '^=' |'<<=' | '>>='
   private Statement parseSmallStatement() {
@@ -1292,8 +1335,15 @@ final class Parser {
     if (token.kind == TokenKind.EQUALS || op != null) {
       int opOffset = nextToken();
       Expression rhs = parseExpression();
+      @Nullable
+      DocComments docComments = getDocCommentBlockOnPreviousLine(lhs.getStartLocation().line());
+      if (token.kind == TokenKind.DOC_COMMENT_TRAILING) {
+        // Use trailing doc comment if it exists; it overrides the preceding doc comment block.
+        docComments = (DocComments) token.value;
+        nextToken();
+      }
       // op == null for ordinary assignment. TODO(adonovan): represent as EQUALS.
-      return new AssignmentStatement(locs, lhs, op, opOffset, rhs);
+      return new AssignmentStatement(locs, lhs, op, opOffset, rhs, docComments);
     } else {
       return new ExpressionStatement(locs, lhs);
     }
@@ -1374,11 +1424,16 @@ final class Parser {
 
   // suite is typically what follows a colon (e.g. after def or for).
   // suite = simple_stmt
-  //       | NEWLINE INDENT stmt+ OUTDENT
+  //       | DOC_COMMENT_TRAILING? NEWLINE DOC_COMMENT_BLOCK? INDENT (stmt DOC_COMMENT_BLOCK?)+ \
+  //         OUTDENT
   private ImmutableList<Statement> parseSuite() {
     ImmutableList.Builder<Statement> list = ImmutableList.builder();
+    if (token.kind == TokenKind.DOC_COMMENT_TRAILING) {
+      nextToken();
+    }
     if (token.kind == TokenKind.NEWLINE) {
       expect(TokenKind.NEWLINE);
+      maybeParseDocCommentBlock();
       if (token.kind != TokenKind.INDENT) {
         reportError(token.start, "expected an indented block");
         return list.build();
@@ -1386,6 +1441,9 @@ final class Parser {
       expect(TokenKind.INDENT);
       while (token.kind != TokenKind.OUTDENT && token.kind != TokenKind.EOF) {
         parseStatement(list);
+        // Note that on the final loop iteration, we may encounter a doc comment block that will
+        // need to be attached to the (dedented) assignment statement after the end of the suite.
+        maybeParseDocCommentBlock();
       }
       expectAndRecover(TokenKind.OUTDENT);
     } else {

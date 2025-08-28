@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -991,6 +992,289 @@ public final class ParserTest {
     }
     assertWithMessage("Found: " + commentLines)
         .that(result.getComments().size()).isEqualTo(10); // One per '#'
+  }
+
+  @Test
+  public void testCommentNodes_doNotContainTerminatingNewline() throws Exception {
+    String source =
+        """
+        # Ordinary comment 1
+        a = 1  #: Trailing doc comment 2
+        #: Doc comment 3
+        #: Doc comment continued 4
+        b = 2  # Ordinary trailing comment 5
+        # Comment ending with EOF 6\
+        """;
+    StarlarkFile result = parseFile(source);
+    assertThat(result.getComments()).hasSize(6);
+    Comment lastComment = result.getComments().getLast();
+    for (Comment comment : result.getComments()) {
+      assertThat(comment.getText()).doesNotContain("\n");
+      if (comment != lastComment) {
+        assertThat(source.charAt(comment.getEndOffset())).isEqualTo('\n');
+      }
+    }
+    assertThat(lastComment.getEndOffset()).isEqualTo(source.length());
+  }
+
+  @Test
+  public void testComments_inMultilineExpressionWithSyntaxError() throws Exception {
+    setFailFast(false);
+    StarlarkFile result =
+        parseFile(
+            """
+            x = (1 + *  # Ordinary comment
+            # Ordinary comment
+            2)
+
+            y = (1 + *  #: Doc comment
+            #: Doc comment
+            2)
+            """);
+    assertThat(result.getComments()).hasSize(4);
+    assertContainsError(":1:10: syntax error at '*': expected expression");
+    assertContainsError(":5:10: syntax error at '*': expected expression");
+  }
+
+  @Test
+  public void testDocComments_indentationDoesNotMatter() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            #: Doc comment for a
+                #: indent doesn't matter
+            a = 1
+            """);
+    assertThat(result.getStatements()).hasSize(1);
+    assertThat(result.getComments()).hasSize(2);
+    assertThat(getDocComment(result.getStatements().get(0)))
+        .isEqualTo("Doc comment for a\nindent doesn't matter");
+  }
+
+  @Test
+  public void testDocComments_complexLhs() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            #: Doc comment for a and b
+            a, b = [1, 2]
+            #: Doc comment for c and d
+            c, \
+            d = [3, 4]
+            #: Doc comment for e and f
+            (       #: ignored
+                e,  #: ignored
+                f,  #: ignored
+            ) = [5, 6]
+            """);
+    assertThat(result.getStatements()).hasSize(3);
+    assertThat(result.getComments()).hasSize(6);
+    assertThat(getDocComment(result.getStatements().get(0))).isEqualTo("Doc comment for a and b");
+    assertThat(getDocComment(result.getStatements().get(1))).isEqualTo("Doc comment for c and d");
+    assertThat(getDocComment(result.getStatements().get(2))).isEqualTo("Doc comment for e and f");
+  }
+
+  @Test
+  public void testDocComments_terminatedByBlankLineOrNonDocCommentLine() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            #: Ignored - separated by newline from assignment statement
+
+            a = 1
+            #: Ignored - separated by non-doc comment line from assignment statement
+            #
+            b = 1
+            #: Ignored
+
+            #: Doc comment for c
+            c = 2
+            #: Ignored
+            #
+            #: Doc comment for d
+            d = 2
+            """);
+    assertThat(result.getStatements()).hasSize(4);
+    assertThat(result.getComments()).hasSize(8);
+    assertThat(getDocComment(result.getStatements().get(0))).isNull();
+    assertThat(getDocComment(result.getStatements().get(1))).isNull();
+    assertThat(getDocComment(result.getStatements().get(2))).isEqualTo("Doc comment for c");
+    assertThat(getDocComment(result.getStatements().get(3))).isEqualTo("Doc comment for d");
+  }
+
+  @Test
+  public void testDocComments_trailing() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            a = 1 #: Doc comment for a
+                  #: Ignored; trailing comments are one-line only
+
+            #: Ignored; trailing comments override leading comments
+            b = 2 #: Doc comment for b
+            """);
+    assertThat(result.getStatements()).hasSize(2);
+    assertThat(result.getComments()).hasSize(4);
+    assertThat(getDocComment(result.getStatements().get(0))).isEqualTo("Doc comment for a");
+    assertThat(getDocComment(result.getStatements().get(1))).isEqualTo("Doc comment for b");
+  }
+
+  @Test
+  public void testDocComments_trailing_multistatementLine() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            a = 1; b = 2; c = 3 #: Doc comment for c only
+
+            d = 4; #: Ignored - no statement after the `;`
+            """);
+    assertThat(result.getStatements()).hasSize(4);
+    assertThat(result.getComments()).hasSize(2);
+    assertThat(getDocComment(result.getStatements().get(0))).isNull();
+    assertThat(getDocComment(result.getStatements().get(1))).isNull();
+    assertThat(getDocComment(result.getStatements().get(2))).isEqualTo("Doc comment for c only");
+    assertThat(getDocComment(result.getStatements().get(3))).isNull();
+  }
+
+  @Test
+  public void testDocComments_trailing_multilineStatement() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            ( #: Ignored
+                a, #: Ignored
+                b  #: Ignored
+            ) = foo(  #: Ignored
+                #: Ignored
+                x = 42  #: Ignored
+            )[  #: Ignored
+                1:2  #: Ignored
+            ] #: Doc comment for a
+            """);
+    assertThat(result.getStatements()).hasSize(1);
+    assertThat(result.getComments()).hasSize(9);
+    assertThat(getDocComment(result.getStatements().get(0))).isEqualTo("Doc comment for a");
+  }
+
+  @Test
+  public void testDocComments_leadingSpacesNormalized() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            #:zero or
+            #: one leading spaces
+            #:  get stripped from each doc comment line
+            a = 1
+            """);
+    assertThat(result.getStatements()).hasSize(1);
+    assertThat(result.getComments()).hasSize(3);
+    assertThat(getDocComment(result.getStatements().get(0)))
+        .isEqualTo(
+            "zero or\n" //
+                + "one leading spaces\n" //
+                + " get stripped from each doc comment line");
+  }
+
+  @Test
+  public void testDocComments_inSuite() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            def foo(): #: ignored
+            #: Doc comment for a
+                #: indent doesn't matter
+                a = 1
+                    #: Doc comment for b ignores indentation
+                b = 2
+                #: Applies to next statement
+            #: indent doesn't matter
+            x = 3
+            """);
+    assertThat(result.getStatements()).hasSize(2);
+    assertThat(result.getComments()).hasSize(6);
+    ImmutableList<Statement> body = ((DefStatement) result.getStatements().getFirst()).getBody();
+    assertThat(body).hasSize(2);
+    assertThat(getDocComment(body.get(0))).isEqualTo("Doc comment for a\nindent doesn't matter");
+    assertThat(getDocComment(body.get(1))).isEqualTo("Doc comment for b ignores indentation");
+    assertThat(getDocComment(result.getStatements().get(1)))
+        .isEqualTo("Applies to next statement\nindent doesn't matter");
+  }
+
+  @Test
+  public void testDocComments_allowedInNonAssignments() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            #: ignored
+            def foo( #: ignored
+                #: ignored
+                x, #: ignored
+                #: ignored
+                **kwags): #: ignored
+                #: ignored
+                return x #: ignored
+                #: ignored
+            #: ignored
+            foo( #: ignored
+                x = [ #: ignored
+                    #: ignored
+                    1, #: ignored
+                    #: ignored
+                    2, #: ignored
+                    #: ignored
+                ], #: ignored
+                #: ignored
+                y = { #: ignored
+                    "z": 3, #: ignored
+                    #: ignored
+                }, #: ignored
+                #: ignored
+            ) #: ignored
+            """);
+    assertThat(result.getComments()).hasSize(25);
+    assertThat(getDocComment(result.getStatements().get(0))).isNull();
+    assertThat(getDocComment(result.getStatements().get(1))).isNull();
+  }
+
+  @Test
+  public void testDocComments_notParsedInsideStrings() throws Exception {
+    StarlarkFile result =
+        parseFile(
+            """
+            "#: not parsed as doc comment"
+            a = 1
+            \"\"\"
+            #: not parsed as doc comment
+            \"\"\"
+            b = 2
+            '''
+            #: not parsed as doc comment
+            '''
+            c = 3
+            r'''
+            #: not parsed as doc comment
+            '''
+            d = 4
+            r\"\"\"
+            #: not parsed as doc comment
+            \"\"\"
+            e = 5
+            """);
+    assertThat(result.getComments()).isEmpty();
+    for (Statement stmt : result.getStatements()) {
+      assertThat(getDocComment(stmt)).isNull();
+    }
+  }
+
+  @Nullable
+  private String getDocComment(Statement stmt) {
+    if (stmt instanceof AssignmentStatement assign) {
+      DocComments docComments = assign.getDocComments();
+      if (docComments != null) {
+        return docComments.getText();
+      }
+    }
+    return null;
   }
 
   @Test
