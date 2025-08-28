@@ -187,7 +187,7 @@ filegroup(
 copy_file(
     name = "jdk_for_jlink",
     src = ":embedded_jdk_vanilla",
-    out = "jdk_for_jlink",
+    out = "jdk_for_jlink_file",
     allow_symlink = True,
 )
 
