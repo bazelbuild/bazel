@@ -14,45 +14,21 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.syntax.Location;
 
 /** Helper class for accessing information from the CcLinkingContext provider. */
 public class CcLinkingContext implements CcLinkingContextApi {
-  private static final StarlarkProvider.Key KEY =
-      new StarlarkProvider.Key(
-          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
-          "CcLinkingContextInfo");
-  private static final StarlarkProvider PROVIDER =
-      StarlarkProvider.builder(Location.BUILTIN).buildExported(KEY);
-  public static final StarlarkInfo EMPTY =
-      StarlarkInfo.create(
-          PROVIDER,
-          ImmutableMap.of(
-              "linker_inputs",
-              Depset.of(StarlarkInfo.class, NestedSetBuilder.emptySet(Order.LINK_ORDER)),
-              "_extra_link_time_libraries",
-              // None is not completely accurate. It used when calling CcInfo(), without args.
-              // The difference will be gone when CcInfo is moved to Starlark.
-              Starlark.NONE),
-          Location.BUILTIN);
-
   private final StarlarkInfo ccLinkingContext;
 
   private CcLinkingContext(StarlarkInfo ccLinkingContext) {

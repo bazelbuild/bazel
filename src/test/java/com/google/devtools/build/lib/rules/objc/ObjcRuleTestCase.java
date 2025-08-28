@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -1050,7 +1051,7 @@ cc_toolchain_forwarder = rule(
   }
 
   protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target)
-      throws EvalException {
+      throws EvalException, RuleErrorException {
     return Artifact.toRootRelativePaths(
         target
             .get(CcInfo.PROVIDER)
@@ -1058,7 +1059,8 @@ cc_toolchain_forwarder = rule(
             .getStaticModeParamsForDynamicLibraryLibraries());
   }
 
-  protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+  protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target)
+      throws RuleErrorException {
     return Artifact.toRootRelativePaths(
         target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }

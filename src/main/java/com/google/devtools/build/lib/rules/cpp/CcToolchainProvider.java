@@ -366,7 +366,7 @@ public final class CcToolchainProvider {
 
   /** Returns the {@code CcInfo} for the toolchain. */
   public CcInfo getCcInfo() throws EvalException {
-    return value.getValue("_cc_info", CcInfo.class);
+    return CcInfo.wrap(value.getValue("_cc_info", StarlarkInfo.class));
   }
 
   /** Whether the toolchains supports parameter files. */
