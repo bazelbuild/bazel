@@ -54,6 +54,7 @@ load(
     "download_remote_files",
     "get_auth",
     "patch",
+    "symlink_files",
     "update_attrs",
     "workspace_and_buildfile",
 )
@@ -166,6 +167,7 @@ def _http_archive_impl(ctx):
 
     remote_files_info = download_remote_files(ctx)
     remote_patches_info = patch(ctx)
+    symlink_files(ctx)
 
     # Download the module file after applying patches since modules may decide
     # to patch their packaged module and the patch may not apply to the file
@@ -321,6 +323,12 @@ The archive will be unpacked into this directory, after applying `strip_prefix`
 (if any) to the file paths within the archive. For example, file
 `foo-1.2.3/src/foo.h` will be unpacked to `bar/src/foo.h` if `add_prefix = "bar"`
 and `strip_prefix = "foo-1.2.3"`.""",
+    ),
+    "files": attr.string_keyed_label_dict(
+        doc = """A map of relative paths (key) to a file label (value) that overlaid on the repo as
+a symlink. This is useful when you want to add WORKSPACE or BUILD.bazel files atop an existing
+repository. Files are symlinked after patches have been applied.
+""",
     ),
     "type": attr.string(
         doc = """The archive type of the downloaded file.
