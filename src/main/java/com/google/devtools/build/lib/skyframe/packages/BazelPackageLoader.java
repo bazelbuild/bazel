@@ -119,6 +119,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
           PrecomputedValue.injected(
               ModuleFileFunction.REGISTRIES, BazelRepositoryModule.DEFAULT_REGISTRIES),
+          PrecomputedValue.injected(
+              RegistryFunction.MODULE_MIRRORS, BazelRepositoryModule.DEFAULT_MODULE_MIRRORS),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
           PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
           PrecomputedValue.injected(
