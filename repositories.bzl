@@ -56,11 +56,11 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "zstd-jni",
 ]] + [(get_canonical_repo_name("com_github_grpc_grpc") + "+grpc_repo_deps_ext+" + suffix) for suffix in [
     # Extra grpc dependencies introduced via its module extension
-    "com_envoyproxy_protoc_gen_validate",
-    "com_github_cncf_xds",
-    "envoy_api",
+    #    "com_envoyproxy_protoc_gen_validate",
+    #    "com_github_cncf_xds",
+    #    "envoy_api",
     "google_cloud_cpp",
-    "io_opencensus_cpp",
+    #    "io_opencensus_cpp",
 ]] + [
     "bazel_features+",
     "rules_apple+",
