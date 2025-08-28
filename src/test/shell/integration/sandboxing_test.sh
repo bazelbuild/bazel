@@ -951,12 +951,13 @@ EOF
 
   local output_base="$(bazel info output_base)"
   local bazel_bin="$(bazel info bazel-bin)"
+  local bazel_bin_reldir="${bazel_bin#$output_base}"
 
   bazel test --reuse_sandbox_directories //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
     || fail "Expected first test to succeed"
 
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
-  [[ -d "${sandbox_stash}/TestRunner/3/execroot/_main/bazel-out/k8-fastbuild/bin/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
+  [[ -d "${sandbox_stash}/TestRunner/3/$bazel_bin_reldir/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
     || fail "${sandbox_stash} did not stash readonly_dir"
 
   bazel test --reuse_sandbox_directories --nocache_test_results //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
