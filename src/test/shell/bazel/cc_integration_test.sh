@@ -2127,36 +2127,34 @@ function test_cpp20_modules_with_clang() {
       return 0
     fi
   fi
+
   add_rules_cc "MODULE.bazel"
+  add_to_bazelrc "common --repo_env=CC=clang"
+  # TODO: Make it so that --cxxopt applies to module_interfaces as well.
+  add_to_bazelrc "common --copt=-std=c++20"
+
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
-COPTS = ["-std=c++20", "-Xclang", "-fmodules-embed-all-files"]
-FEATURES = ["cpp_modules"]
+
+package(features = ["cpp_modules"])
+
 cc_library(
   name = "base",
-  module_interfaces = select({"@rules_cc//cc/compiler:clang": ["base.cppm"]}),
-  copts = COPTS,
-  features = FEATURES,
+  module_interfaces = ["base.cppm"],
 )
 cc_library(
   name = "foo",
-  module_interfaces = select({"@rules_cc//cc/compiler:clang": ["foo.cppm"]}),
-  copts = COPTS,
-  features = FEATURES,
+  module_interfaces = ["foo.cppm"],
   deps = [":base"]
 )
 cc_library(
   name = "bar",
-  module_interfaces = select({"@rules_cc//cc/compiler:clang": ["bar.cppm"]}),
-  copts = COPTS,
-  features = FEATURES,
+  module_interfaces = ["bar.cppm"],
   deps = [":base"]
 )
 cc_binary(
   name = "main",
-  srcs = select({"@rules_cc//cc/compiler:clang": ["main.cc"]}),
-  copts = COPTS,
-  features = FEATURES,
+  srcs = ["main.cc"],
   deps = [":foo", ":bar"]
 )
 EOF
@@ -2197,7 +2195,58 @@ export void f_base() {
 }
 EOF
 
-  bazel build //:main --repo_env=CC=clang --experimental_cpp_modules || fail "Expected build C++20 Modules success with compiler 'clang'"
+  bazel build //:main --experimental_cpp_modules --disk_cache=disk || fail "Expected build C++20 Modules success with compiler 'clang'"
+
+  # Verify that the build can hit the cache without action cycles.
+  bazel clean || fail "Expected clean success"
+  bazel build //:main --experimental_cpp_modules --disk_cache=disk || fail "Expected build C++20 Modules success with compiler 'clang'"
+}
+
+function test_cpp20_modules_with_clang_no_cycle() {
+  type -P clang || return 0
+  # Check if clang version is less than 17
+  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  if [[ -n "$clang_version" ]]; then
+    major_version=$(echo "$clang_version" | cut -d. -f1)
+    if [[ "$major_version" -lt 17 ]]; then
+      return 0
+    fi
+  fi
+
+  add_rules_cc "MODULE.bazel"
+  add_to_bazelrc "common --repo_env=CC=clang"
+  # TODO: Make it so that --cxxopt applies to module_interfaces as well.
+  add_to_bazelrc "common --copt=-std=c++20"
+
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
+package(features = ["cpp_modules"])
+
+cc_library(
+  name = "lib",
+  module_interfaces = ["foo.cppm", "bar.cppm"],
+)
+EOF
+  cat > foo.cppm <<'EOF'
+export module foo;
+import bar;
+EOF
+  cat > bar.cppm <<'EOF'
+export module bar;
+EOF
+
+  bazel build //:lib --experimental_cpp_modules || fail "Expected build C++20 Modules success with compiler 'clang'"
+
+  cat > foo.cppm <<'EOF'
+export module foo;
+EOF
+  cat > bar.cppm <<'EOF'
+export module bar;
+import foo;
+EOF
+
+  bazel build //:lib --experimental_cpp_modules || fail "Expected build C++20 Modules success with compiler 'clang'"
 }
 
 run_suite "cc_integration_test"
