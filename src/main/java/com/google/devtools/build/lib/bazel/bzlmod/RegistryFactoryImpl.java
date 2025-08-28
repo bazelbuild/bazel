@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
@@ -40,7 +41,8 @@ public class RegistryFactoryImpl implements RegistryFactory {
       LockfileMode lockfileMode,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
       ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
-      Optional<Path> vendorDir)
+      Optional<Path> vendorDir,
+      ImmutableSet<String> moduleMirrors)
       throws URISyntaxException {
     URI uri = new URI(url);
     if (uri.getScheme() == null) {
@@ -67,12 +69,17 @@ public class RegistryFactoryImpl implements RegistryFactory {
           default ->
               throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
         };
+    var moduleMirrorUris = ImmutableSet.<URI>builderWithExpectedSize(moduleMirrors.size());
+    for (var moduleMirror : moduleMirrors) {
+      moduleMirrorUris.add(new URI(moduleMirror));
+    }
     return new IndexRegistry(
         uri,
         clientEnvironmentSupplier.get(),
         knownFileHashes,
         knownFileHashesMode,
         previouslySelectedYankedVersions,
-        vendorDir);
+        vendorDir,
+        moduleMirrorUris.build());
   }
 }

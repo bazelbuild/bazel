@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -40,6 +41,9 @@ public class RegistryFunction implements SkyFunction {
   public static final Precomputed<Instant> LAST_INVALIDATION =
       new Precomputed<>("last_registry_invalidation");
 
+  public static final Precomputed<ImmutableSet<String>> MODULE_MIRRORS =
+      new Precomputed<>("module_mirrors");
+
   /**
    * The interval after which the mutable registry contents cached in memory should be refreshed.
    */
@@ -61,7 +65,7 @@ public class RegistryFunction implements SkyFunction {
     Optional<Path> vendorDir = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env);
 
     if (lockfileMode == LockfileMode.REFRESH) {
-      RegistryFunction.LAST_INVALIDATION.get(env);
+      LAST_INVALIDATION.get(env);
     }
 
     BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
@@ -76,7 +80,8 @@ public class RegistryFunction implements SkyFunction {
           lockfileMode,
           lockfile.getRegistryFileHashes(),
           lockfile.getSelectedYankedVersions(),
-          vendorDir);
+          vendorDir,
+          MODULE_MIRRORS.get(env));
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(

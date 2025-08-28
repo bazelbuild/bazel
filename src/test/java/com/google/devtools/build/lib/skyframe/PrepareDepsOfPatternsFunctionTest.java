@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
@@ -62,7 +63,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   @Test
   public void testFunctionLoadsTargetAndNotUnspecifiedTargets() throws Exception {
     // Given a package "//foo" with independent target rules ":foo" and ":foo2",
-    createFooAndFoo2(/*dependent=*/ false);
+    createFooAndFoo2(/* dependent= */ false);
 
     // Given a target pattern sequence consisting of a single-target pattern for "//foo",
     ImmutableList<String> patternSequence = ImmutableList.of("//foo");
@@ -81,7 +82,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   public void testFunctionLoadsTargetDependencies() throws Exception {
     // Given a package "//foo" with target rules ":foo" and ":foo2",
     // And given ":foo" depends on ":foo2",
-    createFooAndFoo2(/*dependent=*/ true);
+    createFooAndFoo2(/* dependent= */ true);
 
     // Given a target pattern sequence consisting of a single-target pattern for "//foo",
     ImmutableList<String> patternSequence = ImmutableList.of("//foo");
@@ -96,7 +97,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   @Test
   public void testFunctionExpandsTargetPatterns() throws Exception {
     // Given a package "@//foo" with independent target rules ":foo" and ":foo2",
-    createFooAndFoo2(/*dependent=*/ false);
+    createFooAndFoo2(/* dependent= */ false);
 
     // Given a target pattern sequence consisting of a pattern for "//foo:*",
     ImmutableList<String> patternSequence = ImmutableList.of("//foo:*");
@@ -138,7 +139,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertValidValue(
         walkableGraph,
         getKeyForLabel(Label.create("@//foo", "foo")),
-        /*expectTransitiveException=*/ true);
+        /* expectTransitiveException= */ true);
 
     // And an entry with a NoSuchPackageException for "//bar:bar",
     Exception e = assertException(walkableGraph, getKeyForLabel(Label.create("@//bar", "bar")));
@@ -161,7 +162,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertValidValue(
         walkableGraph,
         getKeyForLabel(Label.create("@//foo", "foo")),
-        /*expectTransitiveException=*/ true);
+        /* expectTransitiveException= */ true);
 
     // And an entry with a NoSuchTargetException for "//bar:bar",
     Exception e = assertException(walkableGraph, getKeyForLabel(Label.create("@//bar", "bar")));
@@ -170,7 +171,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testParsingProblemsKeepGoing() throws Exception {
-    parsingProblem(/*keepGoing=*/ true);
+    parsingProblem(/* keepGoing= */ true);
   }
 
   /**
@@ -181,12 +182,12 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
    */
   @Test
   public void testParsingProblemsNoKeepGoing() throws Exception {
-    parsingProblem(/*keepGoing=*/ false);
+    parsingProblem(/* keepGoing= */ false);
   }
 
   private void parsingProblem(boolean keepGoing) throws Exception {
     // Given a package "//foo" with target rule ":foo",
-    createFooAndFoo2(/*dependent=*/ false);
+    createFooAndFoo2(/* dependent= */ false);
 
     // Given a target pattern sequence consisting of a pattern with parsing problems followed by
     // a legit target pattern,
@@ -195,7 +196,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
 
     // When PrepareDepsOfPatternsFunction runs in the selected keep-going mode,
     WalkableGraph walkableGraph =
-        getGraphFromPatternsEvaluation(patternSequence, /*keepGoing=*/ keepGoing);
+        getGraphFromPatternsEvaluation(patternSequence, /* keepGoing= */ keepGoing);
 
     // Then it skips evaluation of the malformed target pattern, but logs about it,
     assertContainsEvent("Skipping '" + bogusPattern + "': ");
@@ -272,6 +273,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     return ImmutableList.of(
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
+        PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
         PrecomputedValue.injected(
@@ -375,7 +377,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
 
   private static void assertValidValue(WalkableGraph graph, SkyKey key)
       throws InterruptedException {
-    assertValidValue(graph, key, /*expectTransitiveException=*/ false);
+    assertValidValue(graph, key, /* expectTransitiveException= */ false);
   }
 
   /**
