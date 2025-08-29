@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.rules.java;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
@@ -36,15 +39,31 @@ public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvi
   // TODO(b/183579145): Replace CcInfo with only linking information.
 
   public static JavaCcInfoProvider create(CcInfo ccInfo) {
-    return new JavaCcInfoProvider(ccInfo);
+    return new JavaCcInfoProvider(
+        CcInfo.builder()
+            .setCcLinkingContext(ccInfo.getCcLinkingContextStruct())
+            .setCcNativeLibraryInfo(ccInfo.getCcNativeLibraryInfo())
+            .setCcDebugInfoContext(ccInfo.getCcDebugInfoContext())
+            .build());
   }
 
   @Nullable
   static JavaCcInfoProvider fromStarlarkJavaInfo(StructImpl javaInfo) throws EvalException {
-    StarlarkInfo ccInfo = javaInfo.getValue("cc_link_params_info", StarlarkInfo.class);
+    CcInfo ccInfo = javaInfo.getValue("cc_link_params_info", CcInfo.class);
     if (ccInfo == null) {
-      return null;
+      NestedSet<StarlarkInfo> transitiveCcNativeLibraries =
+          Depset.cast(
+              javaInfo.getValue("transitive_native_libraries"),
+              StarlarkInfo.class,
+              "transitive_native_libraries");
+      if (transitiveCcNativeLibraries.isEmpty()) {
+        return null;
+      }
+      ccInfo =
+          CcInfo.builder()
+              .setCcNativeLibraryInfo(CcNativeLibraryInfo.of(transitiveCcNativeLibraries))
+              .build();
     }
-    return create(CcInfo.wrap(ccInfo));
+    return create(ccInfo);
   }
 }

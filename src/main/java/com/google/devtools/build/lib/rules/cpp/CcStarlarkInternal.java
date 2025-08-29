@@ -970,12 +970,4 @@ public class CcStarlarkInternal implements StarlarkValue {
       throws EvalException {
     return CcStaticCompilationHelper.collectPerFileCopts(cppConfiguration, sourceFile, sourceLabel);
   }
-
-  @StarlarkMethod(
-      name = "empty_compilation_context",
-      documented = false,
-      parameters = {})
-  public CcCompilationContext emptyCompilationContext() {
-    return CcCompilationContext.EMPTY;
-  }
 }

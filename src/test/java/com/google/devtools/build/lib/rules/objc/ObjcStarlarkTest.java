@@ -285,8 +285,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     StructImpl executableProvider =
         (StructImpl) binaryTarget.get(APPLE_EXECUTABLE_BINARY_PROVIDER_KEY);
     CcLinkingContext ccLinkingContext =
-        CcInfo.wrap(executableProvider.getValue("cc_info", StarlarkInfo.class))
-            .getCcLinkingContext();
+        executableProvider.getValue("cc_info", CcInfo.class).getCcLinkingContext();
 
     assertThat(
             Artifact.toRootRelativePaths(
@@ -696,7 +695,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file("test_starlark/rule/BUILD");
     scratch.file(
         "test_starlark/rule/apple_rules.bzl",
-"""
+        """
 load("//myinfo:myinfo.bzl", "MyInfo")
 
 def swift_binary_impl(ctx):

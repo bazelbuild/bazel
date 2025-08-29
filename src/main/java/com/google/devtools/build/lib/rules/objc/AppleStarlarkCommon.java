@@ -20,13 +20,14 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** A class that exposes apple rule implementation internals to Starlark. */
 public class AppleStarlarkCommon
-    implements AppleCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
+    implements AppleCommonApi<ConstraintValueInfo, StarlarkRuleContext, CcInfo> {
 
   @VisibleForTesting
   public static final String BAD_KEY_ERROR =

@@ -36,6 +36,8 @@ public class CcBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_cc", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/cc"));
 
+  private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
+
   public CcBootstrap(
       CcModuleApi<
               ? extends StarlarkActionFactoryApi,
@@ -50,7 +52,10 @@ public class CcBootstrap implements Bootstrap {
               ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
               ? extends CcCompilationOutputsApi<? extends FileApi>,
               ? extends CppModuleMapApi<? extends FileApi>>
-          ccModule) {}
+          ccModule,
+      CcInfoApi.Provider<? extends FileApi> ccInfoProvider) {
+    this.ccInfoProvider = ccInfoProvider;
+  }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
@@ -59,6 +64,12 @@ public class CcBootstrap implements Bootstrap {
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
             Starlark.NONE,
+            allowedRepositories));
+    builder.put(
+        "CcInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            ccInfoProvider,
             allowedRepositories));
     builder.put(
         "CcToolchainConfigInfo",

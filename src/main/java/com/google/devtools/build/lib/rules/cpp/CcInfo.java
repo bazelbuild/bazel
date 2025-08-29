@@ -1,4 +1,4 @@
-// Copyright 2023 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,68 +14,50 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Provider for C++ compilation and linking information. */
-public final class CcInfo {
-  public static final StarlarkProvider.Key KEY =
-      new StarlarkProvider.Key(
-          BzlLoadValue.keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
-          "CcInfo");
-  public static final StarlarkProvider PROVIDER_ =
-      StarlarkProvider.builder(Location.BUILTIN).buildExported(KEY);
-  public static final CcInfoProvider PROVIDER = new CcInfoProvider();
+@Immutable
+public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
+  public static final Provider PROVIDER = new Provider();
 
-  /** A wrapper around the Starlark provider. */
-  public static class CcInfoProvider extends StarlarkProviderWrapper<CcInfo> {
-    public CcInfoProvider() {
-      super(
-          BzlLoadValue.keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
-          "CcInfo");
-    }
+  private final CcCompilationContext ccCompilationContext;
+  private final StarlarkInfo ccLinkingContext;
+  private final StarlarkInfo ccDebugInfoContext;
+  private final StarlarkInfo ccNativeLibraryInfo;
 
-    @Override
-    public CcInfo wrap(Info value) {
-      return new CcInfo((StarlarkInfo) value);
-    }
+  public CcInfo(
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccLinkingContext,
+      StarlarkInfo ccDebugInfoContext,
+      StarlarkInfo ccNativeLibraryInfo) {
+    this.ccCompilationContext = ccCompilationContext;
+    this.ccLinkingContext = ccLinkingContext;
+    this.ccDebugInfoContext = ccDebugInfoContext;
+    this.ccNativeLibraryInfo = ccNativeLibraryInfo;
   }
 
-  private final StarlarkInfo starlarkInfo;
-
-  private CcInfo(StarlarkInfo starlarkInfo) {
-    this.starlarkInfo = starlarkInfo;
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
-  /**
-   * @deprecated Only use in tests.
-   */
-  @Deprecated
-  public static CcInfo wrap(StarlarkInfo starlarkInfo) {
-    return new CcInfo(starlarkInfo);
-  }
-
-  /**
-   * @deprecated Only use in tests.
-   */
-  @Deprecated
+  @Override
   public CcCompilationContext getCcCompilationContext() {
-    try {
-      return starlarkInfo.getValue("compilation_context", CcCompilationContext.class);
-    } catch (EvalException e) {
-      throw new IllegalStateException(e);
-    }
+    return ccCompilationContext;
   }
 
   /**
@@ -83,37 +65,157 @@ public final class CcInfo {
    */
   @Deprecated
   public CcLinkingContext getCcLinkingContext() {
-    try {
-      return CcLinkingContext.of(starlarkInfo.getValue("linking_context", StarlarkInfo.class));
-    } catch (EvalException e) {
-      throw new IllegalStateException(e);
-    }
+    return CcLinkingContext.of(ccLinkingContext);
   }
 
-  /**
-   * @deprecated Only use in tests.
-   */
-  @Deprecated
+  @Override
+  public StarlarkInfo getCcLinkingContextForStarlark() {
+    return ccLinkingContext;
+  }
+
+  public StarlarkInfo getCcLinkingContextStruct() {
+    return ccLinkingContext;
+  }
+
+  @Override
+  public Depset getCcTransitiveNativeLibraries() {
+    return Depset.of(
+        StarlarkInfo.class,
+        CcNativeLibraryInfo.getTransitiveCcNativeLibraries(getCcNativeLibraryInfo()));
+  }
+
+  @Override
   public StarlarkInfo getCcDebugInfoContext() {
-    try {
-      return starlarkInfo.getValue("_debug_context", StarlarkInfo.class);
-    } catch (EvalException e) {
-      throw new IllegalStateException(e);
+    return ccDebugInfoContext;
+  }
+
+  public StarlarkInfo getCcNativeLibraryInfo() {
+    return ccNativeLibraryInfo;
+  }
+
+  @Override
+  public boolean equals(Object otherObject) {
+    if (!(otherObject instanceof CcInfo other)) {
+      return false;
+    }
+    if (this == other) {
+      return true;
+    }
+    if (!this.ccCompilationContext.equals(other.ccCompilationContext)
+        || !this.ccDebugInfoContext.equals(other.ccDebugInfoContext)
+        || !this.getCcLinkingContext().equals(other.getCcLinkingContext())
+        || !this.getCcNativeLibraryInfo().equals(other.getCcNativeLibraryInfo())) {
+      return false;
+    }
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(ccCompilationContext, ccLinkingContext, ccDebugInfoContext);
+  }
+
+  public static Builder builder() {
+    // private to avoid class initialization deadlock between this class and its outer class
+    return new Builder();
+  }
+
+  /** A Builder for {@link CcInfo}. */
+  public static class Builder {
+    private CcCompilationContext ccCompilationContext;
+    private StarlarkInfo ccLinkingContext;
+    private StarlarkInfo ccDebugInfoContext;
+    private StarlarkInfo ccNativeLibraryInfo;
+
+    private Builder() {}
+
+    @CanIgnoreReturnValue
+    public CcInfo.Builder setCcCompilationContext(CcCompilationContext ccCompilationContext) {
+      Preconditions.checkState(this.ccCompilationContext == null);
+      this.ccCompilationContext = ccCompilationContext;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public CcInfo.Builder setCcLinkingContext(StarlarkInfo ccLinkingContext) {
+      Preconditions.checkState(this.ccLinkingContext == null);
+      this.ccLinkingContext = ccLinkingContext;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public CcInfo.Builder setCcDebugInfoContext(StarlarkInfo ccDebugInfoContext) {
+      Preconditions.checkState(this.ccDebugInfoContext == null);
+      this.ccDebugInfoContext = ccDebugInfoContext;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public CcInfo.Builder setCcNativeLibraryInfo(StarlarkInfo ccNativeLibraryInfo) {
+      Preconditions.checkState(this.ccNativeLibraryInfo == null);
+      this.ccNativeLibraryInfo = ccNativeLibraryInfo;
+      return this;
+    }
+
+    public CcInfo build() {
+      if (ccCompilationContext == null) {
+        ccCompilationContext = CcCompilationContext.EMPTY;
+      }
+      if (ccLinkingContext == null) {
+        ccLinkingContext = CcLinkingContext.EMPTY;
+      }
+      if (ccDebugInfoContext == null) {
+        ccDebugInfoContext = CcDebugInfoContext.EMPTY;
+      }
+      if (ccNativeLibraryInfo == null) {
+        ccNativeLibraryInfo = CcNativeLibraryInfo.EMPTY;
+      }
+      return new CcInfo(
+          ccCompilationContext, ccLinkingContext, ccDebugInfoContext, ccNativeLibraryInfo);
     }
   }
 
-  /**
-   * @deprecated Use only in tests
-   */
-  @Deprecated
-  public NestedSet<LibraryToLink> getTransitiveCcNativeLibrariesForTests() {
-    try {
-      return LibraryToLink.wrap(
-          starlarkInfo
-              .getValue("_legacy_transitive_native_libraries", Depset.class)
-              .getSet(StarlarkInfo.class));
-    } catch (EvalException | TypeException e) {
-      throw new IllegalStateException(e);
+  /** Provider class for {@link CcInfo} objects. */
+  public static class Provider extends BuiltinProvider<CcInfo>
+      implements CcInfoApi.Provider<Artifact> {
+    private Provider() {
+      super(CcInfoApi.NAME, CcInfo.class);
+    }
+
+    @Override
+    public CcInfoApi<Artifact> createInfo(
+        Object starlarkCcCompilationContext,
+        Object starlarkCcLinkingInfo,
+        Object starlarkCcDebugInfo,
+        Object starlarkCcNativeLibraryInfo,
+        StarlarkThread thread)
+        throws EvalException {
+      CcCompilationContext ccCompilationContext =
+          nullIfNone(starlarkCcCompilationContext, CcCompilationContext.class);
+      StarlarkInfo ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, StarlarkInfo.class);
+      StarlarkInfo ccDebugInfoContext = nullIfNone(starlarkCcDebugInfo, StarlarkInfo.class);
+      StarlarkInfo ccNativeLibraryInfo =
+          nullIfNone(starlarkCcNativeLibraryInfo, StarlarkInfo.class);
+      CcInfo.Builder ccInfoBuilder = CcInfo.builder();
+      if (ccCompilationContext != null) {
+        ccInfoBuilder.setCcCompilationContext(ccCompilationContext);
+      }
+      if (ccLinkingContext != null) {
+        ccInfoBuilder.setCcLinkingContext(ccLinkingContext);
+      }
+      if (ccDebugInfoContext != null) {
+        ccInfoBuilder.setCcDebugInfoContext(ccDebugInfoContext);
+      }
+      if (ccNativeLibraryInfo != null) {
+        CcModule.checkPrivateStarlarkificationAllowlist(thread);
+        ccInfoBuilder.setCcNativeLibraryInfo(ccNativeLibraryInfo);
+      }
+      return ccInfoBuilder.build();
+    }
+
+    @Nullable
+    private static <T> T nullIfNone(Object object, Class<T> type) {
+      return object != Starlark.NONE ? type.cast(object) : null;
     }
   }
 }

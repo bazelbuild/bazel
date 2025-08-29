@@ -127,8 +127,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     return PathFragment.create(getUnderlyingValue("java_executable_runfiles_path", String.class));
   }
 
-  public ImmutableList<StarlarkInfo> hermeticStaticLibs() throws RuleErrorException {
-    return getUnderlyingSequence("hermetic_static_libs", StarlarkInfo.class).getImmutableList();
+  public ImmutableList<CcInfo> hermeticStaticLibs() throws RuleErrorException {
+    return getUnderlyingSequence("hermetic_static_libs", CcInfo.class).getImmutableList();
   }
 
   /**
@@ -138,8 +138,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink()
       throws RuleErrorException, EvalException {
     NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
-    for (StarlarkInfo lib : hermeticStaticLibs()) {
-      result.addTransitive(CcInfo.wrap(lib).getCcLinkingContext().getLibraries());
+    for (CcInfo lib : hermeticStaticLibs()) {
+      result.addTransitive(lib.getCcLinkingContext().getLibraries());
     }
     return result.build();
   }

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -2518,7 +2517,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   private ImmutableList<String> getCcInfoUserLinkFlagsFromTarget(String target)
-      throws LabelSyntaxException, RuleErrorException {
+      throws LabelSyntaxException {
     return getConfiguredTarget(target)
         .get(CcInfo.PROVIDER)
         .getCcLinkingContext()

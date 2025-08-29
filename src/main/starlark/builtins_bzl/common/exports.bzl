@@ -31,7 +31,6 @@ load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
 load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
 load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
-load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/debug_package_info.bzl", "DebugPackageInfo")
 load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
@@ -46,7 +45,6 @@ exported_toplevels = {
     # "original value".
     "_builtins_dummy": "overridden value",
     "DebugPackageInfo": DebugPackageInfo,
-    "CcInfo": CcInfo,
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
     "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
     "CcToolchainConfigInfo": CcToolchainConfigInfo,
