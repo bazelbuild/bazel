@@ -27,8 +27,9 @@ int main(int argc, char *argv[]) {
     std::string arg = argv[i];
     if (arg == "-m" && i + 1 < argc) {
       cpp20modules_info.emplace_back(argv[++i]);
-    } else if (arg == "-d" && i + 2 < argc) {
+    } else if (arg == "-d" && i + 1 < argc) {
       ddi.emplace_back(argv[++i]);
+    } else if (arg == "-f" && i + 1 < argc) {
       module_file.emplace_back(argv[++i]);
     } else if (arg == "-o" && i + 1 < argc) {
       output = argv[++i];
@@ -37,6 +38,11 @@ int main(int argc, char *argv[]) {
                 << std::endl;
       std::exit(1);
     }
+  }
+  if (ddi.size() != module_file.size()) {
+    std::cerr << "ERROR: The number of -d and -f arguments must match."
+              << std::endl;
+    std::exit(1);
   }
   if (output.empty()) {
     std::cerr << "ERROR: output not specified" << std::endl;

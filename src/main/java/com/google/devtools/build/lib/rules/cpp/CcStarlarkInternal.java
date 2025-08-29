@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
@@ -540,6 +541,37 @@ public class CcStarlarkInternal implements StarlarkValue {
         Sequence.cast(extraHeaderTokens, Artifact.class, "extra_header_tokens").getImmutableList());
   }
 
+  /**
+   * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
+   * with C++20 Module files and Modules info files in {@code ccOutputs} added.
+   */
+  @StarlarkMethod(
+      name = "create_cc_compilation_context_with_cpp20_modules",
+      doc =
+          "Creates a <code>CompilationContext</code> based on an existing one, with C++20 Modules outputs",
+      parameters = {
+        @Param(
+            name = "cc_compilation_context",
+            doc = "The base <code>CompilationContext</code>.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "cc_compilation_outputs",
+            doc = "The compilation outputs with C++20 Modules outputs",
+            positional = false,
+            named = true),
+      })
+  public CcCompilationContext createCcCompilationContextWithCpp20Modules(
+      CcCompilationContext ccCompilationContext, CcCompilationOutputs ccOutputs)
+      throws EvalException {
+    return CcCompilationContext.createWithCpp20Modules(
+        ccCompilationContext,
+        ccOutputs.getCpp20ModuleFiles(/* usePic= */ false),
+        ccOutputs.getCpp20ModuleFiles(/* usePic= */ true),
+        ccOutputs.getModulesInfoFiles(/* usePic= */ false),
+        ccOutputs.getModulesInfoFiles(/* usePic= */ true));
+  }
+
   @StarlarkMethod(
       name = "create_copts_filter",
       doc = "Creates a copts filter from a regex.",
@@ -637,7 +669,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "add_object", positional = false, named = true),
         @Param(name = "enable_coverage", positional = false, named = true),
         @Param(name = "generate_dwo", positional = false, named = true),
-        @Param(name = "bitcode_output", positional = false, named = true)
+        @Param(name = "bitcode_output", positional = false, named = true),
+        @Param(name = "additional_build_variables", positional = false, named = true, defaultValue = "{}"),
       })
   public Sequence<?> createCompileSourceActionFromBuilder(
       StarlarkRuleContext starlarkRuleContext,
@@ -667,7 +700,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       boolean addObject,
       boolean enableCoverage,
       boolean generateDwo,
-      boolean bitcodeOutput)
+      boolean bitcodeOutput,
+      Dict<?, ?> additionalBuildVariables)
       throws RuleErrorException, EvalException, InterruptedException {
     ArtifactCategory outputCategory;
     try {
@@ -712,7 +746,16 @@ public class CcStarlarkInternal implements StarlarkValue {
             addObject,
             enableCoverage,
             generateDwo,
-            bitcodeOutput));
+            bitcodeOutput,
+            ImmutableMap.copyOf(
+                Dict.cast(additionalBuildVariables, String.class, Artifact.class, "additional_build_variables")
+                .entrySet().stream()
+                    .collect(ImmutableMap.toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().getExecPathString()
+                    ))
+                )
+            ));
   }
 
   @StarlarkMethod(
@@ -843,6 +886,15 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "gcno_file", positional = false, named = true, defaultValue = "None"),
         @Param(name = "dwo_file", positional = false, named = true, defaultValue = "None"),
         @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
+        @Param(name = "module_files", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "action_name", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "modmap_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "modmap_input_file", positional = false, named = true, defaultValue = "None"),
+        @Param(
+            name = "additional_outputs",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
       })
   public CppCompileActionBuilder createCppCompileActionBuilder(
       StarlarkRuleContext actionConstructionContext,
@@ -860,7 +912,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object diagnosticsFile,
       Object gcnoFile,
       Object dwoFile,
-      boolean usePic)
+      boolean usePic,
+      Object moduleFiles,
+      Object actionName,
+      Object modmapFile,
+      Object modmapInputFile,
+      Sequence<?> additionalOutputs)
       throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
@@ -893,6 +950,15 @@ public class CcStarlarkInternal implements StarlarkValue {
         nullIfNone(dotdFile, Artifact.class),
         nullIfNone(diagnosticsFile, Artifact.class));
     builder.setPicMode(usePic);
+    builder.setModuleFiles(Depset.noneableCast(moduleFiles, Artifact.class, "module_files"));
+    builder.setActionName(nullIfNone(actionName, String.class));
+    builder.setModmapFile(nullIfNone(modmapFile, Artifact.class));
+    builder.setModmapInputFile(nullIfNone(modmapInputFile, Artifact.class));
+    builder.setAdditionalOutputs(Sequence.cast(
+      additionalOutputs,
+      Artifact.class,
+      "additional_outputs"
+    ).getImmutableList());
     return builder;
   }
 
