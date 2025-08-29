@@ -267,8 +267,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return localFs.isFilePathCaseSensitive();
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return localFs.mayBeCaseOrNormalizationInsensitive()
+        || remoteOutputTree.mayBeCaseOrNormalizationInsensitive();
   }
 
   @VisibleForTesting
