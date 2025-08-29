@@ -1706,4 +1706,30 @@ public class UiStateTrackerTest extends FoundationTestCase {
     output = terminalWriter.getTranscript();
     assertThat(output).contains(" 1 / 1 tests");
   }
+
+  @Test
+  public void testGetOldestAction_prioritizesRunningOverScheduled() throws Exception {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    simulateExecutionPhase(stateTracker);
+
+    Action scheduledAction = mockAction("Scheduled action", "scheduled/action");
+    when(scheduledAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(scheduledAction, clock.nanoTime()));
+    stateTracker.schedulingAction(new SchedulingActionEvent(scheduledAction, "some-strategy"));
+
+    clock.advanceMillis(1000);
+    Action runningAction = mockAction("Running action", "running/action");
+    when(runningAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(runningAction, clock.nanoTime()));
+    stateTracker.runningAction(new RunningActionEvent(runningAction, "some-strategy"));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /*shortVersion= */true);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Running action");
+    assertThat(output).contains("(2 actions, 1 running)");
+    assertThat(output).doesNotContain("Scheduled action");
+  }
 }
