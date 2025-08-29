@@ -247,11 +247,16 @@ that use other build systems. Place a file called
 and add the directories you want Bazel to ignore, one per
 line. Entries are relative to the workspace root.
 
+The `.bazelignore` file does not permit glob semantics.
+Bazel 8 introduces the `REPO.bazel` file which allows another directive, `ignore_directories()`.
+It takes a list of directories to ignore just like .bazelignore does, but with glob semantics.
+See [#24203](https://github.com/bazelbuild/bazel/pull/24203).
+
 ### The global bazelrc file {:#global-bazelrc}
 
 Bazel reads optional bazelrc files in this order:
 
-1.  System rc-file located at `etc/bazel.bazelrc`.
+1.  System rc-file located at `/etc/bazel.bazelrc`.
 2.  Workspace rc-file located at `$workspace/tools/bazel.rc`.
 3.  Home rc-file located at `$HOME/.bazelrc`
 
