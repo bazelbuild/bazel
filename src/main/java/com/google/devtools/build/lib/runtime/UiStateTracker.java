@@ -913,16 +913,27 @@ class UiStateTracker {
     return prefix + message + postfix;
   }
 
-  protected ActionState getOldestAction() {
-    long minStart = Long.MAX_VALUE;
-    ActionState result = null;
+  private ActionState getOldestAction() {
+    long minRunningStart = Long.MAX_VALUE;
+    ActionState oldestRunning = null;
+    long minScheduledStart = Long.MAX_VALUE;
+    ActionState oldestScheduled = null;
+
     for (ActionState action : activeActions.values()) {
-      if (action.nanoStartTime < minStart) {
-        minStart = action.nanoStartTime;
-        result = action;
+      if (action.getPhase().equals(ActionPhase.RUNNING)) {
+        if (action.nanoStartTime < minRunningStart) {
+          minRunningStart = action.nanoStartTime;
+          oldestRunning = action;
+        }
+      } else {
+        if (action.nanoStartTime < minScheduledStart) {
+          minScheduledStart = action.nanoStartTime;
+          oldestScheduled = action;
+        }
       }
     }
-    return result;
+
+    return oldestRunning != null ? oldestRunning : oldestScheduled;
   }
 
   protected String countActions() {
