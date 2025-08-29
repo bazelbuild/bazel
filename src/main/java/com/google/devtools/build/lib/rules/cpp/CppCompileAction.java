@@ -127,7 +127,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @VisibleForTesting static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
 
   @Nullable private final Artifact gcnoFile;
-  @Nullable private final Artifact dotdFile;
   private final Artifact sourceFile;
 
   @Nullable private final Artifact dotdFile;
@@ -287,7 +286,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             featureConfiguration,
             actionName));
     this.gcnoFile = gcnoFile;
-    this.dotdFile = dotdFile;
     this.sourceFile = sourceFile;
     this.shareable = shareable;
     this.configuration = configuration;
@@ -351,7 +349,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<Artifact> mandatoryInputs,
       Object rawOutputs,
       @Nullable Artifact gcnoFile,
-      Artifact dotdFile,
       Artifact sourceFile,
       @Nullable Artifact dotdFile,
       BuildConfigurationValue configuration,
@@ -377,7 +374,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Artifact modmapInputFile) {
     super(owner, mandatoryInputs, rawOutputs);
     this.gcnoFile = gcnoFile;
-    this.dotdFile = dotdFile;
     this.sourceFile = sourceFile;
     this.dotdFile = dotdFile;
     this.configuration = configuration;
