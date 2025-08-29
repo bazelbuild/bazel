@@ -374,8 +374,7 @@ public class RemoteOutputChecker implements OutputChecker {
    */
   private static final class ConcurrentArtifactPathTrie {
     // Invariant: no path in this set is a prefix of another path.
-    private final ConcurrentSkipListSet<PathFragment> paths =
-        new ConcurrentSkipListSet<>(PathFragment.HIERARCHICAL_COMPARATOR);
+    private final ConcurrentSkipListSet<PathFragment> paths = new ConcurrentSkipListSet<>();
 
     /**
      * Adds the given {@link ActionInput} to the trie.
