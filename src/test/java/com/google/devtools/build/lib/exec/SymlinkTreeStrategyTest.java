@@ -74,6 +74,8 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     when(outputService.canCreateSymlinkTree()).thenReturn(true);
 
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
+    inputManifest.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(inputManifest.getPath());
     Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
     doAnswer(
@@ -137,6 +139,8 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     when(outputService.canCreateSymlinkTree()).thenReturn(false);
 
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
+    inputManifest.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(inputManifest.getPath());
     Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
 
