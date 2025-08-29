@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Map;
@@ -120,9 +121,10 @@ public abstract class ActionEnvironment {
    *
    * <p>We pass in a map to mutate to avoid creating and merging intermediate maps.
    */
-  public final void resolve(Map<String, String> result, Map<String, String> clientEnv) {
+  public final void resolve(
+      Map<String, String> result, Map<String, String> clientEnv, PathMapper pathMapper) {
     checkNotNull(clientEnv);
-    result.putAll(getFixedEnv());
+    result.putAll(Maps.transformValues(getFixedEnv(), pathMapper::mapHeuristically));
     for (String var : getInheritedEnv()) {
       String value = clientEnv.get(var);
       if (value != null) {
