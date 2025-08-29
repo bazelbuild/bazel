@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.remote.util.ResourceNameInterceptor.RESOURCE_NAME_KEY;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -43,6 +44,7 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.github.luben.zstd.Zstd;
+import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
@@ -1400,5 +1402,47 @@ public class GrpcCacheClientTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
 
     assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void downloadBlobWithResourceNameHeader() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+
+    byte[] blobData = "test-blob-data".getBytes(UTF_8);
+    Digest digest = DIGEST_UTIL.compute(blobData);
+
+    String expectedResourceName =
+        GrpcCacheClient.getResourceName("", digest, false, DIGEST_UTIL.getDigestFunction());
+
+    var bsService =
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            // Service logic: respond with the data and complete.
+            // The header assertion happens in the interceptor.
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFrom(blobData)).build());
+            responseObserver.onCompleted();
+          }
+        };
+    var headerValidator =
+        new ServerInterceptor() {
+          @Override
+          public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+              ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+            if (call.getMethodDescriptor()
+                .getFullMethodName()
+                .equals(ByteStreamGrpc.getReadMethod().getFullMethodName())) {
+              String resourceNameHeaderValue = headers.get(RESOURCE_NAME_KEY);
+              assertThat(resourceNameHeaderValue).isNotNull();
+              assertThat(resourceNameHeaderValue).isEqualTo(expectedResourceName);
+            }
+            return next.startCall(call, headers);
+          }
+        };
+    serviceRegistry.addService(ServerInterceptors.intercept(bsService, headerValidator));
+
+    final GrpcCacheClient client = newClient(remoteOptions);
+    assertThat(downloadBlob(context, client, digest)).isEqualTo(blobData);
   }
 }
