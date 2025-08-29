@@ -130,12 +130,14 @@ function java_compilation() {
 
   check_unzip_wont_create_long_paths "${output}/classes" "$library_jars"
 
+  "${JAVAC}" -fullversion
+
   # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
   # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
   # Useful if your system chooses too small of a max heap for javac.
   # We intentionally rely on shell word splitting to allow multiple
   # additional arguments to be passed to javac.
-  run "${JAVAC}" -verbose -classpath "${classpath}" -sourcepath "${sourcepath}" \
+  run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
       ${BAZEL_JAVAC_OPTS} "@${paramfile}"
