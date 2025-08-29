@@ -295,6 +295,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
+    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableSet.of());
   }
 
   @Test

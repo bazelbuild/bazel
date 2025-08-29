@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -404,6 +405,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
                         ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
+                    PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
                         ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
@@ -443,6 +445,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
                 ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
+            PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
             PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),

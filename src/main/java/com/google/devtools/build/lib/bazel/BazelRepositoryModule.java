@@ -141,6 +141,7 @@ public class BazelRepositoryModule extends BlazeModule {
   // Default list of registries.
   public static final ImmutableSet<String> DEFAULT_REGISTRIES =
       ImmutableSet.of("https://bcr.bazel.build/");
+  public static final ImmutableSet<String> DEFAULT_MODULE_MIRRORS = ImmutableSet.of();
 
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
@@ -155,6 +156,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private FileSystem filesystem;
   private ImmutableSet<String> registries;
+  private ImmutableSet<String> moduleMirrors;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -592,9 +594,14 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
-        registries = normalizeRegistries(repoOptions.registries);
+        registries = normalizeBaseUrls(repoOptions.registries);
       } else {
         registries = DEFAULT_REGISTRIES;
+      }
+      if (repoOptions.moduleMirrors != null && !repoOptions.moduleMirrors.isEmpty()) {
+        moduleMirrors = normalizeBaseUrls(repoOptions.moduleMirrors);
+      } else {
+        moduleMirrors = DEFAULT_MODULE_MIRRORS;
       }
 
       if (!Strings.isNullOrEmpty(repoOptions.experimentalResolvedFileInsteadOfWorkspace)) {
@@ -636,10 +643,10 @@ public class BazelRepositoryModule extends BlazeModule {
     }
   }
 
-  private static ImmutableSet<String> normalizeRegistries(List<String> registries) {
-    // Ensure that registries aren't duplicated even after `/modules/...` paths are appended to
+  private static ImmutableSet<String> normalizeBaseUrls(List<String> baseUrls) {
+    // Ensure that base URLs aren't duplicated even after /-delimited segments are appended to
     // them.
-    return registries.stream()
+    return baseUrls.stream()
         .map(url -> CharMatcher.is('/').trimTrailingFrom(url))
         .collect(toImmutableSet());
   }
@@ -709,6 +716,7 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
             RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
+        PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, moduleMirrors),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),
