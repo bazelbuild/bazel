@@ -100,6 +100,16 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
+   * Returns the path of an existing file with the case of its segments normalized to reflect the
+   * actual state of the case-preserving but possibly case-insensitive filesystem.
+   *
+   * <p>The returned path is guaranteed to have the same number of segments as this path.
+   */
+  public Path canonicalizeCase() throws IOException {
+    return fileSystem.getPath(fileSystem.canonicalizeCase(asFragment()));
+  }
+
+  /**
    * Returns a {@link Path} formed by appending {@code newName} to this {@link Path}'s parent
    * directory. If this {@link Path} has zero segments, returns {@code null}. If {@code newName} is
    * absolute, the value of {@code this} will be ignored and a {@link Path} corresponding to {@code

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.NoRepositoryPackageLookupValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -65,14 +66,17 @@ public class PackageLookupFunction implements SkyFunction {
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
+  private final AtomicReference<Boolean> enforceStrictLabelCasing;
 
   public PackageLookupFunction(
       AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      ImmutableList<BuildFileName> buildFilesByPriority) {
+      ImmutableList<BuildFileName> buildFilesByPriority,
+      AtomicReference<Boolean> enforceStrictLabelCasing) {
     this.deletedPackages = deletedPackages;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
+    this.enforceStrictLabelCasing = enforceStrictLabelCasing;
   }
 
   private static class State implements SkyKeyComputeState {
@@ -100,7 +104,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (!packageKey.getRepository().isMain()) {
-      return computeExternalPackageLookupValue(skyKey, env, packageKey);
+      return computeExternalPackageLookupValue(skyKey, env);
     }
 
     if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
@@ -319,7 +323,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (fileValue.isFile()) {
-      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+      return validateSuccessfulLookup(packageIdentifier, buildFileName, buildFileRootedPath);
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
@@ -332,8 +336,7 @@ public class PackageLookupFunction implements SkyFunction {
    * name.
    */
   @Nullable
-  private PackageLookupValue computeExternalPackageLookupValue(
-      SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
+  private PackageLookupValue computeExternalPackageLookupValue(SkyKey skyKey, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
     SkyKey repositoryKey = RepositoryDirectoryValue.key(id.getRepository());
@@ -381,17 +384,64 @@ public class PackageLookupFunction implements SkyFunction {
       PathFragment buildFileFragment =
           id.getPackageFragment().getRelative(buildFileName.getFilenameFragment());
       RootedPath buildFileRootedPath = RootedPath.toRootedPath(root, buildFileFragment);
-      FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
+      FileValue fileValue = getFileValue(buildFileRootedPath, env, id);
       if (fileValue == null) {
         return null;
       }
 
       if (fileValue.isFile()) {
-        return PackageLookupValue.success(root, buildFileName);
+        return validateSuccessfulLookup(id, buildFileName, buildFileRootedPath);
       }
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
+  }
+
+  private PackageLookupValue validateSuccessfulLookup(
+      PackageIdentifier packageIdentifier,
+      BuildFileName buildFileName,
+      RootedPath buildFileRootedPath)
+      throws PackageLookupFunctionException {
+    var buildFilePath = buildFileRootedPath.asPath();
+    Path canonicalBuildFilePath;
+    try {
+      // Access to buildFilePath is tracked by a dependency on the FileValue added by callers.
+      canonicalBuildFilePath = buildFilePath.canonicalizeCase();
+    } catch (IOException e) {
+      throw new PackageLookupFunctionException(
+          new BuildFileNotFoundException(packageIdentifier, e.getMessage(), e),
+          Transience.TRANSIENT);
+    }
+    // Fast path for a case-sensitive filesystem.
+    if (canonicalBuildFilePath.equals(buildFilePath)) {
+      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+    }
+    // Ignore the case of the root as it doesn't matter for the value of this function.
+    // The canonicalized path is guaranteed to have the same number of segments as the original.
+    var buildFileRelativePath = buildFileRootedPath.getRootRelativePath();
+    var buildFilePathSegmentCount = buildFilePath.asFragment().segmentCount();
+    var canonicalBuildFileRelativePath =
+        canonicalBuildFilePath
+            .asFragment()
+            .subFragment(
+                buildFilePathSegmentCount - buildFileRelativePath.segmentCount(),
+                buildFilePathSegmentCount);
+    if (buildFileRelativePath.equals(canonicalBuildFileRelativePath)) {
+      return PackageLookupValue.success(buildFileRootedPath.getRoot(), buildFileName);
+    }
+    if (buildFileRelativePath
+        .getParentDirectory()
+        .equals(canonicalBuildFileRelativePath.getParentDirectory())) {
+      return PackageLookupValue.invalidPackageName(
+          "'%s' is not a valid build file name, use '%s' instead"
+              .formatted(
+                  canonicalBuildFileRelativePath.getBaseName(),
+                  buildFileName.getFilenameFragment()));
+    } else {
+      return PackageLookupValue.invalidPackageName(
+          "use the canonical form '%s' instead"
+              .formatted(canonicalBuildFileRelativePath.getParentDirectory()));
+    }
   }
 
   /**

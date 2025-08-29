@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager
 import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -49,6 +50,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -195,6 +197,23 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<String, RepoSpec> generatedRepoSpecs = moduleExtensionResult.generatedRepoSpecs();
+    if (starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STRICT_LABEL_CASING)) {
+      // No need to reencode strings (see StringEncoding) since all repo names are ASCII.
+      var seenIgnoringCase = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+      for (var name : generatedRepoSpecs.keySet()) {
+        var previousName = seenIgnoringCase.putIfAbsent(name, name);
+        if (previousName != null) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_LOCKFILE,
+                  "The module extension '%s' produced two repos '%s' and '%s' that only"
+                      + " differ in case, which is not allowed.",
+                  extensionId,
+                  previousName,
+                  name));
+        }
+      }
+    }
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
         moduleExtensionResult.moduleExtensionMetadata();
 
