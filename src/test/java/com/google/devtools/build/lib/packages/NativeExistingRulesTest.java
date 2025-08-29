@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +27,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
@@ -143,9 +146,16 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     // Parse the BUILD file, to make sure select() makes it out of native.existing_rule().
     assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
 
-    // We have to compare by stringification because SelectorValue has reference equality semantics.
-    assertThat(getSaved("dep").toString())
-        .isEqualTo("select({\":config\": None, \"//conditions:default\": None})");
+    assertThat(getSaved("dep"))
+        .isEqualTo(
+            SelectorList.of(
+                new SelectorValue(
+                    ImmutableMap.of(
+                        Label.parseCanonicalUnchecked("//test/getrule:config"),
+                        Starlark.NONE,
+                        Label.parseCanonicalUnchecked("//conditions:default"),
+                        Starlark.NONE),
+                    "")));
   }
 
   @Test
@@ -179,9 +189,9 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         """
         def macro():
             s = select({"//foo": ["//bar"]})
-            print("Passed: " + repr(s))
+            test.save("passed", s)
             native.cc_library(name = "x", srcs = s)
-            print("Returned: " + repr(native.existing_rule("x")["srcs"]))
+            test.save("returned", native.existing_rule("x")["srcs"])
 
             # The value returned here should round-trip fine.
             native.cc_library(name = "y", srcs = native.existing_rule("x")["srcs"])
@@ -199,14 +209,25 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         )
         """);
     getConfiguredTarget("//test:a");
-    assertContainsEvent("Passed: select({\"//foo\": [\"//bar\"]}");
-    // The short labels are now in their canonical form, and the sequence is represented as
-    // tuple instead of list, but the meaning is unchanged.
-    assertContainsEvent("Returned: select({\"//foo:foo\": (\"//bar:bar\",)}");
+    assertThat(getSaved("passed"))
+        .isEqualTo(
+            SelectorList.of(
+                new SelectorValue(
+                    ImmutableMap.of("//foo", StarlarkList.of(Mutability.create("temp"), "//bar")),
+                    "")));
+    // The select key is now a label, the short label string is in canonical form, and the sequence
+    // is represented as tuple instead of list, but the meaning is unchanged.
+    assertThat(getSaved("returned"))
+        .isEqualTo(
+            SelectorList.of(
+                new SelectorValue(
+                    ImmutableMap.of(
+                        Label.parseCanonicalUnchecked("//foo:foo"), Tuple.of("//bar:bar")),
+                    "")));
   }
 
   @Test
-  public void existingRule_shortensLabelsInSamePackage() throws Exception {
+  public void existingRule_labelStringification() throws Exception {
     scratch.file(
         "test/existing_rule.bzl",
         """
@@ -226,14 +247,19 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
 
         cc_binary(
             name = "b",
-            deps = ["//test:a"],
+            deps = [
+                "//test:a",
+                "//other_package:a",
+                "@bazel_tools//test:a",
+            ],
         )
 
         save_deps()
         """);
-    getConfiguredTarget("//test:b");
+    getTarget("//test:b");
     assertThat(Starlark.toIterable(getSaved("r['deps']")))
-        .containsExactly(":a"); // as opposed to "//test:a"
+        .containsExactly(":a", "//other_package:a", "@@bazel_tools//test:a")
+        .inOrder();
   }
 
   @Test
