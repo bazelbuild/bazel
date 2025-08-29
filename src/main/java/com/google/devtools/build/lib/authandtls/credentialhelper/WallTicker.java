@@ -15,21 +15,27 @@
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import com.github.benmanes.caffeine.cache.Ticker;
+import com.google.devtools.build.lib.clock.Clock;
+import java.time.Duration;
 
 /**
- * SystemMillisTicker is a Ticker which uses the unix epoch as its fixed reference point.
+ * WallTicker is a Ticker which reports wall time since the unix epoch.
  *
- * <p>It is preferable to com.github.benmanes.caffeine.cache.Ticker.SystemTicker because that class
- * doesn't increment its time-source while the system is asleep, which isn't appropriate when
- * expiring tokens which have wall-time-based expiry policies.
+ * <p>We use this instead of com.github.benmanes.caffeine.cache.Ticker.SystemTicker because the
+ * latter uses monotonic time (which doesn't increment the time source while the system is asleep)
+ * with an unspecified reference point (which is unhelpful when computing the cache duration for
+ * credentials whose expiry is a fixed point in time, not a fixed duration).
  */
-public class SystemMillisTicker implements Ticker {
-  public static final SystemMillisTicker INSTANCE = new SystemMillisTicker();
+final class WallTicker implements Ticker {
+  private final Clock clock;
 
-  private SystemMillisTicker() {}
+  WallTicker(Clock clock) {
+    this.clock = clock;
+  }
 
   @Override
   public long read() {
-    return System.currentTimeMillis() * 1_000_000;
+    // Documented to return a value in nanoseconds.
+    return Duration.ofMillis(clock.currentTimeMillis()).toNanos();
   }
 }

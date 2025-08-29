@@ -1352,21 +1352,14 @@ maybe_with_auth(
 )
 EOF
 
-  cat > BUILD <<'EOF'
-genrule(
-  name = "it",
-  srcs = ["@ext//x:file.txt"],
-  outs = ["it.txt"],
-  cmd = "cp $< $@",
-)
-EOF
+  touch BUILD
 }
 
 function test_auth_from_starlark() {
   setup_auth foo bar
 
-  bazel build //:it \
-      || fail "Expected success when downloading repo with basic auth"
+  bazel fetch --force @ext//... \
+      || fail "Expected success when fetching repo with basic auth"
 }
 
 function test_auth_from_credential_helper() {
@@ -1375,22 +1368,47 @@ function test_auth_from_credential_helper() {
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
-  setup_auth # no auth
+  setup_auth # no auth headers in bzl
 
-  bazel build //:it \
-      && fail "Expected failure when downloading repo without credential helper"
+  bazel fetch --force @ext//... \
+      && fail "Expected failure when fetching repo without credential helper"
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
 
   expect_credential_helper_calls 1
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
 
   expect_credential_helper_calls 1 # expect credentials to have been cached
+}
+
+function test_auth_from_credential_helper_with_expiry() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper 0 # expire credentials immediately
+
+  setup_auth # no auth headers in bzl
+
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
+
+  expect_credential_helper_calls 1
+
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
+
+  expect_credential_helper_calls 2 # expect credentials to have been re-fetched
 }
 
 function test_auth_from_credential_helper_overrides_starlark() {
@@ -1399,12 +1417,13 @@ function test_auth_from_credential_helper_overrides_starlark() {
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   setup_auth baduser badpass
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper overriding basic auth"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper overriding basic auth"
 }
 
 function test_netrc_reading() {
@@ -1796,7 +1815,7 @@ function test_http_archive_credential_helper() {
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -1830,7 +1849,7 @@ function test_http_archive_credential_helper_overrides_netrc() {
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -1952,7 +1971,7 @@ function test_cred_helper_overrides_starlark_headers() {
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   filename="cred_helper_starlark.txt"
   echo $filename > $filename

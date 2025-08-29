@@ -76,7 +76,7 @@ function has_utf8_locale() {
 }
 
 function setup_credential_helper_test() {
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir -p a
 
@@ -111,6 +111,9 @@ function test_credential_helper_remote_cache() {
   # First build should have called helper for 4 distinct URIs.
   expect_credential_helper_calls 4
 
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --credential_helper="${TEST_TMPDIR}/credhelper" \
@@ -140,6 +143,9 @@ function test_credential_helper_remote_execution() {
 
   # First build should have called helper for 5 distinct URIs.
   expect_credential_helper_calls 5
+
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
 
   bazel build \
       --spawn_strategy=remote \

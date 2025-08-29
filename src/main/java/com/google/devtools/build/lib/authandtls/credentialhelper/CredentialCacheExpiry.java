@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -32,46 +34,48 @@ final class CredentialCacheExpiry implements Expiry<URI, GetCredentialsResponse>
     this.defaultCacheDuration = Preconditions.checkNotNull(duration);
   }
 
-  private Duration getExpirationTime(GetCredentialsResponse response, Instant currentTime) {
-    Preconditions.checkNotNull(response);
+  private Duration getCacheDuration(GetCredentialsResponse response, Instant now) {
+    checkNotNull(response);
 
     var expires = response.expires();
     if (expires.isEmpty()) {
       return defaultCacheDuration;
     }
 
-    return Duration.between(currentTime, expires.get());
+    return Duration.between(now, expires.get());
   }
 
   @Override
   public long expireAfterCreate(URI uri, GetCredentialsResponse response, long currentTime) {
-    Preconditions.checkNotNull(uri);
-    Preconditions.checkNotNull(response);
+    checkNotNull(uri);
+    checkNotNull(response);
 
-    return getExpirationTime(response, Instant.ofEpochMilli(nanoToMilli(currentTime))).toNanos();
+    // currentTime is in nanos since epoch (see WallTicker).
+    Instant now = Instant.ofEpochSecond(0, currentTime);
+
+    return getCacheDuration(response, now).toNanos();
   }
 
   @Override
   public long expireAfterUpdate(
       URI uri, GetCredentialsResponse response, long currentTime, long currentDuration) {
-    Preconditions.checkNotNull(uri);
-    Preconditions.checkNotNull(response);
+    checkNotNull(uri);
+    checkNotNull(response);
 
-    return getExpirationTime(response, Instant.ofEpochMilli(nanoToMilli(currentTime))).toNanos();
+    // currentTime is in nanos since epoch (see WallTicker).
+    Instant now = Instant.ofEpochSecond(0, currentTime);
+
+    return getCacheDuration(response, now).toNanos();
   }
 
   @CanIgnoreReturnValue
   @Override
   public long expireAfterRead(
       URI uri, GetCredentialsResponse response, long currentTime, long currentDuration) {
-    Preconditions.checkNotNull(uri);
-    Preconditions.checkNotNull(response);
+    checkNotNull(uri);
+    checkNotNull(response);
 
-    // We don't extend the duration on access.
+    // Don't extend the duration on read access.
     return currentDuration;
-  }
-
-  private static final long nanoToMilli(long nano) {
-    return Duration.ofNanos(nano).toMillis();
   }
 }

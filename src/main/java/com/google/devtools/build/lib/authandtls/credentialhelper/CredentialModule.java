@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.Ticker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.OptionsBase;
@@ -28,17 +29,22 @@ import java.time.Duration;
 
 /** A module whose sole purpose is to hold the credential cache which is shared by other modules. */
 public class CredentialModule extends BlazeModule {
-  private final CredentialCacheExpiry cacheExpiry = new CredentialCacheExpiry();
+  private final CredentialCacheExpiry credentialCacheExpiry;
   private final Cache<URI, GetCredentialsResponse> credentialCache;
   private Duration lastDefaultCacheDuration = Duration.ZERO;
 
   public CredentialModule() {
-    this(Ticker.systemTicker());
+    this(new JavaClock());
   }
 
   @VisibleForTesting
-  CredentialModule(Ticker ticker) {
-    this.credentialCache = Caffeine.newBuilder().ticker(ticker).expireAfter(cacheExpiry).build();
+  CredentialModule(Clock clock) {
+    this.credentialCacheExpiry = new CredentialCacheExpiry();
+    this.credentialCache =
+        Caffeine.newBuilder()
+            .ticker(new WallTicker(clock))
+            .expireAfter(credentialCacheExpiry)
+            .build();
   }
 
   /** Returns the credential cache. */
@@ -66,6 +72,6 @@ public class CredentialModule extends BlazeModule {
     }
 
     // Update the expiration policy for future entries.
-    cacheExpiry.setDefaultCacheDuration(defaultCacheDuration);
+    credentialCacheExpiry.setDefaultCacheDuration(defaultCacheDuration);
   }
 }
