@@ -32,10 +32,6 @@ LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
 EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
-
-# javac fails for this file, presumably a jdk bug, see discussion on #26840
-EXCLUDE_FILES+=" ${OUTPUT_DIR}/src/com/google/devtools/build/lib/remote/BazelOutputServiceGrpc.java"
-
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
 EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
