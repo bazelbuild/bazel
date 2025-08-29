@@ -130,7 +130,7 @@ function java_compilation() {
 
   check_unzip_wont_create_long_paths "${output}/classes" "$library_jars"
 
-  # Workaround javac bug #26840
+  # Workaround javac bug, see https://github.com/bazelbuild/bazel/pull/26840
   VERBOSE_FLAG="-verbose"
 
   # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
