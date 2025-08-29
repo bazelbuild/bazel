@@ -60,6 +60,7 @@ class Options {
   std::vector<std::string> build_info_lines;
   std::vector<std::string> include_prefixes;
   std::set<std::string> exclude_zip_entries;
+  std::vector<std::string> exclude_zip_entry_patterns;
   std::vector<std::string> nocompress_suffixes;
   bool exclude_build_data;
   bool force_compression;
