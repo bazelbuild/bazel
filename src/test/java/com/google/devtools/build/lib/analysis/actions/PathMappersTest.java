@@ -43,7 +43,10 @@ public class PathMappersTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    useConfiguration("--experimental_output_paths=strip");
+    useConfiguration(
+        // TODO: b/417791104 - enable once Bazel 8.3.0 is released
+        // "--experimental_java_header_compilation_direct_deps",
+        "--experimental_output_paths=strip");
   }
 
   @Test
@@ -101,6 +104,8 @@ public class PathMappersTest extends BuildViewTestCase {
             format("%s/cfg/bin/java/com/google/test/C.java", outDir),
             format("%s/cfg/bin/java/com/google/test/liba-hjar.jar", outDir),
             format("%s/cfg/bin/java/com/google/test/liba-hjar.jdeps", outDir),
+            // TODO: b/417791104 - enable once Bazel 8.3.0 is released
+            // format("%s/cfg/bin/java/com/google/test/liba-tjar.jar", outDir),
             format("-XepOpt:foo:bar=%s/cfg/bin/java/com/google/test/B.java", outDir),
             format(
                 "-XepOpt:baz=%s/cfg/bin/java/com/google/test/C.java,%s/cfg/bin/java/com/google/test/B.java",

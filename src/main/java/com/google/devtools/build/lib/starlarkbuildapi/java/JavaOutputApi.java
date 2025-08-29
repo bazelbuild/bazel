@@ -46,6 +46,14 @@ public interface JavaOutputApi<FileT extends FileApi> extends StructApi {
   FileT getCompileJar();
 
   @StarlarkMethod(
+      name = "header_compilation_jar",
+      doc = "A header compilation jar file.",
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
+  FileT getHeaderCompilationJar();
+
+  @StarlarkMethod(
       name = "compile_jdeps",
       doc = "Compile time dependencies information (deps.proto file).",
       allowReturnNones = true,
