@@ -314,6 +314,7 @@ use_repo(
     "openjdk_linux_aarch64_vanilla",
     "openjdk_linux_ppc64le_vanilla",
     "openjdk_linux_riscv64_vanilla",
+    "openjdk_linux_sw_64_vanilla",
     "openjdk_linux_s390x_vanilla",
     "openjdk_linux_vanilla",
     "openjdk_macos_aarch64_vanilla",
