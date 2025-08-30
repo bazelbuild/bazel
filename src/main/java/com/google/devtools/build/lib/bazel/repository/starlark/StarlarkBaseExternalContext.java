@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
@@ -171,6 +172,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
   private final ExecutorService executorService;
+  private final List<RepositoryName> materializeOnExecute = new ArrayList<>(0);
 
   private boolean wasSuccessful = false;
 
@@ -1904,6 +1906,24 @@ the same path on case-insensitive filesystems.
       StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     validateExecuteArguments(arguments);
+    if (directories.getOutputBase().getFileSystem() instanceof RemoteOverlayFileSystem remoteFs) {
+      for (var repoName : materializeOnExecute) {
+        try {
+          remoteFs.ensureMaterialized(
+              repoName,
+              () -> {
+                env.getListener()
+                    .handle(
+                        Event.info(
+                            "Materializing %s to execute %s"
+                                .formatted(repoName, arguments.getFirst())));
+              });
+        } catch (IOException e) {
+          throw Starlark.errorf(
+              "Failed to materialize remote repo %s: %s", repoName, e.getMessage());
+        }
+      }
+    }
     int timeout = Starlark.toInt(timeoutI, "timeout");
 
     Map<String, Object> forceEnvVariablesRaw =
@@ -2265,6 +2285,11 @@ func(
     RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
     if (rootedPath == null) {
       throw new NeedsSkyframeRestartException();
+    }
+    if (!label.getRepository().isMain()
+        && directories.getOutputBase().getFileSystem()
+            instanceof RemoteOverlayFileSystem remoteFs) {
+      materializeOnExecute.add(label.getRepository());
     }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {

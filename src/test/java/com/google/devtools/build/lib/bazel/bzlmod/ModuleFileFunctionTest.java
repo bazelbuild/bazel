@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -165,7 +165,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         ImmutableMap::of,
                         new AtomicBoolean(true),
                         directories,
-                        new RepoContentsCache()))
+                        new LocalRepoContentsCache()))
                 .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
                 .put(
                     SkyFunctions.REGISTRY,

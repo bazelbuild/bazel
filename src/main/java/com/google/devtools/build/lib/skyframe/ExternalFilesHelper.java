@@ -246,9 +246,9 @@ public class ExternalFilesHelper {
     if (outputBase == null) {
       return FileType.EXTERNAL_OTHER;
     }
-    if (rootedPath.asPath().startsWith(outputBase)) {
+    if (rootedPath.asPath().asFragment().startsWith(outputBase.asFragment())) {
       Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-      if (rootedPath.asPath().startsWith(externalRepoDir)) {
+      if (rootedPath.asPath().asFragment().startsWith(externalRepoDir.asFragment())) {
         return FileType.EXTERNAL_REPO;
       } else {
         return FileType.OUTPUT;
@@ -311,7 +311,8 @@ public class ExternalFilesHelper {
       throws InterruptedException {
     Path externalRepoDir =
         directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
+    PathFragment repositoryPath =
+        rootedPath.asPath().asFragment().relativeTo(externalRepoDir.asFragment());
     if (repositoryPath.isEmpty()) {
       // We are the top of the repository path (<outputBase>/external), not in an actual external
       // repository path.

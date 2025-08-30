@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -74,16 +75,19 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
+import com.google.devtools.build.lib.runtime.RepoContentsCache;
+import com.google.devtools.build.lib.runtime.RepositoryHelpersFactory;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -102,6 +106,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -134,7 +139,9 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
+  private boolean useRemoteRepoContentsCache;
 
+  @Nullable private PathFragment outputBase;
   @Nullable private AsynchronousMessageOutputStream<LogEntry> rpcLogFile;
   @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
@@ -169,18 +176,39 @@ public final class RemoteModule extends BlazeModule {
   private final BuildEventArtifactUploaderFactoryDelegate
       buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
 
-  private final RepositoryRemoteExecutorFactoryDelegate repositoryRemoteExecutorFactoryDelegate =
-      new RepositoryRemoteExecutorFactoryDelegate();
+  private final RepositoryHelpersFactoryDelegate repositoryHelpersFactoryDelegate =
+      new RepositoryHelpersFactoryDelegate();
 
   private Downloader remoteDownloader;
 
   private CredentialModule credentialModule;
 
   @Override
+  public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
+    return ImmutableList.of(RemoteStartupOptions.class);
+  }
+
+  @Override
+  public void globalInit(OptionsParsingResult startupOptions) {
+    outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).outputBase;
+    useRemoteRepoContentsCache =
+        startupOptions.getOptions(RemoteStartupOptions.class).useRemoteRepoContentsCache;
+  }
+
+  @Override
+  public FileSystem getFileSystemForBuildArtifacts(FileSystem nativeFs) {
+    if (!useRemoteRepoContentsCache) {
+      return null;
+    }
+    return new RemoteOverlayFileSystem(
+        outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION), nativeFs);
+  }
+
+  @Override
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addBuildEventArtifactUploaderFactory(
         buildEventArtifactUploaderFactoryDelegate, "remote");
-    builder.setRepositoryRemoteExecutorFactory(repositoryRemoteExecutorFactoryDelegate);
+    builder.setRepositoryHelpersFactory(repositoryHelpersFactoryDelegate);
   }
 
   /** Returns whether remote execution should be enabled. */
@@ -717,15 +745,6 @@ public final class RemoteModule extends BlazeModule {
               remoteOutputChecker,
               outputService,
               knownMissingCasDigests);
-      repositoryRemoteExecutorFactoryDelegate.init(
-          new RemoteRepositoryRemoteExecutorFactory(
-              remoteCache,
-              remoteExecutor,
-              digestUtil,
-              buildRequestId,
-              invocationId,
-              remoteOptions.remoteInstanceName,
-              remoteOptions.remoteAcceptCached));
     } else {
       if (enableDiskCache) {
         try {
@@ -754,6 +773,23 @@ public final class RemoteModule extends BlazeModule {
               remoteOutputChecker,
               outputService,
               knownMissingCasDigests);
+    }
+
+    repositoryHelpersFactoryDelegate.init(
+        new RemoteRepositoryHelpersFactory(
+            actionContextProvider.getCombinedCache(),
+            actionContextProvider.getRemoteExecutionClient(),
+            buildRequestId,
+            invocationId,
+            remoteOptions.remoteInstanceName,
+            remoteOptions.remoteAcceptCached));
+    if (env.getDirectories().getOutputBase().getFileSystem()
+        instanceof RemoteOverlayFileSystem remoteFs) {
+      remoteFs.beforeCommand(
+          actionContextProvider.getCombinedCache(),
+          env.getReporter(),
+          buildRequestId,
+          invocationId);
     }
 
     buildEventArtifactUploaderFactoryDelegate.init(
@@ -954,7 +990,11 @@ public final class RemoteModule extends BlazeModule {
     lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
-    repositoryRemoteExecutorFactoryDelegate.reset();
+    repositoryHelpersFactoryDelegate.reset();
+    if (env.getDirectories().getOutputBase().getFileSystem()
+        instanceof RemoteOverlayFileSystem remoteFs) {
+      remoteFs.afterCommand();
+    }
     remoteDownloader = null;
     actionContextProvider = null;
     actionInputFetcher = null;
@@ -1185,12 +1225,11 @@ public final class RemoteModule extends BlazeModule {
                 .build()));
   }
 
-  private static class RepositoryRemoteExecutorFactoryDelegate
-      implements RepositoryRemoteExecutorFactory {
+  private static class RepositoryHelpersFactoryDelegate implements RepositoryHelpersFactory {
 
-    private volatile RepositoryRemoteExecutorFactory delegate;
+    private volatile RepositoryHelpersFactory delegate;
 
-    public void init(RepositoryRemoteExecutorFactory delegate) {
+    public void init(RepositoryHelpersFactory delegate) {
       Preconditions.checkState(this.delegate == null);
       this.delegate = delegate;
     }
@@ -1201,12 +1240,22 @@ public final class RemoteModule extends BlazeModule {
 
     @Nullable
     @Override
-    public RepositoryRemoteExecutor create() {
-      RepositoryRemoteExecutorFactory delegate = this.delegate;
+    public RepositoryRemoteExecutor createExecutor() {
+      RepositoryHelpersFactory delegate = this.delegate;
       if (delegate == null) {
         return null;
       }
-      return delegate.create();
+      return delegate.createExecutor();
+    }
+
+    @Nullable
+    @Override
+    public RepoContentsCache createRepoContentsCache() {
+      RepositoryHelpersFactory delegate = this.delegate;
+      if (delegate == null) {
+        return null;
+      }
+      return delegate.createRepoContentsCache();
     }
   }
 
