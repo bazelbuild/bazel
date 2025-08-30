@@ -738,10 +738,15 @@ public class ActionCacheChecker {
   }
 
   @Nullable
-  public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
+  public List<Artifact> getCachedInputs(
+      Action action, PackageRootResolver resolver, byte[] inputDiscoveryInvalidationDigest)
       throws PackageRootResolver.PackageRootException, InterruptedException {
     ActionCache.Entry entry = getCacheEntry(action);
-    if (entry == null || entry.isCorrupted()) {
+    if (entry == null
+        || entry.isCorrupted()
+        || (entry.discoversInputs()
+            && !Arrays.equals(
+                entry.getInputDiscoveryInvalidationDigest(), inputDiscoveryInvalidationDigest))) {
       return ImmutableList.of();
     }
 
@@ -887,5 +892,4 @@ public class ActionCacheChecker {
       this.cacheKey = action.getPrimaryOutput().getExecPathString();
     }
   }
-
 }

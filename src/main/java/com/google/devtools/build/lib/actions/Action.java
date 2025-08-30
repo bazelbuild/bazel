@@ -199,6 +199,8 @@ public interface Action extends ActionExecutionMetadata {
    */
   NestedSet<Artifact> getAllowedDerivedInputs();
 
+  @Nullable Artifact getInputDiscoveryInvalidationArtifact();
+
   /**
    * Called on {@linkplain #discoversInputs input-discovering} actions when the inputs of the action
    * become known, either during {@link #discoverInputs} or during {@link #execute}.
