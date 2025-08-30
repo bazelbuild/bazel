@@ -74,7 +74,8 @@ public final class RemoteRepoContentsCache implements RepoContentsCache {
 
   @Override
   public void addToCache(
-      RepositoryName repoName, Path fetchedRepoDir,
+      RepositoryName repoName,
+      Path fetchedRepoDir,
       Path fetchedRepoMarkerFile,
       String predeclaredInputHash,
       ExtendedEventHandler reporter)
@@ -241,6 +242,8 @@ public final class RemoteRepoContentsCache implements RepoContentsCache {
     var metadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, repoName.getName(), /* actionExecutionMetadata= */ null);
+    // Don't use the disk cache as `--repo_contents_cache` is a strictly better alternative for
+    // local caching.
     return RemoteActionExecutionContext.create(metadata)
         .withReadCachePolicy(RemoteActionExecutionContext.CachePolicy.REMOTE_CACHE_ONLY)
         .withWriteCachePolicy(RemoteActionExecutionContext.CachePolicy.REMOTE_CACHE_ONLY);

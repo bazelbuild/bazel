@@ -56,7 +56,6 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       String commandId,
       CombinedCache combinedCache,
       Path execRoot,
-      Path externalDir,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper,
@@ -64,7 +63,6 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     super(
         reporter,
         execRoot,
-        externalDir,
         tempPathGenerator,
         remoteOutputChecker,
         outputDirectoryHelper,
@@ -148,7 +146,9 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       FileArtifactValue metadata, Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
       throws IOException {
     var underlyingFinalPath = underlyingPath(finalPath);
-    underlyingFinalPath.getParentDirectory().createDirectoryAndParents();
+    if (!underlyingFinalPath.startsWith(execRoot)) {
+      underlyingFinalPath.getParentDirectory().createDirectoryAndParents();
+    }
     super.finalizeDownload(
         metadata, underlyingPath(tmpPath), underlyingFinalPath, dirsWithOutputPermissions);
   }

@@ -57,8 +57,9 @@ public final class RemoteOverlayFileSystem extends FileSystem {
       new ConcurrentHashMap<>();
 
   @Nullable private CombinedCache cache;
-  @Nullable private RemoteActionExecutionContext remoteContext;
   @Nullable private Reporter reporter;
+  @Nullable private String buildRequestId;
+  @Nullable private String commandId;
 
   public RemoteOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -70,22 +71,22 @@ public final class RemoteOverlayFileSystem extends FileSystem {
 
   public void beforeCommand(
       CombinedCache cache, Reporter reporter, String buildRequestId, String commandId) {
-    checkState(this.cache == null && this.reporter == null && this.remoteContext == null);
+    checkState(
+        this.cache == null
+            && this.reporter == null
+            && this.buildRequestId == null
+            && this.commandId == null);
     this.cache = cache;
     this.reporter = reporter;
-    var metadata =
-        TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, "remote repository", /* actionExecutionMetadata= */ null);
-    this.remoteContext =
-        RemoteActionExecutionContext.create(metadata)
-            .withReadCachePolicy(CachePolicy.ANY_CACHE)
-            .withWriteCachePolicy(CachePolicy.ANY_CACHE);
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
   }
 
   public void afterCommand() {
     this.cache = null;
     this.reporter = null;
-    this.remoteContext = null;
+    this.buildRequestId = null;
+    this.commandId = null;
   }
 
   public FileSystem underlying() {
@@ -121,7 +122,7 @@ public final class RemoteOverlayFileSystem extends FileSystem {
               /* locationIndex= */ 1));
     }
     for (var symlink : dir.getSymlinksList()) {
-      fs.createSymbolicLinkTrusted(
+      fs.createSymbolicLink(
           path.getRelative(unicodeToInternal(symlink.getName())),
           PathFragment.create(unicodeToInternal(symlink.getTarget())));
     }
@@ -175,14 +176,27 @@ public final class RemoteOverlayFileSystem extends FileSystem {
       super(hashFunction);
     }
 
+    private RemoteActionExecutionContext makeRemoteContext(PathFragment relativePath) {
+      String repoName = relativePath.subFragment(0, 1).getBaseName();
+      var metadata =
+          TracingMetadataUtils.buildMetadata(
+              buildRequestId, commandId, repoName, /* actionExecutionMetadata= */ null);
+      // Files in the remote external repo that Bazel reads are worth writing through to the
+      // disk cache, as they are likely to be read again on future cold builds.
+      return RemoteActionExecutionContext.create(metadata)
+          .withReadCachePolicy(CachePolicy.ANY_CACHE)
+          .withWriteCachePolicy(CachePolicy.ANY_CACHE);
+    }
+
     @Override
     public InputStream getInputStream(PathFragment path) throws IOException {
+      var relativePath = path.relativeTo(externalDirectory);
       var info = (RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
       reporter.post(
           new ExtendedEventHandler.FetchProgress() {
             @Override
             public String getResourceIdentifier() {
-              return path.relativeTo(externalDirectory).getPathString();
+              return relativePath.getPathString();
             }
 
             @Override
@@ -195,29 +209,27 @@ public final class RemoteOverlayFileSystem extends FileSystem {
               return false;
             }
           });
-      var contentFuture =
-          cache.downloadBlob(
-              remoteContext,
-              path.getPathString(),
-              /* execPath= */ null,
-              DigestUtil.buildDigest(info.getMetadata().getDigest(), info.getSize()));
       try {
+        var contentFuture =
+            cache.downloadBlob(
+                makeRemoteContext(relativePath),
+                path.getPathString(),
+                /* execPath= */ null,
+                DigestUtil.buildDigest(info.getMetadata().getDigest(), info.getSize()));
         waitForBulkTransfer(
             ImmutableList.of(contentFuture), /* cancelRemainingOnInterrupt= */ true);
+        return new ByteArrayInputStream(contentFuture.get());
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new InterruptedIOException("interrupted while waiting for remote file transfer");
-      }
-      try {
-        return new ByteArrayInputStream(contentFuture.get());
-      } catch (InterruptedException | ExecutionException e) {
+      } catch (ExecutionException e) {
         throw new IllegalStateException("waitForBulkTransfer should have thrown", e);
       } finally {
         reporter.post(
             new ExtendedEventHandler.FetchProgress() {
               @Override
               public String getResourceIdentifier() {
-                return path.relativeTo(externalDirectory).getPathString();
+                return relativePath.getPathString();
               }
 
               @Override
@@ -231,15 +243,6 @@ public final class RemoteOverlayFileSystem extends FileSystem {
               }
             });
       }
-    }
-
-    /**
-     * Used internally to circumvent the read-only nature of this file system for the case of
-     * injecting remote repos.
-     */
-    private void createSymbolicLinkTrusted(PathFragment linkPath, PathFragment targetFragment)
-        throws IOException {
-      super.createSymbolicLink(linkPath, targetFragment);
     }
 
     @Override
@@ -269,6 +272,21 @@ public final class RemoteOverlayFileSystem extends FileSystem {
     }
   }
 
+  // Always mirror tree deletions to the underlying native file system to support bazel clean and
+  // repository refetching.
+
+  @Override
+  public void deleteTree(PathFragment path) throws IOException {
+    nativeFs.deleteTree(path);
+    externalFs.deleteTree(path);
+  }
+
+  @Override
+  public void deleteTreesBelow(PathFragment dir) throws IOException {
+    nativeFs.deleteTreesBelow(dir);
+    externalFs.deleteTreesBelow(dir);
+  }
+
   private FileSystem fsForPath(PathFragment path) {
     if (path.startsWith(externalDirectory)
         && !path.equals(externalDirectory)
@@ -282,34 +300,12 @@ public final class RemoteOverlayFileSystem extends FileSystem {
     }
   }
 
-  // Always mirror deletions to the underlying native file system.
+  // All methods below just delegate to fsForPath(path).
 
   @Override
   public boolean delete(PathFragment path) throws IOException {
-    boolean deleted = nativeFs.delete(path);
-    if (fsForPath(path) == externalFs) {
-      deleted |= externalFs.delete(path);
-    }
-    return deleted;
+    return fsForPath(path).delete(path);
   }
-
-  @Override
-  public void deleteTree(PathFragment path) throws IOException {
-    nativeFs.deleteTree(path);
-    if (fsForPath(path) == externalFs) {
-      externalFs.deleteTree(path);
-    }
-  }
-
-  @Override
-  public void deleteTreesBelow(PathFragment dir) throws IOException {
-    nativeFs.deleteTreesBelow(dir);
-    if (fsForPath(dir) == externalFs) {
-      externalFs.deleteTreesBelow(dir);
-    }
-  }
-
-  // All methods below just delegate to fsForPath(path).
 
   @Override
   public byte[] getDigest(PathFragment path) throws IOException {

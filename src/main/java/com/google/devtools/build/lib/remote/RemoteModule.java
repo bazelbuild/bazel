@@ -1132,7 +1132,6 @@ public final class RemoteModule extends BlazeModule {
               env.getCommandId().toString(),
               actionContextProvider.getCombinedCache(),
               env.getExecRoot(),
-              env.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION),
               tempPathGenerator,
               remoteOutputChecker,
               env.getOutputDirectoryHelper(),

@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -78,7 +77,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final OutputPermissions outputPermissions;
 
   protected final Path execRoot;
-  protected final Path externalDir;
   protected final RemoteOutputChecker remoteOutputChecker;
 
   private final ActionOutputDirectoryHelper outputDirectoryHelper;
@@ -213,14 +211,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected AbstractActionInputPrefetcher(
       Reporter reporter,
       Path execRoot,
-      Path externalDir,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
-    this.externalDir = externalDir;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputDirectoryHelper = outputDirectoryHelper;
@@ -398,8 +394,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return immediateVoidFuture();
       }
 
-      @Nullable
-      Symlink symlink = maybeGetSymlink(input, inputPath, metadata, metadataSupplier);
+      @Nullable Symlink symlink = maybeGetSymlink(input, inputPath, metadata, metadataSupplier);
 
       if (symlink != null) {
         // Symlink tracks the parent of a TreeFileArtifact, so the parent relative path has to be
@@ -610,26 +605,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
 
-    // Ensure the parent directory exists and is writable. We cannot rely on this precondition to be
-    // have been established by the execution of the owning action in a previous invocation, since
-    // the output tree may have been externally modified in between invocations.
-    if (dirsWithOutputPermissions.contains(parentDir)) {
-      // The file belongs to a tree artifact created by an action that declared an output directory
-      // (as opposed to an action template expansion). The output permissions should be set on the
-      // parent directory after prefetching.
-      directoryTracker.setTemporarilyWritable(parentDir);
-    } else {
-      // One of the following must apply:
-      //   (1) The file does not belong to a tree artifact.
-      //   (2) The file belongs to a tree artifact created by an action template expansion.
-      // In case (1), the parent directory is a package or a subdirectory of a package, and should
-      // remain writable. In case (2), even though we arguably ought to set the output permissions
-      // on the parent directory to match local execution, we choose not to do it and avoid the
-      // additional implementation complexity required to detect a race condition between concurrent
-      // calls touching the same directory.
-      directoryTracker.setPermanentlyWritable(parentDir);
+    if (finalPath.startsWith(execRoot)) {
+      // Ensure the parent directory exists and is writable. We cannot rely on this precondition to
+      // have been established by the execution of the owning action in a previous invocation, since
+      // the output tree may have been externally modified in between invocations.
+      if (dirsWithOutputPermissions.contains(parentDir)) {
+        // The file belongs to a tree artifact created by an action that declared an output
+        // directory (as opposed to an action template expansion). The output permissions should be
+        // set on the parent directory after prefetching.
+        directoryTracker.setTemporarilyWritable(parentDir);
+      } else {
+        // One of the following must apply:
+        //   (1) The file does not belong to a tree artifact.
+        //   (2) The file belongs to a tree artifact created by an action template expansion.
+        // In case (1), the parent directory is a package or a subdirectory of a package, and should
+        // remain writable. In case (2), even though we arguably ought to set the output permissions
+        // on the parent directory to match local execution, we choose not to do it and avoid the
+        // additional implementation complexity required to detect a race condition between
+        // concurrent calls touching the same directory.
+        directoryTracker.setPermanentlyWritable(parentDir);
+      }
     }
-
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
