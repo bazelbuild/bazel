@@ -246,7 +246,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedHeaderRewound_lostInInputDiscovery() throws Exception {
-    skipIfNotLinux();
+    skipIfBazel();
     helper.runGeneratedHeaderRewound_lostInInputDiscovery_spawnFailed();
   }
 
@@ -258,7 +258,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedTransitiveHeaderRewound_lostInInputDiscovery() throws Exception {
-    skipIfNotLinux();
+    skipIfBazel();
     helper.runGeneratedTransitiveHeaderRewound_lostInInputDiscovery_spawnFailed();
   }
 
