@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import com.google.devtools.common.options.OptionMetadataTag;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -150,24 +151,27 @@ public final class BlazeCommandDispatcherTest {
 
     @Option(
       name = "success",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "true"
     )
     public boolean exitStatus;
 
     @Option(
       name = "stdout",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = ""
     )
     public String stdout;
 
     @Option(
       name = "stderr",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = ""
     )
     public String stderr;

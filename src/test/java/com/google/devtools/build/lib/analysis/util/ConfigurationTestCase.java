@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import com.google.devtools.common.options.OptionMetadataTag;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -68,8 +69,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         name = "multi_cpu",
         converter = Converters.CommaSeparatedOptionListConverter.class,
         allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null",
         help = "Additional target CPUs.")
     public List<String> multiCpus;

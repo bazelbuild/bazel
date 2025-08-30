@@ -90,6 +90,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         name = "option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "from_default")
     public String option;
 
@@ -98,7 +99,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "from_default",
-        metadataTags = {OptionMetadataTag.INTERNAL})
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.HIDDEN})
     public String internalOption;
 
     @Option(
@@ -106,6 +107,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public List<String> accumulating;
   }

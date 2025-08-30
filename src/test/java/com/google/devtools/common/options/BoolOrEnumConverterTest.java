@@ -47,8 +47,9 @@ public class BoolOrEnumConverterTest {
     @Option(
       name = "compile_mode",
       converter = CompilationModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "dbg"
     )
     public CompilationMode compileMode;

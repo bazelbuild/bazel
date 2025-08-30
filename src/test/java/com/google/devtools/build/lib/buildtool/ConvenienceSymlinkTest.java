@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -67,15 +68,16 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
   public static final class PathTestOptions extends FragmentOptions {
     @Option(
         name = "output_directory_name",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "default")
     public String outputDirectoryName;
 
     @Option(
         name = "useless_option",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "default")
     public String uselessOption;
   }

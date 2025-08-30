@@ -19,6 +19,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.time.Duration;
 
@@ -33,8 +34,9 @@ public class ExampleWorkerOptions extends OptionsBase {
   public static class ExampleWorkOptions extends OptionsBase {
     @Option(
       name = "output_file",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "",
       help = "Write the output to a file instead of stdout."
     )
@@ -42,8 +44,9 @@ public class ExampleWorkerOptions extends OptionsBase {
 
     @Option(
       name = "uppercase",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false",
       help = "Uppercase the input."
     )
@@ -51,8 +54,9 @@ public class ExampleWorkerOptions extends OptionsBase {
 
     @Option(
       name = "write_uuid",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false",
       help = "Writes a UUID into the output."
     )
@@ -60,8 +64,9 @@ public class ExampleWorkerOptions extends OptionsBase {
 
     @Option(
       name = "write_counter",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false",
       help = "Writes a counter that increases with each work unit processed into the output."
     )
@@ -69,40 +74,45 @@ public class ExampleWorkerOptions extends OptionsBase {
 
     @Option(
         name = "print_requests",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Prints out all requests.")
     public boolean printRequests;
 
     @Option(
         name = "print_inputs",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Writes a list of input files and their digests.")
     public boolean printInputs;
 
     @Option(
         name = "print_dir_listing",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "",
         help = "Writes a recursive listing of the given directory, not following symlinks.")
     public String printDirListing;
 
     @Option(
         name = "print_env",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Prints a list of all environment variables.")
     public boolean printEnv;
 
     @Option(
         name = "work_time",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = Converters.DurationConverter.class,
         defaultValue = "0",
         help =
@@ -113,16 +123,18 @@ public class ExampleWorkerOptions extends OptionsBase {
 
   @Option(
     name = "persistent_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "false"
   )
   public boolean persistentWorker;
 
   @Option(
     name = "exit_after",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "0",
     help = "The worker exits after processing this many work units (default: disabled)."
   )
@@ -130,16 +142,18 @@ public class ExampleWorkerOptions extends OptionsBase {
 
   @Option(
       name = "exit_during",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0",
       help = "The worker exits during processing after this many work units (default: disabled).")
   public int exitDuring;
 
   @Option(
       name = "poison_after",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0",
       help =
           "Poisons the worker after processing this many work units, so that it returns a "
@@ -148,8 +162,9 @@ public class ExampleWorkerOptions extends OptionsBase {
 
   @Option(
     name = "hard_poison",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN},
     defaultValue = "false",
     help = "Instead of writing an error message to stdout, write it to stderr and terminate."
   )
@@ -157,16 +172,18 @@ public class ExampleWorkerOptions extends OptionsBase {
 
   @Option(
       name = "wait_for_cancel",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false",
       help = "Don't send a response until receiving a cancel request.")
   public boolean waitForCancel;
 
   @Option(
       name = "ignored_argument",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false",
       help = "An argument that does nothing, but whose presence can be asserted in a test.")
   public boolean ignoredArgument;
@@ -181,8 +198,9 @@ public class ExampleWorkerOptions extends OptionsBase {
 
   @Option(
       name = "worker_protocol",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "proto",
       help = "The protocol (JSON or proto) to use for communication between this worker and Bazel.",
       converter = WorkerProtocolEnumConverter.class)

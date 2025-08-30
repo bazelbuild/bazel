@@ -60,16 +60,18 @@ public class OptionsDataTest {
   public static class ExampleNameConflictOptions extends OptionsBase {
     @Option(
       name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "1"
     )
     public int foo;
 
     @Option(
       name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "I should conflict with foo"
     )
     public String anotherFoo;
@@ -92,8 +94,9 @@ public class OptionsDataTest {
   public static class ExampleIntegerFooOptions extends OptionsBase {
     @Option(
       name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "5"
     )
     public int foo;
@@ -103,8 +106,9 @@ public class OptionsDataTest {
   public static class ExampleBooleanFooOptions extends OptionsBase {
     @Option(
       name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false"
     )
     public boolean foo;
@@ -127,8 +131,9 @@ public class OptionsDataTest {
   public static class ExamplePrefixedFooOptions extends OptionsBase {
     @Option(
       name = "nofoo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false"
     )
     public boolean noFoo;
@@ -168,8 +173,9 @@ public class OptionsDataTest {
     @Option(
       name = "bar",
       oldName = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false"
     )
     public boolean bar;
@@ -209,8 +215,9 @@ public class OptionsDataTest {
     @Option(
       name = "bar",
       oldName = "nofoo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false"
     )
     public boolean bar;
@@ -250,8 +257,9 @@ public class OptionsDataTest {
     @Option(
       name = "nofoo",
       oldName = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false"
     )
     public boolean foo;
@@ -277,16 +285,18 @@ public class OptionsDataTest {
     @Option(
       name = "new_name",
       oldName = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "defaultValue"
     )
     public String flag1;
 
     @Option(
       name = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "defaultValue"
     )
     public String flag2;
@@ -312,8 +322,9 @@ public class OptionsDataTest {
     @Option(
       name = "new_name",
       oldName = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "defaultValue"
     )
     public String flag1;
@@ -321,8 +332,9 @@ public class OptionsDataTest {
     @Option(
       name = "another_name",
       oldName = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "defaultValue"
     )
     public String flag2;
@@ -367,32 +379,36 @@ public class OptionsDataTest {
 
     @Option(
       name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int aFoo;
 
     @Option(
       name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int bBar;
 
     @Option(
       name = "baz",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int cBaz;
 
     @Option(
       name = "qux",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int dQux;
@@ -402,16 +418,18 @@ public class OptionsDataTest {
   public static class EndOfAlphabetOptions extends OptionsBase {
     @Option(
       name = "X",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int x;
 
     @Option(
       name = "Y",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int y;
@@ -421,24 +439,27 @@ public class OptionsDataTest {
   public static class ReverseOrderedOptions extends OptionsBase {
     @Option(
       name = "C",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int c;
 
     @Option(
       name = "B",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int b;
 
     @Option(
       name = "A",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0"
     )
     public int a;
@@ -543,16 +564,18 @@ public class OptionsDataTest {
   public static class ValidExpansionOptions extends OptionsBase {
     @Option(
       name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "1"
     )
     public int foo;
 
     @Option(
       name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null",
       expansion = {"--foo=42"}
     )

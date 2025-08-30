@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import com.google.devtools.common.options.OptionMetadataTag;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -61,6 +62,7 @@ public final class PlatformMappingValueTest {
         name = "str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String strOption;
 
@@ -68,6 +70,7 @@ public final class PlatformMappingValueTest {
         name = "other_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String otherStrOption;
   }

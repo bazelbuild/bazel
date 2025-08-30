@@ -55,7 +55,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     @Option(
         name = "a_option",
         defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN})
     public String aOption;
   }
