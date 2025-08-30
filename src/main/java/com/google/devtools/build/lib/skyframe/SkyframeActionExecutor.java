@@ -880,10 +880,11 @@ public final class SkyframeActionExecutor {
   }
 
   @Nullable
-  List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
+  List<Artifact> getActionCachedInputs(
+      Action action, PackageRootResolver resolver, byte[] inputDiscoveryInvalidationDigest)
       throws AlreadyReportedActionExecutionException, InterruptedException {
     try {
-      return actionCacheChecker.getCachedInputs(action, resolver);
+      return actionCacheChecker.getCachedInputs(action, resolver, inputDiscoveryInvalidationDigest);
     } catch (PackageRootResolver.PackageRootException e) {
       printError(e.getMessage(), action);
       throw new AlreadyReportedActionExecutionException(

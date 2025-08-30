@@ -543,15 +543,36 @@ public final class ActionExecutionFunction implements SkyFunction {
   @Nullable
   private AllInputs collectInputs(Action action, Environment env)
       throws InterruptedException, AlreadyReportedActionExecutionException {
+    if (action.getInputDiscoveryInvalidationArtifact() != null) {
+      checkState(action.discoversInputs(), action);
+      action.resetDiscoveredInputs();
+    }
+
     NestedSet<Artifact> allKnownInputs = action.getInputs();
     if (action.inputsKnown()) {
       return new AllInputs(allKnownInputs);
     }
 
     checkState(action.discoversInputs(), action);
+    byte[] inputDiscoveryInvalidationDigest = null;
+    if (action.getInputDiscoveryInvalidationArtifact() != null) {
+      checkState(
+          action.getInputDiscoveryInvalidationArtifact()
+                  instanceof Artifact.DerivedArtifact artifact
+              && !(artifact instanceof Artifact.SpecialArtifact));
+      var invalidationKey = Artifact.key(action.getInputDiscoveryInvalidationArtifact());
+      var invalidationValue = (ActionExecutionValue) env.getValue(invalidationKey);
+      if (invalidationValue == null) {
+        return null;
+      }
+      inputDiscoveryInvalidationDigest =
+          invalidationValue
+              .getExistingFileArtifactValue(action.getInputDiscoveryInvalidationArtifact())
+              .getDigest();
+    }
     List<Artifact> actionCacheInputs =
         skyframeActionExecutor.getActionCachedInputs(
-            action, new PackageRootResolverWithEnvironment(env));
+            action, new PackageRootResolverWithEnvironment(env), inputDiscoveryInvalidationDigest);
     if (actionCacheInputs == null) {
       checkState(env.valuesMissing(), action);
       return null;

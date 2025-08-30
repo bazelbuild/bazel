@@ -196,6 +196,12 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
         "Must be overridden for action that may have unknown inputs: " + this);
   }
 
+  @Nullable
+  @Override
+  public Artifact getInputDiscoveryInvalidationArtifact() {
+    return null;
+  }
+
   @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
