@@ -549,34 +549,28 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     checkState(action.discoversInputs(), action);
-    PackageRootResolverWithEnvironment resolver = new PackageRootResolverWithEnvironment(env);
     List<Artifact> actionCacheInputs =
-        skyframeActionExecutor.getActionCachedInputs(action, resolver);
+        skyframeActionExecutor.getActionCachedInputs(
+            action, new PackageRootResolverWithEnvironment(env));
     if (actionCacheInputs == null) {
       checkState(env.valuesMissing(), action);
       return null;
     }
-    return new AllInputs(allKnownInputs, actionCacheInputs, resolver.packageLookupsRequested);
+    return new AllInputs(allKnownInputs, actionCacheInputs);
   }
 
   static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
     @Nullable final List<Artifact> actionCacheInputs;
-    @Nullable final List<ContainingPackageLookupValue.Key> packageLookupsRequested;
 
     AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = null;
-      this.packageLookupsRequested = null;
     }
 
-    AllInputs(
-        NestedSet<Artifact> defaultInputs,
-        List<Artifact> actionCacheInputs,
-        List<ContainingPackageLookupValue.Key> packageLookupsRequested) {
+    AllInputs(NestedSet<Artifact> defaultInputs, List<Artifact> actionCacheInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = checkNotNull(actionCacheInputs);
-      this.packageLookupsRequested = packageLookupsRequested;
     }
 
     /** Compute the inputs to request from Skyframe. */
@@ -596,7 +590,8 @@ public final class ActionExecutionFunction implements SkyFunction {
    * because it uses SkyFunction.Environment for evaluation of ContainingPackageLookupValue.
    */
   private static class PackageRootResolverWithEnvironment implements PackageRootResolver {
-    final List<ContainingPackageLookupValue.Key> packageLookupsRequested = new ArrayList<>();
+    private final List<ContainingPackageLookupValue.Key> packageLookupsRequested =
+        new ArrayList<>();
     private final Environment env;
 
     private PackageRootResolverWithEnvironment(Environment env) {
@@ -820,11 +815,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
       checkState(!env.valuesMissing(), action);
       skyframeActionExecutor.updateActionCache(
-          action,
-          inputMetadataProvider,
-          outputMetadataStore,
-          state.token,
-          clientEnv);
+          action, inputMetadataProvider, outputMetadataStore, state.token, clientEnv);
     }
   }
 
