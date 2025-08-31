@@ -132,6 +132,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -203,6 +204,7 @@ public class RemoteExecutionServiceTest {
   RemoteOptions remoteOptions;
   private FileSystem fs;
   private Path execRoot;
+  private ArtifactRoot sourceRoot;
   private ArtifactRoot artifactRoot;
   private TempPathGenerator tempPathGenerator;
   private FakeActionInputFileCache fakeFileCache;
@@ -224,6 +226,7 @@ public class RemoteExecutionServiceTest {
     execRoot.createDirectoryAndParents();
 
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
+    sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
 
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
 
@@ -497,7 +500,6 @@ public class RemoteExecutionServiceTest {
     fakeFileCache.addTreeArtifact(emptyDir, TreeArtifactValue.newBuilder(emptyDir).build());
     inputs.add(emptyDir);
 
-    // Keep last as it consumes the other inputs.
     var runfilesTreeRoot = artifactRoot.getExecPath().getRelative("dir/my_tool.runfiles");
     var runfilesTree =
         ActionsTestUtil.createRunfilesArtifact(artifactRoot, runfilesTreeRoot.getPathString());
@@ -508,6 +510,37 @@ public class RemoteExecutionServiceTest {
 
     var outputDir =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "dir/output_dir");
+
+    var srcDir =
+        ActionsTestUtil.createArtifactWithExecPath(sourceRoot, PathFragment.create("src_dir"));
+    fakeFileCache.createScratchInputDirectory(
+        srcDir,
+        Tree.newBuilder()
+            .setRoot(
+                dir(
+                    ImmutableList.of(
+                        file("file1", "content of src_dir/file1"),
+                        file("file2", "content of src_dir/file2"),
+                        file("file3", "content of src_dir/file3")),
+                    ImmutableMap.of()))
+            .build());
+    inputs.add(srcDir);
+    var srcFile1 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sourceRoot, srcDir.getExecPath().getChild("file1"));
+    fakeFileCache.createScratchInput(srcFile1, "content of src_dir/file1");
+    inputs.add(srcFile1);
+    var srcFile2 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sourceRoot, srcDir.getExecPath().getChild("file2"));
+    fakeFileCache.createScratchInput(srcFile2, "content of src_dir/file2");
+    inputs.add(srcFile2);
+    var srcFile3 =
+        ActionsTestUtil.createArtifactWithExecPath(
+            sourceRoot, srcDir.getExecPath().getChild("file3"));
+    fakeFileCache.createScratchInput(srcFile3, "content of src_dir/file3");
+    // Explicitly don't add srcFile3 to inputs so that srcDir overlaps non-trivially with input
+    // files.
 
     // Verify that the order of inputs does not affect the result.
     Collections.shuffle(inputs, RandomGeneratorFactory.getDefault().create(seed));
@@ -690,13 +723,23 @@ public class RemoteExecutionServiceTest {
                                 dir(
                                     ImmutableList.of(
                                         file("bar.txt", "content of srcs/system-root/bar.txt")),
-                                    ImmutableMap.of())))))));
+                                    ImmutableMap.of()))))),
+                "src_dir",
+                dir(
+                    ImmutableList.of(
+                        file("file1", "content of src_dir/file1"),
+                        file("file2", "content of src_dir/file2"),
+                        file("file3", "content of src_dir/file3")),
+                    ImmutableMap.of())));
 
     var expectedDigest =
         DigestUtil.fromString(
             switch (TestConstants.PRODUCT_NAME) {
-              case "bazel" -> "ce94243235c6a1763fbc2ff6359a1b9bf85f735899448cff7c71ccb7404c3476/82";
-              case "blaze" -> "693401e72f297cce50df9b39c8fdfb229778e696396c3fb4e983d9f56fa759d0/82";
+              // TestContants.WORKSPACE_NAME is "_main" for Bazel and "google3" for Blaze.
+              case "bazel" ->
+                  "e0407f49daf38d1cd7a5565a1078269a59997301d17ac53f964f0ff3c047bfba/164";
+              case "blaze" ->
+                  "8917a131ce93e7cc22bfde300dfb377018bf11263cfeb346f66f7aabb33a20fd/164";
               default ->
                   throw new IllegalArgumentException(
                       "Unknown product name " + TestConstants.PRODUCT_NAME);
