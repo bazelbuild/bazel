@@ -61,7 +61,6 @@ import net.starlark.java.eval.StarlarkThread;
 public class JavaStarlarkCommon
     implements JavaCommonApi<
         Artifact,
-        JavaInfo,
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {

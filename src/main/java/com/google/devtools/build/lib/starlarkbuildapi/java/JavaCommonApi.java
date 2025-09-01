@@ -44,7 +44,6 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Utilities for Java compilation support in Starlark.")
 public interface JavaCommonApi<
         FileT extends FileApi,
-        JavaInfoT extends JavaInfoApi<FileT, ?, ?>,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         StarlarkActionFactoryT extends StarlarkActionFactoryApi>
@@ -61,8 +60,8 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge.")
       })
-  default JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
-      throws EvalException {
+  default JavaInfoApi<FileT, ?, ?> mergeJavaProviders(
+      Sequence<?> providers /* <JavaInfo> expected. */) throws EvalException {
     throw new UnsupportedOperationException();
   }
 
@@ -406,7 +405,7 @@ public interface JavaCommonApi<
             doc = "Allow this library to reflectively access the given <module>/<package>."),
       },
       useStarlarkThread = true)
-  default JavaInfoT createJavaCompileAction(
+  default JavaInfoApi<FileT, ?, ?> createJavaCompileAction(
       StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> sourceJars, // <FileT> expected.
       Sequence<?> sourceFiles, // <FileT> expected.
