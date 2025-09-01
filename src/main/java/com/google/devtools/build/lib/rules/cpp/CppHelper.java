@@ -39,7 +39,6 @@ import net.starlark.java.eval.Starlark;
 public class CppHelper {
 
   static final PathFragment OBJS = PathFragment.create("_objs");
-  static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
 
   private CppHelper() {
     // prevents construction
@@ -71,17 +70,7 @@ public class CppHelper {
 
   /** Returns the directory where object files are created. */
   public static PathFragment getObjDirectory(Label ruleLabel, boolean siblingRepositoryLayout) {
-    return getObjDirectory(ruleLabel, false, siblingRepositoryLayout);
-  }
-
-  /** Returns the directory where object files are created. */
-  public static PathFragment getObjDirectory(
-      Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
-    if (usePic) {
-      return AnalysisUtils.getUniqueDirectory(ruleLabel, PIC_OBJS, siblingRepositoryLayout);
-    } else {
-      return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS, siblingRepositoryLayout);
-    }
+    return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS, siblingRepositoryLayout);
   }
 
   // LINT.IfChange
