@@ -496,8 +496,7 @@ message Execution {
     TEST_OUT_ERR_IO_EXCEPTION = 14 [(metadata) = { exit_code: 36 }];
     SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION = 15
         [(metadata) = { exit_code: 36 }];
-    SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION = 16
-        [(metadata) = { exit_code: 36 }];
+    reserved 16;  // was SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION
     SYMLINK_TREE_CREATION_IO_EXCEPTION = 17 [(metadata) = { exit_code: 36 }];
     SYMLINK_TREE_CREATION_COMMAND_EXCEPTION = 18
         [(metadata) = { exit_code: 36 }];
