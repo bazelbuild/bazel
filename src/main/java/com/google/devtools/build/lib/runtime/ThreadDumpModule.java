@@ -21,11 +21,14 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionExecutionInactivityEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -79,6 +82,16 @@ public final class ThreadDumpModule extends BlazeModule {
     checkState(threadDumpTask == null);
     checkState(scheduledExecutor == null);
 
+    var bepOptions = env.getOptions().getOptions(BuildEventProtocolOptions.class);
+    BuildEventArtifactUploader uploader = null;
+    if (bepOptions != null && bepOptions.streamingLogFileUploads) {
+      try {
+        uploader = newUploader(env, bepOptions);
+      } catch (InvalidPackagePathSymlinkException e) {
+        throw createAbruptExitException("Failed to create uploader", e);
+      }
+    }
+
     var outputBaseRelativeDumpDirectory = prepareDumpDirectory(env);
     threadDumpTask =
         new ThreadDumpTask(
@@ -86,7 +99,8 @@ public final class ThreadDumpModule extends BlazeModule {
             ProcessHandle.current().pid(),
             env.getRuntime().getClock(),
             outputBaseRelativeDumpDirectory,
-            commandOptions.threadDumpActionExecutionInactivityDuration);
+            commandOptions.threadDumpActionExecutionInactivityDuration,
+            uploader);
 
     scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
 
@@ -101,6 +115,15 @@ public final class ThreadDumpModule extends BlazeModule {
     }
 
     env.getEventBus().register(this);
+  }
+
+  private static BuildEventArtifactUploader newUploader(
+      CommandEnvironment env, BuildEventProtocolOptions bepOptions)
+      throws InvalidPackagePathSymlinkException {
+    return env.getRuntime()
+        .getBuildEventArtifactUploaderFactoryMap()
+        .select(bepOptions.buildEventUploadStrategy)
+        .create(env);
   }
 
   private PathFragment prepareDumpDirectory(CommandEnvironment env) throws AbruptExitException {
@@ -157,6 +180,7 @@ public final class ThreadDumpModule extends BlazeModule {
     private final Clock clock;
     private final PathFragment outputBaseRelativeDumpDirectory;
     private final Duration dumpActionExecutionInactivityDuration;
+    @Nullable private final BuildEventArtifactUploader uploader;
 
     private final List<InstrumentationOutput> instrumentationOutputs =
         Collections.synchronizedList(new ArrayList<>());
@@ -168,12 +192,14 @@ public final class ThreadDumpModule extends BlazeModule {
         long pid,
         Clock clock,
         PathFragment outputBaseRelativeDumpDirectory,
-        Duration dumpActionExecutionInactivityDuration) {
+        Duration dumpActionExecutionInactivityDuration,
+        @Nullable BuildEventArtifactUploader uploader) {
       this.env = env;
       this.pid = pid;
       this.clock = clock;
       this.outputBaseRelativeDumpDirectory = outputBaseRelativeDumpDirectory;
       this.dumpActionExecutionInactivityDuration = dumpActionExecutionInactivityDuration;
+      this.uploader = uploader;
     }
 
     @Override
@@ -220,10 +246,17 @@ public final class ThreadDumpModule extends BlazeModule {
       for (var output : instrumentationOutputs) {
         output.publish(buildToolLogCollection);
       }
+
+      if (uploader != null) {
+        uploader.release();
+      }
     }
 
     private InstrumentationOutput createThreadDumpOutput(String name) {
       var outputFactory = env.getRuntime().getInstrumentationOutputFactory();
+      if (uploader != null) {
+        return outputFactory.createBuildEventArtifactInstrumentationOutput(name, uploader);
+      }
       return outputFactory.createInstrumentationOutput(
           /* name= */ name,
           /* destination= */ outputBaseRelativeDumpDirectory.getRelative(name),
