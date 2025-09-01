@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -476,40 +475,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.outputFile = outputFile;
     this.dotdFile = dotdFile;
     this.diagnosticsFile = diagnosticsFile;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public CppCompileActionBuilder setOutputs(
-      ActionConstructionContext actionConstructionContext,
-      RuleErrorConsumer ruleErrorConsumer,
-      Label label,
-      ArtifactCategory outputCategory,
-      String outputName)
-      throws RuleErrorException {
-    this.outputFile =
-        CppHelper.getCompileOutputArtifact(
-            actionConstructionContext,
-            label,
-            CppHelper.getArtifactNameForCategory(ccToolchain, outputCategory, outputName),
-            configuration);
-    if (dotdFilesEnabled() && useDotdFile(sourceFile)) {
-      String dotdFileName = CppHelper.getDotdFileName(ccToolchain, outputCategory, outputName);
-      dotdFile =
-          CppHelper.getCompileOutputArtifact(
-              actionConstructionContext, label, dotdFileName, configuration);
-    } else {
-      dotdFile = null;
-    }
-    if (serializedDiagnosticsFilesEnabled()) {
-      String diagnosticsFileName =
-          CppHelper.getDiagnosticsFileName(ccToolchain, outputCategory, outputName);
-      diagnosticsFile =
-          CppHelper.getCompileOutputArtifact(
-              actionConstructionContext, label, diagnosticsFileName, configuration);
-    } else {
-      diagnosticsFile = null;
-    }
     return this;
   }
 

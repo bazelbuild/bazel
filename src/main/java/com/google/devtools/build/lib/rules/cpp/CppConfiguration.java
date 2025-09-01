@@ -397,6 +397,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.saveTemps;
   }
 
+  @Override
+  public boolean getSaveTempsForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getSaveTemps();
+  }
+
   /**
    * Returns the {@link PerLabelOptions} to apply to the gcc command line, if the label of the
    * compiled file matches the regular expression.

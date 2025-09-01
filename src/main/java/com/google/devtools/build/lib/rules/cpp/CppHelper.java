@@ -134,45 +134,6 @@ public class CppHelper {
         objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));
   }
 
-  public static String getArtifactNameForCategory(
-      CcToolchainProvider toolchain,
-      ArtifactCategory category,
-      String outputName)
-      throws RuleErrorException {
-    try {
-      return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
-  }
-
-  static String getDotdFileName(
-      CcToolchainProvider toolchain,
-      ArtifactCategory outputCategory,
-      String outputName)
-      throws RuleErrorException {
-    String baseName =
-        outputCategory == ArtifactCategory.OBJECT_FILE
-                || outputCategory == ArtifactCategory.PROCESSED_HEADER
-            ? outputName
-            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
-
-    return getArtifactNameForCategory(toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
-  }
-
-  static String getDiagnosticsFileName(
-      CcToolchainProvider toolchain, ArtifactCategory outputCategory, String outputName)
-      throws RuleErrorException {
-    String baseName =
-        outputCategory == ArtifactCategory.OBJECT_FILE
-                || outputCategory == ArtifactCategory.PROCESSED_HEADER
-            ? outputName
-            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
-
-    return getArtifactNameForCategory(
-        toolchain, ArtifactCategory.SERIALIZED_DIAGNOSTICS_FILE, baseName);
-  }
-
   static Dict<?, ?> asDict(Object o) {
     return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
   }

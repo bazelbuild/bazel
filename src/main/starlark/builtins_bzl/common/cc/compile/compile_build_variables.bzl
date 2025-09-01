@@ -300,7 +300,7 @@ def _copts_from_options(language, cpp_configuration, extension):
         result.extend(cpp_configuration.conlyopts)
     if extension in _SOURCE_TYPES_FOR_CXXOPTS:
         result.extend(cpp_configuration.cxxopts)
-    if extension in [extensions.OBJC_SOURCE, extensions.OBJCPP_SOURCE] or (
+    if extension in extensions.OBJC_SOURCE or extension in extensions.OBJCPP_SOURCE or (
         language == "objc" and extension in extensions.CC_HEADER
     ):
         result.extend(cpp_configuration.objccopts)

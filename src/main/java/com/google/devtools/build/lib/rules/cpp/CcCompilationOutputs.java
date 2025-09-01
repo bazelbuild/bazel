@@ -26,8 +26,10 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -336,6 +338,34 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
+    @StarlarkMethod(
+        name = "add_lto_bitcode_file",
+        documented = false,
+        parameters = {
+          @Param(name = "full_bitcode_file", positional = false, named = true),
+          @Param(
+              name = "lto_indexing_file",
+              positional = false,
+              named = true,
+              allowedTypes = {
+                @ParamType(type = Artifact.class),
+                @ParamType(type = NoneType.class)
+              }),
+          @Param(
+              name = "copts",
+              positional = false,
+              named = true,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)}),
+        })
+    public Builder addLtoBitcodeFileForStarlark(
+        Artifact fullBitcode, Object ltoIndexingBitcodeNullable, Sequence<?> coptsUnchecked)
+        throws EvalException {
+      Artifact ltoIndexingBitcode = CcModule.nullIfNone(ltoIndexingBitcodeNullable, Artifact.class);
+      ImmutableList<String> coptsChecked =
+          ImmutableList.copyOf(Sequence.cast(coptsUnchecked, String.class, "copts"));
+      return addLtoBitcodeFile(fullBitcode, ltoIndexingBitcode, coptsChecked);
+    }
+
     @CanIgnoreReturnValue
     public Builder addLtoCompilationContext(LtoCompilationContext ltoCompilationContext) {
       this.ltoCompilationContext.addAll(ltoCompilationContext);
@@ -353,24 +383,48 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
+    @StarlarkMethod(
+        name = "add_dwo_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addDwoFile(Artifact artifact) {
       dwoFiles.add(artifact);
       return this;
     }
 
+    @StarlarkMethod(
+        name = "add_pic_dwo_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addPicDwoFile(Artifact artifact) {
       picDwoFiles.add(artifact);
       return this;
     }
 
+    @StarlarkMethod(
+        name = "add_gcno_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addGcnoFile(Artifact artifact) {
       gcnoFiles.add(artifact);
       return this;
     }
 
+    @StarlarkMethod(
+        name = "add_pic_gcno_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addPicGcnoFile(Artifact artifact) {
       picGcnoFiles.add(artifact);
@@ -381,6 +435,23 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     @CanIgnoreReturnValue
     public Builder addTemps(Iterable<Artifact> artifacts) {
       temps.addAll(artifacts);
+      return this;
+    }
+
+    @StarlarkMethod(
+        name = "add_temps",
+        documented = false,
+        parameters = {
+          @Param(
+              name = "artifacts",
+              positional = true,
+              named = false,
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)}),
+        })
+    public Builder addTempsForStarlark(Sequence<?> artifactsUnchecked) throws EvalException {
+      Sequence<Artifact> artifactsChecked =
+          Sequence.cast(artifactsUnchecked, Artifact.class, "artifacts");
+      temps.addAll(artifactsChecked);
       return this;
     }
 
@@ -396,6 +467,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
+    @StarlarkMethod(
+        name = "add_module_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addModuleFile(Artifact artifact) {
       moduleFiles.add(artifact);
