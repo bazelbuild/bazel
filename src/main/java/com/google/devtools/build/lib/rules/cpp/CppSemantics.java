@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
@@ -25,8 +24,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
@@ -73,14 +70,5 @@ public interface CppSemantics extends StarlarkValue {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures)
-      throws EvalException;
-
-  void validateStarlarkCompileApiCall(
-      StarlarkActionFactory actionFactory,
-      StarlarkThread thread,
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots,
-      int stackDepth)
       throws EvalException;
 }

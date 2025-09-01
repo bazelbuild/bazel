@@ -139,22 +139,6 @@ public final class LtoCompilationContext implements StarlarkValue, LtoCompilatio
     return minimizedBitcode;
   }
 
-  /**
-   * Gets the compiler flags corresponding to the full bitcode file, or returns an empty list if it
-   * doesn't exist.
-   */
-  public ImmutableList<String> getCopts(Artifact fullBitcode) {
-    if (!containsBitcodeFile(fullBitcode)) {
-      return ImmutableList.of();
-    }
-    return ltoBitcodeFiles.get(fullBitcode).getCopts();
-  }
-
-  /** Whether the map of bitcode files is empty. */
-  public boolean isEmpty() {
-    return ltoBitcodeFiles.isEmpty();
-  }
-
   @StarlarkMethod(name = "lto_bitcode_inputs", documented = false)
   public Dict<Artifact, BitcodeInfo> getLtoBitcodeInputs() {
     return Dict.copyOf(Mutability.IMMUTABLE, ltoBitcodeFiles);

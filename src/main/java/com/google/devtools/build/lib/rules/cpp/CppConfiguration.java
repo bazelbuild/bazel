@@ -52,12 +52,6 @@ public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
 
-  /**
-   * String indicating a Mac system, for example when used in a crosstool configuration's exec or
-   * target system name.
-   */
-  public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
-
   /** String constant for CC_FLAGS make variable name */
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
 
@@ -335,15 +329,6 @@ public final class CppConfiguration extends Fragment
     return compilationMode.toString();
   }
 
-  public boolean hasSharedLinkOption() {
-    return linkopts.contains("-shared");
-  }
-
-  /** Returns the set of command-line LTO indexing options. */
-  public ImmutableList<String> getLtoIndexOptions() {
-    return ltoindexOptions;
-  }
-
   @StarlarkMethod(name = "lto_index_options", documented = false, useStarlarkThread = true)
   public ImmutableList<String> getLtoIndexOptionsForStarlark(StarlarkThread thread)
       throws EvalException {
@@ -480,29 +465,14 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useStartEndLib;
   }
 
-  /** Returns value from --compiler option, null if the option was not passed. */
-  @Nullable
-  public String getCompilerFromOptions() {
-    return cppOptions.cppCompiler;
-  }
-
   public boolean experimentalLinkStaticLibrariesOnce() {
     return cppOptions.experimentalLinkStaticLibrariesOnce;
-  }
-
-
-  public boolean legacyWholeArchive() {
-    return cppOptions.legacyWholeArchive;
   }
 
   @StarlarkMethod(name = "legacy_whole_archive", documented = false, useStarlarkThread = true)
   public boolean legacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.legacyWholeArchive;
-  }
-
-  public boolean removeLegacyWholeArchive() {
-    return cppOptions.removeLegacyWholeArchive;
   }
 
   @StarlarkMethod(
@@ -767,14 +737,6 @@ public final class CppConfiguration extends Fragment
   public boolean useLlvmCoverageMapFormatStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return useLLVMCoverageMapFormat();
-  }
-
-  @Nullable
-  public static PathFragment computeDefaultSysroot(String builtInSysroot) {
-    if (builtInSysroot.isEmpty()) {
-      return null;
-    }
-    return PathFragment.create(builtInSysroot);
   }
 
   /**

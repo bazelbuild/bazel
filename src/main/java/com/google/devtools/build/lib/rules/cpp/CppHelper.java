@@ -14,14 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -29,12 +24,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -50,12 +40,6 @@ public class CppHelper {
 
   static final PathFragment OBJS = PathFragment.create("_objs");
   static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
-
-  public static final PathFragment SHARED_NONLTO_BACKEND_ROOT_PREFIX =
-      PathFragment.create("shared.nonlto");
-
-  /** Base label of the c++ toolchain category. */
-  public static final String TOOLCHAIN_TYPE_LABEL = "//tools/cpp:toolchain_type";
 
   private CppHelper() {
     // prevents construction
@@ -100,80 +84,6 @@ public class CppHelper {
     }
   }
 
-  /**
-   * Given the output file path, returns the directory where the results of thinlto indexing will be
-   * created: output_file.lto/
-   */
-  public static PathFragment getLtoOutputRootPrefix(PathFragment outputRootRelativePath) {
-    return FileSystemUtils.appendExtension(outputRootRelativePath, ".lto");
-  }
-
-  /**
-   * Given the lto output root directory path, returns the directory where thinlto native object
-   * files are created: output_file.lto-obj/
-   */
-  public static PathFragment getThinLtoNativeObjectDirectoryFromLtoOutputRoot(
-      PathFragment ltoOutputRootRelativePath) {
-    return FileSystemUtils.appendExtension(ltoOutputRootRelativePath, "-obj");
-  }
-
-  public static Artifact getLinkedArtifact(
-      String targetName,
-      LinkActionConstruction linkActionConstruction,
-      LinkTargetType linkType,
-      String linkedArtifactNameSuffix,
-      PathFragment name) {
-    Artifact result =
-        linkActionConstruction
-            .getContext()
-            .getPackageRelativeArtifact(name, linkActionConstruction.getBinDirectory());
-
-    // If the linked artifact is not the linux default, then a FailAction is generated for said
-    // linux default to satisfy the requirements of any implicit outputs.
-    // TODO(b/30132703): Remove the implicit outputs of cc_library.
-    Artifact linuxDefault =
-        getLinuxLinkedArtifact(
-            targetName, linkActionConstruction, linkType, linkedArtifactNameSuffix);
-    if (!result.equals(linuxDefault)) {
-      linkActionConstruction
-          .getContext()
-          .registerAction(
-              new FailAction(
-                  linkActionConstruction.getContext().getActionOwner(),
-                  ImmutableList.of(linuxDefault),
-                  String.format(
-                      "the given toolchain supports creation of %s instead of %s",
-                      result.getExecPathString(), linuxDefault.getExecPathString()),
-                  Code.INCORRECT_TOOLCHAIN));
-    }
-
-    return result;
-  }
-
-  private static Artifact getLinuxLinkedArtifact(
-      String targetName,
-      LinkActionConstruction linkActionConstruction,
-      LinkTargetType linkType,
-      String linkedArtifactNameSuffix) {
-    PathFragment name = PathFragment.create(targetName);
-    if (linkType != LinkTargetType.EXECUTABLE) {
-      name =
-          name.replaceName(
-              "lib"
-                  + name.getBaseName()
-                  + linkedArtifactNameSuffix
-                  + linkType.getPicExtensionWhenApplicable()
-                  + linkType.getDefaultExtension());
-    }
-
-    return linkActionConstruction
-        .getContext()
-        .getPackageRelativeArtifact(name, linkActionConstruction.getBinDirectory());
-  }
-
-  // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
-  // CcCommonConfiguredTarget.noCoptsMatches().
-
   // LINT.IfChange
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(
@@ -212,29 +122,6 @@ public class CppHelper {
       return "FDO";
     }
     return null;
-  }
-
-  public static ImmutableList<String> getCommandLine(
-      RuleErrorConsumer ruleErrorConsumer,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainVariables variables,
-      String actionName)
-      throws RuleErrorException {
-    try {
-      return ImmutableList.copyOf(featureConfiguration.getCommandLine(actionName, variables));
-    } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e);
-    }
-  }
-
-  public static ImmutableMap<String, String> getEnvironmentVariables(
-      FeatureConfiguration featureConfiguration, CcToolchainVariables variables, String actionName)
-      throws EvalException {
-    try {
-      return featureConfiguration.getEnvironmentVariables(actionName, variables, PathMapper.NOOP);
-    } catch (ExpansionException e) {
-      throw new EvalException(e);
-    }
   }
 
   static Artifact getCompileOutputArtifact(
@@ -286,48 +173,7 @@ public class CppHelper {
         toolchain, ArtifactCategory.SERIALIZED_DIAGNOSTICS_FILE, baseName);
   }
 
-  /**
-   * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
-   * ld options.
-   */
-  public static boolean useStartEndLib(
-      CppConfiguration config, FeatureConfiguration featureConfiguration) {
-    return config.startEndLibIsRequested()
-        && featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
-  }
-
-  /**
-   * Returns the type of archives being used by the build implied by the given config and toolchain.
-   */
-  public static Link.ArchiveType getArchiveType(
-      CppConfiguration config, FeatureConfiguration featureConfiguration) {
-    return useStartEndLib(config, featureConfiguration)
-        ? Link.ArchiveType.START_END_LIB
-        : Link.ArchiveType.REGULAR;
-  }
-
-  /**
-   * Returns true if interface shared objects should be used in the build implied by the given
-   * cppConfiguration and toolchain.
-   */
-  public static boolean useInterfaceSharedLibraries(
-      CppConfiguration cppConfiguration,
-      FeatureConfiguration featureConfiguration) {
-    return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
-        && cppConfiguration.getUseInterfaceSharedLibraries();
-  }
-
   static Dict<?, ?> asDict(Object o) {
     return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
-  }
-
-  static String stringFromNoneable(Object obj, @Nullable String defaultValue) throws EvalException {
-    if (obj == Starlark.UNBOUND || Starlark.isNullOrNone(obj)) {
-      return defaultValue;
-    }
-    if (obj instanceof String stringObj) {
-      return stringObj;
-    }
-    throw new EvalException("Expected string or None, got " + obj);
   }
 }

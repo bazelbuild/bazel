@@ -741,17 +741,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
     private Builder() {}
 
-    /**
-     * Merges the {@link CcCompilationContext} of a dependency into this one by adding the contents
-     * of all of its attributes.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDependentCcCompilationContext(
-        CcCompilationContext otherCcCompilationContext) {
-      deps.add(otherCcCompilationContext);
-      return this;
-    }
-
     private void mergeDependentCcCompilationContext(
         CcCompilationContext otherCcCompilationContext,
         TransitiveSetHelper<String> allDefines,
@@ -904,17 +893,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     @CanIgnoreReturnValue
     public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
       this.frameworkIncludeDirs.addAll(frameworkIncludeDirs);
-      return this;
-    }
-
-    /**
-     * Mark specified include directory as external, coming from an external workspace. It can be
-     * added with "-isystem" (GCC) or --system-header-prefix (Clang) to suppress warnings coming
-     * from external files.
-     */
-    @CanIgnoreReturnValue
-    public Builder addExternalIncludeDir(PathFragment externalIncludeDir) {
-      this.externalIncludeDirs.add(externalIncludeDir);
       return this;
     }
 

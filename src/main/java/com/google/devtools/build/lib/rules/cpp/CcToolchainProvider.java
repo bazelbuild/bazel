@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -159,16 +157,6 @@ public final class CcToolchainProvider {
   }
 
   // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)
-
-  /**
-   * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the
-   * build implied by the given configuration, toolchain and feature configuration.
-   */
-  public static boolean shouldCreatePerObjectDebugInfo(
-      FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
-    return cppConfiguration.fissionIsActiveForCurrentCompilationMode()
-        && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-  }
 
   /** Whether the toolchains supports header parsing. */
   public boolean supportsHeaderParsing() throws EvalException {
@@ -303,56 +291,14 @@ public final class CcToolchainProvider {
     return value.getValue("_coverage_files", Depset.class).getSet(Artifact.class);
   }
 
-  /**
-   * Returns true if the featureConfiguration includes statically linking the cpp runtimes.
-   *
-   * @param featureConfiguration the relevant FeatureConfiguration.
-   */
-  private static boolean shouldStaticallyLinkCppRuntimes(
-      FeatureConfiguration featureConfiguration) {
-    return featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
-  }
-
   @Nullable
   public NestedSet<Artifact> getStaticRuntimeLinkInputs() throws EvalException, TypeException {
     return nullOrDepset(value, "_static_runtime_lib_depset");
   }
 
-  /** Returns the static runtime libraries. */
-  public static NestedSet<Artifact> getStaticRuntimeLinkInputsOrThrowError(
-      NestedSet<Artifact> staticRuntimeLinkInputs, FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (staticRuntimeLinkInputs == null) {
-        throw Starlark.errorf(
-            "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib"
-                + " attribute.");
-      }
-      return staticRuntimeLinkInputs;
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
   @Nullable
   public NestedSet<Artifact> getDynamicRuntimeLinkInputs() throws EvalException, TypeException {
     return nullOrDepset(value, "_dynamic_runtime_lib_depset");
-  }
-
-  /** Returns the dynamic runtime libraries. */
-  public static NestedSet<Artifact> getDynamicRuntimeLinkInputsOrThrowError(
-      NestedSet<Artifact> dynamicRuntimeLinkInputs, FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
-      if (dynamicRuntimeLinkInputs == null) {
-        throw new EvalException(
-            "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib"
-                + " attribute.");
-      }
-      return dynamicRuntimeLinkInputs;
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
   }
 
   /**
@@ -369,11 +315,6 @@ public final class CcToolchainProvider {
     return value
         .getValue("_cc_info", StarlarkInfo.class)
         .getValue("compilation_context", CcCompilationContext.class);
-  }
-
-  /** Whether the toolchains supports parameter files. */
-  public boolean supportsParamFiles() throws EvalException {
-    return value.getValue("_supports_param_files", Boolean.class);
   }
 
   /** Returns the configured features of the toolchain. */
@@ -424,23 +365,10 @@ public final class CcToolchainProvider {
         .getImmutableList();
   }
 
-  /**
-   * Returns the tool which should be used for linking dynamic libraries, or in case it's not
-   * specified by the crosstool this will be @tools_repository/tools/cpp:link_dynamic_library
-   */
-  public Artifact getLinkDynamicLibraryTool() throws EvalException {
-    return value.getValue("_link_dynamic_library_tool", Artifact.class);
-  }
-
   /** Returns the grep-includes tool which is needing during linking because of linkstamping. */
   @Nullable
   public Artifact getGrepIncludes() throws EvalException {
     return value.getNoneableValue("_grep_includes", Artifact.class);
-  }
-
-  /** Returns the tool that builds interface libraries from dynamic libraries. */
-  public Artifact getInterfaceSoBuilder() throws EvalException {
-    return value.getValue("_if_so_builder", Artifact.class);
   }
 
   @Nullable
@@ -463,11 +391,6 @@ public final class CcToolchainProvider {
   @VisibleForTesting
   public String getAbi() throws EvalException {
     return value.getValue("_abi", String.class);
-  }
-
-  /** Returns the target architecture using blaze-specific constants (e.g. "piii"). */
-  public String getTargetCpu() throws EvalException {
-    return value.getValue("cpu", String.class);
   }
 
   /**

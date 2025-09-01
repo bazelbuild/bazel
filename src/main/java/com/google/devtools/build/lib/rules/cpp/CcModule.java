@@ -377,18 +377,6 @@ public abstract class CcModule
     }
   }
 
-  @Nullable
-  protected <T> Object asClassImmutableListOrNestedSet(
-      Object o, Class<T> tClass, String description) throws EvalException {
-    if (o == Starlark.UNBOUND) {
-      return ImmutableList.of();
-    } else {
-      return o instanceof Depset
-          ? Depset.cast(o, tClass, description)
-          : Sequence.cast(o, tClass, description).getImmutableList();
-    }
-  }
-
   @Override
   public CcCompilationContext createCcCompilationContext(
       Object headers,

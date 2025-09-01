@@ -14,36 +14,10 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_LIBRARY;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_PIC_LIBRARY;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ARCHIVE;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.INTERFACE_SHARED_LIBRARY;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.OBJECT_FILE;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_ARCHIVE;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FILE;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
-
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule class definitions for C++ rules. */
 public class CppRuleClasses {
-
-
-  // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
-  static final FileTypeSet DISALLOWED_HDRS_FILES =
-      FileTypeSet.of(
-          ARCHIVE,
-          PIC_ARCHIVE,
-          ALWAYS_LINK_LIBRARY,
-          ALWAYS_LINK_PIC_LIBRARY,
-          SHARED_LIBRARY,
-          INTERFACE_SHARED_LIBRARY,
-          VERSIONED_SHARED_LIBRARY,
-          OBJECT_FILE,
-          PIC_OBJECT_FILE);
-
   /** A string constant for the Objective-C language feature. */
   public static final String LANG_OBJC = "lang_objc";
 
@@ -61,15 +35,6 @@ public class CppRuleClasses {
 
   /** A string constant for the cpp_modules feature. */
   public static final String CPP_MODULES = "cpp_modules";
-
-  /**
-   * A string constant for the random_seed feature. This is used by gcc and Clangfor the
-   * randomization of symbol names that are in the anonymous namespace but have external linkage.
-   */
-  public static final String RANDOM_SEED = "random_seed";
-
-  /** A string constant for the dependency_file feature. This feature generates the .d file. */
-  public static final String DEPENDENCY_FILE = "dependency_file";
 
   /**
    * A string constant for the serialized_diagnostics_file feature. This feature generates the .dia
@@ -96,31 +61,6 @@ public class CppRuleClasses {
   public static final String LAYERING_CHECK = "layering_check";
 
   /**
-   * A string constant that signifies whether the crosstool validates layering_check in
-   * textual_hdrs. We use the compiler's definition of textual_hdrs also for all regular but
-   * non-modular headers. This in turn means that the compiler can check layering in headers of the
-   * same target, irrespective the PARSE_HEADERS feature and we can elide separate header actions.
-   */
-  public static final String VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS =
-      "validates_layering_check_in_textual_hdrs";
-
-  /** A string constant for the header_modules feature. */
-  public static final String HEADER_MODULES = "header_modules";
-
-  /** A string constant for the header_modules_compile feature. */
-  public static final String HEADER_MODULE_COMPILE = "header_module_compile";
-
-  /** A string constant for the header_module_codegen feature. */
-  public static final String HEADER_MODULE_CODEGEN = "header_module_codegen";
-
-  /** A string constant for the compile_all_modules feature. */
-  public static final String COMPILE_ALL_MODULES = "compile_all_modules";
-
-  /** A string constant for the exclude_private_headers_in_module_maps feature. */
-  public static final String EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS =
-      "exclude_private_headers_in_module_maps";
-
-  /**
    * A string constant for the use_header_modules feature.
    *
    * <p>This feature is only used during rollout; we expect to default enable this once we have
@@ -138,12 +78,6 @@ public class CppRuleClasses {
    */
   public static final String GENERATE_SUBMODULES = "generate_submodules";
 
-  /**
-   * A string constant for the only_doth_headers_in_module_maps.
-   *
-   * <p>This feature filters any headers without a ".h" suffix from generated module maps.
-   */
-  public static final String ONLY_DOTH_HEADERS_IN_MODULE_MAPS = "only_doth_headers_in_module_maps";
 
   /**
    * A string constant for the no_legacy_features feature.
@@ -269,34 +203,8 @@ public class CppRuleClasses {
    */
   public static final String GENERATE_PDB_FILE = "generate_pdb_file";
 
-  /**
-   * A string constant for a feature that automatically exporting symbols on Windows. Bazel
-   * generates a DEF file for object files of a cc_library, then use it at linking time. This
-   * feature should only be used for toolchains targeting Windows, and the toolchain should support
-   * using DEF files for exporting symbols.
-   */
-  public static final String WINDOWS_EXPORT_ALL_SYMBOLS = "windows_export_all_symbols";
-
-  /** A string constant for a feature to disable WINDOWS_EXPORT_ALL_SYMBOLS. */
-  public static final String NO_WINDOWS_EXPORT_ALL_SYMBOLS = "no_windows_export_all_symbols";
-
   /** A string constant for a feature to copy dynamic libraries to the binary's directory. */
   public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY = "copy_dynamic_libraries_to_binary";
-
-  /** A string constant for a feature to statically link MSVCRT info on Windows. */
-  public static final String STATIC_LINK_MSVCRT = "static_link_msvcrt";
-
-  /** A string constant for a feature to statically link MSVCRT without debug info on Windows. */
-  public static final String STATIC_LINK_MSVCRT_NO_DEBUG = "static_link_msvcrt_no_debug";
-
-  /** A string constant for a feature to dynamically link MSVCRT without debug info on Windows. */
-  public static final String DYNAMIC_LINK_MSVCRT_NO_DEBUG = "dynamic_link_msvcrt_no_debug";
-
-  /** A string constant for a feature to statically link MSVCRT with debug info on Windows. */
-  public static final String STATIC_LINK_MSVCRT_DEBUG = "static_link_msvcrt_debug";
-
-  /** A string constant for a feature to dynamically link MSVCRT with debug info on Windows. */
-  public static final String DYNAMIC_LINK_MSVCRT_DEBUG = "dynamic_link_msvcrt_debug";
 
   /** A string constant for a feature to statically link the C++ runtimes. */
   public static final String STATIC_LINK_CPP_RUNTIMES = "static_link_cpp_runtimes";
@@ -311,13 +219,6 @@ public class CppRuleClasses {
    */
   public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES =
       "supports_interface_shared_libraries";
-
-  /**
-   * A string constant for no_stripping feature, if it's specified, then no strip action config is
-   * needed, instead the stripped binary will simply be a symlink (or a copy on Windows) of the
-   * original binary.
-   */
-  public static final String NO_STRIPPING = "no_stripping";
 
   /** A string constant for /showIncludes parsing feature, should only be used for MSVC toolchain */
   public static final String PARSE_SHOWINCLUDES = "parse_showincludes";
@@ -354,20 +255,9 @@ public class CppRuleClasses {
   /** A string constant for the memprof profile optimization feature. */
   public static final String MEMPROF_OPTIMIZE = "memprof_optimize";
 
-  /**
-   * A string constant for the propeller_optimize_thinlto_compile_actions feature.
-   *
-   * <p>TODO(b/182804945): Remove after making sure that the rollout of the new Propeller profile
-   * passing logic didn't break anything.
-   */
-  public static final String PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS =
-      "propeller_optimize_thinlto_compile_actions";
-
   /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
 
-  /** A string constant for the build_interface_libraries feature. */
-  public static final String BUILD_INTERFACE_LIBRARIES = "build_interface_libraries";
 
   /** A string constant for the xbinaryfdo feature. */
   public static final String XBINARYFDO = "xbinaryfdo";
@@ -381,9 +271,6 @@ public class CppRuleClasses {
   /** Produce artifacts for coverage in gcc coverage mapping format. */
   public static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
 
-  /** A string constant for the match-clif action. */
-  public static final String MATCH_CLIF = "match_clif";
-
   /** A feature marking that the toolchain can use --start-lib/--end-lib flags */
   public static final String SUPPORTS_START_END_LIB = "supports_start_end_lib";
 
@@ -393,18 +280,6 @@ public class CppRuleClasses {
    */
   public static final String SUPPORTS_DYNAMIC_LINKER = "supports_dynamic_linker";
 
-  /** A feature marking that the target needs to link its deps in --whole-archive block. */
-  public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
-
-  /** A feature for force disabling whole-archive on a per target and per rule type basis. */
-  public static final String FORCE_NO_WHOLE_ARCHIVE = "force_no_whole_archive";
-
-  /**
-   * A feature marking that the target generates libraries that should not be put in a
-   * --whole-archive block.
-   */
-  public static final String DISABLE_WHOLE_ARCHIVE_FOR_STATIC_LIB =
-      "disable_whole_archive_for_static_lib";
 
   public static final String COMPILER_PARAM_FILE = "compiler_param_file";
 
@@ -416,9 +291,6 @@ public class CppRuleClasses {
 
   /** A feature to use gcc quoting for linking param files. */
   public static final String GCC_QUOTING_FOR_PARAM_FILES = "gcc_quoting_for_param_files";
-
-  /** A feature to use windows quoting for linking param files. */
-  public static final String WINDOWS_QUOTING_FOR_PARAM_FILES = "windows_quoting_for_param_files";
 
   /**
    * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple

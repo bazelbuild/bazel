@@ -66,7 +66,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
                 FeatureConfiguration.EMPTY))
         .isFalse();
@@ -75,7 +75,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
                 FeatureConfiguration.EMPTY))
         .isFalse();
@@ -84,10 +84,20 @@ public final class CcToolchainTest extends BuildViewTestCase {
     invalidatePackages();
     target = getConfiguredTarget("//a:b");
     assertThat(
-            CppHelper.useInterfaceSharedLibraries(
+            useInterfaceSharedLibraries(
                 getConfiguration(target).getFragment(CppConfiguration.class),
                 FeatureConfiguration.EMPTY))
         .isFalse();
+  }
+
+  /**
+   * Returns true if interface shared objects should be used in the build implied by the given
+   * cppConfiguration and toolchain.
+   */
+  static boolean useInterfaceSharedLibraries(
+      CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
+    return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
+        && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 
   @Test

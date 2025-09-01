@@ -149,11 +149,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     return StarlarkList.immutableCopyOf(getModuleFiles());
   }
 
-  /** Returns information about bitcode object files resulting from compilation. */
-  public LtoCompilationContext getLtoCompilationContext() {
-    return ltoCompilationContext;
-  }
-
   @Override
   public LtoCompilationContext getLtoCompilationContextForStarlark(StarlarkThread thread)
       throws EvalException {

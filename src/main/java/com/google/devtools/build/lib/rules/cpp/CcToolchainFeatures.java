@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -915,14 +914,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     ImmutableSet<WithFeatureSet> getWithFeatureSetSets() {
       return withFeatureSetSets;
     }
-
-    PathFragment getToolPathFragment() {
-      return toolPathFragment;
-    }
-
-    PathOrigin getToolPathOrigin() {
-      return toolPathOrigin;
-    }
   }
 
   /**
@@ -1117,15 +1108,6 @@ public class CcToolchainFeatures implements StarlarkValue {
     public ArtifactNamePattern get(ArtifactCategory category) {
       ArtifactNamePattern result = prefixExtensionOverrides.get(category);
       return result != null ? result : DEFAULT_PATTERNS.get(category);
-    }
-
-    public ImmutableMap<ArtifactCategory, ArtifactNamePattern> asImmutableMap() {
-      // Don't have ImmutableMap.Builder#buildKeepingLast in open-source yet.
-      return ImmutableMap.<ArtifactCategory, ArtifactNamePattern>builderWithExpectedSize(
-              DEFAULT_PATTERNS.size())
-          .putAll(prefixExtensionOverrides)
-          .putAll(Maps.filterKeys(DEFAULT_PATTERNS, k -> !prefixExtensionOverrides.containsKey(k)))
-          .buildOrThrow();
     }
 
     static class Builder {

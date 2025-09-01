@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -181,18 +180,10 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     }
   }
 
-  public Artifact getObjectFile() {
-    return objectFile;
-  }
-
   @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
   public Artifact getObjectFileForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return objectFile;
-  }
-
-  public Artifact getBitcodeFile() {
-    return bitcodeFile;
   }
 
   @StarlarkMethod(name = "bitcode_file", documented = false, useStarlarkThread = true)
@@ -226,17 +217,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
   @Nullable
   public Artifact getImports() {
     return imports;
-  }
-
-  void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
-    // For objects from linkstatic libraries, we may not be including them in the LTO indexing
-    // step when linked into a test, but rather will use shared non-LTO backends for better
-    // scalability when running large numbers of tests.
-    if (index == null) {
-      return;
-    }
-    builder.add(imports);
-    builder.add(index);
   }
 
   /**

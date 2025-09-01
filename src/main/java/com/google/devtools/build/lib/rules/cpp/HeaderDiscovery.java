@@ -47,12 +47,6 @@ import javax.annotation.Nullable;
  */
 final class HeaderDiscovery {
 
-  /** Indicates if a compile should perform dotd pruning. */
-  public enum DotdPruningMode {
-    USE,
-    DO_NOT_USE
-  }
-
   private HeaderDiscovery() {}
 
   /**

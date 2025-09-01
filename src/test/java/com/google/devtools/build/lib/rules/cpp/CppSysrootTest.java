@@ -141,12 +141,9 @@ public final class CppSysrootTest extends BuildViewTestCase {
       if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
         try {
           CcToolchainVariables buildVariables = toolchainProvider.getBuildVars();
-          return CppHelper.getCommandLine(
-              ruleContext,
-              featureConfiguration,
-              buildVariables,
-              CppActionNames.CC_FLAGS_MAKE_VARIABLE);
-
+          return ImmutableList.copyOf(
+              featureConfiguration.getCommandLine(
+                  CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables));
         } catch (EvalException e) {
           throw new RuleErrorException(e.getMessage());
         }
