@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
@@ -127,10 +126,7 @@ public abstract class JavaPluginInfo extends NativeInfo
 
     @Override
     public JavaPluginInfo wrap(Info value) throws RuleErrorException {
-      if (value instanceof JavaInfo) {
-        // needed because currently native JavaInfo extends JavaPluginInfo
-        throw new RuleErrorException("got element of type JavaInfo, want JavaPluginInfo");
-      } else if (value instanceof JavaPluginInfo javaPluginInfo) {
+      if (value instanceof JavaPluginInfo javaPluginInfo) {
         return javaPluginInfo;
       } else if (value instanceof StructImpl) {
         try {

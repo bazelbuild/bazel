@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
-import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -39,6 +38,7 @@ import net.starlark.java.eval.Starlark;
 public interface JavaGenJarsProvider
     extends JavaInfoInternalProvider, JavaAnnotationProcessingApi<Artifact> {
 
+  @SuppressWarnings("ClassInitializationDeadlock")
   JavaGenJarsProvider EMPTY =
       new NativeJavaGenJarsProvider(
           false,
@@ -48,44 +48,6 @@ public interface JavaGenJarsProvider
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-
-  static JavaGenJarsProvider create(
-      boolean usesAnnotationProcessing,
-      @Nullable Artifact genClassJar,
-      @Nullable Artifact genSourceJar,
-      JavaPluginInfo plugins,
-      List<JavaGenJarsProvider> transitiveJavaGenJars)
-      throws RuleErrorException {
-    if (!usesAnnotationProcessing
-        && genClassJar == null
-        && genSourceJar == null
-        && plugins.isEmpty()
-        && transitiveJavaGenJars.isEmpty()) {
-      return EMPTY;
-    }
-
-    NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
-
-    if (genClassJar != null) {
-      classJarsBuilder.add(genClassJar);
-    }
-    if (genSourceJar != null) {
-      sourceJarsBuilder.add(genSourceJar);
-    }
-    for (JavaGenJarsProvider dep : transitiveJavaGenJars) {
-      classJarsBuilder.addTransitive(dep.getTransitiveGenClassJars());
-      sourceJarsBuilder.addTransitive(dep.getTransitiveGenSourceJars());
-    }
-    return new NativeJavaGenJarsProvider(
-        usesAnnotationProcessing,
-        genClassJar,
-        genSourceJar,
-        plugins.plugins().processorClasspath(),
-        plugins.plugins().processorClasses(),
-        classJarsBuilder.build(),
-        sourceJarsBuilder.build());
-  }
 
   static JavaGenJarsProvider from(Object obj) throws EvalException {
     if (obj == null || obj == Starlark.NONE) {
