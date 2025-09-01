@@ -14,17 +14,20 @@
 """C / C++"""
 # Build Encyclopedia entry point for C / C++ rules implemented in Starlark in Blaze's @_builtins
 
-load("@rules_cc//cc/private/rules_impl:cc_binary.bzl", "cc_binary")  # buildifier: disable=bzl-visibility
-load("@rules_cc//cc/private/rules_impl:cc_import.bzl", "cc_import")  # buildifier: disable=bzl-visibility
-load("@rules_cc//cc/private/rules_impl:cc_library.bzl", "cc_library")  # buildifier: disable=bzl-visibility
-load("@rules_cc//cc/private/rules_impl:cc_shared_library.bzl", "cc_shared_library")  # buildifier: disable=bzl-visibility
-load("@rules_cc//cc/private/rules_impl:cc_static_library.bzl", "cc_static_library")  # buildifier: disable=bzl-visibility
-load("@rules_cc//cc/private/rules_impl:cc_test.bzl", "cc_test")  # buildifier: disable=bzl-visibility
+load(
+    "@cc_compatibility_proxy//:proxy.bzl",
+    "cc_binary",
+    "cc_import",
+    "cc_library",
+    "cc_shared_library",
+    "cc_static_library",
+    "cc_test",
+    "fdo_prefetch_hints",
+    "fdo_profile",
+    "memprof_profile",
+    "propeller_optimize",
+)
 load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
-load("@rules_cc//cc/toolchains:fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
-load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
-load("@rules_cc//cc/toolchains:memprof_profile.bzl", "memprof_profile")
-load("@rules_cc//cc/toolchains:propeller_optimize.bzl", "propeller_optimize")
 
 binary_rules = struct(
     cc_binary = cc_binary,
