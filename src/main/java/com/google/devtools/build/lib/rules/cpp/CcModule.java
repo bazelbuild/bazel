@@ -524,7 +524,6 @@ public abstract class CcModule
       Sequence<?> nonExportedCompilationContexts,
       StarlarkThread thread)
       throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
     if (compilationContexts.isEmpty() && nonExportedCompilationContexts.isEmpty()) {
       return CcCompilationContext.EMPTY;
     }

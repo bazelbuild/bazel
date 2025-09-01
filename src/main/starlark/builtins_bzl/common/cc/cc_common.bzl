@@ -18,7 +18,7 @@ load(
     _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
-load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo", "create_debug_context", "create_linking_context", "merge_debug_context", "merge_linking_contexts")
+load(":common/cc/cc_info.bzl", "CcNativeLibraryInfo", "create_debug_context", "create_linking_context", "merge_cc_infos", "merge_debug_context", "merge_linking_contexts")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
@@ -333,32 +333,6 @@ def _create_linking_context(
     return create_linking_context(
         linker_inputs = linker_inputs,
         extra_link_time_library = extra_link_time_library,
-    )
-
-def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
-    direct_cc_compilation_contexts = []
-    cc_compilation_contexts = []
-    cc_linking_contexts = []
-    cc_debug_info_contexts = []
-    transitive_native_cc_libraries = []
-
-    for cc_info in direct_cc_infos:
-        direct_cc_compilation_contexts.append(cc_info.compilation_context)
-        cc_linking_contexts.append(cc_info.linking_context)
-        cc_debug_info_contexts.append(cc_info._debug_context)
-        transitive_native_cc_libraries.append(cc_info._legacy_transitive_native_libraries)
-
-    for cc_info in cc_infos:
-        cc_compilation_contexts.append(cc_info.compilation_context)
-        cc_linking_contexts.append(cc_info.linking_context)
-        cc_debug_info_contexts.append(cc_info._debug_context)
-        transitive_native_cc_libraries.append(cc_info._legacy_transitive_native_libraries)
-
-    return CcInfo(
-        compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
-        linking_context = merge_linking_contexts(linking_contexts = cc_linking_contexts),
-        debug_context = merge_debug_context(cc_debug_info_contexts),
-        cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(order = "topological", transitive = transitive_native_cc_libraries)),
     )
 
 def _create_compilation_context(
@@ -838,7 +812,7 @@ cc_common = struct(
     create_library_to_link = _create_library_to_link,
     create_linker_input = create_linker_input,
     create_linking_context = _create_linking_context,
-    merge_cc_infos = _merge_cc_infos,
+    merge_cc_infos = merge_cc_infos,
     create_compilation_context = _create_compilation_context,
     legacy_cc_flags_make_variable_do_not_use = _legacy_cc_flags_make_variable_do_not_use,
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
