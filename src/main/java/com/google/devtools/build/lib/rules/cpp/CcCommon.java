@@ -199,7 +199,7 @@ public final class CcCommon implements StarlarkValue {
 
     if (language != Language.OBJC
         && language != Language.OBJCPP
-        && toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
+        && toolchain.getCcInfoCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
 

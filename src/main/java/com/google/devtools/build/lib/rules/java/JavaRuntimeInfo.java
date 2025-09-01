@@ -24,15 +24,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -129,19 +126,6 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
 
   public ImmutableList<StarlarkInfo> hermeticStaticLibs() throws RuleErrorException {
     return getUnderlyingSequence("hermetic_static_libs", StarlarkInfo.class).getImmutableList();
-  }
-
-  /**
-   * @deprecated Use only in tests
-   */
-  @Deprecated
-  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink()
-      throws RuleErrorException, EvalException {
-    NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
-    for (StarlarkInfo lib : hermeticStaticLibs()) {
-      result.addTransitive(CcInfo.wrap(lib).getCcLinkingContext().getLibraries());
-    }
-    return result.build();
   }
 
   public int version() throws RuleErrorException {

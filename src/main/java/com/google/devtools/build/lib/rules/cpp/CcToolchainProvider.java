@@ -364,9 +364,11 @@ public final class CcToolchainProvider {
     return PathFragment.create(value.getValue("dynamic_runtime_solib_dir", String.class));
   }
 
-  /** Returns the {@code CcInfo} for the toolchain. */
-  public CcInfo getCcInfo() throws EvalException {
-    return CcInfo.wrap(value.getValue("_cc_info", StarlarkInfo.class));
+  /** Returns {@code CcCompilationContext} from the {@code CcInfo} for the toolchain. */
+  public CcCompilationContext getCcInfoCcCompilationContext() throws EvalException {
+    return value
+        .getValue("_cc_info", StarlarkInfo.class)
+        .getValue("compilation_context", CcCompilationContext.class);
   }
 
   /** Whether the toolchains supports parameter files. */
