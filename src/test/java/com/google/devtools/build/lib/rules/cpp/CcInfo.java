@@ -20,19 +20,12 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import net.starlark.java.eval.EvalException;
 
 /** Provider for C++ compilation and linking information. */
 public final class CcInfo {
-  public static final StarlarkProvider.Key KEY =
-      new StarlarkProvider.Key(
-          BzlLoadValue.keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
-          "CcInfo");
-
   public static final CcInfoProvider PROVIDER = new CcInfoProvider();
 
   /** A wrapper around the Starlark provider. */
@@ -56,18 +49,10 @@ public final class CcInfo {
     this.starlarkInfo = starlarkInfo;
   }
 
-  /**
-   * @deprecated Only use in tests.
-   */
-  @Deprecated
   public static CcInfo wrap(StarlarkInfo starlarkInfo) {
     return new CcInfo(starlarkInfo);
   }
 
-  /**
-   * @deprecated Only use in tests.
-   */
-  @Deprecated
   public CcCompilationContext getCcCompilationContext() {
     try {
       return starlarkInfo.getValue("compilation_context", CcCompilationContext.class);
@@ -76,10 +61,6 @@ public final class CcInfo {
     }
   }
 
-  /**
-   * @deprecated Only use in tests.
-   */
-  @Deprecated
   public CcLinkingContext getCcLinkingContext() {
     try {
       return CcLinkingContext.of(starlarkInfo.getValue("linking_context", StarlarkInfo.class));
@@ -88,10 +69,6 @@ public final class CcInfo {
     }
   }
 
-  /**
-   * @deprecated Only use in tests.
-   */
-  @Deprecated
   public StarlarkInfo getCcDebugInfoContext() {
     try {
       return starlarkInfo.getValue("_debug_context", StarlarkInfo.class);
@@ -100,10 +77,6 @@ public final class CcInfo {
     }
   }
 
-  /**
-   * @deprecated Use only in tests
-   */
-  @Deprecated
   public NestedSet<LibraryToLink> getTransitiveCcNativeLibrariesForTests() {
     try {
       return LibraryToLink.wrap(

@@ -28,12 +28,8 @@ import net.starlark.java.eval.Sequence;
 
 /**
  * Unwraps information for linking a library from a Starlark struct.
- *
- * @deprecated Use only in tests
  */
-@Deprecated
 public final class LibraryToLink {
-  @Deprecated
   public static ImmutableList<Artifact> getDynamicLibrariesForRuntime(
       boolean linkingStatically, Iterable<LibraryToLink> libraries) {
     ImmutableList.Builder<Artifact> dynamicLibrariesForRuntimeBuilder = ImmutableList.builder();
@@ -46,7 +42,6 @@ public final class LibraryToLink {
     return dynamicLibrariesForRuntimeBuilder.build();
   }
 
-  @Deprecated
   public static ImmutableList<Artifact> getDynamicLibrariesForLinking(
       NestedSet<LibraryToLink> libraries) {
     ImmutableList.Builder<Artifact> dynamicLibrariesForLinkingBuilder = ImmutableList.builder();
