@@ -88,6 +88,20 @@ public abstract class FileSystem {
   }
 
   /**
+   * Returns the file system that the current file system is based on, if any, otherwise returns
+   * this.
+   *
+   * <p>For an action file system, this should return the on-disk component (or the result of
+   * getHostFileSystem() on that component if it is itself a composite file system).
+   *
+   * <p>Note that the returned file system may still be an in-memory file system (in tests, for
+   * example), but should be treated as the "native" file system for the host machine.
+   */
+  public FileSystem getHostFileSystem() {
+    return this;
+  }
+
+  /**
    * Returns whether or not the FileSystem supports modifications of files and file entries.
    *
    * <p>Returns true if FileSystem supports the following:
@@ -248,7 +262,7 @@ public abstract class FileSystem {
    * @throws IOException if the hierarchy cannot be removed successfully
    */
   public void deleteTreesBelow(PathFragment dir) throws IOException {
-    if (isDirectory(dir, /*followSymlinks=*/ false)) {
+    if (isDirectory(dir, /* followSymlinks= */ false)) {
       Collection<String> entries;
       try {
         entries = getDirectoryEntries(dir);
@@ -391,7 +405,9 @@ public abstract class FileSystem {
       } else if (name.equals("..")) {
         PathFragment parent = dir.getParentDirectory();
         // root's parent is root, when canonicalizing, so this is a no-op.
-        if (parent != null) { dir = parent; }
+        if (parent != null) {
+          dir = parent;
+        }
       } else {
         dir = appendSegment(dir, name, maxLinks);
       }

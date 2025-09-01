@@ -228,7 +228,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   @Override
   public int hashCode() {
     // Do not include file system for efficiency.
-    // In practice we never construct paths from different file systems.
+    // In practice, we don't expect paths on different file systems to be contained in the same
+    // collection.
     return pathFragment.hashCode();
   }
 
@@ -246,6 +247,24 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
       }
     }
     return pathFragment.compareTo(o.pathFragment);
+  }
+
+  /**
+   * Returns the same path on the file system that the current file system is based on, if any.
+   * Otherwise, returns the current path unchanged.
+   *
+   * <p>For an action file system, this should return the on-disk component (or the result of
+   * getHostFileSystem() on that component if it is itself a composite file system).
+   *
+   * <p>Note that the returned path may still reference an in-memory file system (in tests, for
+   * example), but should be treated as being on the "native" file system for the host machine.
+   */
+  public Path forHostFileSystem() {
+    var hostFs = fileSystem.getHostFileSystem();
+    if (hostFs.equals(fileSystem)) {
+      return this;
+    }
+    return Path.create(asFragment(), hostFs);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
