@@ -102,12 +102,6 @@ def _rule_error(msg):
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
 
-def _libraries_from_linking_context(linking_context):
-    libraries = []
-    for linker_input in linking_context.linker_inputs.to_list():
-        libraries.extend(linker_input.libraries)
-    return depset(libraries, order = "topological")
-
 def _additional_inputs_from_linking_context(linking_context):
     inputs = []
     for linker_input in linking_context.linker_inputs.to_list():
@@ -121,6 +115,12 @@ cpp_file_types = struct(
 )
 
 artifact_category = _artifact_category
+
+def _libraries_from_linking_context(linking_context):
+    libraries = []
+    for linker_input in linking_context.linker_inputs.to_list():
+        libraries.extend(linker_input.libraries)
+    return depset(libraries, order = "topological")
 
 # NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
 # it has better performance (checking for extension in a short list rather than multiple
