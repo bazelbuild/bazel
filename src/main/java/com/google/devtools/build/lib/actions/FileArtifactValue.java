@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -329,7 +330,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         stat.isFile(),
         stat.getSize(),
         FileContentsProxy.create(stat),
-        /* digest= */ null,
+        stat instanceof FileStatusWithDigest statWithDigest ? statWithDigest.getDigest() : null,
         xattrProvider);
   }
 
