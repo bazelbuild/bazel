@@ -167,6 +167,14 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return false;
   }
 
+  /**
+   * Returns whether the file contents are materialized lazily, for example, because they exist
+   * remotely.
+   */
+  public boolean isLazy() {
+    return isRemote();
+  }
+
   /** Returns the location index for remote files. For non-remote files, returns 0. */
   public int getLocationIndex() {
     return 0;
@@ -307,7 +315,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createFromInjectedDigest(
       FileArtifactValue metadata, @Nullable byte[] digest) {
-    return createForNormalFile(digest, metadata.getContentsProxy(), metadata.getSize());
+    var normalFileValue =
+        createForNormalFile(digest, metadata.getContentsProxy(), metadata.getSize());
+    if (metadata.getResolvedPath() != null) {
+      return createFromExistingWithResolvedPath(normalFileValue, metadata.getResolvedPath());
+    } else {
+      return normalFileValue;
+    }
   }
 
   @VisibleForTesting
@@ -913,6 +927,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
+    public boolean isLazy() {
+      return true;
+    }
+
+    @Override
     public int getLocationIndex() {
       return delegate.getLocationIndex();
     }
@@ -1044,6 +1063,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public FileStateType getType() {
       return FileStateType.SYMLINK;
+    }
+
+    @Override
+    public boolean isLazy() {
+      return true;
     }
 
     @Override
