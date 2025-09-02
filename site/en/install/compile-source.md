@@ -199,14 +199,13 @@ For instructions for Windows, see [Bootstrap Bazel on Windows](#bootstrap-window
 
 *   **JDK.** Version 21 is required.
 
-*   **Python**. Versions 2 and 3 are supported, installing one of them is
-    enough.
+*   **Python**. Version 3 is required.
 
 For example on Ubuntu Linux you can install these requirements using the
 following command:
 
 ```sh
-sudo apt-get install build-essential openjdk-21-jdk python zip unzip
+sudo apt-get install build-essential openjdk-21-jdk python3 zip unzip
 ```
 
 #### 2.2. Bootstrap Bazel on Unix {:#bootstrap-unix}
