@@ -794,40 +794,48 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
 
         compiled_basenames.add(_basename_without_extension(source_artifact))
 
-        cc_internal.create_compile_source_action_from_builder(
+        _create_compile_source_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
-            cc_toolchain = cc_toolchain,
-            configuration = configuration,
-            conlyopts = conlyopts,
-            copts = copts,
-            cpp_configuration = cpp_configuration,
-            cxxopts = cxxopts,
-            fdo_context = fdo_context,
-            auxiliary_fdo_inputs = auxiliary_fdo_inputs,
-            feature_configuration = feature_configuration,
-            generate_no_pic_action = not use_pic,
-            generate_pic_action = use_pic,
             label = label,
-            common_compile_build_variables = common_compile_build_variables,
-            fdo_build_variables = fdo_build_variables,
-            cpp_semantics = native_cc_semantics,
             source_label = source_label,
+            source_artifact = source_artifact,
             output_name = output_name,
             outputs = outputs,
-            source_artifact = source_artifact,
-            cpp_compile_action_builder = cpp_compile_action_builder,
+            cc_toolchain = cc_toolchain,
+            feature_configuration = feature_configuration,
+            configuration = configuration,
+            cpp_configuration = cpp_configuration,
+            cpp_semantics = native_cc_semantics,
+            language = language,
+            conlyopts = conlyopts,
+            copts = copts,
+            cxxopts = cxxopts,
+            copts_filter = copts_filter,
+            common_compile_variables = common_compile_build_variables,
+            fdo_build_variables = fdo_build_variables,
             output_category = artifact_category.CLIF_OUTPUT_PROTO if cpp_source.type == CPP_SOURCE_TYPE_CLIF_INPUT_PROTO else artifact_category.OBJECT_FILE,
             cpp_module_map = cc_compilation_context.module_map(),
             add_object = True,
             enable_coverage = is_code_coverage_enabled,
             generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration),
             bitcode_output = bitcode_output,
+            fdo_context = fdo_context,
+            auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+            additional_compilation_inputs = additional_compilation_inputs,
+            additional_include_scanning_roots = additional_include_scanning_roots,
+            use_pic = use_pic,
             additional_build_variables = {
                 "cpp_module_output_file": module_file,
                 "cpp_module_modmap_file": modmap_file,
             },
+            action_name = ACTION_NAMES.cpp20_module_compile,
+            additional_outputs = [module_file],
+            module_files = all_other_module_files,
+            modmap_file = modmap_file,
+            modmap_input_file = modmap_input_file,
         )
+
     all_module_files = depset(direct_module_files, transitive = [transitive_module_files])
     for cpp_source in compilation_unit_sources.values():
         source_artifact = cpp_source.file
@@ -950,37 +958,43 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             modmap_input_file = modmap_input_file,
         )
         compiled_basenames.add(_basename_without_extension(source_artifact))
-        cc_internal.create_compile_source_action_from_builder(
+        _create_compile_source_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
-            cc_toolchain = cc_toolchain,
-            configuration = configuration,
-            conlyopts = conlyopts,
-            copts = copts,
-            cpp_configuration = cpp_configuration,
-            cxxopts = cxxopts,
-            fdo_context = fdo_context,
-            auxiliary_fdo_inputs = auxiliary_fdo_inputs,
-            feature_configuration = feature_configuration,
-            generate_no_pic_action = not use_pic,
-            generate_pic_action = use_pic,
             label = label,
-            common_compile_build_variables = common_compile_build_variables,
-            fdo_build_variables = fdo_build_variables,
-            cpp_semantics = native_cc_semantics,
             source_label = source_label,
+            source_artifact = source_artifact,
             output_name = output_name,
             outputs = outputs,
-            source_artifact = source_artifact,
-            cpp_compile_action_builder = cpp_compile_action_builder,
-            output_category = artifact_category.CLIF_OUTPUT_PROTO if cpp_source.type == CPP_SOURCE_TYPE_CLIF_INPUT_PROTO else artifact_category.OBJECT_FILE,
+            cc_toolchain = cc_toolchain,
+            feature_configuration = feature_configuration,
+            configuration = configuration,
+            cpp_configuration = cpp_configuration,
+            cpp_semantics = native_cc_semantics,
+            language = language,
+            conlyopts = conlyopts,
+            copts = copts,
+            cxxopts = cxxopts,
+            copts_filter = copts_filter,
+            common_compile_variables = common_compile_build_variables,
+            fdo_build_variables = fdo_build_variables,
+            output_category =  artifact_category.CLIF_OUTPUT_PROTO if cpp_source.type == CPP_SOURCE_TYPE_CLIF_INPUT_PROTO else artifact_category.OBJECT_FILE,
             cpp_module_map = cc_compilation_context.module_map(),
             add_object = True,
             enable_coverage = is_code_coverage_enabled,
             generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration),
             bitcode_output = bitcode_output,
+            fdo_context = fdo_context,
+            auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+            additional_compilation_inputs = additional_compilation_inputs,
+            additional_include_scanning_roots = additional_include_scanning_roots,
+            use_pic = use_pic,
             additional_build_variables = additional_build_variables,
+            module_files = all_module_files,
+            modmap_file = modmap_file,
+            modmap_input_file = modmap_input_file,
         )
+
 
 def _create_cc_compile_actions_with_cpp20_module(
         *,
@@ -1523,7 +1537,13 @@ def _create_compile_source_action(
         auxiliary_fdo_inputs,
         additional_compilation_inputs,
         additional_include_scanning_roots,
-        use_pic):
+        use_pic,
+        additional_build_variables = {},
+        action_name = None,
+        additional_outputs = [],
+        module_files = depset(),
+        modmap_file = None,
+        modmap_input_file = None):
     output_pic_nopic_name = output_name
     if use_pic:
         output_pic_nopic_name = cc_internal.get_artifact_name_for_category(
@@ -1619,7 +1639,7 @@ def _create_compile_source_action(
         feature_configuration = feature_configuration,
         direct_module_maps = cc_compilation_context.direct_module_maps,
         fdo_build_variables = fdo_build_variables,
-        additional_build_variables = {},
+        additional_build_variables = additional_build_variables,
     )
 
     temp_action_outputs = _create_temps_action(
@@ -1672,6 +1692,11 @@ def _create_compile_source_action(
         dwo_file = dwo_file,
         use_pic = use_pic,
         lto_indexing_file = lto_indexing_file,
+        action_name = action_name,
+        additional_outputs = additional_outputs,
+        module_files = module_files,
+        modmap_file = modmap_file,
+        modmap_input_file = modmap_input_file,
     )
 
     cc_internal.create_cpp_compile_action(
