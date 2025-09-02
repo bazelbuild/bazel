@@ -19,9 +19,8 @@ import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import net.starlark.java.eval.StarlarkSemantics;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -69,7 +68,7 @@ public final class Json implements StarlarkValue {
 
   /** An interface for StarlarkValue subclasses to define their own JSON encoding. */
   public interface Encodable {
-    String encodeJSON();
+    String encodeJSON(StarlarkSemantics semantics);
   }
 
   /**
@@ -153,12 +152,7 @@ public final class Json implements StarlarkValue {
       if (x instanceof Encodable) {
         // Application-defined Starlark value types
         // may define their own JSON encoding.
-        out.append(((Encodable) x).encodeJSON());
-        return;
-      }
-
-      if (x instanceof FileApi file) {
-        appendQuoted(file.getExecPathStringForStarlark(semantics));
+        out.append(((Encodable) x).encodeJSON(semantics));
         return;
       }
 
