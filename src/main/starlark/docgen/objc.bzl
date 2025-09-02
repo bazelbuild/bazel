@@ -13,10 +13,9 @@
 # limitations under the License.
 """Objective-C"""
 
-load("@rules_cc//cc/private/rules_impl:objc_import.bzl", "objc_import")  # buildifier: disable=bzl-visibility
-load("@rules_cc//cc/private/rules_impl:objc_library.bzl", "objc_library")  # buildifier: disable=bzl-visibility
+load("@cc_compatibility_proxy//:proxy.bzl", "objc_import", "objc_library")
 
-# Build Encyclopedia entry point for Objc rules implemented in Starlark in Blaze's @_builtins
+# Build Encyclopedia entry point for Objc rules implemented in Starlark
 
 binary_rules = struct()
 
