@@ -244,7 +244,7 @@ public class ModExecutor {
     Map<ModuleKey, ModuleKey> bfsParentMap = new HashMap<>();
     from.stream()
         .filter(this::filterBuiltin)
-        .collect(toImmutableSortedSet(ModuleKey.LEXICOGRAPHIC_COMPARATOR))
+        .sorted(ModuleKey.LEXICOGRAPHIC_COMPARATOR)
         .forEach(moduleKey -> bfsParentMap.put(moduleKey, ModuleKey.ROOT));
     bfsParentMap.put(ModuleKey.ROOT, null); // The root has no parent.
 
