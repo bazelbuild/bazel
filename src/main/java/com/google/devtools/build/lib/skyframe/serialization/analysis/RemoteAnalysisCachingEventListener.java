@@ -122,10 +122,6 @@ public class RemoteAnalysisCachingEventListener {
 
   @ThreadSafe
   public void recordRetrievalResult(RetrievalResult result, SkyKey key) {
-    if (result instanceof Restart) {
-      return;
-    }
-
     switch (result) {
       case RetrievedValue unusedValue -> {
         if (!cacheHits.add(key)) {
@@ -144,9 +140,7 @@ public class RemoteAnalysisCachingEventListener {
             .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
             .incrementAndGet();
       }
-      case Restart unusedRestart ->
-          throw new IllegalStateException(
-              "should have returned earlier"); // restart counts are not useful (yet).
+      case Restart unusedRestart -> {}
     }
   }
 

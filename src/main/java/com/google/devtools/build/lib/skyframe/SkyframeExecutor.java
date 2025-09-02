@@ -587,9 +587,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<SkyKey> currentInvocationCacheHits,
       FrontierNodeVersion currentInvocationVersion,
       ClientId currentInvocationClientId) {
-    checkState(
-        remoteAnalysisCachingState.deserializedKeys().containsAll(currentInvocationCacheHits),
-        "All deserialized keys from the latest invocation should be already present in the state.");
+    // TODO: b/441389667 - it should be possible to verify the consistency between
+    // `currentInvocationCacheHits` and `remoteAnalysisCachingState.deserializedKeys()`. However,
+    // when prior cache hit nodes are subsequently rewound, they are only deleted from
+    // `remoteAnalysisCachingState.deserializedKeys()` leading to inconsistency. It might be
+    // possible to also delete rewound keys from `currentInvocationCacheHits` to preserve
+    // consistency.
     remoteAnalysisCachingState.setVersion(currentInvocationVersion);
     remoteAnalysisCachingState.setClientId(currentInvocationClientId);
   }
