@@ -774,24 +774,6 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             [m for m in direct_module_files if m != module_file],
             transitive = [transitive_module_files],
         )
-        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
-            action_construction_context = action_construction_context,
-            cc_compilation_context = cc_compilation_context,
-            cc_toolchain = cc_toolchain,
-            configuration = configuration,
-            copts_filter = copts_filter,
-            feature_configuration = feature_configuration,
-            semantics = native_cc_semantics,
-            source_artifact = source_artifact,
-            additional_compilation_inputs = additional_compilation_inputs,
-            additional_include_scanning_roots = additional_include_scanning_roots,
-            module_files = all_other_module_files,
-            modmap_file = modmap_file,
-            modmap_input_file = modmap_input_file,
-            action_name = ACTION_NAMES.cpp20_module_compile,
-            additional_outputs = [module_file],
-        )
-
         compiled_basenames.add(_basename_without_extension(source_artifact))
 
         _create_compile_source_action(
@@ -942,21 +924,6 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
                 modmap_file = modmap_file,
                 modmap_input_file = modmap_input_file,
             )
-        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
-            action_construction_context = action_construction_context,
-            cc_compilation_context = cc_compilation_context,
-            cc_toolchain = cc_toolchain,
-            configuration = configuration,
-            copts_filter = copts_filter,
-            feature_configuration = feature_configuration,
-            semantics = native_cc_semantics,
-            source_artifact = source_artifact,
-            additional_compilation_inputs = additional_compilation_inputs,
-            additional_include_scanning_roots = additional_include_scanning_roots,
-            module_files = all_module_files,
-            modmap_file = modmap_file,
-            modmap_input_file = modmap_input_file,
-        )
         compiled_basenames.add(_basename_without_extension(source_artifact))
         _create_compile_source_action(
             action_construction_context = action_construction_context,
