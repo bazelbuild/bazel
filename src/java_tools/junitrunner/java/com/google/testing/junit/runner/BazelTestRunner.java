@@ -178,6 +178,13 @@ public class BazelTestRunner {
     }
   }
 
+  /**
+   * If the system property {@code bazel.test_runner.await_non_daemon_threads} is set to true,
+   * adds a shutdown hook that waits for all non-daemon threads to finish before allowing the JVM
+   * to exit. This is useful for tests that spawn non-daemon threads that may still be running when the
+   * test finishes, but should be allowed to finish before the JVM to validate all code paths have proper
+   * cleanup logic.
+   */
   private static void awaitAllNonDaemonThreadsToFinish() {
     if (!Boolean.getBoolean(AWAIT_NON_DAEMON_THREADS_PROPERTY_NAME)) {
       return;
