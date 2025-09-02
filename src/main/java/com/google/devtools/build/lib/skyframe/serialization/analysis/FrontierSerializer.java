@@ -210,7 +210,9 @@ public final class FrontierSerializer {
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       String message = cause.getMessage();
-      if (!(cause instanceof SerializationException || cause instanceof IOException)) {
+      if (!(cause instanceof SerializationException
+          || cause instanceof IOException
+          || cause instanceof MissingSkyframeEntryException)) {
         message = "with unexpected exception type " + cause.getClass().getName() + ": " + message;
       }
       reporter.error(/* location= */ null, message, cause);

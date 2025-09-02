@@ -54,6 +54,7 @@ java_library(
         ":file_op_node_map",
         ":invalidation_data_reference_or_future",
         ":long_version_getter_test_injection",
+        ":missing_skyframe_entry_exception",
         ":options",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -85,6 +86,7 @@ java_library(
     name = "file_op_node_map",
     srcs = ["FileOpNodeMemoizingLookup.java"],
     deps = [
+        ":missing_skyframe_entry_exception",
         ":value_or_future_map",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -106,6 +108,7 @@ java_library(
         ":file_dependency_key_support",
         ":invalidation_data_reference_or_future",
         ":magic_bytes",
+        ":missing_skyframe_entry_exception",
         ":value_or_future_map",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -310,5 +313,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "missing_skyframe_entry_exception",
+    srcs = ["MissingSkyframeEntryException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )

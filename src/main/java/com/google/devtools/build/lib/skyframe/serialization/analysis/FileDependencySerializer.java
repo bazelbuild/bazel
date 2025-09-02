@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -205,7 +206,11 @@ final class FileDependencySerializer {
       return future.completeWith(CONSTANT_FILE);
     }
 
-    var value = (FileValue) checkNotNull(graph.getIfPresent(key), key).getValue();
+    InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+    if (nodeEntry == null) {
+      return future.failWith(new MissingSkyframeEntryException(key));
+    }
+    var value = (FileValue) nodeEntry.getValue();
     RootedPath realRootedPath = value.realRootedPath(rootedPath);
 
     long initialMtsv;
@@ -463,9 +468,11 @@ final class FileDependencySerializer {
 
   private ListenableFuture<Void> processSymlinkTarget(
       RootedPath resolvedSymlinkPath, FileInvalidationDataUploader uploader) {
-    var symlinkValue =
-        (FileStateValue)
-            checkNotNull(graph.getIfPresent(resolvedSymlinkPath), resolvedSymlinkPath).getValue();
+    InMemoryNodeEntry nodeEntry = graph.getIfPresent(resolvedSymlinkPath);
+    if (nodeEntry == null) {
+      return immediateFailedFuture(new MissingSkyframeEntryException(resolvedSymlinkPath));
+    }
+    var symlinkValue = (FileStateValue) nodeEntry.getValue();
     if (!symlinkValue.getType().equals(SYMLINK)) {
       // We've come full circle back to the initial, fully resolved, FileValue. So there's no
       // additional bookkeeping needed.

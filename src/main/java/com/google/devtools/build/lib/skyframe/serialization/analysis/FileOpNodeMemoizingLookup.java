@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNod
 import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
 import java.util.Set;
@@ -110,7 +111,12 @@ final class FileOpNodeMemoizingLookup {
   }
 
   private void accumulateTransitiveFileSystemOperations(SkyKey key, FileOpNodeCollector collector) {
-    for (SkyKey dep : checkNotNull(graph.getIfPresent(key), key).getDirectDeps()) {
+    InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+    if (nodeEntry == null) {
+      collector.failWith(new MissingSkyframeEntryException(key));
+      return;
+    }
+    for (SkyKey dep : nodeEntry.getDirectDeps()) {
       switch (dep) {
         case FileOpNode immediateNode:
           collector.addNode(immediateNode);
@@ -124,7 +130,11 @@ final class FileOpNodeMemoizingLookup {
 
   private void addNodeForKey(SkyKey key, FileOpNodeCollector collector) {
     if (key instanceof ActionLookupKey actionLookupKey) {
-      var nodeEntry = checkNotNull(graph.getIfPresent(key), key);
+      InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+      if (nodeEntry == null) {
+        collector.failWith(new MissingSkyframeEntryException(key));
+        return;
+      }
       // If the corresponding value is an InputFileConfiguredTarget, it indicates an execution time
       // file dependency.
       if ((checkNotNull(nodeEntry.getValue(), actionLookupKey)
@@ -193,6 +203,10 @@ final class FileOpNodeMemoizingLookup {
 
     private void notifyAllFuturesAdded() {
       decrement();
+    }
+
+    private void failWith(MissingSkyframeEntryException e) {
+      notifyException(e);
     }
 
     /**
