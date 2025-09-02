@@ -496,6 +496,7 @@ def _create_scan_deps_action(
         dotd_file = _get_compile_output_file(
             action_construction_context,
             label,
+            configuration = configuration,
             output_name = cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.INCLUDED_FILE_LIST,
@@ -639,6 +640,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
     modules_info_file = _get_compile_output_file(
         action_construction_context,
         label,
+        configuration = configuration,
         output_name = cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.CPP_MODULES_INFO,
@@ -666,6 +668,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
         module_file = _get_compile_output_file(
             action_construction_context,
             label,
+            configuration = configuration,
             output_name = cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = ouptut_category,
@@ -685,6 +688,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
         ddi_file = _get_compile_output_file(
             action_construction_context,
             label,
+            configuration = configuration,
             output_name = ddi_output_name,
         )
         _create_scan_deps_action(
@@ -741,6 +745,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
         modmap_file = _get_compile_output_file(
             action_construction_context,
             label,
+            configuration = configuration,
             output_name = cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.CPP_MODULES_MODMAP,
@@ -750,6 +755,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
         modmap_input_file = _get_compile_output_file(
             action_construction_context,
             label,
+            configuration = configuration,
             output_name = cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.CPP_MODULES_MODMAP_INPUT,
@@ -847,6 +853,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             modmap_file = _get_compile_output_file(
                 action_construction_context,
                 label,
+                configuration = configuration,
                 output_name = cc_internal.get_artifact_name_for_category(
                     cc_toolchain = cc_toolchain,
                     category = artifact_category.CPP_MODULES_MODMAP,
@@ -856,6 +863,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             modmap_input_file = _get_compile_output_file(
                 action_construction_context,
                 label,
+                configuration = configuration,
                 output_name = cc_internal.get_artifact_name_for_category(
                     cc_toolchain = cc_toolchain,
                     category = artifact_category.CPP_MODULES_MODMAP_INPUT,
@@ -871,6 +879,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             ddi_file = _get_compile_output_file(
                 action_construction_context,
                 label,
+                configuration = configuration,
                 output_name = ddi_output_name,
             )
             _create_scan_deps_action(
@@ -899,6 +908,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             modmap_file = _get_compile_output_file(
                 action_construction_context,
                 label,
+                configuration = configuration,
                 output_name = cc_internal.get_artifact_name_for_category(
                     cc_toolchain = cc_toolchain,
                     category = artifact_category.CPP_MODULES_MODMAP,
@@ -908,6 +918,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             modmap_input_file = _get_compile_output_file(
                 action_construction_context,
                 label,
+                configuration = configuration,
                 output_name = cc_internal.get_artifact_name_for_category(
                     cc_toolchain = cc_toolchain,
                     category = artifact_category.CPP_MODULES_MODMAP_INPUT,
