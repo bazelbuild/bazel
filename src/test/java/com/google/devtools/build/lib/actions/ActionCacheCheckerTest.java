@@ -813,16 +813,14 @@ public class ActionCacheCheckerTest {
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
     FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
-    fakeOutputMetadataStore.injectFile(output, metadata);
-
     runAction(
         action,
         ImmutableMap.of(),
         ImmutableMap.of(),
         new FakeInputMetadataHandler(),
         fakeOutputMetadataStore);
-
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, metadata);
 
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
@@ -840,9 +838,6 @@ public class ActionCacheCheckerTest {
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
-    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
-    fakeOutputMetadataStore.injectFile(output, metadata);
-
     OutputChecker outputChecker = mock(OutputChecker.class);
     when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
 
@@ -851,7 +846,7 @@ public class ActionCacheCheckerTest {
         ImmutableMap.of(),
         ImmutableMap.of(),
         new FakeInputMetadataHandler(),
-        fakeOutputMetadataStore,
+        new FakeInputMetadataHandler(),
         outputChecker);
 
     assertStatistics(
@@ -1503,8 +1498,6 @@ public class ActionCacheCheckerTest {
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
     FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
-    fakeOutputMetadataStore.injectTree(tree, treeMetadata);
-
     runAction(
         action,
         ImmutableMap.of(),
@@ -1513,6 +1506,7 @@ public class ActionCacheCheckerTest {
         fakeOutputMetadataStore);
 
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(fakeOutputMetadataStore.treeMetadata).containsExactly(tree, treeMetadata);
 
     ActionCache.Entry entry = cache.get(tree.getExecPathString());
     assertThat(entry).isNotNull();
@@ -1542,9 +1536,6 @@ public class ActionCacheCheckerTest {
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
-    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
-    fakeOutputMetadataStore.injectTree(tree, treeMetadata);
-
     OutputChecker outputChecker = mock(OutputChecker.class);
     when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
 
@@ -1553,7 +1544,7 @@ public class ActionCacheCheckerTest {
         ImmutableMap.of(),
         ImmutableMap.of(),
         new FakeInputMetadataHandler(),
-        fakeOutputMetadataStore,
+        new FakeInputMetadataHandler(),
         outputChecker);
 
     assertStatistics(
