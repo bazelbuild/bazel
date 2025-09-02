@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
