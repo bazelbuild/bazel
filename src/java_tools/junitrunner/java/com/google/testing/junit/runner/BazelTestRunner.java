@@ -182,6 +182,7 @@ public class BazelTestRunner {
     if (!Boolean.getBoolean(AWAIT_NON_DAEMON_THREADS_PROPERTY_NAME)) {
       return;
     }
+    final Thread mainThread = Thread.currentThread();
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       final Thread currentThread = Thread.currentThread();
       while (true) {
@@ -190,7 +191,9 @@ public class BazelTestRunner {
                 .filter(Thread::isAlive)
                 .filter(Predicate.not(Thread::isDaemon))
                 .filter(t -> t.threadId() != currentThread.threadId())
+                .filter(t -> t.threadId() != mainThread.threadId())
                 .toList();
+
         if (nonDaemonAliveThreads.isEmpty()) {
           return;
         }

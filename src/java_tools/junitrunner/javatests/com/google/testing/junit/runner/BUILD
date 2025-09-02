@@ -85,6 +85,22 @@ sh_test(
 )
 
 sh_test(
+    name = "non_daemon_exit_test",
+    size = "medium",
+    srcs = ["non_daemon_exit_test.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :TestbedBinary)",
+        "bazel.test_suite",
+    ],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+)
+
+sh_test(
     name = "utf8_test_log_test",
     size = "medium",
     srcs = ["utf8_test_log_test.sh"],
