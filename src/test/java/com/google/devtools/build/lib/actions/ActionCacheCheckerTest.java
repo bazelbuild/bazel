@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
@@ -93,6 +94,7 @@ public class ActionCacheCheckerTest {
   private FileSystem fileSystem;
   private Path execRoot;
   private ArtifactRoot artifactRoot;
+  private final ProxyMetadataFactory proxyMetadataFactory = mock(ProxyMetadataFactory.class);
 
   @Before
   public void setupCache() throws Exception {
@@ -120,6 +122,7 @@ public class ActionCacheCheckerTest {
         new FakeArtifactResolverBase(),
         new ActionKeyContext(),
         action -> true,
+        proxyMetadataFactory,
         ActionCacheChecker.CacheConfig.builder()
             .setEnabled(true)
             .setStoreOutputMetadata(storeOutputMetadata)
@@ -127,7 +130,7 @@ public class ActionCacheCheckerTest {
   }
 
   @Before
-  public void clearFilesToDeleteAfterTest() throws Exception {
+  public void clearFilesToDeleteAfterTest() {
     filesToDelete = new HashSet<>();
   }
 
@@ -331,7 +334,7 @@ public class ActionCacheCheckerTest {
   }
 
   @Test
-  public void testNoActivity() throws Exception {
+  public void testNoActivity() {
     assertStatistics(0, new MissDetailsBuilder().build());
   }
 
@@ -501,6 +504,14 @@ public class ActionCacheCheckerTest {
                 OutputChecker.TRUST_ALL,
                 /* useArchivedTreeArtifacts= */ false))
         .isNotNull();
+  }
+
+  private static ProxyFileArtifactValue createProxyMetadata(Artifact artifact, String content)
+      throws IOException {
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), content);
+    return new ProxyFileArtifactValue(
+        FileArtifactValue.createForTesting(artifact), artifact.getPath());
   }
 
   private FileArtifactValue createRemoteMetadata(String content) {
@@ -1560,6 +1571,143 @@ public class ActionCacheCheckerTest {
                 children,
                 /* archivedFileValue= */ Optional.empty(),
                 /* resolvedPath= */ Optional.empty()));
+  }
+
+  @Test
+  public void saveOutputMetadata_sameProxyMetadata_cachedAndInjected() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    ProxyFileArtifactValue metadata = createProxyMetadata(output, content);
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    when(proxyMetadataFactory.createProxyMetadata(output)).thenReturn(metadata);
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, metadata);
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+  }
+
+  @Test
+  public void saveOutputMetadata_differentProxyMetadata_notCached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    ProxyFileArtifactValue metadata = createProxyMetadata(output, content);
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    when(proxyMetadataFactory.createProxyMetadata(output))
+        .thenReturn(createProxyMetadata(output, "changed"));
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+  }
+
+  @Test
+  public void saveOutputMetadata_nullProxyMetadata_notCached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    ProxyFileArtifactValue metadata = createProxyMetadata(output, content);
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    when(proxyMetadataFactory.createProxyMetadata(output)).thenReturn(null);
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+  }
+
+  @Test
+  public void saveOutputMetadata_ioExceptionProxyMetadata_notCached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    ProxyFileArtifactValue metadata = createProxyMetadata(output, content);
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    when(proxyMetadataFactory.createProxyMetadata(output)).thenThrow(new IOException("IO error"));
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
   }
 
   // TODO(tjgq): Add tests for cached tree artifacts with a materialization path. They should take

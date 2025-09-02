@@ -130,7 +130,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static final MapCodec<Integer, Timestamp> TIMESTAMP_CODEC =
-      new MapCodec<Integer, Timestamp>() {
+      new MapCodec<>() {
         @Override
         protected Integer readKey(DataInput in) throws IOException {
           return in.readInt();
@@ -196,7 +196,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static final MapCodec<Integer, byte[]> ACTION_CODEC =
-      new MapCodec<Integer, byte[]>() {
+      new MapCodec<>() {
         @Override
         protected Integer readKey(DataInput in) throws IOException {
           return in.readInt();
@@ -631,7 +631,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   /** Returns a map from action key to last access time. */
-  ImmutableMap<String, Instant> getActionTimestampMap() throws IOException {
+  ImmutableMap<String, Instant> getActionTimestampMap() {
     // Iterate the timestamp map, not the action map, so that the result may be used for testing
     // that an entry is removed from the timestamp map when removed from the action map. Note that
     // the indexer does not support removing entries.
@@ -853,12 +853,16 @@ public class CompactPersistentActionCache implements ActionCache {
           1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
     }
 
+    int proxyOutputsSize =
+        VarInt.MAX_VARINT_SIZE * (entry.getProxyOutputs().size() + 1); // +1 for the size itself.
+
     // Estimate the size of the buffer.
     int maxSize =
         (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
             + maxDiscoveredInputsSize
             + maxOutputFilesSize
-            + maxOutputTreesSize;
+            + maxOutputTreesSize
+            + proxyOutputsSize;
     ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
@@ -908,6 +912,11 @@ public class CompactPersistentActionCache implements ActionCache {
       } else {
         VarInt.putVarInt(0, sink);
       }
+    }
+
+    VarInt.putVarInt(entry.getProxyOutputs().size(), sink);
+    for (String execPath : entry.getProxyOutputs()) {
+      VarInt.putVarInt(indexer.getOrCreateIndex(execPath), sink);
     }
 
     return sink.toByteArray();
@@ -1011,11 +1020,26 @@ public class CompactPersistentActionCache implements ActionCache {
         outputTrees.put(treeKey, value);
       }
 
+      int numProxyArtifacts = VarInt.getVarInt(source);
+      if (numProxyArtifacts < 0) {
+        throw new IOException("Invalid proxy artifact count: " + numProxyArtifacts);
+      }
+      ImmutableList.Builder<String> proxyArtifacts =
+          ImmutableList.builderWithExpectedSize(numProxyArtifacts);
+      for (int i = 0; i < numProxyArtifacts; i++) {
+        String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
+        proxyArtifacts.add(execPath);
+      }
+
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");
       }
       return new ActionCache.Entry(
-          digest, discoveredInputPaths, outputFiles.buildOrThrow(), outputTrees.buildOrThrow());
+          digest,
+          discoveredInputPaths,
+          outputFiles.buildOrThrow(),
+          outputTrees.buildOrThrow(),
+          proxyArtifacts.build());
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

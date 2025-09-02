@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
+import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -215,7 +217,7 @@ public class CompactPersistentActionCacheTest {
     assertFullSave();
 
     // Remove entries that discover inputs and flush the journal.
-    cache.removeIf(e -> e.discoversInputs());
+    cache.removeIf(Entry::discoversInputs);
     assertIncrementalSave(cache);
 
     // Check that the entries that discover inputs are gone, and the rest are still there.
@@ -292,7 +294,7 @@ public class CompactPersistentActionCacheTest {
 
     // Removing entries matching a predicate should not affect the timestamp of other entries.
     clock.advance(Duration.ofDays(100));
-    cache.removeIf(e -> e.discoversInputs());
+    cache.removeIf(Entry::discoversInputs);
 
     assertFullSave();
 
@@ -471,14 +473,14 @@ public class CompactPersistentActionCacheTest {
     assertThat(cache.size()).isEqualTo(301);
   }
 
-  private FileArtifactValue createLocalMetadata(Artifact artifact, String content)
+  private static FileArtifactValue createLocalMetadata(Artifact artifact, String content)
       throws IOException {
     artifact.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), content);
     return FileArtifactValue.createForTesting(artifact.getPath());
   }
 
-  private FileArtifactValue createRemoteMetadata(
+  private static FileArtifactValue createRemoteMetadata(
       Artifact artifact,
       String content,
       @Nullable Instant expirationTime,
@@ -501,12 +503,12 @@ public class CompactPersistentActionCacheTest {
     return metadata;
   }
 
-  private FileArtifactValue createRemoteMetadata(
+  private static FileArtifactValue createRemoteMetadata(
       Artifact artifact, String content, @Nullable PathFragment resolvedPath) {
     return createRemoteMetadata(artifact, content, /* expirationTime= */ null, resolvedPath);
   }
 
-  private FileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
+  private static FileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
     return createRemoteMetadata(artifact, content, /* resolvedPath= */ null);
   }
 
@@ -572,6 +574,20 @@ public class CompactPersistentActionCacheTest {
     entry = cache.get("key");
 
     assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
+  }
+
+  @Test
+  public void putAndGet_savesProxyOutputs() throws Exception {
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    FileArtifactValue metadata =
+        new ProxyFileArtifactValue(createLocalMetadata(artifact, "content"), artifact.getPath());
+    var entry =
+        builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry);
+
+    entry = cache.get("key");
+
+    assertThat(entry.getProxyOutputs()).containsExactly(artifact.getExecPathString());
   }
 
   @Test
@@ -727,7 +743,7 @@ public class CompactPersistentActionCacheTest {
     putKey(key, cache, discoversInputs);
   }
 
-  private void putKey(String key, ActionCache actionCache, boolean discoversInputs) {
+  private static void putKey(String key, ActionCache actionCache, boolean discoversInputs) {
     var entry = builder(key, discoversInputs).build();
     actionCache.put(key, entry);
   }

@@ -1161,7 +1161,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  /** Metadata for an artifact obtained via a path proxy. */
+  /**
+   * Metadata for an artifact obtained via a path proxy.
+   *
+   * <p>This is used to inform action file systems which would otherwise not read local disk that
+   * the source of truth for an output is at {@link #getTargetPath}.
+   */
   public static final class ProxyFileArtifactValue extends FileArtifactValue {
     private final FileArtifactValue delegate;
     private final Path path;

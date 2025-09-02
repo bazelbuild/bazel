@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -804,6 +805,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           new ActionsTestUtil.FakeArtifactResolverBase(),
           new ActionKeyContext(),
           Predicates.alwaysTrue(),
+          ProxyMetadataFactory.NO_PROXIES,
           /* cacheConfig= */ null);
 
   private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER =

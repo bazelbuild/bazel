@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -130,6 +131,10 @@ public interface OutputService {
 
   default OutputChecker getOutputChecker() {
     return OutputChecker.TRUST_ALL;
+  }
+
+  default ProxyMetadataFactory getProxyMetadataFactory() {
+    return ProxyMetadataFactory.NO_PROXIES;
   }
 
   /**

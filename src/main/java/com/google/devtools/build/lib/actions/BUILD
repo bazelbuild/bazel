@@ -106,6 +106,7 @@ java_library(
         "OutputChecker.java",
         "ParamFileInfo.java",
         "ParameterFile.java",
+        "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
         "RunfilesTreeAction.java",

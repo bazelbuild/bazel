@@ -303,12 +303,7 @@ public class ExecutionTool {
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
       skyframeBuilder =
           (SkyframeBuilder)
-              createBuilder(
-                  request,
-                  actionCache,
-                  skyframeExecutor,
-                  modifiedOutputFiles,
-                  outputService.shouldStoreRemoteOutputMetadataInActionCache());
+              createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
     }
 
     skyframeExecutor.drainChangedFiles();
@@ -401,13 +396,7 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      builder =
-          createBuilder(
-              request,
-              actionCache,
-              skyframeExecutor,
-              modifiedOutputFiles,
-              outputService.shouldStoreRemoteOutputMetadataInActionCache());
+      builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
     }
 
     //
@@ -922,8 +911,7 @@ public class ExecutionTool {
       BuildRequest request,
       @Nullable ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
-      ModifiedFileSet modifiedOutputFiles,
-      boolean shouldStoreRemoteOutputMetadataInActionCache) {
+      ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
     skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
@@ -931,6 +919,7 @@ public class ExecutionTool {
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
+    OutputService outputService = env.getOutputService();
     return new SkyframeBuilder(
         skyframeExecutor,
         env.getLocalResourceManager(),
@@ -939,9 +928,11 @@ public class ExecutionTool {
             artifactFactory,
             skyframeExecutor.getActionKeyContext(),
             executionFilter,
+            outputService.getProxyMetadataFactory(),
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
-                .setStoreOutputMetadata(shouldStoreRemoteOutputMetadataInActionCache)
+                .setStoreOutputMetadata(
+                    outputService.shouldStoreRemoteOutputMetadataInActionCache())
                 .build()),
         modifiedOutputFiles,
         env.getFileCache(),

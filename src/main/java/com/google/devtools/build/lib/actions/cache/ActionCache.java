@@ -26,10 +26,12 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
@@ -77,10 +79,10 @@ public interface ActionCache {
   void removeIf(Predicate<ActionCache.Entry> predicate);
 
   /** An action cache entry. */
-  public static final class Entry {
+  final class Entry {
     /** Unique instance standing for a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new Entry(null, null, ImmutableMap.of(), ImmutableMap.of());
+        new Entry(null, null, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
 
     // Digest of all relevant properties of the action for cache invalidation purposes.
     // Null if the entry is corrupted.
@@ -94,16 +96,19 @@ public interface ActionCache {
     // Only present when building without the bytes, and even then, only for remotely stored files.
     private final ImmutableMap<String, FileArtifactValue> outputFileMetadata;
     private final ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata;
+    private final ImmutableList<String> proxyOutputs;
 
     Entry(
         @Nullable byte[] digest,
         @Nullable ImmutableList<String> discoveredInputPaths,
         ImmutableMap<String, FileArtifactValue> outputFileMetadata,
-        ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata) {
+        ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata,
+        ImmutableList<String> proxyOutputs) {
       this.digest = digest;
       this.discoveredInputPaths = discoveredInputPaths;
       this.outputFileMetadata = outputFileMetadata;
       this.outputTreeMetadata = outputTreeMetadata;
+      this.proxyOutputs = proxyOutputs;
     }
 
     /** Returns whether this cache entry is corrupted and should be ignored. */
@@ -161,6 +166,17 @@ public interface ActionCache {
       return outputTreeMetadata;
     }
 
+    /**
+     * Returns a list of exec path strings for {@linkplain ProxyFileArtifactValue proxied} outputs.
+     *
+     * <p>Tree artifacts are not currently supported and are never included here.
+     */
+    // TODO: b/440119558 - Support action caching of proxied tree artifacts.
+    public ImmutableList<String> getProxyOutputs() {
+      checkState(!isCorrupted());
+      return proxyOutputs;
+    }
+
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
@@ -168,6 +184,7 @@ public interface ActionCache {
           .add("discoveredInputPaths", discoveredInputPaths)
           .add("outputFileMetadata", outputFileMetadata)
           .add("outputTreeMetadata", outputTreeMetadata)
+          .add("proxyOutputs", proxyOutputs)
           .toString();
     }
 
@@ -234,14 +251,15 @@ public interface ActionCache {
                 // Only save remote tree file
                 .filter(e -> e.getValue().isRemote())
                 .collect(
-                    toImmutableMap(e -> e.getKey().getTreeRelativePathString(), e -> e.getValue()));
+                    toImmutableMap(
+                        e -> e.getKey().getTreeRelativePathString(), Map.Entry::getValue));
 
         // Only save remote archived artifact
         Optional<FileArtifactValue> archivedFileValue =
             treeMetadata
                 .getArchivedRepresentation()
                 .filter(ar -> ar.archivedFileValue().isRemote())
-                .map(ar -> ar.archivedFileValue());
+                .map(ArchivedRepresentation::archivedFileValue);
 
         Optional<PathFragment> resolvedPath = treeMetadata.getResolvedPath();
 
@@ -272,6 +290,8 @@ public interface ActionCache {
           ImmutableMap.builder();
       private final ImmutableMap.Builder<String, SerializableTreeArtifactValue> outputTreeMetadata =
           ImmutableMap.builder();
+
+      private final ImmutableList.Builder<String> proxyOutputs = ImmutableList.builder();
 
       // Settings that affect the outcome of an action but aren't captured in the file metadata.
       private final OutputPermissions outputPermissions;
@@ -333,9 +353,13 @@ public interface ActionCache {
             "Must use addOutputTree to save tree artifacts and their children: %s",
             output);
         String execPath = output.getExecPathString();
-        // Only save remote file metadata
-        if (saveFileMetadata && metadata.isRemote()) {
-          outputFileMetadata.put(execPath, metadata);
+        // Only save remote and proxy file metadata.
+        if (saveFileMetadata) {
+          if (metadata.isRemote()) {
+            outputFileMetadata.put(execPath, metadata);
+          } else if (metadata instanceof ProxyFileArtifactValue) {
+            proxyOutputs.add(execPath);
+          }
         }
         metadataMap.put(execPath, metadata);
         return this;
@@ -373,7 +397,8 @@ public interface ActionCache {
                 useArchivedTreeArtifacts),
             discoveredInputPaths != null ? discoveredInputPaths.build() : null,
             outputFileMetadata.buildOrThrow(),
-            outputTreeMetadata.buildOrThrow());
+            outputTreeMetadata.buildOrThrow(),
+            proxyOutputs.build());
       }
 
       private static byte[] computeDigest(
