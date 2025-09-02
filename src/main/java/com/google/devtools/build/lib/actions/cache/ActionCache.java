@@ -231,21 +231,11 @@ public interface ActionCache {
         requireNonNull(resolvedPath, "resolvedPath");
       }
 
-      public static SerializableTreeArtifactValue create(
-          ImmutableMap<String, FileArtifactValue> childValues,
-          Optional<FileArtifactValue> archivedFileValue,
-          Optional<PathFragment> resolvedPath) {
-        return new SerializableTreeArtifactValue(childValues, archivedFileValue, resolvedPath);
-      }
-
       /**
        * Creates {@link SerializableTreeArtifactValue} from {@link TreeArtifactValue} by collecting
        * children and archived artifact which are remote.
-       *
-       * <p>If no remote value, {@link Optional#empty} is returned.
        */
-      public static Optional<SerializableTreeArtifactValue> createSerializable(
-          TreeArtifactValue treeMetadata) {
+      public static SerializableTreeArtifactValue create(TreeArtifactValue treeMetadata) {
         ImmutableMap<String, FileArtifactValue> childValues =
             treeMetadata.getChildValues().entrySet().stream()
                 // Only save remote tree file
@@ -263,12 +253,7 @@ public interface ActionCache {
 
         Optional<PathFragment> resolvedPath = treeMetadata.getResolvedPath();
 
-        if (childValues.isEmpty() && archivedFileValue.isEmpty() && resolvedPath.isEmpty()) {
-          return Optional.empty();
-        }
-
-        return Optional.of(
-            SerializableTreeArtifactValue.create(childValues, archivedFileValue, resolvedPath));
+        return new SerializableTreeArtifactValue(childValues, archivedFileValue, resolvedPath);
       }
     }
 
@@ -378,8 +363,7 @@ public interface ActionCache {
         checkArgument(output.isTreeArtifact(), "artifact must be a tree artifact: %s", output);
         String execPath = output.getExecPathString();
         if (saveTreeMetadata) {
-          SerializableTreeArtifactValue.createSerializable(metadata)
-              .ifPresent(value -> outputTreeMetadata.put(execPath, value));
+          outputTreeMetadata.put(execPath, SerializableTreeArtifactValue.create(metadata));
         }
         metadataMap.put(execPath, metadata.getMetadata());
         return this;
