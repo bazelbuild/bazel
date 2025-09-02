@@ -2129,9 +2129,6 @@ function test_cpp20_modules_with_clang() {
   fi
 
   add_rules_cc "MODULE.bazel"
-  add_to_bazelrc "common --repo_env=CC=clang"
-  # TODO: Make it so that --cxxopt applies to module_interfaces as well.
-  add_to_bazelrc "common --copt=-std=c++20"
 
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
@@ -2195,11 +2192,11 @@ export void f_base() {
 }
 EOF
 
-  bazel build //:main --experimental_cpp_modules --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
 
   # Verify that the build can hit the cache without action cycles.
   bazel clean || fail "Expected clean success"
-  bazel build //:main --experimental_cpp_modules --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
   expect_log "20 disk cache hit"
 }
 
