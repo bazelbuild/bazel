@@ -837,30 +837,29 @@ final class FileDependencySerializer {
       }
       return outputStream.toByteArray();
     }
-
-    /*
-     * Computes a canonical byte representation of the node.
-     *
-     * <p>Logically, a node is a set of string file or listing keys, as described at {@link
-     * FileInvalidationData} and {@link DirectoryListingInvalidationData}, respectively, and a set
-     * of {@link NestedFileOpNodes} fingerprints. Its byte representation is specified as follows.
-     *
-     * <ol>
-     *   <li>The count of nested nodes, as a proto-encoded int.
-     *   <li>The count of file keys, as a proto-encoded int.
-     *   <li>The count of listing keys, as a proto-encoded int.
-     *   <li>The count of source file keys, as a proto-encoded int.
-     *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
-     *       representations.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
-     * </ol>
-     *
-     * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
-     */
   }
 
+  /**
+   * Computes a canonical byte representation of the node.
+   *
+   * <p>Logically, a node is a set of string file or listing keys, as described at {@link
+   * FileInvalidationData} and {@link DirectoryListingInvalidationData}, respectively, and a set of
+   * {@link NestedFileOpNodes} fingerprints. Its byte representation is specified as follows.
+   *
+   * <ol>
+   *   <li>The count of nested nodes, as a proto-encoded int.
+   *   <li>The count of file keys, as a proto-encoded int.
+   *   <li>The count of listing keys, as a proto-encoded int.
+   *   <li>The count of source file keys, as a proto-encoded int.
+   *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
+   *       representations.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
+   * </ol>
+   *
+   * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
+   */
   @VisibleForTesting
   static byte[] computeNodeBytes(
       Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,
