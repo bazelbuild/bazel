@@ -297,8 +297,6 @@ project = project_pb2.Project.create(project_directories = []) # empty
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     assertThat(listener.getSerializedKeysCount()).isAtLeast(1);
     assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET)).isAtLeast(1);
-
-    assertContainsEvent("Waiting for write futures took an additional");
   }
 
   @Test

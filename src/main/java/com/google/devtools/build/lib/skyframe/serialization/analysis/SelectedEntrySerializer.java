@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
@@ -27,6 +26,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.proto.DataTyp
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_FILE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_LISTING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
@@ -62,6 +61,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -125,7 +125,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
   private final SerializationStats serializationStats;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
-  static ListenableFuture<Void> uploadSelection(
+  static ListenableFuture<ImmutableList<Throwable>> uploadSelection(
       InMemoryGraph graph,
       LongVersionGetter versionGetter,
       ObjectCodecs codecs,
@@ -204,8 +204,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
           throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());
       }
       eventBus.post(new SerializedNodeEvent(key));
-    } catch (SerializationException e) {
-      writeStatuses.addWriteStatus(immediateFailedFuture(e));
+    } catch (MissingSkyframeEntryException e) {
+      writeStatuses.notifyWriteFailure(e);
     }
   }
 
@@ -214,20 +214,29 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
    * associated with {@code dependencyKey}.
    */
   private void uploadEntry(SkyKey key, ActionLookupKey dependencyKey)
-      throws SerializationException {
+      throws MissingSkyframeEntryException {
+    if (writeStatuses.hasError()) {
+      return;
+    }
+
     writeStatuses.selectedEntryStarting();
+
+    InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+    if (nodeEntry == null) {
+      // TODO: b/400460727 - add some coverage for this code path
+      throw new MissingSkyframeEntryException(key);
+    }
 
     ListenableFuture<SerializationResult<ByteString>> futureKeyBytes =
         Futures.submitAsync(
             () -> codecs.serializeMemoizedAsync(fingerprintValueService, key, profileCollector),
             fingerprintValueService.getExecutor());
 
-    InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key), key);
     ListenableFuture<SerializationResult<ByteString>> futureValueBytes =
         Futures.submitAsync(
             () ->
                 codecs.serializeMemoizedAsync(
-                    fingerprintValueService, node.getValue(), profileCollector),
+                    fingerprintValueService, nodeEntry.getValue(), profileCollector),
             fingerprintValueService.getExecutor());
 
     new FileOpNodeProcessor(futureKeyBytes, futureValueBytes, isExecutionValue(key), dependencyKey)
@@ -379,8 +388,10 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     }
   }
 
-  private static class WriteStatusesFuture extends QuiescingFuture<Void>
+  private static class WriteStatusesFuture extends QuiescingFuture<ImmutableList<Throwable>>
       implements FutureCallback<Void> {
+    private final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
+
     private WriteStatusesFuture() {
       super(directExecutor());
     }
@@ -398,12 +409,17 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     }
 
     private void notifyWriteFailure(Throwable t) {
-      notifyException(t);
+      errors.add(t);
+      decrement();
+    }
+
+    private boolean hasError() {
+      return !errors.isEmpty();
     }
 
     @Override
-    protected Void getValue() {
-      return null;
+    protected ImmutableList<Throwable> getValue() {
+      return ImmutableList.copyOf(errors);
     }
 
     private void addWriteStatus(@Nullable ListenableFuture<Void> writeStatus) {

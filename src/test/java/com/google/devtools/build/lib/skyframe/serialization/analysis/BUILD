@@ -5,6 +5,17 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+java_test(
+    name = "FrontierSerializerTest",
+    srcs = ["FrontierSerializerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:frontier_serializer",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -89,6 +100,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_module",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:long_version_getter_test_injection",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//third_party:guava",
         "//third_party:junit4",

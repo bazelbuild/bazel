@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
 import static com.google.devtools.build.lib.util.TestType.isInTest;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -76,6 +78,8 @@ import javax.annotation.Nullable;
  * --experimental_remote_analysis_cache_mode=upload}.
  */
 public final class FrontierSerializer {
+  @VisibleForTesting static final int MAX_ERRORS_TO_REPORT = 5;
+
   private FrontierSerializer() {}
 
   /**
@@ -176,7 +180,7 @@ public final class FrontierSerializer {
     }
 
     stopwatch.reset().start();
-    ListenableFuture<Void> writeStatus =
+    ListenableFuture<ImmutableList<Throwable>> writeStatus =
         SelectedEntrySerializer.uploadSelection(
             graph,
             versionGetter,
@@ -189,7 +193,14 @@ public final class FrontierSerializer {
             serializationStats);
 
     try {
-      var unusedNull = writeStatus.get();
+      // Waits for the write to complete uninterruptibly. This avoids returning to the caller
+      // while underlying worker threads are still processing.
+      ImmutableList<Throwable> errors = getUninterruptibly(writeStatus);
+      if (!errors.isEmpty()) {
+        String message = getErrorMessage(errors);
+        reporter.error(/* location= */ null, message, errors.get(0));
+        return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
+      }
 
       FingerprintValueStore.Stats stats =
           dependenciesProvider.getFingerprintValueService().getStats();
@@ -206,20 +217,17 @@ public final class FrontierSerializer {
                   stats.entriesWritten(),
                   stats.setBatches(),
                   stopwatch)));
-      stopwatch.reset().start();
     } catch (ExecutionException e) {
+      // The writeStatus future is not known to throw any ExecutionExceptions.
       Throwable cause = e.getCause();
-      String message = cause.getMessage();
-      if (!(cause instanceof SerializationException
-          || cause instanceof IOException
-          || cause instanceof MissingSkyframeEntryException)) {
-        message = "with unexpected exception type " + cause.getClass().getName() + ": " + message;
-      }
+      String message =
+          "with unexpected exception type "
+              + cause.getClass().getName()
+              + ": "
+              + cause.getMessage();
       reporter.error(/* location= */ null, message, cause);
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
-    reporter.handle(
-        Event.info(String.format("Waiting for write futures took an additional %s", stopwatch)));
 
     if (profilePath.isEmpty()) {
       return Optional.empty();
@@ -485,5 +493,24 @@ public final class FrontierSerializer {
           incrementalInMemoryNodeEntry.consolidateReverseDeps();
         });
     return deletedRdeps.get();
+  }
+
+  @VisibleForTesting
+  static String getErrorMessage(ImmutableList<Throwable> errors) {
+    var message = new StringBuilder();
+    if (errors.size() > 1) {
+      message.append("There were ").append(errors.size()).append(" write errors.");
+      if (errors.size() > MAX_ERRORS_TO_REPORT) {
+        message
+            .append(" Only the first ")
+            .append(MAX_ERRORS_TO_REPORT)
+            .append(" will be reported.");
+      }
+      message.append('\n');
+    }
+    for (int i = 0; i < min(errors.size(), MAX_ERRORS_TO_REPORT); i++) {
+      message.append(errors.get(i).getMessage()).append('\n');
+    }
+    return message.toString();
   }
 }
