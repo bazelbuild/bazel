@@ -1867,6 +1867,59 @@ EOF
   expect_log "START.*: \[.*\] Executing genrule //a:dep"
 }
 
+
+function test_inmemory_files_downloaded_only_once() {
+
+  # Set up the remote worker cache to accept the first download
+  # (into memory) and to reject subsequent downloads (to disk)
+  # of the same digest. This simulates a scenario reproducing build
+  # failure #22387. The rejection could be due to blob eviction or
+  # a remote cache server that is overloaded, unavailable, or malfunctioning.
+  stop_worker
+  start_worker --fake_error_for_duplicated_downloads --debug
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate the remote cache with .d file.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo  ||  fail "Expected success from uploading bazel invocation"
+
+  # Search for alternative .d file names for compatibility across platforms.
+  dotd_file=$(find -L bazel-bin -type f -name 'foo*.d' | head -n1)
+  if [ -z "$dotd_file" ]; then
+      find -L bazel-bin
+      fail "No .d file is found."
+  fi
+  dotd_hash=$(sha256sum ${dotd_file} | awk '{print $1}')
+
+  # Delete .d file and other result, cached locally.
+  bazel clean
+
+  # Download .d file in-memory combined with --remote_download_all
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo  ||  fail "Expected success from downloading bazel invocation"
+
+  # The in memory file should not be downloaded to disk, regardless
+  # of --remote_download_all.
+  assert_not_exists ${dotd_file}
+
+  # Assert that the in memory .d file is downloaded only once
+  # according to log from the remote worker.
+  stop_worker # Attempt to flush logs.
+  expect_log_once "downloadBlob digest=${dotd_hash}"
+}
+
+
 function test_remote_download_regex() {
   add_rules_java "MODULE.bazel"
   mkdir -p a
@@ -1925,6 +1978,7 @@ EOF
         --remote_executor=grpc://localhost:${worker_port} \
         --remote_download_minimal \
         --remote_download_regex=".*" \
+        --experimental_inmemory_jdeps_files=false \
         //a:test >& $TEST_log || fail "Failed to build"
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
