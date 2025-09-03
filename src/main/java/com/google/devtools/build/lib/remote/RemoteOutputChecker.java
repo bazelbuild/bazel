@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -68,6 +70,7 @@ public class RemoteOutputChecker implements OutputChecker {
   @Nullable private Clock clock;
 
   private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
+  private final Set<PathFragment> pathsToOmit = ConcurrentHashMap.newKeySet();
 
   public RemoteOutputChecker(
       String commandName,
@@ -257,6 +260,11 @@ public class RemoteOutputChecker implements OutputChecker {
     pathsToDownload.add(file);
   }
 
+  /** Omit download of file to disk, regardless of outputsMode. */
+  public void omitDownload(PathFragment path) {
+    pathsToOmit.add(path);
+  }
+
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
     return switch (commandMode) {
       // Always download outputs of toplevel targets in run mode.
@@ -304,6 +312,9 @@ public class RemoteOutputChecker implements OutputChecker {
    */
   public boolean shouldDownloadOutput(
       PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
+    if (pathsToOmit.contains(execPath)) {
+      return false;
+    }
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
         || matchesPattern(execPath)

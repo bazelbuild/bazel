@@ -1370,6 +1370,9 @@ public class RemoteExecutionService {
         }
 
         if (isInMemoryOutputFile) {
+          if (shouldDownload(result, execPath, null)) {
+            remoteOutputChecker.omitDownload(inMemoryOutputPath); // Download into memory only; do not write to disk.
+          }
           if (file.contents.isEmpty()) {
             // As the contents field doesn't have presence information, we use the digest size to
             // distinguish between an empty file and one that wasn't inlined.

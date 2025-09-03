@@ -83,6 +83,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -288,6 +289,7 @@ public final class RemoteWorker {
     rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
     if (remoteWorkerOptions.debug) {
       rootLogger.getHandlers()[0].setLevel(FINE);
+      Logger.getLogger(OnDiskBlobStoreCache.class.getName()).setLevel(FINE);
     }
 
     // Only log severe log messages from Netty. Otherwise it logs warnings that look like this:
@@ -321,7 +323,7 @@ public final class RemoteWorker {
     Path casPath =
         remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
     DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
-    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(remoteOptions, casPath, digestUtil);
+    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(remoteOptions, casPath, digestUtil, remoteWorkerOptions);
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteWorker worker = new RemoteWorker(fs, remoteWorkerOptions, cache, sandboxPath, digestUtil);
