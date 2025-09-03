@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -49,7 +50,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   private static final LinkOption[] NO_LINK_OPTION = new LinkOption[0];
   // This isn't generally safe; we rely on the file system APIs not modifying the array.
   private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
-      new LinkOption[] { LinkOption.NOFOLLOW_LINKS };
+      new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final Clock clock;
 
@@ -214,8 +215,8 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return true;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return OS.getCurrent() == OS.DARWIN || OS.getCurrent() == OS.WINDOWS;
   }
 
   @Override
@@ -254,7 +255,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     } catch (java.nio.file.FileAlreadyExistsException e) {
       // Files.createDirectories will handle this case normally, but if the existing
       // file is a symlink to a directory then it still throws. Swallow this.
-      if (!isDirectory(path, /*followSymlinks=*/ true)) {
+      if (!isDirectory(path, /* followSymlinks= */ true)) {
         throw e;
       }
     }
