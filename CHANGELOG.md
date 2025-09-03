@@ -1,3 +1,65 @@
+## Release 9.0.0-pre.20250805.4 (2025-09-03)
+
+```
+Baseline: 02edc50f114f75f4cb73f60cdd5eb71f0283cd10
+
+Cherry picks:
+
+   + bbfb288a7b24bff645c62fa2bf3521d1de293cb1:
+     Fix
+     https://github.com/bazelbuild/bazel/commit/9aa7583e97bffb17d2a6f4
+     8aecefa932e8064daa performance regression.
+   + d5821edee8f1743a01ea7e7a4a77943683d38052:
+     Automated rollback of commit
+     f0a0d8a680aa4aefa1e6c0a0d14adeb85e2b2af5.
+   + 48d63a6ae0e21b4807cfaa1697c0a85e488c2f0a:
+     Automated rollback of commit
+     f726568e1bf24fe96de2cda25525e1f8ae237132.
+   + 0d9e2b3b6f4cd9e7e2c78477949a77c84ad87f92:
+     Automated rollback of commit
+     3fe2a1c6dfc0a5b9d21ad872285aac6e1d581852.
+```
+
+Incompatible changes:
+
+  - Bazel releases that include a bundled JDK now use the system
+    trust store for certificates by default. Set
+    `-Djavax.net.ssl.trustStore` and `-Djavax.net.ssl.trustStoreType`
+    via `--host_jvm_args` to override the default location.
+
+New features:
+
+  - The `--experimental_cancel_concurrent_tests` option now accepts
+    the values `on_passed`, `on_failed` and `never` and cancels
+    concurrent test runs on the first matching result. If enabled,
+    it's now effective by default and no longer requires
+    `--test_strategy=standalone` to be passed explicitly.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, James Judd, Keith Smiley, nialdaly, PikachuHy, Valentin Grigorev.
+
+## Release 9.0.0-pre.20250730.2 (2025-08-07)
+
+```
+Baseline: b4216efd8c13c564e92115dae25dd6620423bac1
+
+Cherry picks:
+
+   + bbfb288a7b24bff645c62fa2bf3521d1de293cb1:
+     Fix
+     https://github.com/bazelbuild/bazel/commit/9aa7583e97bffb17d2a6f4
+     8aecefa932e8064daa performance regression.
+```
+
+Important changes:
+
+  - Tool paths specified in `cc_toolchain` action configs are now
+    normalized based on the current execution platform's OS rather
+    than the host OS. In particular, Windows-style absolute paths are
+    now treated as absolute paths when building on a Windows executor
+    from a non-Windows host.
+
+This release contains contributions from many people at Google, as well as Austin Schuh, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, George Gensure, Mike Lundy, Wade Carpenter.
+
 ## Release 9.0.0-pre.20250721.4 (2025-07-31)
 
 ```
