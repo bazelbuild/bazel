@@ -807,6 +807,11 @@ EOF
 
 function test_run_env() {
   add_rules_shell "MODULE.bazel"
+  cat > .bazelrc <<EOF
+run --run_env=OVERRIDDEN_RUN_ENV=OVERRIDDEN_VALUE_FROM_BAZELRC
+run --run_env=FROM_BAZELRC=VALUE_FROM_BAZELRC
+run --run_env=FROM_BAZELRC_THEN_UNUSET=VALUE_FROM_BAZELRC
+EOF
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
@@ -828,6 +833,8 @@ set -euo pipefail
 
 echo "FROMBUILD: '$FROMBUILD'"
 echo "OVERRIDDEN_RUN_ENV: '$OVERRIDDEN_RUN_ENV'"
+echo "FROM_BAZELRC: '$FROM_BAZELRC'"
+echo "FROM_BAZELRC_THEN_UNUSET: '${FROM_BAZELRC_THEN_UNUSET:=<unset>}'"
 echo "RUN_ENV_ONLY: '$RUN_ENV_ONLY'"
 echo "EMPTY_RUN_ENV: '$EMPTY_RUN_ENV'"
 echo "INHERITED_RUN_ENV: '$INHERITED_RUN_ENV'"
@@ -843,13 +850,16 @@ EOF
       --run_env=EMPTY_RUN_ENV= \
       --run_env=INHERITED_RUN_ENV \
       --run_env==REMOVED_RUN_ENV \
+      --run_env==FROM_BAZELRC_THEN_UNUSET \
       --run_env=SET_UNSET_SET=set1 \
       --run_env==SET_UNSET_SET \
       --run_env=SET_UNSET_SET=set2 \
       "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
 
   expect_log "FROMBUILD: '1'"
-  expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
+  expect_log "OVERRIDDEN_RUN_ENV: '2'"
+  expect_log "FROM_BAZELRC: 'VALUE_FROM_BAZELRC'"
+  expect_log "FROM_BAZELRC_THEN_UNUSET: '<unset>'"
   expect_log "RUN_ENV_ONLY: 'BAR'"
   expect_log "EMPTY_RUN_ENV: ''"
   expect_log "INHERITED_RUN_ENV: 'BAZ'"
@@ -993,7 +1003,7 @@ EOF
   ./script.bat >"$TEST_log" || fail "expected script to succeed"
 
   expect_log "FROMBUILD: '1'"
-  expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
+  expect_log "OVERRIDDEN_RUN_ENV: '2'"
   expect_log "RUN_ENV_ONLY: 'BAR'"
 }
 
