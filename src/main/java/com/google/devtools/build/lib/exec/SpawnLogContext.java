@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An {@link ActionContext} providing the ability to log executed spawns. */
@@ -69,7 +70,7 @@ public abstract class SpawnLogContext implements ActionContext {
   public abstract void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
-      SortedMap<PathFragment, ActionInput> inputMap,
+      Supplier<SortedMap<PathFragment, ActionInput>> inputMap,
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
