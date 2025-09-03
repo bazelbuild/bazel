@@ -28,23 +28,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_macos=false
-  declare -r is_windows=true
-  ;;
-darwin)
-  declare -r is_macos=true
-  declare -r is_windows=false
-  ;;
-*)
-  declare -r is_macos=false
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --package_path=%workspace%"
-
 
 function test_repo_mapping_manifest() {
   local pkg="${FUNCNAME[0]}"

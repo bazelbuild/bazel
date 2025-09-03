@@ -100,7 +100,7 @@ EOF
       || fail "Remote cache generated different result"
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
   # to check this?
-  if [[ "$PLATFORM" = "linux" ]]; then
+  if is_linux; then
     if netstat -tn | grep -qE ":${http_port}\\s+ESTABLISHED$"; then
       fail "connections to to cache not closed"
     fi
@@ -136,7 +136,7 @@ EOF
       || fail "Remote cache generated different result"
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
   # to check this?
-  if [[ "$PLATFORM" = "linux" ]]; then
+  if is_linux; then
     if netstat -tn | grep -qE ":${http_port}\\s+ESTABLISHED$"; then
       fail "connections to to cache not closed"
     fi

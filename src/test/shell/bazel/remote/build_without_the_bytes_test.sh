@@ -53,21 +53,6 @@ function tear_down() {
   stop_worker
 }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 function setup_cc_tree() {
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -561,7 +546,7 @@ EOF
     --output_groups=compilation_outputs \
     //a:main || fail "Failed to build //a:main"
 
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     expected_object_file=bazel-bin/a/_objs/main/dir/foo.o
   else
     expected_object_file=bazel-bin/a/_pic_objs/main/dir/foo.pic.o
@@ -612,7 +597,7 @@ EOF
     --output_groups=compilation_outputs \
     //a:main || fail "Failed to build //a:main"
 
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     expected_object_file=bazel-bin/a/_objs/main/dir/foo.o
   else
     expected_object_file=bazel-bin/a/_pic_objs/main/dir/foo.pic.o
@@ -1885,7 +1870,7 @@ EOF
 }
 
 function test_download_top_level_remote_execution_after_local_fetches_inputs() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
     # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
     # action executors in order to select the appropriate Xcode toolchain.

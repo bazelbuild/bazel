@@ -40,15 +40,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function _create_pkg() {
   # Define dummy CPU and OS constraints (cpu1 and cpu2, and os1 and os2).
   # Also define platforms for each combination.
@@ -110,7 +101,7 @@ eof
   # On Windows, we write a Batch script. On other platforms, a shell script.
   # File extension must be .bat on Windows, and it doesn't matter on other
   # platforms.
-  if "$is_windows"; then
+  if is_windows; then
     cat > "toolchains/rc-src.bat" <<'eof'
 @echo off
 setlocal enabledelayedexpansion

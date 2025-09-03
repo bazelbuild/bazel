@@ -49,6 +49,7 @@ sh_library(
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
         "//src/test/shell:integration_test_setup.sh",
+        "//src/test/shell:platform_utils.sh",
         "//src/test/shell:testenv.sh",
         "//src/tools/singlejar",
         "//third_party:srcs",

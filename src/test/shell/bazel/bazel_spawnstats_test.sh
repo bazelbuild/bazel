@@ -59,7 +59,7 @@ function test_local() {
 }
 
 function test_local_sandbox() {
-  if [[ "$PLATFORM" == "linux" ]]; then
+  if is_linux; then
     statistics_single "--spawn_strategy=linux-sandbox" ", 1 linux-sandbox"
   fi
 }

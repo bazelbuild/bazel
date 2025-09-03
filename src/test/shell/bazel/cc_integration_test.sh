@@ -527,7 +527,9 @@ function test_cc_starlark_api_default_values() {
 
 
 function test_cc_starlark_api_link_static_false() {
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
@@ -561,7 +563,9 @@ EOF
 
 function test_cc_starlark_api_additional_inputs() {
   # This uses --version-script which isn't available on Mac linker.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
@@ -595,7 +599,9 @@ EOF
 function test_aspect_accessing_args_link_action_with_tree_artifact() {
   # This test assumes the presence of "nodeps" dynamic libraries, which do not
   # function on Apple platforms.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
@@ -714,7 +720,9 @@ EOF
 function test_directory_arg_compile_action() {
   # This test assumes the presence of "nodeps" dynamic libraries, which do not
   # function on Apple platforms.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
 
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
@@ -1406,7 +1414,9 @@ EOF
 }
 
 function test_external_cc_test_sandboxed() {
-  [ "$PLATFORM" != "windows" ] || return 0
+  if is_windows; then
+    return 0
+  fi
 
   external_cc_test_setup
 
@@ -1417,7 +1427,9 @@ function test_external_cc_test_sandboxed() {
 }
 
 function test_external_cc_test_sandboxed_sibling_repository_layout() {
-  [ "$PLATFORM" != "windows" ] || return 0
+  if is_windows; then
+    return 0
+  fi
 
   external_cc_test_setup
 
@@ -1588,7 +1600,10 @@ EOF
 
 function test_compiler_flag_gcc() {
   # The default macOS toolchain always uses XCode's clang.
-  [ "$PLATFORM" != "darwin" ] || return 0
+  if is_darwin; then
+    return 0
+  fi
+
   type -P gcc || return 0
 
   cat > BUILD.bazel <<'EOF'
@@ -1750,7 +1765,7 @@ EOF
 function __is_installed() {
   local lib="$1"
 
-  if [[ "$(uname -s | tr 'A-Z' 'a-z')" == "linux" ]]; then
+  if is_linux; then
     return $(ldconfig -p | grep -q "$lib")
   fi
 

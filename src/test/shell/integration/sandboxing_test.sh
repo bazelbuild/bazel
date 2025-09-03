@@ -556,7 +556,7 @@ EOF
 
 
 function test_requires_root() {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: fake usernames not supported in this system" 1>&2
     return 0
   fi
@@ -689,7 +689,7 @@ EOF
 }
 
 function test_read_hermetic_tmp {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
@@ -717,7 +717,7 @@ EOF
 }
 
 function test_read_hermetic_tmp_user_override {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
@@ -770,7 +770,7 @@ EOF
 }
 
 function test_write_hermetic_tmp {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
@@ -799,7 +799,7 @@ EOF
 }
 
 function test_write_hermetic_tmp_user_override {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi

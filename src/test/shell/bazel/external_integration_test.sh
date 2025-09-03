@@ -161,14 +161,11 @@ fi
   base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
-  case "${PLATFORM}" in
-    darwin)
-      ts="$(stat -f %m ${base_external_path}/male)"
-      ;;
-    *)
-      ts="$(stat -c %Y ${base_external_path}/male)"
-      ;;
-  esac
+  if is_darwin; then
+    ts="$(stat -f %m ${base_external_path}/male)"
+  else
+    ts="$(stat -c %Y ${base_external_path}/male)"
+  fi
   assert_equals "1078100502" "$ts"
 }
 

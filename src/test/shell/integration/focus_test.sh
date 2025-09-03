@@ -41,15 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --experimental_enable_skyfocus"
 add_to_bazelrc "build --genrule_strategy=local"
 add_to_bazelrc "test --test_strategy=standalone"
@@ -158,7 +149,7 @@ EOF
 }
 
 function test_focus_emits_profile_data() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(b/332825970): fix this
     return
   fi
@@ -367,7 +358,7 @@ EOF
 }
 
 function test_changes_with_symlinks_are_detected() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(b/332825970): fix this
     return
   fi
@@ -426,7 +417,7 @@ EOF
 }
 
 function test_symlinks_as_active_directories() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(b/332825970): fix this
     return
   fi

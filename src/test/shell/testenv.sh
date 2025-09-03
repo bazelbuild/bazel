@@ -19,17 +19,8 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
-# TODO(bazel-team): Factor each test suite's is-this-windows setup check to use
-# this var instead, or better yet a common $IS_WINDOWS var.
-PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
-
-function is_darwin() {
-  [[ "${PLATFORM}" =~ darwin ]]
-}
-
-function is_windows() {
-  [[ "${PLATFORM}" =~ msys ]]
-}
+source "$(rlocation "io_bazel/src/test/shell/platform_utils.sh")" \
+  || { echo "platform_utils.sh not found!" >&2; exit 1; }
 
 function _log_base() {
   prefix=$1
@@ -79,10 +70,9 @@ fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
+if is_windows; then
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
-esac
+fi
 [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
   && log_fatal "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel"
 export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
@@ -498,7 +488,7 @@ EOF
 # TODO(#7844): Delete this custom (and machine-specific) test setup once we have
 # an autodetecting Python toolchain for Windows.
 function maybe_setup_python_windows_tools() {
-  if [[ ! $PLATFORM =~ msys ]]; then
+  if ! is_windows; then
     return
   fi
 

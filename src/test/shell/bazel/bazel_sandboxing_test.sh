@@ -68,17 +68,14 @@ function test_sandbox_block_filesystem() {
   # /var/log is an arbitrary choice of directory that should exist on all
   # Unix-like systems.
   local block_path
-  case "$(uname -s)" in
-    Darwin)
-      # TODO(jmmv): sandbox-exec does not resolve symlinks, so attempting
-      # to block /var/log does not work. Unsure if we should make this work
-      # by resolving symlinks or documenting the expected behavior.
-      block_path=/private/var/log
-      ;;
-    *)
-      block_path=/var/log
-      ;;
-  esac
+  if is_darwin; then
+    # TODO(jmmv): sandbox-exec does not resolve symlinks, so attempting
+    # to block /var/log does not work. Unsure if we should make this work
+    # by resolving symlinks or documenting the expected behavior.
+    block_path=/private/var/log
+  else
+    block_path=/var/log
+  fi
 
   mkdir pkg
   cat >pkg/BUILD <<EOF
@@ -127,7 +124,7 @@ EOF
 
 # Tests that a pseudoterminal can be opened in linux when --sandbox_explicit_pseudoterminal is active
 function test_can_enable_pseudoterminals() {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: flag intended for linux systems"
     return 0
   fi
@@ -149,7 +146,7 @@ EOF
 }
 
 function test_sandbox_debug() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     # The process wrapper sandbox used in MacOS doesn't emit debug output.
     return 0
   fi
@@ -436,7 +433,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_source() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -469,7 +466,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_target() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -504,7 +501,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_target_and_source() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -536,7 +533,7 @@ EOF
 }
 
 function test_symlink_with_output_base_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -612,7 +609,7 @@ EOF
 }
 
 function test_symlink_to_directory_absolute_path() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -658,7 +655,7 @@ EOF
 }
 
 function test_symlink_to_directory_with_output_base_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -706,7 +703,7 @@ EOF
 }
 
 function test_tmpfs_path_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -746,7 +743,7 @@ EOF
 }
 
 function test_hermetic_tmp_under_tmp {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi

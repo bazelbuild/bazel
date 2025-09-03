@@ -46,15 +46,6 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  function is_windows() { true; }
-  ;;
-*)
-  function is_windows() { false; }
-  ;;
-esac
-
 function set_up() {
   start_worker
 

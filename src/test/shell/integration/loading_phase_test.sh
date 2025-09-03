@@ -43,15 +43,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
 
@@ -390,7 +381,7 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/9176
 function test_windows_only__glob_with_junction() {
-  if ! $is_windows; then
+  if ! is_windows; then
     echo "Skipping $FUNCNAME because execution platform is not Windows"
     return
   fi
@@ -441,7 +432,7 @@ function test_bazel_bin_is_not_a_package() {
 }
 
 function test_starlark_cpu_profile() {
-  if $is_windows; then
+  if is_windows; then
     echo "Starlark profiler is not supported on Microsoft Windows."
     return
   fi

@@ -44,15 +44,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 #### TESTS #############################################################
@@ -1254,7 +1245,7 @@ EOF
     --starlark:expr="' '.join([f.basename for f in providers(target)['DefaultInfo'].files.to_list()])" \
     > output 2>"$TEST_log" || fail "Expected failure"
 
-  if "$is_windows"; then
+  if is_windows; then
     assert_contains "cclib.lib" output
   elif is_darwin; then
     assert_contains "libcclib.a" output

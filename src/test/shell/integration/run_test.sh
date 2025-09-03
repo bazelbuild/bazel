@@ -44,18 +44,9 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if $is_windows; then
+if is_windows; then
   export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
+elif is_linux; then
   export LC_ALL=C.UTF-8
 else
   export LC_ALL=en_US.UTF-8
@@ -128,7 +119,7 @@ function test_run_py_test() {
 }
 
 function test_runfiles_present_cc_binary() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -148,7 +139,7 @@ EOF
 }
 
 function test_runfiles_updated_correctly_with_nobuild_runfile_links {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -180,7 +171,7 @@ function test_run_with_no_build_runfile_manifests {
 }
 
 function test_script_file_generation {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -323,7 +314,7 @@ EOF
   bazel run //x:x &>$TEST_log --color=no && fail "expected failure"
   cat $TEST_log
   # Verify that the failure is a build failure.
-  if $is_windows; then
+  if is_windows; then
     expect_log "missing ';'"
   else
     expect_log "expected ';'"
@@ -335,7 +326,7 @@ EOF
 
 
 function test_no_ansi_stripping_in_stdout_or_stderr() {
-  if $is_windows; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -463,7 +454,7 @@ EOF
 
 function test_run_for_custom_executable() {
   mkdir -p a
-  if "$is_windows"; then
+  if is_windows; then
     local -r IsWindows=True
   else
     local -r IsWindows=False
@@ -513,7 +504,7 @@ EOF
 # (when running browser-based tests) and to support debugging tests.
 # See also test_a_test_rule_with_input_from_stdin() in //src/test/shell/integration:test_test
 function test_run_a_test_and_a_binary_rule_with_input_from_stdin() {
-  if "$is_windows"; then
+  if is_windows; then
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
@@ -555,7 +546,7 @@ EOF
   local tmpdir_value
   tmpdir_value="$(cat "${TEST_TMPDIR}/tmpdir_value")"
   expected_prefix="${TEST_TMPDIR}"
-  if ${is_windows}; then
+  if is_windows; then
     # Work-around replacing the path with a short DOS path.
     tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
     expected_prefix="${bazel_root}"
@@ -568,7 +559,7 @@ function test_blaze_run_with_custom_test_tmpdir() {
   mkdir -p ${pkg}
   local tmpdir
   tmpdir="$(mktemp -d)"
-  if "${is_windows}"; then
+  if is_windows; then
     # Translate from `/*` to a windows path.
     tmpdir="$(cygpath -m "${tmpdir}")"
   fi
@@ -647,7 +638,7 @@ EOF
 }
 
 function test_run_under_script_script_path() {
-  if $is_windows; then
+  if is_windows; then
     # TODO(https://github.com/bazelbuild/bazel/issues/22148): Fix --run_under
     # paths under windows.
     return
@@ -711,7 +702,7 @@ EOF
   # "unset RUNFILES_MANIFEST_FILE" is necessary because the environment
   # variables set by //pkg:greetings are otherwise passed to //pkg:farewell and
   # break its runfiles discovery.
-  if "$is_windows"; then
+  if is_windows; then
     expect_log "hello there friend"
     expect_log "goodbye buddy"
   else
@@ -721,7 +712,7 @@ EOF
 }
 
 function test_run_under_command_change_preserves_cache() {
-  if $is_windows; then
+  if is_windows; then
     echo "This test requires --run_under to be able to run echo."
     return
   fi

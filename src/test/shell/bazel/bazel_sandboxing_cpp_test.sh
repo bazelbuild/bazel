@@ -44,17 +44,11 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/sandboxing_test_utils.sh")" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
-IS_WINDOWS=false
-case "$(uname | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  IS_WINDOWS=true
-esac
-
 # TODO(rongjiecomputer): Individual marking external tools as readable with
 # --sandbox_writable_path flag is only a temporary solution. Eventually Bazel
 # should add those external tools it needs as readable automatically.
 sandbox_flags=""
-if "${IS_WINDOWS}"; then
+if is_windows; then
   sandbox_flags="--experimental_use_windows_sandbox=yes"
   if [[ -n "${WINDOWS_SANDBOX+x}" ]]; then
     sandbox_flags="${sandbox_flags} --experimental_windows_sandbox_path=${WINDOWS_SANDBOX}"
@@ -243,6 +237,6 @@ EOF
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-check_sandbox_allowed || "${IS_WINDOWS}" || exit 0
+check_sandbox_allowed || is_windows || exit 0
 
 run_suite "sandbox"

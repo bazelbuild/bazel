@@ -40,15 +40,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 # ------------------------------------------------------------------------------
 # TESTS
 # ------------------------------------------------------------------------------
@@ -61,7 +52,7 @@ function test_running_test_target_with_runfiles_disabled() {
 load(":my_test.bzl", "my_test")
 my_test(name = "x")
 eof
-  if "$is_windows"; then
+  if is_windows; then
     local -r IsWindows=True
   else
     local -r IsWindows=False
@@ -91,7 +82,7 @@ eof
 }
 
 function test_windows_argument_escaping() {
-  if ! "$is_windows"; then
+  if ! is_windows; then
     return # Run test only on Windows.
   fi
 

@@ -44,18 +44,6 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/integration/discard_graph_edges_lib.sh")" \
   || { echo "discard_graph_edges_lib.sh not found!" >&2; exit 1; }
 
-IS_WINDOWS=false
-case "$(uname | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  IS_WINDOWS=true
-esac
-
-if "$IS_WINDOWS"; then
-  EXE_EXT=".exe"
-else
-  EXE_EXT=""
-fi
-
 javabase="$1"
 if [[ $javabase = external/* ]]; then
   javabase=${javabase#external/}

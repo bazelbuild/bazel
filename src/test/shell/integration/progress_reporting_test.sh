@@ -41,16 +41,7 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
+if is_windows; then
   declare -r WORKSPACE_STATUS="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
   touch "$WORKSPACE_STATUS"
 else
@@ -144,7 +135,7 @@ EOF
   # waiting" message. Do not modify the workspace status writer action
   # implementation to have a progress message, because it breaks all kinds of
   # things.
-  if "$is_windows"; then
+  if is_windows; then
     local -r wsc="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
     # Wait for an event that never comes, give up after 5 seconds (exits with
     # nonzero), then "cd ." to reset %ERRORLEVEL%.

@@ -30,7 +30,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [ "${PLATFORM-}" != "darwin" ] && [ "${PLATFORM-}" != "linux" ]; then
+if ! (is_darwin || is_linux); then
   echo "We only run this test on a Darwin or Linux machine."
   exit 0
 fi

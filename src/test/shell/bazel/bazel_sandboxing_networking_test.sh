@@ -170,17 +170,14 @@ function test_sandbox_network_access() {
 function test_sandbox_block_network_access() {
   setup_network_tests '"some-tag"'
 
-  case "$(uname -s)" in
-    Linux)
-      # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-      # within the network namespace... but that doesn't seem to be the case.
-      check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
-      ;;
+  if is_linux; then
+    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
+    # within the network namespace... but that doesn't seem to be the case.
+    check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
+  else
+    check_network_ok localhost --experimental_sandbox_default_allow_network=false
+  fi
 
-    *)
-      check_network_ok localhost --experimental_sandbox_default_allow_network=false
-      ;;
-  esac
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
   check_network_ok loopback --experimental_sandbox_default_allow_network=false
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
@@ -220,17 +217,13 @@ function test_sandbox_network_access_with_requires_network() {
 function test_sandbox_network_access_with_block_network() {
   setup_network_tests '"block-network"'
 
-  case "$(uname -s)" in
-    Linux)
-      # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-      # within the network namespace... but that doesn't seem to be the case.
-      check_network_not_ok localhost --experimental_sandbox_default_allow_network=true
-      ;;
-
-    *)
-      check_network_ok localhost --experimental_sandbox_default_allow_network=true
-      ;;
-  esac
+  if is_linux; then
+    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
+    # within the network namespace... but that doesn't seem to be the case.
+    check_network_not_ok localhost --experimental_sandbox_default_allow_network=true
+  else
+    check_network_ok localhost --experimental_sandbox_default_allow_network=true
+  fi
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=true
   check_network_ok loopback --experimental_sandbox_default_allow_network=true
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
@@ -274,7 +267,7 @@ EOF
 }
 
 function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: fake hostnames not supported in this system" 1>&2
     return 0
   fi

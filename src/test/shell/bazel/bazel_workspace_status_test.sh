@@ -201,8 +201,7 @@ EOF
   # Extract values of the formatted date and timestamp.
   timestamp=${timestamp_key_value#* }
   formatted_date=${formatted_timestamp_key_value#* }
-  if [[ $(uname -s) == "Darwin" ]]
-  then
+  if is_darwin; then
     timestamp_formatted_date=$(date -u -r "$timestamp" +'%Y %b %d %H %M %S %a')
   else
     timestamp_formatted_date=$(date -u -d "@$timestamp" +'%Y %b %d %H %M %S %a')

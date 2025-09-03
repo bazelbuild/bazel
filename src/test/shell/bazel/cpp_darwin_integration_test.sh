@@ -22,7 +22,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 if ! is_darwin; then
-  echo "This test suite requires running on Darwin. But now is ${PLATFORM}" >&2
+  echo "This test suite must be run on Darwin." >&2
   exit 0
 fi
 

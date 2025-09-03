@@ -41,21 +41,6 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/main/starlark/tests/builtins_bzl/builtin_test_setup.sh")" \
   || { echo "builtin_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function test_starlark_cc() {
   setup_tests src/main/starlark/tests/builtins_bzl/cc
   mkdir -p "src/conditions"
@@ -70,7 +55,7 @@ local_path_override(
     path = "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test2",
 )
 EOF
-  if "$is_windows"; then
+  if is_windows; then
     START_OPTS='--output_user_root=C:/tmp'
   else
     START_OPTS=''
@@ -116,7 +101,7 @@ EOF
 
   bazel build //pkg:static \
     &> $TEST_log && fail "Expected build to fail"
-  if "$is_windows"; then
+  if is_windows; then
     expect_log "direct1.obj"
     expect_log "indirect.obj"
     expect_log " foo("
@@ -171,7 +156,7 @@ EOF
 
   bazel build //pkg:static \
     &> $TEST_log && fail "Expected build to fail"
-  if "$is_windows"; then
+  if is_windows; then
     expect_log "direct1.obj"
     expect_log "indirect.obj"
     expect_log " foo"
@@ -191,7 +176,7 @@ EOF
 }
 
 function test_cc_static_library_protobuf() {
-  if "$is_windows"; then
+  if is_windows; then
     # Fails on Windows due to long paths of the test workspace.
     return 0
   fi
@@ -206,7 +191,7 @@ cc_static_library(
 EOF
 
   # can be removed with protobuf v28.x onwards
-  if $is_windows; then
+  if is_windows; then
     CXXOPTS=""
   else
     CXXOPTS="--cxxopt=-Wno-deprecated-declarations --host_cxxopt=-Wno-deprecated-declarations"

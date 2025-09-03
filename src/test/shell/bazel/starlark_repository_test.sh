@@ -41,24 +41,9 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if $is_windows; then
+if is_windows; then
   export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
+elif is_linux; then
   export LC_ALL=C.UTF-8
 else
   export LC_ALL=en_US.UTF-8
@@ -312,7 +297,7 @@ repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
-  if "$is_windows"; then
+  if is_windows; then
     repo2="$(cygpath $repo2)"
   fi
   expect_log "PWD=$repo2 TOTO=titi"
@@ -321,7 +306,7 @@ EOF
 function test_starlark_repository_unicode() {
   setup_starlark_repository
 
-  if "$is_windows"; then
+  if is_windows; then
     # äöüÄÖÜß in UTF-8
     local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
   else
@@ -976,7 +961,7 @@ EOF
 }
 
 function test_starlark_repository_executable_flag() {
-  if "$is_windows"; then
+  if is_windows; then
     # There is no executable flag on Windows.
     echo "Skipping test_starlark_repository_executable_flag on Windows"
     return
@@ -1048,7 +1033,7 @@ EOF
     || fail "download_executable_file.sh is not downloaded successfully"
 
   # No executable flag for file on Windows
-  if "$is_windows"; then
+  if is_windows;then
     return
   fi
 
@@ -1084,7 +1069,7 @@ function test_starlark_repository_context_downloads_return_struct() {
 
   # On Windows, a file url should be file:///C:/foo/bar,
   # we need to add one more slash at the beginning.
-  if "$is_windows"; then
+  if is_windows; then
     server_dir="/${server_dir}"
   fi
 
@@ -1363,7 +1348,7 @@ function test_auth_from_starlark() {
 }
 
 function test_auth_from_credential_helper() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
@@ -1389,7 +1374,7 @@ function test_auth_from_credential_helper() {
 }
 
 function test_auth_from_credential_helper_with_expiry() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
@@ -1412,7 +1397,7 @@ function test_auth_from_credential_helper_with_expiry() {
 }
 
 function test_auth_from_credential_helper_overrides_starlark() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
@@ -1456,7 +1441,7 @@ netrcrepo = repository_rule(
 EOF
 
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
@@ -1561,7 +1546,7 @@ authrepo = repository_rule(
 EOF
 
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
@@ -1701,7 +1686,7 @@ function test_http_archive_netrc() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1738,7 +1723,7 @@ function test_http_archive_auth_patterns() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1778,7 +1763,7 @@ function test_http_archive_implicit_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
-  if "$is_windows"; then
+  if is_windows; then
     export USERPROFILE="$(cygpath -m ${HOME})"
   fi
   cat > .netrc <<'EOF'
@@ -1810,7 +1795,7 @@ EOF
 }
 
 function test_http_archive_credential_helper() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
@@ -1844,7 +1829,7 @@ EOF
 }
 
 function test_http_archive_credential_helper_overrides_netrc() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
@@ -1859,7 +1844,7 @@ function test_http_archive_credential_helper_overrides_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
-  if "$is_windows"; then
+  if is_windows; then
     export USERPROFILE="$(cygpath -m ${HOME})"
   fi
   cat > .netrc <<'EOF'
@@ -1966,7 +1951,7 @@ EOF
 
 
 function test_cred_helper_overrides_starlark_headers() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
@@ -2637,7 +2622,7 @@ EOF
 }
 
 function test_watch_file_status_change_dangling_symlink() {
-  if "$is_windows"; then
+  if is_windows; then
     # symlinks on Windows... annoying
     return
   fi
@@ -2679,7 +2664,7 @@ EOF
 }
 
 function test_watch_file_status_change_symlink_parent() {
-  if "$is_windows"; then
+  if is_windows; then
     # symlinks on Windows... annoying
     return
   fi
@@ -2874,7 +2859,7 @@ EOF
 
 function test_keep_going_weird_deadlock() {
   # regression test for b/330892334
-  if "$is_windows"; then
+  if is_windows; then
     # no symlinks on windows
     return
   fi

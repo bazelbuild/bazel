@@ -41,15 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function test_different_startup_options() {
   pid=$(bazel --nobatch info server_pid 2> $TEST_log)
   [[ -n $pid ]] || fail "Couldn't run ${PRODUCT_NAME}"
@@ -58,7 +49,7 @@ function test_different_startup_options() {
   - Only in old server: --noshutdown_on_low_sys_mem
   - Only in new server: --batch --host_jvm_args=-Xmx4321m"
   [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
-  if ! "$is_windows"; then
+  if ! is_windows; then
     # On Windows: the kill command of MSYS doesn't work for Windows PIDs.
     kill -0 $pid 2> /dev/null && fail "$pid not dead" || true
     kill -0 $newpid 2> /dev/null && fail "$newpid not dead" || true

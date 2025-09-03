@@ -42,21 +42,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 # NOTE: All tests need to declare targets in a custom package, which is why they
 # all use the pkg=${FUNCNAME[0]} variable.
 
@@ -108,7 +93,7 @@ EOF
 function test_target_exec_properties_starlark_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else
@@ -305,7 +290,7 @@ function test_starlark_test_has_test_execgroup_by_default() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
 
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else
@@ -354,7 +339,7 @@ function test_starlark_test_can_define_test_execgroup_manually() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
 
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else
@@ -992,7 +977,7 @@ function test_override_exec_group_of_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
 
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else
