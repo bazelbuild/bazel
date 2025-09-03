@@ -567,5 +567,29 @@ TEST(RemoteFileTest, ParsingRemoteFiles) {
                                                    "--max_idle_secs=123")))))));
 }
 
+TEST_F(RcOptionsTest, StartupConfigurationPlatformSpecific) {
+  WriteRc("startup_config.bazelrc",
+          "startup --max_idle_secs=10800  # Default\n"
+          "startup:linux --max_idle_secs=3600  # Linux specific\n"
+          "startup:linux --connect_timeout_secs=60  # Linux specific\n"
+          "startup:macos --max_idle_secs=1800  # macOS Specific\n"
+          "startup:macos --connect_timeout_secs=120  # macOS Specific\n");
+  SuccessfullyParseRcWithExpectedArgs(
+      "startup_config.bazelrc",
+      {{"startup", {"--max_idle_secs=10800"}},
+       {"startup:linux", {"--max_idle_secs=3600", "--connect_timeout_secs=60"}},
+       {"startup:macos", {"--max_idle_secs=1800", "--connect_timeout_secs=120"}}});
+}
+
+TEST_F(RcOptionsTest, StartupConfigurationMultipleOptionsForPlatform) {
+  WriteRc("startup_config_multiple.bazelrc",
+          "startup:linux --host_jvm_args=-Xms256m\n"
+          "startup:linux --host_jvm_args=-Xmx2g\n"
+          "startup:linux --connect_timeout_secs=120\n");
+  SuccessfullyParseRcWithExpectedArgs(
+      "startup_config_multiple.bazelrc",
+      {{"startup:linux", {"--host_jvm_args=-Xms256m", "--host_jvm_args=-Xmx2g", "--connect_timeout_secs=120"}}});
+}
+
 }  // namespace
 }  // namespace blaze

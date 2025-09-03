@@ -605,6 +605,51 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
                    "--max_idle_secs=123\n"));
 }
 
+TEST_F(ParseOptionsTest, PlatformSpecificBazelrcOptions) {
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile(
+      "startup --max_idle_secs=1\n"
+      "startup:linux --max_idle_secs=2\n"
+      "startup:macos --max_idle_secs=3\n"
+      "startup:windows --max_idle_secs=4\n"
+      "startup:freebsd --max_idle_secs=5\n"
+      "startup:openbsd --max_idle_secs=6\n", &workspace_rc));
+
+  const std::vector<std::string> args = {binary_path_, "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+
+  int expected = 1;
+#if defined(__linux__)
+  expected = 2;
+#elif defined(__APPLE__)
+  expected = 3;
+#elif defined(_WIN32)
+  expected = 4;
+#elif defined(__FreeBSD__)
+  expected = 5;
+#elif defined(__OpenBSD__)
+  expected = 6;
+#endif
+
+  EXPECT_EQ(expected, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string output = testing::internal::GetCapturedStderr();
+
+  if (expected > 1) {
+    EXPECT_THAT(
+        output,
+        MatchesRegex("INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+                    "--max_idle_secs=1 --max_idle_secs=" + std::to_string(expected) + "\n"));
+  } else {
+    EXPECT_THAT(
+        output,
+        MatchesRegex("INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+                    "--max_idle_secs=1\n"));
+  }
+}
+
 class BlazercImportTest : public ParseOptionsTest {
  protected:
   void TestBazelRcImportsMaintainsFlagOrdering(const std::string& import_type) {
