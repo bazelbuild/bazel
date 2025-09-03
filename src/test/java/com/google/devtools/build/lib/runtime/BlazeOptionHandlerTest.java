@@ -126,6 +126,9 @@ public class BlazeOptionHandlerTest {
     structuredArgs.put(
         "build:platform_config",
         new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config")));
+    structuredArgs.put(
+        "build:platform_config_disabled",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config=false")));
     return structuredArgs;
   }
 
@@ -325,6 +328,13 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigDisabledInConfig() throws Exception {
+    parser.parse("--config=platform_config_disabled");
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
   public void testExpandConfigOptions_withPlatformSpecificConfigEnabledWhenNothingSpecified()
       throws Exception {
     parser.parse("--enable_platform_specific_config");
@@ -394,7 +404,8 @@ public class BlazeOptionHandlerTest {
             "--config=config2a",
             "--config=config2b",
             "--test_multiple_string=5",
-            "--test_multiple_string=6")
+            "--test_multiple_string=6",
+            "--enable_platform_specific_config")
         .inOrder();
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
@@ -410,7 +421,8 @@ public class BlazeOptionHandlerTest {
             "--config=config2a",
             "--config=config2b",
             "--test_multiple_string=5",
-            "--test_multiple_string=6")
+            "--test_multiple_string=6",
+            "--enable_platform_specific_config")
         .inOrder();
   }
 
