@@ -465,11 +465,43 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * referent of the created symlink is is the absolute path "target"; it is not possible to create
    * relative symbolic links via this method.
    *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(Path target, SymlinkTargetType type) throws IOException {
+    checkSameFileSystem(target);
+    fileSystem.createSymbolicLink(asFragment(), target.asFragment(), type);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the absolute path "target"; it is not possible to create
+   * relative symbolic links via this method.
+   *
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(Path target) throws IOException {
-    checkSameFileSystem(target);
-    fileSystem.createSymbolicLink(asFragment(), target.asFragment());
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the path fragment "target", which may be absolute or
+   * relative.
+   *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(PathFragment target, SymlinkTargetType type) throws IOException {
+    fileSystem.createSymbolicLink(asFragment(), target, type);
   }
 
   /**
@@ -480,7 +512,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(PathFragment target) throws IOException {
-    fileSystem.createSymbolicLink(asFragment(), target);
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
   }
 
   /**

@@ -16,19 +16,25 @@ package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -38,29 +44,27 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link WindowsFileSystem}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 @TestSpec(supportedOs = OS.WINDOWS)
 public class WindowsFileSystemTest {
+  @TestParameter boolean createSymbolicLinks;
 
   private WindowsFileSystem fs;
   private Path scratchRoot;
   private WindowsTestUtil testUtil;
 
   @Before
-  public void loadJni() throws Exception {
-    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ false);
-    scratchRoot = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("test").getRelative("x");
-    scratchRoot.createDirectoryAndParents();
+  public void createScratchDir() throws Exception {
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, createSymbolicLinks);
+    scratchRoot = TestUtils.createUniqueTmpDir(fs);
     testUtil = new WindowsTestUtil(scratchRoot.getPathString());
-    cleanupScratchDir();
   }
 
   @After
-  public void cleanupScratchDir() throws Exception {
-    testUtil.deleteAllUnder("");
+  public void destroyScratchDir() throws Exception {
+    scratchRoot.deleteTree();
   }
 
   @Test
@@ -292,100 +296,146 @@ public class WindowsFileSystemTest {
   }
 
   @Test
-  public void testCreateSymbolicLink() throws Exception {
-    // Create the `scratchRoot` directory.
-    assertThat(scratchRoot.createDirectory()).isTrue();
-    // Create symlink with directory target, relative path.
-    Path link1 = scratchRoot.getRelative("link1");
-    fs.createSymbolicLink(link1.asFragment(), PathFragment.create(".."));
-    // Create symlink with directory target, absolute path.
-    Path link2 = scratchRoot.getRelative("link2");
-    fs.createSymbolicLink(link2.asFragment(), scratchRoot.getRelative("link1").asFragment());
-    // Create scratch files that'll be symlink targets.
-    testUtil.scratchFile("foo.txt", "hello");
-    testUtil.scratchFile("bar.txt", "hello");
-    // Create symlink with file target, relative path.
-    Path link3 = scratchRoot.getRelative("link3");
-    fs.createSymbolicLink(link3.asFragment(), PathFragment.create("foo.txt"));
-    // Create symlink with file target, absolute path.
-    Path link4 = scratchRoot.getRelative("link4");
-    fs.createSymbolicLink(link4.asFragment(), scratchRoot.getRelative("bar.txt").asFragment());
-    // Assert that link1 and link2 are true junctions and have the right contents.
-    for (Path p : ImmutableList.of(link1, link2)) {
-      assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(p.getPathString()))).isTrue();
-      assertThat(p.isSymbolicLink()).isTrue();
-      assertThat(
-              Iterables.transform(
-                  Arrays.asList(new File(p.getPathString()).listFiles()),
-                  new Function<File, String>() {
-                    @Override
-                    public String apply(File input) {
-                      return input.getName();
-                    }
-                  }))
-          .containsExactly("x");
+  public void testSymbolicLinkToExistingFile(@TestParameter SymlinkTargetType targetType)
+      throws Exception {
+    Path linkPath = scratchRoot.getRelative("link");
+    Path targetPath = scratchRoot.getRelative("target");
+    assertThat(targetPath.getParentDirectory().exists()).isTrue();
+    assertThat(targetPath.getParentDirectory().isDirectory()).isTrue();
+    FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
+
+    linkPath.createSymbolicLink(targetPath, targetType);
+
+    if (createSymbolicLinks) {
+      assertThat(linkPath.isSymbolicLink()).isTrue();
+      assertThat(linkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+    } else {
+      assertThat(linkPath.isSymbolicLink()).isFalse();
+      assertThrows(NotASymlinkException.class, () -> linkPath.readSymbolicLink());
     }
-    // Assert that link3 and link4 are copies of files.
-    for (Path p : ImmutableList.of(link3, link4)) {
-      assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(p.getPathString()))).isFalse();
-      assertThat(p.isSymbolicLink()).isFalse();
-      assertThat(p.isFile()).isTrue();
-    }
-  }
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(linkPath.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath, ISO_8859_1)).isEqualTo("hello");
 
-  @Test
-  public void testCreateSymbolicLinkWithRealSymlinks() throws Exception {
-    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ true);
-    java.nio.file.Path helloPath = testUtil.scratchFile("hello.txt", "hello");
-    PathFragment targetFragment = PathFragment.create(helloPath.toString());
-    Path linkPath = scratchRoot.getRelative("link.txt");
-    fs.createSymbolicLink(linkPath.asFragment(), targetFragment);
-
-    assertThat(linkPath.isSymbolicLink()).isTrue();
-    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetFragment);
-
-    // Assert deleting the symbolic link keeps the target file.
     linkPath.delete();
     assertThat(linkPath.exists()).isFalse();
-    assertThat(helloPath.toFile().exists()).isTrue();
+    assertThat(targetPath.exists()).isTrue();
   }
 
   @Test
-  public void testReadJunction() throws Exception {
-    testUtil.scratchFile("dir\\hello.txt", "hello");
-    testUtil.createJunctions(ImmutableMap.of("junc", "dir"));
+  public void testSymbolicLinkToExistingDirectory(@TestParameter SymlinkTargetType targetType)
+      throws Exception {
+    Path linkPath = scratchRoot.getRelative("link");
+    Path linkChildPath = linkPath.getRelative("hello.txt");
+    Path targetPath = scratchRoot.getRelative("target");
+    Path targetChildPath = targetPath.getRelative("hello.txt");
+    targetPath.createDirectory();
+    FileSystemUtils.writeContentAsLatin1(targetChildPath, "hello");
 
-    Path dirPath = testUtil.createVfsPath(fs, "dir");
-    Path juncPath = testUtil.createVfsPath(fs, "junc");
+    linkPath.createSymbolicLink(targetPath, targetType);
 
-    assertThat(dirPath.isDirectory()).isTrue();
-    assertThat(juncPath.isDirectory()).isTrue();
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(linkPath.isDirectory()).isTrue();
+    assertThat(linkChildPath.exists()).isTrue();
+    assertThat(linkChildPath.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkChildPath, ISO_8859_1)).isEqualTo("hello");
 
-    assertThat(dirPath.isSymbolicLink()).isFalse();
-    assertThat(juncPath.isSymbolicLink()).isTrue();
+    linkPath.delete();
+    assertThat(linkPath.exists()).isFalse();
+    assertThat(targetPath.exists()).isTrue();
+  }
 
-    try {
-      testUtil.createVfsPath(fs, "does-not-exist").readSymbolicLink();
-      fail("expected exception");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*path does not exist");
+  @Test
+  public void testCreateSymbolicLinkToNonExistingTargetOfUnspecifiedType() throws Exception {
+    Path linkPath = scratchRoot.getRelative("link");
+    Path targetPath = scratchRoot.getRelative("target");
+
+    linkPath.createSymbolicLink(targetPath, SymlinkTargetType.UNSPECIFIED);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+    assertThat(linkPath.exists()).isFalse();
+
+    // Check that a dangling symlink is preferred over a dangling junction when supported.
+    // Do this by creating a target of the corresponding type and verifying that it can be accessed.
+    if (createSymbolicLinks) {
+      FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
+      assertThat(linkPath.exists()).isTrue();
+      assertThat(linkPath.isFile()).isTrue();
+      assertThat(FileSystemUtils.readContent(linkPath, ISO_8859_1)).isEqualTo("hello");
+    } else {
+      targetPath.createDirectory();
+      assertThat(linkPath.exists()).isTrue();
+      assertThat(linkPath.isDirectory()).isTrue();
     }
+  }
 
-    try {
-      testUtil.createVfsPath(fs, "dir\\hello.txt").readSymbolicLink();
-      fail("expected exception");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*is not a symlink");
-    }
+  @Test
+  public void testCreateSymbolicLinkToNonExistingTargetOfFileType() throws Exception {
+    // This is only expected to work if symlinks are enabled.
+    // Otherwise, our only recourse is to create a dangling junction, which does not work for files.
+    assumeTrue(createSymbolicLinks);
 
-    try {
-      dirPath.readSymbolicLink();
-      fail("expected exception");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*is not a symlink");
-    }
+    Path linkPath = scratchRoot.getRelative("link");
+    Path targetPath = scratchRoot.getRelative("target");
 
-    assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
+    linkPath.createSymbolicLink(targetPath, SymlinkTargetType.FILE);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+
+    FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
+
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(linkPath.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkPath, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testCreateSymbolicLinkToNonExistingTargetOfDirectoryType() throws Exception {
+    Path linkPath = scratchRoot.getRelative("link");
+    Path linkChildPath = linkPath.getRelative("hello.txt");
+    Path targetPath = scratchRoot.getRelative("target");
+    Path targetChildPath = targetPath.getRelative("hello.txt");
+
+    linkPath.createSymbolicLink(targetPath, SymlinkTargetType.DIRECTORY);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetPath.asFragment());
+
+    targetPath.createDirectory();
+    FileSystemUtils.writeContentAsLatin1(targetChildPath, "hello");
+
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(linkPath.isDirectory()).isTrue();
+    assertThat(linkChildPath.exists()).isTrue();
+    assertThat(linkChildPath.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(linkChildPath, ISO_8859_1)).isEqualTo("hello");
+  }
+
+  @Test
+  public void testReadSymbolicLinkForFile() throws Exception {
+    Path filePath = scratchRoot.getRelative("file");
+    FileSystemUtils.writeContentAsLatin1(filePath, "hello");
+
+    assertThrows(NotASymlinkException.class, filePath::readSymbolicLink);
+  }
+
+  @Test
+  public void testReadSymbolicLinkForDirectory() throws Exception {
+    Path dirPath = scratchRoot.getRelative("dir");
+    dirPath.createDirectory();
+
+    assertThrows(NotASymlinkException.class, dirPath::readSymbolicLink);
+  }
+
+  @Test
+  public void testReadSymbolicLinkForNonexistentPath() throws Exception {
+    Path nonexistentPath = scratchRoot.getRelative("nonexistent");
+
+    assertThrows(FileNotFoundException.class, nonexistentPath::readSymbolicLink);
   }
 
   @Test
