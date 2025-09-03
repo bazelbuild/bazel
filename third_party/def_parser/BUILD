@@ -1,3 +1,4 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("@rules_python//python:defs.bzl", "py_test")
 
 licenses(["notice"])  # 3-clause BSD
@@ -14,18 +15,18 @@ cc_library(
     srcs = ["def_parser.cc"],
     hdrs = ["def_parser.h"],
     tags = [
-        "__DONT_DEPEND_ON_DEF_PARSER__"
+        "__DONT_DEPEND_ON_DEF_PARSER__",
     ],
 )
 
 cc_binary(
     name = "def_parser",
     srcs = ["def_parser_main.cc"],
+    tags = [
+        "__DONT_DEPEND_ON_DEF_PARSER__",
+    ],
     deps = [
         ":def_parser_lib",
-    ],
-    tags = [
-        "__DONT_DEPEND_ON_DEF_PARSER__"
     ],
 )
 
