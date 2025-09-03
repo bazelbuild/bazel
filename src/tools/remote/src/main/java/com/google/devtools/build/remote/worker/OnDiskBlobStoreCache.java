@@ -24,6 +24,8 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.CombinedCache;
@@ -36,21 +38,30 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** A {@link CombinedCache} backed by an {@link DiskCacheClient}. */
 class OnDiskBlobStoreCache extends CombinedCache {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final ExecutorService executorService =
       MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
-  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
+  private final RemoteWorkerOptions remoteWorkerOptions;
+  private final ConcurrentHashMap<String, AtomicInteger> numberOfDownloadsPerDigestAndInvocation =
+      new ConcurrentHashMap<>();
+
+  public OnDiskBlobStoreCache(
+      RemoteOptions options, Path cacheDir, DigestUtil digestUtil, RemoteWorkerOptions remoteWorkerOptions)
       throws IOException {
     super(
         /* remoteCacheClient= */ null,
         new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
         options,
         digestUtil);
+    this.remoteWorkerOptions = remoteWorkerOptions;
   }
 
   @Override
@@ -90,6 +101,29 @@ class OnDiskBlobStoreCache extends CombinedCache {
     for (DirectoryNode child : directory.getDirectoriesList()) {
       downloadTree(context, child.getDigest(), rootLocation.getRelative(child.getName()));
     }
+  }
+
+  @Override
+  public ListenableFuture<byte[]> downloadBlob(RemoteActionExecutionContext context, Digest digest) {
+    logger.atFine().log("downloadBlob digest=%s invocationId=%s",
+        digest.getHash(), context.getRequestMetadata().getToolInvocationId());
+
+    if (remoteWorkerOptions.fakeErrorForDuplicatedDownloads) {
+      // Only populate numberOfDownloadsPerDigestAndInvocation when fakeErrorForDuplicatedDownloads is enabled
+      // to avoid unnecessary unbounded memory growth.
+      String uniqueDownloadKey = String.format("%s_%s",
+          digest.getHash(), context.getRequestMetadata().getToolInvocationId());
+      int numberOfDownloads = numberOfDownloadsPerDigestAndInvocation.computeIfAbsent(
+          uniqueDownloadKey,
+          d -> new AtomicInteger()).incrementAndGet();
+      if (numberOfDownloads > 1) {
+        return Futures.immediateFailedFuture(new IOException(
+            String.format("Faked error for duplicated download of blob digest %s with invocation id %s",
+                digest, context.getRequestMetadata().getToolInvocationId())));
+      }
+    }
+
+    return super.downloadBlob(context, digest);
   }
 
   public DigestUtil getDigestUtil() {
