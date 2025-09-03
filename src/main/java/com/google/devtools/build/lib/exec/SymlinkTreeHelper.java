@@ -219,7 +219,7 @@ public final class SymlinkTreeHelper {
     }
 
     void syncTreeRecursively(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
-      FileStatus stat = at.statNullable(Symlinks.FOLLOW);
+      FileStatus stat = at.statIfFound(Symlinks.FOLLOW);
       if (stat == null) {
         at.createDirectoryAndParents();
       } else if (!stat.isDirectory()) {
