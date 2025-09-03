@@ -318,7 +318,8 @@ public final class FilesystemValueCheckerTest {
         new PackageLookupFunction(
             new AtomicReference<>(ImmutableSet.of()),
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            /* enforceStrictLabelCasing= */ new AtomicReference<>(true)));
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions.buildOrThrow(), differencer);
