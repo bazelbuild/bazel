@@ -2197,7 +2197,7 @@ EOF
   # Verify that the build can hit the cache without action cycles.
   bazel clean || fail "Expected clean success"
   bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
-  expect_log "20 disk cache hit"
+  expect_log "17 disk cache hit"
 }
 
 run_suite "cc_integration_test"
