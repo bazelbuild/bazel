@@ -527,13 +527,26 @@ public abstract class FileSystem {
   }
 
   /**
+   * Creates a symbolic link. See {@link Path#createSymbolicLink(Path, SymlinkTargetType)} for
+   * specification.
+   *
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
+   * returns false, this method will throw an {@link UnsupportedOperationException}
+   */
+  public abstract void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType hint)
+      throws IOException;
+
+  /**
    * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for specification.
    *
    * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
    * returns false, this method will throw an {@link UnsupportedOperationException}
    */
-  public abstract void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
-      throws IOException;
+  public final void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+      throws IOException {
+    createSymbolicLink(linkPath, targetFragment, SymlinkTargetType.UNSPECIFIED);
+  }
 
   /**
    * Returns the target of a symbolic link. See {@link Path#readSymbolicLink} for specification.

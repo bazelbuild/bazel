@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.FileInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
@@ -591,15 +592,16 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   @Override
-  public void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     linkPath = resolveSymbolicLinksForParent(linkPath);
 
     if (isOutput(linkPath)) {
-      remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
+      remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment, type);
     }
 
-    localFs.getPath(linkPath).createSymbolicLink(targetFragment);
+    localFs.getPath(linkPath).createSymbolicLink(targetFragment, type);
   }
 
   @Override

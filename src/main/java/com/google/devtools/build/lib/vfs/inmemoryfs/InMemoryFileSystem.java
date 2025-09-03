@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -502,8 +503,8 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public void createSymbolicLink(PathFragment path, PathFragment targetFragment)
-      throws IOException {
+  public void createSymbolicLink(
+      PathFragment path, PathFragment targetFragment, SymlinkTargetType type) throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EACCES.exception(path);
     }

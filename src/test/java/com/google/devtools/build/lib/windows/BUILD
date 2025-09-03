@@ -44,10 +44,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows:processes",
         "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/windows/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@rules_java//java/runfiles",
     ],
 )

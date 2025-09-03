@@ -22,11 +22,15 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.attribute.DosFileAttributes;
 import javax.annotation.Nullable;
 
@@ -73,30 +77,39 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     PathFragment targetPath =
         targetFragment.isAbsolute()
             ? targetFragment
             : linkPath.getParentDirectory().getRelative(targetFragment);
+
+    FileStatus stat = statIfFound(targetPath, /* followSymlinks= */ true);
+    boolean existingFile = stat != null && stat.isFile();
+    boolean existingDirectory = stat != null && stat.isDirectory();
+
     try {
       File link = getIoFile(linkPath);
       File target = getIoFile(targetPath);
-      if (target.isDirectory()) {
-        WindowsFileOperations.createJunction(link.toString(), target.toString());
-      } else if (createSymbolicLinks) {
-        WindowsFileOperations.createSymlink(link.toString(), target.toString());
-      } else if (!target.exists()) {
-        // Still Create a dangling junction if the target doesn't exist.
-        WindowsFileOperations.createJunction(link.toString(), target.toString());
-      } else {
+
+      if (!createSymbolicLinks && existingFile) {
+        // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
         Files.copy(target.toPath(), link.toPath());
+      } else if (createSymbolicLinks
+          && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
+        // If symlinks are enabled and the target is not an existing or future directory, create a
+        // symlink.
+        WindowsFileOperations.createSymlink(link.toString(), target.toString());
+      } else {
+        // Otherwise, create a junction.
+        WindowsFileOperations.createJunction(link.toString(), target.toString());
       }
-    } catch (java.nio.file.FileAlreadyExistsException e) {
+    } catch (FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);
-    } catch (java.nio.file.AccessDeniedException e) {
+    } catch (AccessDeniedException e) {
       throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
-    } catch (java.nio.file.NoSuchFileException e) {
+    } catch (NoSuchFileException e) {
       throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
     }
   }
