@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -90,11 +90,21 @@ public class ThreadUtils {
             });
 
     try {
+      logger.atWarning().log("Dumping additional thread state using ThreadDumper:");
+
       var out = new ByteArrayOutputStream();
       ThreadDumper.dumpThreads(out);
-      logger.atWarning().log(
-          "Dumping additional thread state using ThreadDumper:\n%s",
-          new String(out.toByteArray(), UTF_8));
+
+      var in = new ByteArrayInputStream(out.toByteArray());
+      var analyzedThreadDump = new ThreadDumpAnalyzer().analyze(in);
+
+      for (var line : analyzedThreadDump.otherLines()) {
+        logger.atWarning().log("%s", line);
+      }
+      for (var stackTrace : analyzedThreadDump.groupedStackTraces()) {
+        logger.atWarning().log("%s", stackTrace);
+      }
+
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to dump threads with ThreadDumper.");
     }

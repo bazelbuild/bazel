@@ -44,49 +44,79 @@ public final class ThreadDumpAnalyzer {
   private record ThreadLine(String raw, String id, String name, List<String> states) {}
 
   /**
+   * The result of the thread dump analysis.
+   *
+   * @param otherLines The lines that are not related to threads.
+   * @param groupedStackTraces The stack traces of the threads that have the same stack trace. The
+   *     threads in each stack trace are sorted by name.
+   */
+  public record AnalyzedThreadDump(List<String> otherLines, List<String> groupedStackTraces) {}
+
+  /**
+   * Analyzes the given thread dump from the given input stream.
+   *
+   * @return The analyzed thread dump.
+   */
+  public AnalyzedThreadDump analyze(InputStream in) throws IOException {
+    var otherLines = new ArrayList<String>();
+
+    var reader = new BufferedReader(new InputStreamReader(in, UTF_8));
+    while (true) {
+      var line = reader.readLine();
+      if (line == null) {
+        break;
+      }
+
+      var threadMatcher = THREAD_PATTERN.matcher(line);
+      if (threadMatcher.matches()) {
+        var threadLine =
+            new ThreadLine(line, threadMatcher.group(1), threadMatcher.group(2), new ArrayList<>());
+        if (groupStackTrace(threadLine, reader)) {
+          break;
+        }
+      } else {
+        otherLines.add(line);
+      }
+    }
+
+    // Sort the threads with the same stack trace by name
+    for (var threads : threadsPerStackTrace.values()) {
+      threads.sort((a, b) -> a.name().compareTo(b.name()));
+    }
+
+    var sortedEntries = new ArrayList<>(threadsPerStackTrace.entrySet());
+    // Sort the entries by the first thread's name in the group.
+    sortedEntries.sort(Comparator.comparing(x -> x.getValue().getFirst().name()));
+
+    var groupedStackTraces = new ArrayList<String>();
+    for (var entry : sortedEntries) {
+      var sb = new StringBuilder();
+      var stackTrace = entry.getKey();
+      var threads = entry.getValue();
+      for (var thread : threads) {
+        sb.append(thread.raw()).append(System.lineSeparator());
+        for (var state : thread.states()) {
+          sb.append(state).append(System.lineSeparator());
+        }
+      }
+      sb.append(stackTrace);
+      groupedStackTraces.add(sb.toString());
+    }
+
+    return new AnalyzedThreadDump(otherLines, groupedStackTraces);
+  }
+
+  /**
    * Analyzes the given thread dump from the given input stream and writes the analysis to the given
    * output stream.
    */
   public void analyze(InputStream in, OutputStream out) throws IOException {
+    var analyzedThreadDump = analyze(in);
     try (var writer = new PrintWriter(out, false, UTF_8)) {
-      var reader = new BufferedReader(new InputStreamReader(in, UTF_8));
-      while (true) {
-        var line = reader.readLine();
-        if (line == null) {
-          break;
-        }
-
-        var threadMatcher = THREAD_PATTERN.matcher(line);
-        if (threadMatcher.matches()) {
-          var threadLine =
-              new ThreadLine(
-                  line, threadMatcher.group(1), threadMatcher.group(2), new ArrayList<>());
-          if (groupStackTrace(threadLine, reader)) {
-            break;
-          }
-        } else {
-          writer.println(line);
-        }
+      for (var line : analyzedThreadDump.otherLines) {
+        writer.println(line);
       }
-
-      // Sort the threads with the same stack trace by name
-      for (var threads : threadsPerStackTrace.values()) {
-        threads.sort((a, b) -> a.name().compareTo(b.name()));
-      }
-
-      var sortedEntries = new ArrayList<>(threadsPerStackTrace.entrySet());
-      // Sort the entries by the first thread's name in the group.
-      sortedEntries.sort(Comparator.comparing(x -> x.getValue().getFirst().name()));
-
-      for (var entry : sortedEntries) {
-        var stackTrace = entry.getKey();
-        var threads = entry.getValue();
-        for (var thread : threads) {
-          writer.println(thread.raw());
-          for (var state : thread.states()) {
-            writer.println(state);
-          }
-        }
+      for (var stackTrace : analyzedThreadDump.groupedStackTraces) {
         writer.println(stackTrace);
       }
     }
