@@ -1660,7 +1660,7 @@ public class BuildTool {
       Optional<FailureDetail> maybeFailureDetail =
           FrontierSerializer.serializeAndUploadFrontier(
               dependenciesProvider,
-              env.getSkyframeExecutor(),
+              env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
               env.getVersionGetter(),
               env.getReporter(),
               env.getEventBus(),

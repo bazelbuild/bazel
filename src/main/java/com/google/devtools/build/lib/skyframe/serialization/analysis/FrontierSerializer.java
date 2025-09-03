@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
@@ -90,14 +89,13 @@ public final class FrontierSerializer {
    */
   public static Optional<FailureDetail> serializeAndUploadFrontier(
       RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
-      SkyframeExecutor skyframeExecutor,
+      InMemoryGraph graph,
       LongVersionGetter versionGetter,
       Reporter reporter,
       EventBus eventBus,
       boolean keepStateAfterBuild)
       throws InterruptedException {
     var stopwatch = Stopwatch.createStarted();
-    InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
     ImmutableSet<SkyKey> selectedKeys;
     ImmutableMap<SkyKey, SelectionMarking> selection = null;
