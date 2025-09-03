@@ -790,6 +790,26 @@ def _escape_label(*, label):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _builtins.internal.cc_internal.escape_label(label = label)
 
+def _cc_toolchain_features(*, toolchain_config_info, tools_directory):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _builtins.internal.cc_internal.cc_toolchain_features(
+        toolchain_config_info = toolchain_config_info,
+        tools_directory = tools_directory,
+    )
+
+def _solib_symlink_action(*, ctx, artifact, solib_directory, runtime_solib_dir_base):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _builtins.internal.cc_internal.solib_symlink_action(
+        ctx = ctx,
+        artifact = artifact,
+        solib_directory = solib_directory,
+        runtime_solib_dir_base = runtime_solib_dir_base,
+    )
+
+def _cc_toolchain_variables(*, vars):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _builtins.internal.cc_internal.cc_toolchain_variables(vars = vars)
+
 cc_common = struct(
     link = _link,
     create_lto_compilation_context = _create_lto_compilation_context,
@@ -848,4 +868,7 @@ cc_common = struct(
     objc_expand_and_tokenize = _objc_expand_and_tokenize,
     create_linkstamp = _create_linkstamp,
     escape_label = _escape_label,
+    cc_toolchain_features = _cc_toolchain_features,
+    solib_symlink_action = _solib_symlink_action,
+    cc_toolchain_variables = _cc_toolchain_variables,
 )

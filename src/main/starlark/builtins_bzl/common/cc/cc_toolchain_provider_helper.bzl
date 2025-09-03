@@ -21,8 +21,6 @@ load(":common/cc/cc_toolchain_info.bzl", "CcToolchainInfo")
 load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
-
 _TOOL_PATH_ONLY_TOOLS = [
     "gcov-tool",
     "gcov",
@@ -182,7 +180,7 @@ def get_cc_toolchain_provider(ctx, attributes):
         ctx.configuration.is_sibling_repository_layout(),
     )
     tool_paths = _compute_tool_paths(toolchain_config_info, tools_directory)
-    toolchain_features = cc_internal.cc_toolchain_features(toolchain_config_info = toolchain_config_info, tools_directory = tools_directory)
+    toolchain_features = cc_common.cc_toolchain_features(toolchain_config_info = toolchain_config_info, tools_directory = tools_directory)
     fdo_context = create_fdo_context(
         llvm_profdata = tool_paths.get("llvm-profdata"),
         all_files = attributes.all_files,
@@ -214,7 +212,7 @@ def get_cc_toolchain_provider(ctx, attributes):
         dynamic_runtime_link_symlinks_elems = []
         for artifact in dynamic_runtime_lib[DefaultInfo].files.to_list():
             if cc_helper.is_valid_shared_library_artifact(artifact):
-                dynamic_runtime_link_symlinks_elems.append(cc_internal.solib_symlink_action(
+                dynamic_runtime_link_symlinks_elems.append(cc_common.solib_symlink_action(
                     ctx = ctx,
                     artifact = artifact,
                     solib_directory = solib_directory,
@@ -238,9 +236,7 @@ def get_cc_toolchain_provider(ctx, attributes):
         builtin_include_directories.append(_resolve_include_dir(ctx.label, s, sysroot, tools_directory))
 
     build_variables_dict = _get_cc_toolchain_vars(ctx.fragments.cpp, sysroot)
-    build_variables = cc_internal.cc_toolchain_variables(
-        vars = build_variables_dict,
-    )
+    build_variables = cc_common.cc_toolchain_variables(vars = build_variables_dict)
 
     return CcToolchainInfo(
         cpp_configuration = ctx.fragments.cpp,
