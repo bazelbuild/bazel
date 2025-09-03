@@ -236,7 +236,11 @@ public class TypeCheckTest {
             "str: (object, /) -> str",
             "type: (object, /) -> str",
             "float: (str|bool|int|float, /) -> float",
-            "int: (str|bool|int|float, /, base: [int]) -> int");
+            "int: (str|bool|int|float, /, base: [int]) -> int",
+            "dir: (object, /) -> list[str]",
+            // TODO(ilist@): rename Iterable to Collection
+            "all: (Iterable[object], /) -> bool",
+            "any: (Iterable[object], /) -> bool");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(

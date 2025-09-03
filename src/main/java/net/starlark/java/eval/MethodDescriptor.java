@@ -14,7 +14,6 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.stream;
 
 import com.google.common.base.Preconditions;
@@ -134,7 +133,8 @@ final class MethodDescriptor {
 
   private StarlarkType buildStarlarkType() {
     if (getAnnotation().structField()) {
-      StarlarkType returnType = TypeChecker.fromJava(getMethod().getReturnType());
+      StarlarkType returnType =
+          TypeChecker.fromJava(getMethod().getGenericReturnType(), ImmutableList.of());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -155,22 +155,9 @@ final class MethodDescriptor {
       if (parameters[i].isNamed()) {
         parameterNames.add(parameters[i].getName());
       }
-
-      if (parameters[i].getAllowedClasses() == null
-          || parameters[i].getAllowedClasses().isEmpty()) {
-        // Use parameter's actual type
-        parameterTypes.add(TypeChecker.fromJava(method.getParameterTypes()[i]));
-      } else if (parameters[i].getAllowedClasses().size() == 1) {
-        // Use annotation
-        parameterTypes.add(TypeChecker.fromJava(parameters[i].getAllowedClasses().get(0)));
-      } else {
-        parameterTypes.add(
-            Types.union(
-                parameters[i].getAllowedClasses().stream()
-                    .map(TypeChecker::fromJava)
-                    .collect(toImmutableSet())));
-      }
-
+      parameterTypes.add(
+          TypeChecker.fromJava(
+              method.getGenericParameterTypes()[i], parameters[i].getAllowedClasses()));
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
       }
@@ -179,7 +166,7 @@ final class MethodDescriptor {
     if (getMethod().getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = TypeChecker.fromJava(getMethod().getReturnType());
+      returnType = TypeChecker.fromJava(getMethod().getGenericReturnType(), ImmutableList.of());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }

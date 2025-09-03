@@ -213,8 +213,8 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
               + "all([-1, 0, 1]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean all(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean all(StarlarkIterable<Object> collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
 
@@ -225,14 +225,14 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
               + "any([False, 0, \"\"]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean any(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean any(StarlarkIterable<Object> collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
   }
 
-  private static boolean hasElementWithBooleanValue(Object seq, boolean value)
+  private static boolean hasElementWithBooleanValue(StarlarkIterable<Object> seq, boolean value)
       throws EvalException {
-    for (Object x : Starlark.toIterable(seq)) {
+    for (Object x : seq) {
       if (Starlark.truth(x) == value) {
         return true;
       }
@@ -829,7 +829,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
               + "methods of the parameter object.",
       parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
-  public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
+  public StarlarkList<String> dir(Object object, StarlarkThread thread) throws EvalException {
     return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
   }
 
