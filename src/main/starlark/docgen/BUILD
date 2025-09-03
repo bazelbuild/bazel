@@ -56,6 +56,7 @@ starlark_doc_extract(
         "@rules_cc//cc/common",
         "@rules_cc//cc:find_cc_toolchain_bzl",
         "@rules_cc//cc:action_names_bzl",
+        "@bazel_skylib//lib:paths",
     ],
 )
 
