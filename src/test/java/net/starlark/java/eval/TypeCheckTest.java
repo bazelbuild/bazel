@@ -146,20 +146,20 @@ public class TypeCheckTest {
   }
 
   @Test
-  public void runtimeTypecheck_iterable() throws Exception {
-    ev.exec("def f(a: Iterable[int]): pass", "f([1, 2])");
-    ev.exec("def f(a: Iterable[str]): pass", "f({'a': 1, 'b': 2})");
-    ev.exec("def f(a: Iterable[str]): pass", "f(set(['a', 'b']))");
-    ev.exec("def f(a: Iterable[str]): pass", "f(('a', 'b'))");
-    ev.exec("def f(a: Iterable[list[str]]): pass", "f([['a', 'b'], ['c']])");
-    ev.exec("def f(a: Iterable[int|str]): pass", "f(['a', 'b'])");
-    ev.exec("def f(a: Iterable[int|str]): pass", "f(['a', 1])");
-    ev.exec("def f(a: Iterable[int|str]): pass", "f(('a', 1))");
-    ev.exec("def f(a: Iterable[Iterable[str]]): pass", "f([['a', 'b'], ['c']])");
-    assertExecThrows(EvalException.class, "def f(a: Iterable[int]): pass", "f({'a': 1})")
+  public void runtimeTypecheck_collection() throws Exception {
+    ev.exec("def f(a: Collection[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: Collection[str]): pass", "f({'a': 1, 'b': 2})");
+    ev.exec("def f(a: Collection[str]): pass", "f(set(['a', 'b']))");
+    ev.exec("def f(a: Collection[str]): pass", "f(('a', 'b'))");
+    ev.exec("def f(a: Collection[list[str]]): pass", "f([['a', 'b'], ['c']])");
+    ev.exec("def f(a: Collection[int|str]): pass", "f(['a', 'b'])");
+    ev.exec("def f(a: Collection[int|str]): pass", "f(['a', 1])");
+    ev.exec("def f(a: Collection[int|str]): pass", "f(('a', 1))");
+    ev.exec("def f(a: Collection[Collection[str]]): pass", "f([['a', 'b'], ['c']])");
+    assertExecThrows(EvalException.class, "def f(a: Collection[int]): pass", "f({'a': 1})")
         .isEqualTo(
             "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
-                + " 'Iterable[int]'");
+                + " 'Collection[int]'");
   }
 
   @Test
@@ -238,9 +238,8 @@ public class TypeCheckTest {
             "float: (str|bool|int|float, /) -> float",
             "int: (str|bool|int|float, /, base: [int]) -> int",
             "dir: (object, /) -> list[str]",
-            // TODO(ilist@): rename Iterable to Collection
-            "all: (Iterable[object], /) -> bool",
-            "any: (Iterable[object], /) -> bool");
+            "all: (Collection[object], /) -> bool",
+            "any: (Collection[object], /) -> bool");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(

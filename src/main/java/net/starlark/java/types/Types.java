@@ -69,7 +69,7 @@ public final class Types {
         .put("dict", wrapTypeConstructor("dict", Types::dict))
         .put("set", wrapTypeConstructor("set", Types::set))
         .put("tuple", wrapTupleConstructorProxy())
-        .put("Iterable", wrapTypeConstructor("Iterable", Types::iterable));
+        .put("Collection", wrapTypeConstructor("Collection", Types::collection));
     return env.buildOrThrow();
   }
 
@@ -391,7 +391,7 @@ public final class Types {
 
     @Override
     public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(iterable(getElementType()));
+      return ImmutableList.of(collection(getElementType()));
     }
 
     @Override
@@ -413,7 +413,7 @@ public final class Types {
 
     @Override
     public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(iterable(getKeyType()));
+      return ImmutableList.of(collection(getKeyType()));
     }
 
     @Override
@@ -433,7 +433,7 @@ public final class Types {
 
     @Override
     public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(iterable(getElementType()));
+      return ImmutableList.of(collection(getElementType()));
     }
 
     @Override
@@ -453,7 +453,7 @@ public final class Types {
 
     @Override
     public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(iterable(union(ImmutableSet.copyOf(getElementTypes()))));
+      return ImmutableList.of(collection(union(ImmutableSet.copyOf(getElementTypes()))));
     }
 
     @Override
@@ -464,19 +464,19 @@ public final class Types {
     }
   }
 
-  /** Iterable type */
-  public static IterableType iterable(StarlarkType elementType) {
-    return new AutoValue_Types_IterableType(elementType);
+  /** Collection type */
+  public static CollectionType collection(StarlarkType elementType) {
+    return new AutoValue_Types_CollectionType(elementType);
   }
 
-  /** Iterable type */
+  /** Collection type */
   @AutoValue
-  public abstract static class IterableType extends StarlarkType {
+  public abstract static class CollectionType extends StarlarkType {
     public abstract StarlarkType getElementType();
 
     @Override
     public final String toString() {
-      return "Iterable[" + getElementType() + "]";
+      return "Collection[" + getElementType() + "]";
     }
   }
 

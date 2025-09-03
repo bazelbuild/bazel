@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Objects;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
+import net.starlark.java.types.Types.CollectionType;
 import net.starlark.java.types.Types.DictType;
-import net.starlark.java.types.Types.IterableType;
 import net.starlark.java.types.Types.ListType;
 import net.starlark.java.types.Types.SetType;
 import net.starlark.java.types.Types.TupleType;
@@ -95,8 +95,9 @@ public final class TypeChecker {
     if (type1 instanceof TupleType tuple1 && type2 instanceof TupleType tuple2) {
       return isTupleSubtypeOf(tuple1, tuple2);
     }
-    if (type1 instanceof IterableType iterable1 && type2 instanceof IterableType iterable2) {
-      return isSubtypeOf(iterable1.getElementType(), iterable2.getElementType());
+    if (type1 instanceof CollectionType collection1
+        && type2 instanceof CollectionType collection2) {
+      return isSubtypeOf(collection1.getElementType(), collection2.getElementType());
     }
 
     // Mutable collections are invariant (which is necessary while the interface supports both
@@ -112,7 +113,7 @@ public final class TypeChecker {
       return isEqual(set1.getElementType(), set2.getElementType());
     }
 
-    // Check for supertypes, that is interfaces like Iterable[T] or Sequence[T]
+    // Check for supertypes, that is interfaces like Collection[T] or Sequence[T]
     for (StarlarkType supertype1 : type1.getSupertypes()) {
       if (isSubtypeOf(supertype1, type2)) {
         return true;
@@ -176,7 +177,7 @@ public final class TypeChecker {
       return Types.list(fromJava(ptype.getActualTypeArguments()[0], ImmutableList.of()));
     } else if (cls instanceof ParameterizedType ptype
         && ptype.getRawType() == StarlarkIterable.class) {
-      return Types.iterable(fromJava(ptype.getActualTypeArguments()[0], ImmutableList.of()));
+      return Types.collection(fromJava(ptype.getActualTypeArguments()[0], ImmutableList.of()));
     } else if (cls == Object.class || cls == StarlarkValue.class) {
       // User supplied type
       if (allowedClassesAnnotation != null && !allowedClassesAnnotation.isEmpty()) {
