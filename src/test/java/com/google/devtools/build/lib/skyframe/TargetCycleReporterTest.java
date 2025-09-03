@@ -69,7 +69,7 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
         """);
     TargetCycleReporter cycleReporter = new TargetCycleReporter(getPackageManager());
     CycleInfo cycle =
-        new CycleInfo(
+        CycleInfo.createCycleInfo(
             ImmutableList.of(
                 TransitiveTargetKey.of(Label.parseCanonicalUnchecked("//foo:b")),
                 TransitiveTargetKey.of(Label.parseCanonicalUnchecked("//foo:c"))));

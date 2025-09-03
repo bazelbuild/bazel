@@ -164,8 +164,7 @@ public final class LabelExpander {
     try {
       return Label.parseWithPackageContext(
           labelText,
-          PackageContext.of(
-              labelResolver.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK));
+          PackageContext.of(labelResolver.getPackageIdentifier(), RepositoryMapping.EMPTY));
     } catch (LabelSyntaxException e) {
       // It's a heuristic, so quietly ignore "errors".
       return null;

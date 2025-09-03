@@ -252,10 +252,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     metadata.forEach(inputMap::put);
     treeMetadata.forEach(inputMap::putTreeArtifact);
     return new CompletionContext(
-        ImmutableMap.copyOf(treeMetadata),
-        /* filesets= */ ImmutableMap.of(),
-        ArtifactPathResolver.IDENTITY,
-        inputMap,
-        /* expandFilesets= */ false);
+        ArtifactPathResolver.IDENTITY, inputMap, /* expandFilesets= */ false);
   }
 }

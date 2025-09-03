@@ -168,7 +168,7 @@ public final class JavaCompilationHelper {
     if (turbineAnnotationProcessing) {
       Artifact turbineResources = turbineOutput(outputs.output(), "-turbine-resources.jar");
       resourceJars.add(turbineResources);
-      Artifact turbineJar = turbineOutput(outputs.output(), "-turbine-apt.jar");
+      Artifact outputJar = turbineOutput(outputs.output(), "-turbine-apt.jar");
       Artifact turbineJdeps = turbineOutput(outputs.output(), "-turbine-apt.jdeps");
       Artifact turbineGensrc =
           outputs.genSource() != null
@@ -176,7 +176,7 @@ public final class JavaCompilationHelper {
               : turbineOutput(outputs.output(), "-turbine-apt-gensrc.jar");
 
       JavaHeaderCompileAction.Builder builder = getJavaHeaderCompileActionBuilder();
-      builder.setOutputJar(turbineJar);
+      builder.setOutputJar(outputJar);
       builder.setOutputDepsProto(turbineJdeps);
       builder.setPlugins(plugins);
       builder.setResourceOutputJar(turbineResources);
@@ -292,7 +292,7 @@ public final class JavaCompilationHelper {
     builder.setUtf8Environment(semantics.utf8Environment(ruleContext.getExecutionPlatform()));
     builder.setJavacExecutionInfo(executionInfoInterner.intern(getExecutionInfo()));
     builder.setCompressJar(true);
-    builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
+    builder.setExtraData(computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
@@ -326,6 +326,19 @@ public final class JavaCompilationHelper {
           javaToolchain.getBytecodeOptimizer().tool(),
           optimizerLabel.name());
     }
+  }
+
+  /** Returns the per-package configured runfiles. */
+  private static NestedSet<Artifact> computePerPackageData(
+      RuleContext ruleContext, JavaToolchainProvider toolchain) throws RuleErrorException {
+    // Do not use streams here as they create excessive garbage.
+    NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
+    for (JavaPackageConfigurationProvider provider : toolchain.packageConfiguration()) {
+      if (provider.matches(ruleContext.getLabel())) {
+        data.addTransitive(provider.data());
+      }
+    }
+    return data.build();
   }
 
   /**
@@ -416,10 +429,11 @@ public final class JavaCompilationHelper {
   /**
    * Creates the Action that compiles ijars from source.
    *
-   * @param headerJar the jar output of this java compilation
+   * @param outputJar the jar output of this java compilation
    * @param headerDeps the .jdeps output of this java compilation
    */
-  public void createHeaderCompilationAction(Artifact headerJar, Artifact headerDeps)
+  public void createHeaderCompilationAction(
+      Artifact outputJar, Artifact headerCompilationOutputJar, Artifact headerDeps)
       throws RuleErrorException, InterruptedException {
 
     JavaTargetAttributes attributes = getAttributes();
@@ -428,7 +442,8 @@ public final class JavaCompilationHelper {
     JavaPluginData plugins = attributes.plugins().apiGeneratingPlugins();
 
     JavaHeaderCompileAction.Builder builder = getJavaHeaderCompileActionBuilder();
-    builder.setOutputJar(headerJar);
+    builder.setOutputJar(outputJar);
+    builder.setHeaderCompilationOutputJar(headerCompilationOutputJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setPlugins(plugins);
     if (plugins
@@ -450,12 +465,13 @@ public final class JavaCompilationHelper {
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(getBootclasspathOrDefault().bootclasspath());
-    // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
+    // Exclude any per-package configured data (see computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
     builder.setJavacOpts(customJavacOpts);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
+    builder.setHeaderCompilationDirectJars(attributes.getHeaderCompilationDirectJars());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
@@ -483,7 +499,7 @@ public final class JavaCompilationHelper {
                 .addOutput(genClassJar)
                 .addTransitiveInputs(hostJavabase.javaBaseInputs())
                 .setJarExecutable(
-                    JavaCommon.getHostJavaExecutable(hostJavabase),
+                    hostJavabase.javaBinaryExecPathFragment(),
                     getGenClassJar(ruleContext),
                     javaToolchain.getJvmOptions())
                 .addCommandLine(
@@ -564,5 +580,4 @@ public final class JavaCompilationHelper {
   private ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
   }
-
 }

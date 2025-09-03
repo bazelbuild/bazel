@@ -32,7 +32,9 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +48,7 @@ public final class ActionInputMapTest {
   private final ArtifactRoot artifactRoot =
       ArtifactRoot.asDerivedRoot(
           new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
-          RootType.Output,
+          RootType.OUTPUT,
           "bazel-out");
 
   @Test
@@ -450,6 +452,10 @@ public final class ActionInputMapTest {
     assertThat(map.getMetadata(input.getExecPath())).isEqualTo(treeValue.getMetadata());
     assertThat(map.getTreeMetadata(input.getExecPath())).isSameInstanceAs(treeValue);
     assertThat(map.getInput(input.getExecPathString())).isSameInstanceAs(input);
+
+    Map<PathFragment, TreeArtifactValue> trees = new HashMap<>();
+    map.forEachTreeArtifact(trees::put);
+    assertThat(trees).containsAtLeast(input.getExecPath(), treeValue);
   }
 
   private static class TestEntry {

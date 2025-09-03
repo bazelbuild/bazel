@@ -28,12 +28,14 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -87,18 +89,20 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "test_env",
-        converter = Converters.OptionalAssignmentConverter.class,
+        converter = Converters.EnvVarsConverter.class,
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.TEST_RUNNER},
         help =
             "Specifies additional environment variables to be injected into the test runner "
-                + "environment. Variables can be either specified by name, in which case its value "
-                + "will be read from the Bazel client environment, or by the name=value pair. "
+                + "environment. Variables can be either specified by <code>name</code>, in which "
+                + "case its value will be read from the Bazel client environment, or by the "
+                + "<code>name=value</code> pair. "
+                + "Previously set variables can be unset via <code>=name</code>. "
                 + "This option can be used multiple times to specify several variables. "
                 + "Used only by the 'bazel test' command.")
-    public List<Map.Entry<String, String>> testEnvironment;
+    public List<Converters.EnvVar> testEnvironment;
 
     @Option(
         name = "test_timeout",
@@ -267,16 +271,32 @@ public class TestConfiguration extends Fragment {
                 + "run/attempt fails gets a FLAKY status.")
     public boolean runsPerTestDetectsFlakes;
 
+    /** When to cancel concurrently running tests. */
+    public enum CancelConcurrentTests {
+      NEVER,
+      ON_FAILED,
+      ON_PASSED;
+
+      /** Converts to {@link CancelConcurrentTests}. */
+      static class Converter extends BoolOrEnumConverter<CancelConcurrentTests> {
+        public Converter() {
+          super(CancelConcurrentTests.class, "when to cancel concurrent tests", ON_PASSED, NEVER);
+        }
+      }
+    }
+
     @Option(
         name = "experimental_cancel_concurrent_tests",
-        defaultValue = "false",
+        defaultValue = "never",
+        converter = CancelConcurrentTests.Converter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "If true, then Blaze will cancel concurrently running tests on the first successful "
-                + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
-    public boolean cancelConcurrentTests;
+            "If 'on_failed' or 'on_passed, then Blaze will cancel concurrently running tests on "
+                + "the first run with that result. This is only useful in combination with "
+                + "--runs_per_test_detects_flakes.")
+    public CancelConcurrentTests cancelConcurrentTests;
 
     @Option(
         name = "coverage_support",
@@ -356,7 +376,7 @@ public class TestConfiguration extends Fragment {
     @Override
     public TestOptions getNormalized() {
       TestOptions result = (TestOptions) clone();
-      result.testEnvironment = normalizeEntries(testEnvironment);
+      result.testEnvironment = normalizeEnvVars(testEnvironment);
       return result;
     }
   }
@@ -444,7 +464,7 @@ public class TestConfiguration extends Fragment {
     return options.runsPerTestDetectsFlakes;
   }
 
-  public boolean cancelConcurrentTests() {
+  public CancelConcurrentTests cancelConcurrentTests() {
     return options.cancelConcurrentTests;
   }
 

@@ -143,7 +143,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -174,6 +174,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -203,6 +204,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.After;
 import org.junit.Before;
@@ -352,10 +354,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(
-            outputBase,
-            ImmutableList.of(root),
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
+        createPackageLocator(),
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
@@ -367,6 +366,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
         new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+  }
+
+  protected final PathPackageLocator createPackageLocator() {
+    return new PathPackageLocator(
+        outputBase, ImmutableList.of(root), BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
   }
 
   @ForOverride
@@ -517,19 +521,28 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+                RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty())));
   }
 
-  protected void setPackageOptions(String... options) throws Exception {
+  protected void setPackageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     packageOptions = parsePackageOptions(options);
     setUpSkyframe();
     invalidatePackages(/* alsoConfigs= */ false);
   }
 
-  protected void setBuildLanguageOptions(String... options) throws Exception {
+  protected void setBuildLanguageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     buildLanguageOptions = parseBuildLanguageOptions(options);
+    setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
+  }
+
+  protected void setPackageAndBuildLanguageOptions(
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions)
+      throws InterruptedException, AbruptExitException {
+    this.packageOptions = packageOptions;
+    this.buildLanguageOptions = buildLanguageOptions;
     setUpSkyframe();
     invalidatePackages(/* alsoConfigs= */ false);
   }
@@ -542,14 +555,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return "public";
   }
 
-  private PackageOptions parsePackageOptions(String... options) throws Exception {
+  private PackageOptions parsePackageOptions(String... options) throws OptionsParsingException {
     OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
     parser.parse("--default_visibility=" + getDefaultVisibility());
     parser.parse(options);
     return parser.getOptions(PackageOptions.class);
   }
 
-  protected BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  protected BuildLanguageOptions parseBuildLanguageOptions(String... options)
+      throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(getDefaultBuildLanguageOptions());
@@ -557,7 +571,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(BuildLanguageOptions.class);
   }
 
-  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+  protected List<String> getDefaultBuildLanguageOptions() {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
     ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     return ans.build();
@@ -2191,12 +2205,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Artifact.DerivedArtifact getDerivedArtifact(
-        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Artifact getStableWorkspaceStatusArtifact() {
       throw new UnsupportedOperationException();
     }
@@ -2353,7 +2361,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected final String getImplicitOutputPath(
-      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) throws EvalException {
     Rule rule;
     try {
       rule = (Rule) skyframeExecutor.getPackageManager().getTarget(reporter, target.getLabel());
@@ -2372,7 +2380,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the result of the {@code outputFunction}.
    */
   protected final Artifact getImplicitOutputArtifact(
-      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) throws EvalException {
     return getBinArtifact(getImplicitOutputPath(target, outputFunction), target);
   }
 

@@ -26,7 +26,7 @@ final class NestedMatchResultTypes {
 
   /** An immediate match result. */
   sealed interface NestedMatchResult extends NestedMatchResultOrFuture
-      permits AnalysisMatch, SourceMatch, AnalysisAndSourceMatch, NoMatch {}
+      permits AnalysisMatch, SourceMatch, AnalysisAndSourceMatch, NoMatch, AlwaysMatch {}
 
   static NestedMatchResult createNestedMatchResult(int analysisVersion, int sourceVersion) {
     if (analysisVersion <= sourceVersion) {
@@ -47,7 +47,12 @@ final class NestedMatchResultTypes {
    *
    * @param version the minimum version where the analysis match was observed
    */
-  static record AnalysisMatch(int version) implements NestedMatchResult {}
+  static record AnalysisMatch(int version) implements NestedMatchResult, MatchIndicator {
+    @Override
+    public boolean isMatch() {
+      return true;
+    }
+  }
 
   /**
    * The delta didn't match analysis dependencies, but matched source dependencies, indicating a
@@ -68,13 +73,18 @@ final class NestedMatchResultTypes {
    * @param sourceVersion the minimum version where the source match was observed.
    */
   record AnalysisAndSourceMatch(int analysisVersion, int sourceVersion)
-      implements NestedMatchResult {
+      implements NestedMatchResult, MatchIndicator {
     public AnalysisAndSourceMatch {
       checkArgument(
           sourceVersion < analysisVersion,
           "sourceVersion=%s must be less than analysisVersion=%s",
           sourceVersion,
           analysisVersion);
+    }
+
+    @Override
+    public boolean isMatch() {
+      return true;
     }
   }
 

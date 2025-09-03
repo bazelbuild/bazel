@@ -19,12 +19,11 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
 
-cc_internal = _builtins.internal.cc_internal
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
-CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 
 def _files(ctx, attr_name):
     attr = getattr(ctx.attr, attr_name, None)
@@ -82,14 +81,12 @@ def _attributes(ctx):
         grep_includes = _single_file(ctx, "_grep_includes")
 
     latebound_libc = _latebound_libc(ctx, "libc_top", "_libc_top")
-    latebound_target_libc = _latebound_libc(ctx, "libc_top", "_target_libc_top")
 
     all_files = _files(ctx, "all_files")
     return struct(
         supports_param_files = ctx.attr.supports_param_files,
-        runtime_solib_dir_base = "_solib__" + cc_internal.escape_label(label = ctx.label),
+        runtime_solib_dir_base = "_solib__" + cc_common.escape_label(label = ctx.label),
         cc_toolchain_config_info = _provider(ctx.attr.toolchain_config, CcToolchainConfigInfo),
-        licenses_provider = cc_internal.licenses(ctx = ctx),
         static_runtime_lib = ctx.attr.static_runtime_lib,
         dynamic_runtime_lib = ctx.attr.dynamic_runtime_lib,
         supports_header_parsing = ctx.attr.supports_header_parsing,
@@ -100,7 +97,7 @@ def _attributes(ctx):
         link_dynamic_library_tool = ctx.file._link_dynamic_library_tool,
         grep_includes = grep_includes,
         aggregate_ddi = _single_file(ctx, "_aggregate_ddi"),
-        generate_modmap = _single_file(ctx, "_generate_modmap"),
+        generate_modmap = ctx.attr.generate_modmap[DefaultInfo].files_to_run if getattr(ctx.attr, "generate_modmap", None) else None,
         module_map = ctx.attr.module_map,
         as_files = _files(ctx, "as_files"),
         ar_files = _files(ctx, "ar_files"),
@@ -117,9 +114,7 @@ def _attributes(ctx):
         coverage_files = _files(ctx, "coverage_files") or all_files,
         compiler_files_without_includes = _files(ctx, "compiler_files_without_includes"),
         libc = _files(ctx, latebound_libc),
-        target_libc = _files(ctx, latebound_target_libc),
         libc_top_label = _label(ctx, latebound_libc),
-        target_libc_top_label = _label(ctx, latebound_target_libc),
         if_so_builder = ctx.file._interface_library_builder,
         allowlist_for_layering_check = _package_specification_provider(ctx, "disabling_parse_headers_and_layering_check_allowed"),
         build_info_files = _provider(ctx.attr._build_info_translator, OutputGroupInfo),
@@ -128,8 +123,6 @@ def _attributes(ctx):
 def _cc_toolchain_impl(ctx):
     attributes = _attributes(ctx)
     providers = []
-    if attributes.licenses_provider != None:
-        providers.append(attributes.licenses_provider)
 
     cc_toolchain = get_cc_toolchain_provider(ctx, attributes)
     if cc_toolchain == None:
@@ -338,9 +331,6 @@ The label of the rule providing <code>cc_toolchain_config_info</code>.""",
             default = configuration_field(fragment = "cpp", name = "zipper"),
             allow_single_file = True,
             cfg = "exec",
-        ),
-        "_target_libc_top": attr.label(
-            default = configuration_field(fragment = "cpp", name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN"),
         ),
         "_whitelist_disabling_parse_headers_and_layering_check_allowed": attr.label(
             default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:disabling_parse_headers_and_layering_check_allowed",

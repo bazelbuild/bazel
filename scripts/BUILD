@@ -8,23 +8,13 @@ package(default_visibility = ["//visibility:private"])
 # and bazel-complete-template.bash. You should make edits in those files.
 genrule(
     name = "bash_completion",
-    srcs = [
-        "bazel-complete-header.bash",
-        "bazel-complete-template.bash",
-    ],
     outs = ["bazel-complete.bash"],
-    cmd = " ".join([
-        "$(location :generate_bash_completion.sh)",
-        "--bazel=$(location //src:bazel)",
-        "--output=$@",
-        "--prepend=$(location bazel-complete-header.bash)",
-        "--prepend=$(location bazel-complete-template.bash)",
-    ]),
-    output_to_bindir = 1,
-    tools = [
-        ":generate_bash_completion.sh",
-        "//src:bazel",
-    ],
+    cmd = """
+    TMPDIR=$$(mktemp -d)
+    trap 'rm -rf $$TMPDIR' EXIT
+    $(location //src:bazel) --batch --output_user_root=$$TMPDIR help completion bash > $@
+    """,
+    tools = ["//src:bazel"],
     visibility = [
         "//scripts/packages:__subpackages__",
         "//src/test/py/bazel:__pkg__",
@@ -67,6 +57,7 @@ filegroup(
         "@platforms//os:macos": [":jq_macos"],
         "@platforms//os:windows": ["@jq_windows_amd64//file"],
     }),
+    visibility = ["//src/test:__subpackages__"],
 )
 
 sh_test(
@@ -116,4 +107,13 @@ genrule(
         "//src:bazel",
     ],
     visibility = ["//scripts/packages:__subpackages__"],
+)
+
+filegroup(
+    name = "completion_scripts",
+    srcs = [
+        "bazel-complete-header.bash",
+        "bazel-complete-template.bash",
+    ],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__"],
 )

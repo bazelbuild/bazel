@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -23,12 +24,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.gson.stream.JsonWriter;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
@@ -44,12 +47,14 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
@@ -341,6 +346,7 @@ public final class Profiler {
   private final AtomicReference<TimeSeries> actionCountTimeSeriesRef;
   private final AtomicReference<TimeSeries> actionCacheCountTimeSeriesRef;
   private final AtomicReference<TimeSeries> localActionCountTimeSeriesRef;
+  private final AtomicReference<Map<String, TimeSeries>> inflightRpcTimeSeriesMapRef;
 
   private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
@@ -352,6 +358,7 @@ public final class Profiler {
     actionCountTimeSeriesRef = new AtomicReference<>();
     actionCacheCountTimeSeriesRef = new AtomicReference<>();
     localActionCountTimeSeriesRef = new AtomicReference<>();
+    inflightRpcTimeSeriesMapRef = new AtomicReference<>();
     initHistograms();
     for (ProfilerTask task : ProfilerTask.values()) {
       if (task.collectsSlowestInstances) {
@@ -471,6 +478,7 @@ public final class Profiler {
         new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
     this.localActionCountTimeSeriesRef.set(
         new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+    this.inflightRpcTimeSeriesMapRef.set(new ConcurrentHashMap<>());
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
@@ -559,6 +567,20 @@ public final class Profiler {
     if (hasNonZeroValues(localCounterSeriesMap)) {
       instance.logCounters(
           localCounterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+    }
+
+    var inflightRpcTimeSeriesMap = inflightRpcTimeSeriesMapRef.getAndSet(null);
+    if (inflightRpcTimeSeriesMap != null) {
+      for (var entry : inflightRpcTimeSeriesMap.entrySet()) {
+        Map<CounterSeriesTask, double[]> inflightRpcCounterSeriesMap = new LinkedHashMap<>();
+        var name = entry.getKey();
+        var timeSeries = entry.getValue();
+        double[] values = timeSeries.toDoubleArray(len);
+        inflightRpcCounterSeriesMap.put(
+            new CounterSeriesTask("Inflight RPCs - " + name, name, /* color= */ null), values);
+        instance.logCounters(
+            inflightRpcCounterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+      }
     }
   }
 
@@ -892,6 +914,17 @@ public final class Profiler {
       if (wasTaskSlowEnoughToRecord(type, duration)) {
         recordTask(new TaskData(laneId, startTimeNanos, duration, type, description));
       }
+
+      if (type == ProfilerTask.RPC) {
+        var inflightRpcTimeSerieMap = inflightRpcTimeSeriesMapRef.get();
+        if (inflightRpcTimeSerieMap != null) {
+          var timeSeries =
+              inflightRpcTimeSerieMap.computeIfAbsent(
+                  description,
+                  (unused) -> new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+          timeSeries.addRange(Duration.ofNanos(startTimeNanos), Duration.ofNanos(endTimeNanos));
+        }
+      }
     }
   }
 
@@ -1018,7 +1051,12 @@ public final class Profiler {
         lane = new Lane(this, nextLaneId.getAndIncrement());
 
         int newLaneIndex = count.getAndIncrement();
-        String newLaneName = prefix + newLaneIndex + " (Virtual)";
+        String newLaneName;
+        if (prefix.endsWith("-")) {
+          newLaneName = prefix + newLaneIndex + " (Virtual)";
+        } else {
+          newLaneName = prefix + "-" + newLaneIndex + " (Virtual)";
+        }
         var threadMetadata = new ThreadMetadata(newLaneName, lane.id);
         var writer = Profiler.this.writerRef.get();
         if (writer != null) {
@@ -1089,5 +1127,117 @@ public final class Profiler {
     }
 
     return "Other";
+  }
+
+  /**
+   * Profiles a future.
+   *
+   * @param future the future to profile
+   * @param prefix the prefix of the virtual lanes. Similar to the thread name prefix.
+   * @param type task type
+   * @param description task description. May be stored until the end of the build.
+   */
+  @CanIgnoreReturnValue
+  public <T> ListenableFuture<T> profileFuture(
+      ListenableFuture<T> future, String prefix, ProfilerTask type, String description) {
+    if (!isActive()) {
+      return future;
+    }
+
+    Lane lane = multiLaneGenerator.acquire(prefix);
+    long startTimeNanos = clock.nanoTime();
+    future.addListener(
+        () -> {
+          try {
+            completeTask(lane.id, startTimeNanos, type, description);
+          } finally {
+            multiLaneGenerator.release(lane);
+          }
+        },
+        directExecutor());
+    return future;
+  }
+
+  /**
+   * A profiler that can be used to profile async operations.
+   *
+   * <p>This profiler is thread-compatible but not thread-safe. You should create one profiler per
+   * task.
+   */
+  public class AsyncProfiler implements SilentCloseable {
+    private final Lane lane;
+    private final long startTimeNanos;
+    private final String description;
+
+    private AsyncProfiler(String prefix, String description) {
+      this.lane = multiLaneGenerator.acquire(prefix);
+      this.startTimeNanos = clock.nanoTime();
+      this.description = description;
+    }
+
+    public SilentCloseable profile(ProfilerTask type, String description) {
+      if (!(isActive() && isProfiling(type))) {
+        return NOP;
+      }
+      long startTimeNanos = clock.nanoTime();
+      return () -> completeTask(lane.id, startTimeNanos, type, description);
+    }
+
+    public SilentCloseable profile(String description) {
+      return profile(ProfilerTask.INFO, description);
+    }
+
+    public <T> ListenableFuture<T> profileFuture(ListenableFuture<T> future, String description) {
+      return profileFuture(future, ProfilerTask.INFO, description);
+    }
+
+    @CanIgnoreReturnValue
+    public <T> ListenableFuture<T> profileFuture(
+        ListenableFuture<T> future, ProfilerTask type, String description) {
+      var s = profile(type, description);
+      future.addListener(s::close, directExecutor());
+      return future;
+    }
+
+    public Runnable profileCallback(Runnable runnable, String description) {
+      return profileCallback(runnable, ProfilerTask.INFO, description);
+    }
+
+    public Runnable profileCallback(Runnable runnable, ProfilerTask type, String description) {
+      var s = profile(type, description);
+      return () -> {
+        s.close();
+        runnable.run();
+      };
+    }
+
+    public <T> Consumer<T> profileCallback(Consumer<T> consumer, String description) {
+      return profileCallback(consumer, ProfilerTask.INFO, description);
+    }
+
+    public <T> Consumer<T> profileCallback(
+        Consumer<T> consumer, ProfilerTask type, String description) {
+      var s = profile(type, description);
+      return t -> {
+        s.close();
+        consumer.accept(t);
+      };
+    }
+
+    @Override
+    public void close() {
+      completeTask(lane.id, startTimeNanos, ProfilerTask.INFO, description);
+      multiLaneGenerator.release(lane);
+    }
+  }
+
+  /**
+   * Creates a profiler that can be used to profile async operations of a task.
+   *
+   * @param prefix the prefix of the virtual lanes. Similar to the thread name prefix.
+   * @param description the description of task.
+   */
+  public AsyncProfiler profileAsync(String prefix, String description) {
+    return new AsyncProfiler(prefix, description);
   }
 }

@@ -186,7 +186,7 @@ public class RemoteSpawnRunnerTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
     logDir = fs.getPath("/server-logs");
@@ -1160,7 +1160,6 @@ public class RemoteSpawnRunnerTest {
   private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     ExecutionOptions executionOptions = Options.parse(ExecutionOptions.class, flag).getOptions();
-    executionOptions.materializeParamFiles = true;
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             directExecutor(),
@@ -1172,6 +1171,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             digestUtil,
             remoteOptions,
+            executionOptions,
             cache,
             executor,
             tempPathGenerator,
@@ -1181,9 +1181,7 @@ public class RemoteSpawnRunnerTest {
             Sets.newConcurrentHashSet());
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
-            execRoot,
             remoteOptions,
-            executionOptions,
             /* verboseFailures= */ true,
             /* cmdlineReporter= */ null,
             retryService,
@@ -1709,6 +1707,7 @@ public class RemoteSpawnRunnerTest {
                 "command-id",
                 digestUtil,
                 remoteOptions,
+                Options.getDefaults(ExecutionOptions.class),
                 cache,
                 executor,
                 tempPathGenerator,
@@ -1718,9 +1717,7 @@ public class RemoteSpawnRunnerTest {
                 Sets.newConcurrentHashSet()));
 
     return new RemoteSpawnRunner(
-        execRoot,
         remoteOptions,
-        Options.getDefaults(ExecutionOptions.class),
         /* verboseFailures= */ false,
         reporter,
         retryService,

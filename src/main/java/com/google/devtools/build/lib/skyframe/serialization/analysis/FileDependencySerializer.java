@@ -32,6 +32,8 @@ import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.luben.zstd.ZstdOutputStream;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -74,12 +76,16 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -88,6 +94,8 @@ import javax.annotation.Nullable;
  * invalidation to a remote {@link FingerprintValueService}.
  */
 final class FileDependencySerializer {
+
+  @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final FingerprintValueService fingerprintValueService;
@@ -512,11 +520,11 @@ final class FileDependencySerializer {
       case FileDataInfo info:
         return future.completeWith(handler.apply(info));
       case FutureFileDataInfo futureInfo:
-        return future.completeWith(Futures.transform(futureInfo, handler, directExecutor()));
+        return future.completeWith(Futures.transformAsync(futureInfo, handler, directExecutor()));
     }
   }
 
-  private class ListingFileHandler implements Function<FileDataInfo, ListingInvalidationDataInfo> {
+  private class ListingFileHandler implements AsyncFunction<FileDataInfo, ListingDataInfo> {
     private final RootedPath rootedPath;
 
     private ListingFileHandler(RootedPath rootedPath) {
@@ -530,37 +538,48 @@ final class FileDependencySerializer {
      * com.google.devtools.build.lib.skyframe.DirectoryListingValue#key}.
      */
     @Override
-    public ListingInvalidationDataInfo apply(FileDataInfo info) {
+    public ListenableFuture<ListingDataInfo> apply(FileDataInfo info) {
       DirectoryListingInvalidationData.Builder data = DirectoryListingInvalidationData.newBuilder();
       var writeStatuses = new ArrayList<WriteStatus>();
-      long mtsv = LongVersionGetter.MINIMAL;
+      long fileMtsv;
       RootedPath realPath;
       switch (info) {
         case CONSTANT_FILE: // reached only for the root directory
           realPath = rootedPath;
+          fileMtsv = LongVersionGetter.MINIMAL;
           break;
         case FileInvalidationDataInfo fileInfo:
           writeStatuses.add(fileInfo.writeStatus());
-          mtsv = fileInfo.mtsv();
-          if (mtsv != LongVersionGetter.MINIMAL) {
-            data.setFileMtsv(mtsv);
+          fileMtsv = fileInfo.mtsv();
+          if (fileMtsv != LongVersionGetter.MINIMAL) {
+            data.setFileMtsv(fileMtsv);
           }
           realPath = fileInfo.realPath();
           break;
       }
-      try {
-        mtsv = max(mtsv, versionGetter.getDirectoryListingVersion(realPath.asPath()));
-      } catch (IOException e) {
-        throw new IllegalStateException(
-            "unexpected error getting listing version for " + rootedPath, e);
-      }
-      String cacheKey =
-          computeCacheKey(rootedPath.getRootRelativePath(), mtsv, DIRECTORY_KEY_DELIMITER);
-      KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
-      byte[] dataBytes = data.build().toByteArray();
-      writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
-      return new ListingInvalidationDataInfo(
-          cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
+
+      ListenableFuture<Long> dirMtsvFuture =
+          Futures.submit(
+              (Callable<Long>)
+                  () -> {
+                    return versionGetter.getDirectoryListingVersion(realPath.asPath());
+                  },
+              ForkJoinPool.commonPool());
+
+      return Futures.transform(
+          dirMtsvFuture,
+          dirMtsv -> {
+            long mtsv = max(dirMtsv, fileMtsv);
+
+            String cacheKey =
+                computeCacheKey(rootedPath.getRootRelativePath(), mtsv, DIRECTORY_KEY_DELIMITER);
+            KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
+            byte[] dataBytes = data.build().toByteArray();
+            writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
+            return new ListingInvalidationDataInfo(
+                cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
+          },
+          directExecutor());
     }
   }
 
@@ -600,7 +619,7 @@ final class FileDependencySerializer {
       NodeDataInfo result;
       try {
         result = dependencyHandler.call();
-      } catch (ExecutionException e) {
+      } catch (ExecutionException | IOException e) {
         // Only thrown when calling Future.get, but none should be present if this is reached.
         throw new IllegalStateException("unexpected failure", e);
       }
@@ -610,6 +629,14 @@ final class FileDependencySerializer {
         Futures.whenAllComplete(allFutures).call(dependencyHandler, directExecutor()));
   }
 
+  static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
+    // The default level and the fastest level (-7) results in 35% and 19% wall time overhead when
+    // not using a threshold to compress, the default level provided a 2x better compression. Since
+    // we do use a threshold and there is no wall time regression, we favor the better compression
+    // ratio.
+    return new ZstdOutputStream(outputStream);
+  }
+
   /**
    * Accepts all the dependencies associated with a node, registers their serialization and waits
    * for processing to complete, signalled through the {@link #call} callback.
@@ -617,7 +644,7 @@ final class FileDependencySerializer {
    * <p>Once processing is complete and all keys are known, uploads the node value. {@link
    * #computeNodeBytes} defines the wire format of nodes.
    */
-  private class NodeDependencyHandler implements Callable<NodeDataInfo> {
+  class NodeDependencyHandler implements Callable<NodeDataInfo> {
     private final TreeSet<String> fileKeys = new TreeSet<>();
     private final TreeSet<String> listingKeys = new TreeSet<>();
     private final TreeMap<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies =
@@ -632,7 +659,7 @@ final class FileDependencySerializer {
     private final ArrayList<FutureFileDataInfo> futureSourceFileInfo = new ArrayList<>();
 
     @Override
-    public NodeDataInfo call() throws ExecutionException {
+    public NodeDataInfo call() throws ExecutionException, IOException {
       for (FutureFileDataInfo futureInfo : futureFileDataInfo) {
         addFileInfo(Futures.getDone(futureInfo));
       }
@@ -664,13 +691,18 @@ final class FileDependencySerializer {
         }
       }
 
-      byte[] nodeBytes = computeNodeBytes();
-      PackedFingerprint key = fingerprintValueService.fingerprint(nodeBytes);
-      writeStatuses.add(fingerprintValueService.put(key, nodeBytes));
+      byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKeys);
+      byte[] maybeCompressedBytes = nodeBytes;
+      if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
+        maybeCompressedBytes = compressBytes(nodeBytes);
+      }
+      PackedFingerprint key = fingerprintValueService.fingerprint(maybeCompressedBytes);
+      writeStatuses.add(fingerprintValueService.put(key, maybeCompressedBytes));
       return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
     }
 
     private void addFileKey(FileKey fileKey) {
+
       switch (registerDependency(fileKey)) {
         case FileDataInfo info:
           addFileInfo(info);
@@ -767,7 +799,17 @@ final class FileDependencySerializer {
           .build();
     }
 
-    /**
+    private byte[] compressBytes(byte[] nodeBytes) throws IOException {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      MagicBytes.writeMagicBytes(outputStream);
+      try (OutputStream compressedBytesStream =
+          FileDependencySerializer.getCompressedOutputStream(outputStream)) {
+        compressedBytesStream.write(nodeBytes);
+      }
+      return outputStream.toByteArray();
+    }
+
+    /*
      * Computes a canonical byte representation of the node.
      *
      * <p>Logically, a node is a set of string file or listing keys, as described at {@link
@@ -788,32 +830,38 @@ final class FileDependencySerializer {
      *
      * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
      */
-    private byte[] computeNodeBytes() {
-      try {
-        var bytesOut = new ByteArrayOutputStream();
-        var codedOut = CodedOutputStream.newInstance(bytesOut);
-        codedOut.writeInt32NoTag(nodeDependencies.size());
-        codedOut.writeInt32NoTag(fileKeys.size());
-        codedOut.writeInt32NoTag(listingKeys.size());
-        codedOut.writeInt32NoTag(sourceFileKeys.size());
-        for (PackedFingerprint fp : nodeDependencies.keySet()) {
-          fp.writeTo(codedOut);
-        }
-        for (String key : fileKeys) {
-          codedOut.writeStringNoTag(key);
-        }
-        for (String key : listingKeys) {
-          codedOut.writeStringNoTag(key);
-        }
-        for (String key : sourceFileKeys) {
-          codedOut.writeStringNoTag(key);
-        }
-        codedOut.flush();
-        bytesOut.flush();
-        return bytesOut.toByteArray();
-      } catch (IOException e) {
-        throw new AssertionError("Unexpected IOException from ByteArrayOutputStream", e);
+  }
+
+  @VisibleForTesting
+  static byte[] computeNodeBytes(
+      Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,
+      Set<String> fileKeys,
+      Set<String> listingKeys,
+      Set<String> sourceFileKeys) {
+    try {
+      var bytesOut = new ByteArrayOutputStream();
+      var codedOut = CodedOutputStream.newInstance(bytesOut);
+      codedOut.writeInt32NoTag(nodeDependencies.size());
+      codedOut.writeInt32NoTag(fileKeys.size());
+      codedOut.writeInt32NoTag(listingKeys.size());
+      codedOut.writeInt32NoTag(sourceFileKeys.size());
+      for (PackedFingerprint fp : nodeDependencies.keySet()) {
+        fp.writeTo(codedOut);
       }
+      for (String key : fileKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      for (String key : listingKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      for (String key : sourceFileKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      codedOut.flush();
+      bytesOut.flush();
+      return bytesOut.toByteArray();
+    } catch (IOException e) {
+      throw new AssertionError("Unexpected IOException from ByteArrayOutputStream", e);
     }
   }
 

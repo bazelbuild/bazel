@@ -124,7 +124,7 @@ public class GrpcRemoteDownloaderTest {
         TracingMetadataUtils.buildMetadata(
             "none",
             "none",
-            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash(),
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash(),
             null);
     context = RemoteActionExecutionContext.create(metadata);
 
@@ -153,7 +153,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
             retryService);
     final ReferenceCountedChannel channel =
         new ReferenceCountedChannel(

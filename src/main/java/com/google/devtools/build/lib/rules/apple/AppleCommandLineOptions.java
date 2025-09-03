@@ -356,6 +356,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help = "Comma-separated list of platforms to use when building Apple binaries.")
   public List<Label> applePlatforms;
 
+  @Option(
+      name = "use_platforms_in_apple_crosstool_transition",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Makes apple_crosstool_transition fall back to using the value of `--platforms` flag"
+              + " instead of legacy `--cpu` when needed.")
+  public boolean usePlatformsInAppleCrosstoolTransition;
+
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
     DottedVersion.Option option;

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
@@ -29,11 +29,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkErrorReporter;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,14 +46,8 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.WrappedStarlarkActionFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -70,19 +61,15 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -94,7 +81,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
@@ -118,22 +105,11 @@ public abstract class CcModule
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         LtoBackendArtifacts,
-        CcLinkingContext.LinkerInput,
-        CcLinkingContext,
-        LibraryToLink,
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,
-        CcToolchainConfigInfo,
         CcCompilationOutputs,
-        CcDebugInfoContext,
-        CppModuleMap,
-        CcLinkingOutputs> {
-
-  // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
-  //  additional_include_scanning_roots which is technical debt and should go away.
-  private static final BuiltinRestriction.AllowlistEntry MATCH_CLIF_ALLOWLISTED_LOCATION =
-      BuiltinRestriction.allowlistEntry("", "tools/build_defs/clif");
+        CppModuleMap> {
 
   public abstract CppSemantics getSemantics();
 
@@ -401,10 +377,6 @@ public abstract class CcModule
     }
   }
 
-  protected Dict<?, ?> asDict(Object o) {
-    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
-  }
-
   @Nullable
   protected <T> Object asClassImmutableListOrNestedSet(
       Object o, Class<T> tClass, String description) throws EvalException {
@@ -566,27 +538,6 @@ public abstract class CcModule
         .build();
   }
 
-  @StarlarkMethod(
-      name = "merge_linking_contexts",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "linking_contexts",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-      })
-  public CcLinkingContext mergeLinkingContexts(
-      Sequence<?> linkingContexts, // <CcLinkingContext> expected
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CcLinkingContext.merge(
-        Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"));
-  }
-
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
       throws EvalException {
     if (obj == Starlark.UNBOUND) {
@@ -686,71 +637,9 @@ public abstract class CcModule
   }
 
   @Override
-  public CcLinkingContext.LinkerInput createLinkerInput(
-      Label owner,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputs, // <FileT> expected
-      Object linkstampsObject,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    isCalledFromStarlarkCcCommon(thread);
-    ImmutableList.Builder<LinkOptions> optionsBuilder = ImmutableList.builder();
-    if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
-      // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
-      // make sense here since LinkerInput takes a list of flags. For storing user_link_flags
-      // without flattening they would have to be wrapped around a LinkerInput for which we keep
-      // a depset that isn't flattened till the end.
-      ImmutableList<String> userLinkFlagsFlattened =
-          Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList();
-      if (!userLinkFlagsFlattened.isEmpty()) {
-        LinkOptions options = LinkOptions.of(userLinkFlagsFlattened, thread.getNextIdentityToken());
-        optionsBuilder.add(options);
-      }
-    } else if (userLinkFlagsObject instanceof Sequence) {
-      ImmutableList<Object> options =
-          Sequence.cast(userLinkFlagsObject, Object.class, "user_link_flags[]").getImmutableList();
-      if (!options.isEmpty()) {
-        if (options.get(0) instanceof String) {
-          optionsBuilder.add(
-              LinkOptions.of(
-                  Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
-                      .getImmutableList(),
-                  thread.getNextIdentityToken()));
-        } else if (options.get(0) instanceof Sequence) {
-          for (Object optionObject : options) {
-            ImmutableList<String> option =
-                Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-            optionsBuilder.add(LinkOptions.of(option, thread.getNextIdentityToken()));
-          }
-        } else {
-          throw Starlark.errorf(
-              "Elements of list in user_link_flags must be either Strings or lists.");
-        }
-      }
-    }
-
-    return CcLinkingContext.LinkerInput.builder()
-        .setOwner(owner)
-        .addLibraries(
-            Depset.noneableCast(librariesToLinkObject, LibraryToLink.class, "libraries").toList())
-        .addUserLinkFlags(optionsBuilder.build())
-        .addLinkstamps(convertToNestedSet(linkstampsObject, Linkstamp.class, "linkstamps").toList())
-        .addNonCodeInputs(
-            Depset.noneableCast(nonCodeInputs, Artifact.class, "additional_inputs").toList())
-        .build();
-  }
-
-  @Override
   public boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY);
-  }
-
-  @Override
-  public boolean checkExperimentalCcStaticLibrary(StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_STATIC_LIBRARY);
   }
 
   @Override
@@ -771,82 +660,7 @@ public abstract class CcModule
     return thread.getSemantics().getBool(BuildLanguageOptions.ADD_GO_EXEC_GROUPS_TO_BINARY_RULES);
   }
 
-  @Override
-  public CcLinkingContext createCcLinkingInfo(
-      Object linkerInputs,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputsObject,
-      Object extraLinkTimeLibraryObject,
-      Object ownerObject,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    if (Starlark.isNullOrNone(linkerInputs)) {
-      if (thread
-          .getSemantics()
-          .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API)) {
-        throw Starlark.errorf("linker_inputs cannot be None");
-      }
-      @SuppressWarnings("unchecked")
-      Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
-      @SuppressWarnings("unchecked")
-      Sequence<String> userLinkFlags = nullIfNone(userLinkFlagsObject, Sequence.class);
 
-      if (librariesToLink != null || userLinkFlags != null) {
-        CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
-        // TODO(b/135146460): Old API, no support for shared library, linker input won't have
-        //  labels.
-        if (librariesToLink != null) {
-          ccLinkingContextBuilder.addLibraries(librariesToLink.getImmutableList());
-        }
-        if (userLinkFlags != null) {
-          ccLinkingContextBuilder.addUserLinkFlags(
-              ImmutableList.of(
-                  CcLinkingContext.LinkOptions.of(
-                      userLinkFlags.getImmutableList(), thread.getNextIdentityToken())));
-        }
-        @SuppressWarnings("unchecked")
-        Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
-        if (nonCodeInputs != null) {
-          ccLinkingContextBuilder.addNonCodeInputs(
-              Sequence.cast(nonCodeInputs, Artifact.class, "additional_inputs"));
-        }
-        return ccLinkingContextBuilder.build();
-      }
-
-      throw Starlark.errorf("Must pass libraries_to_link, user_link_flags or both.");
-    } else {
-      CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
-      ccLinkingContextBuilder.addTransitiveLinkerInputs(
-          Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
-      ExtraLinkTimeLibrary extraLinkTimeLibrary =
-          convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
-      if (extraLinkTimeLibrary != null) {
-        ccLinkingContextBuilder.setExtraLinkTimeLibraries(
-            ExtraLinkTimeLibraries.builder().add(extraLinkTimeLibrary).build());
-      }
-      Label owner = convertFromNoneable(ownerObject, /* defaultValue= */ null);
-      if (owner != null) {
-        ccLinkingContextBuilder.setOwner(owner);
-      }
-
-      @SuppressWarnings("unchecked")
-      Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
-      @SuppressWarnings("unchecked")
-      Sequence<String> userLinkFlags = nullIfNone(userLinkFlagsObject, Sequence.class);
-      @SuppressWarnings("unchecked")
-      Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
-
-      if (librariesToLink != null || userLinkFlags != null || nonCodeInputs != null) {
-        throw Starlark.errorf(
-            "If you pass linker_inputs you are using the new API. "
-                + "Just pass linker_inputs. Do not mix old and new API parameters.");
-      }
-
-      return ccLinkingContextBuilder.build();
-    }
-  }
 
   // TODO(b/65151735): Remove when cc_flags is entirely from features.
   @Override
@@ -867,200 +681,6 @@ public abstract class CcModule
     return o instanceof Depset
         ? Depset.cast(o, type, fieldName)
         : NestedSetBuilder.wrap(Order.COMPILE_ORDER, Sequence.cast(o, type, fieldName));
-  }
-
-  @Override
-  public CcToolchainConfigInfo ccToolchainConfigInfoFromStarlark(
-      StarlarkRuleContext starlarkRuleContext,
-      Sequence<?> features, // <StarlarkInfo> expected
-      Sequence<?> actionConfigs, // <StarlarkInfo> expected
-      Sequence<?> artifactNamePatterns, // <StarlarkInfo> expected
-      Sequence<?> cxxBuiltInIncludeDirectoriesUnchecked, // <String> expected
-      String toolchainIdentifier,
-      Object hostSystemName,
-      Object targetSystemName,
-      Object targetCpu,
-      Object targetLibc,
-      String compiler,
-      Object abiVersion,
-      Object abiLibcVersion,
-      Sequence<?> toolPaths, // <StarlarkInfo> expected
-      Sequence<?> makeVariables, // <StarlarkInfo> expected
-      Object builtinSysroot,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    List<String> cxxBuiltInIncludeDirectories =
-        Sequence.cast(
-            cxxBuiltInIncludeDirectoriesUnchecked, String.class, "cxx_builtin_include_directories");
-
-    ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
-    for (Object feature : features) {
-      checkRightStarlarkInfoProvider(feature, "features", "FeatureInfo");
-      featureBuilder.add(featureFromStarlark((StarlarkInfo) feature));
-    }
-    ImmutableList<Feature> featureList = featureBuilder.build();
-
-    ImmutableSet<String> featureNames =
-        featureList.stream().map(Feature::getName).collect(toImmutableSet());
-
-    ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
-    for (Object actionConfig : actionConfigs) {
-      checkRightStarlarkInfoProvider(actionConfig, "action_configs", "ActionConfigInfo");
-      actionConfigBuilder.add(actionConfigFromStarlark((StarlarkInfo) actionConfig));
-    }
-    ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
-
-    ImmutableSet<String> actionConfigNames =
-        actionConfigList.stream()
-            .map(actionConfig -> actionConfig.getActionName())
-            .collect(toImmutableSet());
-
-    CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
-        new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
-    for (Object artifactNamePattern : artifactNamePatterns) {
-      checkRightStarlarkInfoProvider(
-          artifactNamePattern, "artifact_name_patterns", "ArtifactNamePatternInfo");
-      artifactNamePatternFromStarlark(
-          (StarlarkInfo) artifactNamePattern, artifactNamePatternBuilder::addOverride);
-    }
-
-    // Pairs (toolName, toolPath)
-    ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
-    for (Object toolPath : toolPaths) {
-      checkRightStarlarkInfoProvider(toolPath, "tool_paths", "ToolPathInfo");
-      Pair<String, String> toolPathPair = toolPathFromStarlark((StarlarkInfo) toolPath);
-      toolPathPairs.add(toolPathPair);
-    }
-    ImmutableList<Pair<String, String>> toolPathList = toolPathPairs.build();
-
-    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-      String gccToolPath = "DUMMY_GCC_TOOL";
-      String linkerToolPath = "DUMMY_LINKER_TOOL";
-      String arToolPath = "DUMMY_AR_TOOL";
-      String stripToolPath = "DUMMY_STRIP_TOOL";
-      for (Pair<String, String> tool : toolPathList) {
-        if (tool.first.equals(CppConfiguration.Tool.GCC.getNamePart())) {
-          gccToolPath = tool.second;
-          linkerToolPath =
-              starlarkRuleContext
-                  .getRuleContext()
-                  .getLabel()
-                  .getPackageIdentifier()
-                  .getExecPath(starlarkRuleContext.getConfiguration().isSiblingRepositoryLayout())
-                  .getRelative(PathFragment.create(tool.second))
-                  .getPathString();
-        }
-        if (tool.first.equals(CppConfiguration.Tool.AR.getNamePart())) {
-          arToolPath = tool.second;
-        }
-        if (tool.first.equals(CppConfiguration.Tool.STRIP.getNamePart())) {
-          stripToolPath = tool.second;
-        }
-      }
-
-      ImmutableList.Builder<Feature> legacyFeaturesBuilder = ImmutableList.builder();
-      // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
-      // crosstools.
-      // Existing projects depend on flags from legacy toolchain fields appearing first on the
-      // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
-      // needs to appear before other features from {@link CppActionConfigs}.
-      if (featureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
-        Feature legacyCompileFlags =
-            featureList.stream()
-                .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
-                .findFirst()
-                .get();
-        if (legacyCompileFlags != null) {
-          legacyFeaturesBuilder.add(legacyCompileFlags);
-        }
-      }
-      if (featureNames.contains(CppRuleClasses.DEFAULT_COMPILE_FLAGS)) {
-        Feature defaultCompileFlags =
-            featureList.stream()
-                .filter(feature -> feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
-                .findFirst()
-                .get();
-        if (defaultCompileFlags != null) {
-          legacyFeaturesBuilder.add(defaultCompileFlags);
-        }
-      }
-
-      CppPlatform platform =
-          targetLibc.equals(CppActionConfigs.MACOS_TARGET_LIBC)
-              ? CppPlatform.MAC
-              : CppPlatform.LINUX;
-      for (CToolchain.Feature feature :
-          CppActionConfigs.getLegacyFeatures(
-              platform,
-              featureNames,
-              linkerToolPath,
-              /* supportsEmbeddedRuntimes= */ false,
-              /* supportsInterfaceSharedLibraries= */ false)) {
-        legacyFeaturesBuilder.add(new Feature(feature));
-      }
-      legacyFeaturesBuilder.addAll(
-          featureList.stream()
-              .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
-              .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
-              .collect(toImmutableList()));
-      for (CToolchain.Feature feature :
-          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
-        legacyFeaturesBuilder.add(new Feature(feature));
-      }
-
-      featureList = legacyFeaturesBuilder.build();
-
-      ImmutableList.Builder<ActionConfig> legacyActionConfigBuilder = ImmutableList.builder();
-      for (CToolchain.ActionConfig actionConfig :
-          CppActionConfigs.getLegacyActionConfigs(
-              platform,
-              gccToolPath,
-              arToolPath,
-              stripToolPath,
-              /* supportsInterfaceSharedLibraries= */ false,
-              actionConfigNames)) {
-        legacyActionConfigBuilder.add(new ActionConfig(actionConfig));
-      }
-      legacyActionConfigBuilder.addAll(actionConfigList);
-      actionConfigList = legacyActionConfigBuilder.build();
-    }
-
-    ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
-    for (Object makeVariable : makeVariables) {
-      checkRightStarlarkInfoProvider(makeVariable, "make_variables", "MakeVariableInfo");
-      Pair<String, String> makeVariablePair = makeVariableFromStarlark((StarlarkInfo) makeVariable);
-      makeVariablePairs.add(makeVariablePair);
-    }
-
-    return new CcToolchainConfigInfo(
-        actionConfigList,
-        featureList,
-        artifactNamePatternBuilder.build(),
-        ImmutableList.copyOf(cxxBuiltInIncludeDirectories),
-        toolchainIdentifier,
-        convertFromNoneable(hostSystemName, /* defaultValue= */ ""),
-        convertFromNoneable(targetSystemName, /* defaultValue= */ ""),
-        convertFromNoneable(targetCpu, /* defaultValue= */ ""),
-        convertFromNoneable(targetLibc, /* defaultValue= */ ""),
-        compiler,
-        convertFromNoneable(abiVersion, /* defaultValue= */ ""),
-        convertFromNoneable(abiLibcVersion, /* defaultValue= */ ""),
-        toolPathList,
-        makeVariablePairs.build(),
-        convertFromNoneable(builtinSysroot, /* defaultValue= */ ""));
-  }
-
-  private static void checkRightStarlarkInfoProvider(
-      Object o, String parameterName, String expectedProvider) throws EvalException {
-    if (!(o instanceof StarlarkInfo)) {
-      throw Starlark.errorf(
-          "'%s' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
-              + " of type '%s' instead of a '%s' provider. Use the methods provided in"
-              + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
-              + " for obtaining the right providers.",
-          parameterName, Starlark.type(o), expectedProvider);
-    }
   }
 
   @FormatMethod
@@ -1375,7 +995,8 @@ public abstract class CcModule
    * {@link StarlarkInfo}.
    */
   @VisibleForTesting
-  static CcToolchainFeatures.Tool toolFromStarlark(StarlarkInfo toolStruct) throws EvalException {
+  static CcToolchainFeatures.Tool toolFromStarlark(StarlarkInfo toolStruct, OS execOs)
+      throws EvalException {
     checkRightProviderType(toolStruct, "tool");
 
     String toolPathString = getOptionalFieldFromStarlarkProvider(toolStruct, "path", String.class);
@@ -1383,25 +1004,25 @@ public abstract class CcModule
         getOptionalFieldFromStarlarkProvider(toolStruct, "tool", Artifact.class);
 
     PathFragment toolPath;
-    CToolchain.Tool.PathOrigin toolPathOrigin;
+    CcToolchainFeatures.Tool.PathOrigin toolPathOrigin;
     if (toolPathString != null) {
       if (toolArtifact != null) {
         throw infoError(toolStruct, "\"tool\" and \"path\" cannot be set at the same time.");
       }
 
-      toolPath = PathFragment.create(toolPathString);
+      toolPath = PathFragment.createForOs(toolPathString, execOs);
       if (toolPath.isEmpty()) {
         throw infoError(toolStruct, "The 'path' field of tool must be a nonempty string.");
       }
 
       if (toolPath.isAbsolute()) {
-        toolPathOrigin = CToolchain.Tool.PathOrigin.FILESYSTEM_ROOT;
+        toolPathOrigin = CcToolchainFeatures.Tool.PathOrigin.FILESYSTEM_ROOT;
       } else {
-        toolPathOrigin = CToolchain.Tool.PathOrigin.CROSSTOOL_PACKAGE;
+        toolPathOrigin = CcToolchainFeatures.Tool.PathOrigin.CROSSTOOL_PACKAGE;
       }
     } else if (toolArtifact != null) {
       toolPath = toolArtifact.getExecPath();
-      toolPathOrigin = CToolchain.Tool.PathOrigin.WORKSPACE_ROOT;
+      toolPathOrigin = CcToolchainFeatures.Tool.PathOrigin.WORKSPACE_ROOT;
     } else {
       throw Starlark.errorf("Exactly one of \"tool\" and \"path\" must be set.");
     }
@@ -1422,7 +1043,7 @@ public abstract class CcModule
 
   /** Creates an {@link ActionConfig} from a {@link StarlarkInfo}. */
   @VisibleForTesting
-  static ActionConfig actionConfigFromStarlark(StarlarkInfo actionConfigStruct)
+  static ActionConfig actionConfigFromStarlark(StarlarkInfo actionConfigStruct, OS execOs)
       throws EvalException {
     checkRightProviderType(actionConfigStruct, "action_config");
     String actionName =
@@ -1447,7 +1068,7 @@ public abstract class CcModule
     ImmutableList<StarlarkInfo> toolStructs =
         getStarlarkProviderListFromStarlarkField(actionConfigStruct, "tools");
     for (StarlarkInfo toolStruct : toolStructs) {
-      toolBuilder.add(toolFromStarlark(toolStruct));
+      toolBuilder.add(toolFromStarlark(toolStruct, execOs));
     }
 
     ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
@@ -1571,23 +1192,8 @@ public abstract class CcModule
   }
 
   @Nullable
-  private static <T> T nullIfNone(Object object, Class<T> type) {
+  static <T> T nullIfNone(Object object, Class<T> type) {
     return object != Starlark.NONE ? type.cast(object) : null;
-  }
-
-  @Override
-  public CcDebugInfoContext createCcDebugInfoFromStarlark(
-      CcCompilationOutputs ccCompilationOutputs, StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CcDebugInfoContext.from(ccCompilationOutputs);
-  }
-
-  @Override
-  public CcDebugInfoContext mergeCcDebugInfoFromStarlark(
-      Sequence<?> debugInfos, StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CcDebugInfoContext.merge(
-        Sequence.cast(debugInfos, CcDebugInfoContext.class, "debug_infos"));
   }
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
@@ -1629,12 +1235,26 @@ public abstract class CcModule
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = Tuple.class),
             }),
+        @Param(
+            name = "depth",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "1"),
       })
-  public void checkPrivateApi(Object allowlistObject, StarlarkThread thread) throws EvalException {
+  public void checkPrivateApi(Object allowlistObject, Object depth, StarlarkThread thread)
+      throws EvalException {
     // This method may be called anywhere from builtins, but not outside (because it's not exposed
     // in cc_common.bzl
-    BazelModuleContext bazelModuleContext =
-        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
+    Module module =
+        Module.ofInnermostEnclosingStarlarkFunction(
+            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
+    if (module == null) {
+      // The module is null when the call is coming from one of the callbacks passed to execution
+      // phase
+      return;
+    }
+    BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
     ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
         Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
             // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
@@ -1660,288 +1280,6 @@ public abstract class CcModule
       throw Starlark.errorf("%s", e.getMessage());
     }
   }
-
-  @StarlarkMethod(
-      name = "validate_starlark_compile_api_call",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "actions",
-            doc = "<code>actions</code> object.",
-            positional = false,
-            named = true),
-        @Param(name = "include_prefix", documented = false, positional = false, named = true),
-        @Param(name = "strip_include_prefix", documented = false, positional = false, named = true),
-        @Param(
-            name = "additional_include_scanning_roots",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)},
-            defaultValue = "unbound"),
-      })
-  public void validateStarlarkCompileApiCallFromStarlark(
-      StarlarkActionFactory actionFactory,
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    getSemantics()
-        .validateStarlarkCompileApiCall(
-            actionFactory,
-            thread,
-            includePrefix,
-            stripIncludePrefix,
-            additionalIncludeScanningRoots,
-            2); // stackDepth = 2 is the caller of Starlark implemented cc_common.compile().
-  }
-
-  // LINT.IfChange(compile)
-  @Override
-  @SuppressWarnings("unchecked")
-  public Tuple compile(
-      StarlarkActionFactory starlarkActionFactoryApi,
-      FeatureConfigurationForStarlark starlarkFeatureConfiguration,
-      Info starlarkCcToolchainProvider,
-      Sequence<?> sourcesUnchecked, // <Artifact> expected
-      Sequence<?> publicHeadersUnchecked, // <Artifact> expected
-      Sequence<?> privateHeadersUnchecked, // <Artifact> expected
-      Object textualHeadersStarlarkObject,
-      Object additionalExportedHeadersObject,
-      Object starlarkIncludes,
-      Object starlarkLooseIncludes,
-      Sequence<?> quoteIncludes, // <String> expected
-      Sequence<?> systemIncludes, // <String> expected
-      Sequence<?> frameworkIncludes, // <String> expected
-      Sequence<?> defines, // <String> expected
-      Sequence<?> localDefines, // <String> expected
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> userCompileFlags, // <String> expected
-      Sequence<?> conlyFlags, // <String> expected
-      Sequence<?> cxxFlags, // <String> expected
-      Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
-      Object implementationCcCompilationContextsObject,
-      String name,
-      boolean disallowPicOutputs,
-      boolean disallowNopicOutputs,
-      Sequence<?> additionalIncludeScanningRoots, // <Artifact> expected
-      Sequence<?> additionalInputs, // <Artifact> expected
-      Object moduleMapNoneable,
-      Object additionalModuleMapsNoneable,
-      Object propagateModuleMapToCompileActionObject,
-      Object doNotGenerateModuleMapObject,
-      Object codeCoverageEnabledObject,
-      Object hdrsCheckingModeObject,
-      Object variablesExtension,
-      Object languageObject,
-      Object purposeObject,
-      Object coptsFilterObject,
-      Object separateModuleHeadersObject,
-      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
-      Object nonCompilationAdditionalInputsObject,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    isCalledFromStarlarkCcCommon(thread);
-    getSemantics()
-        .validateStarlarkCompileApiCall(
-            starlarkActionFactoryApi,
-            thread,
-            includePrefix,
-            stripIncludePrefix,
-            additionalIncludeScanningRoots,
-            1); // stackDepth = 1 is the caller of native cc_common.compile().
-
-    List<Artifact> includeScanningRoots =
-        getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);
-
-    StarlarkActionFactory actions = starlarkActionFactoryApi;
-    CcToolchainProvider ccToolchainProvider =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(starlarkCcToolchainProvider);
-
-    CppModuleMap moduleMap = convertFromNoneable(moduleMapNoneable, /* defaultValue= */ null);
-    ImmutableList<CppModuleMap> additionalModuleMaps =
-        asClassImmutableList(additionalModuleMapsNoneable);
-
-    String coptsFilterRegex = convertFromNoneable(coptsFilterObject, /* defaultValue= */ null);
-    CoptsFilter coptsFilter = null;
-    if (Strings.isNullOrEmpty(coptsFilterRegex)) {
-      coptsFilter = CoptsFilter.alwaysPasses();
-    } else {
-      try {
-        coptsFilter = CoptsFilter.fromRegex(Pattern.compile(coptsFilterRegex));
-      } catch (PatternSyntaxException e) {
-        throw Starlark.errorf(
-            "invalid regular expression '%s': %s", coptsFilterRegex, e.getMessage());
-      }
-    }
-
-    Object textualHeadersObject =
-        asClassImmutableListOrNestedSet(
-            textualHeadersStarlarkObject, Artifact.class, "textual_headers");
-
-    String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
-    Language language = parseLanguage(languageString);
-
-    ImmutableList<String> additionalExportedHeaders =
-        asClassImmutableList(additionalExportedHeadersObject);
-    ImmutableList<Artifact> nonCompilationAdditionalInputs =
-        asClassImmutableList(nonCompilationAdditionalInputsObject);
-    boolean propagateModuleMapToCompileAction =
-        convertFromNoneable(propagateModuleMapToCompileActionObject, /* defaultValue= */ true);
-    boolean doNotGenerateModuleMap =
-        convertFromNoneable(doNotGenerateModuleMapObject, /* defaultValue= */ false);
-    boolean codeCoverageEnabled =
-        convertFromNoneable(codeCoverageEnabledObject, /* defaultValue= */ false);
-    String purpose = convertFromNoneable(purposeObject, null);
-    ImmutableList<CcCompilationContext> implementationContexts =
-        asClassImmutableList(implementationCcCompilationContextsObject);
-
-    FeatureConfigurationForStarlark featureConfiguration =
-        convertFromNoneable(starlarkFeatureConfiguration, null);
-    Label label = getCallerLabel(actions, name);
-    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
-
-    if (disallowNopicOutputs && disallowPicOutputs) {
-      throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
-    }
-
-    SourceCategory sourceCategory =
-        (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
-    String defaultPurpose =
-        getSemantics(language).getClass().getSimpleName()
-            + "_build_arch_"
-            + actions.getRuleContext().getConfiguration().getMnemonic();
-    BuildConfigurationValue configuration = actions.getRuleContext().getConfiguration();
-    List<String> includes =
-        starlarkIncludes instanceof Depset
-            ? Depset.cast(starlarkIncludes, String.class, "includes").toList()
-            : Sequence.cast(starlarkIncludes, String.class, "includes");
-
-    CcCompilationHelper compilationHelper =
-        new CcCompilationHelper(
-            actions.getRuleContext(),
-            label,
-            getSemantics(language),
-            featureConfiguration.getFeatureConfiguration(),
-            sourceCategory,
-            ccToolchainProvider,
-            fdoContext,
-            actions.getRuleContext().getConfiguration(),
-            TargetUtils.getExecutionInfo(
-                actions.getRuleContext().getRule(),
-                actions.getRuleContext().isAllowTagsPropagation()),
-            /* shouldProcessHeaders= */ CcToolchainProvider.shouldProcessHeaders(
-                featureConfiguration.getFeatureConfiguration(),
-                configuration.getFragment(CppConfiguration.class)));
-    compilationHelper
-        .addPublicHeaders(publicHeadersUnchecked)
-        .addPrivateHeaders(privateHeadersUnchecked)
-        .addSources(sourcesUnchecked)
-        .addModuleInterfaceSources(moduleInterfacesUnchecked)
-        .addCcCompilationContexts(
-            Sequence.cast(
-                ccCompilationContexts, CcCompilationContext.class, "compilation_contexts"))
-        .addImplementationDepsCcCompilationContexts(implementationContexts)
-        .addIncludeDirs(includes.stream().map(PathFragment::create).collect(toImmutableList()))
-        .addQuoteIncludeDirs(
-            Sequence.cast(quoteIncludes, String.class, "quote_includes").stream()
-                .map(PathFragment::create)
-                .collect(toImmutableList()))
-        .addSystemIncludeDirs(
-            Sequence.cast(systemIncludes, String.class, "system_includes").stream()
-                .map(PathFragment::create)
-                .collect(toImmutableList()))
-        .addFrameworkIncludeDirs(
-            Sequence.cast(frameworkIncludes, String.class, "framework_includes").stream()
-                .map(PathFragment::create)
-                .collect(toImmutableList()))
-        .addDefines(Sequence.cast(defines, String.class, "defines"))
-        .addNonTransitiveDefines(Sequence.cast(localDefines, String.class, "local_defines"))
-        .setCopts(
-            ImmutableList.copyOf(
-                Sequence.cast(userCompileFlags, String.class, "user_compile_flags")))
-        .setConlyopts(ImmutableList.copyOf(Sequence.cast(conlyFlags, String.class, "conly_flags")))
-        .setCxxopts(ImmutableList.copyOf(Sequence.cast(cxxFlags, String.class, "cxx_flags")))
-        .addAdditionalCompilationInputs(
-            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
-        .addAdditionalInputs(nonCompilationAdditionalInputs)
-        .addAdditionalIncludeScanningRoots(includeScanningRoots)
-        .setPurpose(defaultPurpose)
-        .addAdditionalExportedHeaders(
-            additionalExportedHeaders.stream().map(PathFragment::create).collect(toImmutableList()))
-        .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
-        .setCodeCoverageEnabled(codeCoverageEnabled);
-
-    if (textualHeadersObject instanceof NestedSet) {
-      compilationHelper.addPublicTextualHeaders(
-          ((NestedSet<Artifact>) textualHeadersObject).toList());
-    } else {
-      compilationHelper.addPublicTextualHeaders((List<Artifact>) textualHeadersObject);
-    }
-    if (doNotGenerateModuleMap) {
-      compilationHelper.doNotGenerateModuleMap();
-    }
-    if (moduleMap != null) {
-      compilationHelper.setCppModuleMap(moduleMap);
-    }
-    if (coptsFilter != null) {
-      compilationHelper.setCoptsFilter(coptsFilter);
-    }
-    for (CppModuleMap additionalModuleMap : additionalModuleMaps) {
-      compilationHelper.registerAdditionalModuleMap(additionalModuleMap);
-    }
-    if (disallowNopicOutputs) {
-      compilationHelper.setGenerateNoPicAction(false);
-    }
-    if (disallowPicOutputs) {
-      compilationHelper.setGeneratePicAction(false);
-      compilationHelper.setGenerateNoPicAction(true);
-    }
-    if (!Strings.isNullOrEmpty(includePrefix)) {
-      compilationHelper.setIncludePrefix(includePrefix);
-    }
-    if (!Strings.isNullOrEmpty(stripIncludePrefix)) {
-      compilationHelper.setStripIncludePrefix(stripIncludePrefix);
-    }
-    if (!asDict(variablesExtension).isEmpty()) {
-      compilationHelper.addVariableExtension(
-          new UserVariablesExtension(asDict(variablesExtension)));
-    }
-    if (purpose != null) {
-      compilationHelper.setPurpose(purpose);
-    }
-    ImmutableList<Artifact> separateModuleHeaders =
-        asClassImmutableList(separateModuleHeadersObject);
-    compilationHelper.addSeparateModuleHeaders(separateModuleHeaders);
-
-    try {
-      RuleContext ruleContext = actions.getRuleContext();
-      CompilationInfo compilationInfo = compilationHelper.compile(ruleContext);
-      return Tuple.of(
-          compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
-    } catch (RuleErrorException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-  }
-
-  private static List<Artifact> getAdditionalIncludeScanningRoots(
-      Sequence<?> additionalIncludeScanningRoots, StarlarkThread thread) throws EvalException {
-    if (!additionalIncludeScanningRoots.isEmpty()) {
-      BazelModuleContext bazelModuleContext =
-          (BazelModuleContext)
-              Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
-      BuiltinRestriction.failIfModuleOutsideAllowlist(
-          bazelModuleContext, ImmutableList.of(MATCH_CLIF_ALLOWLISTED_LOCATION));
-    }
-    return Sequence.cast(
-        additionalIncludeScanningRoots, Artifact.class, "additional_include_scanning_roots");
-  }
-
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile)
 
   @Override
   @SuppressWarnings("unchecked")
@@ -2166,133 +1504,17 @@ public abstract class CcModule
       },
       extraKeywords = @Param(name = "data"),
       useStarlarkThread = true)
-  public ExtraLinkTimeLibraryApi createExtraLinkTimeLibrary(
+  public Object createExtraLinkTimeLibrary(
       StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
       throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    checkPrivateStarlarkificationAllowlist(thread);
-    boolean nonGlobalFunc = false;
-    if (buildLibraryFunc instanceof StarlarkFunction fn) {
-      if (fn.getModule().getGlobal(fn.getName()) != fn) {
-        nonGlobalFunc = true;
-      }
-    }
-    if (nonGlobalFunc) {
-      throw Starlark.errorf("Passed function must be top-level functions.");
-    }
-    return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunc, ImmutableMap.copyOf(dataSetsMap));
+    throw new UnsupportedOperationException();
   }
 
   @StarlarkMethod(
-      name = "create_cc_compile_actions",
-      doc = "Create the C++ compile actions, and the corresponding compilation related providers.",
+      name = "get_cpp_semantics",
+      doc = "Gets a CppSemantics object from a language string, for creating Cpp actions.",
       useStarlarkThread = true,
       parameters = {
-        @Param(
-            name = "action_construction_context",
-            positional = false,
-            named = true,
-            doc = "The action construction context."),
-        @Param(
-            name = "additional_compilation_inputs",
-            positional = false,
-            named = true,
-            doc = "The additional compilation inputs.",
-            defaultValue = "[]"),
-        @Param(
-            name = "additional_include_scanning_roots",
-            positional = false,
-            named = true,
-            doc = "The additional include scanning roots.",
-            defaultValue = "[]"),
-        @Param(
-            name = "cc_compilation_context",
-            positional = false,
-            named = true,
-            doc = "The C++ compilation context."),
-        @Param(name = "cc_toolchain", positional = false, named = true, doc = "The C++ toolchain."),
-        @Param(
-            name = "compilation_unit_sources",
-            positional = false,
-            named = true,
-            doc = "The compilation unit sources."),
-        @Param(
-            name = "configuration",
-            positional = false,
-            named = true,
-            doc = "The configuration."),
-        @Param(
-            name = "conlyopts",
-            positional = false,
-            named = true,
-            doc = "The conlyopts.",
-            defaultValue = "[]"),
-        @Param(
-            name = "copts",
-            positional = false,
-            named = true,
-            doc = "The copts.",
-            defaultValue = "[]"),
-        @Param(name = "copts_filter", positional = false, named = true, doc = "The copts filter."),
-        @Param(
-            name = "cpp_configuration",
-            positional = false,
-            named = true,
-            doc = "The C++ configuration."),
-        @Param(
-            name = "cxxopts",
-            positional = false,
-            named = true,
-            doc = "The cxxopts.",
-            defaultValue = "[]"),
-        @Param(name = "fdo_context", positional = false, named = true, doc = "The FDO context."),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true,
-            doc = "The feature configuration."),
-        @Param(
-            name = "generate_no_pic_action",
-            positional = false,
-            named = true,
-            doc = "Whether to generate a no-PIC action."),
-        @Param(
-            name = "generate_pic_action",
-            positional = false,
-            named = true,
-            doc = "Whether to generate a PIC action."),
-        @Param(
-            name = "is_code_coverage_enabled",
-            positional = false,
-            named = true,
-            doc = "Whether code coverage is enabled."),
-        @Param(name = "label", positional = false, named = true, doc = "The label."),
-        @Param(
-            name = "private_headers",
-            positional = false,
-            named = true,
-            doc = "The private headers.",
-            defaultValue = "[]"),
-        @Param(
-            name = "public_headers",
-            positional = false,
-            named = true,
-            doc = "The public headers.",
-            defaultValue = "[]"),
-        @Param(name = "purpose", positional = false, named = true, doc = "The purpose."),
-        @Param(
-            name = "separate_module_headers",
-            positional = false,
-            named = true,
-            doc = "The separate module headers.",
-            defaultValue = "[]"),
-        @Param(
-            name = "variables_extension",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Dict.class)},
-            defaultValue = "unbound"),
         @Param(
             name = "language",
             positional = false,
@@ -2301,78 +1523,18 @@ public abstract class CcModule
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
       })
-  public CcCompilationOutputs createCcCompileActionsForStarlark(
-      StarlarkRuleContext actionConstructionContext,
-      Sequence<?> additionalCompilationInputs,
-      Sequence<?> additionalIncludeScanningRoots,
-      CcCompilationContext ccCompilationContext,
-      StarlarkInfo ccToolchain,
-      Dict<?, ?> compilationUnitSources,
-      BuildConfigurationValue configuration,
-      Sequence<?> conlyopts,
-      Sequence<?> copts,
-      CoptsFilter coptsFilter,
-      CppConfiguration cppConfiguration,
-      Sequence<?> cxxopts,
-      StructImpl fdoContextStruct,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      boolean generateNoPicAction,
-      boolean generatePicAction,
-      boolean isCodeCoverageEnabled,
-      Label label,
-      Sequence<?> privateHeaders,
-      Sequence<?> publicHeaders,
-      String purpose,
-      Sequence<?> separateModuleHeaders,
-      Object variablesExtension,
-      Object languageObject,
-      StarlarkThread thread)
-      throws RuleErrorException, EvalException, InterruptedException {
-
+  public CppSemantics getCppSemanticsFromStarlark(Object languageUnchecked, StarlarkThread thread)
+      throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     checkPrivateStarlarkificationAllowlist(thread);
+    return getCppSemanticsFromUncheckedLanguage(languageUnchecked);
+  }
 
-    RuleErrorConsumer ruleErrorConsumer =
-        actionConstructionContext.getRuleContext().getRuleErrorConsumer();
-    StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ruleErrorConsumer);
-    ImmutableMap<String, String> executionInfo =
-        TargetUtils.getExecutionInfo(
-            actionConstructionContext.getRuleContext().getRule(),
-            actionConstructionContext.getRuleContext().isAllowTagsPropagation());
-    String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
+  private CppSemantics getCppSemanticsFromUncheckedLanguage(Object languageUnchecked)
+      throws EvalException {
+    String languageString =
+        convertFromNoneable(languageUnchecked, Language.CPP.getRepresentation());
     Language language = parseLanguage(languageString);
-    CppSemantics semantics = getSemantics(language);
-    List<VariablesExtension> variablesExtensionsList =
-        asDict(variablesExtension).isEmpty()
-            ? ImmutableList.of()
-            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
-    return CcStaticCompilationHelper.createCcCompileActions(
-        actionConstructionContext.getRuleContext(),
-        Sequence.cast(additionalCompilationInputs, Artifact.class, "create_cc_compile_actions"),
-        Sequence.cast(additionalIncludeScanningRoots, Artifact.class, "create_cc_compile_actions"),
-        ccCompilationContext,
-        CcToolchainProvider.create(ccToolchain),
-        Dict.cast(
-            compilationUnitSources, Artifact.class, CppSource.class, "create_cc_compile_actions"),
-        configuration,
-        Sequence.cast(conlyopts, String.class, "create_cc_compile_actions").getImmutableList(),
-        Sequence.cast(copts, String.class, "create_cc_compile_actions").getImmutableList(),
-        coptsFilter,
-        cppConfiguration,
-        Sequence.cast(cxxopts, String.class, "create_cc_compile_actions").getImmutableList(),
-        executionInfo,
-        new FdoContext(fdoContextStruct),
-        featureConfigurationForStarlark.getFeatureConfiguration(),
-        generateNoPicAction,
-        generatePicAction,
-        isCodeCoverageEnabled,
-        label,
-        Sequence.cast(privateHeaders, Artifact.class, "create_cc_compile_actions"),
-        Sequence.cast(publicHeaders, Artifact.class, "create_cc_compile_actions"),
-        purpose,
-        errorReporter,
-        semantics,
-        Sequence.cast(separateModuleHeaders, Artifact.class, "create_cc_compile_actions"),
-        variablesExtensionsList);
+    return getSemantics(language);
   }
 }

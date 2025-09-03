@@ -426,18 +426,18 @@ EOF
   FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_not_log "BEZ"
 
-  # Test that --action_env value is taken
+  # Test that --repo_env value is taken
   # TODO(dmarting): The current implemnentation cannot invalidate on environment
   # but the incoming change can declare environment dependency, once this is
   # done, maybe we should update this test to remove clean --expunge and use the
   # invalidation mechanism instead?
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZINGA"
 
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZ"
   expect_not_log "BAZINGA"
@@ -498,7 +498,7 @@ function setup_invalidation_test() {
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --repo_env will cause all repositories to re-run).
   local execution_file="${TEST_TMPDIR}/execution"
 
   # Our custom repository rule
@@ -596,28 +596,29 @@ function environ_invalidation_test_template() {
 
 function environ_invalidation_action_env_test_template() {
   local startup_flag="${1-}"
+  local command_flag="--noincompatible_repo_env_ignores_action_env"
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --action_env=K=V will cause all repositories to re-run).
   local execution_file="$(setup_invalidation_test)"
 
   # Set to FOO=BAZ BAR=FOO
-  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build "${command_flag}" @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
   assert_equals 1 $(cat "${execution_file}")
 
   # Test with changing using --action_env
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
@@ -645,7 +646,7 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -724,7 +725,7 @@ EOF
 function file_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -758,7 +759,7 @@ function test_starlark_repository_file_invalidation_batch() {
 function starlark_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
   ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
@@ -1512,6 +1513,12 @@ password passbar🌱
 # following lines mix tabs and spaces
 machine	  oauthlife.com
 	password	TOKEN
+
+# Password-only auth credentials, will not be passed into `patterns` like oauthlife.com.
+machine baz.example.org password ABCDEFG
+
+# Test for warning mechanism.
+machine qux.example.org
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dictionary to disk; this
@@ -1552,6 +1559,8 @@ authrepo(
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
     "https://oauthlife.com/fizz/buzz/file5.tar",
+    "https://baz.example.org/file6.tar",
+    "http://qux.example.org/file7.tar",
   ],
 )
 EOF
@@ -1579,6 +1588,11 @@ expected = {
       "pattern" : "Bearer <password>",
       "password" : "TOKEN",
     },
+    "https://baz.example.org/file6.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "ABCDEFG",
+    },
 }
 EOF
   cat > verify.bzl <<'EOF'
@@ -1605,6 +1619,7 @@ EOF
   grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Authentication merged incorrectly"
   expect_log "authrepo is being evaluated"
+  expect_log "WARNING: Found machine in \.netrc for URL .*qux\.example\.org.*, but no password\."
 
   echo "modified" > .netrc
   bazel build //:check_expected &> $TEST_log || fail "Expected success"
@@ -1888,7 +1903,7 @@ EOF
   expect_log "Failed to download repository @.*: download is disabled"
 }
 
-function test_no_restarts_fetching_with_worker_thread() {
+function test_no_restarts() {
   setup_starlark_repository
 
   echo foo > file1
@@ -1904,21 +1919,7 @@ def _impl(rctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  # no worker thread, restarts twice
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=off >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 3
-
-  # platform worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 1
-
-  # virtual worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
-    || fail "Expected build to succeed"
+  bazel build @foo//:bar >& $TEST_log || fail "Expected build to succeed"
   expect_log_n "hello world!" 1
 }
 
@@ -2961,6 +2962,58 @@ EOF
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
+function test_execute_environment_repo_env_ignores_action_env_off() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if vars.get("ACTION_ENV_PRESENT") != "value1":
+    fail("ACTION_ENV_PRESENT has wrong value: " + vars.get("ACTION_ENV_PRESENT"))
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --noincompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_PRESENT=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
+function test_execute_environment_repo_env_ignores_action_env_on() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if "ACTION_ENV_REMOVED" in vars:
+    fail("ACTION_ENV_REMOVED should not be in the environment")
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --incompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_REMOVED=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
 function test_dependency_on_repo_with_invalid_name() {
   cat >> $(setup_module_dot_bazel) <<'EOF'
 my_repo = use_repo_rule("//:repo.bzl", "my_repo")
@@ -2977,6 +3030,121 @@ EOF
   bazel build @repo//... &> $TEST_log && fail "expected Bazel to fail"
   expect_not_log "Unrecoverable error"
   expect_log "attempted to watch path under external repository directory: invalid repository name '@invalid_name@'"
+}
+
+function test_load_and_execute_wasm() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm")
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  result_err = repository_ctx.execute_wasm(wasm_module, "run_err", input="")
+  print('result_err.output: %r' % (result_err.output,))
+  print('result_err.return_code: %r' % (result_err.return_code,))
+  print('result_err.error_message: %r' % (result_err.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
+
+  expect_log 'result_err.output: "err"'
+  expect_log 'result_err.return_code: 1'
+  expect_log 'result_err.error_message: ""'
+}
+
+function test_resolved_attributes_shows_no_message_if_unchanged() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+  attr3 = "//:default",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "attr1": repository_ctx.attr.attr1,
+    "attr2": repository_ctx.attr.attr2,
+    "attr5": "",
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs={
+    # Consistently changed from default.
+    "attr1": attr.string(default = "default1"),
+    # Unchanged from default.
+    "attr2": attr.string(),
+    # Explicitly set to default in rule attributes, not contained in returned dict.
+    "attr3": attr.label(default = "//:default"),
+    # Not set or included in the returned dict.
+    "attr4": attr.label(),
+    # Not set in rule attributes, but returned as default in the dict.
+    "attr5": attr.string(),
+    "_implicit": attr.string(default = "hi"),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "indicated that a canonical reproducible form can be obtained"
+  expect_not_log "modifying"
+  expect_not_log "dropping"
+}
+
+function test_resolved_attributes_shows_message_if_changed() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+  attr2 = "value2",
+  attr3 = "value3",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "name": repository_ctx.attr.name,
+    "attr1": "default2",
+    "attr2": "default2",
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs = {
+    "attr1": attr.string(default = "default1"),
+    "attr2": attr.string(default = "default2"),
+    "attr3": attr.string(default = "default3"),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "indicated that a canonical reproducible form can be obtained"
+  expect_log "by modifying arguments attr1 = \"default2\" and dropping \[attr2, attr3\]"
 }
 
 run_suite "local repository tests"

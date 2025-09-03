@@ -21,14 +21,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
@@ -124,36 +123,53 @@ public class ConfiguredTargetAndData {
   /**
    * Wraps an existing {@link ConfiguredTarget} by looking up auxiliary data in Skyframe.
    *
-   * <p>Assumes that since the given {@link ConfiguredTarget} is done, then its associated {@link
-   * PackageValue} and {@link BuildConfigurationValue} (if applicable) are done too.
+   * <p>Assumes that for locally analyzed targets, since the given {@link ConfiguredTarget} is done,
+   * then its associated {@link PackageValue} and {@link BuildConfigurationValue} (if applicable)
+   * are done too.
+   *
+   * <p>For remotely cached targets, the given {@link ConfiguredTargetValue} is assumed to have a
+   * projection of {@link TargetData} already, so the {@link PackageValue} lookup is not needed.
    */
   static ConfiguredTargetAndData fromExistingConfiguredTargetInSkyframe(
-      ConfiguredTarget ct, SkyFunction.Environment env) throws InterruptedException {
-    BuildConfigurationValue configuration = null;
-    ImmutableSet<SkyKey> packageAndMaybeConfiguration;
+      ConfiguredTargetValue ctv, SkyFunction.Environment env) throws InterruptedException {
+    ConfiguredTarget ct = ctv.getConfiguredTarget();
     PackageIdentifier packageKey = ct.getLabel().getPackageIdentifier();
     BuildConfigurationKey configurationKeyMaybe = ct.getConfigurationKey();
-    if (configurationKeyMaybe == null) {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
-    } else {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
+
+    // Deserialized ConfiguredTargetValues already have a projection of TargetData.
+    TargetData targetData = ctv.getTargetData();
+    BuildConfigurationValue configuration = null;
+
+    ImmutableSet.Builder<SkyKey> keysBuilder = ImmutableSet.builder();
+    if (targetData == null) {
+      keysBuilder.add(packageKey);
     }
-    SkyframeLookupResult packageAndMaybeConfigurationValues =
-        env.getValuesAndExceptions(packageAndMaybeConfiguration);
-    // Don't test env.valuesMissing(), because values may already be missing from the caller.
-    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
-    checkNotNull(packageValue, "Missing package for %s", ct);
     if (configurationKeyMaybe != null) {
-      configuration =
-          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
-      checkNotNull(configuration, "Missing configuration for %s", ct);
+      keysBuilder.add(configurationKeyMaybe);
     }
-    try {
-      return new ConfiguredTargetAndData(
-          ct, packageValue.getPackage().getTarget(ct.getLabel().getName()), configuration, null);
-    } catch (NoSuchTargetException e) {
-      throw new IllegalStateException("Failed to retrieve target for " + ct, e);
+
+    ImmutableSet<SkyKey> keys = keysBuilder.build();
+    if (!keys.isEmpty()) {
+      SkyframeLookupResult lookupResult = env.getValuesAndExceptions(keys);
+
+      // Don't test env.valuesMissing(), because values may already be missing from the caller.
+      if (targetData == null) {
+        PackageValue packageValue = (PackageValue) lookupResult.get(packageKey);
+        checkNotNull(packageValue, "Missing package for %s (%s)", ct, packageKey);
+        try {
+          targetData = packageValue.getPackage().getTarget(ct.getLabel().getName());
+        } catch (NoSuchTargetException e) {
+          throw new IllegalStateException("Failed to retrieve target for " + ct, e);
+        }
+      }
+
+      if (configurationKeyMaybe != null) {
+        configuration = (BuildConfigurationValue) lookupResult.get(configurationKeyMaybe);
+        checkNotNull(configuration, "Missing configuration for %s (%s)", ct, configurationKeyMaybe);
+      }
     }
+
+    return new ConfiguredTargetAndData(ct, targetData, configuration, null);
   }
 
   /**
@@ -319,6 +335,12 @@ public class ConfiguredTargetAndData {
   public ConfiguredAttributeMapper getAttributeMapperForTesting() {
     return ConfiguredAttributeMapper.of(
         (Rule) target, configuredTarget.getConfigConditions(), configuration);
+  }
+
+  @Override
+  public String toString() {
+    return "ConfiguredTargetAndData(target=%s, configuration=%s)"
+        .formatted(configuredTarget.getLabel(), configuration);
   }
 
   private static final class SplitDependencyComparator

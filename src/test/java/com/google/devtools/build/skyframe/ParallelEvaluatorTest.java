@@ -170,11 +170,10 @@ public class ParallelEvaluatorTest {
         revalidationReceiver,
         GraphInconsistencyReceiver.THROWING,
         AbstractQueueVisitor.create("test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
-        new SimpleCycleDetector(),
+        new SimpleCycleDetector(/* storeExactCycles= */ true),
         UnnecessaryTemporaryStateDropperReceiver.NULL,
         keepGoingPredicate);
   }
-
 
   private ParallelEvaluator makeEvaluator(
       ProcessableGraph graph,
@@ -1180,7 +1179,8 @@ public class ParallelEvaluatorTest {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(topKey)
         .hasCycleInfoThat()
-        .containsExactly(new CycleInfo(ImmutableList.of(topKey), ImmutableList.of(cycleKey)));
+        .containsExactly(
+            CycleInfo.createCycleInfo(ImmutableList.of(topKey), ImmutableList.of(cycleKey)));
   }
 
   @Test
@@ -1458,8 +1458,8 @@ public class ParallelEvaluatorTest {
         CycleInfo.prepareCycles(
             topKey,
             ImmutableList.of(
-                new CycleInfo(ImmutableList.of(aKey, bKey)),
-                new CycleInfo(ImmutableList.of(cKey, dKey))));
+                CycleInfo.createCycleInfo(ImmutableList.of(aKey, bKey)),
+                CycleInfo.createCycleInfo(ImmutableList.of(cKey, dKey))));
     assertThat(cycles).contains(getOnlyElement(errorInfo.getCycleInfo()));
   }
 
@@ -1479,8 +1479,10 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(true, ImmutableList.of(topKey));
     assertThat(result.get(topKey)).isNull();
     ErrorInfo errorInfo = result.getError(topKey);
-    CycleInfo aCycle = new CycleInfo(ImmutableList.of(topKey), ImmutableList.of(aKey, bKey));
-    CycleInfo cCycle = new CycleInfo(ImmutableList.of(topKey), ImmutableList.of(cKey, dKey));
+    CycleInfo aCycle =
+        CycleInfo.createCycleInfo(ImmutableList.of(topKey), ImmutableList.of(aKey, bKey));
+    CycleInfo cCycle =
+        CycleInfo.createCycleInfo(ImmutableList.of(topKey), ImmutableList.of(cKey, dKey));
     assertThat(errorInfo.getCycleInfo()).containsExactly(aCycle, cCycle);
   }
 
@@ -1498,7 +1500,7 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(true, ImmutableList.of(topKey));
     assertThat(result.get(topKey)).isNull();
     ErrorInfo errorInfo = result.getError(topKey);
-    CycleInfo topCycle = new CycleInfo(ImmutableList.of(topKey, aKey, cKey));
+    CycleInfo topCycle = CycleInfo.createCycleInfo(ImmutableList.of(topKey, aKey, cKey));
     assertThat(errorInfo.getCycleInfo()).containsExactly(topCycle);
   }
 
@@ -1516,7 +1518,7 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(true, ImmutableList.of(topKey));
     assertThat(result.get(topKey)).isNull();
     ErrorInfo errorInfo = result.getError(topKey);
-    CycleInfo topCycle = new CycleInfo(ImmutableList.of(topKey, aKey, bKey, cKey));
+    CycleInfo topCycle = CycleInfo.createCycleInfo(ImmutableList.of(topKey, aKey, bKey, cKey));
     assertThat(errorInfo.getCycleInfo()).containsExactly(topCycle);
   }
 
@@ -1592,8 +1594,8 @@ public class ParallelEvaluatorTest {
     assertThat(result.get(aKey)).isNull();
     assertThat(result.getError(aKey).getCycleInfo())
         .containsExactly(
-            new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
-            new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+            CycleInfo.createCycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+            CycleInfo.createCycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
   }
 
   @Test
@@ -1951,7 +1953,8 @@ public class ParallelEvaluatorTest {
         .hasSingletonErrorThat(topKey)
         .hasCycleInfoThat()
         .containsExactly(
-            new CycleInfo(ImmutableList.of(topKey), ImmutableList.of(midKey, cycleKey)));
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(topKey), ImmutableList.of(midKey, cycleKey)));
   }
 
   /**
@@ -2089,7 +2092,8 @@ public class ParallelEvaluatorTest {
         .hasErrorEntryForKeyThat(topKey)
         .hasCycleInfoThat()
         .containsExactly(
-            new CycleInfo(ImmutableList.of(topKey), ImmutableList.of(midKey, cycleKey)));
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(topKey), ImmutableList.of(midKey, cycleKey)));
   }
 
   @Test
@@ -3279,7 +3283,7 @@ public class ParallelEvaluatorTest {
             // We ought not need more than 1 thread for this test case.
             AbstractQueueVisitor.create(
                 "test-pool", 1, ParallelEvaluatorErrorClassifier.instance()),
-            new SimpleCycleDetector(),
+            new SimpleCycleDetector(/* storeExactCycles= */ true),
             dropperReceiver,
             /* keepGoing= */ Predicates.alwaysFalse());
     // Then, when we evaluate key1,
@@ -4067,7 +4071,8 @@ public class ParallelEvaluatorTest {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(childKey)
         .hasCycleInfoThat()
-        .containsExactly(new CycleInfo(ImmutableList.of(childKey), ImmutableList.of(cycleKey)));
+        .containsExactly(
+            CycleInfo.createCycleInfo(ImmutableList.of(childKey), ImmutableList.of(cycleKey)));
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(childKey)
         .hasExceptionThat()
@@ -4098,7 +4103,8 @@ public class ParallelEvaluatorTest {
         .hasErrorEntryForKeyThat(parentKey)
         .hasCycleInfoThat()
         .containsExactly(
-            new CycleInfo(ImmutableList.of(parentKey, childKey), ImmutableList.of(cycleKey)));
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(parentKey, childKey), ImmutableList.of(cycleKey)));
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(parentKey)
         .hasExceptionThat()
@@ -4131,7 +4137,7 @@ public class ParallelEvaluatorTest {
             GraphInconsistencyReceiver.THROWING,
             // We ought not need more than 1 thread for this test case.
             testExecutor,
-            new SimpleCycleDetector(),
+            new SimpleCycleDetector(/* storeExactCycles= */ true),
             UnnecessaryTemporaryStateDropperReceiver.NULL,
             /* keepGoing= */ Predicates.alwaysFalse());
 

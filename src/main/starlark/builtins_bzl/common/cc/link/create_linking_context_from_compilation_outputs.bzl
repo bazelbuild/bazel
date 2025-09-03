@@ -17,11 +17,12 @@ The cc_common.create_linking_context_from_compilation_outputs function.
 Used to prepare a single library for linking. See also: cc_common.link
 """
 
+load(":common/cc/cc_info.bzl", "create_linking_context", "merge_linking_contexts")
 load(":common/cc/link/cc_linking_helper.bzl", "create_cc_link_actions")
+load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE")
 
 cc_internal = _builtins.internal.cc_internal
-cc_common_internal = _builtins.internal.cc_common
 
 # LINT.IfChange
 
@@ -122,17 +123,17 @@ def create_linking_context_from_compilation_outputs(
         linked_dll_name_suffix = linked_dll_name_suffix,
     )
 
-    linker_input = cc_common_internal.create_linker_input(
+    linker_input = create_linker_input(
         # TODO(b/331164666): remove cheat, we always produce a file, file.owner gives us a label
         owner = cc_internal.actions2ctx_cheat(actions).label.same_package_label(name),
         libraries = depset([cc_linking_outputs.library_to_link]) if cc_linking_outputs.library_to_link else None,
         user_link_flags = user_link_flags,
         additional_inputs = additional_inputs,
     )
-    direct_linking_context = cc_common_internal.create_linking_context(
+    direct_linking_context = create_linking_context(
         linker_inputs = depset([linker_input]),
     )
-    linking_context = cc_common_internal.merge_linking_contexts(
+    linking_context = merge_linking_contexts(
         linking_contexts = [direct_linking_context] + linking_contexts,
     )
     return linking_context, cc_linking_outputs

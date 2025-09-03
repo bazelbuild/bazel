@@ -154,6 +154,19 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public NodeBatch getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    if (reason == Reason.REWINDING) {
+      // When rewinding, nodes are typically expected to be in the graph. However, systems with
+      // remote caching might not have loaded all dependencies into the local graph if a value was
+      // fetched from the cache.
+      //
+      // Tree artifacts are a key example. Their value (TreeArtifactValue) contains dependency keys.
+      // If the TreeArtifactValue is a cache hit, its child dependencies might not exist in the
+      // local graph. If a lost input is later discovered to be one of these children, we need to
+      // ensure the node entries exist for the rewinding process to analyze them.
+      //
+      // createIfAbsentBatch ensures that such nodes are present in the graph.
+      return createIfAbsentBatch(requestor, reason, keys);
+    }
     return getBatch;
   }
 
@@ -187,9 +200,14 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @CanIgnoreReturnValue
   public NodeBatch createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    // As per the ProcessableGraph contract, ensures that every node is created, even if it is not
+    // consumed from the batch.
     for (SkyKey key : keys) {
       createIfAbsent(key);
     }
+    // Returns `createIfAbsentBatch` instead of `getBatch` because by contract, retrieving a node
+    // from the batch should not result in null, even if the corresponding key was removed from the
+    // graph.
     return createIfAbsentBatch;
   }
 

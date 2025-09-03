@@ -378,7 +378,7 @@ public class DiskCacheClientTest {
   }
 
   private Path getAcPath(ActionKey actionKey) {
-    return client.toPath(actionKey.getDigest(), Store.AC);
+    return client.toPath(actionKey.digest(), Store.AC);
   }
 
   @CanIgnoreReturnValue

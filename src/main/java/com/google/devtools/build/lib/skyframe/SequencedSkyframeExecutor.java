@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BaselineClDiffEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
@@ -88,6 +89,7 @@ import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -105,6 +107,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -144,6 +147,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
+  // Null before the first invocation or if the evaluating version cannot be computed.
+  @Nullable private IntVersion lastEvaluatedVersion;
+
   // Use delegation so that the underlying inconsistency receiver can be changed per-command without
   // recreating the evaluator.
   protected final DelegatingGraphInconsistencyReceiver inconsistencyReceiver =
@@ -170,7 +176,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter,
-      boolean globUnderSingleDep) {
+      boolean globUnderSingleDep,
+      Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -197,7 +204,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         workspaceInfoFromDiffReceiver,
         new SequencedRecordingDifferencer(),
         repositoryHelpersHolder,
-        globUnderSingleDep);
+        globUnderSingleDep,
+        diffCheckNotificationOptions);
   }
 
   @Override
@@ -298,6 +306,13 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
+    IntVersion priorLastEvaluatedVersion = lastEvaluatedVersion;
+    lastEvaluatedVersion = workspaceInfo != null ? workspaceInfo.getEvaluatingVersion() : null;
+    if (priorLastEvaluatedVersion != null && lastEvaluatedVersion != null) {
+      eventHandler.post(
+          new BaselineClDiffEvent(
+              workspaceInfo.getEvaluatingVersion().getVal() - priorLastEvaluatedVersion.getVal()));
+    }
     return workspaceInfo;
   }
 
@@ -822,6 +837,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
     private boolean globUnderSingleDep = true;
+    private DiffCheckNotificationOptions diffCheckNotificationOptions;
 
     private Builder() {}
 
@@ -860,7 +876,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
               bugReporter,
-              globUnderSingleDep);
+              globUnderSingleDep,
+              Optional.ofNullable(diffCheckNotificationOptions));
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -996,6 +1013,13 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setGlobUnderSingleDep(boolean globUnderSingleDep) {
       this.globUnderSingleDep = globUnderSingleDep;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setDiffCheckNotificationOptions(
+        DiffCheckNotificationOptions diffCheckNotificationOptions) {
+      this.diffCheckNotificationOptions = diffCheckNotificationOptions;
       return this;
     }
   }

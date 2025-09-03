@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -51,7 +50,7 @@ public class BazelCoverageReportModule extends BlazeModule {
         converter = ReportTypeConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "none",
+        defaultValue = "lcov",
         help =
             "Specifies desired cumulative coverage report type. At this point only LCOV "
                 + "is supported.")
@@ -86,8 +85,8 @@ public class BazelCoverageReportModule extends BlazeModule {
           EventHandler eventHandler,
           EventBus eventBus,
           BlazeDirectories directories,
+          Collection<ConfiguredTarget> configuredTargets,
           Collection<ConfiguredTarget> targetsToTest,
-          NestedSet<Artifact> baselineCoverageArtifacts,
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
           ActionLookupKey actionLookupKey,
@@ -102,37 +101,40 @@ public class BazelCoverageReportModule extends BlazeModule {
             builder.createCoverageActionsWrapper(
                 eventHandler,
                 directories,
+                configuredTargets,
                 targetsToTest,
-                baselineCoverageArtifacts,
                 artifactFactory,
                 actionKeyContext,
                 actionLookupKey,
                 workspaceName,
-                this::getArgs,
-                this::getLocationMessage,
-                /* htmlReport= */ false);
+                new BazelCoverageHelper(),
+                /* htmlReport= */ null);
         eventBus.register(new CoverageReportCollector(wrapper));
         return wrapper;
       }
+    };
+  }
 
-      private ImmutableList<String> getArgs(CoverageArgs args) {
-        ImmutableList.Builder<String> argsBuilder =
-            ImmutableList.<String>builder()
-                .add(
-                    args.reportGenerator().getExecutable().getExecPathString(),
-                    // A file that contains all the exec paths to the coverage artifacts
-                    "--reports_file=" + args.lcovArtifact().getExecPathString(),
-                    "--output_file=" + args.lcovOutput().getExecPathString());
+  private static class BazelCoverageHelper implements CoverageReportActionBuilder.CoverageHelper {
+    @Override
+    public ImmutableList<String> getArgs(CoverageArgs args, Artifact lcovOutput) {
+      ImmutableList.Builder<String> argsBuilder =
+          ImmutableList.<String>builder()
+              .add(
+                  args.reportGenerator().getExecutable().getExecPathString(),
+                  // A file that contains all the exec paths to the coverage artifacts
+                  "--reports_file=" + args.lcovArtifact().getExecPathString(),
+                  "--output_file=" + lcovOutput.getExecPathString());
         return argsBuilder.build();
       }
 
-      private String getLocationMessage(CoverageArgs args) {
-        return "LCOV coverage report is located at "
-            + args.lcovOutput().getPath().getPathString()
-            + "\n and execpath is "
-            + args.lcovOutput().getExecPathString();
-      }
-    };
+    @Override
+    public String getLocationMessage(CoverageArgs args, Artifact lcovOutput) {
+      return "LCOV coverage report is located at "
+          + lcovOutput.getPath().getPathString()
+          + "\n and execpath is "
+          + lcovOutput.getExecPathString();
+    }
   }
 
   private record CoverageReportCollector(CoverageReportActionsWrapper wrapper) {

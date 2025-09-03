@@ -25,7 +25,9 @@ public final class GarbageCollectionMetricsUtils {
         || "PS Old Gen".equals(name)
         || "Tenured Gen".equals(name)
         || "Shenandoah".equals(name)
-        || "ZHeap".equals(name);
+        || "Shenandoah Old Gen".equals(name)
+        || "ZHeap".equals(name)
+        || "ZGC Old Generation".equals(name);
   }
 
   public static boolean isFullGc(GarbageCollectionNotificationInfo info) {

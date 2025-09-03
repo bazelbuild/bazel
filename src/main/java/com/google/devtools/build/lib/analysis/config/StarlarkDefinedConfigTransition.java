@@ -22,14 +22,9 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.ExecConfigurationDistinguisherScheme;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputDirectoryNamingScheme;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
@@ -48,7 +43,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -106,16 +100,19 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       List<String> outputs,
       RepositoryMapping repoMapping,
       Label parentLabel,
-      Location location)
+      Location location,
+      List<String> disallowedOptions)
       throws EvalException {
     this.parentLabel = parentLabel;
     this.location = location;
     packageContext = Label.PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping);
 
     this.outputsCanonicalizedToGiven =
-        getCanonicalizedSettings(repoMapping, parentLabel, outputs, Settings.OUTPUTS);
+        getCanonicalizedSettings(
+            repoMapping, parentLabel, outputs, disallowedOptions, Settings.OUTPUTS);
     this.inputsCanonicalizedToGiven =
-        getCanonicalizedSettings(repoMapping, parentLabel, inputs, Settings.INPUTS);
+        getCanonicalizedSettings(
+            repoMapping, parentLabel, inputs, disallowedOptions, Settings.INPUTS);
   }
 
   public final PackageContext getPackageContext() {
@@ -158,6 +155,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       RepositoryMapping repoMapping,
       Label parentLabel,
       List<String> settings,
+      List<String> disallowedOptions,
       Settings inputsOrOutputs)
       throws EvalException {
     Map<String, String> canonicalizedToGiven = new HashMap<>();
@@ -168,6 +166,14 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       } catch (LabelSyntaxException unused) {
         throw Starlark.errorf(
             "Malformed label in transition %s parameter: '%s'", inputsOrOutputs, setting);
+      }
+      if (canonicalizedSetting.startsWith(LabelConstants.COMMAND_LINE_OPTION_PREFIX)) {
+        String optionName =
+            canonicalizedSetting.substring(LabelConstants.COMMAND_LINE_OPTION_PREFIX.length());
+        if (disallowedOptions.contains(optionName)) {
+          throw Starlark.errorf(
+              "Option '%s' is not allowed in transitions %s.", optionName, inputsOrOutputs);
+        }
       }
       String previousSetting = canonicalizedToGiven.put(canonicalizedSetting, setting);
       if (previousSetting != null) {
@@ -270,10 +276,11 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       StarlarkSemantics semantics,
       Label parentLabel,
       Location location,
-      RepositoryMapping repoMapping)
+      RepositoryMapping repoMapping,
+      List<String> disallowedOptions)
       throws EvalException {
     return new RegularTransition(
-        impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+        impl, inputs, outputs, semantics, parentLabel, location, repoMapping, disallowedOptions);
   }
 
   public static StarlarkDefinedConfigTransition newExecTransition(
@@ -283,18 +290,22 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       StarlarkSemantics semantics,
       Label parentLabel,
       Location location,
-      RepositoryMapping repoMapping)
+      RepositoryMapping repoMapping,
+      List<String> disallowedOptions)
       throws EvalException {
-    return new ExecTransition(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+    return new ExecTransition(
+        impl, inputs, outputs, semantics, parentLabel, location, repoMapping, disallowedOptions);
   }
 
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
       Map<String, Object> changedSettings,
       RepositoryMapping repoMapping,
       Label parentLabel,
-      Location location)
+      Location location,
+      List<String> disallowedOptions)
       throws EvalException {
-    return new AnalysisTestTransition(changedSettings, repoMapping, parentLabel, location);
+    return new AnalysisTestTransition(
+        changedSettings, repoMapping, parentLabel, location, disallowedOptions);
   }
 
   private static final class AnalysisTestTransition extends StarlarkDefinedConfigTransition {
@@ -305,14 +316,16 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         Map<String, Object> changedSettings,
         RepositoryMapping repoMapping,
         Label parentLabel,
-        Location location)
+        Location location,
+        List<String> disallowedOptions)
         throws EvalException {
       super(
           /* inputs= */ ImmutableList.of(),
           ImmutableList.copyOf(changedSettings.keySet()),
           repoMapping,
           parentLabel,
-          location);
+          location,
+          disallowedOptions);
       this.changedSettings = changedSettings;
       this.hashCode = HashCodes.hashObjects(getInputs(), getOutputs(), changedSettings);
     }
@@ -374,9 +387,10 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         StarlarkSemantics semantics,
         Label parentLabel,
         Location location,
-        RepositoryMapping repoMapping)
+        RepositoryMapping repoMapping,
+        List<String> disallowedOptions)
         throws EvalException {
-      super(inputs, outputs, repoMapping, parentLabel, location);
+      super(inputs, outputs, repoMapping, parentLabel, location, disallowedOptions);
       this.impl = impl;
       this.semantics = semantics;
       this.repoMapping = repoMapping;
@@ -446,26 +460,6 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
     }
 
     /**
-     * Native flag types known to serialize and deserialize cleanly to strings for Starlark
-     * evaluation.
-     *
-     * <p>This is an intentionally conservative list intended to support Starlark exec transitions
-     * ({@link ExecutionTransitionFactory}).
-     *
-     * <p>We'd ideally represent these directly as class types instead of strings. But that would
-     * add dependencies on rule-related library to this class, which breaks Bazel linking.
-     */
-    private static final ImmutableSet<String> SAFE_NATIVE_FLAG_TYPES =
-        ImmutableSet.of(
-            "AndroidManifestMerger",
-            "ManifestMergerOrder",
-            "ImportDepsCheckingLevel",
-            "JavaClasspathMode",
-            "StrictDepsMode",
-            "PythonVersion",
-            "OneVersionEnforcementLevel");
-
-    /**
      * Converts a Java-native flag value to a Starlark-readable string, or throws an exception if
      * the flag's type can't be represented in Starlark.
      *
@@ -484,15 +478,9 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         // Call toOriginalString, to do that properly.
         return Verify.verifyNotNull(((RegexFilter) value).toOriginalString());
       }
-      if (value instanceof PathFragment
-          || value instanceof TriState
-          || value instanceof ExecConfigurationDistinguisherScheme
-          || value instanceof OutputDirectoryNamingScheme
-          || value instanceof OutputPathsMode
-          || value instanceof IncludeConfigFragmentsEnum
-          || SAFE_NATIVE_FLAG_TYPES.contains(value.getClass().getSimpleName())) {
-        // Starlark#fromJava doesn't understand these Bazel-specific Java types. But their
-        // toString() methods serialize cleanly.
+      if (value instanceof PathFragment) {
+        // Starlark#fromJava doesn't understand this Bazel-specific Java type. But its toString()
+        // method serializes cleanly.
         return value.toString();
       }
       // See if the option's converter knows how to produce to Starlark values.
@@ -772,9 +760,11 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
         StarlarkSemantics semantics,
         Label parentLabel,
         Location location,
-        RepositoryMapping repoMapping)
+        RepositoryMapping repoMapping,
+        List<String> disallowedOptions)
         throws EvalException {
-      super(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+      super(
+          impl, inputs, outputs, semantics, parentLabel, location, repoMapping, disallowedOptions);
     }
 
     @Override

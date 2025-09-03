@@ -14,17 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ALWAYS_LINK_PIC_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ARCHIVE;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ASSEMBLER;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.CPP_HEADER;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.CPP_SOURCE;
-import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.C_SOURCE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.INTERFACE_SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.OBJECT_FILE;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_ARCHIVE;
@@ -33,31 +25,11 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRAR
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.DeclaredExecGroup;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.OsUtils;
 
 /** Rule class definitions for C++ rules. */
 public class CppRuleClasses {
-  public static final LabelLateBoundDefault<?> DEFAULT_MALLOC =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class, null, (rule, attributes, cppConfig) -> cppConfig.customMalloc());
 
-  public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {
-    return ToolchainTypeRequirement.builder(env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL))
-        .mandatory(false)
-        .build();
-  }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
   static final FileTypeSet DISALLOWED_HDRS_FILES =
@@ -71,26 +43,6 @@ public class CppRuleClasses {
           VERSIONED_SHARED_LIBRARY,
           OBJECT_FILE,
           PIC_OBJECT_FILE);
-
-  /**
-   * The set of instrumented source file types; keep this in sync with the list above. Note that
-   * extension-less header files cannot currently be declared, so we cannot collect coverage for
-   * those.
-   */
-  static final InstrumentationSpec INSTRUMENTATION_SPEC =
-      new InstrumentationSpec(
-              FileTypeSet.of(
-                  CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
-          .withSourceAttributes("srcs", "hdrs")
-          .withDependencyAttributes("implementation_deps", "deps", "data");
-
-  /** Implicit outputs for cc_binary rules. */
-  public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
-      fromTemplates("%{name}.stripped" + OsUtils.executableExtension());
-
-  // Used for requesting dwp "debug packages".
-  public static final SafeImplicitOutputsFunction CC_BINARY_DEBUG_PACKAGE =
-      fromTemplates("%{name}.dwp");
 
   /** A string constant for the Objective-C language feature. */
   public static final String LANG_OBJC = "lang_objc";
@@ -200,20 +152,6 @@ public class CppRuleClasses {
    * default legacy feature set.
    */
   public static final String NO_LEGACY_FEATURES = "no_legacy_features";
-
-  /**
-   * A string constant for the legacy_compile_flags feature. If this feature is present in the
-   * toolchain, and the toolchain doesn't specify no_legacy_features, bazel will move
-   * legacy_compile_flags before other features from {@link CppActionConfigs}.
-   */
-  public static final String LEGACY_COMPILE_FLAGS = "legacy_compile_flags";
-
-  /**
-   * A string constant for the default_compile_flags feature. If this feature is present in the
-   * toolchain, and the toolchain doesn't specify no_legacy_features, bazel will move
-   * default_compile_flags before other features from {@link CppActionConfigs}.
-   */
-  public static final String DEFAULT_COMPILE_FLAGS = "default_compile_flags";
 
   /** A string constant for the feature that makes us build per-object debug info files. */
   public static final String PER_OBJECT_DEBUG_INFO = "per_object_debug_info";
@@ -387,6 +325,12 @@ public class CppRuleClasses {
   /** A string constant for a feature that, if enabled, disables .d file handling. */
   public static final String NO_DOTD_FILE = "no_dotd_file";
 
+  /**
+   * A string constant for a feature that, if enabled, shortens the virtual include paths via
+   * hashing.
+   */
+  public static final String SHORTEN_VIRTUAL_INCLUDES = "shorten_virtual_includes";
+
   /*
    * A string constant for the fdo_instrument feature.
    */
@@ -498,61 +442,6 @@ public class CppRuleClasses {
   /** A feature to indicate whether to do linker deadstrip. For Apple platform only. */
   public static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
-  /** Ancestor for all rules that do include scanning. */
-  public static final class CcIncludeScanningRule implements RuleDefinition {
-    private final boolean addGrepIncludes;
-
-    public CcIncludeScanningRule(boolean addGrepIncludes) {
-      this.addGrepIncludes = addGrepIncludes;
-    }
-
-    public CcIncludeScanningRule() {
-      this(true);
-    }
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      if (addGrepIncludes) {
-        builder.add(
-            attr("$grep_includes", LABEL)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .value(env.getToolsLabel("//tools/cpp:grep-includes")));
-      }
-      return builder.build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$cc_include_scanning_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
   /** Name of the exec group that Cpp link actions run under */
   @VisibleForTesting public static final String CPP_LINK_EXEC_GROUP = "cpp_link";
-
-  /** Common logic for all rules that create C++ linking actions. */
-  public static final class CcLinkingRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .addExecGroups(
-              ImmutableMap.of(
-                  CPP_LINK_EXEC_GROUP,
-                  DeclaredExecGroup.builder()
-                      .addToolchainType(ccToolchainTypeRequirement(env))
-                      .build()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$cc_linking_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
 }

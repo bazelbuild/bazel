@@ -16,15 +16,9 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -38,15 +32,9 @@ import javax.annotation.Nullable;
 public final class CompletionContext {
   public static final CompletionContext FAILED_COMPLETION_CTX =
       new CompletionContext(
-          ImmutableMap.of(),
-          ImmutableMap.of(),
-          ArtifactPathResolver.IDENTITY,
-          new ActionInputMap(0),
-          false);
+          ArtifactPathResolver.IDENTITY, new ActionInputMap(0), /* expandFilesets= */ false);
 
   private final ArtifactPathResolver pathResolver;
-  private final Map<Artifact, TreeArtifactValue> treeArtifacts;
-  private final Map<Artifact, FilesetOutputTree> filesets;
   // Only contains the metadata for 'important' artifacts of the Target/Aspect that completed. Any
   // 'unimportant' artifacts produced by internal output groups (most importantly, _validation) will
   // not be included to avoid retaining many GB on the heap. This ActionInputMap must only be
@@ -56,38 +44,18 @@ public final class CompletionContext {
 
   @VisibleForTesting
   public CompletionContext(
-      Map<Artifact, TreeArtifactValue> treeArtifacts,
-      Map<Artifact, FilesetOutputTree> filesets,
-      ArtifactPathResolver pathResolver,
-      ActionInputMap importantInputMap,
-      boolean expandFilesets) {
-    this.treeArtifacts = treeArtifacts;
-    this.filesets = filesets;
+      ArtifactPathResolver pathResolver, ActionInputMap importantInputMap, boolean expandFilesets) {
     this.pathResolver = pathResolver;
     this.importantInputMap = importantInputMap;
     this.expandFilesets = expandFilesets;
   }
 
   public static CompletionContext create(
-      Map<Artifact, TreeArtifactValue> treeArtifacts,
-      Map<Artifact, FilesetOutputTree> filesets,
       boolean expandFilesets,
-      ActionInputMap inputMap,
       ActionInputMap importantInputMap,
-      PathResolverFactory pathResolverFactory,
-      String workspaceName) {
-    ArtifactPathResolver pathResolver =
-        pathResolverFactory.shouldCreatePathResolverForArtifactValues()
-            ? pathResolverFactory.createPathResolverForArtifactValues(
-                inputMap,
-                Maps.transformValues(treeArtifacts, TreeArtifactValue::getChildren),
-                filesets,
-                workspaceName)
-            : ArtifactPathResolver.IDENTITY;
+      PathResolverFactory pathResolverFactory) {
     return new CompletionContext(
-        treeArtifacts,
-        filesets,
-        pathResolver,
+        pathResolverFactory.createPathResolverForArtifactValues(importantInputMap),
         importantInputMap,
         expandFilesets);
   }
@@ -116,18 +84,9 @@ public final class CompletionContext {
           visitFileset(artifact, receiver);
         }
       } else if (artifact.isTreeArtifact()) {
-        FileArtifactValue treeArtifactMetadata = importantInputMap.getInputMetadata(artifact);
-        if (treeArtifactMetadata == null) {
-          BugReport.sendBugReport(
-              new IllegalStateException(
-                  String.format(
-                      "missing artifact metadata for tree artifact: %s",
-                      artifact.toDebugString())));
-        }
-
         TreeArtifactValue treeValue =
             checkNotNull(
-                treeArtifacts.get(artifact), "Missing expansion for tree artifact: %s", artifact);
+                importantInputMap.getTreeMetadata(artifact), "Missing tree artifact: %s", artifact);
         for (Artifact child : treeValue.getChildren()) {
           receiver.accept(child);
         }
@@ -140,10 +99,7 @@ public final class CompletionContext {
   private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
     FilesetOutputTree filesetOutput =
         checkNotNull(
-            filesets.get(filesetArtifact),
-            "Missing %s, available filesets: %s",
-            filesetArtifact,
-            filesets.keySet());
+            importantInputMap.getFileset(filesetArtifact), "Missing fileset: %s", filesetArtifact);
     for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
       receiver.acceptFilesetMapping(
           filesetArtifact, link.name(), link.target().getPath(), link.metadata());
@@ -160,12 +116,6 @@ public final class CompletionContext {
 
   /** A factory for {@link ArtifactPathResolver}. */
   public interface PathResolverFactory {
-    ArtifactPathResolver createPathResolverForArtifactValues(
-        ActionInputMap actionInputMap,
-        Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-        Map<Artifact, FilesetOutputTree> filesets,
-        String workspaceName);
-
-    boolean shouldCreatePathResolverForArtifactValues();
+    ArtifactPathResolver createPathResolverForArtifactValues(ActionInputMap actionInputMap);
   }
 }

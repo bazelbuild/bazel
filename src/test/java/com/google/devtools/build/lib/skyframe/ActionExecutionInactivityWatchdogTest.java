@@ -18,6 +18,9 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog.InactivityMonitor;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog.InactivityReporter;
+import com.google.devtools.build.lib.testutil.ManualClock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -42,8 +45,12 @@ public class ActionExecutionInactivityWatchdogTest {
     // Simulated delay of action completions in each call to waitForNextCompletion.
     final int[] waits = new int[] {5, 10, 3, 10, 30, 60, 60, 1};
 
+    ManualClock clock = new ManualClock();
+    Instant start = clock.now();
+
     // Log of all Sleep.sleep and InactivityMonitor.waitForNextCompletion calls.
     final List<String> sleepsAndWaits = new ArrayList<>();
+    List<String> inactivityReports = new ArrayList<>();
 
     // Mock monitor for this test.
     InactivityMonitor monitor =
@@ -68,7 +75,9 @@ public class ActionExecutionInactivityWatchdogTest {
                 return 1;
               } else {
                 int index = monitorState[0];
-                sleepsAndWaits.add("wait:" + waits[index]);
+                int wait = waits[index];
+                clock.advance(Duration.ofSeconds(wait));
+                sleepsAndWaits.add("wait:" + wait);
                 ++monitorState[0];
                 return actionCompletions[index];
               }
@@ -99,7 +108,9 @@ public class ActionExecutionInactivityWatchdogTest {
     InactivityReporter reporter =
         new InactivityReporter() {
           @Override
-          public void maybeReportInactivity() {
+          public void maybeReportInactivity(Instant lastActionCompletedAt) {
+            Duration sinceStart = Duration.between(start, lastActionCompletedAt);
+            inactivityReports.add("inactivity:" + sinceStart.toSeconds());
             if (shouldReport) {
               didReportInactivity[0] = true;
             }
@@ -113,12 +124,13 @@ public class ActionExecutionInactivityWatchdogTest {
           public void sleep(int durationMilliseconds) throws InterruptedException {
             if (monitorState[0] < actionCompletions.length) {
               sleepsAndWaits.add("sleep:" + durationMilliseconds);
+              clock.advance(Duration.ofMillis(durationMilliseconds));
             }
           }
         };
 
     ActionExecutionInactivityWatchdog watchdog =
-        new ActionExecutionInactivityWatchdog(monitor, reporter, 0, sleep);
+        new ActionExecutionInactivityWatchdog(monitor, reporter, 0, sleep, clock);
     try {
       synchronized (monitorFinishedIndicator) {
         watchdog.start();
@@ -154,6 +166,10 @@ public class ActionExecutionInactivityWatchdogTest {
             "wait:60",
             "wait:60",
             "wait:1")
+        .inOrder();
+    assertThat(inactivityReports)
+        .containsExactly(
+            "inactivity:5", "inactivity:19", "inactivity:19", "inactivity:19", "inactivity:19")
         .inOrder();
   }
 

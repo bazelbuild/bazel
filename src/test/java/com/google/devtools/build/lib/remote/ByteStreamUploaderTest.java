@@ -43,6 +43,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -142,7 +143,7 @@ public class ByteStreamUploaderTest {
         TracingMetadataUtils.buildMetadata(
             "none",
             "none",
-            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash(),
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).digest().getHash(),
             null);
     context = RemoteActionExecutionContext.create(metadata);
 
@@ -163,7 +164,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void singleBlobUploadShouldWork() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -191,7 +193,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void singleChunkCompressedUploadAlreadyExists() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -255,7 +258,8 @@ public class ByteStreamUploaderTest {
   public void progressiveUploadShouldWork() throws Exception {
     Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -372,7 +376,8 @@ public class ByteStreamUploaderTest {
   public void progressiveCompressedUploadShouldWork() throws Exception {
     Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -491,7 +496,10 @@ public class ByteStreamUploaderTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new FixedBackoff(1, 0),
-            e -> Status.fromThrowable(e).getCode() == Code.INTERNAL,
+            e ->
+                Status.fromThrowable(e).getCode() == Code.INTERNAL
+                    ? Result.TRANSIENT_FAILURE
+                    : Result.SUCCESS,
             retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
@@ -551,7 +559,8 @@ public class ByteStreamUploaderTest {
     // Test that after an upload has failed and the QueryWriteStatus call returns
     // that the upload has completed that we'll not retry the upload.
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -610,7 +619,8 @@ public class ByteStreamUploaderTest {
   public void unimplementedQueryShouldRestartUpload() throws Exception {
     Mockito.when(mockBackoff.getRetryAttempts()).thenReturn(0);
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -680,7 +690,8 @@ public class ByteStreamUploaderTest {
 
   @Test
   public void earlyWriteResponseShouldCompleteUpload() throws Exception {
-    RemoteRetrier retrier = TestUtils.newRemoteRetrier(() -> mockBackoff, e -> false, retryService);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, e -> Result.PERMANENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -719,7 +730,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void incorrectCommittedSizeFailsCompletedUpload() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -773,7 +785,8 @@ public class ByteStreamUploaderTest {
 
   @Test
   public void incorrectCommittedSizeDoesNotFailIncompleteUpload() throws Exception {
-    RemoteRetrier retrier = TestUtils.newRemoteRetrier(() -> mockBackoff, e -> false, retryService);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, e -> Result.PERMANENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -806,7 +819,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void multipleBlobsUploadShouldWork() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -839,7 +853,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void tooManyFilesIOException_adviseMaximumOpenFilesFlag() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -871,7 +886,8 @@ public class ByteStreamUploaderTest {
   public void availablePermitsOpenFileSemaphore_fewerPermitsThanUploads_endWithAllPermits()
       throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     // number of permits is less than number of uploads to affirm permit is released
     int maximumOpenFiles = 999;
     ByteStreamUploader uploader =
@@ -912,7 +928,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void noMaximumOpenFilesFlags_nullSemaphore() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -949,7 +966,8 @@ public class ByteStreamUploaderTest {
     // We upload blobs with different context, and retry 3 times for each upload.
     // We verify that the correct metadata is passed to the server with every blob.
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(5, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(5, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -1040,7 +1058,7 @@ public class ByteStreamUploaderTest {
           TracingMetadataUtils.buildMetadata(
               "build-req-id",
               "command-id",
-              DIGEST_UTIL.asActionKey(actionDigest).getDigest().getHash(),
+              DIGEST_UTIL.asActionKey(actionDigest).digest().getHash(),
               null);
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(metadata);
@@ -1057,7 +1075,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void customHeadersAreAttachedToRequest() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
 
     Metadata metadata = new Metadata();
     metadata.put(Metadata.Key.of("Key1", Metadata.ASCII_STRING_MARSHALLER), "Value1");
@@ -1143,7 +1162,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void errorsShouldBeReported() throws IOException, InterruptedException {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 10), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -1180,7 +1200,8 @@ public class ByteStreamUploaderTest {
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 10), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 10), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -1220,7 +1241,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void resourceNameWithoutInstanceName() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             /* instanceName= */ null,
@@ -1264,7 +1286,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void resourceWithNewStyleDigestFunction() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             /* instanceName= */ null,
@@ -1309,7 +1332,9 @@ public class ByteStreamUploaderTest {
   public void nonRetryableStatusShouldNotBeRetried() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> new FixedBackoff(1, 0), /* No Status is retriable. */ (e) -> false, retryService);
+            () -> new FixedBackoff(1, 0), /* No Status is retriable. */
+            (e) -> Result.PERMANENT_FAILURE,
+            retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             /* instanceName= */ null,
@@ -1348,7 +1373,7 @@ public class ByteStreamUploaderTest {
   public void unauthenticatedErrorShouldNotBeRetried() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> mockBackoff, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+            () -> mockBackoff, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService);
 
     AtomicInteger refreshTimes = new AtomicInteger();
     CallCredentialsProvider callCredentialsProvider =
@@ -1405,7 +1430,7 @@ public class ByteStreamUploaderTest {
   public void shouldRefreshCredentialsOnAuthenticationError() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> mockBackoff, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+            () -> mockBackoff, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService);
 
     AtomicInteger refreshTimes = new AtomicInteger();
     CallCredentialsProvider callCredentialsProvider =
@@ -1491,7 +1516,9 @@ public class ByteStreamUploaderTest {
     AtomicInteger numUploads = new AtomicInteger();
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> mockBackoff, e -> e instanceof StatusRuntimeException, retryService);
+            () -> mockBackoff,
+            e -> e instanceof StatusRuntimeException ? Result.TRANSIENT_FAILURE : Result.SUCCESS,
+            retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -1551,7 +1578,8 @@ public class ByteStreamUploaderTest {
   @Test
   public void testCompressedUploads() throws Exception {
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(
+            () -> mockBackoff, (e) -> Result.TRANSIENT_FAILURE, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,

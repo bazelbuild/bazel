@@ -65,6 +65,7 @@ For non-native Starlark rules that ship separately from Bazel, see the list of
   <thead>
     <tr>
       <th>Language</th>
+      <th>Flags</th>
       <th>Binary rules</th>
       <th>Library rules</th>
       <th>Test rules</th>
@@ -76,6 +77,8 @@ For non-native Starlark rules that ship separately from Bazel, see the list of
     #if($ruleFamily.size() > 0)
       <tr>
         <td class="lang">${ruleFamily.name}</td>
+              <td>#if ($ruleFamily.flags.size() > 0) <a href="#${ruleFamily.name.toLowerCase()}.flags">flags</a>#end</td>
+
       #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules] )
       #foreach($ruleType in $ruleTypes)
         <td>

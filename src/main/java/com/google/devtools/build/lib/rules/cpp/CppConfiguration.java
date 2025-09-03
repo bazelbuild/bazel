@@ -122,7 +122,7 @@ public final class CppConfiguration extends Fragment
   }
 
   /** This enumeration is used for the --strip option. */
-  public enum StripMode {
+  public enum StripMode implements StarlarkValue {
     ALWAYS("always"), // Always strip.
     SOMETIMES("sometimes"), // Strip iff compilationMode == FASTBUILD.
     NEVER("never"); // Never strip.
@@ -168,7 +168,6 @@ public final class CppConfiguration extends Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
   private final boolean collectCodeCoverage;
-  private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
 
@@ -309,7 +308,6 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
     this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
@@ -762,6 +760,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
+  @StarlarkMethod(
+      name = "use_llvm_coverage_map_format",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useLlvmCoverageMapFormatStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return useLLVMCoverageMapFormat();
+  }
+
   @Nullable
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {
@@ -788,29 +795,6 @@ public final class CppConfiguration extends Fragment
   public boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return shareNativeDeps();
-  }
-
-  /**
-   * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
-   */
-  @Nullable
-  @StarlarkConfigurationField(
-      name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN",
-      doc = "DO NOT USE")
-  public Label getTargetLibcTopLabel() {
-    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
-      // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
-      // target configuration while platform-enabled toolchains evaluate in the exec configuration).
-      // targetLibcTopLabel is only intended for platform-enabled toolchains and can cause errors
-      // otherwise.
-      //
-      // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
-      // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
-      // iOS CPU, the alias resolution fails. Legacy toolchains should read --grte_top through
-      // libcTopLabel (which changes along with the iOS CPU change), not this.
-      return null;
-    }
-    return cppOptions.targetLibcTopLabel;
   }
 
   public boolean dontEnableHostNonhost() {
@@ -863,6 +847,15 @@ public final class CppConfiguration extends Fragment
 
   public boolean experimentalIncludeScanning() {
     return cppOptions.experimentalIncludeScanning;
+  }
+
+  @StarlarkMethod(
+      name = "objc_should_generate_dotd_files",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean objcShouldGenerateDotdFilesStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return objcShouldGenerateDotdFiles();
   }
 
   public boolean objcShouldGenerateDotdFiles() {
@@ -988,14 +981,5 @@ public final class CppConfiguration extends Fragment
   public boolean getProtoProfile(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.protoProfile;
-  }
-
-  @StarlarkMethod(
-      name = "experimental_starlark_compiling",
-      documented = false,
-      useStarlarkThread = true)
-  public boolean experimentalStarlarkCompiling(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.experimentalStarlarkCompiling;
   }
 }

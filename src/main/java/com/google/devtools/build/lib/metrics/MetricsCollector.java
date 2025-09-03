@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -70,6 +71,8 @@ import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
@@ -311,6 +314,13 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
+  @Subscribe
+  public void onCriticalPath(CriticalPathEvent event) {
+    com.google.protobuf.Duration protoDuration =
+        Durations.fromNanos(event.getCriticalPath().getAggregatedElapsedTime().toNanos());
+    timingMetrics.setCriticalPathTime(protoDuration);
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   private void logActionCacheStatistics(PostableActionCacheStats stats) {
@@ -331,11 +341,7 @@ class MetricsCollector {
 
     addSkyframeStats(buildGraphMetrics);
 
-    RemoteAnalysisCacheStatistics remoteAnalysisCacheStatistics =
-        RemoteAnalysisCacheStatistics.newBuilder()
-            .setCacheHits(env.getRemoteAnalysisCachingEventListener().getCacheHits().size())
-            .setCacheMisses(env.getRemoteAnalysisCachingEventListener().getCacheMisses().size())
-            .build();
+    RemoteAnalysisCacheStatistics remoteAnalysisCacheStatistics = collectRemoteAnalysisCacheStats();
 
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
@@ -358,6 +364,39 @@ class MetricsCollector {
     }
 
     return buildMetrics.build();
+  }
+
+  private RemoteAnalysisCacheStatistics collectRemoteAnalysisCacheStats() {
+    RemoteAnalysisCacheStatistics.Builder result =
+        RemoteAnalysisCacheStatistics.newBuilder()
+            .setCacheHits(env.getRemoteAnalysisCachingEventListener().getCacheHits().size())
+            .setCacheMisses(env.getRemoteAnalysisCachingEventListener().getCacheMisses().size());
+
+    FingerprintValueStore.Stats fvsStats =
+        env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
+    if (fvsStats != null) {
+      result
+          .setValueStoreValueBytesReceived(fvsStats.valueBytesReceived())
+          .setValueStoreValueBytesSent(fvsStats.valueBytesSent())
+          .setValueStoreKeyBytesSent(fvsStats.keyBytesSent())
+          .setValueStoreWriteOps(fvsStats.entriesWritten())
+          .setValueStoreReadOpsSuccessful(fvsStats.entriesFound())
+          .setValueStoreReadOpsNotFound(fvsStats.entriesNotFound())
+          .setValueStoreReadBatches(fvsStats.getBatches())
+          .setValueStoreWriteBatches(fvsStats.setBatches());
+    }
+
+    RemoteAnalysisCacheClient.Stats raccStats =
+        env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCacheStats();
+    if (raccStats != null) {
+      result
+          .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
+          .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
+          .setAnalysisCacheOps(raccStats.requestsSent())
+          .setAnalysisCacheBatches(raccStats.batches());
+    }
+
+    return result.build();
   }
 
   private ActionData buildActionData(ActionStats actionStats) {

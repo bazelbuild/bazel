@@ -14,39 +14,52 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.Iterables;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
-import java.util.List;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
-/**
- * A target that provides native libraries in the transitive closure of its deps that are needed for
- * executing C++ code.
- */
+/** Unwraps information about C++ libraries. */
 @Immutable
-public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLibraryInfoApi {
+public final class CcNativeLibraryInfo {
+  private static final StarlarkProvider.Key KEY =
+      new StarlarkProvider.Key(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
+          "CcNativeLibraryInfo");
+  private static final StarlarkProvider PROVIDER =
+      StarlarkProvider.builder(Location.BUILTIN).buildExported(KEY);
 
-  public static final CcNativeLibraryInfo EMPTY =
-      new CcNativeLibraryInfo(NestedSetBuilder.emptySet(Order.LINK_ORDER));
+  private final StarlarkInfo value;
 
-  private final NestedSet<LibraryToLink> transitiveCcNativeLibraries;
+  public static final StarlarkInfo EMPTY = of(NestedSetBuilder.emptySet(Order.LINK_ORDER));
 
-  public static final Provider PROVIDER = new Provider();
-
-  public CcNativeLibraryInfo(NestedSet<LibraryToLink> transitiveCcNativeLibraries) {
-    this.transitiveCcNativeLibraries = transitiveCcNativeLibraries;
+  private CcNativeLibraryInfo(StarlarkInfo value) {
+    this.value = value;
   }
 
-  @Override
-  public Provider getProvider() {
-    return PROVIDER;
+  public static StarlarkInfo of(NestedSet<StarlarkInfo> transitiveCcNativeLibraries) {
+    return StarlarkInfo.create(
+        PROVIDER,
+        ImmutableMap.of(
+            "libraries_to_link", Depset.of(StarlarkInfo.class, transitiveCcNativeLibraries)),
+        Location.BUILTIN);
+  }
+
+  /**
+   * @deprecated Use only in tests
+   */
+  @Deprecated
+  public static CcNativeLibraryInfo wrap(StarlarkInfo ccNativeLibraryInfo) {
+    return new CcNativeLibraryInfo(ccNativeLibraryInfo);
   }
 
   /**
@@ -55,41 +68,24 @@ public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLib
    *
    * <p>In effect, returns all dynamic library (.so) artifacts provided by the transitive closure.
    */
-  public NestedSet<LibraryToLink> getTransitiveCcNativeLibraries() {
-    return transitiveCcNativeLibraries;
+  public static NestedSet<StarlarkInfo> getTransitiveCcNativeLibraries(
+      StarlarkInfo ccNativeLibraryInfo) {
+    try {
+      return Depset.cast(
+          ccNativeLibraryInfo.getValue("libraries_to_link", Depset.class),
+          StarlarkInfo.class,
+          "libraries_to_link");
+    } catch (EvalException e) {
+      // Can't happen
+      throw new IllegalArgumentException(e);
+    }
   }
 
-  /** Merge several CcNativeLibraryInfo objects into one. */
-  public static CcNativeLibraryInfo merge(List<CcNativeLibraryInfo> providers) {
-    if (providers.isEmpty()) {
-      return EMPTY;
-    } else if (providers.size() == 1) {
-      return Iterables.getOnlyElement(providers);
-    }
-
-    NestedSetBuilder<LibraryToLink> transitiveCcNativeLibraries = NestedSetBuilder.linkOrder();
-    for (CcNativeLibraryInfo provider : providers) {
-      transitiveCcNativeLibraries.addTransitive(provider.getTransitiveCcNativeLibraries());
-    }
-    return new CcNativeLibraryInfo(transitiveCcNativeLibraries.build());
-  }
-
-  /** Provider class for {@link CcNativeLibraryInfo} objects */
-  public static class Provider extends BuiltinProvider<CcNativeLibraryInfo>
-      implements CcNativeLibraryInfoApi.Provider {
-    private Provider() {
-      super(CcNativeLibraryInfoApi.NAME, CcNativeLibraryInfo.class);
-    }
-
-    @Override
-    public CcNativeLibraryInfo createCcNativeLibraryInfo(Object librariesToLinkObject)
-        throws EvalException {
-      NestedSet<LibraryToLink> librariesToLink =
-          Depset.cast(librariesToLinkObject, LibraryToLink.class, "libraries_to_link");
-      if (librariesToLink.isEmpty()) {
-        return EMPTY;
-      }
-      return new CcNativeLibraryInfo(librariesToLink);
-    }
+  /**
+   * @deprecated Use only in tests
+   */
+  @Deprecated
+  public NestedSet<LibraryToLink> getTransitiveCcNativeLibrariesForTests() {
+    return LibraryToLink.wrap(getTransitiveCcNativeLibraries(value));
   }
 }

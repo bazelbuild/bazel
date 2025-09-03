@@ -22,11 +22,9 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import java.io.IOException;
@@ -44,10 +42,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   @Before
   public void createFooFooCcLibraryForRuleContext() throws IOException {
     scratch.file("foo/BUILD", "cc_library(name = 'foo')");
-  }
-
-  private RuleContext getRuleContext() throws Exception {
-    return getRuleContext(getConfiguredTarget("//foo:foo"));
   }
 
   @Test
@@ -69,8 +63,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     String variableValue =
-        getVariableValue(
-            getRuleContext(), variables, LinkBuildVariables.FORCE_PIC.getVariableName());
+        getVariableValue(variables, LinkBuildVariables.FORCE_PIC.getVariableName());
     assertThat(variableValue).contains("");
   }
 
@@ -101,11 +94,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariesToLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).matches(".*a\\..*o");
   }
 
@@ -118,9 +109,15 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
+    assertThat(
+            variables
+                .getVariable(
+                    LinkBuildVariables.LIBRARY_SEARCH_DIRECTORIES.getVariableName(),
+                    PathMapper.NOOP)
+                .isTruthy())
+        .isTrue();
     List<String> variableValue =
         getSequenceVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.LIBRARY_SEARCH_DIRECTORIES.getVariableName());
     assertThat(Iterables.getOnlyElement(variableValue)).contains("some-dir");
@@ -146,11 +143,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariestoLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).isEqualTo("bar");
   }
 
@@ -174,11 +169,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariestoLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).isEqualTo("libbar.so.1a.2");
   }
 
@@ -202,11 +195,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariestoLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).isEqualTo("_libbar.so");
   }
 
@@ -250,22 +241,18 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     String interfaceLibraryBuilder =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName());
     String interfaceLibraryInput =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName());
     String interfaceLibraryOutput =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName());
     String generateInterfaceLibrary =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName());
 
@@ -315,22 +302,18 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     String interfaceLibraryBuilder =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName());
     String interfaceLibraryInput =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName());
     String interfaceLibraryOutput =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName());
     String generateInterfaceLibrary =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName());
 
@@ -360,22 +343,18 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     String interfaceLibraryBuilder =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName());
     String interfaceLibraryInput =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName());
     String interfaceLibraryOutput =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName());
     String generateInterfaceLibrary =
         getVariableValue(
-            getRuleContext(),
             variables,
             LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName());
 
@@ -401,9 +380,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     CcToolchainVariables variables =
         getLinkBuildVariables(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
 
-    assertThat(
-            getVariableValue(
-                getRuleContext(), variables, LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
+    assertThat(getVariableValue(variables, LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
         .endsWith("x/libfoo.so");
   }
 
@@ -639,8 +616,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariesToLinkIterator
             .next()
             .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.IS_WHOLE_ARCHIVE_FIELD_NAME);
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "is_whole_archive");
     assertThat(aWholeArchiveValue).isNotNull();
     assertThat(aWholeArchiveValue.isTruthy()).isFalse();
 
@@ -649,8 +625,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariesToLinkIterator
             .next()
             .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.IS_WHOLE_ARCHIVE_FIELD_NAME);
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "is_whole_archive");
     assertThat(bWholeArchiveValue).isNotNull();
     assertThat(bWholeArchiveValue.isTruthy()).isTrue();
   }

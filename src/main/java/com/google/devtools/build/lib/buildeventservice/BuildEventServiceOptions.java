@@ -152,10 +152,20 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
-          "Specifies whether the Build Event Service upload should block the build completion "
-              + "or should end the invocation immediately and finish the upload in the background. "
-              + "Either 'wait_for_upload_complete' (default), 'nowait_for_upload_complete', "
-              + "or 'fully_async'.")
+          "Specifies whether the Build Event Service upload should block the build completion or"
+              + " should end the invocation immediately and finish the upload in the"
+              + " background.\n\n"
+              + "  - `wait_for_upload_complete`: blocks at the end of the current invocation until"
+              + " all events (including lifecycle events if applicable) are uploaded and"
+              + " acknowledged by the backend.\n"
+              + "  - `nowait_for_upload_complete`: blocks at the beginning of the next invocation"
+              + " until all events (including lifecycle events if applicable) are uploaded and"
+              + " acknowledged by the backend.\n"
+              + "  - `fully_async`: blocks at the beginning of the next invocation until all events"
+              + " are uploaded but does not wait for acknowledgements. Events may be lost in case"
+              + " of (transient) failures and backends may report streams as incomplete in this"
+              + " mode. There is no guarantee that `FinishInvocationAttempt` or `FinishBuild`"
+              + " lifecycle events are sent.")
   public BesUploadMode besUploadMode;
 
   @Option(

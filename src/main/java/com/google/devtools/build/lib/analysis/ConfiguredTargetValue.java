@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.packages.TargetData;
 import javax.annotation.Nullable;
 
 /** A {@link com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}. */
@@ -30,6 +31,16 @@ public interface ConfiguredTargetValue extends ConfiguredObjectValue {
    * once per value, after which this object's other methods cannot be called.
    */
   void clear(boolean clearEverything);
+
+  /**
+   * Returns the {@link TargetData} projection for this value.
+   *
+   * <p>This is only present for remote cached configured targets.
+   */
+  @Nullable
+  default TargetData getTargetData() {
+    return null;
+  }
 
   @Override
   default ConfiguredTarget getConfiguredObject() {

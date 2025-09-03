@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
@@ -26,17 +27,26 @@ final class FileOpMatchResultTypes {
   sealed interface FileOpMatchResultOrFuture permits FileOpMatchResult, FutureFileOpMatchResult {}
 
   /** An immediate result. */
-  sealed interface FileOpMatchResult extends FileOpMatchResultOrFuture
-      permits NoMatch, FileOpMatch {
+  sealed interface FileOpMatchResult extends FileOpMatchResultOrFuture, MatchIndicator
+      permits FileOpMatch, NoMatch, AlwaysMatch {
     static FileOpMatchResult create(int version) {
-      return version == VersionedChanges.NO_MATCH ? NO_MATCH_RESULT : new FileOpMatch(version);
+      return switch (version) {
+        case VersionedChanges.NO_MATCH -> NO_MATCH_RESULT;
+        case VersionedChanges.ALWAYS_MATCH -> ALWAYS_MATCH_RESULT;
+        default -> new FileOpMatch(version);
+      };
     }
 
     int version();
   }
 
-  /** A result signalling a match. */
-  record FileOpMatch(int version) implements FileOpMatchResult {}
+  /** A result signaling a match. */
+  record FileOpMatch(int version) implements FileOpMatchResult {
+    @Override
+    public boolean isMatch() {
+      return true;
+    }
+  }
 
   /** A future result. */
   static final class FutureFileOpMatchResult

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_LIST;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
+import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SORTED_MAP;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -468,6 +469,7 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
         .registerTypeAdapterFactory(DICT)
         .registerTypeAdapterFactory(IMMUTABLE_MAP)
+        .registerTypeAdapterFactory(IMMUTABLE_SORTED_MAP)
         .registerTypeAdapterFactory(IMMUTABLE_LIST)
         .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
         .registerTypeAdapterFactory(IMMUTABLE_SET)

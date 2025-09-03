@@ -147,7 +147,8 @@ public class TestConstants {
           "--platforms=@platforms//host",
           "--host_platform=@platforms//host",
           // TODO(#7849): Remove after flag flip.
-          "--incompatible_use_toolchain_resolution_for_java_rules");
+          "--incompatible_use_toolchain_resolution_for_java_rules",
+          "--incompatible_disable_select_on=cpu,crosstool_top,host_cpu");
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
       ImmutableList.of(

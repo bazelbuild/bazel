@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -41,7 +41,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** C++ compilation semantics. */
-public class BazelCppSemantics implements AspectLegalCppSemantics {
+public class BazelCppSemantics implements CppSemantics {
   @SerializationConstant
   public static final BazelCppSemantics CPP = new BazelCppSemantics(Language.CPP);
 
@@ -77,11 +77,11 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     this.language = language;
   }
 
-  private static final String CPP_TOOLCHAIN_TYPE =
-      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type").toString();
+  private static final Label CPP_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type");
 
   @Override
-  public String getCppToolchainType() {
+  public Label getCppToolchainType() {
     return CPP_TOOLCHAIN_TYPE;
   }
 

@@ -57,16 +57,6 @@ public record SingleExtensionValue(
     requireNonNull(fixup, "fixup");
   }
 
-  @AutoCodec.Instantiator
-  public static SingleExtensionValue create(
-      ImmutableMap<String, RepoSpec> generatedRepoSpecs,
-      ImmutableBiMap<RepositoryName, String> canonicalRepoNameToInternalNames,
-      Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
-      Optional<RootModuleFileFixup> fixup) {
-    return new SingleExtensionValue(
-        generatedRepoSpecs, canonicalRepoNameToInternalNames, lockFileInfo, fixup);
-  }
-
   public static Key key(ModuleExtensionId id) {
     return Key.create(id);
   }

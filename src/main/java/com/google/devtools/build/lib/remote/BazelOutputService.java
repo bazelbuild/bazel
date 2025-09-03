@@ -360,7 +360,7 @@ public class BazelOutputService implements OutputService {
 
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, EnvironmentalExecException, InterruptedException {
+      throws IOException, InterruptedException {
     var execRoot = execRootSupplier.get();
     var outputPath = outputPathSupplier.get();
 

@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.net.URI;
 import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.SequencedMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -53,11 +55,16 @@ public class CredentialHelperTest {
     FileSystem fs = FileSystems.getNativeFileSystem();
 
     CredentialHelper credentialHelper = new CredentialHelper(fs.getPath(credHelperPath));
+    SequencedMap<String, String> clientEnv = new LinkedHashMap<>(System.getenv());
+    // Don't cd to the Python credential helper's temporary directory on Windows, which would throw
+    // off test assertions. This variable is set to "1" by the surrounding Java test.
+    clientEnv.remove("RUN_UNDER_RUNFILES");
+    clientEnv.putAll(env);
     return credentialHelper.getCredentials(
         CredentialHelperEnvironment.newBuilder()
             .setEventReporter(reporter)
             .setWorkspacePath(fs.getPath(TEST_WORKSPACE_PATH))
-            .setClientEnvironment(env)
+            .setClientEnvironment(ImmutableMap.copyOf(clientEnv))
             .setHelperExecutionTimeout(Duration.ofSeconds(5))
             .build(),
         URI.create(uri));

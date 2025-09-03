@@ -32,10 +32,12 @@ public interface FingerprintValueStore {
       long keyBytesSent,
       long entriesWritten,
       long entriesFound,
-      long entriesNotFound) {}
+      long entriesNotFound,
+      long getBatches,
+      long setBatches) {}
 
   default Stats getStats() {
-    return new Stats(0, 0, 0, 0, 0, 0);
+    return new Stats(0, 0, 0, 0, 0, 0, 0, 0);
   }
 
   /**
@@ -81,8 +83,20 @@ public interface FingerprintValueStore {
 
   /** An in-memory {@link FingerprintValueStore} for testing. */
   static class InMemoryFingerprintValueStore implements FingerprintValueStore {
+    private static final ListenableFuture<byte[]> IMMEDIATE_NULL = immediateFuture((byte[]) null);
+
     public final ConcurrentHashMap<KeyBytesProvider, byte[]> fingerprintToContents =
         new ConcurrentHashMap<>();
+
+    private final boolean useNullForMissingValues;
+
+    public InMemoryFingerprintValueStore() {
+      this(/* useNullForMissingValues= */ false);
+    }
+
+    public InMemoryFingerprintValueStore(boolean useNullForMissingValues) {
+      this.useNullForMissingValues = useNullForMissingValues;
+    }
 
     @Override
     public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
@@ -94,7 +108,9 @@ public interface FingerprintValueStore {
     public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
       byte[] serializedBytes = fingerprintToContents.get(fingerprint);
       if (serializedBytes == null) {
-        return immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
+        return useNullForMissingValues
+            ? IMMEDIATE_NULL
+            : immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
       }
       return immediateFuture(serializedBytes);
     }

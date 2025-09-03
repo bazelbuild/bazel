@@ -41,8 +41,7 @@ public @interface GlobalMethods {
             + " which can also be used in BUILD files."),
     MODULE("MODULE.bazel files", "Methods available in MODULE.bazel files."),
     REPO("REPO.bazel files", "Methods available in REPO.bazel files."),
-    VENDOR("VENDOR.bazel files", "Methods available in VENDOR.bazel files."),
-    WORKSPACE("WORKSPACE files", "Methods available in WORKSPACE files.");
+    VENDOR("VENDOR.bazel files", "Methods available in VENDOR.bazel files.");
 
     private final String title;
     private final String description;

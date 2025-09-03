@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.remote.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -26,7 +28,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Exception which represents a collection of IOExceptions for the purpose of distinguishing remote
@@ -97,7 +98,7 @@ public class BulkTransferException extends IOException {
           actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
     }
-    var byDigest = byDigestBuilder.buildOrThrow();
+    var byDigest = byDigestBuilder.buildKeepingLast();
     return new LostArtifacts(byDigest, Optional.empty());
   }
 
@@ -114,16 +115,13 @@ public class BulkTransferException extends IOException {
             .filter(Objects::nonNull)
             .sorted()
             .distinct()
-            .collect(Collectors.toList());
+            .collect(toImmutableList());
 
-    switch (uniqueSortedMessages.size()) {
-      case 0:
-        return "Unknown error during bulk transfer";
-      case 1:
-        return uniqueSortedMessages.iterator().next();
-      default:
-        return "Multiple errors during bulk transfer:\n"
-            + Joiner.on('\n').join(uniqueSortedMessages);
-    }
+    return switch (uniqueSortedMessages.size()) {
+      case 0 -> "Unknown error during bulk transfer";
+      case 1 -> Iterables.getOnlyElement(uniqueSortedMessages);
+      default ->
+          "Multiple errors during bulk transfer:\n" + Joiner.on("\n").join(uniqueSortedMessages);
+    };
   }
 }

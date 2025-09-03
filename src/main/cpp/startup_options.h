@@ -195,11 +195,6 @@ class StartupOptions {
   //   in October 2025.
   bool write_command_log;
 
-  // No-op.
-  // TODO: b/375052752 - Remove this after the 6 month compatibility window ends
-  //   in April 2025.
-  bool watchfs;
-
   // Temporary flag for enabling EventBus exceptions to be fatal.
   bool fatal_event_bus_exceptions;
 

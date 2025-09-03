@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -41,7 +42,7 @@ import org.junit.runner.RunWith;
 
 /** Unit tests for PathTransformingDelegateFileSystem. Make sure all methods rewrite paths. */
 @RunWith(TestParameterInjector.class)
-public class PathTransformingDelegateFileSystemTest {
+public final class PathTransformingDelegateFileSystemTest {
   private final FileSystem delegateFileSystem = createMockFileSystem();
   private final TestDelegateFileSystem fileSystem = new TestDelegateFileSystem(delegateFileSystem);
 
@@ -56,7 +57,8 @@ public class PathTransformingDelegateFileSystemTest {
   public void verifyGetDigestFunctionCalled() {
     // getDigestFunction gets called in the constructor of PathTransformingDelegateFileSystem, make
     // sure to "consume" that so that tests don't need to account for that.
-    verify(delegateFileSystem).getDigestFunction();
+    verify(delegateFileSystem, atLeastOnce()).getDigestFunction();
+    verifyNoMoreInteractions(delegateFileSystem);
   }
 
   @Test

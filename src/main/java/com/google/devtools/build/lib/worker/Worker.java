@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -103,7 +104,10 @@ public abstract class Worker {
    * able to receive a WorkRequest without further setup.
    */
   public abstract void prepareExecution(
-      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      Set<PathFragment> workerFiles,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException, UserExecException;
 
   /**

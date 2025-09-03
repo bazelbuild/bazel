@@ -1075,7 +1075,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  return {",
         "      '//command_line_option:is exec configuration': True,",
         "      '//command_line_option:platforms': [],",
-        // Need to propagate so we don't parse unparseable default @local_config_platform. Remember
+        // Need to propagate so we don't parse unparseable default @platforms//host. Remember
         // the exec transition starts from defaults.
         "      '//command_line_option:host_platform':"
             + " settings['//command_line_option:host_platform'],",
@@ -1339,10 +1339,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
         foobar = rule(implementation = rule_impl)
         main_rule = rule(implementation = rule_impl, attrs = {
-            'deps': attr.label_list(providers = [
-                'files', 'data_runfiles', 'default_runfiles',
-                'files_to_run', 'output_groups',
-            ])
+            'deps': attr.label_list(providers = [DefaultInfo, OutputGroupInfo])
         })
         """);
     scratch.file(
@@ -3582,31 +3579,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent(
         "parameter 'outputs' is deprecated and will be removed soon. It may be temporarily "
             + "re-enabled by setting --incompatible_no_rule_outputs_param=false");
-  }
-
-  @Test
-  public void testExecutableNotInRunfiles() throws Exception {
-    scratch.file(
-        "test/starlark/test_rule.bzl",
-        """
-        def _my_rule_impl(ctx):
-          exe = ctx.actions.declare_file('exe')
-          ctx.actions.run_shell(outputs=[exe], command='touch exe')
-          runfile = ctx.actions.declare_file('rrr')
-          ctx.actions.run_shell(outputs=[runfile], command='touch rrr')
-          return DefaultInfo(executable = exe, default_runfiles = ctx.runfiles(files = [runfile]))
-        my_rule = rule(implementation = _my_rule_impl, executable = True)
-        """);
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load('//test/starlark:test_rule.bzl', 'my_rule')
-        my_rule(name = 'target')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/starlark:target");
-    assertContainsEvent("exe not included in runfiles");
   }
 
   @Test

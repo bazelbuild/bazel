@@ -1,15 +1,18 @@
 # DO NOT EDIT!
 """Generated with Protolark."""
 
-### Generated code for third_party/bazel/src/main/protobuf/project/buildable_unit.proto below:
+### Generated code for //src/main/protobuf/project/buildable_unit.proto below:
+# Argument name check was enabled.
 
-def _mk_pb2_third_party_bazel_src_main_protobuf_project_buildable_unit_BuildableUnit(**kwargs):
+### Generated code for //src/main/protobuf/project/buildable_unit.proto below:
+
+def _mk_pb2_third_party_bazel_src_main_protobuf_project_buildable_unit_BuildableUnit(name = [], target_patterns = [], flags = [], description = [], is_default = []):
     return struct(**{
-        "name": kwargs.get("name", []),
-        "target_patterns": kwargs.get("target_patterns", []),
-        "flags": kwargs.get("flags", []),
-        "description": kwargs.get("description", []),
-        "is_default": kwargs.get("is_default", []),
+        "name": name,
+        "target_patterns": target_patterns,
+        "flags": flags,
+        "description": description,
+        "is_default": is_default,
     })
 
 pb2_third_party_bazel_src_main_protobuf_project_buildable_unit = struct(
@@ -34,12 +37,13 @@ pb2_third_party_bazel_src_main_protobuf_project_enforcement_policy = struct(
 
 ### Generated code for third_party/bazel/src/main/protobuf/project/project.proto below:
 
-def _mk_pb2_third_party_bazel_src_main_protobuf_project_project_Project(**kwargs):
+# buildifier: disable=unused-variable
+def _mk_pb2_third_party_bazel_src_main_protobuf_project_project_Project(name = [], buildable_units = [], enforcement_policy = [], project_directories = [], always_allowed_configs = []):
     return struct(**{
-        "buildable_units": kwargs.get("buildable_units", []),
-        "enforcement_policy": kwargs.get("enforcement_policy", []),
-        "project_directories": kwargs.get("project_directories", []),
-        "always_allowed_configs": kwargs.get("always_allowed_configs", []),
+        "buildable_units": buildable_units,
+        "enforcement_policy": enforcement_policy,
+        "project_directories": project_directories,
+        "always_allowed_configs": always_allowed_configs,
     })
 
 pb2_third_party_bazel_src_main_protobuf_project_project = struct(
@@ -54,4 +58,4 @@ buildable_unit_pb2 = pb2_third_party_bazel_src_main_protobuf_project_buildable_u
 enforcement_policy_pb2 = pb2_third_party_bazel_src_main_protobuf_project_enforcement_policy
 project_pb2 = pb2_third_party_bazel_src_main_protobuf_project_project
 
-#pragma protolark-generated-from: third_party/bazel/src/main/protobuf/project/project.proto
+#pragma protolark-generated-from://src/main/protobuf/project/project.proto

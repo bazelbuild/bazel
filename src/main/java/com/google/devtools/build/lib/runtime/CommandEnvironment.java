@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
@@ -143,7 +144,6 @@ public class CommandEnvironment {
   private boolean mergedAnalysisAndExecution;
 
   private OutputService outputService;
-  private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
   private boolean buildInfoPosted = false;
   private Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent =
@@ -172,6 +172,7 @@ public class CommandEnvironment {
 
   @Nullable // Optionally set in `beforeCommand` phase.
   private LongVersionGetter versionGetter;
+  private boolean useFakeStampData = false;
 
   private UiEventHandler uiEventHandler;
 
@@ -286,7 +287,6 @@ public class CommandEnvironment {
     } else {
       this.relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
     }
-    this.workspaceName = null;
 
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
     this.commandStartTime = commandStartTime - commandOptions.startupTime;
@@ -334,35 +334,54 @@ public class CommandEnvironment {
                 : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
-    if (command.buildPhase().analyzes() || command.name().equals("info")) {
+    // TODO: This only needs to check for loads() rather than analyzes() due to
+    //  the effect of --action_env on the repository env. Revert back to
+    //  analyzes() when --action_env no longer affects it.
+    if (command.buildPhase().loads() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
-      for (Map.Entry<String, String> entry :
-          options.getOptions(CoreOptions.class).actionEnvironment) {
-        if (entry.getValue() == null) {
-          visibleActionEnv.add(entry.getKey());
-        } else {
-          visibleActionEnv.remove(entry.getKey());
-          repoEnv.put(entry.getKey(), entry.getValue());
+      for (var envVar : options.getOptions(CoreOptions.class).actionEnvironment) {
+        switch (envVar) {
+          case Converters.EnvVar.Set(String name, String value) -> {
+            visibleActionEnv.remove(name);
+            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+              repoEnv.put(name, value);
+            }
+          }
+          case Converters.EnvVar.Inherit(String name) -> {
+            visibleActionEnv.add(name);
+          }
+          case Converters.EnvVar.Unset(String name) -> {
+            visibleActionEnv.remove(name);
+            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+              repoEnv.remove(name);
+            }
+          }
         }
       }
-      for (Map.Entry<String, String> entry :
-          options.getOptions(TestOptions.class).testEnvironment) {
-        if (entry.getValue() == null) {
-          visibleTestEnv.add(entry.getKey());
+    }
+    if (command.buildPhase().analyzes() || command.name().equals("info")) {
+      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).testEnvironment) {
+        if (envVar instanceof Converters.EnvVar.Inherit(String name)) {
+          visibleTestEnv.add(name);
         }
       }
     }
 
-    for (Map.Entry<String, String> entry : commandOptions.repositoryEnvironment) {
-      String name = entry.getKey();
-      String value = entry.getValue();
-      if (value == null) {
-        value = clientEnv.get(name);
-      }
-      if (value != null) {
-        repoEnv.put(name, value);
-        repoEnvFromOptions.put(name, value);
+    for (var envVar : commandOptions.repositoryEnvironment) {
+      switch (envVar) {
+        case Converters.EnvVar.Set(String name, String value) -> {
+          repoEnv.put(name, value);
+          repoEnvFromOptions.put(name, value);
+        }
+        case Converters.EnvVar.Inherit(String name) -> {
+          repoEnv.put(name, clientEnv.get(name));
+          repoEnvFromOptions.put(name, clientEnv.get(name));
+        }
+        case Converters.EnvVar.Unset(String name) -> {
+          repoEnv.remove(name);
+          repoEnvFromOptions.remove(name);
+        }
       }
     }
     this.buildResultListener = new BuildResultListener();
@@ -371,7 +390,9 @@ public class CommandEnvironment {
     this.commandLinePathFactory =
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
 
-    this.remoteAnalysisCachingEventListener = new RemoteAnalysisCachingEventListener();
+    this.remoteAnalysisCachingEventListener =
+        new RemoteAnalysisCachingEventListener(
+            workspace.getSkyframeExecutor().getRemoteAnalysisCachingState());
     this.eventBus.register(remoteAnalysisCachingEventListener);
   }
 
@@ -444,7 +465,7 @@ public class CommandEnvironment {
     return directories;
   }
 
-  @Nullable
+  @Nullable // Null for commands that don't have PackageOptions (version, help, shutdown, etc).
   public PathPackageLocator getPackageLocator() {
     return packageLocator;
   }
@@ -650,13 +671,7 @@ public class CommandEnvironment {
   }
 
   public String getWorkspaceName() {
-    return checkNotNull(workspaceName);
-  }
-
-  public void setWorkspaceName(String workspaceName) {
-    checkState(this.workspaceName == null, "workspace name can only be set once");
-    this.workspaceName = workspaceName;
-    eventBus.post(new ExecRootEvent(getExecRoot()));
+    return runtime.getRuleClassProvider().getRunfilesPrefix();
   }
 
   /**
@@ -672,8 +687,7 @@ public class CommandEnvironment {
    * all input and output files visible to the actual build reside.
    */
   public Path getExecRoot() {
-    checkNotNull(workspaceName);
-    return directories.getExecRoot(workspaceName);
+    return directories.getExecRoot(getWorkspaceName());
   }
 
   /**
@@ -946,7 +960,11 @@ public class CommandEnvironment {
     }
   }
 
-  /** Returns the client environment with all settings from --action_env and --repo_env. */
+  /**
+   * Returns the repository environment created from the client environment, {@code --repo_env}, and
+   * {@code --action_env=NAME=VALUE} (when {@code
+   * --incompatible_repo_env_ignores_action_env=false}).
+   */
   public Map<String, String> getRepoEnv() {
     return Collections.unmodifiableMap(repoEnv);
   }
@@ -1095,6 +1113,14 @@ public class CommandEnvironment {
   @Nullable
   public LongVersionGetter getVersionGetter() {
     return versionGetter;
+  }
+
+  public void setUseFakeStampData(boolean useFakeStampData) {
+    this.useFakeStampData = useFakeStampData;
+  }
+
+  public boolean getUseFakeStampData() {
+    return useFakeStampData;
   }
 
   public void setUiEventHandler(UiEventHandler uiEventHandler) {

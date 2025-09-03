@@ -173,6 +173,13 @@ final class MemoryPressureListener implements NotificationListener {
     this.gcChurnDetector.set(gcChurningDetector);
   }
 
+  void targetParsingComplete(int numTopLevelTargets) {
+    GcChurningDetector gcChurningDetector = gcChurnDetector.get();
+    if (gcChurningDetector != null) {
+      gcChurningDetector.targetParsingComplete(numTopLevelTargets);
+    }
+  }
+
   void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
     GcChurningDetector gcChurningDetector = gcChurnDetector.get();
     if (gcChurningDetector != null) {

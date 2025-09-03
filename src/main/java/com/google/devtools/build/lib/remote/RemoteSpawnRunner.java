@@ -35,8 +35,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -49,7 +47,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
@@ -97,9 +94,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static final SpawnExecutingEvent SPAWN_EXECUTING_EVENT =
       SpawnExecutingEvent.create("remote");
 
-  private final Path execRoot;
   private final RemoteOptions remoteOptions;
-  private final ExecutionOptions executionOptions;
   private final boolean verboseFailures;
   @Nullable private final Reporter cmdlineReporter;
   private final RemoteRetrier retrier;
@@ -111,18 +106,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final AtomicBoolean warningReported = new AtomicBoolean();
 
   RemoteSpawnRunner(
-      Path execRoot,
       RemoteOptions remoteOptions,
-      ExecutionOptions executionOptions,
       boolean verboseFailures,
       @Nullable Reporter cmdlineReporter,
       ListeningScheduledExecutorService retryService,
       Path logDir,
       RemoteExecutionService remoteExecutionService,
       DigestUtil digestUtil) {
-    this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
-    this.executionOptions = executionOptions;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
     this.retrier = createExecuteRetrier(remoteOptions, retryService);
@@ -141,7 +132,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return "remote";
   }
 
-  class ExecutingStatusReporter implements OperationObserver {
+  static class ExecutingStatusReporter implements OperationObserver {
     private boolean reportedExecuting = false;
     private final SpawnExecutionContext context;
 
@@ -198,7 +189,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setInputBytes(action.getInputBytes())
             .setInputFiles(action.getInputFiles());
 
-    maybeWriteParamFilesLocally(spawn);
+    remoteExecutionService.maybeWriteParamFilesLocally(spawn);
 
     spawnMetrics.setParseTime(totalTime.elapsed());
 
@@ -522,17 +513,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
             && !message.isEmpty();
     if (printMessage) {
       outErr.printErr("Remote server execution message: " + message + "\n");
-    }
-  }
-
-  private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
-    if (!executionOptions.shouldMaterializeParamFiles()) {
-      return;
-    }
-    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
-      if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
-        paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
-      }
     }
   }
 

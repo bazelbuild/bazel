@@ -67,7 +67,7 @@ public class InstrumentedFileManifestActionTest extends AnalysisTestCase {
     String rootSegment = "out";
     Path root = execRoot.getRelative(rootSegment);
     return ActionsTestUtil.createArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, rootSegment),
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, rootSegment),
         root.getRelative(rootRelativePath));
   }
 

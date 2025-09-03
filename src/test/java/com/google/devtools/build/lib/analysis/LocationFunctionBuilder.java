@@ -68,7 +68,7 @@ final class LocationFunctionBuilder {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     if (path.startsWith("/exec/out")) {
       return ActionsTestUtil.createArtifact(
-          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.Output, "out"),
+          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out"),
           fs.getPath(path));
     } else {
       return ActionsTestUtil.createArtifact(

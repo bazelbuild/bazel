@@ -46,12 +46,19 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     public DummyTestOptions() {}
 
     @Option(
-        name = "immutable_option",
+        name = "non_configurable_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "super secret",
-        metadataTags = {OptionMetadataTag.IMMUTABLE})
-    public String immutableOption;
+        defaultValue = "non-configurable",
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+    public String nonConfigurableOption;
+
+    @Option(
+        name = "disallowed_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "default")
+    public String disallowedOption;
   }
 
   /** Test fragment. */
@@ -392,17 +399,17 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testChangingImmutableOptionFails() throws Exception {
+  public void testChangingNonConfigurableOptionFails() throws Exception {
     scratch.file(
         "test/defs.bzl",
         """
         def _transition_impl(settings, attr):
-            return {"//command_line_option:immutable_option": "something_else"}
+            return {"//command_line_option:non_configurable_option": "something_else"}
 
         _transition = transition(
             implementation = _transition_impl,
             inputs = [],
-            outputs = ["//command_line_option:immutable_option"],
+            outputs = ["//command_line_option:non_configurable_option"],
         )
 
         def _impl(ctx):
@@ -424,7 +431,110 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:arizona");
     assertContainsEvent(
-        "transition outputs [//command_line_option:immutable_option] cannot be changed: they are"
-            + " immutable");
+        "transition outputs [//command_line_option:non_configurable_option] cannot be changed: they"
+            + " are non-configurable");
+  }
+
+  @Test
+  public void testNonConfigurableOptionAsTransitionInputFails() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {}
+
+        _transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//command_line_option:non_configurable_option"],
+            outputs = [],
+        )
+
+        def _impl(ctx):
+            return []
+
+        state = rule(
+            implementation = _impl,
+            cfg = _transition,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "state")
+
+        state(name = "arizona")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:arizona");
+    assertContainsEvent(
+        "transition inputs [//command_line_option:non_configurable_option] cannot be changed: they"
+            + " are non-configurable");
+  }
+
+  @Test
+  public void testDisallowedOptionInTransitionInputsFails() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {}
+
+        _transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//command_line_option:disallowed_option"],
+            outputs = [],
+        )
+
+        def _impl(ctx):
+            return []
+        simple_rule = rule(
+            implementation = _impl,
+            cfg = _transition,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "simple_rule")
+        simple_rule(name = "t1")
+        """);
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=disallowed_option");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:t1");
+    assertContainsEvent("Option 'disallowed_option' is not allowed in transitions INPUTS");
+  }
+
+  @Test
+  public void testDisallowedOptionInTransitionOutputsFails() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {}
+
+        _transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:disallowed_option"],
+        )
+
+        def _impl(ctx):
+            return []
+        simple_rule = rule(
+            implementation = _impl,
+            cfg = _transition,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "simple_rule")
+        simple_rule(name = "t1")
+        """);
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=disallowed_option");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:t1");
+    assertContainsEvent("Option 'disallowed_option' is not allowed in transitions OUTPUTS");
   }
 }

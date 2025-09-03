@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retrieveRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
@@ -269,8 +269,8 @@ final class AspectFunction implements SkyFunction {
 
     RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
-      switch (fetchRemoteSkyValue(key, env, remoteCachingDependencies, stateSupplier)) {
+    if (remoteCachingDependencies.isRetrievalEnabled()) {
+      switch (retrieveRemoteSkyValue(key, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
@@ -413,6 +413,10 @@ final class AspectFunction implements SkyFunction {
               computeDependenciesState,
               ConfiguredTargetKey.fromConfiguredTarget(associatedTarget),
               topologicalAspectPath,
+              // Relevant for exec-config deps of the aspect itself. May need to pass the actual
+              // key if there's a use case for an aspect to be applied to exec-config deps of an
+              // aspect.
+              /* loadExecAspectsKey= */ null,
               buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
               starlarkExecTransition.orElse(null),
               env,
@@ -1013,7 +1017,11 @@ final class AspectFunction implements SkyFunction {
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
       analysisEnvironment.disable(associatedTarget);
-      String msg = "Analysis of target '" + associatedTarget.getLabel() + "' failed";
+      String msg =
+          "Analysis of target '%s' (config: %s) failed"
+              .formatted(
+                  associatedTarget.getLabel(),
+                  configuration != null ? configuration.getOptions().shortId() : "none");
       throw new AspectFunctionException(
           new AspectCreationException(msg, key.getLabel(), configuration));
     }

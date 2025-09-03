@@ -26,6 +26,7 @@ import static com.google.protobuf.ExtensionRegistry.getEmptyRegistry;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -39,6 +40,8 @@ import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DirectoryListingInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.Symlink;
@@ -46,7 +49,9 @@ import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
@@ -259,6 +264,10 @@ final class FileDependencyDeserializer {
     @Override
     public ListenableFuture<FileDependencies> apply(byte[] bytes)
         throws InvalidProtocolBufferException {
+      if (bytes == null) {
+        return immediateFuture(FileDependencies.newMissingInstance());
+      }
+
       var data = FileInvalidationData.parseFrom(bytes, getEmptyRegistry());
       if (data.hasOverflowKey() && !data.getOverflowKey().equals(key)) {
         return immediateFailedFuture(
@@ -272,7 +281,11 @@ final class FileDependencyDeserializer {
       int pathBegin = key.indexOf(FILE_KEY_DELIMITER) + 1;
       int parentDirectoryEnd = key.lastIndexOf(SEPARATOR_CHAR);
 
-      if (parentDirectoryEnd == -1) {
+      // `parentDirectoryEnd` is the index of the last `/`. This can be -1 if there is no `/` in
+      // the key, or it can be less than `pathBegin` if the only `/`s are in the version part of
+      // the key (e.g. "Ly/APA:WORKSPACE"). In either case, there is no parent directory to
+      // resolve.
+      if (parentDirectoryEnd < pathBegin) {
         checkState(
             !data.hasParentMtsv(), "no parent directory, but had parent MTSV %s, %s", key, data);
         return resolveParent(key, data, key.substring(pathBegin), /* parentKey= */ null);
@@ -294,7 +307,7 @@ final class FileDependencyDeserializer {
     var waitForParent = new WaitForParent(key, data, basename);
 
     if (parentKey == null) {
-      return waitForParent.apply(/* parent= */ null);
+      return waitForParent.apply(/* parentOrMissing= */ null);
     }
 
     switch (getFileDependencies(parentKey)) {
@@ -317,16 +330,22 @@ final class FileDependencyDeserializer {
     }
 
     @Override
-    public ListenableFuture<FileDependencies> apply(@Nullable FileDependencies parent) {
+    public ListenableFuture<FileDependencies> apply(@Nullable FileDependencies parentOrMissing) {
       FileDependencies.Builder builder;
       String parentDirectory;
-      if (parent == null) {
-        parentDirectory = null;
-        builder = FileDependencies.builder(basename);
-      } else {
-        parentDirectory = parent.resolvedPath();
-        builder =
-            FileDependencies.builder(getRelative(parentDirectory, basename)).addDependency(parent);
+      switch (parentOrMissing) {
+        case null:
+          parentDirectory = null;
+          builder = FileDependencies.builder(basename);
+          break;
+        case AvailableFileDependencies parent:
+          parentDirectory = parent.resolvedPath();
+          builder =
+              FileDependencies.builder(getRelative(parentDirectory, basename))
+                  .addDependency(parent);
+          break;
+        case MissingFileDependencies unused:
+          return immediateFuture(FileDependencies.newMissingInstance());
       }
       return processSymlinks(key, data, /* symlinkIndex= */ 0, parentDirectory, builder);
     }
@@ -415,10 +434,16 @@ final class FileDependencyDeserializer {
     }
 
     @Override
-    public ListenableFuture<FileDependencies> apply(FileDependencies parent) {
-      String parentPath = parent.resolvedPath();
-      builder.addPath(getRelative(parentPath, linkBasename)).addDependency(parent);
-      return processSymlinks(key, data, symlinkIndex + 1, parentPath, builder);
+    public ListenableFuture<FileDependencies> apply(FileDependencies parentOrMissing) {
+      return switch (parentOrMissing) {
+        case AvailableFileDependencies parent -> {
+          String parentPath = parent.resolvedPath();
+          builder.addPath(getRelative(parentPath, linkBasename)).addDependency(parent);
+          yield processSymlinks(key, data, symlinkIndex + 1, parentPath, builder);
+        }
+        case MissingFileDependencies unused ->
+            immediateFuture(FileDependencies.newMissingInstance());
+      };
     }
   }
 
@@ -483,6 +508,10 @@ final class FileDependencyDeserializer {
     @Override
     public ListenableFuture<ListingDependencies> apply(byte[] bytes)
         throws InvalidProtocolBufferException {
+      if (bytes == null) {
+        return immediateFuture(ListingDependencies.newMissingInstance());
+      }
+
       var data = DirectoryListingInvalidationData.parseFrom(bytes, getEmptyRegistry());
       if (data.hasOverflowKey() && !data.getOverflowKey().equals(key)) {
         return immediateFailedFuture(
@@ -497,7 +526,7 @@ final class FileDependencyDeserializer {
 
       String path = key.substring(pathBegin);
       if (path.isEmpty()) {
-        return immediateFuture(new ListingDependencies(ROOT_FILE));
+        return immediateFuture(ListingDependencies.from(ROOT_FILE));
       }
 
       String fileKey =
@@ -507,9 +536,9 @@ final class FileDependencyDeserializer {
               FILE_KEY_DELIMITER);
       switch (getFileDependencies(fileKey)) {
         case FileDependencies dependencies:
-          return immediateFuture(new ListingDependencies(dependencies));
+          return immediateFuture(ListingDependencies.from(dependencies));
         case FutureFileDependencies future:
-          return Futures.transform(future, ListingDependencies::new, directExecutor());
+          return Futures.transform(future, ListingDependencies::from, directExecutor());
       }
     }
   }
@@ -527,75 +556,93 @@ final class FileDependencyDeserializer {
      */
     @Override
     public ListenableFuture<NestedDependencies> apply(byte[] bytes) {
+      if (bytes == null) {
+        return immediateFuture(NestedDependencies.newMissingInstance());
+      }
+
       try {
-        var codedIn = CodedInputStream.newInstance(bytes);
-        int nestedCount = codedIn.readInt32();
-        int fileCount = codedIn.readInt32();
-        int listingCount = codedIn.readInt32();
-        int sourceCount = codedIn.readInt32();
-
-        var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
-        var sources =
-            sourceCount > 0 ? new FileDependencies[sourceCount] : NestedDependencies.EMPTY_SOURCES;
-        var countdown = new PendingElementCountdown(elements, sources);
-
-        for (int i = 0; i < nestedCount; i++) {
-          var key = PackedFingerprint.readFrom(codedIn);
-          switch (getNestedDependencies(key)) {
-            case NestedDependencies dependencies:
-              elements[i] = dependencies;
-              break;
-            case FutureNestedDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-              break;
-          }
+        boolean usesZstdCompression = MagicBytes.hasMagicBytes(bytes);
+        InputStream inputStream;
+        if (usesZstdCompression) {
+          ByteArrayInputStream byteArrayInputStream =
+              new ByteArrayInputStream(bytes, 2, bytes.length - 2);
+          inputStream = new ZstdInputStream(byteArrayInputStream);
+        } else {
+          inputStream = new ByteArrayInputStream(bytes);
         }
+        try (inputStream) {
+          CodedInputStream codedIn = CodedInputStream.newInstance(inputStream);
+          int nestedCount = codedIn.readInt32();
+          int fileCount = codedIn.readInt32();
+          int listingCount = codedIn.readInt32();
+          int sourceCount = codedIn.readInt32();
 
-        int nestedAndFileCount = nestedCount + fileCount;
-        for (int i = nestedCount; i < nestedAndFileCount; i++) {
-          String key = codedIn.readString();
-          switch (getFileDependencies(key)) {
-            case FileDependencies dependencies:
-              elements[i] = dependencies;
-              break;
-            case FutureFileDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-              break;
-          }
-        }
+          var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
+          var sources =
+              sourceCount > 0
+                  ? new FileDependencies[sourceCount]
+                  : NestedDependencies.EMPTY_SOURCES;
+          var countdown = new PendingElementCountdown(elements, sources);
 
-        int total = nestedAndFileCount + listingCount;
-        for (int i = nestedAndFileCount; i < total; i++) {
-          String key = codedIn.readString();
-          switch (getListingDependencies(key)) {
-            case ListingDependencies dependencies:
-              elements[i] = dependencies;
-              break;
-            case FutureListingDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-              break;
+          for (int i = 0; i < nestedCount; i++) {
+            var key = PackedFingerprint.readFrom(codedIn);
+            switch (getNestedDependencies(key)) {
+              case NestedDependencies dependencies:
+                elements[i] = dependencies;
+                break;
+              case FutureNestedDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                break;
+            }
           }
-        }
 
-        for (int i = 0; i < sourceCount; i++) {
-          String key = codedIn.readString();
-          switch (getFileDependencies(key)) {
-            case FileDependencies dependencies:
-              sources[i] = dependencies;
-              break;
-            case FutureFileDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
-              break;
+          int nestedAndFileCount = nestedCount + fileCount;
+          for (int i = nestedCount; i < nestedAndFileCount; i++) {
+            String key = codedIn.readString();
+            switch (getFileDependencies(key)) {
+              case FileDependencies dependencies:
+                elements[i] = dependencies;
+                break;
+              case FutureFileDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                break;
+            }
           }
+
+          int total = nestedAndFileCount + listingCount;
+          for (int i = nestedAndFileCount; i < total; i++) {
+            String key = codedIn.readString();
+            switch (getListingDependencies(key)) {
+              case ListingDependencies dependencies:
+                elements[i] = dependencies;
+                break;
+              case FutureListingDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                break;
+            }
+          }
+
+          for (int i = 0; i < sourceCount; i++) {
+            String key = codedIn.readString();
+            switch (getFileDependencies(key)) {
+              case FileDependencies dependencies:
+                sources[i] = dependencies;
+                break;
+              case FutureFileDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
+                break;
+            }
+          }
+          countdown.notifyInitializationDone();
+          return countdown;
         }
-        countdown.notifyInitializationDone();
-        return countdown;
       } catch (IOException e) {
-        return immediateFailedFuture(e);
+        return immediateFailedFuture(
+            new SerializationException("Error deserializing nested node", e));
       }
     }
   }
@@ -610,6 +657,7 @@ final class FileDependencyDeserializer {
     private final FileDependencies[] sources;
 
     private PendingElementCountdown(FileSystemDependencies[] elements, FileDependencies[] sources) {
+      super(directExecutor());
       this.elements = elements;
       this.sources = sources;
     }
@@ -638,7 +686,7 @@ final class FileDependencyDeserializer {
 
     @Override
     protected NestedDependencies getValue() {
-      return new NestedDependencies(elements, sources);
+      return NestedDependencies.from(elements, sources);
     }
   }
 
@@ -667,7 +715,7 @@ final class FileDependencyDeserializer {
     }
   }
 
-  private static class WaitingForSource implements FutureCallback<FileDependencies> {
+  private static final class WaitingForSource implements FutureCallback<FileDependencies> {
     private final int index;
     private final PendingElementCountdown countdown;
 

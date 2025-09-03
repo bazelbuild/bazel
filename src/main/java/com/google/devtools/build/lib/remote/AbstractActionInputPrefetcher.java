@@ -223,23 +223,29 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.outputPermissions = outputPermissions;
   }
 
-  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
-    if (!path.exists()) {
+  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
+      throws IOException {
+    var stat = path.statIfFound();
+    if (stat == null) {
       return true;
     }
 
-    // In the most cases, skyframe should be able to detect source files modifications and delete
-    // staled outputs before action execution. However, there are some cases where outputs are not
-    // tracked by skyframe. We compare the digest here to make sure we don't use staled files.
-    try {
-      byte[] digest = path.getFastDigest();
-      if (digest == null) {
-        digest = path.getDigest();
-      }
-      return !Arrays.equals(digest, metadata.getDigest());
-    } catch (IOException ignored) {
+    // If an action output is stale, Skyframe will delete it prior to action execution. However,
+    // this doesn't apply to spawn outputs that aren't action outputs. To avoid incorrectly reusing
+    // one such stale output, check for its up-to-dateness here.
+    if (stat.getSize() != metadata.getSize()) {
       return true;
     }
+    var contentsProxy = metadata.getContentsProxy();
+    if (contentsProxy != null && contentsProxy.equals(FileContentsProxy.create(stat))) {
+      return false;
+    }
+
+    byte[] digest = path.getFastDigest();
+    if (digest == null) {
+      digest = path.getDigest();
+    }
+    return !Arrays.equals(digest, metadata.getDigest());
   }
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
@@ -588,7 +594,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         })
                     .onErrorResumeNext(
                         error -> {
-                          if (error instanceof CacheNotFoundException) {
+                          if (error instanceof CacheNotFoundException
+                              || error instanceof RuntimeException
+                              || error instanceof Error) {
                             return Completable.error(error);
                           }
 

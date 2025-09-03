@@ -40,7 +40,7 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
-      protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+      public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
           throws IOException {
         if (path.toString().contains("causes_interrupt")) {
           mainThread.interrupt();

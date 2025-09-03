@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -862,6 +863,7 @@ class IncludeParser {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       @Nullable SpawnIncludeScanner remoteIncludeScanner,
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
@@ -875,6 +877,7 @@ class IncludeParser {
               actionExecutionMetadata,
               actionExecutionContext,
               grepIncludes,
+              grepIncludesExecutionPlatform,
               getFileType(),
               isOutputFile);
     } else {
@@ -894,6 +897,7 @@ class IncludeParser {
                   actionExecutionMetadata,
                   actionExecutionContext,
                   grepIncludes,
+                  grepIncludesExecutionPlatform,
                   getFileType(),
                   isOutputFile);
         } else {

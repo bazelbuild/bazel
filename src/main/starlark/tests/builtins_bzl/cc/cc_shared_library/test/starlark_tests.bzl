@@ -23,7 +23,6 @@ load("@rules_cc//cc/common:cc_shared_library_hint_info.bzl", "CcSharedLibraryHin
 load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
-load(":semantics.bzl", "semantics")
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:
@@ -74,9 +73,6 @@ def _linking_order_test_impl(env, target):
         ]).in_order()
 
         env.expect.that_collection(args).contains_at_least([
-            "-lprivate_lib_so",
-            "-Wl,-rpath,hdr_only",
-        ] if semantics.is_bazel else [
             "-lprivate_lib_so",
         ])
 

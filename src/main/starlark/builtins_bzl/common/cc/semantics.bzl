@@ -14,6 +14,8 @@
 
 """Semantics for Bazel cc rules"""
 
+_config = _builtins.toplevel.config
+
 # Point virtual includes symlinks to the source root for better IDE integration.
 # See https://github.com/bazelbuild/bazel/pull/20540.
 # TODO: b/320980684 - Add a test that fails if this is flipped to True.
@@ -27,9 +29,6 @@ def _should_create_empty_archive():
 
 def _validate_attributes(ctx):
     pass
-
-def _get_semantics():
-    return _builtins.internal.bazel_cc_internal.semantics
 
 def _get_stl():
     return attr.label()
@@ -75,12 +74,12 @@ def _get_coverage_attrs():
         "_lcov_merger": attr.label(
             default = configuration_field(fragment = "coverage", name = "output_generator"),
             executable = True,
-            cfg = "exec",
+            cfg = _config.exec(exec_group = "test"),
         ),
         "_collect_cc_coverage": attr.label(
             default = "@bazel_tools//tools/test:collect_cc_coverage",
             executable = True,
-            cfg = "exec",
+            cfg = _config.exec(exec_group = "test"),
         ),
     }
 
@@ -138,15 +137,29 @@ def _cpp_modules_tools():
             cfg = "exec",
             default = "@" + _get_repo() + "//tools/cpp:aggregate-ddi",
         ),
-        "_generate_modmap": attr.label(
+        "generate_modmap": attr.label(
             executable = True,
             cfg = "exec",
-            default = "@" + _get_repo() + "//tools/cpp:generate-modmap",
         ),
     }
 
+def _validate(ctx, rule_name):
+    pass
+
+def _validate_cc_compile_call(
+        *,
+        label,  # @unused
+        include_prefix,  # @unused
+        strip_include_prefix,  # @unused
+        additional_include_scanning_roots):
+    if additional_include_scanning_roots:
+        fail("The 'additional_include_scanning_roots' parameter doesn't do anything useful. " +
+             "This is only used internally for a mechanism we'd like to get rid of.")
+
 semantics = struct(
     toolchain = "@bazel_tools//tools/cpp:toolchain_type",
+    validate = _validate,
+    allowlist_attrs = {},
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
         "objc_library",
@@ -160,7 +173,6 @@ semantics = struct(
     ],
     ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
     validate_attributes = _validate_attributes,
-    get_semantics = _get_semantics,
     get_repo = _get_repo,
     get_platforms_root = _get_platforms_root,
     additional_fragments = _additional_fragments,
@@ -187,6 +199,7 @@ semantics = struct(
     BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
     is_bazel = True,
+    validate_cc_compile_call = _validate_cc_compile_call,
     extra_exec_groups = {},
     stamp_extra_docs = "",
     malloc_docs = """

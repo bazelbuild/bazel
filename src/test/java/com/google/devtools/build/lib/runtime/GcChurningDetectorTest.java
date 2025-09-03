@@ -44,7 +44,18 @@ public class GcChurningDetectorTest {
     ManualClock fakeClock = new ManualClock();
 
     GcChurningDetector underTest =
-        new GcChurningDetector(/* thresholdPercentage= */ 100, fakeClock, mockBugReporter);
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 100,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 100,
+            fakeClock,
+            mockBugReporter);
+
+    {
+      MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+      underTest.populateStats(actualBuilder);
+
+      assertThat(actualBuilder.build()).isEqualTo(MemoryPressureStats.getDefaultInstance());
+    }
 
     fakeClock.advance(Duration.ofMillis(50L));
     underTest.handle(fullGcEvent(Duration.ofMillis(10L)));
@@ -52,23 +63,38 @@ public class GcChurningDetectorTest {
     fakeClock.advance(Duration.ofMillis(50L));
     underTest.handle(fullGcEvent(Duration.ofMillis(40L)));
 
-    MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
-    underTest.populateStats(actualBuilder);
+    fakeClock.advance(Duration.ofMillis(50L));
+    underTest.handle(fullGcEvent(Duration.ofMillis(10L)));
 
-    assertThat(actualBuilder.build())
-        .isEqualTo(
-            MemoryPressureStats.newBuilder()
-                .addFullGcFractionPoint(
-                    FullGcFractionPoint.newBuilder()
-                        .setInvocationWallTimeSoFarMs(50)
-                        .setFullGcFractionSoFar(0.2)
-                        .build())
-                .addFullGcFractionPoint(
-                    FullGcFractionPoint.newBuilder()
-                        .setInvocationWallTimeSoFarMs(100)
-                        .setFullGcFractionSoFar(0.5)
-                        .build())
-                .build());
+    {
+      MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+      underTest.populateStats(actualBuilder);
+
+      assertThat(actualBuilder.build())
+          .isEqualTo(
+              MemoryPressureStats.newBuilder()
+                  .addFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(50)
+                          .setFullGcFractionSoFar(0.2)
+                          .build())
+                  .addFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(100)
+                          .setFullGcFractionSoFar(0.5)
+                          .build())
+                  .addFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(150)
+                          .setFullGcFractionSoFar(0.4)
+                          .build())
+                  .setPeakFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(100)
+                          .setFullGcFractionSoFar(0.5)
+                          .build())
+                  .build());
+    }
 
     verifyNoOom();
   }
@@ -78,7 +104,11 @@ public class GcChurningDetectorTest {
     ManualClock fakeClock = new ManualClock();
 
     GcChurningDetector underTest =
-        new GcChurningDetector(/* thresholdPercentage= */ 100, fakeClock, mockBugReporter);
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 100,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 100,
+            fakeClock,
+            mockBugReporter);
 
     fakeClock.advance(Duration.ofNanos(456L));
     underTest.handle(fullGcEvent(Duration.ofNanos(123L)));
@@ -97,6 +127,11 @@ public class GcChurningDetectorTest {
                         .setInvocationWallTimeSoFarMs(2)
                         .setFullGcFractionSoFar(0.5)
                         .build())
+                .setPeakFullGcFractionPoint(
+                    FullGcFractionPoint.newBuilder()
+                        .setInvocationWallTimeSoFarMs(2)
+                        .setFullGcFractionSoFar(0.5)
+                        .build())
                 .build());
   }
 
@@ -105,7 +140,11 @@ public class GcChurningDetectorTest {
     ManualClock fakeClock = new ManualClock();
 
     GcChurningDetector underTest =
-        new GcChurningDetector(/* thresholdPercentage= */ 50, fakeClock, mockBugReporter);
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 50,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 50,
+            fakeClock,
+            mockBugReporter);
 
     fakeClock.advance(Duration.ofMinutes(3L));
     underTest.handle(fullGcEvent(Duration.ofMinutes(1L)));
@@ -121,7 +160,11 @@ public class GcChurningDetectorTest {
     ManualClock fakeClock = new ManualClock();
 
     GcChurningDetector underTest =
-        new GcChurningDetector(/* thresholdPercentage= */ 50, fakeClock, mockBugReporter);
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 50,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 50,
+            fakeClock,
+            mockBugReporter);
 
     fakeClock.advance(Duration.ofSeconds(30L));
     underTest.handle(fullGcEvent(Duration.ofSeconds(15L)));
@@ -134,6 +177,81 @@ public class GcChurningDetectorTest {
     fakeClock.advance(Duration.ofSeconds(1L));
     underTest.handle(fullGcEvent(Duration.ofSeconds(1L)));
     verifyOom();
+  }
+
+  @Test
+  public void thresholdPercentageIfMultipleTopLevelTargets_onlySingleTarget() {
+    ManualClock fakeClock = new ManualClock();
+
+    GcChurningDetector underTest =
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 100,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 50,
+            fakeClock,
+            mockBugReporter);
+
+    fakeClock.advance(Duration.ofSeconds(60L));
+    underTest.handle(fullGcEvent(Duration.ofSeconds(30L)));
+    verifyNoOom();
+
+    underTest.targetParsingComplete(1);
+    fakeClock.advance(Duration.ofSeconds(30L));
+    underTest.handle(fullGcEvent(Duration.ofSeconds(20L)));
+    verifyNoOom();
+  }
+
+  @Test
+  public void thresholdPercentageIfMultipleTopLevelTargets() {
+    ManualClock fakeClock = new ManualClock();
+
+    GcChurningDetector underTest =
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 100,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 50,
+            fakeClock,
+            mockBugReporter);
+
+    fakeClock.advance(Duration.ofSeconds(60L));
+    underTest.handle(fullGcEvent(Duration.ofSeconds(40L)));
+    verifyNoOom();
+
+    underTest.targetParsingComplete(2);
+    fakeClock.advance(Duration.ofSeconds(30L));
+    underTest.handle(fullGcEvent(Duration.ofSeconds(20L)));
+    verifyOom();
+  }
+
+  @Test
+  public void fullGcStartedBeforeInvocationStarted() {
+    ManualClock fakeClock = new ManualClock();
+
+    GcChurningDetector underTest =
+        new GcChurningDetector(
+            /* thresholdPercentage= */ 100,
+            /* thresholdPercentageIfMultipleTopLevelTargets= */ 100,
+            fakeClock,
+            mockBugReporter);
+
+    fakeClock.advance(Duration.ofMillis(1L));
+    underTest.handle(fullGcEvent(Duration.ofSeconds(2L)));
+
+    MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+    underTest.populateStats(actualBuilder);
+
+    assertThat(actualBuilder.build())
+        .isEqualTo(
+            MemoryPressureStats.newBuilder()
+                .addFullGcFractionPoint(
+                    FullGcFractionPoint.newBuilder()
+                        .setInvocationWallTimeSoFarMs(1)
+                        .setFullGcFractionSoFar(1.0)
+                        .build())
+                .setPeakFullGcFractionPoint(
+                    FullGcFractionPoint.newBuilder()
+                        .setInvocationWallTimeSoFarMs(1)
+                        .setFullGcFractionSoFar(1.0)
+                        .build())
+                .build());
   }
 
   private void verifyNoOom() {

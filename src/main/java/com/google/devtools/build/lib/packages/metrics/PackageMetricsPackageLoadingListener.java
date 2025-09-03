@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.metrics;
 
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.protobuf.util.Durations;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -43,7 +44,10 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
   @Override
   public synchronized void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
+      Package pkg,
+      StarlarkSemantics starlarkSemantics,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages,
+      Metrics metrics) {
     if (recorder == null) {
       // Micro-optimization - no need to track.
       return;
@@ -51,7 +55,8 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
     PackageLoadMetrics.Builder builder =
         PackageLoadMetrics.newBuilder()
-            .setLoadDuration(Durations.fromNanos(loadTimeNanos))
+            .setLoadDuration(Durations.fromNanos(metrics.loadTimeNanos()))
+            .setGlobFilesystemOperationCost(metrics.globFilesystemOperationCost())
             .setComputationSteps(pkg.getComputationSteps())
             .setNumTargets(pkg.getTargets().size())
             .setNumTransitiveLoads(pkg.getDeclarations().countTransitivelyLoadedStarlarkFiles());

@@ -144,13 +144,28 @@ local_repository(
 EOF
 }
 
-function test_missing_necessary_repo_fails() {
-  # Intentionally not adding apple_support to MODULE.bazel (and it's not in MODULE.tools)
-  cat > WORKSPACE << EOF
-workspace(name = "test")
-# TODO: protobuf's WORKSPACE macro has an unnecessary dependency on build_bazel_apple_support.
-# __SKIP_WORKSPACE_SUFFIX__
+function mock_protobuf() {
+  protobuf_workspace="${TEST_TMPDIR}/protobuf_workspace"
+  mkdir -p "${protobuf_workspace}/protobuf"
+  cat > "${protobuf_workspace}/MODULE.bazel" << EOF
+module(name = "protobuf", repo_name = "com_google_protobuf")
 EOF
+
+  cat >> MODULE.bazel << EOF
+bazel_dep(
+    name = "protobuf",
+    repo_name = "com_google_protobuf",
+)
+local_path_override(
+    module_name = "protobuf",
+    path = "${protobuf_workspace}",
+)
+EOF
+}
+
+function test_missing_necessary_repo_fails() {
+  # Mock protobuf to prevent apple_support being added from MODULE.tools via protobuf
+  mock_protobuf
   cat > BUILD << EOF
 xcode_version(
     name = 'xcode_version',

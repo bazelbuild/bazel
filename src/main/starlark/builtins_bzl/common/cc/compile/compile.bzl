@@ -17,8 +17,21 @@ The cc_common.compile function.
 Used for C++ compiling.
 """
 
-load(":common/cc/cc_helper_internal.bzl", "extensions")
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    "CPP_SOURCE_TYPE_CLIF_INPUT_PROTO",
+    "CPP_SOURCE_TYPE_HEADER",
+    "CPP_SOURCE_TYPE_SOURCE",
+    "artifact_category",
+    "extensions",
+    "output_subdirectories",
+    "should_create_per_object_debug_info",
+)
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
+load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
+load(":common/cc/compile/compile_build_variables.bzl", "get_specific_compile_build_variables")
+load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
+load(":common/paths.bzl", "paths")
 
 cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
@@ -31,6 +44,8 @@ SOURCE_CATEGORY_CC = set(
     extensions.ASSESMBLER_WITH_C_PREPROCESSOR +
     extensions.CLIF_INPUT_PROTO,
 )
+
+# LINT.IfChange(cc_and_objc_file_types)
 SOURCE_CATEGORY_CC_AND_OBJC = set(
     extensions.CC_SOURCE +
     extensions.CC_HEADER +
@@ -40,6 +55,10 @@ SOURCE_CATEGORY_CC_AND_OBJC = set(
     extensions.ASSEMBLER +
     extensions.ASSESMBLER_WITH_C_PREPROCESSOR,
 )
+# LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileActionTemplate.java:cc_and_objc_file_types)
+
+# Filetypes that generate LLVM bitcode when -flto is specified.
+LTO_SOURCE_EXTENSIONS = set(extensions.CC_SOURCE + extensions.C_SOURCE)
 
 # LINT.IfChange(compile_api)
 def compile(
@@ -159,9 +178,9 @@ def compile(
     """
 
     # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcModuleApi.java:compile_api)
-    # LINT.IfChange(compile)
-    cc_common_internal.validate_starlark_compile_api_call(
-        actions = actions,
+    ctx = cc_internal.actions2ctx_cheat(actions)
+    _starlark_cc_semantics.validate_cc_compile_call(
+        label = ctx.label,
         include_prefix = include_prefix,
         strip_include_prefix = strip_include_prefix,
         additional_include_scanning_roots = additional_include_scanning_roots,
@@ -196,7 +215,8 @@ def compile(
     language_normalized = language_normalized.replace("+", "p").upper()
     source_category = SOURCE_CATEGORY_CC if language_normalized == "CPP" else SOURCE_CATEGORY_CC_AND_OBJC
     ctx = cc_internal.actions2ctx_cheat(actions)
-    includes = includes.to_list() if type(includes) == "depset" else includes
+    if type(includes) == "depset":
+        includes = includes.to_list()
     textual_hdrs_list = textual_hdrs.to_list() if type(textual_hdrs) == "depset" else textual_hdrs
 
     compilation_unit_sources = {}
@@ -249,7 +269,8 @@ def compile(
         generate_no_pic_action = generate_no_pic_action,
         module_map = module_map,
         propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
-        additional_exported_headers = additional_exported_hdrs + [h.path for h in textual_hdrs_list],
+        additional_exported_headers =
+            additional_exported_hdrs + [h.path for h in textual_hdrs_list] if textual_hdrs_list else additional_exported_hdrs,
         deps = compilation_contexts,
         purpose = "unused",
         # init_cc_compilation_context() passes purpose to two calls to
@@ -267,7 +288,30 @@ def compile(
     if feature_configuration.is_enabled("header_modules") and not public_compilation_context.module_map:
         fail("All cc rules must support module maps.")
 
-    cc_outputs = cc_common_internal.create_cc_compile_actions(
+    common_compile_build_variables = cc_internal.setup_common_compile_build_variables(
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        cpp_configuration = cpp_configuration,
+        fdo_context = fdo_context,
+        feature_configuration = feature_configuration,
+        variables_extension = variables_extension,
+    )
+    auxiliary_fdo_inputs = cc_internal.get_auxiliary_fdo_inputs(
+        cc_toolchain = cc_toolchain,
+        fdo_context = fdo_context,
+        feature_configuration = feature_configuration,
+    )
+    fdo_build_variables = cc_internal.setup_fdo_build_variables(
+        cc_toolchain = cc_toolchain,
+        fdo_context = fdo_context,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        feature_configuration = feature_configuration,
+        fdo_instrument = cpp_configuration.fdo_instrument(),
+        cs_fdo_instrument = cpp_configuration.cs_fdo_instrument(),
+    )
+
+    cc_outputs_builder = cc_internal.create_cc_compilation_outputs_builder()
+    _create_cc_compile_actions(
         action_construction_context = ctx,
         additional_compilation_inputs = additional_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
@@ -290,9 +334,13 @@ def compile(
         public_headers = public_hdrs_artifacts,
         purpose = purpose if purpose else "",
         separate_module_headers = separate_module_headers,
-        variables_extension = variables_extension,
         language = language,
+        outputs = cc_outputs_builder,
+        common_compile_build_variables = common_compile_build_variables,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        fdo_build_variables = fdo_build_variables,
     )
+    cc_outputs = cc_outputs_builder.build()
 
     if cpp_configuration.process_headers_in_dependencies():
         compilation_context = cc_internal.create_cc_compilation_context_with_extra_header_tokens(
@@ -320,7 +368,7 @@ def _add_suitable_headers_to_compilation_unit_sources(
             compilation_unit_sources[header] = cc_internal.create_cpp_source(
                 label = label,
                 source = header,
-                type = "HEADER",
+                type = CPP_SOURCE_TYPE_HEADER,
             )
 
 def _add_suitable_srcs_to_compilation_unit_sources(
@@ -339,7 +387,7 @@ def _add_suitable_srcs_to_compilation_unit_sources(
             compilation_unit_sources[source] = cc_internal.create_cpp_source(
                 label = label,
                 source = source,
-                type = "CLIF_INPUT_PROTO" if "." + source.extension in extensions.CLIF_INPUT_PROTO else "SOURCE",
+                type = CPP_SOURCE_TYPE_CLIF_INPUT_PROTO if "." + source.extension in extensions.CLIF_INPUT_PROTO else CPP_SOURCE_TYPE_SOURCE,
             )
 
 def _to_file_list(list_of_files_or_tuples):
@@ -378,4 +426,670 @@ def _to_file_label_tuple_list(list_of_files_or_tuples, label):
         return [(h, label) for h in list_of_files_or_tuples]
     fail("Should be either tuple or File: " + type(list_of_files_or_tuples[0]))
 
-# LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CcModule.java:compile)
+def _should_provide_header_modules(
+        feature_configuration,
+        private_headers,
+        public_headers):
+    """Returns whether we want to provide header modules for the current target."""
+    return (
+        feature_configuration.is_enabled("header_modules") and
+        (private_headers or public_headers)
+    )
+
+def _create_cc_compile_actions(
+        *,
+        action_construction_context,
+        additional_compilation_inputs,
+        additional_include_scanning_roots,
+        cc_compilation_context,
+        cc_toolchain,
+        compilation_unit_sources,
+        configuration,
+        conlyopts,
+        copts,
+        copts_filter,
+        cpp_configuration,  # Note: this is from the cc_toolchain, and is NOT the same as ctx.fragments.cpp
+        cxxopts,
+        fdo_context,
+        feature_configuration,
+        generate_no_pic_action,
+        generate_pic_action,
+        is_code_coverage_enabled,
+        label,
+        private_headers,
+        public_headers,
+        purpose,
+        separate_module_headers,
+        language,
+        outputs,
+        common_compile_build_variables,
+        auxiliary_fdo_inputs,
+        fdo_build_variables):
+    """Constructs the C++ compiler actions.
+
+    It generally creates one action for every specified source
+    file. It takes into account coverage, and PIC, in addition to using the settings specified on
+    the current object. This method should only be called once.
+    """
+    if generate_pic_action and not feature_configuration.is_enabled("pic") and not feature_configuration.is_enabled("supports_pic"):
+        fail("PIC compilation is requested but the toolchain does not support it " +
+             "(feature named 'supports_pic' is not enabled)")
+
+    native_cc_semantics = cc_common_internal.get_cpp_semantics(language = language)
+
+    if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
+        cpp_module_map = cc_compilation_context.module_map()
+        module_map_label = Label(cpp_module_map.name())
+        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+            action_construction_context = action_construction_context,
+            cc_toolchain = cc_toolchain,
+            cc_compilation_context = cc_compilation_context,
+            configuration = configuration,
+            copts_filter = copts_filter,
+            feature_configuration = feature_configuration,
+            semantics = native_cc_semantics,
+            source_artifact = cpp_module_map.file(),
+        )
+        modules = _create_module_action(
+            action_construction_context = action_construction_context,
+            cc_compilation_context = cc_compilation_context,
+            cc_toolchain = cc_toolchain,
+            configuration = configuration,
+            conlyopts = conlyopts,
+            copts = copts,
+            cpp_configuration = cpp_configuration,
+            cxxopts = cxxopts,
+            fdo_context = fdo_context,
+            auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+            feature_configuration = feature_configuration,
+            generate_no_pic_action = generate_no_pic_action,
+            generate_pic_action = generate_pic_action,
+            label = label,
+            common_compile_build_variables = common_compile_build_variables,
+            fdo_build_variables = fdo_build_variables,
+            native_cc_semantics = native_cc_semantics,
+            outputs = outputs,
+            cpp_module_map = cpp_module_map,
+            cpp_compile_action_builder = cpp_compile_action_builder,
+        )
+        if separate_module_headers:
+            separate_cpp_module_map = cpp_module_map.create_separate_module_map()
+            cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+                action_construction_context = action_construction_context,
+                cc_toolchain = cc_toolchain,
+                cc_compilation_context = cc_compilation_context,
+                configuration = configuration,
+                copts_filter = copts_filter,
+                feature_configuration = feature_configuration,
+                semantics = native_cc_semantics,
+                source_artifact = separate_cpp_module_map.file(),
+            )
+            separate_modules = _create_module_action(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                conlyopts = conlyopts,
+                copts = copts,
+                cpp_configuration = cpp_configuration,
+                cxxopts = cxxopts,
+                fdo_context = fdo_context,
+                auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+                feature_configuration = feature_configuration,
+                generate_no_pic_action = generate_no_pic_action,
+                generate_pic_action = generate_pic_action,
+                label = label,
+                common_compile_build_variables = common_compile_build_variables,
+                fdo_build_variables = fdo_build_variables,
+                native_cc_semantics = native_cc_semantics,
+                outputs = outputs,
+                cpp_module_map = separate_cpp_module_map,
+                cpp_compile_action_builder = cpp_compile_action_builder,
+            )
+            modules = modules + separate_modules
+        if feature_configuration.is_enabled("header_module_codegen"):
+            for module in modules:
+                _create_module_codegen_action(
+                    action_construction_context = action_construction_context,
+                    cc_compilation_context = cc_compilation_context,
+                    cc_toolchain = cc_toolchain,
+                    configuration = configuration,
+                    conlyopts = conlyopts,
+                    copts = copts,
+                    copts_filter = copts_filter,
+                    cpp_configuration = cpp_configuration,
+                    cxxopts = cxxopts,
+                    fdo_context = fdo_context,
+                    auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+                    feature_configuration = feature_configuration,
+                    is_code_coverage_enabled = is_code_coverage_enabled,
+                    label = label,
+                    common_toolchain_variables = common_compile_build_variables,
+                    fdo_build_variables = fdo_build_variables,
+                    cpp_semantics = native_cc_semantics,
+                    language = language,
+                    outputs = outputs,
+                    source_label = module_map_label,
+                    module = module,
+                )
+
+    output_name_prefix_dir = cc_internal.compute_output_name_prefix_dir(configuration = configuration, purpose = purpose)
+    output_name_map = _calculate_output_name_map_by_type(compilation_unit_sources, output_name_prefix_dir)
+
+    compiled_basenames = set()
+    for cpp_source in compilation_unit_sources.values():
+        source_artifact = cpp_source.file
+        if not cc_internal.is_tree_artifact(source_artifact) and cpp_source.type == CPP_SOURCE_TYPE_HEADER:
+            continue
+
+        output_name = output_name_map[source_artifact]
+        source_label = cpp_source.label
+        bitcode_output = feature_configuration.is_enabled("thin_lto") and (("." + source_artifact.extension) in LTO_SOURCE_EXTENSIONS)
+
+        if not cc_internal.is_tree_artifact(source_artifact):
+            cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                copts_filter = copts_filter,
+                feature_configuration = feature_configuration,
+                semantics = native_cc_semantics,
+                source_artifact = source_artifact,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
+            )
+            compiled_basenames.add(_basename_without_extension(source_artifact))
+            cc_internal.create_compile_source_action_from_builder(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                conlyopts = conlyopts,
+                copts = copts,
+                cpp_configuration = cpp_configuration,
+                cxxopts = cxxopts,
+                fdo_context = fdo_context,
+                auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+                feature_configuration = feature_configuration,
+                generate_no_pic_action = generate_no_pic_action,
+                generate_pic_action = generate_pic_action,
+                label = label,
+                common_compile_build_variables = common_compile_build_variables,
+                fdo_build_variables = fdo_build_variables,
+                cpp_semantics = native_cc_semantics,
+                source_label = source_label,
+                output_name = output_name,
+                outputs = outputs,
+                source_artifact = source_artifact,
+                cpp_compile_action_builder = cpp_compile_action_builder,
+                output_category = artifact_category.CLIF_OUTPUT_PROTO if cpp_source.type == CPP_SOURCE_TYPE_CLIF_INPUT_PROTO else artifact_category.OBJECT_FILE,
+                cpp_module_map = cc_compilation_context.module_map(),
+                add_object = True,
+                enable_coverage = is_code_coverage_enabled,
+                generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration),
+                bitcode_output = bitcode_output,
+            )
+        else:  # Tree artifact
+            create_compile_action_templates(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                cpp_configuration = cpp_configuration,
+                feature_configuration = feature_configuration,
+                native_cc_semantics = native_cc_semantics,
+                common_compile_build_variables = common_compile_build_variables,
+                fdo_build_variables = fdo_build_variables,
+                cpp_source = cpp_source,
+                source_artifact = source_artifact,
+                label = label,
+                copts = copts,
+                conlyopts = conlyopts,
+                cxxopts = cxxopts,
+                copts_filter = copts_filter,
+                fdo_context = fdo_context,
+                auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+                generate_pic_action = generate_pic_action,
+                generate_no_pic_action = generate_no_pic_action,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
+                output_name = output_name,
+                outputs = outputs,
+                bitcode_output = bitcode_output,
+            )
+    for cpp_source in compilation_unit_sources.values():
+        source_artifact = cpp_source.file
+        if cpp_source.type != CPP_SOURCE_TYPE_HEADER or cc_internal.is_tree_artifact(source_artifact):
+            continue
+        if (feature_configuration.is_enabled("validates_layering_check_in_textual_hdrs") and
+            _basename_without_extension(source_artifact) in compiled_basenames):
+            continue
+
+        output_name_base = cc_internal.get_artifact_name_for_category(
+            cc_toolchain = cc_toolchain,
+            category = artifact_category.GENERATED_HEADER,
+            output_name = output_name_map[source_artifact],
+        )
+        output_file = _get_compile_output_file(
+            action_construction_context,
+            label,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.PROCESSED_HEADER,
+                output_name = output_name_base,
+            ),
+        )
+        dotd_file = _get_compile_output_file(
+            action_construction_context,
+            label,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.INCLUDED_FILE_LIST,
+                output_name = output_name_base,
+            ),
+        ) if (
+            _dotd_files_enabled(native_cc_semantics, configuration, feature_configuration) and
+            _use_dotd_file(feature_configuration, source_artifact)
+        ) else None
+        diagnostics_file = _get_compile_output_file(
+            action_construction_context,
+            label,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.SERIALIZED_DIAGNOSTICS_FILE,
+                output_name = output_name_base,
+            ),
+        ) if _serialized_diagnostics_file_enabled(feature_configuration) else None
+        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+            action_construction_context = action_construction_context,
+            cc_compilation_context = cc_compilation_context,
+            cc_toolchain = cc_toolchain,
+            configuration = configuration,
+            copts_filter = copts_filter,
+            feature_configuration = feature_configuration,
+            semantics = native_cc_semantics,
+            source_artifact = source_artifact,
+            additional_compilation_inputs = additional_compilation_inputs,
+            additional_include_scanning_roots = additional_include_scanning_roots,
+            output_file = output_file,
+            dotd_file = dotd_file,
+            diagnostics_file = diagnostics_file,
+        )
+        specific_compile_build_variables = get_specific_compile_build_variables(
+            feature_configuration,
+            use_pic = generate_pic_action,
+            source_file = source_artifact,
+            output_file = output_file,
+            dotd_file = dotd_file,
+            diagnostics_file = diagnostics_file,
+            cpp_module_map = cc_compilation_context.module_map(),
+            direct_module_maps = cc_compilation_context.direct_module_maps,
+            user_compile_flags = _get_copts(
+                language = language,
+                cpp_configuration = cpp_configuration,
+                source_file = source_artifact,
+                conlyopts = conlyopts,
+                copts = copts,
+                cxxopts = cxxopts,
+                label = cpp_source.label,
+            ),
+        )
+        compile_variables = cc_internal.combine_cc_toolchain_variables(
+            common_compile_build_variables,
+            specific_compile_build_variables,
+        )
+
+        # This creates the action to parse a header file.
+        # If we generate pic actions, we prefer the header actions to use the pic artifacts.
+        cc_internal.create_cpp_compile_action(
+            action_construction_context = action_construction_context,
+            configuration = configuration,
+            feature_configuration = feature_configuration,
+            use_pic = generate_pic_action,
+            compile_build_variables = compile_variables,
+            cpp_semantics = native_cc_semantics,
+            compile_action_builder = cpp_compile_action_builder,
+        )
+        outputs.add_header_token_file(output_file)
+
+def _create_module_codegen_action(
+        action_construction_context,
+        cc_compilation_context,
+        cc_toolchain,
+        configuration,
+        conlyopts,
+        copts,
+        copts_filter,
+        cpp_configuration,
+        cxxopts,
+        fdo_context,
+        auxiliary_fdo_inputs,
+        feature_configuration,
+        is_code_coverage_enabled,
+        label,
+        common_toolchain_variables,
+        fdo_build_variables,
+        cpp_semantics,
+        language,
+        source_label,
+        module,
+        outputs):
+    use_pic = ".pic" in module.basename
+    output_name = paths.basename(module.basename)
+
+    gcno_file = None
+    if is_code_coverage_enabled and not cpp_configuration.use_llvm_coverage_map_format():
+        gcno_file = _declare_output_file(
+            ctx = action_construction_context,
+            label = label,
+            sub_dir = output_subdirectories.OBJS,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.COVERAGE_DATA_FILE,
+                output_name = output_name,
+            ),
+        )
+
+    bitcode_output = (feature_configuration.is_enabled("thin_lto") and
+                      paths.split_extension(module.basename)[-1] in LTO_SOURCE_EXTENSIONS)
+
+    # TODO(tejohnson): Add support for ThinLTO if needed.
+    if bitcode_output:
+        fail("bitcode output not currently supported for feature header_module_codegen")
+
+    complete_copts = _get_copts(
+        language = language,
+        cpp_configuration = cpp_configuration,
+        source_file = module,
+        conlyopts = conlyopts,
+        copts = copts,
+        cxxopts = cxxopts,
+        label = source_label,
+    )
+
+    object_file = _get_compile_output_file(
+        ctx = action_construction_context,
+        label = label,
+        output_name = cc_internal.get_artifact_name_for_category(
+            cc_toolchain = cc_toolchain,
+            category = artifact_category.OBJECT_FILE,
+            output_name = output_name,
+        ),
+    )
+
+    dotd_file = None
+    if (_dotd_files_enabled(cpp_semantics, configuration, feature_configuration) and
+        _use_dotd_file(feature_configuration, module)):
+        dotd_file = _get_compile_output_file(
+            ctx = action_construction_context,
+            label = label,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.INCLUDED_FILE_LIST,
+                output_name = output_name,
+            ),
+        )
+
+    diagnostics_file = None
+    if feature_configuration.is_enabled("serialized_diagnostics_file"):
+        diagnostics_file = _get_compile_output_file(
+            ctx = action_construction_context,
+            label = label,
+            output_name = cc_internal.get_artifact_name_for_category(
+                cc_toolchain = cc_toolchain,
+                category = artifact_category.SERIALIZED_DIAGNOSTICS_FILE,
+                output_name = output_name,
+            ),
+        )
+
+    dwo_file = None
+    generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration)
+    if generate_dwo:
+        dwo_file_name = paths.replace_extension(paths.basename(object_file.path), ".dwo")
+        dwo_file = action_construction_context.actions.declare_file(
+            dwo_file_name,
+            sibling = object_file,
+        )
+
+    specific_compile_build_variables = get_specific_compile_build_variables(
+        source_file = module,
+        output_file = object_file,
+        code_coverage_enabled = is_code_coverage_enabled,
+        gcno_file = gcno_file,
+        dwo_file = dwo_file,
+        using_fission = generate_dwo,
+        lto_indexing_file = None,
+        user_compile_flags = complete_copts,
+        dotd_file = dotd_file,
+        diagnostics_file = diagnostics_file,
+        use_pic = use_pic,
+        cpp_module_map = cc_compilation_context.module_map(),
+        feature_configuration = feature_configuration,
+        direct_module_maps = cc_compilation_context.direct_module_maps,
+        fdo_build_variables = fdo_build_variables,
+        additional_build_variables = {},
+    )
+    compile_variables = cc_internal.combine_cc_toolchain_variables(
+        common_toolchain_variables,
+        specific_compile_build_variables,
+    )
+
+    additional_inputs = []
+    fdo_context_has_artifacts = (getattr(fdo_context, "branch_fdo_profile", None) or
+                                 getattr(fdo_context, "prefetch_hints_artifact", None) or
+                                 getattr(fdo_context, "properller_optimize_input_file", None) or
+                                 getattr(fdo_context, "memprof_profile_artifact", None))
+
+    # This flattening is cheap and is only necessary because get_auxiliary_fdo_inputs creates a
+    # depset instead of returning a list, and and create_cpp_compile_action_builder() expects a
+    # list instead of a depset
+    # TODO(cmita): Fix this muddle
+    if fdo_context_has_artifacts:
+        additional_inputs = auxiliary_fdo_inputs.to_list()
+
+    compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+        action_construction_context = action_construction_context,
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        configuration = configuration,
+        copts_filter = copts_filter,
+        feature_configuration = feature_configuration,
+        semantics = cpp_semantics,
+        source_artifact = module,
+        additional_compilation_inputs = additional_inputs,
+        output_file = object_file,
+        dotd_file = dotd_file,
+        diagnostics_file = diagnostics_file,
+        gcno_file = gcno_file,
+        dwo_file = dwo_file,
+    )
+
+    cc_internal.create_cpp_compile_action(
+        action_construction_context = action_construction_context,
+        compile_action_builder = compile_action_builder,
+        compile_build_variables = compile_variables,
+        cpp_semantics = cpp_semantics,
+        configuration = configuration,
+        feature_configuration = feature_configuration,
+    )
+    if use_pic:
+        outputs.add_pic_object_file(object_file)
+    else:
+        outputs.add_object_file(object_file)
+
+def _create_module_action(
+        action_construction_context,
+        cc_compilation_context,
+        cc_toolchain,
+        configuration,
+        conlyopts,
+        copts,
+        cpp_configuration,
+        cxxopts,
+        fdo_context,
+        auxiliary_fdo_inputs,
+        feature_configuration,
+        generate_no_pic_action,
+        generate_pic_action,
+        label,
+        common_compile_build_variables,
+        fdo_build_variables,
+        native_cc_semantics,
+        cpp_module_map,
+        outputs,
+        cpp_compile_action_builder):
+    module_map_label = Label(cpp_module_map.name())
+    return cc_internal.create_compile_source_action_from_builder(
+        action_construction_context = action_construction_context,
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        configuration = configuration,
+        conlyopts = conlyopts,
+        copts = copts,
+        cpp_configuration = cpp_configuration,
+        cxxopts = cxxopts,
+        fdo_context = fdo_context,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        feature_configuration = feature_configuration,
+        generate_no_pic_action = generate_no_pic_action,
+        generate_pic_action = generate_pic_action,
+        label = label,
+        common_compile_build_variables = common_compile_build_variables,
+        fdo_build_variables = fdo_build_variables,
+        cpp_semantics = native_cc_semantics,
+        source_label = module_map_label,
+        output_name = paths.basename(module_map_label.name),
+        outputs = outputs,
+        source_artifact = cpp_module_map.file(),
+        cpp_compile_action_builder = cpp_compile_action_builder,
+        cpp_module_map = cpp_module_map,
+        output_category = artifact_category.CPP_MODULE,
+        add_object = False,
+        enable_coverage = False,
+        generate_dwo = False,
+        bitcode_output = False,
+    )
+
+def _get_compile_output_file(ctx, label, *, output_name):
+    return ctx.actions.declare_file(paths.join("_objs", label.name, output_name))
+
+def _use_dotd_file(feature_configuration, source_file):
+    extension = "." + source_file.extension if source_file.extension else ""
+    header_discover_required = extension not in (extensions.ASSEMBLER + extensions.CPP_MODULE)
+    use_header_modules = (
+        feature_configuration.is_enabled("use_header_modules") and
+        extension in extensions.CC_SOURCE + extensions.CC_HEADER + extensions.CPP_MODULE_MAP
+    )
+    return header_discover_required and not use_header_modules
+
+def _dotd_files_enabled(cpp_semantics, configuration, feature_configuration):
+    # TODO: b/396122076 - migrate callers of cc_common.compile() to request the
+    #  right fragment(s) and drop this API from cpp_semantics
+    enabled_in_config = cpp_semantics.needs_dotd_input_pruning(configuration)
+    return (
+        enabled_in_config and
+        not feature_configuration.is_enabled("parse_showincludes") and
+        not feature_configuration.is_enabled("no_dotd_file")
+    )
+
+def _serialized_diagnostics_file_enabled(feature_configuration):
+    return feature_configuration.is_enabled("serialized_diagnostics_file")
+
+_SOURCE_TYPES_FOR_CXXOPTS = set(
+    extensions.CC_SOURCE +
+    extensions.CC_HEADER +
+    extensions.CLIF_INPUT_PROTO +
+    extensions.CPP_MODULE_MAP +
+    extensions.OBJCPP_SOURCE,
+)
+
+def _get_copts(
+        language,
+        cpp_configuration,
+        source_file,
+        conlyopts,
+        copts,
+        cxxopts,
+        label):
+    extension = "." + source_file.extension if source_file.extension else ""
+    result = []
+    result.extend(_copts_from_options(language, cpp_configuration, extension))
+    result.extend(copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cxxopts)
+    if label:
+        result.extend(cc_internal.per_file_copts(cpp_configuration, source_file, label))
+    return result
+
+def _copts_from_options(language, cpp_configuration, extension):
+    result = []
+    result.extend(cpp_configuration.copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(cpp_configuration.conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cpp_configuration.cxxopts)
+    if extension in [extensions.OBJC_SOURCE, extensions.OBJCPP_SOURCE] or (
+        language == "objc" and extension in extensions.CC_HEADER
+    ):
+        result.extend(cpp_configuration.objccopts)
+    return result
+
+def _calculate_output_name_map_by_type(sources, prefix_dir):
+    return (
+        _calculate_output_name_map(
+            _get_source_artifacts_by_type(
+                sources,
+                CPP_SOURCE_TYPE_SOURCE,
+            ),
+            prefix_dir,
+        ) |
+        _calculate_output_name_map(
+            _get_source_artifacts_by_type(
+                sources,
+                CPP_SOURCE_TYPE_HEADER,
+            ),
+            prefix_dir,
+        ) |
+        _calculate_output_name_map(
+            _get_source_artifacts_by_type(
+                sources,
+                CPP_SOURCE_TYPE_CLIF_INPUT_PROTO,
+            ),
+            prefix_dir,
+        )
+    )
+
+def _calculate_output_name_map(source_artifacts, prefix_dir):
+    """Calculates the output names for object file paths from a set of source files."""
+    output_name_map = {}
+    count = {}
+    number = {}
+    for source_artifact in source_artifacts:
+        output_name_lowercase = _basename_without_extension(source_artifact).lower()
+        count[output_name_lowercase] = count.get(output_name_lowercase, 0) + 1
+
+    for source_artifact in source_artifacts:
+        output_name = _basename_without_extension(source_artifact)
+        output_name_lowercase = output_name.lower()
+        if count.get(output_name_lowercase, 0) >= 2:
+            num = number.get(output_name_lowercase, 0)
+            number[output_name_lowercase] = num + 1
+            output_name = "%s/%s" % (num, output_name)
+        if prefix_dir:
+            output_name = "%s/%s" % (prefix_dir, output_name)
+        output_name_map[source_artifact] = output_name
+    return output_name_map
+
+def _get_source_artifacts_by_type(sources, source_type):
+    return [cpp_source.file for cpp_source in sources.values() if cpp_source.type == source_type]
+
+def _basename_without_extension(filename):
+    return paths.split_extension(filename.basename)[0]
+
+def _declare_output_file(ctx, label, sub_dir, output_name):
+    path = paths.join(label.package, sub_dir, label.name, output_name)
+    output_file = ctx.actions.declare_file(path)
+    return output_file

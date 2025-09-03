@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.Target;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -282,24 +281,14 @@ public final class GraphOutputWriter<T> {
     // Keep a map of equivalence classes that each node belongs to, so that we know whether a node
     // already belongs to one.
     HashMap<Node<T>, Set<Node<T>>> eqClasses = new HashMap<>();
-    ArrayDeque<Node<T>> queue = new ArrayDeque<>(graph.getRoots());
-    Set<Node<T>> enqueued = new HashSet<>(graph.getRoots());
 
     // Top-level nodes need to be compared amongst each other because they can form an equivalence
     // class amongst themselves too.
-    processSuccessors(ImmutableList.copyOf(queue), eqClasses, equivalenceRelation);
+    processSuccessors(ImmutableList.copyOf(graph.getRoots()), eqClasses, equivalenceRelation);
 
-    while (!queue.isEmpty()) {
-      Node<T> node = queue.removeFirst();
-      List<Node<T>> successors = new ArrayList<>(node.getSuccessors());
-      processSuccessors(successors, eqClasses, equivalenceRelation);
-      for (Node<T> child : node.getSuccessors()) {
-        // We don't want the queue to grow to O(E); also, there is no need to visit children twice.
-        if (!enqueued.contains(child)) {
-          queue.add(child);
-          enqueued.add(child);
-        }
-      }
+    // For each node, compare its children with each other to put them into equivalence classes.
+    for (Node<T> node : graph.getNodes()) {
+      processSuccessors(ImmutableList.copyOf(node.getSuccessors()), eqClasses, equivalenceRelation);
     }
 
     return eqClasses.values().stream().distinct().collect(toImmutableList());

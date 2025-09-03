@@ -87,9 +87,10 @@ class SingleplexWorker extends Worker {
     this.cgroupFactory = cgroupFactory;
   }
 
-  protected Subprocess createProcess() throws IOException, InterruptedException, UserExecException {
+  protected Subprocess createProcess(ImmutableMap<String, String> clientEnv)
+      throws IOException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
-    Subprocess process = createProcessBuilder(args).start();
+    Subprocess process = createProcessBuilder(args, clientEnv).start();
     if (cgroupFactory != null) {
       cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
     } else if (options.useCgroupsOnLinux && CgroupsInfo.isSupported()) {
@@ -104,8 +105,9 @@ class SingleplexWorker extends Worker {
     return process;
   }
 
-  protected SubprocessBuilder createProcessBuilder(ImmutableList<String> argv) {
-    SubprocessBuilder processBuilder = new SubprocessBuilder();
+  protected SubprocessBuilder createProcessBuilder(
+      ImmutableList<String> argv, ImmutableMap<String, String> clientEnv) {
+    SubprocessBuilder processBuilder = new SubprocessBuilder(clientEnv);
     processBuilder.setArgv(argv);
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
@@ -120,11 +122,14 @@ class SingleplexWorker extends Worker {
 
   @Override
   public void prepareExecution(
-      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      Set<PathFragment> workerFiles,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException, UserExecException {
     if (process == null) {
       addShutdownHook();
-      process = createProcess();
+      process = createProcess(clientEnv);
       logger.atInfo().log(
           "Created worker process %s for worker id %d", process.getProcessId(), workerId);
       status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);

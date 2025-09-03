@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -42,14 +45,17 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A {@link TargetAccessor} for {@link ConfiguredTarget} objects.
@@ -61,9 +67,13 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
   private final SkyFunction.LookupEnvironment lookupEnvironment;
+  private final Supplier<ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect>>
+      topLevelAspectsByTarget;
 
   public ConfiguredTargetAccessor(
-      WalkableGraph walkableGraph, ConfiguredTargetQueryEnvironment queryEnvironment) {
+      WalkableGraph walkableGraph,
+      ConfiguredTargetQueryEnvironment queryEnvironment,
+      ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects) {
     this.walkableGraph = walkableGraph;
     this.queryEnvironment = queryEnvironment;
     this.lookupEnvironment =
@@ -80,6 +90,16 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
                     "Thread interrupted in the middle of looking up: " + key, e);
               }
             });
+    this.topLevelAspectsByTarget =
+        queryEnvironment.isSettingEnabled(QueryEnvironment.Setting.INCLUDE_ASPECTS)
+            ? Suppliers.memoize(
+                () ->
+                    topLevelAspects.entrySet().stream()
+                        .collect(
+                            toImmutableListMultimap(
+                                entry -> entry.getKey().getBaseConfiguredTargetKey(),
+                                Map.Entry::getValue)))
+            : Suppliers.ofInstance(ImmutableListMultimap.of());
   }
 
   @Override
@@ -159,7 +179,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
             rule,
             configConditions,
             keyedConfiguredTarget.getConfigurationChecksum(),
-            /*alwaysSucceed=*/ false);
+            /* alwaysSucceed= */ false);
     if (!attributeMapper.has(attrName)) {
       throw new QueryException(
           caller,
@@ -262,5 +282,13 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
                         .setConfigurationKey(kct.getConfigurationKey())
                         .build()))
             .getConfiguredTarget();
+  }
+
+  /** Returns the top-level aspects applied to the given {@link CqueryNode}. */
+  ImmutableList<ConfiguredAspect> getTopLevelAspects(CqueryNode cn) {
+    if (!(cn.getLookupKey() instanceof ConfiguredTargetKey key)) {
+      return ImmutableList.of();
+    }
+    return topLevelAspectsByTarget.get().get(key);
   }
 }

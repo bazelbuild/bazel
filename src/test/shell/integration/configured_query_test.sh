@@ -327,6 +327,7 @@ EOF
   assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 
   assert_not_contains "//$pkg:pylib .*CppConfiguration" output
+
   assert_contains "//$pkg:pylib .*PythonConfiguration" output
 
   assert_contains "//$pkg:mylib.cc (null) \[\]" output
@@ -961,7 +962,7 @@ EOF
   assert_contains "//$pkg:pylibtwo" output
 
   bazel cquery "//$pkg:all" --output=starlark \
-    --starlark:expr="str(target.label) + '%' + str(target.files.to_list()[1].is_directory)" \
+    --starlark:expr="str(target.label) + '%' + str(providers(target)['DefaultInfo'].files.to_list()[1].is_directory)" \
     > output 2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:pylibtwo%False" output
@@ -1250,7 +1251,7 @@ cc_library(
 EOF
 
   bazel cquery "//$pkg:all" --output=starlark \
-    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])" \
+    --starlark:expr="' '.join([f.basename for f in providers(target)['DefaultInfo'].files.to_list()])" \
     > output 2>"$TEST_log" || fail "Expected failure"
 
   if "$is_windows"; then
@@ -1271,7 +1272,7 @@ exports_files(srcs = ["foo"])
 EOF
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="'path=' + target.files.to_list()[0].path" \
+    --starlark:expr="'path=' + providers(target)['DefaultInfo'].files.to_list()[0].path" \
     > output 2>"$TEST_log" || fail "Expected failure"
 
   assert_contains "^path=$pkg/foo$" output
@@ -1659,6 +1660,42 @@ EOF
     "//$pkg:demo" &>"$TEST_log" && fail "Expected failure"
   expect_not_log "crashed due to an internal error"
   expect_log "//${pkg}:platform is not a valid select.. condition"
+}
+
+function test_stale_rdeps() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch $pkg/dep.txt
+  touch $pkg/{1,2,3}.txt
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "dep",
+    srcs = ["dep.txt"],
+)
+
+[
+    filegroup(
+        name = "target_{}".format(txt),
+        srcs = [
+            txt,
+            ":dep",
+        ],
+    )
+    for txt in glob(["*.txt"])
+]
+EOF
+
+  bazel cquery "rdeps(//$pkg:all, //$pkg:dep)" > output 2>"$TEST_log" || fail "Unexpected failure"
+  expect_log "//$pkg:target_1.txt"
+  expect_log "//$pkg:target_2.txt"
+  expect_log "//$pkg:target_3.txt"
+
+  rm $pkg/2.txt
+  bazel cquery "rdeps(//$pkg:all, //$pkg:dep)" > output 2>"$TEST_log" || fail "Unexpected failure"
+
+  expect_log "//$pkg:target_1.txt"
+  expect_not_log "//$pkg:target_2.txt"
+  expect_log "//$pkg:target_3.txt"
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

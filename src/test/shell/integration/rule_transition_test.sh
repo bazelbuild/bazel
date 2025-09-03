@@ -302,15 +302,15 @@ load("//settings:flag.bzl", "BuildSettingInfo")
 
 example_package = "${pkg}"
 
-# transition that sets cpu so that unresolvable selects before rule transition
+# transition that sets compilation_mode so that unresolvable selects before rule transition
 # becomes resolvable after rule transition
 def _transition_impl(settings, attr):
-    return {"//command_line_option:cpu": "ios_x86_64"}
+    return {"//command_line_option:compilation_mode": "dbg"}
 
 example_transition = transition(
     implementation = _transition_impl,
     inputs = [],
-    outputs = ["//command_line_option:cpu"],
+    outputs = ["//command_line_option:compilation_mode"],
 )
 
 def _rule_impl(ctx):
@@ -320,7 +320,7 @@ transition_attached = rule(
     implementation = _rule_impl,
     cfg = example_transition,
     attrs = {
-        "cpu_name": attr.string(),
+        "compilation_mode": attr.string(),
     },
 )
 EOF
@@ -333,30 +333,30 @@ load(
 )
 
 config_setting(
-    name = "ios_x86_64",
+    name = "dbg",
     values = {
-        "cpu": "ios_x86_64",
+        "compilation_mode": "dbg",
     },
 )
 
 config_setting(
-    name = "darwin",
+    name = "opt",
     values = {
-        "cpu": "darwin",
+        "compilation_mode": "opt",
     },
 )
 
 transition_attached(
     name = "top_level",
-    cpu_name = select(
+    compilation_mode = select(
         {
-            ":ios_x86_64": "ios_x86_64",
-            ":darwin": "darwin",
+            ":dbg": "dbg",
+            ":opt": "opt",
         },
     ),
 )
 EOF
-  bazel build "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
+  bazel build --compilation_mode=fastbuild "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
 }
 
 function test_unresolvable_select_error_out_after_applying_rule_transition() {
@@ -387,7 +387,7 @@ transition_attached = rule(
     implementation = _rule_impl,
     cfg = example_transition,
     attrs = {
-        "cpu_name": attr.string(),
+        "compilation_mode": attr.string(),
     },
 )
 EOF
@@ -400,31 +400,31 @@ load(
 )
 
 config_setting(
-  name = "ios_x86_64",
+  name = "dbg",
   values = {
-        "cpu": "ios_x86_64",
+        "compilation_mode": "dbg",
   },
 )
 
 config_setting(
-  name = "darwin",
+  name = "opt",
   values = {
-        "cpu": "darwin",
+        "compilation_mode": "opt",
   },
 )
 
 transition_attached(
     name = "top_level",
-    cpu_name = select(
+    compilation_mode = select(
         {
-            ":ios_x86_64": "ios_x86_64",
-            ":darwin": "darwin",
+            ":dbg": "dbg",
+            ":opt": "opt",
         },
     ),
 )
 EOF
-  bazel build "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
-  expect_log "configurable attribute \"cpu_name\" in //test_unresolvable_select_error_out_after_applying_rule_transition:top_level doesn't match this configuration. Would a default condition help?"
+  bazel build --compilation_mode=fastbuild "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
+  expect_log "configurable attribute \"compilation_mode\" in //test_unresolvable_select_error_out_after_applying_rule_transition:top_level doesn't match this configuration. Would a default condition help?"
 }
 
 # Regression test for b/338660045
@@ -550,6 +550,103 @@ function test_inspect_attribute_list_via_output() {
   bazel build --//"${pkg}":select_flag=false "//${pkg}:top_level.log" &> $TEST_log || fail "Build failed"
   expect_log 'From rule attributes: values = \["marble", "granite", "sandstone"\]'
   expect_log 'From rule flag: values = \["granite", "marble", "sandstone"\]'
+}
+
+function create_rule_transition_with_failure() {
+  local pkg="${1}"
+
+  # create transition definition
+  mkdir -p "${pkg}"
+  cat > "${pkg}/def.bzl" <<EOF
+example_package = "${pkg}"
+
+def _transition_impl(settings, attr):
+    my_map = {'x': 1, 'y': 2}
+    # since my_map does not have a key for the input flag, the transition
+    # will fail.
+    res = my_map[settings["//%s:transition_input_flag" % example_package]]
+    return {
+      "//%s:transition_output_flag" % example_package: False,
+    }
+
+example_transition = transition(
+    implementation = _transition_impl,
+    inputs = ["//%s:transition_input_flag" % example_package],
+    outputs = [
+      "//%s:transition_output_flag" % example_package,
+    ],
+)
+
+def _rule_impl(ctx):
+    pass
+
+transition_attached = rule(
+    implementation = _rule_impl,
+    cfg = example_transition,
+)
+
+no_transition_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "deps": attr.label_list(),
+    },
+)
+
+EOF
+
+  # create top level target depending on a rule with transition attached
+  cat > "${pkg}/BUILD" <<EOF
+load(
+    "//${pkg}:def.bzl",
+    "transition_attached", "no_transition_rule",
+)
+load("//settings:flag.bzl", "bool_flag")
+
+bool_flag(
+    name = "transition_input_flag",
+    build_setting_default = True,
+)
+
+bool_flag(
+    name = "transition_output_flag",
+    build_setting_default = False,
+)
+
+transition_attached(
+    name = "dep_with_transition",
+)
+
+no_transition_rule(
+    name = "top_level",
+    deps = [":dep_with_transition"],
+)
+EOF
+}
+
+function test_rule_transition_failure_doesnot_crash_bazel_with_keep_going() {
+  local -r pkg="${FUNCNAME[0]}"
+  create_rule_transition_with_failure "${pkg}"
+
+  bazel build --keep_going "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
+  # The build should fail with the transition failure.
+  expect_log "Error: key True not found in dictionary"
+  expect_log "${pkg}/BUILD:17:20: Errors encountered while applying Starlark transition"
+
+  # Bazel should not crash.
+  expect_not_log "IllegalStateException"
+}
+
+function test_rule_transition_failure_doesnot_crash_bazel_with_nokeep_going() {
+  local -r pkg="${FUNCNAME[0]}"
+  create_rule_transition_with_failure "${pkg}"
+
+  bazel build --nokeep_going "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
+  # The build should fail with the transition failure.
+  expect_log "Error: key True not found in dictionary"
+  expect_log "${pkg}/BUILD:17:20: Errors encountered while applying Starlark transition"
+
+  # Bazel should not crash.
+  expect_not_log "IllegalStateException"
 }
 
 run_suite "rule transition tests"

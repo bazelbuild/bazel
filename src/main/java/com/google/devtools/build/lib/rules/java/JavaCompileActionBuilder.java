@@ -268,9 +268,7 @@ public final class JavaCompileActionBuilder {
 
   private ImmutableSet<Artifact> allOutputs() {
     ImmutableSet.Builder<Artifact> result =
-        ImmutableSet.<Artifact>builder()
-            .add(outputs.output())
-            .addAll(additionalOutputs);
+        ImmutableSet.<Artifact>builder().add(outputs.output()).addAll(additionalOutputs);
     Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
         .filter(Objects::nonNull)
         .forEachOrdered(result::add);
@@ -328,9 +326,6 @@ public final class JavaCompileActionBuilder {
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
-      result.addPath(ruleContext.getCoverageMetadataDirectory().getExecPath());
-      result.add("-*Test");
-      result.add("-*TestCase");
     }
     return result.build();
   }

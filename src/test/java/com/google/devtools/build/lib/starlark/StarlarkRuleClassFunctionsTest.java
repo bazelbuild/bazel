@@ -88,10 +88,12 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -132,7 +134,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Override
-  protected void setBuildLanguageOptions(String... options) throws Exception {
+  protected void setBuildLanguageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     super.setBuildLanguageOptions(options); // for BuildViewTestCase
     ev.setSemantics(options); // for StarlarkThread
   }
@@ -952,24 +955,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrWithWrongProvidersList() throws Exception {
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got list with an element of type int.",
+        "Error in label_list: at index 1 of providers, got element of type int, want Provider",
         "a = provider()",
         "c = provider()",
         "attr.label_list(allow_files = True,  providers = [[a, 1], [c]])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type string, want sequence",
         "b = provider()",
         "attr.label_list(allow_files = True,  providers = [['a', b], 'c'])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type Provider, want sequence",
         "a = provider()",
         "b = provider()",
         "c = provider()",
@@ -2914,8 +2911,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "my_aspect = aspect(_impl, provides = [y, 1])");
     MoreAsserts.assertContainsEvent(
         ev.getEventCollector(),
-        " Illegal argument: element in 'provides' is of unexpected type."
-            + " Should be list of providers, but got item of type int. ");
+        "Error in aspect: at index 1 of provides, got element of type int, want Provider");
   }
 
   @Test
@@ -4631,8 +4627,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "existing_rules() can only be used while evaluating a BUILD file, a legacy macro, a rule"
-            + " finalizer, or a WORKSPACE file");
+        "existing_rules() can only be used while evaluating a BUILD file, a legacy macro, or a rule"
+            + " finalizer");
   }
 
   @Test
@@ -6161,6 +6157,59 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertNoEvents();
     assertThat(rule.getRuleClassObject().getDeclaredExecGroups().keySet())
         .containsExactly("parent_exec_group", "child_exec_group");
+  }
+
+  @Test
+  public void extendRule_execGroups_overwritten() throws Exception {
+    registerDummyStarlarkFunction();
+    evalAndExport(
+        ev,
+        """
+        parent_test = rule(
+            implementation = impl,
+            test = True,
+            exec_groups = {
+                "parent_group": exec_group(
+                    exec_compatible_with=[':cv1'],
+                ),
+                "overridden_group": exec_group(
+                    exec_compatible_with=[':cv2'],
+                ),
+            },
+        )
+
+        my_test = rule(
+            implementation = impl,
+            parent = parent_test,
+            exec_groups = {
+                "test": exec_group(
+                    exec_compatible_with=[':cv3'],
+                ),
+                "child_group": exec_group(
+                    exec_compatible_with=[':cv4'],
+                ),
+                "overridden_group": exec_group(
+                    exec_compatible_with=[':cv5'],
+                ),
+            },
+        )
+        """);
+
+    RuleClass ruleClass = ((StarlarkRuleFunction) ev.lookup("my_test")).getRuleClass();
+    assertThat(ruleClass.getDeclaredExecGroups().keySet())
+        .containsExactly("test", "child_group", "overridden_group", "parent_group");
+    DeclaredExecGroup testExecGroup = ruleClass.getDeclaredExecGroups().get("test");
+    assertThat(testExecGroup).hasExecCompatibleWith("//test:cv3");
+
+    DeclaredExecGroup parentExecGroup = ruleClass.getDeclaredExecGroups().get("parent_group");
+    assertThat(parentExecGroup).hasExecCompatibleWith("//test:cv1");
+
+    DeclaredExecGroup childExecGroup = ruleClass.getDeclaredExecGroups().get("child_group");
+    assertThat(childExecGroup).hasExecCompatibleWith("//test:cv4");
+
+    DeclaredExecGroup overriddenExecGroup =
+        ruleClass.getDeclaredExecGroups().get("overridden_group");
+    assertThat(overriddenExecGroup).hasExecCompatibleWith("//test:cv5");
   }
 
   private void scratchStarlarkTransition() throws IOException {

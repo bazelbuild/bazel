@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelp
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -73,62 +75,71 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       BlazeRuntime runtime,
       AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException, ExitException {
-    // TODO: b/71905538 - this query will operate over the graph as constructed by analysis, but
-    // will also pick up any nodes that are in the graph from prior builds. This makes the results
-    // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
-    // graph beforehand if this option is specified, or add another option to wipe if desired
-    // (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
-    if (queryExpression != null) {
-      if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
-        throw new ExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        "Queries based on analysis results are not allowed if incrementality state"
-                            + " is not being kept")
-                    .setQuery(Query.newBuilder().setCode(Query.Code.ANALYSIS_QUERY_PREREQ_UNMET))
-                    .build()));
-      }
+    if (queryExpression == null) {
+      return;
+    }
 
-      try (QueryRuntimeHelper queryRuntimeHelper =
-          env.getRuntime().getQueryRuntimeHelperFactory().create(env, getQueryOptions(env))) {
-        doPostAnalysisQuery(
-            request,
-            env,
-            runtime,
-            new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
-            env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
-            queryRuntimeHelper,
-            queryExpression);
-      } catch (QueryException e) {
-        String errorMessage = "Error doing post analysis query";
-        if (!request.getKeepGoing()) {
-          throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
-        }
-        env.getReporter().error(null, errorMessage + ": " + e.getFailureDetail().getMessage());
-      } catch (IOException e) {
-        String errorMessage = "I/O error doing post analysis query";
-        FailureDetail failureDetail =
-            FailureDetail.newBuilder()
-                .setMessage(errorMessage + ": " + e.getMessage())
-                .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
-                .build();
-        if (!request.getKeepGoing()) {
-          throw new ViewCreationFailedException(errorMessage, failureDetail, e);
-        }
-        env.getReporter().error(null, failureDetail.getMessage());
-      } catch (QueryRuntimeHelperException e) {
-        throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
-      } catch (OptionsParsingException e) {
-        throw new ExitException(
-            DetailedExitCode.of(
-                ExitCode.COMMAND_LINE_ERROR,
-                FailureDetail.newBuilder()
-                    .setMessage(e.getMessage())
-                    .setActionQuery(
-                        ActionQuery.newBuilder().setCode(ActionQuery.Code.INCORRECT_ARGUMENTS))
-                    .build()));
+    // This query will operate over the graph as constructed by analysis, but will also pick up
+    // any nodes that are in the graph from prior builds, including dirty nodes. While they can't be
+    // reached from the scope of the current build via deps, they can appear in rdeps, which results
+    // in the processor doing unnecessary work or even expecting stale keys to be present. Clean
+    // them up now, which requires ignoring the value of --version_window_for_dirty_node_gc.
+    // TODO: b/71905538 - Keeping state from previous builds around makes the results not
+    //  reproducible at the level of a single command. Either tolerate, or wipe the analysis graph
+    //  beforehand if this option is specified, or add another option to wipe if desired
+    //  (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
+    env.getSkyframeExecutor().deleteOldNodes(/* versionWindowForDirtyGc= */ 0);
+    env.getSkyframeExecutor().applyInvalidation(env.getReporter());
+    if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
+      throw new ExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "Queries based on analysis results are not allowed if incrementality state"
+                          + " is not being kept")
+                  .setQuery(Query.newBuilder().setCode(Query.Code.ANALYSIS_QUERY_PREREQ_UNMET))
+                  .build()));
+    }
+
+    try (QueryRuntimeHelper queryRuntimeHelper =
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env, getQueryOptions(env))) {
+      doPostAnalysisQuery(
+          request,
+          env,
+          runtime,
+          new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
+          analysisResult.getAspectsMap(),
+          env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
+          queryRuntimeHelper,
+          queryExpression);
+    } catch (QueryException e) {
+      String errorMessage = "Error doing post analysis query";
+      if (!request.getKeepGoing()) {
+        throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
       }
+      env.getReporter().error(null, errorMessage + ": " + e.getFailureDetail().getMessage());
+    } catch (IOException e) {
+      String errorMessage = "I/O error doing post analysis query";
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(errorMessage + ": " + e.getMessage())
+              .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+              .build();
+      if (!request.getKeepGoing()) {
+        throw new ViewCreationFailedException(errorMessage, failureDetail, e);
+      }
+      env.getReporter().error(null, failureDetail.getMessage());
+    } catch (QueryRuntimeHelperException e) {
+      throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
+    } catch (OptionsParsingException e) {
+      throw new ExitException(
+          DetailedExitCode.of(
+              ExitCode.COMMAND_LINE_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(e.getMessage())
+                  .setActionQuery(
+                      ActionQuery.newBuilder().setCode(ActionQuery.Code.INCORRECT_ARGUMENTS))
+                  .build()));
     }
   }
 
@@ -139,6 +150,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       CommandEnvironment env,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects,
       WalkableGraph walkableGraph)
       throws InterruptedException;
 
@@ -158,10 +170,14 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       CommandEnvironment env,
       BlazeRuntime runtime,
       TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects,
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
       QueryExpression queryExpression)
-      throws InterruptedException, QueryException, IOException, QueryRuntimeHelperException,
+      throws InterruptedException,
+          QueryException,
+          IOException,
+          QueryRuntimeHelperException,
           OptionsParsingException {
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -170,7 +186,12 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
 
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
         getQueryEnvironment(
-            request, env, topLevelConfigurations, transitiveConfigurations, walkableGraph);
+            request,
+            env,
+            topLevelConfigurations,
+            transitiveConfigurations,
+            topLevelAspects,
+            walkableGraph);
 
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(
@@ -217,7 +238,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     }
     callback.start();
     callback.process(aggregateResultsCallback.getResult());
-    callback.close(/*failFast=*/ !result.getSuccess());
+    callback.close(/* failFast= */ !result.getSuccess());
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
   }

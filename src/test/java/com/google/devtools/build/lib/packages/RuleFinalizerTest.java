@@ -262,4 +262,66 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     assertContainsEventWithFrequency(
         "native.existing_rules and native.existing_rule are as expected", 4);
   }
+
+  @Test
+  public void packageInError_notFinalized() throws Exception {
+    scratch.file(
+        "pkg/finalizers.bzl",
+        """
+        def _impl(name, visibility):
+            print("in my_finalizer")
+            native.cc_library(name = name + "_lib")
+
+        my_finalizer = macro(implementation = _impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":finalizers.bzl", "my_finalizer")
+        my_finalizer(name = "finalize")
+        cc_library(name = 1 // 0)  # causes EvalException
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("division by zero");
+    assertDoesNotContainEvent("in my_finalizer");
+    assertThat(pkg.getTargets().keySet()).doesNotContain("finalize_lib");
+  }
+
+  // Regression test for b/419523258.
+  @Test
+  public void finalizerFailure_handledCleanly() throws Exception {
+    scratch.file(
+        "pkg/finalizers.bzl",
+        """
+        def _fail_impl(name, visibility):
+            fail("fail fail fail")
+
+        def _good_impl(name, visibility):
+            native.cc_library(name = name + "_lib")
+
+        fail_finalizer = macro(implementation = _fail_impl, finalizer = True)
+        good_finalizer = macro(implementation = _good_impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":finalizers.bzl", "fail_finalizer", "good_finalizer")
+        good_finalizer(name = "good_finalizer")
+        fail_finalizer(name = "bad_finalizer")
+        good_finalizer(name = "should_not_be_expanded")  # because it follows a failing one
+        cc_library(name = "unrelated_target")  # evaluated before any finalizers
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("fail fail fail");
+    assertThat(pkg.getTargets().keySet()).containsAtLeast("unrelated_target", "good_finalizer_lib");
+    assertThat(pkg.getTargets().keySet()).doesNotContain("should_not_be_expanded_lib");
+  }
 }

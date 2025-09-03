@@ -173,7 +173,7 @@ public final class BuildDocCollectorTest {
     assertThat(oldAttribute.getAttributeName()).isEqualTo("old");
     assertThat(oldAttribute.isDeprecated()).isTrue();
     assertThat(oldAttribute.getSynopsis()).isEqualTo("String; default is <code>\"???\"</code>");
-
+    assertThat(ruleDoc.getAttribute("old")).isEqualTo(oldAttribute);
     assertThat(ruleDocOrigin)
         .containsExactly(
             "my_binary", DocumentationOrigin.create("//:test.bzl", "binary_rules.my_binary"));

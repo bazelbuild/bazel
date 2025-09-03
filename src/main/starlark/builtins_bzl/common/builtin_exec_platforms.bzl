@@ -191,12 +191,6 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
     },
 )
 
-bazel_fragments["BazelConfigurarion$Options"] = fragment(
-    propagate = [
-        "//command_line_option:incompatible_check_visibility_for_toolchains",
-    ],
-)
-
 bazel_fragments["BazelPythonConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:python_top",
@@ -273,6 +267,8 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_inprocess_symlink_creation",
         "//command_line_option:experimental_throttle_action_cache_check",
         "//command_line_option:experimental_use_platforms_in_output_dir_legacy_heuristic",
+        "//command_line_option:incompatible_compact_repo_mapping_manifest",
+        "//command_line_option:incompatible_filegroup_runfiles_for_data",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [
@@ -297,7 +293,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:host_per_file_copt",
         "//command_line_option:host_grte_top",
         "//command_line_option:host_linkopt",
-        "//command_line_option:target libcTop label",
         "//command_line_option:experimental_link_static_libraries_once",
         "//command_line_option:experimental_cc_implementation_deps",
         "//command_line_option:experimental_cpp_modules",
@@ -321,7 +316,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_omitfp",
         "//command_line_option:experimental_save_feature_state",
         "//command_line_option:experimental_use_llvm_covmap",
-        "//command_line_option:experimental_starlark_compiling",
     ],
     outputs = [
         "//command_line_option:compiler",
@@ -368,35 +362,27 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:experimental_strict_java_deps",
         "//command_line_option:experimental_fix_deps_tool",
         "//command_line_option:experimental_one_version_enforcement",
-        "//command_line_option:experimental_import_deps_checking",
         "//command_line_option:one_version_enforcement_on_java_tests",
-        "//command_line_option:experimental_allow_runtime_deps_on_neverlink",
         "//command_line_option:experimental_add_test_support_to_compile_time_deps",
-        "//command_line_option:jplPropagateCcLinkParamsStore",
         "//command_line_option:java_runtime_version",
         "//command_line_option:java_language_version",
-        "//command_line_option:experimental_bytecode_optimizers",
+        "//command_line_option:bytecode_optimizers",
         "//command_line_option:split_bytecode_optimization_pass",
         "//command_line_option:bytecode_optimization_pass_actions",
         "//command_line_option:enforce_proguard_file_extension",
         "//command_line_option:proguard_top",
         "//command_line_option:host_javacopt",
+        "//command_line_option:host_jvmopt",
         "//command_line_option:host_java_launcher",
         "//command_line_option:tool_java_runtime_version",
         "//command_line_option:tool_java_language_version",
         "//command_line_option:experimental_turbine_annotation_processing",
         "//command_line_option:incompatible_multi_release_deploy_jars",
         "//command_line_option:incompatible_disallow_java_import_exports",
-        "//command_line_option:incompatible_disallow_java_import_empty_jars",
         "//command_line_option:experimental_disallow_legacy_java_toolchain_flags",
         "//command_line_option:experimental_enable_jspecify",
-        "//command_line_option:experimental_java_header_input_pruning",
         "//command_line_option:experimental_java_test_auto_create_deploy_jar",
-        "//command_line_option:experimental_limit_android_lint_to_android_constrained_java",
         "//command_line_option:experimental_run_android_lint_on_java_rules",
-    ],
-    inputs = [
-        "//command_line_option:host_jvmopt",
     ],
     outputs = [
         "//command_line_option:jvmopt",

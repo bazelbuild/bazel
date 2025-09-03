@@ -59,6 +59,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
             'common --allow_yanked_versions=all',
             # Make sure Bazel CI tests pass in all environments
             'common --charset=ascii',
+            'common --incompatible_disable_native_repo_rules',
         ],
     )
 
@@ -211,7 +212,6 @@ echo ${{COMPREPLY[*]}}
             '@',
             '@//',
             '@bazel_tools',
-            '@local_config_platform',
             '@foo',
             '@foobar',
             '@my_project',

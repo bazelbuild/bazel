@@ -81,8 +81,7 @@ public class HttpConnectorTest {
   @Rule
   public final TemporaryFolder testFolder = new TemporaryFolder();
 
-  @Rule
-  public final Timeout globalTimeout = new Timeout(10000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(10);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final ManualClock clock = new ManualClock();

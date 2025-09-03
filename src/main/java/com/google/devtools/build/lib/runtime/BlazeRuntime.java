@@ -166,6 +166,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final FileSystem fileSystem;
   private final ImmutableList<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
+  private final BlazeServiceRegistry blazeServiceRegistry;
   private final Clock clock;
   private final Runnable abruptShutdownHandler;
 
@@ -228,6 +229,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       QueryRuntimeHelper.Factory queryRuntimeHelperFactory,
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
+      BlazeServiceRegistry blazeServiceRegistry,
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
@@ -237,6 +239,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
     overrideCommands(commands);
+    this.blazeServiceRegistry = blazeServiceRegistry;
 
     this.packageFactory = pkgFactory;
     this.projectFileProvider = projectFileProvider;
@@ -533,7 +536,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /** The directory in which blaze stores the server state - that is, the socket file and a log. */
-  private Path getServerDirectory() {
+  public Path getServerDirectory() {
     return workspace.getDirectories().getOutputBase().getChild("server");
   }
 
@@ -819,6 +822,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
+   * Returns the service implementation for the given service class, or {@code null} if it was not
+   * registered.
+   *
+   * <p>Service implementations are registered by modules via {@link ServerBuilder#registerService}
+   * during {@link BlazeModule#serverInit}. The instance returned by this method remains constant
+   * for the lifetime of the server.
+   */
+  @Nullable
+  public <T extends BlazeService> T getService(Class<T> service) {
+    return blazeServiceRegistry.get(service);
+  }
+
+  /**
    * Returns the {@link BugReporter} that should be used when filing bug reports, if possible. Use
    * this in preference to {@link BugReport#sendBugReport} for ease of testing codepaths that file
    * bug reports.
@@ -876,7 +892,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * Main method for the Blaze server startup. Note: This method logs exceptions to remote servers.
    * Do not add this to a unittest.
    */
-  @SuppressWarnings("SystemExitOutsideMain")
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     // Transform args into Bazel's internal string representation.
     args = Arrays.stream(args).map(StringEncoding::platformToInternal).toArray(String[]::new);
@@ -885,19 +900,27 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // blaze.cc will put --batch first if the user set it.
     if (args.length >= 1 && args[0].equals("--batch")) {
       // Run Blaze in batch mode.
-      System.exit(batchMain(modules, args));
+      exit(batchMain(modules, args));
     }
     logger.atInfo().log(
         "Starting Bazel server with pid %d, args %s",
         ProcessHandle.current().pid(), Arrays.toString(args));
     try {
       // Run Blaze in server mode.
-      System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
+      exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
       Crash crash = Crash.from(e);
       BugReport.handleCrash(crash, CrashContext.keepAlive().withArgs(args));
-      System.exit(crash.getDetailedExitCode().getExitCode().getNumericExitCode());
+      exit(crash.getDetailedExitCode().getExitCode().getNumericExitCode());
     }
+  }
+
+  @SuppressWarnings("SystemExitOutsideMain")
+  private static void exit(int exitCode) {
+    // b/177077523: Best effort to kill all child processes. If there is any child process running,
+    // System.exit will block forever.
+    ProcessHandle.current().children().forEach(ProcessHandle::destroyForcibly);
+    System.exit(exitCode);
   }
 
   @VisibleForTesting
@@ -1167,7 +1190,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       pidFileWatcher.start();
 
       ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
-      shutdownHooks.deleteAtExit(pidFile);
+      shutdownHooks.cleanupPidFile(pidFile, pidFileWatcher);
 
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
@@ -1722,6 +1745,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               queryRuntimeHelperFactory,
               serverBuilder.getInvocationPolicy(),
               serverBuilder.getCommands(),
+              serverBuilder.getBlazeServiceRegistry(),
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getRepositoryRemoteExecutorFactory(),

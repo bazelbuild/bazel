@@ -15,10 +15,11 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Builder for a {@link RepoSpec} object that indicates how to materialize a repo corresponding to a
@@ -31,11 +32,9 @@ public class GitRepoSpecBuilder {
           Label.parseCanonicalUnchecked("@@bazel_tools//tools/build_defs/repo:git.bzl"),
           "git_repository");
 
-  private final ImmutableMap.Builder<String, Object> attrBuilder;
+  private final Dict.Builder<String, Object> attrBuilder = Dict.builder();
 
-  public GitRepoSpecBuilder() {
-    attrBuilder = new ImmutableMap.Builder<>();
-  }
+  public GitRepoSpecBuilder() {}
 
   @CanIgnoreReturnValue
   public GitRepoSpecBuilder setRemote(String remoteRepoUrl) {
@@ -75,22 +74,15 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatches(List<Label> patches) {
-    return setAttr("patches", patches);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatchArgs(List<String> patchArgs) {
-    return setAttr("patch_args", patchArgs);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatchCmds(List<String> patchCmds) {
-    return setAttr("patch_cmds", patchCmds);
+  public GitRepoSpecBuilder setRemoteModuleFile(
+      ArchiveRepoSpecBuilder.RemoteFile remoteModuleFile) {
+    setAttr("remote_module_file_urls", remoteModuleFile.urls());
+    setAttr("remote_module_file_integrity", remoteModuleFile.integrity());
+    return this;
   }
 
   public RepoSpec build() {
-    return new RepoSpec(GIT_REPOSITORY, AttributeValues.create(attrBuilder.buildOrThrow()));
+    return new RepoSpec(GIT_REPOSITORY, AttributeValues.create(attrBuilder.buildImmutable()));
   }
 
   @CanIgnoreReturnValue
@@ -110,7 +102,7 @@ public class GitRepoSpecBuilder {
   @CanIgnoreReturnValue
   private GitRepoSpecBuilder setAttr(String name, List<?> value) {
     if (value != null && !value.isEmpty()) {
-      attrBuilder.put(name, value);
+      attrBuilder.put(name, StarlarkList.immutableCopyOf(value));
     }
     return this;
   }

@@ -33,21 +33,22 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Integration tests for Build without the Bytes. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
@@ -314,6 +315,85 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     FileSystemUtils.writeContent(outputPath, new byte[] {1, 2, 3, 4, 5});
 
     buildTarget("//a:hello");
+  }
+
+  @Test
+  public void downloadTopLevel_doesNotDownloadUnrequestedOutputGroups() throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = "echo 'echo Hello World' > {output} && chmod +x {output}".format(output = out.path),
+            )
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    transitive = [target[DefaultInfo].files for target in ctx.attr.data],
+                ),
+            ).merge_all([
+                target[DefaultInfo].default_runfiles for target in ctx.attr.data
+            ])
+            return DefaultInfo(
+                executable = out,
+                runfiles = runfiles,
+            )
+
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                "data": attr.label_list(allow_files = True),
+            },
+            executable = True,
+        )
+
+        def _aspect_impl(target, ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".sha256")
+            ctx.actions.run_shell(
+                inputs = depset(
+                    transitive = [
+                        target[DefaultInfo].files,
+                        target[DefaultInfo].default_runfiles.files,
+                    ],
+                ),
+                outputs = [out],
+                command = "echo 'hash' > {output}".format(output = out.path),
+            )
+            return [
+                OutputGroupInfo(
+                    my_aspect_out = depset([out]),
+                )
+            ]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        genrule(
+            name = "gen_data",
+            srcs = [],
+            outs = ["some_data"],
+            cmd = "echo 'data content' > $@",
+        )
+
+        my_rule(
+            name = "hello",
+            data = [":gen_data"],
+        )
+        """);
+
+    setDownloadToplevel();
+    addOptions("--aspects=//a:defs.bzl%my_aspect", "--output_groups=my_aspect_out");
+    buildTarget("//a:hello");
+
+    assertValidOutputFile("a/hello.sha256", "hash\n");
+    assertOutputsDoNotExist("//a:gen_data");
+    assertOutputsDoNotExist("//a:hello");
   }
 
   @Test
@@ -1177,5 +1257,124 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     getOutputPath("tree").deleteTree();
     getOutputPath("out").delete();
     buildTarget("//:gen");
+  }
+
+  @Test
+  public void remoteFilesExpiredBetweenBuilds_buildRewound() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputDoesNotExist("a/bar.out");
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    addOptions("--experimental_remote_cache_ttl=0s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+    assertValidOutputFile("a/bar.out", "foo\nbar\n");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build, which is expected to fail with the exit code
+    // that, in a non-integration test setup, would retry the invocation
+    // automatically. Then simulate the retry.
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+  }
+
+  @Test
+  public void remoteTreeFilesExpiredBetweenBuilds_buildRewound() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    assertThat(getOutputPath("a/foo.out").getDirectoryEntries()).isEmpty();
+    assertOutputDoesNotExist("a/bar.out");
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    addOptions("--experimental_remote_cache_ttl=0s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+    assertValidOutputFile("a/bar.out", "file-inside\nbar\n");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build, which is expected to fail with the exit code
+    // that, in a non-integration test setup, would retry the invocation
+    // automatically. Then simulate the retry.
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
 }

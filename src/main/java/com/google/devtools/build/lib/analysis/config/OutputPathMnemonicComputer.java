@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
@@ -242,7 +241,7 @@ public final class OutputPathMnemonicComputer {
   private static void handlePlatformCpuDescriptor(
       MnemonicContext ctx, CoreOptions coreOptions, @Nullable PlatformOptions platformOptions)
       throws InvalidMnemonicException {
-    if (!coreOptions.platformInOutputDir || platformOptions == null) {
+    if (!coreOptions.usePlatformInOutputDir() || platformOptions == null) {
       ctx.checkedAddToMnemonic(coreOptions.cpu, "CPU/Platform descriptor");
       ctx.markAsExplicitInOutputPathFor("cpu");
       return;
@@ -261,12 +260,7 @@ public final class OutputPathMnemonicComputer {
   }
 
   private static String computePlatformName(Label platform, CoreOptions options) {
-    // As highest priority, use the last entry that matches in name override option.
-    Optional<String> overridePlatformName =
-        Streams.findLast(
-            options.overrideNamePlatformInOutputDirEntries.stream()
-                .filter(e -> e.getKey().equals(platform))
-                .map(Map.Entry::getValue));
+    Optional<String> overridePlatformName = options.getPlatformCpuNameOverride(platform);
     if (overridePlatformName.isPresent()) {
       return overridePlatformName.get();
     }

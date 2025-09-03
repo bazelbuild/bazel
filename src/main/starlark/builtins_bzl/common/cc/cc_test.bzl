@@ -60,6 +60,7 @@ def _legacy_cc_test_impl(ctx):
     return providers
 
 def _impl(ctx):
+    semantics.validate(ctx, "cc_test")
     cc_test_toolchain = ctx.exec_groups["test"].toolchains[_CC_TEST_TOOLCHAIN_TYPE]
     if cc_test_toolchain:
         cc_test_info = cc_test_toolchain.cc_test_info
@@ -160,7 +161,7 @@ attributes common to all test rules (*_test)</a>.</p>
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         # testing.ExecutionInfo defaults to an exec_group of "test".
         "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
-    },
+    } | semantics.extra_exec_groups,
     toolchains = [] +
                  cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),

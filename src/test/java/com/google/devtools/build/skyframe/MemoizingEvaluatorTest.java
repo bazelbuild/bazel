@@ -1143,8 +1143,8 @@ public abstract class MemoizingEvaluatorTest {
           .hasErrorEntryForKeyThat(aKey)
           .hasCycleInfoThat()
           .containsExactly(
-              new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
-              new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
     } else {
       assertThatEvaluationResult(result)
           .hasErrorEntryForKeyThat(aKey)
@@ -1165,8 +1165,8 @@ public abstract class MemoizingEvaluatorTest {
           .hasErrorEntryForKeyThat(aKey)
           .hasCycleInfoThat()
           .containsExactly(
-              new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
-              new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+              CycleInfo.createCycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
     } else {
       assertThatEvaluationResult(result)
           .hasErrorEntryForKeyThat(aKey)
@@ -1354,7 +1354,8 @@ public abstract class MemoizingEvaluatorTest {
       assertThatErrorInfo(errorInfo)
           .hasCycleInfoThat()
           .containsExactly(
-              new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
+              CycleInfo.createCycleInfo(
+                  ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
     } else {
       assertThatErrorInfo(errorInfo).hasCycleInfoThat().hasSize(1);
     }
@@ -1582,12 +1583,12 @@ public abstract class MemoizingEvaluatorTest {
       assertThatEvaluationResult(result2)
           .hasErrorEntryForKeyThat(topKey)
           .hasCycleInfoThat()
-          .containsExactly(new CycleInfo(ImmutableList.of(topKey)));
+          .containsExactly(CycleInfo.createCycleInfo(ImmutableList.of(topKey)));
       assertThatEvaluationResult(result2).hasDirectDepsInGraphThat(topKey).containsExactly(topKey);
       assertThatEvaluationResult(result2)
           .hasErrorEntryForKeyThat(depKey)
           .hasCycleInfoThat()
-          .containsExactly(new CycleInfo(ImmutableList.of(depKey)));
+          .containsExactly(CycleInfo.createCycleInfo(ImmutableList.of(depKey)));
     } else {
       assertThatEvaluationResult(result2)
           .hasErrorEntryForKeyThat(topKey)

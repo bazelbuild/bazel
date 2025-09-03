@@ -166,7 +166,7 @@ public class VisibilityTest extends AnalysisTestCase {
         """
         config_setting(
             name = "my_setting",
-            values = {"cpu": "does_not_matter"},
+            values = {"compilation_mode": "dbg"},
             visibility = ["//:__pkg__"],
         )
         """);
@@ -1236,6 +1236,68 @@ public class VisibilityTest extends AnalysisTestCase {
         macro is declared: the body of the calling macro my_macro, defined in //macro:defs.bzl of \
         package //macro.\
         """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_aliasDisclaimer_shownForAlias() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        cc_library(
+            name = "tool",
+            visibility = ["//pkg:__pkg__"],
+        )
+
+        alias(
+            name = "indirect",
+            actual = ":tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        cc_library(
+            name = "foo",
+            deps = ["//tool:indirect"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * The dependency is an alias target. Note that it is the visibility of the alias we care \
+        about, not the visibility of the underlying target it refers to.
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_aliasDisclaimer_notShownForNonAlias() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        cc_library(
+            name = "foo",
+            deps = ["//tool:tool"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertDoesNotContainEvent("The dependency is an alias");
   }
 
   @Test

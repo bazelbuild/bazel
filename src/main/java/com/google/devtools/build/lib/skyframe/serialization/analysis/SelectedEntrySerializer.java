@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantFileData.CONSTANT_FILE;
@@ -25,7 +26,6 @@ import static com.google.devtools.build.lib.skyframe.serialization.proto.DataTyp
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EXECUTION_NODE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_FILE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_LISTING;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
@@ -64,7 +64,8 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -87,6 +88,29 @@ import javax.annotation.Nullable;
  * expressed via references (e.g., keys to a other {@link FingerprintValueService} entries).
  */
 final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, SelectionMarking>> {
+  static final class SerializationStats {
+    private final AtomicLong analysisNodes = new AtomicLong(0);
+    private final AtomicLong executionNodes = new AtomicLong(0);
+
+    SerializationStats() {}
+
+    void registerAnalysisNode() {
+      analysisNodes.incrementAndGet();
+    }
+
+    void registerExecutionNode() {
+      executionNodes.incrementAndGet();
+    }
+
+    long analysisNodes() {
+      return analysisNodes.get();
+    }
+
+    long executionNodes() {
+      return executionNodes.get();
+    }
+  }
+
   private final InMemoryGraph graph;
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierVersion;
@@ -100,7 +124,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
 
   private final EventBus eventBus;
   private final ProfileCollector profileCollector;
-  private final AtomicInteger serializedCount;
+  private final SerializationStats serializationStats;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
   static ListenableFuture<Void> uploadSelection(
@@ -112,7 +136,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       FingerprintValueService fingerprintValueService,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger serializedCount) {
+      SerializationStats serializationStats) {
     var fileOpNodes = new FileOpNodeMemoizingLookup(graph);
     var fileDependencySerializer =
         new FileDependencySerializer(versionGetter, graph, fingerprintValueService);
@@ -128,7 +152,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
             writeStatuses,
             eventBus,
             profileCollector,
-            serializedCount);
+            serializationStats);
     selection.entrySet().parallelStream().forEach(serializer);
     writeStatuses.notifyAllStarted();
     return writeStatuses;
@@ -144,7 +168,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       WriteStatusesFuture writeStatuses,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger serializedCount) {
+      SerializationStats serializationStats) {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
@@ -155,7 +179,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
     this.writeStatuses = writeStatuses;
     this.eventBus = eventBus;
     this.profileCollector = profileCollector;
-    this.serializedCount = serializedCount;
+    this.serializationStats = serializationStats;
   }
 
   @Override
@@ -166,20 +190,22 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
     try {
       switch (key) {
         case ActionLookupKey actionLookupKey:
+          serializationStats.registerAnalysisNode();
           uploadEntry(actionLookupKey, actionLookupKey);
           break;
         case ActionLookupData lookupData:
+          serializationStats.registerExecutionNode();
           uploadEntry(lookupData, checkNotNull(lookupData.getActionLookupKey(), lookupData));
           break;
         case DerivedArtifact artifact:
           // This case handles the subclasses of DerivedArtifact. DerivedArtifact itself will show
           // up here as ActionLookupData.
+          serializationStats.registerExecutionNode();
           uploadEntry(artifact, checkNotNull(artifact.getArtifactOwner(), artifact));
           break;
         default:
           throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());
       }
-      serializedCount.getAndIncrement();
       eventBus.post(new SerializedNodeEvent(key));
     } catch (SerializationException e) {
       writeStatuses.addWriteStatus(immediateFailedFuture(e));
@@ -193,72 +219,38 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
   private void uploadEntry(SkyKey key, ActionLookupKey dependencyKey)
       throws SerializationException {
     writeStatuses.selectedEntryStarting();
-    commonPool().execute(new FileOpNodeProcessor(serializeEntry(key), dependencyKey));
-  }
 
-  /** Key and value bytes representing a serialized Skyframe entry. */
-  private abstract static sealed class SerializedEntry
-      permits SerializedAnalysisEntry, SerializedExecutionEntry {
-    private final PackedFingerprint versionedKey;
-    private final byte[] valueBytes;
-
-    private SerializedEntry(PackedFingerprint versionedKey, byte[] valueBytes) {
-      this.versionedKey = versionedKey;
-      this.valueBytes = valueBytes;
-    }
-
-    abstract boolean isExecutionValue();
-  }
-
-  private static final class SerializedAnalysisEntry extends SerializedEntry {
-    private SerializedAnalysisEntry(PackedFingerprint versionedKey, byte[] valueBytes) {
-      super(versionedKey, valueBytes);
-    }
-
-    @Override
-    boolean isExecutionValue() {
-      return false;
-    }
-  }
-
-  private static final class SerializedExecutionEntry extends SerializedEntry {
-    private SerializedExecutionEntry(PackedFingerprint versionedKey, byte[] valueBytes) {
-      super(versionedKey, valueBytes);
-    }
-
-    @Override
-    boolean isExecutionValue() {
-      return true;
-    }
-  }
-
-  private SerializedEntry serializeEntry(SkyKey key) throws SerializationException {
-    SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
-    writeStatuses.addWriteStatus(keyBytes.getFutureToBlockWritesOn());
+    ListenableFuture<SerializationResult<ByteString>> futureKeyBytes =
+        Futures.submitAsync(
+            () -> codecs.serializeMemoizedAsync(fingerprintValueService, key, profileCollector),
+            fingerprintValueService.getExecutor());
 
     InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key), key);
-    SerializationResult<ByteString> valueBytes =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, node.getValue(), profileCollector);
-    writeStatuses.addWriteStatus(valueBytes.getFutureToBlockWritesOn());
+    ListenableFuture<SerializationResult<ByteString>> futureValueBytes =
+        Futures.submitAsync(
+            () ->
+                codecs.serializeMemoizedAsync(
+                    fingerprintValueService, node.getValue(), profileCollector),
+            fingerprintValueService.getExecutor());
 
-    PackedFingerprint versionedKey =
-        fingerprintValueService.fingerprint(
-            frontierVersion.concat(keyBytes.getObject().toByteArray()));
-
-    byte[] bytes = valueBytes.getObject().toByteArray();
-    return key instanceof ActionLookupKey
-        ? new SerializedAnalysisEntry(versionedKey, bytes)
-        : new SerializedExecutionEntry(versionedKey, bytes);
+    new FileOpNodeProcessor(futureKeyBytes, futureValueBytes, isExecutionValue(key), dependencyKey)
+        .run();
   }
 
   private final class FileOpNodeProcessor implements FutureCallback<FileOpNodeOrEmpty>, Runnable {
-    private final SerializedEntry entry;
+    private final ListenableFuture<SerializationResult<ByteString>> futureKeyBytes;
+    private final ListenableFuture<SerializationResult<ByteString>> futureValueBytes;
+    private final boolean isExecutionValue;
     private final ActionLookupKey dependencyKey;
 
-    private FileOpNodeProcessor(SerializedEntry entry, ActionLookupKey dependencyKey) {
-      this.entry = entry;
+    private FileOpNodeProcessor(
+        ListenableFuture<SerializationResult<ByteString>> futureKeyBytes,
+        ListenableFuture<SerializationResult<ByteString>> futureValueBytes,
+        boolean isExecutionValue,
+        ActionLookupKey dependencyKey) {
+      this.futureKeyBytes = futureKeyBytes;
+      this.futureValueBytes = futureValueBytes;
+      this.isExecutionValue = isExecutionValue;
       this.dependencyKey = dependencyKey;
     }
 
@@ -269,35 +261,35 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
           onSuccess(nodeOrEmpty);
           break;
         case FutureFileOpNode future:
-          Futures.addCallback(future, this, directExecutor());
+          Futures.addCallback(future, this, fingerprintValueService.getExecutor());
           break;
       }
     }
 
     @Override
     public final void onSuccess(FileOpNodeOrEmpty nodeOrEmpty) {
-      var handler = new InvalidationDataInfoHandler();
-      switch (nodeOrEmpty) {
-        case FileOpNode node:
-          switch (fileDependencySerializer.registerDependency(node)) {
-            case InvalidationDataInfo dataInfo:
-              handler.onSuccess(dataInfo);
-              break;
-            case FutureFileDataInfo futureFile:
-              Futures.addCallback(futureFile, handler, directExecutor());
-              break;
-            case FutureListingDataInfo futureListing:
-              Futures.addCallback(futureListing, handler, directExecutor());
-              break;
-            case FutureNodeDataInfo futureNode:
-              Futures.addCallback(futureNode, handler, directExecutor());
-              break;
-          }
-          break;
-        case EMPTY_FILE_OP_NODE:
-          handler.onSuccess(/* dataInfo= */ null);
-          break;
-      }
+      ListenableFuture<InvalidationDataInfo> futureDataInfo =
+          switch (nodeOrEmpty) {
+            case FileOpNode node ->
+                switch (fileDependencySerializer.registerDependency(node)) {
+                  case InvalidationDataInfo dataInfo ->
+                      whenAllSucceed(futureKeyBytes, futureValueBytes)
+                          .call(() -> dataInfo, directExecutor());
+                  case FutureFileDataInfo futureFile ->
+                      whenAllSucceed(futureKeyBytes, futureValueBytes, futureFile)
+                          .call(() -> Futures.getDone(futureFile), directExecutor());
+                  case FutureListingDataInfo futureListing ->
+                      whenAllSucceed(futureKeyBytes, futureValueBytes, futureListing)
+                          .call(() -> Futures.getDone(futureListing), directExecutor());
+                  case FutureNodeDataInfo futureNode ->
+                      whenAllSucceed(futureKeyBytes, futureValueBytes, futureNode)
+                          .call(() -> Futures.getDone(futureNode), directExecutor());
+                };
+            case EMPTY_FILE_OP_NODE ->
+                whenAllSucceed(futureKeyBytes, futureValueBytes).call(() -> null, directExecutor());
+          };
+      Futures.addCallback(
+          futureDataInfo, new InvalidationDataInfoHandler(), fingerprintValueService.getExecutor());
     }
 
     @Override
@@ -329,6 +321,17 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
 
+        SerializationResult<ByteString> keyBytes;
+        SerializationResult<ByteString> valueBytes;
+        try {
+          keyBytes = Futures.getDone(futureKeyBytes);
+          valueBytes = Futures.getDone(futureValueBytes);
+        } catch (ExecutionException e) {
+          throw new IllegalStateException("should have succeeded as part of the FutureCombiner", e);
+        }
+        writeStatuses.addWriteStatus(valueBytes.getFutureToBlockWritesOn());
+        writeStatuses.addWriteStatus(keyBytes.getFutureToBlockWritesOn());
+
         try {
           switch (dataInfo) {
             case CONSTANT_FILE:
@@ -350,20 +353,23 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
               break;
             case NodeInvalidationDataInfo node:
               codedOut.writeEnumNoTag(
-                  (entry.isExecutionValue() ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE)
+                  (isExecutionValue ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE)
                       .getNumber());
               node.cacheKey().writeTo(codedOut);
               writeStatuses.addWriteStatus(node.writeStatus());
               break;
           }
-          codedOut.writeRawBytes(entry.valueBytes);
+          codedOut.writeRawBytes(valueBytes.getObject());
           codedOut.flush();
         } catch (IOException e) {
           // A ByteArrayOutputStream backed CodedOutputStream doesn't throw IOExceptions.
           throw new AssertionError(e);
         }
+        PackedFingerprint versionedKey =
+            fingerprintValueService.fingerprint(
+                frontierVersion.concat(keyBytes.getObject().toByteArray()));
         byte[] entryBytes = bytesOut.toByteArray();
-        writeStatuses.addWriteStatus(fingerprintValueService.put(entry.versionedKey, entryBytes));
+        writeStatuses.addWriteStatus(fingerprintValueService.put(versionedKey, entryBytes));
 
         // IMPORTANT: when this completes, no more write statuses can be added.
         writeStatuses.selectedEntryDone();
@@ -378,6 +384,10 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
 
   private static class WriteStatusesFuture extends QuiescingFuture<Void>
       implements FutureCallback<Void> {
+    private WriteStatusesFuture() {
+      super(directExecutor());
+    }
+
     private void selectedEntryStarting() {
       increment();
     }
@@ -428,5 +438,10 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
     public void onFailure(Throwable t) {
       notifyWriteFailure(t);
     }
+  }
+
+  private static boolean isExecutionValue(SkyKey key) {
+    // TODO: b/439060530: consider whether this is correct for ActionTemplateExpansionValue keys.
+    return !(key instanceof ActionLookupKey);
   }
 }

@@ -64,9 +64,6 @@ import javax.annotation.Nullable;
  */
 public class TopLevelConstraintSemantics {
 
-  private static final String TARGET_INCOMPATIBLE_ERROR_TEMPLATE =
-      "Target %s is incompatible and cannot be built, but was explicitly requested.%s";
-
   private final RuleContextConstraintSemantics constraintSemantics;
   private final PackageManager packageManager;
   private final MemoizingEvaluator evaluator;
@@ -135,7 +132,8 @@ public class TopLevelConstraintSemantics {
       }
       eventHandler.handle(
           Event.warn(
-              String.format(TARGET_INCOMPATIBLE_ERROR_TEMPLATE, configuredTarget.getLabel(), "")));
+              getIncompatibleMessage(
+                  configuredTarget, incompatibleCheckResult.underlyingTarget())));
       return PlatformCompatibility.INCOMPATIBLE_EXPLICIT;
     }
     // We can safely skip this target if it wasn't explicitly requested or we've been instructed
@@ -146,19 +144,23 @@ public class TopLevelConstraintSemantics {
   private static TargetCompatibilityCheckException
       getExceptionForExplicitlyRequestedIncompatibleTarget(
           ConfiguredTarget configuredTarget, ConfiguredTarget underlyingTarget) {
-    String targetIncompatibleMessage =
-        String.format(
-            TARGET_INCOMPATIBLE_ERROR_TEMPLATE,
-            configuredTarget.getOriginalLabel(),
-            // We need access to the provider so we pass in the underlying target here that is
-            // responsible for the incompatibility.
-            reportOnIncompatibility(underlyingTarget));
+    String targetIncompatibleMessage = getIncompatibleMessage(configuredTarget, underlyingTarget);
     return new TargetCompatibilityCheckException(
         targetIncompatibleMessage,
         FailureDetail.newBuilder()
             .setMessage(targetIncompatibleMessage)
             .setAnalysis(Analysis.newBuilder().setCode(Code.INCOMPATIBLE_TARGET_REQUESTED))
             .build());
+  }
+
+  private static String getIncompatibleMessage(
+      ConfiguredTarget configuredTarget, ConfiguredTarget underlyingTarget) {
+    return String.format(
+        "Target %s is incompatible and cannot be built, but was explicitly requested.%s",
+        configuredTarget.getOriginalLabel(),
+        // We need access to the provider so we pass in the underlying target here that is
+        // responsible for the incompatibility.
+        reportOnIncompatibility(underlyingTarget));
   }
 
   /**

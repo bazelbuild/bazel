@@ -16,6 +16,8 @@ package com.google.devtools.common.options;
 
 import com.google.common.base.Ascii;
 import java.util.Arrays;
+import java.util.Locale;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A converter superclass for converters that parse enums.
@@ -33,14 +35,12 @@ public abstract class EnumConverter<T extends Enum<T>> extends Converter.Context
   private final String typeName;
 
   /**
-   * Creates a new enum converter. You *must* implement a zero-argument
-   * constructor that delegates to this constructor, passing in the appropriate
-   * parameters.
+   * Creates a new enum converter. You *must* implement a zero-argument constructor that delegates
+   * to this constructor, passing in the appropriate parameters.
    *
-   * @param enumType The type of your enumeration; usually a class literal
-   *                 like MyEnum.class
-   * @param typeName The intuitive name of your enumeration, for example, the
-   *                 type name for CompilationMode might be "compilation mode".
+   * @param enumType The type of your enumeration; usually a class literal like MyEnum.class
+   * @param typeName The intuitive name of your enumeration, for example, the type name for
+   *     CompilationMode might be "compilation mode".
    */
   protected EnumConverter(Class<T> enumType, String typeName) {
     this.enumType = enumType;
@@ -55,17 +55,34 @@ public abstract class EnumConverter<T extends Enum<T>> extends Converter.Context
         return value;
       }
     }
-    throw new OptionsParsingException("Not a valid " + typeName + ": '"
-                                      + input + "' (should be "
-                                      + getTypeDescription() + ")");
+    throw new OptionsParsingException(
+        "Not a valid %s: '%s' (should be %s)".formatted(typeName, input, getTypeDescription()));
   }
 
-  /**
-   * Implements {@link #getTypeDescription()}.
-   */
+  /** Implements {@link #getTypeDescription()}. */
   @Override
   public final String getTypeDescription() {
     return Ascii.toLowerCase(
         Converters.joinEnglishList(Arrays.asList(enumType.getEnumConstants())));
+  }
+
+  @Override
+  public boolean starlarkConvertible() {
+    return StarlarkValue.class.isAssignableFrom(enumType);
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public String reverseForStarlark(Object converted) {
+    if (!starlarkConvertible()) {
+      throw new UnsupportedOperationException(
+          "%s is not Starlark convertible. Implement StarlarkValue to enable this."
+              .formatted(enumType));
+    }
+    return ((Enum<T>) converted).name().toLowerCase(Locale.ROOT);
+  }
+
+  public final Class<T> getEnumType() {
+    return enumType;
   }
 }

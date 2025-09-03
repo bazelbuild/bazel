@@ -74,7 +74,7 @@ public class SkymeldUiStateTrackerTest extends FoundationTestCase {
 
     uiStateTracker.loadingComplete(
         new LoadingPhaseCompleteEvent(
-            ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.ALWAYS_FALLBACK));
+            ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.EMPTY));
 
     assertThat(uiStateTracker.getBuildStatus()).isEqualTo(BuildStatus.LOADING_COMPLETE);
   }

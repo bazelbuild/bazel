@@ -83,7 +83,8 @@ public final class FunctionTransitionUtil {
    *   <li>Ensure that all native input options exist
    *   <li>Ensure that all native output options exist
    *   <li>Ensure that there are no attempts to update the {@code --define} option.
-   *   <li>Ensure that no {@link OptionMetadataTag#IMMUTABLE immutable} native options are updated.
+   *   <li>Ensure that no {@link OptionMetadataTag#NON_CONFIGURABLE non-configurable} native options
+   *       are updated.
    *   <li>Ensure that transitions output all of the declared options.
    * </ol>
    *
@@ -96,7 +97,7 @@ public final class FunctionTransitionUtil {
   static ImmutableMap<String, BuildOptions> applyAndValidate(
       BuildOptions fromOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
-      boolean allowImmutableFlagChanges,
+      boolean allowNonConfigurableFlagChanges,
       StructImpl attrObject,
       EventHandler handler)
       throws InterruptedException {
@@ -105,9 +106,10 @@ public final class FunctionTransitionUtil {
       // or reusing BuildOptionDetails.
       ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(fromOptions);
 
-      validateInputOptions(starlarkTransition.getInputs(), optionInfoMap);
+      validateInputOptions(
+          starlarkTransition.getInputs(), allowNonConfigurableFlagChanges, optionInfoMap);
       validateOutputOptions(
-          starlarkTransition.getOutputs(), allowImmutableFlagChanges, optionInfoMap);
+          starlarkTransition.getOutputs(), allowNonConfigurableFlagChanges, optionInfoMap);
 
       ImmutableMap<String, Object> settings =
           buildSettings(fromOptions, optionInfoMap, starlarkTransition);
@@ -271,40 +273,39 @@ public final class FunctionTransitionUtil {
   }
 
   /**
-   * Check if a native option is immutable.
+   * Check if a native option is non-configurable.
    *
-   * @return whether or not the option is immutable
+   * @return whether or not the option is non-configurable
    * @throws VerifyException if the option does not exist
    */
-  private static boolean isNativeOptionImmutable(
+  private static boolean isNativeOptionNonConfigurable(
       ImmutableMap<String, OptionInfo> optionInfoMap, String flag) {
     String optionName = flag.substring(COMMAND_LINE_OPTION_PREFIX.length());
     OptionInfo optionInfo = optionInfoMap.get(optionName);
     if (optionInfo == null) {
       throw new VerifyException(
-          "Cannot check if option " + flag + " is immutable: it does not exist");
+          "Cannot check if option " + flag + " is non-configurable: it does not exist");
     }
-    return optionInfo.hasOptionMetadataTag(OptionMetadataTag.IMMUTABLE);
+    return optionInfo.hasOptionMetadataTag(OptionMetadataTag.NON_CONFIGURABLE);
   }
 
   private static void validateInputOptions(
-      ImmutableList<String> options, ImmutableMap<String, OptionInfo> optionInfoMap)
+      ImmutableList<String> options,
+      boolean allowNonConfigurableFlagChanges,
+      ImmutableMap<String, OptionInfo> optionInfoMap)
       throws ValidationException {
-    ImmutableList<String> invalidNativeOptions =
-        options.stream()
-            .filter(IS_NATIVE_OPTION)
-            .filter(optionName -> !isNativeOptionValid(optionInfoMap, optionName))
-            .collect(toImmutableList());
-    if (!invalidNativeOptions.isEmpty()) {
-      throw ValidationException.format(
-          "transition inputs [%s] do not correspond to valid settings",
-          Joiner.on(", ").join(invalidNativeOptions));
-    }
+    checkForInvalidNativeOptions(/* transitionParameterType= */ "inputs", options, optionInfoMap);
+
+    checkForNonConfigurableOptions(
+        /* transitionParameterType= */ "inputs",
+        options,
+        allowNonConfigurableFlagChanges,
+        optionInfoMap);
   }
 
   private static void validateOutputOptions(
       ImmutableList<String> options,
-      boolean allowImmutableFlagChanges,
+      boolean allowNonConfigurableFlagChanges,
       ImmutableMap<String, OptionInfo> optionInfoMap)
       throws ValidationException {
     if (options.contains("//command_line_option:define")) {
@@ -316,6 +317,20 @@ public final class FunctionTransitionUtil {
     // TODO: blaze-configurability - Move the checks for incompatible and experimental flags to here
     // (currently in ConfigGlobalLibrary.validateBuildSettingKeys).
 
+    checkForInvalidNativeOptions(/* transitionParameterType= */ "outputs", options, optionInfoMap);
+
+    checkForNonConfigurableOptions(
+        /* transitionParameterType= */ "outputs",
+        options,
+        allowNonConfigurableFlagChanges,
+        optionInfoMap);
+  }
+
+  private static void checkForInvalidNativeOptions(
+      String transitionParameterType,
+      ImmutableList<String> options,
+      ImmutableMap<String, OptionInfo> optionInfoMap)
+      throws ValidationException {
     ImmutableList<String> invalidNativeOptions =
         options.stream()
             .filter(IS_NATIVE_OPTION)
@@ -323,20 +338,27 @@ public final class FunctionTransitionUtil {
             .collect(toImmutableList());
     if (!invalidNativeOptions.isEmpty()) {
       throw ValidationException.format(
-          "transition outputs [%s] do not correspond to valid settings",
-          Joiner.on(", ").join(invalidNativeOptions));
+          "transition %s [%s] do not correspond to valid settings",
+          transitionParameterType, Joiner.on(", ").join(invalidNativeOptions));
     }
+  }
 
-    if (!allowImmutableFlagChanges) {
-      ImmutableList<String> immutableNativeOptions =
+  private static void checkForNonConfigurableOptions(
+      String transitionParameterType,
+      ImmutableList<String> options,
+      boolean allowNonConfigurableFlagChanges,
+      ImmutableMap<String, OptionInfo> optionInfoMap)
+      throws ValidationException {
+    if (!allowNonConfigurableFlagChanges) {
+      ImmutableList<String> nonConfigurableNativeOptions =
           options.stream()
               .filter(IS_NATIVE_OPTION)
-              .filter(optionName -> isNativeOptionImmutable(optionInfoMap, optionName))
+              .filter(optionName -> isNativeOptionNonConfigurable(optionInfoMap, optionName))
               .collect(toImmutableList());
-      if (!immutableNativeOptions.isEmpty()) {
+      if (!nonConfigurableNativeOptions.isEmpty()) {
         throw ValidationException.format(
-            "transition outputs [%s] cannot be changed: they are immutable",
-            Joiner.on(", ").join(immutableNativeOptions));
+            "transition %s [%s] cannot be changed: they are non-configurable",
+            transitionParameterType, Joiner.on(", ").join(nonConfigurableNativeOptions));
       }
     }
   }

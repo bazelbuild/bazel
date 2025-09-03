@@ -19,7 +19,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -32,9 +31,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,12 +45,10 @@ public final class CompletionContextTest {
           /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 0);
 
   private final ActionInputMap inputMap = new ActionInputMap(0);
-  private final Map<Artifact, TreeArtifactValue> treeExpansions = new HashMap<>();
-  private final Map<Artifact, FilesetOutputTree> filesetExpansions = new HashMap<>();
   private final ArtifactRoot outputRoot =
       ArtifactRoot.asDerivedRoot(
           new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
-          RootType.Output,
+          RootType.OUTPUT,
           "out");
 
   @Test
@@ -76,7 +71,6 @@ public final class CompletionContextTest {
             .putChild(treeFile2, DUMMY_METADATA)
             .build();
     inputMap.putTreeArtifact(tree, treeValue);
-    treeExpansions.put(tree, treeValue);
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     assertThat(visit(ctx, tree)).containsExactly(treeFile1, treeFile2).inOrder();
@@ -85,8 +79,7 @@ public final class CompletionContextTest {
   @Test
   public void fileset_noExpansion() {
     SpecialArtifact fileset = createFileset("fs");
-    inputMap.put(fileset, DUMMY_METADATA);
-    filesetExpansions.put(
+    inputMap.putFileset(
         fileset,
         FilesetOutputTree.create(
             ImmutableList.of(
@@ -102,14 +95,13 @@ public final class CompletionContextTest {
   }
 
   @Test
-  public void fileset_withExpansion() throws Exception {
+  public void fileset_withExpansion() {
     SpecialArtifact fileset = createFileset("fs");
     Artifact b1 = ActionsTestUtil.createArtifact(outputRoot, "b1");
     Artifact b2 = ActionsTestUtil.createArtifact(outputRoot, "b2");
-    inputMap.put(fileset, DUMMY_METADATA);
     ImmutableList<FilesetOutputSymlink> links =
         ImmutableList.of(filesetLink("a1", b1), filesetLink("a2", b2));
-    filesetExpansions.put(fileset, FilesetOutputTree.create(links));
+    inputMap.putFileset(fileset, FilesetOutputTree.create(links));
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     ArtifactReceiver receiver = mock(ArtifactReceiver.class);
@@ -160,11 +152,6 @@ public final class CompletionContextTest {
   }
 
   private CompletionContext createCompletionContext(boolean expandFilesets) {
-    return new CompletionContext(
-        ImmutableMap.copyOf(treeExpansions),
-        ImmutableMap.copyOf(filesetExpansions),
-        ArtifactPathResolver.IDENTITY,
-        inputMap,
-        expandFilesets);
+    return new CompletionContext(ArtifactPathResolver.IDENTITY, inputMap, expandFilesets);
   }
 }

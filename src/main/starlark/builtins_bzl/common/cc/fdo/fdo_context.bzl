@@ -269,7 +269,7 @@ def _convert_llvm_raw_profile_to_indexed(
         zip_profile_artifact = _symlink_input(ctx, name_prefix, fdo_inputs, "Symlinking LLVM ZIP Profile %{input}")
 
         # TODO(b/333997009): find a way to avoid hard-coding cpu architecture here
-        cpu = cc_toolchain_config_info.target_cpu()
+        cpu = cc_toolchain_config_info.target_cpu
         if "k8" == cpu:
             raw_profile_file_name = name_prefix + "/" + ctx.label.name + "/" + "fdocontrolz_profile.profraw"
         else:

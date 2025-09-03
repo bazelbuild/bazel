@@ -43,12 +43,7 @@ class QueryTest(test_base.TestBase):
   def testQueryWithDifferentOutputBaseAfterBuilding(self):
     output_base = tempfile.mkdtemp(dir=os.getenv('TEST_TMPDIR'))
 
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "rules_python", version = "0.40.0")',
-        ],
-    )
+    self.AddBazelDep('rules_python')
     self.ScratchFile(
         'BUILD',
         [

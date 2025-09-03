@@ -139,7 +139,8 @@ final class SandboxedWorker extends SingleplexWorker {
   }
 
   @Override
-  protected Subprocess createProcess() throws IOException, UserExecException {
+  protected Subprocess createProcess(ImmutableMap<String, String> clientEnv)
+      throws IOException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
 
     // We put the sandbox inside a unique subdirectory using the worker's ID.
@@ -182,7 +183,7 @@ final class SandboxedWorker extends SingleplexWorker {
       args = commandLineBuilder.buildForCommand(args);
     }
 
-    Subprocess process = createProcessBuilder(args).start();
+    Subprocess process = createProcessBuilder(args, clientEnv).start();
 
     // If using hardened sandbox (aka linux-sandbox), the linux-sandbox parent process moves the
     // sandboxed children processes (pid 1, 2) into the cgroup. But we still need to move the
@@ -196,13 +197,16 @@ final class SandboxedWorker extends SingleplexWorker {
 
   @Override
   public void prepareExecution(
-      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      Set<PathFragment> workerFiles,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException, UserExecException {
     try (SilentCloseable c = Profiler.instance().profile("workerExecRoot.createFileSystem")) {
       workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs, treeDeleter);
     }
 
-    super.prepareExecution(inputFiles, outputs, workerFiles);
+    super.prepareExecution(inputFiles, outputs, workerFiles, clientEnv);
   }
 
   @Override

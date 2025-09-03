@@ -124,6 +124,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void activeDirectories_canBeAutomaticallyDerivedUsingProjectFile() throws Exception {
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
@@ -143,9 +144,10 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        project = {
-          "active_directories": { "default": [ "hello", "somewhere/else", "not/used" ] },
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+          project_directories = [ "hello", "somewhere/else", "not/used" ],
+        )
         """);
 
     write("somewhere/else/file.txt", "some content");
@@ -177,6 +179,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void activeDirectories_ignoresTopLevelPackageDirectoriesWhenUsingProjectFile()
       throws Exception {
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
@@ -193,9 +196,10 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        project = {
-          "active_directories": { "default": ["somewhere/else"] },
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+          project_directories = ["somewhere/else"],
+        )
         """);
     write("somewhere/else/file.txt", "some content");
     write(
@@ -212,6 +216,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void activeDirectories_projectFileCanHandleExcludedDirectories() throws Exception {
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
@@ -231,16 +236,15 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        project = {
-          "active_directories": {
-            "default": [
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+          project_directories = [
               "hello", # included
               "-hello/world", # excluded
               "hello/world/again", # included
               "-somewhere/else", # excluded
-            ],
-          },
-        }
+          ],
+        )
         """);
 
     write("somewhere/else/file.txt", "some content");

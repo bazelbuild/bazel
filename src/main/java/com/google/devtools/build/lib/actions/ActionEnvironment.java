@@ -141,27 +141,15 @@ public abstract class ActionEnvironment {
    * any existing occurrences of those variables</em>.
    */
   public final ActionEnvironment withAdditionalFixedVariables(Map<String, String> fixedVars) {
-    return withAdditionalVariables(fixedVars, ImmutableSet.of());
-  }
-
-  /**
-   * Returns a copy of this environment with the given fixed and inherited variables added to it,
-   * <em>overwriting any existing occurrences of those variables</em>.
-   */
-  public final ActionEnvironment withAdditionalVariables(
-      Map<String, String> fixedVars, Set<String> inheritedVars) {
-    if (fixedVars.isEmpty() && inheritedVars.isEmpty()) {
+    if (fixedVars.isEmpty()) {
       return this;
     }
     if (this == EMPTY) {
       return actionEnvironmentInterner.intern(
-          new SimpleActionEnvironment(
-              ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars)));
+          new SimpleActionEnvironment(ImmutableMap.copyOf(fixedVars), ImmutableSet.of()));
     }
-    // intern
     return actionEnvironmentInterner.intern(
-        new CompoundActionEnvironment(
-            this, ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars)));
+        new CompoundActionEnvironment(this, ImmutableMap.copyOf(fixedVars)));
   }
 
   private static final class EmptyActionEnvironment extends ActionEnvironment {
@@ -227,15 +215,11 @@ public abstract class ActionEnvironment {
   private static final class CompoundActionEnvironment extends ActionEnvironment {
     private final ActionEnvironment base;
     private final ImmutableMap<String, String> fixedVars;
-    private final ImmutableSet<String> inheritedVars;
 
     private CompoundActionEnvironment(
-        ActionEnvironment base,
-        ImmutableMap<String, String> fixedVars,
-        ImmutableSet<String> inheritedVars) {
+        ActionEnvironment base, ImmutableMap<String, String> fixedVars) {
       this.base = base;
       this.fixedVars = fixedVars;
-      this.inheritedVars = inheritedVars;
     }
 
     @Override
@@ -248,15 +232,12 @@ public abstract class ActionEnvironment {
 
     @Override
     public ImmutableSet<String> getInheritedEnv() {
-      return ImmutableSet.<String>builder()
-          .addAll(base.getInheritedEnv())
-          .addAll(inheritedVars)
-          .build();
+      return base.getInheritedEnv();
     }
 
     @Override
     public int estimatedSize() {
-      return base.estimatedSize() + fixedVars.size() + inheritedVars.size();
+      return base.estimatedSize() + fixedVars.size();
     }
 
     @Override
@@ -267,14 +248,12 @@ public abstract class ActionEnvironment {
       if (!(o instanceof CompoundActionEnvironment that)) {
         return false;
       }
-      return base.equals(that.base)
-          && fixedVars.equals(that.fixedVars)
-          && inheritedVars.equals(that.inheritedVars);
+      return base.equals(that.base) && fixedVars.equals(that.fixedVars);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(base, fixedVars, inheritedVars);
+      return Objects.hash(base, fixedVars);
     }
   }
 }

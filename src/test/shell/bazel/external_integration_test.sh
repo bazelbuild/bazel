@@ -749,14 +749,6 @@ function test_new_remote_repo_with_build_file_content() {
   do_new_remote_repo_test "build_file_content"
 }
 
-function test_new_remote_repo_with_workspace_file() {
-  do_new_remote_repo_test "workspace_file"
-}
-
-function test_new_remote_repo_with_workspace_file_content() {
-  do_new_remote_repo_test "workspace_file_content"
-}
-
 function do_new_remote_repo_test() {
   # Create a zipped-up repository HTTP response.
   local repo2=$TEST_TMPDIR/repo2
@@ -793,16 +785,6 @@ filegroup(
     build_file_attr="build_file_content=\"\"\"${build_file_content}\"\"\""
   fi
 
-  if [ "$1" = "workspace_file" ]; then
-    touch BUILD
-    cat > fox.WORKSPACE <<EOF
-workspace(name="endangered-fox")
-EOF
-    workspace_file_attr="workspace_file = '@//:fox.WORKSPACE'"
-  elif [ "$1" = "workspace_file_content" ]; then
-    workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
-  fi
-
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -834,56 +816,6 @@ EOF
     || echo "Expected build/run to succeed"
   kill_nc
   expect_log $what_does_the_fox_say
-}
-
-function test_fetch() {
-  serve_jar
-
-  cat > $(setup_module_dot_bazel) <<EOF
-ext = use_extension("//:ext.bzl", "ext")
-use_repo(ext, "endangered")
-EOF
-  add_rules_java "MODULE.bazel"
-
-  touch BUILD
-  cat > ext.bzl <<EOF
-load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
-
-def repo():
-  jvm_maven_import_external(
-      name = 'endangered',
-      artifact = "com.example.carnivore:carnivore:1.23",
-      server_urls = ['http://127.0.0.1:$nc_port/'],
-      artifact_sha256 = '$sha256',
-  )
-
-ext = module_extension(implementation = lambda ctx: repo())
-EOF
-
-  output_base=$(bazel info output_base)
-  external_dir=$output_base/external
-  needle=endangered
-  [[ -d $external_dir/$needle ]] \
-      && fail "$needle already exists in $external_dir" || true
-  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
-  [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
-
-  bazel query --output=build --nohost_deps --noimplicit_deps 'deps(//zoo:ball-pit)' >& $TEST_log \
-    || fail "bazel query failed"
-  expect_log "maven_coordinates=com.example.carnivore:carnivore:1.23"
-
-  # Rerun fetch while nc isn't serving anything to make sure the fetched result
-  # is cached.
-  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"
-
-  # Make sure fetch isn't needed after a bazel restart.
-  bazel shutdown
-  bazel build //zoo:ball-pit >& $TEST_log || fail "Fetch shouldn't be required"
-
-  # But it is required after a clean.
-  bazel clean --expunge || fail "Clean failed"
-  bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
-  expect_log "fetching repositories is disabled"
 }
 
 function test_prefix_stripping_tar_gz() {
@@ -2580,13 +2512,12 @@ function test_overwrite_existing_workspace_build() {
   do
     rm -rf ext ext.tar
     mkdir ext
-    sh -c "${bad_file}" -- ext/WORKSPACE
     sh -c "${bad_file}" -- ext/BUILD.bazel
     echo hello world > ext/data
     tar cvf ext.tar ext
 
     for BUILD_FILE in \
-      'build_file_content = '\''exports_files(["data", "WORKSPACE"])'\' \
+      'build_file_content = '\''exports_files(["data"])'\' \
       'build_file = "@//:external_build_file"'
     do
       rm -rf main
@@ -2609,7 +2540,7 @@ EOF
       echo
 
       cat > external_build_file <<'EOF'
-exports_files(["data", "WORKSPACE"])
+exports_files(["data"])
 EOF
 
       cat > BUILD <<'EOF'
@@ -2619,21 +2550,11 @@ genrule(
   srcs = ["@ext//:data"],
   outs = ["it.txt"],
 )
-
-genrule(
-  name = "ws",
-  cmd = "cp $< $@",
-  srcs = ["@ext//:WORKSPACE"],
-  outs = ["ws.txt"],
-)
 EOF
 
       bazel build //:it || fail "Expected success"
       grep 'world' `bazel info bazel-genfiles`/it.txt \
           || fail "Wrong content of data file"
-      bazel build //:ws || fail "Expected success"
-      grep 'BAD' `bazel info bazel-genfiles`/ws.txt \
-          && fail "WORKSPACE file not overwritten" || :
 
       cd ..
     done
@@ -2969,6 +2890,45 @@ EOF
   # Ditto, but with --repo_env overriding environment.
   LAZYEVAL_KEY=xal2 bazel query --repo_env=LAZYEVAL_KEY=xal3 @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
   expect_log "LAZYEVAL_KEY=xal3"
+}
+
+function test_environ_build_query_build() {
+  # Set up workspace with a repository rule that depends on env vars.
+  # Assert that the repo rule doesn't rerun when performing a sequence of
+  # build/query/build.
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('UNTRACKED=%s' % rctx.os.environ.get('UNTRACKED'))
+  print('TRACKED=%s' % rctx.getenv('TRACKED'))
+
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > $(setup_module_dot_bazel) <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+  add_to_bazelrc "common --repo_env=TRACKED=tracked"
+  add_to_bazelrc "common --repo_env=UNTRACKED=untracked"
+
+  bazel build @foo//:BUILD 2>$TEST_log || fail 'Expected build to succeed'
+  expect_log "TRACKED=tracked"
+  expect_log "UNTRACKED=untracked"
+
+  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "TRACKED"
+  expect_not_log "UNTRACKED"
+
+  bazel build @foo//:BUILD 2>$TEST_log || fail 'Expected build to succeed'
+  expect_not_log "TRACKED"
+  expect_not_log "UNTRACKED"
 }
 
 function test_external_package_in_other_repo() {

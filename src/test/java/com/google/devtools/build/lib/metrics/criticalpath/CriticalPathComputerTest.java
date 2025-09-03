@@ -86,7 +86,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   @Before
   public final void initializeRoots() {
     Path workspaceRoot = scratch.resolve("/workspace");
-    derivedArtifactRoot = ArtifactRoot.asDerivedRoot(workspaceRoot, RootType.Output, "test");
+    derivedArtifactRoot = ArtifactRoot.asDerivedRoot(workspaceRoot, RootType.OUTPUT, "test");
     artifactRoot = ArtifactRoot.asSourceRoot(Root.fromPath(workspaceRoot));
   }
 
@@ -394,7 +394,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   public void testEmptyCriticalPath() {
     AggregatedCriticalPath empty = computer.aggregate();
     assertThat(empty.components()).isEmpty();
-    assertThat(empty.totalTimeInMs()).isEqualTo(0);
+    assertThat(empty.getAggregatedElapsedTime().toMillis()).isEqualTo(0);
     checkTopComponentsTimes(computer);
   }
 
@@ -1204,7 +1204,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     AggregatedCriticalPath criticalPath = computer.aggregate();
 
     assertThat(criticalPath).isNotNull();
-    assertThat(criticalPath.totalTimeInMs()).isEqualTo(totalWallTimeInMillis);
+    assertThat(criticalPath.getAggregatedElapsedTime())
+        .isEqualTo(Duration.ofMillis(totalWallTimeInMillis));
 
     String summary = criticalPath.toStringSummary();
     assertThat(summary).contains("Critical Path: " + totalWallTimeStr + "s");
@@ -1221,7 +1222,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     AggregatedCriticalPath criticalPath = computer.aggregate();
 
     assertThat(criticalPath).isNotNull();
-    assertThat(criticalPath.totalTimeInMs()).isEqualTo(totalWallTime.toMillis());
+    assertThat(criticalPath.getAggregatedElapsedTime())
+        .isEqualTo(Duration.ofMillis(totalWallTime.toMillis()));
     assertThat(criticalPath.getSpawnMetrics().getRemoteMetrics().totalTimeInMs())
         .isEqualTo(totalTime.toMillis());
     assertThat(criticalPath.getSpawnMetrics().getRemoteMetrics().executionWallTimeInMs())

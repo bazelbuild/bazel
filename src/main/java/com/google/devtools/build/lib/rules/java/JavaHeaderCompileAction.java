@@ -177,6 +177,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     private final RuleContext ruleContext;
 
     private Artifact outputJar;
+    @Nullable private Artifact headerCompilationOutputJar;
     // Only non-null before set.
     private Artifact outputDepsProto;
     @Nullable private Artifact manifestOutput;
@@ -193,6 +194,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     @Nullable private String injectingRuleKind;
     private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
     private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    private NestedSet<Artifact> headerCompilationDirectJars =
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private NestedSet<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private ImmutableList<String> javacOpts = ImmutableList.of();
@@ -247,6 +250,13 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setHeaderCompilationDirectJars(NestedSet<Artifact> headerCompilationDirectJars) {
+      checkNotNull(headerCompilationDirectJars, "headerCompilationDirectJars must not be null");
+      this.headerCompilationDirectJars = headerCompilationDirectJars;
+      return this;
+    }
+
     /** Sets the .jdeps artifacts for direct dependencies. */
     @CanIgnoreReturnValue
     public Builder setCompileTimeDependencyArtifacts(NestedSet<Artifact> dependencyArtifacts) {
@@ -277,6 +287,13 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     public Builder setOutputJar(Artifact outputJar) {
       checkNotNull(outputJar, "outputJar must not be null");
       this.outputJar = outputJar;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setHeaderCompilationOutputJar(Artifact headerCompilationOutputJar) {
+      checkNotNull(headerCompilationOutputJar, "headerCompilationOutputJar must not be null");
+      this.headerCompilationOutputJar = headerCompilationOutputJar;
       return this;
     }
 
@@ -403,6 +420,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
       checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
       checkNotNull(directJars, "directJars must not be null");
+      checkNotNull(headerCompilationDirectJars, "headerCompilationDirectJars must not be null");
       checkNotNull(
           compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
       checkNotNull(utf8Environment, "utf8Environment must not be null");
@@ -455,7 +473,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .add(outputJar)
               .add(outputDepsProto)
               .addAll(additionalOutputs);
-      Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput)
+      Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput, headerCompilationOutputJar)
           .filter(Objects::nonNull)
           .forEachOrdered(outputs::add);
 
@@ -477,6 +495,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       CustomCommandLine.Builder commandLine =
           CustomCommandLine.builder()
               .addExecPath("--output", outputJar)
+              .addExecPath("--header_compilation_output", headerCompilationOutputJar)
               .addExecPath("--gensrc_output", gensrcOutputJar)
               .addExecPath("--resource_output", resourceOutputJar)
               .addExecPath("--output_manifest_proto", manifestOutput)
@@ -529,8 +548,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         NestedSet<Artifact> additionalArtifactsForPathMapping;
-        if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
-          classpath = directJars;
+        if (!headerCompilationDirectJars.isEmpty() || classpathEntries.isEmpty()) {
+          classpath = headerCompilationDirectJars;
           // When using the direct classpath optimization, Turbine generates .jdeps entries based on
           // the transitive dependency information packages into META-INF/TRANSITIVE. When path
           // mapping is used, these entries may have been subject to it when they were generated.

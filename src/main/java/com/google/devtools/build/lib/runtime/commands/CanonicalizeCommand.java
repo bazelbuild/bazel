@@ -239,7 +239,11 @@ public final class CanonicalizeCommand implements BlazeCommand {
         InvocationPolicy effectivePolicy =
             InvocationPolicyEnforcer.getEffectiveInvocationPolicy(
                 policy, parser, commandName, Level.INFO);
-        env.getReporter().getOutErr().printOutLn(effectivePolicy.toString());
+        env.getReporter()
+            .getOutErr()
+            .printOutLn(
+                effectivePolicy.toString()
+                );
       } else {
         // Otherwise, print out the canonical command line
         List<String> nativeResult = parser.canonicalize();

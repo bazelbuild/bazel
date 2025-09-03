@@ -28,6 +28,9 @@ class BashBinaryLauncher : public BinaryLauncherBase {
       : BinaryLauncherBase(launch_info, launcher_path, argc, argv) {}
   ~BashBinaryLauncher() override = default;
   ExitCode Launch() override;
+
+ protected:
+  std::wstring EscapeArg(const std::wstring& arg) const override;
 };
 
 }  // namespace launcher

@@ -63,7 +63,7 @@ public final class FileWriteStrategyTest {
   @Before
   public void createOutputRoot() throws IOException {
     execRoot = scratch.dir("/execroot");
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bazel-out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-out");
     outputRoot.getRoot().asPath().createDirectory();
   }
 

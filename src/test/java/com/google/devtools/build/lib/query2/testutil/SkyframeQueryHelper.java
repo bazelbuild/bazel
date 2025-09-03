@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
@@ -107,6 +108,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   private PackageManager pkgManager;
   private TargetPatternPreloader targetParser;
+  private LazyMacroExpansionPackages lazyMacroExpansionPackages = LazyMacroExpansionPackages.NONE;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredSubdirectoriesFile = PathFragment.create(".bazelignore");
@@ -326,6 +328,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     packageOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
+    packageOptions.lazyMacroExpansionPackages = lazyMacroExpansionPackages;
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
@@ -373,6 +376,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   public void setSyscallCache(SyscallCache syscallCache) {
     this.delegatingSyscallCache.setDelegate(syscallCache);
+  }
+
+  public void setLazyMacroExpansionPackages(LazyMacroExpansionPackages lazyMacroExpansionPackages) {
+    this.lazyMacroExpansionPackages = lazyMacroExpansionPackages;
   }
 
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {

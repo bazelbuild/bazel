@@ -111,7 +111,8 @@ final class Discovery {
     @Nullable
     Result run() throws InterruptedException, ExternalDepsException {
       SequencedMap<String, Optional<Checksum>> registryFileHashes = new LinkedHashMap<>();
-      depGraph.put(ModuleKey.ROOT, root.module().withDepSpecsTransformed(this::applyOverrides));
+      depGraph.put(
+          ModuleKey.ROOT, root.module().withDepsAndNodepDepsTransformed(this::applyOverrides));
       ImmutableSet<ModuleKey> horizon = ImmutableSet.of(ModuleKey.ROOT);
       while (!horizon.isEmpty()) {
         ImmutableSet<ModuleFileValue.Key> nextHorizonSkyKeys = advanceHorizon(horizon);
@@ -131,7 +132,8 @@ final class Discovery {
             depGraph.put(depKey, null);
           } else {
             depGraph.put(
-                depKey, moduleFileValue.module().withDepSpecsTransformed(this::applyOverrides));
+                depKey,
+                moduleFileValue.module().withDepsAndNodepDepsTransformed(this::applyOverrides));
             registryFileHashes.putAll(moduleFileValue.registryFileHashes());
             nextHorizon.add(depKey);
           }
@@ -150,15 +152,14 @@ final class Discovery {
      */
     DepSpec applyOverrides(DepSpec depSpec) {
       if (root.module().getName().equals(depSpec.name())) {
-        return DepSpec.fromModuleKey(ModuleKey.ROOT);
+        return DepSpec.ROOT_MODULE;
       }
-      Version newVersion =
+      return depSpec.withVersion(
           switch (root.overrides().get(depSpec.name())) {
-            case NonRegistryOverride nro -> Version.EMPTY;
+            case NonRegistryOverride ignored -> Version.EMPTY;
             case SingleVersionOverride svo when !svo.version().isEmpty() -> svo.version();
             case null, default -> depSpec.version();
-          };
-      return new DepSpec(depSpec.name(), newVersion, depSpec.maxCompatibilityLevel());
+          });
     }
 
     /**

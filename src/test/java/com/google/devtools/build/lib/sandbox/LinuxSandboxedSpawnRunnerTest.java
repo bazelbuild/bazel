@@ -110,7 +110,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     Artifact output =
         ActionsTestUtil.createArtifact(
             ArtifactRoot.asDerivedRoot(
-                commandEnvironment.getExecRoot(), RootType.Output, "blaze-out"),
+                commandEnvironment.getExecRoot(), RootType.OUTPUT, "blaze-out"),
             commandEnvironment.getExecRoot().getRelative("blaze-out/output"));
     Spawn spawn =
         new SpawnBuilder("_bin/tool", output.getExecPathString())
@@ -229,7 +229,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   private CommandEnvironment createCommandEnvironment() throws Exception {
     CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
-    commandEnvironment.setWorkspaceName("workspace");
     commandEnvironment
         .getLocalResourceManager()
         .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());

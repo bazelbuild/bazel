@@ -41,6 +41,9 @@ java_library(
 java_test(
     name = "BazelPackageLoaderTest",
     srcs = ["BazelPackageLoaderTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     deps = [
         ":AbstractPackageLoaderTest",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

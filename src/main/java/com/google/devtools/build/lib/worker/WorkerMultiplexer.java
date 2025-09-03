@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
@@ -176,7 +177,8 @@ public class WorkerMultiplexer {
       Path workDir,
       Set<PathFragment> workerFiles,
       SandboxInputs inputFiles,
-      TreeDeleter treeDeleter)
+      TreeDeleter treeDeleter,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException {
     // TODO: Make blaze clean remove the workdir.
     if (this.process == null) {
@@ -200,7 +202,7 @@ public class WorkerMultiplexer {
           treeDeleter);
       SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict= */ false);
       WorkerExecRoot.createInputs(inputsToCreate, inputFiles.limitedCopy(workerFiles), workDir);
-      createProcess(workDir);
+      createProcess(workDir, clientEnv);
     }
   }
 
@@ -208,7 +210,8 @@ public class WorkerMultiplexer {
    * Creates a worker process corresponding to this {@code WorkerMultiplexer}, if it doesn't already
    * exist. Also starts up the subthreads handling reading and writing requests and responses.
    */
-  public synchronized void createProcess(Path workDir) throws IOException {
+  public synchronized void createProcess(Path workDir, ImmutableMap<String, String> clientEnv)
+      throws IOException {
     if (this.process == null) {
       if (this.status.isKilled()) {
         throw new IOException("Multiplexer destroyed before created process");
@@ -233,8 +236,8 @@ public class WorkerMultiplexer {
       }
       SubprocessBuilder processBuilder =
           subprocessFactory != null
-              ? new SubprocessBuilder(subprocessFactory)
-              : new SubprocessBuilder();
+              ? new SubprocessBuilder(clientEnv, subprocessFactory)
+              : new SubprocessBuilder(clientEnv);
       processBuilder.setArgv(args);
       processBuilder.setWorkingDirectory(workDir.getPathFile());
       processBuilder.setStderr(logFile.getPathFile());
@@ -357,7 +360,9 @@ public class WorkerMultiplexer {
       throw new IOException(
           "Attempting to send request " + request.getRequestId() + " to dead process");
     }
-    responseChecker.put(request.getRequestId(), new Semaphore(0));
+    if (!request.getCancel()) {
+      responseChecker.put(request.getRequestId(), new Semaphore(0));
+    }
     pendingRequests.add(request);
   }
 
@@ -367,33 +372,29 @@ public class WorkerMultiplexer {
    * execution.
    */
   public WorkResponse getResponse(Integer requestId) throws InterruptedException, IOException {
-    try {
-      if (!process.isAlive()) {
-        // If the process has died, all we can do is return what may already have been returned.
-        return workerProcessResponse.get(requestId);
-      }
-
-      Semaphore waitForResponse = responseChecker.get(requestId);
-
-      if (waitForResponse == null) {
-        report("Null response semaphore for " + requestId);
-        // If there is no semaphore for this request, it probably failed to send, so we just return
-        // what we got, probably nothing.
-        return workerProcessResponse.get(requestId);
-      }
-
-      // Wait for the multiplexer to get our response and release this semaphore. If the multiplexer
-      // process dies, the semaphore gets released with no response available.
-      waitForResponse.acquire();
-
-      if (workerProcessResponse.get(requestId) == null && !process.isAlive()) {
-        throw new IOException("Worker process for " + workerKey.getMnemonic() + " has died");
-      }
+    if (!process.isAlive()) {
+      // If the process has died, all we can do is return what may already have been returned.
       return workerProcessResponse.get(requestId);
-    } finally {
-      responseChecker.remove(requestId);
-      workerProcessResponse.remove(requestId);
     }
+
+    Semaphore waitForResponse = responseChecker.get(requestId);
+
+    if (waitForResponse == null) {
+      report("Null response semaphore for " + requestId);
+      // If there is no semaphore for this request, it probably failed to send, so we just return
+      // what we got, probably nothing.
+      return workerProcessResponse.get(requestId);
+    }
+
+    waitForResponse.acquire();
+
+    responseChecker.remove(requestId);
+    WorkResponse response = workerProcessResponse.remove(requestId);
+
+    if (response == null && !process.isAlive()) {
+      throw new IOException("Worker process for " + workerKey.getMnemonic() + " has died");
+    }
+    return response;
   }
 
   /**

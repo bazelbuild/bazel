@@ -488,7 +488,7 @@ public final class BlazeWorkspace {
         skyframeExecutor.getBuildFilesByPriority());
   }
 
-  @Nullable
+  @Nullable // Null for commands that don't have PackageOptions (version, help, shutdown, etc).
   private PathPackageLocator getOrCreatePackageLocatorForCommand(OptionsParsingResult options) {
     var packageOptions = options.getOptions(PackageOptions.class);
     Path workspace = directories.getWorkspace();

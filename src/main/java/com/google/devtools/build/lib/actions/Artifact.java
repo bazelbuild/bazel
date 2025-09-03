@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathStrippable;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -167,8 +166,7 @@ public abstract sealed class Artifact
    */
   @ThreadSafety.ThreadSafe
   public static SkyKey key(Artifact artifact) {
-    if (artifact.isTreeArtifact()
-        || !artifact.hasKnownGeneratingAction()) {
+    if (artifact.isTreeArtifact() || !artifact.hasKnownGeneratingAction()) {
       return artifact;
     }
 
@@ -226,42 +224,18 @@ public abstract sealed class Artifact
      */
     private Object owner;
 
-    /**
-     * Content-based output paths are experimental. Only derived artifacts that are explicitly opted
-     * in by their creating rules should use them and only when {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}
-     * is on.
-     */
-    private final boolean contentBasedPath;
-
     /** Standard factory method for derived artifacts. */
     public static DerivedArtifact create(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner) {
-      return create(root, execPath, owner, /*contentBasedPath=*/ false);
-    }
-
-    /**
-     * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKey)} but includes the option
-     * to use a content-based path for this artifact (see {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
-     */
-    public static DerivedArtifact create(
-        ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, boolean contentBasedPath) {
-      return new DerivedArtifact(root, execPath, owner, contentBasedPath);
+      return new DerivedArtifact(root, execPath, owner);
     }
 
     @VisibleForSerialization
     DerivedArtifact(ArtifactRoot root, PathFragment execPath, Object owner) {
-      this(root, execPath, owner, /*contentBasedPath=*/ false);
-    }
-
-    private DerivedArtifact(
-        ArtifactRoot root, PathFragment execPath, Object owner, boolean contentBasedPath) {
       super(root, execPath, HashCodes.hashObjects(execPath, getOwnerToUseForHashCode(owner)));
       Preconditions.checkState(
           !root.getExecPath().isEmpty(), "Derived root has no exec path: %s, %s", root, execPath);
       this.owner = Preconditions.checkNotNull(owner);
-      this.contentBasedPath = contentBasedPath;
     }
 
     /**
@@ -343,11 +317,6 @@ public abstract sealed class Artifact
     }
 
     @Override
-    public boolean contentBasedPath() {
-      return contentBasedPath;
-    }
-
-    @Override
     public String expand(UnaryOperator<PathFragment> stripPaths) {
       return stripPaths.apply(getExecPath()).getPathString();
     }
@@ -356,7 +325,7 @@ public abstract sealed class Artifact
   /** Supplies {@link SourceArtifact} instances and allows for interning of derived artifacts. */
   public interface ArtifactSerializationContext {
 
-    SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
+    SourceArtifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner);
 
     /**
      * Whether to include the generating action key when serializing the given derived artifact in
@@ -407,7 +376,7 @@ public abstract sealed class Artifact
   /**
    * Returns the directory name of this artifact, similar to dirname(1).
    *
-   * <p> The directory name is always a relative path to the execution directory.
+   * <p>The directory name is always a relative path to the execution directory.
    */
   public final String getDirname() {
     return getDirname(execPath);
@@ -983,7 +952,7 @@ public abstract sealed class Artifact
       PathFragment archiveRoot = embedDerivedTreeRoot(treeRoot.getExecPath(), derivedTreeRoot);
       return new ArchivedTreeArtifact(
           treeArtifact,
-          ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.Output, archiveRoot),
+          ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.OUTPUT, archiveRoot),
           archiveRoot.getRelative(rootRelativePath),
           treeArtifact.getGeneratingActionKey());
     }
@@ -1220,8 +1189,7 @@ public abstract sealed class Artifact
    *
    * @param artifacts the files to filter
    * @param allowedType the allowed filetype
-   * @return all members of filesToBuild that are of one of the
-   *     allowed filetypes
+   * @return all members of filesToBuild that are of one of the allowed filetypes
    */
   public static List<Artifact> filterFiles(Iterable<Artifact> artifacts, FileType allowedType) {
     List<Artifact> filesToBuild = new ArrayList<>();
@@ -1233,20 +1201,15 @@ public abstract sealed class Artifact
     return filesToBuild;
   }
 
-  /**
-   * Converts artifacts into their exec paths. Returns an immutable list.
-   */
+  /** Converts artifacts into their exec paths. Returns an immutable list. */
   public static List<PathFragment> asPathFragments(Iterable<? extends Artifact> artifacts) {
     return Streams.stream(artifacts).map(Artifact::getExecPath).collect(toImmutableList());
   }
 
-  /**
-   * Returns the exec paths of the input artifacts in alphabetical order.
-   */
+  /** Returns the exec paths of the input artifacts in alphabetical order. */
   public static ImmutableList<PathFragment> asSortedPathFragments(Iterable<Artifact> input) {
     return Streams.stream(input).map(Artifact::getExecPath).sorted().collect(toImmutableList());
   }
-
 
   @Override
   public boolean isImmutable() {

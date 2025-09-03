@@ -82,7 +82,9 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class ActionCacheCheckerTest {
   private static final OutputChecker CHECK_TTL =
-      (file, metadata) -> metadata.isAlive(Instant.now());
+      (file, metadata) ->
+          metadata.getExpirationTime() == null
+              || metadata.getExpirationTime().isAfter(Instant.now());
 
   private CorruptibleActionCache cache;
   private ActionCacheChecker cacheChecker;
@@ -105,7 +107,7 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bin");
   }
 
   private byte[] digest(byte[] content) {
@@ -1742,12 +1744,10 @@ public class ActionCacheCheckerTest {
     public ActionResult execute(ActionExecutionContext actionExecutionContext) {
       for (Artifact output : getOutputs()) {
         Path path = output.getPath();
-        if (!path.exists()) {
-          try {
-            writeContentAsLatin1(path, "");
-          } catch (IOException e) {
-            throw new IllegalStateException("Failed to create output", e);
-          }
+        try {
+          writeContentAsLatin1(path, "");
+        } catch (IOException e) {
+          throw new IllegalStateException("Failed to create output", e);
         }
       }
 

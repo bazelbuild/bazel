@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -458,7 +459,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.getModularHeaders(),
+          transitiveHeaderInfo.modularPublicHeaders,
+          pathToLegalArtifact,
+          treeArtifacts,
+          isModule,
+          modularHeaders);
+      handleHeadersForIncludeScanning(
+          transitiveHeaderInfo.modularPrivateHeaders,
           pathToLegalArtifact,
           treeArtifacts,
           isModule,
@@ -483,7 +490,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     if (transitiveHeaderCount == -1) {
       transitiveHeaderCount = pathToLegalArtifact.size();
     }
-    removeArtifactsFromSet(modularHeaders, headerInfo.getModularHeaders());
+    removeArtifactsFromSet(modularHeaders, headerInfo.modularPublicHeaders);
+    removeArtifactsFromSet(modularHeaders, headerInfo.modularPrivateHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.separateModuleHeaders);
     return new IncludeScanningHeaderData.Builder(pathToLegalArtifact, modularHeaders);
@@ -505,9 +513,15 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
       // Not using range-based for loops here as often there is exactly one element in this list
       // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
-      ImmutableList<Artifact> modularHeaders = transitiveHeaderInfo.getModularHeaders();
-      for (int i = 0; i < modularHeaders.size(); i++) {
-        Artifact header = modularHeaders.get(i);
+      for (int i = 0; i < transitiveHeaderInfo.modularPublicHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.modularPublicHeaders.get(i);
+        if (includes.contains(header)) {
+          modules.add(module);
+          break;
+        }
+      }
+      for (int i = 0; i < transitiveHeaderInfo.modularPrivateHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.modularPrivateHeaders.get(i);
         if (includes.contains(header)) {
           modules.add(module);
           break;
@@ -578,6 +592,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return directModuleMaps;
   }
 
+  @StarlarkMethod(name = "direct_module_maps", structField = true, documented = false)
+  public StarlarkList<Artifact> getDirectModuleMapsForStarlark() {
+    return StarlarkList.immutableCopyOf(getDirectModuleMaps());
+  }
+
   DerivedArtifact getHeaderModule(boolean usePic) {
     return headerInfo.getModule(usePic);
   }
@@ -595,7 +614,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return headerInfo.separateModuleHeaders;
     }
     return new ImmutableSet.Builder<Artifact>()
-        .addAll(headerInfo.getModularHeaders())
+        .addAll(headerInfo.modularPublicHeaders)
+        .addAll(headerInfo.modularPrivateHeaders)
         .addAll(headerInfo.textualHeaders)
         .addAll(headerInfo.separateModuleHeaders)
         .build()
@@ -781,17 +801,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       if (artifact != null) {
         builder.add(artifact);
       }
-    }
-
-    /**
-     * Merges the given {@code CcCompilationContext}s into this one by adding the contents of their
-     * attributes.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDependentCcCompilationContexts(
-        Iterable<CcCompilationContext> ccCompilationContexts) {
-      deps.addAll(ccCompilationContexts);
-      return this;
     }
 
     /**
@@ -1166,12 +1175,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
     final ImmutableList<HeaderInfo> deps;
 
-    /**
-     * All header files that are compiled into this module.
-     *
-     * <p>Lazily initialized. Use {@link #getModularHeaders} instead.
-     */
-    private transient volatile ImmutableList<Artifact> lazyModularHeaders;
 
     /** Collection representing the memoized form of transitive information, set by flatten(). */
     private TransitiveHeaderCollection memo = null;
@@ -1244,18 +1247,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           dep.addOthers(result, additionalDeps);
         }
       }
-    }
-
-    private ImmutableList<Artifact> getModularHeaders() {
-      if (lazyModularHeaders == null) {
-        synchronized (this) {
-          if (lazyModularHeaders == null) {
-            lazyModularHeaders =
-                ImmutableList.copyOf(Iterables.concat(modularPublicHeaders, modularPrivateHeaders));
-          }
-        }
-      }
-      return lazyModularHeaders;
     }
 
     /** Represents the memoized transitive information for a HeaderInfo instance. */

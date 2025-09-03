@@ -59,7 +59,8 @@ def _compute_public_headers(
         label,
         binfiles_dir,
         non_module_map_headers,
-        is_sibling_repository_layout):
+        is_sibling_repository_layout,
+        shorten_virtual_includes):
     if include_prefix:
         if not paths.is_normalized(include_prefix, False):
             fail("include prefix should not contain uplevel references: " + include_prefix)
@@ -111,7 +112,11 @@ def _compute_public_headers(
 
     module_map_headers = []
     virtual_to_original_headers_list = []
-    virtual_include_dir = paths.join(paths.join(package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
+    source_package_path = package_source_root(label.workspace_name, label.package, is_sibling_repository_layout)
+    if shorten_virtual_includes:
+        virtual_include_dir = paths.join(_VIRTUAL_INCLUDES_DIR, "%x" % hash(paths.join(source_package_path, label.name)))
+    else:
+        virtual_include_dir = paths.join(source_package_path, _VIRTUAL_INCLUDES_DIR, label.name)
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
@@ -176,6 +181,159 @@ def _collect_module_maps(deps, cc_toolchain_compilation_context, additional_cpp_
 
     return module_maps
 
+_ModuleMapInfo = provider(
+    doc = "An internal provider for create_module_map_action().",
+    fields = [
+        "module_map",
+        "public_headers",
+        "private_headers",
+        "dependency_module_maps",
+        "additional_exported_headers",
+        "separate_module_headers",
+        "compiled_module",
+        "generate_submodules",
+        "extern_dependencies",
+        "leading_periods",
+    ],
+)
+
+def _module_map_struct_to_module_map_content(parameters, tree_expander):
+    lines = []
+    module_map = parameters.module_map
+    lines.append("module \"%s\" {" % module_map.name())
+    lines.append("  export *")
+
+    def expanded(artifacts):
+        expanded = []
+        for artifact in artifacts:
+            if artifact.is_directory:
+                expanded.extend(tree_expander.expand(artifact))
+            else:
+                expanded.append(artifact)
+        return expanded
+
+    def add_header(path, visibility, can_compile):
+        header_line = []
+        if parameters.generate_submodules:
+            lines.append("  module \"" + path + "\" {")
+            lines.append("    export *")
+            header_line.append("  ")
+        header_line.append("  ")
+        if visibility:
+            header_line.append(visibility)
+            header_line.append(" ")
+        should_compile = parameters.compiled_module and not path.endswith(".inc")
+        if not can_compile or not should_compile:
+            header_line.append("textual ")
+        header_line.append("header \"")
+        header_line.append(parameters.leading_periods)
+        header_line.append(path)
+        header_line.append("\"")
+        lines.append("".join(header_line))
+        if parameters.generate_submodules:
+            lines.append("  }")
+
+    added_paths = set()
+    for header in expanded(parameters.public_headers):
+        if header.path in added_paths:
+            continue
+        add_header(path = header.path, visibility = "", can_compile = True)
+        added_paths.add(header.path)
+
+    for header in expanded(parameters.private_headers):
+        if header.path in added_paths:
+            continue
+        add_header(path = header.path, visibility = "private", can_compile = True)
+        added_paths.add(header.path)
+
+    for header in parameters.separate_module_headers:
+        if header.path in added_paths:
+            continue
+        add_header(path = header.path, visibility = "", can_compile = False)
+        added_paths.add(header.path)
+
+    for path in parameters.additional_exported_headers:
+        if path in added_paths:
+            continue
+        add_header(path = path, visibility = "", can_compile = False)
+        added_paths.add(path)
+
+    for dep in parameters.dependency_module_maps:
+        lines.append("  use \"" + dep.name() + "\"")
+
+    if parameters.separate_module_headers:
+        separate_name = module_map.name() + ".sep"
+        lines.append("  use \"" + separate_name + "\"")
+        lines.append("}")
+        lines.append("module \"" + separate_name + "\" {")
+        lines.append("  export *")
+
+        added_paths = set()
+        for header in parameters.separate_module_headers:
+            if header.path in added_paths:
+                continue
+            add_header(path = header.path, visibility = "", can_compile = True)
+            added_paths.add(header.path)
+
+        for dep in parameters.dependency_module_maps:
+            lines.append("  use \"" + dep.name() + "\"")
+
+    lines.append("}")
+
+    if parameters.extern_dependencies:
+        for dep in parameters.dependency_module_maps:
+            lines.append(
+                "extern module \"" + dep.name() + "\" \"" +
+                parameters.leading_periods + dep.file().path + "\"",
+            )
+
+    return lines
+
+def _create_module_map_action(
+        actions,
+        module_map,
+        private_headers,
+        public_headers,
+        dependency_module_maps,
+        additional_exported_headers,
+        separate_module_headers,
+        compiled_module,
+        module_map_home_is_cwd,
+        generate_submodules,
+        extern_dependencies):
+    content = actions.args()
+    content.set_param_file_format("multiline")
+    segments_to_exec_path = module_map.file().path.count("/")
+    leading_periods = "" if module_map_home_is_cwd else "../" * segments_to_exec_path
+    public_headers = cc_internal.freeze(public_headers)
+    private_headers = cc_internal.freeze(private_headers)
+    dependency_module_maps = cc_internal.freeze(dependency_module_maps)
+    additional_exported_headers = cc_internal.freeze(additional_exported_headers)
+    separate_module_headers = cc_internal.freeze(separate_module_headers)
+    data_struct = _ModuleMapInfo(
+        module_map = module_map,
+        public_headers = public_headers,
+        private_headers = private_headers,
+        dependency_module_maps = dependency_module_maps,
+        additional_exported_headers = additional_exported_headers,
+        separate_module_headers = separate_module_headers,
+        compiled_module = compiled_module,
+        generate_submodules = generate_submodules,
+        extern_dependencies = extern_dependencies,
+        leading_periods = leading_periods,
+    )
+    content.add_all([data_struct], map_each = _module_map_struct_to_module_map_content)
+
+    # We need to add all tree artifacts to the args object directly so we they can be
+    # expanded in the _module_map_struct_to_module_map_content callback function.
+    # We don't want to do anything with them at this point, so the map_each callback should be a
+    # simple null function.
+    tree_artifacts = [h for h in private_headers if h.is_directory]
+    tree_artifacts += [h for h in public_headers if h.is_directory]
+    content.add_all(tree_artifacts, map_each = lambda x: None, allow_closure = True)
+
+    actions.write(module_map.file(), content = content, is_executable = True, mnemonic = "CppModuleMap")
+
 def _init_cc_compilation_context(
         # DO NOT use ctx, this is a temporary placeholder
         # to avoid adding a new field to CcCompilationHelper.
@@ -228,10 +386,14 @@ def _init_cc_compilation_context(
     bin_include_dir = _include_dir(binfiles_dir, repo_path, sibling_repo_layout)
     quote_include_dirs_for_context = [repo_path, gen_include_dir, bin_include_dir] + quote_include_dirs
     external = repo_name != "" and _enabled(feature_configuration, "external_include_paths")
+    shorten_virtual_includes = _enabled(feature_configuration, "shorten_virtual_includes")
     external_include_dirs = []
     declared_include_srcs = []
 
-    if not external:
+    if not external and feature_configuration.is_requested("system_include_paths"):
+        system_include_dirs_for_context = system_include_dirs + include_dirs
+        include_dirs_for_context = []
+    elif not external:
         system_include_dirs_for_context = list(system_include_dirs)
         include_dirs_for_context = list(include_dirs)
     else:
@@ -256,6 +418,7 @@ def _init_cc_compilation_context(
         binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
+        shorten_virtual_includes,
     )
     if public_headers.virtual_include_path:
         if external:
@@ -293,6 +456,7 @@ def _init_cc_compilation_context(
         binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
+        shorten_virtual_includes,
     )
 
     separate_module = None
@@ -323,20 +487,19 @@ def _init_cc_compilation_context(
             private_headers_for_module_map_action = private_headers_artifacts
             if _enabled(feature_configuration, "exclude_private_headers_in_module_maps"):
                 private_headers_for_module_map_action = []
-            dependent_module_maps = _collect_module_maps(deps + implementation_deps, cc_toolchain_compilation_context, additional_cpp_module_maps)
-            cc_internal.create_module_map_action(
+            dependency_module_maps = _collect_module_maps(deps + implementation_deps, cc_toolchain_compilation_context, additional_cpp_module_maps)
+            _create_module_map_action(
                 actions = actions,
-                feature_configuration = feature_configuration,
                 module_map = module_map,
                 public_headers = public_headers_for_module_map_action,
                 separate_module_headers = separate_public_headers.module_map_headers,
-                dependent_module_maps = dependent_module_maps,
+                dependency_module_maps = dependency_module_maps,
                 private_headers = private_headers_for_module_map_action,
                 additional_exported_headers = additional_exported_headers,
                 compiled_module = compiled,
                 module_map_home_is_cwd = _enabled(feature_configuration, "module_map_home_cwd"),
                 generate_submodules = _enabled(feature_configuration, "generate_submodules"),
-                without_extern_dependencies = not _enabled(feature_configuration, "module_map_without_extern_module"),
+                extern_dependencies = not _enabled(feature_configuration, "module_map_without_extern_module"),
             )
 
         if generates_pic_header_module:

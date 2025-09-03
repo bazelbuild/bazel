@@ -72,7 +72,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /** A set of this target's implicitDeps. */
   private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
 
-  /*
+  /**
    * An interner for the implicitDeps set. {@link Util.findImplicitDeps} is called upon every
    * construction of a RuleConfiguredTarget and we expect many of these targets to contain the same
    * set of implicit deps so this reduces the memory load per build.

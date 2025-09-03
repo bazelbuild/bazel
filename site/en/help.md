@@ -25,13 +25,13 @@ There are recordings of Bazel talks at various conferences, such as:
 
 * Bazel’s annual conference, BazelCon:
   * [BazelCon 2024](https://www.youtube.com/playlist?list=PLbzoR-pLrL6ptKfAQNZ5RS4HMdmeilBcw){: .external}
-  * [BazelCon 2023](https://www.youtube.com/playlist?list=PLxNYxgaZ8Rsefrwb_ySGRi_bvQejpO_Tj){: .external}
-  * [BazelCon 2022](https://youtube.com/playlist?list=PLxNYxgaZ8RsdH4GCIZ69dzxQCOPyuNlpF){: .external}
-  * [BazelCon 2021](https://www.youtube.com/playlist?list=PLxNYxgaZ8Rsc3auKhtfIB4qXAYf7whEux){: .external}
-  * [BazelCon 2020](https://www.youtube.com/playlist?list=PLxNYxgaZ8RseRybXNbopHRv6-wGmFr04n){: .external}
-  * [BazelCon 2019](https://www.youtube.com/playlist?list=PLxNYxgaZ8Rsf-7g43Z8LyXct9ax6egdSj){: .external}
-  * [BazelCon 2018](https://www.youtube.com/playlist?list=PLxNYxgaZ8Rsd3Nmvl1W1B4I6nK1674ezp){: .external}
-  * [BazelCon 2017](https://www.youtube.com/playlist?list=PLxNYxgaZ8RseY0KmkXQSt0StE71E7yizG){: .external}
+  * [BazelCon 2023](https://www.youtube.com/playlist?list=PLbzoR-pLrL6rUiqylH-kumoZCWntG1vjp){: .external}
+  * [BazelCon 2022](https://www.youtube.com/playlist?list=PLbzoR-pLrL6rABfcAJO1VWeOUYL1kIn-p){: .external}
+  * [BazelCon 2021](https://www.youtube.com/playlist?list=PLbzoR-pLrL6pO6BaaQ1Ndos53gfRVLEoU){: .external}
+  * [BazelCon 2020](https://www.youtube.com/playlist?list=PLbzoR-pLrL6qZ5JRMtn20_s2uPz9vFYgU){: .external}
+  * [BazelCon 2019](https://www.youtube.com/playlist?list=PLbzoR-pLrL6ogKgytQXqUxJQ6nZlIWoTH){: .external}
+  * [BazelCon 2018](https://www.youtube.com/playlist?list=PLbzoR-pLrL6rBDwC0NMRPS8EJ0VRAW0QR){: .external}
+  * [BazelCon 2017](https://www.youtube.com/playlist?list=PLbzoR-pLrL6qvwchdtlSopLgUrz4J4zKP){: .external}
 * Bazel day on [Google Open Source Live](https://opensourcelive.withgoogle.com/events/bazel){: .external}
 
 {% dynamic endif %}

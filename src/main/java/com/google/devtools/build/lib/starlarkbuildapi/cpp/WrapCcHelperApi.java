@@ -42,7 +42,6 @@ public interface WrapCcHelperApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
         CcCompilationContextT extends
             CcCompilationContextApi<FileT, ? extends CppModuleMapApi<FileT>>,

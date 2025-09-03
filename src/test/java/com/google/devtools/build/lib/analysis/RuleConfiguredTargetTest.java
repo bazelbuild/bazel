@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier;
+import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder;
 import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.makeReferenceConstants;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping.roundTripWithSkyframe;
@@ -732,13 +732,13 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     var deserialized =
         roundTripWithSkyframe(
             new ObjectCodecs(
-                createAnalysisCodecRegistrySupplier(
+                initializeAnalysisCodecRegistryBuilder(
                         getRuleClassProvider(),
                         makeReferenceConstants(
                             directories,
                             getRuleClassProvider(),
                             directories.getWorkspace().getBaseName()))
-                    .get(),
+                    .build(),
                 ImmutableClassToInstanceMap.builder()
                     .put(
                         ArtifactSerializationContext.class,

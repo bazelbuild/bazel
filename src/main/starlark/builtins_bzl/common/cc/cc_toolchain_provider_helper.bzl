@@ -57,8 +57,8 @@ def _builtin_includes(libc):
 def _legacy_cc_flags_make_variable(toolchain_make_vars):
     legacy_cc_flags = ""
     for variable in toolchain_make_vars:
-        if variable[0] == "CC_FLAGS":
-            legacy_cc_flags = variable[1]
+        if variable.name == "CC_FLAGS":
+            legacy_cc_flags = variable.value
     return legacy_cc_flags
 
 def _additional_make_variables(toolchain_make_vars):
@@ -69,17 +69,17 @@ def _additional_make_variables(toolchain_make_vars):
     # These variables are initialized here, but may be overridden by the getMakeVariables() checks.
     make_vars["STACK_FRAME_UNLIMITED"] = ""
     for variable in toolchain_make_vars:
-        make_vars[variable[0]] = variable[1]
+        make_vars[variable.name] = variable.value
     make_vars.pop("CC_FLAGS", None)
     return make_vars
 
 def _compute_tool_paths(toolchain_config_info, crosstool_top_path):
     tool_paths_collector = {}
-    for tool in toolchain_config_info.tool_paths():
-        path_str = tool[1]
+    for tool in toolchain_config_info.tool_paths:
+        path_str = tool.path
         if not paths.is_normalized(path_str):
             fail("The include path '" + path_str + "' is not normalized.")
-        tool_paths_collector[tool[0]] = paths.get_relative(crosstool_top_path, path_str)
+        tool_paths_collector[tool.name] = paths.get_relative(crosstool_top_path, path_str)
 
     # These tools can only be declared using tool paths, so action-only toolchains should still
     # be allowed to declared them while still being treated as an action-only toolchain. If a tool
@@ -194,12 +194,12 @@ def get_cc_toolchain_provider(ctx, attributes):
         return None
     runtime_solib_dir_base = attributes.runtime_solib_dir_base
     runtime_solib_dir = paths.get_relative(ctx.bin_dir.path, runtime_solib_dir_base)
-    solib_directory = "_solib_" + toolchain_config_info.target_cpu()
+    solib_directory = "_solib_" + toolchain_config_info.target_cpu
 
     if attributes.libc_top_label:
         sysroot = attributes.libc_top_label.package
-    elif toolchain_config_info.builtin_sysroot() != "":
-        sysroot = toolchain_config_info.builtin_sysroot()
+    elif toolchain_config_info.builtin_sysroot != "":
+        sysroot = toolchain_config_info.builtin_sysroot
     else:
         sysroot = None
 
@@ -234,7 +234,7 @@ def get_cc_toolchain_provider(ctx, attributes):
     cc_compilation_context = cc_common.create_compilation_context(module_map = module_map)
 
     builtin_include_directories = []
-    for s in toolchain_config_info.cxx_builtin_include_directories():
+    for s in toolchain_config_info.cxx_builtin_include_directories:
         builtin_include_directories.append(_resolve_include_dir(ctx.label, s, sysroot, tools_directory))
 
     build_variables_dict = _get_cc_toolchain_vars(ctx.fragments.cpp, sysroot)
@@ -262,8 +262,8 @@ def get_cc_toolchain_provider(ctx, attributes):
         stamp_binaries = ctx.configuration.stamp_binaries(),
         tool_paths = tool_paths,
         solib_dir = solib_directory,
-        additional_make_variables = _additional_make_variables(toolchain_config_info.make_variables()),
-        legacy_cc_flags_make_variable = _legacy_cc_flags_make_variable(toolchain_config_info.make_variables()),
+        additional_make_variables = _additional_make_variables(toolchain_config_info.make_variables),
+        legacy_cc_flags_make_variable = _legacy_cc_flags_make_variable(toolchain_config_info.make_variables),
         objcopy_executable = tool_paths.get("objcopy", ""),
         compiler_executable = tool_paths.get("gcc", ""),
         preprocessor_executable = tool_paths.get("cpp", ""),

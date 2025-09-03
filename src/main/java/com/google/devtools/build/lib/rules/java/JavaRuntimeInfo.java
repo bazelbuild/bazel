@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -132,8 +131,12 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     return getUnderlyingSequence("hermetic_static_libs", CcInfo.class).getImmutableList();
   }
 
-  @VisibleForTesting
-  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink() throws RuleErrorException {
+  /**
+   * @deprecated Use only in tests
+   */
+  @Deprecated
+  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink()
+      throws RuleErrorException, EvalException {
     NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
     for (CcInfo lib : hermeticStaticLibs()) {
       result.addTransitive(lib.getCcLinkingContext().getLibraries());

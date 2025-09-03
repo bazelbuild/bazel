@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -21,12 +22,20 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** A {@link BlazeModule} to store Skyframe serialization lifecycle hooks. */
 public class SerializationModule extends BlazeModule {
+
+  private RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
 
   @Override
   public void workspaceInit(
@@ -42,16 +51,56 @@ public class SerializationModule extends BlazeModule {
     builder.setAnalysisCodecRegistrySupplier(
         getAnalysisCodecRegistrySupplier(runtime, directories));
 
-    builder.setRemoteAnalysisCachingServicesSupplier(getAnalysisCachingServicesSupplier());
+    remoteAnalysisCachingServicesSupplier = getAnalysisCachingServicesSupplier();
+    builder.setRemoteAnalysisCachingServicesSupplier(remoteAnalysisCachingServicesSupplier);
+  }
+
+  @Override
+  public void blazeShutdown() {
+    shutdownAnalysisCacheClient();
+  }
+
+  @Override
+  public void blazeShutdownOnCrash(DetailedExitCode exitCode) {
+    shutdownAnalysisCacheClient();
+  }
+
+  private void shutdownAnalysisCacheClient() {
+    @Nullable
+    ListenableFuture<RemoteAnalysisCacheClient> analysisCacheClient =
+        remoteAnalysisCachingServicesSupplier == null
+            ? null
+            : remoteAnalysisCachingServicesSupplier.getAnalysisCacheClient();
+    if (analysisCacheClient != null) {
+      analysisCacheClient.addListener(
+          new Runnable() {
+            @Override
+            public void run() {
+              try {
+                analysisCacheClient
+                    .get(RemoteAnalysisCacheClient.SHUTDOWN_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS)
+                    .shutdown();
+              } catch (ExecutionException | TimeoutException | InterruptedException e) {
+                // There is no analysisCacheClient to shutdown.
+                analysisCacheClient.cancel(/* mayInterruptIfRunning= */ false);
+              }
+            }
+          },
+          directExecutor());
+    }
   }
 
   @ForOverride
   protected Supplier<ObjectCodecRegistry> getAnalysisCodecRegistrySupplier(
       BlazeRuntime runtime, BlazeDirectories directories) {
-    return SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier(
-        runtime.getRuleClassProvider(),
-        SerializationRegistrySetupHelpers.makeReferenceConstants(
-            directories, runtime.getRuleClassProvider(), directories.getWorkspace().getBaseName()));
+    return () ->
+        SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder(
+                runtime.getRuleClassProvider(),
+                SerializationRegistrySetupHelpers.makeReferenceConstants(
+                    directories,
+                    runtime.getRuleClassProvider(),
+                    directories.getWorkspace().getBaseName()))
+            .build();
   }
 
   @ForOverride

@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -125,6 +126,18 @@ public final class ActionInputMap implements InputMetadataProvider {
         current = (TrieArtifact) next;
       }
       return null;
+    }
+
+    void forEachTreeArtifact(
+        BiConsumer<PathFragment, TreeArtifactValue> consumer, PathFragment execPath) {
+      for (Map.Entry<String, Object> entry : subFolders.entrySet()) {
+        PathFragment childPath = execPath.getRelative(entry.getKey());
+        switch (entry.getValue()) {
+          case TreeArtifactValue val -> consumer.accept(childPath, val);
+          case TrieArtifact next -> next.forEachTreeArtifact(consumer, childPath);
+          default -> throw new AssertionError(entry);
+        }
+      }
     }
   }
 
@@ -267,6 +280,14 @@ public final class ActionInputMap implements InputMetadataProvider {
   @Override
   public ImmutableList<RunfilesTree> getRunfilesTrees() {
     return ImmutableList.copyOf(runfilesTrees);
+  }
+
+  /**
+   * For each tree artifact in this input map, invokes the given callback with its exec path and its
+   * metadata.
+   */
+  public void forEachTreeArtifact(BiConsumer<PathFragment, TreeArtifactValue> consumer) {
+    treeArtifactsRoot.forEachTreeArtifact(consumer, PathFragment.EMPTY_FRAGMENT);
   }
 
   /**

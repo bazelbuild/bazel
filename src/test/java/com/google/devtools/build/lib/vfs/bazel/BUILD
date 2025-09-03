@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
-load(":java_opt_binary.bzl", "java_opt_binary")
+load("//src:java_opt_binary.bzl", "java_opt_binary")
 
 package(
     default_applicable_licenses = ["//:license"],

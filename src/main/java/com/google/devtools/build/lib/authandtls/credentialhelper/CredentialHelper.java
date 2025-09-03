@@ -162,7 +162,7 @@ public final class CredentialHelper {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(args);
 
-    return new SubprocessBuilder()
+    return new SubprocessBuilder(environment.clientEnvironment())
         .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
         .setWorkingDirectory(
             environment.workspacePath() != null ? environment.workspacePath().getPathFile() : null)

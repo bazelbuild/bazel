@@ -53,7 +53,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class HttpConnectorMultiplexerIntegrationTest {
 
-  @Rule public final Timeout globalTimeout = new Timeout(20000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(20);
 
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final ProxyHelper proxyHelper = mock(ProxyHelper.class);

@@ -297,7 +297,7 @@ public class ActionOutputDirectoryHelperTest {
   }
 
   private static ArtifactRoot createOutputRoot(Path execRoot) {
-    return ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    return ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
   }
 
   private static ActionOutputDirectoryHelper createActionOutputDirectoryHelper() {

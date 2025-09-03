@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -99,6 +100,13 @@ public final class UiEventHandler implements EventHandler {
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
   private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+  private static final ImmutableSet<BlazeTestStatus> TEST_STATUS_TO_IGNORE_FOR_NEW_INFORMATION =
+      Sets.immutableEnumSet(
+          BlazeTestStatus.PASSED,
+          BlazeTestStatus.FAILED_TO_BUILD,
+          BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING,
+          BlazeTestStatus.NO_STATUS);
 
   private final boolean quiet;
   private final boolean cursorControl;
@@ -850,17 +858,13 @@ public final class UiEventHandler implements EventHandler {
    * scroll-back buffer and new with respect to the alreay shown failure messages.
    */
   private static boolean testSummaryProvidesNewInformation(TestSummary summary) {
-    ImmutableSet<BlazeTestStatus> statusToIgnore =
-        ImmutableSet.of(
-            BlazeTestStatus.PASSED,
-            BlazeTestStatus.FAILED_TO_BUILD,
-            BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING,
-            BlazeTestStatus.NO_STATUS);
-
-    if (statusToIgnore.contains(summary.getStatus())) {
+    if (TEST_STATUS_TO_IGNORE_FOR_NEW_INFORMATION.contains(summary.getStatus())) {
       return false;
     }
-    return summary.getStatus() != BlazeTestStatus.FAILED || summary.getFailedLogs().size() != 1;
+    if (summary.getStatus() == BlazeTestStatus.FAILED) {
+      return summary.getFailedLogs().size() != 1;
+    }
+    return true;
   }
 
   @Subscribe

@@ -246,7 +246,8 @@ EOF
   expect_not_log "singlejar/singlejar_local"
 }
 
-function test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
   cat > MODULE.bazel <<'EOF'
 # This version should always be at most as high as the version in MODULE.tools.
 bazel_dep(name = "rules_java", version = "7.3.2")
@@ -368,7 +369,8 @@ EOF
     //pkg:foo &>"$TEST_log" || fail "Build should succeed"
 }
 
-function test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLE_test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
   add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
@@ -396,7 +398,8 @@ EOF
     //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
 }
 
-function test_non_executable_java_binary_compiles_for_any_platform_with_remote_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_non_executable_java_binary_compiles_for_any_platform_with_remote_jdk() {
   add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
@@ -425,7 +428,8 @@ EOF
     //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
 }
 
-function test_executable_java_binary_fails_without_runtime_with_local_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_executable_java_binary_fails_without_runtime_with_local_jdk() {
   add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
@@ -459,7 +463,8 @@ EOF
   expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 }
 
-function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
   add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'

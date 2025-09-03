@@ -123,6 +123,7 @@ class JsonTraceFileWriter implements Runnable {
     long startTimeNanos;
     long endTimeNanos;
     TaskData data;
+    @Nullable String description; // Null if merged events have different descriptions
 
     /*
      * Tries to merge an additional event, i.e. if the event is close enough to the already merged
@@ -142,19 +143,24 @@ class JsonTraceFileWriter implements Runnable {
       }
       if (count == 0) {
         this.data = data;
+        this.description = data.description;
         this.startTimeNanos = startTimeNanos;
         this.endTimeNanos = endTimeNanos;
         count++;
         return null;
       } else if (startTimeNanos <= this.endTimeNanos + SLIM_PROFILE_MAXIMAL_PAUSE_NS) {
+        if (!data.description.equals(description)) {
+          description = null;
+        }
         this.endTimeNanos = endTimeNanos;
         count++;
         return null;
       } else {
         TaskData ret = getAndReset();
+        this.data = data;
+        this.description = data.description;
         this.startTimeNanos = startTimeNanos;
         this.endTimeNanos = endTimeNanos;
-        this.data = data;
         count = 1;
         return ret;
       }
@@ -166,12 +172,18 @@ class JsonTraceFileWriter implements Runnable {
       if (data == null || count <= 1) {
         ret = data;
       } else {
+        String mergedDescription;
+        if (description != null) {
+          mergedDescription = String.format("%dx %s", count, description);
+        } else {
+          mergedDescription = String.format("%dx various events", count);
+        }
         ret =
             new TaskData(
                 data.threadId,
                 this.startTimeNanos,
                 this.endTimeNanos - this.startTimeNanos,
-                "merged " + count + " events");
+                mergedDescription);
       }
       count = 0;
       data = null;

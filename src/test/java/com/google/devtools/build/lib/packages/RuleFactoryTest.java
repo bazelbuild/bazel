@@ -22,7 +22,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
@@ -58,11 +57,10 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             id,
             RootedPath.toRootedPath(root, filename),
-            "TESTING",
             Optional.empty(),
             Optional.empty(),
             StarlarkSemantics.DEFAULT,
-            /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+            /* repositoryMapping= */ RepositoryMapping.EMPTY,
             /* mainRepositoryMapping= */ null,
             /* cpuBoundSemaphore= */ null,
             /* generatorMap= */ null,
@@ -131,77 +129,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     assertThat(attributes.get("output_to_bindir", Type.BOOLEAN)).isFalse();
     assertThat(attributes.get("testonly", Type.BOOLEAN)).isFalse();
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
-  }
-
-  @Test
-  public void testCreateWorkspaceRule() throws Exception {
-    Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
-    Package.Builder pkgBuilder =
-        packageFactory.newExternalPackageBuilder(
-            WorkspaceFileValue.key(RootedPath.toRootedPath(root, myPkgPath)),
-            "TESTING",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            StarlarkSemantics.DEFAULT);
-
-    Map<String, Object> attributeValues = new HashMap<>();
-    attributeValues.put("name", "foo");
-    attributeValues.put("actual", "//foo:bar");
-
-    RuleClass ruleClass = provider.getRuleClassMap().get("bind");
-    Rule rule =
-        RuleFactory.createAndAddRule(
-            pkgBuilder,
-            ruleClass,
-            new BuildLangTypedAttributeValuesMap(attributeValues),
-            true,
-            DUMMY_STACK);
-    assertThat(rule.containsErrors()).isFalse();
-  }
-
-  @Test
-  public void testWorkspaceRuleFailsInBuildFile() {
-    Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
-    Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
-
-    Map<String, Object> attributeValues = new HashMap<>();
-    attributeValues.put("name", "foo");
-    attributeValues.put("actual", "//bar:baz");
-
-    RuleClass ruleClass = provider.getRuleClassMap().get("bind");
-    RuleFactory.InvalidRuleException e =
-        assertThrows(
-            RuleFactory.InvalidRuleException.class,
-            () ->
-                RuleFactory.createAndAddRule(
-                    pkgBuilder,
-                    ruleClass,
-                    new BuildLangTypedAttributeValuesMap(attributeValues),
-                    true,
-                    DUMMY_STACK));
-    assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
-  }
-
-  @Test
-  public void testBuildRuleFailsInWorkspaceFile() {
-    Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
-    Package.Builder pkgBuilder = newBuilder(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, myPkgPath);
-
-    Map<String, Object> attributeValues = new HashMap<>();
-    attributeValues.put("name", "foo");
-    attributeValues.put("alwayslink", true);
-
-    RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
-    RuleFactory.InvalidRuleException e =
-        assertThrows(
-            RuleFactory.InvalidRuleException.class,
-            () ->
-                RuleFactory.createAndAddRule(
-                    pkgBuilder,
-                    ruleClass,
-                    new BuildLangTypedAttributeValuesMap(attributeValues),
-                    true,
-                    DUMMY_STACK));
-    assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
 
   private static void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) {

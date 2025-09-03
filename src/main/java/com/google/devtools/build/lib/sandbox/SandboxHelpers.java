@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -883,6 +884,11 @@ public final class SandboxHelpers {
         updateContentMap(absPath, timestamp, entry.getValue());
       }
     }
+  }
+
+  @VisibleForTesting
+  static void resetWarnedAboutMovesBeingCopiesForTesting() {
+    warnedAboutMovesBeingCopies.set(false);
   }
 
   private static boolean addParent(

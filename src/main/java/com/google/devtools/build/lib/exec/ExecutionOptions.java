@@ -124,9 +124,9 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Writes intermediate parameter files to output tree even when using "
-              + "remote action execution. Useful when debugging actions. "
-              + "This is implied by --subcommands and --verbose_failures.")
+          "Writes intermediate parameter files to output tree even when using remote action "
+              + "execution or caching. Useful when debugging actions. This is implied by "
+              + "--subcommands and --verbose_failures.")
   public boolean materializeParamFiles;
 
   @Option(
@@ -514,17 +514,6 @@ public class ExecutionOptions extends OptionsBase {
               + " order. Only applies to the binary and JSON formats; the compact format is never"
               + " sorted.")
   public boolean executionLogSort;
-
-  @Option(
-      name = "experimental_split_xml_generation",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If this flag is set, and a test action does not generate a test.xml file, then "
-              + "Bazel uses a separate action to generate a dummy test.xml file containing the "
-              + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
-  public boolean splitXmlGeneration;
 
   @Option(
       // TODO: when this flag is moved to non-experimental, rename it to a more general name

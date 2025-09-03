@@ -30,6 +30,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfe
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.util.Collections.min;
+import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -66,6 +67,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -82,6 +84,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -114,6 +117,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -139,7 +143,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -169,6 +173,9 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private static final Comparator<String> PROTO_STRING_COMPARATOR =
+      comparing(StringEncoding::unicodeToInternal);
+
   private final Reporter reporter;
   private final boolean verboseFailures;
   private final Path execRoot;
@@ -183,6 +190,7 @@ public class RemoteExecutionService {
   private final String commandId;
   private final DigestUtil digestUtil;
   private final RemoteOptions remoteOptions;
+  private final ExecutionOptions executionOptions;
   @Nullable private final CombinedCache combinedCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final TempPathGenerator tempPathGenerator;
@@ -214,6 +222,7 @@ public class RemoteExecutionService {
       String commandId,
       DigestUtil digestUtil,
       RemoteOptions remoteOptions,
+      ExecutionOptions executionOptions,
       @Nullable CombinedCache combinedCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
@@ -229,6 +238,7 @@ public class RemoteExecutionService {
     this.commandId = commandId;
     this.digestUtil = digestUtil;
     this.remoteOptions = remoteOptions;
+    this.executionOptions = executionOptions;
     this.combinedCache = combinedCache;
     this.remoteExecutor = remoteExecutor;
 
@@ -265,7 +275,7 @@ public class RemoteExecutionService {
         String pathString = internalToUnicode(remotePathResolver.localPathToOutputPath(output));
         outputPaths.add(pathString);
       }
-      Collections.sort(outputPaths);
+      outputPaths.sort(PROTO_STRING_COMPARATOR);
       command.addAllOutputPaths(outputPaths);
     } else {
       var outputFiles = new ArrayList<String>();
@@ -278,8 +288,8 @@ public class RemoteExecutionService {
           outputFiles.add(pathString);
         }
       }
-      Collections.sort(outputFiles);
-      Collections.sort(outputDirectories);
+      outputFiles.sort(PROTO_STRING_COMPARATOR);
+      outputDirectories.sort(PROTO_STRING_COMPARATOR);
       command.addAllOutputFiles(outputFiles).addAllOutputDirectories(outputDirectories);
     }
 
@@ -669,11 +679,10 @@ public class RemoteExecutionService {
 
       RequestMetadata metadata =
           TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
+              buildRequestId, commandId, actionKey.digest().getHash(), spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
               spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
-
       return new RemoteAction(
           spawn,
           context,
@@ -1012,13 +1021,20 @@ public class RemoteExecutionService {
               "Failed creating directory and parents for %s",
               symlink.path())
           .createDirectoryAndParents();
-      // If a directory output is being materialized as a symlink, we must first delete the
-      // preexisting empty directory.
-      if (symlink.path().exists(Symlinks.NOFOLLOW)
-          && symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+      // If a directory output is being materialized as a symlink, creating the symlink fails as we
+      // must first delete the preexisting empty directory. Since this is rare (and in the future
+      // BwoB may no longer eagerly create these directories), we don't delete the directory
+      // beforehand.
+      try {
+        symlink.path().createSymbolicLink(symlink.target());
+      } catch (IOException e) {
+        if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+          throw e;
+        }
+        // Retry after deleting the directory.
         symlink.path().delete();
+        symlink.path().createSymbolicLink(symlink.target());
       }
-      symlink.path().createSymbolicLink(symlink.target());
     }
   }
 
@@ -1134,7 +1150,7 @@ public class RemoteExecutionService {
     for (FileNode file : dir.getFilesList()) {
       filesBuilder.add(
           new FileMetadata(
-              parent.getRelative(file.getName()),
+              parent.getRelative(unicodeToInternal(file.getName())),
               file.getDigest(),
               file.getIsExecutable(),
               ByteString.EMPTY));
@@ -1144,11 +1160,12 @@ public class RemoteExecutionService {
     for (SymlinkNode symlink : dir.getSymlinksList()) {
       symlinksBuilder.add(
           new SymlinkMetadata(
-              parent.getRelative(symlink.getName()), PathFragment.create(symlink.getTarget())));
+              parent.getRelative(unicodeToInternal(symlink.getName())),
+              PathFragment.create(unicodeToInternal(symlink.getTarget()))));
     }
 
     for (DirectoryNode directoryNode : dir.getDirectoriesList()) {
-      Path childPath = parent.getRelative(directoryNode.getName());
+      Path childPath = parent.getRelative(unicodeToInternal(directoryNode.getName()));
       Directory childDir =
           Preconditions.checkNotNull(childDirectoriesMap.get(directoryNode.getDigest()));
       DirectoryMetadata childMetadata = parseDirectory(childPath, childDir, childDirectoriesMap);
@@ -1334,7 +1351,7 @@ public class RemoteExecutionService {
 
       var execPath = file.path.relativeTo(execRoot);
       var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
-      if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
+      if (!isInMemoryOutputFile && shouldDownload(result, execPath, /* treeRootExecPath= */ null)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         downloadsBuilder.add(
@@ -1380,28 +1397,28 @@ public class RemoteExecutionService {
     }
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      PathFragment treeRootExecPath = entry.getKey().relativeTo(execRoot);
+
       for (FileMetadata file : entry.getValue().files()) {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
 
-        if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+        if (shouldDownload(result, file.path.relativeTo(execRoot), treeRootExecPath)) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           downloadsBuilder.add(
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
+        } else if (hasBazelOutputService) {
+          downloadsBuilder.add(immediateFuture(file));
         } else {
-          if (hasBazelOutputService) {
-            downloadsBuilder.add(immediateFuture(file));
-          } else {
-            checkNotNull(remoteActionFileSystem)
-                .injectRemoteFile(
-                    file.path().asFragment(),
-                    DigestUtil.toBinaryDigest(file.digest()),
-                    file.digest().getSizeBytes(),
-                    expirationTime);
-          }
+          checkNotNull(remoteActionFileSystem)
+              .injectRemoteFile(
+                  file.path().asFragment(),
+                  DigestUtil.toBinaryDigest(file.digest()),
+                  file.digest().getSizeBytes(),
+                  expirationTime);
         }
       }
     }
@@ -1759,7 +1776,8 @@ public class RemoteExecutionService {
     return previousSpawnResult;
   }
 
-  private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
+  private boolean shouldDownload(
+      RemoteActionResult result, PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
     if (outputService instanceof BazelOutputService) {
       return false;
     }
@@ -1769,7 +1787,7 @@ public class RemoteExecutionService {
     if (result.getExitCode() != 0) {
       return true;
     }
-    return remoteOutputChecker.shouldDownloadOutput(execPath);
+    return remoteOutputChecker.shouldDownloadOutput(execPath, treeRootExecPath);
   }
 
   private static String prettyPrint(ActionInput actionInput) {
@@ -1964,7 +1982,7 @@ public class RemoteExecutionService {
     RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) combinedCache;
     // Upload the command and all the inputs into the remote cache.
     Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
-    additionalInputs.put(action.getActionKey().getDigest(), action.getAction());
+    additionalInputs.put(action.getActionKey().digest(), action.getAction());
     additionalInputs.put(action.getCommandHash(), action.getCommand());
 
     // As uploading depends on having the full input root in memory, limit
@@ -2015,7 +2033,7 @@ public class RemoteExecutionService {
         ExecuteRequest.newBuilder()
             .setInstanceName(remoteOptions.remoteInstanceName)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setActionDigest(action.getActionKey().getDigest())
+            .setActionDigest(action.getActionKey().digest())
             .setSkipCacheLookup(!acceptCachedResult);
     if (remoteOptions.remoteResultCachePriority != 0) {
       requestBuilder
@@ -2125,6 +2143,20 @@ public class RemoteExecutionService {
 
     if (remoteExecutor != null) {
       remoteExecutor.close();
+    }
+  }
+
+  /**
+   * Whether parameter files should be written locally, even when using remote execution or caching.
+   */
+  public void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
+    if (!executionOptions.shouldMaterializeParamFiles()) {
+      return;
+    }
+    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
+      if (actionInput instanceof CommandLines.ParamFileActionInput paramFileActionInput) {
+        paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
+      }
     }
   }
 

@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver
 import com.google.devtools.build.lib.starlarkdocextract.ExtractorContext;
 import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
 import com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -124,8 +123,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   /** Non-null if and only if --proto:rule_classes option is set. */
   @Nullable private RuleClassInfoFormatter ruleClassInfoFormatter;
 
-  @Nullable private PathFragment overrideSourceRoot;
-
   @Nullable private EventHandler eventHandler;
 
   @Override
@@ -153,11 +150,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeStarlarkRuleEnv = options.protoIncludeStarlarkRuleEnv;
     this.hashFunction = hashFunction;
     this.ruleClassInfoFormatter = options.protoRuleClasses ? new RuleClassInfoFormatter() : null;
-  }
-
-  @Override
-  public void setOverrideSourceRoot(PathFragment overrideSourceRoot) {
-    this.overrideSourceRoot = overrideSourceRoot;
   }
 
   @Override
@@ -206,9 +198,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
               .setName(internalToUnicode(labelPrinter.toString(rule.getLabel())))
               .setRuleClass(internalToUnicode(rule.getRuleClass()));
       if (includeLocations) {
-        rulePb.setLocation(
-            internalToUnicode(
-                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
+        rulePb.setLocation(internalToUnicode(FormatUtils.getLocation(target, relativeLocations)));
       }
       addAttributes(rulePb, rule, extraDataForAttrHash, labelPrinter);
       byte[] transitiveDigest = rule.getRuleClassObject().getRuleDefinitionEnvironmentDigest();
@@ -320,9 +310,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
               .setName(internalToUnicode(labelPrinter.toString(label)));
 
       if (includeLocations) {
-        output.setLocation(
-            internalToUnicode(
-                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
+        output.setLocation(internalToUnicode(FormatUtils.getLocation(target, relativeLocations)));
       }
       targetPb.setType(GENERATED_FILE);
       targetPb.setGeneratedFile(output.build());
@@ -333,17 +321,14 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           Build.SourceFile.newBuilder().setName(internalToUnicode(labelPrinter.toString(label)));
 
       if (includeLocations) {
-        input.setLocation(
-            internalToUnicode(
-                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
+        input.setLocation(internalToUnicode(FormatUtils.getLocation(target, relativeLocations)));
       }
 
       if (inputFile.getName().equals("BUILD")) {
-        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion.
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
                 ? inputFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()
-                : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
+                : aspectResolver.computeBuildFileDependencies(inputFile);
 
         for (Label starlarkLoadLabel : starlarkLoadLabels) {
           input.addSubinclude(internalToUnicode(labelPrinter.toString(starlarkLoadLabel)));
@@ -376,9 +361,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           SourceFile.newBuilder().setName(internalToUnicode(labelPrinter.toString(label)));
 
       if (includeLocations) {
-        input.setLocation(
-            internalToUnicode(
-                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
+        input.setLocation(internalToUnicode(FormatUtils.getLocation(target, relativeLocations)));
       }
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input.build());

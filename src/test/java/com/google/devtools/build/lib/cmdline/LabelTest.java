@@ -412,11 +412,6 @@ public class LabelTest {
                     "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
                 .getDisplayForm(repositoryMapping))
         .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc:abc");
-
-    assertThat(displayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped//:unremapped");
-    assertThat(displayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped//:unremapped");
   }
 
   @Test
@@ -462,12 +457,6 @@ public class LabelTest {
                     "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
                 .getShorthandDisplayForm(repositoryMapping))
         .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc");
-
-    assertThat(
-            shorthandDisplayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped");
-    assertThat(shorthandDisplayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped");
   }
 
   @Test

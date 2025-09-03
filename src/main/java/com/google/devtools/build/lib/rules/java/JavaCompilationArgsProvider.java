@@ -60,7 +60,8 @@ public record JavaCompilationArgsProvider(
     NestedSet<Artifact> transitiveCompileTimeJars,
     NestedSet<Artifact> directFullCompileTimeJars,
     NestedSet<Artifact> transitiveFullCompileTimeJars,
-    NestedSet<Artifact> compileTimeJavaDependencyArtifacts)
+    NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
+    NestedSet<Artifact> directHeaderCompilationJars)
     implements JavaInfoInternalProvider {
   public JavaCompilationArgsProvider {
     requireNonNull(runtimeJars, "runtimeJars");
@@ -69,11 +70,13 @@ public record JavaCompilationArgsProvider(
     requireNonNull(directFullCompileTimeJars, "directFullCompileTimeJars");
     requireNonNull(transitiveFullCompileTimeJars, "transitiveFullCompileTimeJars");
     requireNonNull(compileTimeJavaDependencyArtifacts, "compileTimeJavaDependencyArtifacts");
+    requireNonNull(directHeaderCompilationJars, "directHeaderCompilationJars");
   }
 
   @SerializationConstant
   public static final JavaCompilationArgsProvider EMPTY =
       create(
+          NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
@@ -87,14 +90,16 @@ public record JavaCompilationArgsProvider(
       NestedSet<Artifact> transitiveCompileTimeJars,
       NestedSet<Artifact> directFullCompileTimeJars,
       NestedSet<Artifact> transitiveFullCompileTimeJars,
-      NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
+      NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
+      NestedSet<Artifact> directHeaderCompilationJars) {
     return new JavaCompilationArgsProvider(
         runtimeJars,
         directCompileTimeJars,
         transitiveCompileTimeJars,
         directFullCompileTimeJars,
         transitiveFullCompileTimeJars,
-        compileTimeJavaDependencyArtifacts);
+        compileTimeJavaDependencyArtifacts,
+        directHeaderCompilationJars);
   }
 
   /**
@@ -122,7 +127,8 @@ public record JavaCompilationArgsProvider(
         /* transitiveFullCompileTimeJars= */ getDepset(
             javaInfo, "_transitive_full_compile_time_jars"),
         /* compileTimeJavaDependencyArtifacts= */ getDepset(
-            javaInfo, "_compile_time_java_dependencies"));
+            javaInfo, "_compile_time_java_dependencies"),
+        /* directHeaderCompilationJars= */ getDepset(javaInfo, "header_compilation_direct_deps"));
   }
 
   private static final NestedSet<Artifact> getDepset(StructImpl javaInfo, String name)

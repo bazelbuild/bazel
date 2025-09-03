@@ -27,17 +27,11 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Utility class for functionality related to Blaze commands.
- */
+/** Utility class for functionality related to Blaze commands. */
 public class BlazeCommandUtils {
-  /**
-   * Options classes used as startup options in Blaze core.
-   */
+  /** Options classes used as startup options in Blaze core. */
   private static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_STARTUP_OPTIONS =
-      ImmutableList.of(
-          BlazeServerStartupOptions.class,
-          HostJvmStartupOptions.class);
+      ImmutableList.of(BlazeServerStartupOptions.class, HostJvmStartupOptions.class);
 
   /** The set of option-classes that are common to all Blaze commands. */
   private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
@@ -143,9 +137,7 @@ public class BlazeCommandUtils {
       throw new IllegalStateException("Help template for '" + topic + "' omits %{options}!");
     }
 
-    String optionStr;
-      optionStr =
-          parser.describeOptions(productName, helpVerbosity).replace("%{product}", productName);
+    String optionStr = parser.describeOptions(helpVerbosity).replace("%{product}", productName);
 
     return template
             .replace("%{product}", productName)

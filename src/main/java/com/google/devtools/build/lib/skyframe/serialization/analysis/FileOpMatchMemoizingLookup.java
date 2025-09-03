@@ -14,18 +14,24 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static java.lang.Math.min;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResultOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemDependencies.FileOpDependency;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ListingDependencies.AvailableListingDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ListingDependencies.MissingListingDependencies;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Matches {@link FileOpDependency} instances representing cached value dependencies against {@link
@@ -64,26 +70,29 @@ final class FileOpMatchMemoizingLookup
 
   private FileOpMatchResultOrFuture populateFutureFileOpMatchResult(
       int validityHorizon, FutureFileOpMatchResult ownedFuture) {
-    switch (ownedFuture.key()) {
-      case FileDependencies file:
-        return aggregateAnyAdditionalFileDependencies(
-            file.findEarliestMatch(changes, validityHorizon), file, validityHorizon, ownedFuture);
-      case ListingDependencies listing:
+    return switch (ownedFuture.key()) {
+      case AvailableFileDependencies file ->
+          aggregateAnyAdditionalFileDependencies(
+              file.findEarliestMatch(changes, validityHorizon), file, validityHorizon, ownedFuture);
+      case MissingFileDependencies missing -> ownedFuture.completeWith(ALWAYS_MATCH_RESULT);
+      case AvailableListingDependencies listing -> {
         // Matches the listing (files inside the directory changed).
         int version = listing.findEarliestMatch(changes, validityHorizon);
         // Then matches the directory itself.
-        FileDependencies realDirectory = listing.realDirectory();
-        return aggregateAnyAdditionalFileDependencies(
+        AvailableFileDependencies realDirectory = listing.realDirectory();
+        yield aggregateAnyAdditionalFileDependencies(
             min(version, realDirectory.findEarliestMatch(changes, validityHorizon)),
             realDirectory,
             validityHorizon,
             ownedFuture);
-    }
+      }
+      case MissingListingDependencies missing -> ownedFuture.completeWith(ALWAYS_MATCH_RESULT);
+    };
   }
 
   private FileOpMatchResultOrFuture aggregateAnyAdditionalFileDependencies(
       int baseVersion,
-      FileDependencies file,
+      AvailableFileDependencies file,
       int validityHorizon,
       FutureFileOpMatchResult ownedFuture) {
     if (file.getDependencyCount() == 0) {
@@ -102,6 +111,7 @@ final class FileOpMatchMemoizingLookup
     private volatile FileOpMatchResult result;
 
     private AggregatingFutureFileOpMatchResult(int version) {
+      super(directExecutor());
       this.result = FileOpMatchResult.create(version);
     }
 
@@ -112,7 +122,8 @@ final class FileOpMatchMemoizingLookup
           break;
         case FutureFileOpMatchResult future:
           increment();
-          Futures.addCallback(future, (FutureCallback<FileOpMatchResult>) this, directExecutor());
+          Futures.addCallback(
+              future, (FutureCallback<FileOpMatchResult>) this, ForkJoinPool.commonPool());
           break;
       }
     }

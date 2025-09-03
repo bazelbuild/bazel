@@ -289,18 +289,17 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     }
   }
 
-  /*
+  /**
    * Resolve aliased build setting issues
    *
    * <p>If a build setting is transitioned upon via an alias, the resulting {@link
    * BuildOptions#getStarlarkOptions()} map will look like this:
    *
-   * <entry1>alias-label -> new-value
-   * <entry2>actual-label -> old-value
+   * <p><entry1>alias-label -> new-value <entry2>actual-label -> old-value
    *
-   * <p>we need to collapse this to the correct single entry: actual-label -> new-value.
-   * By the end of this method, the starlark options map in the returned {@link BuildOptions}
-   * contains only keys that are actual build settings, no aliases.
+   * <p>we need to collapse this to the correct single entry: actual-label -> new-value. By the end
+   * of this method, the starlark options map in the returned {@link BuildOptions} contains only
+   * keys that are actual build settings, no aliases.
    */
   private static BuildOptions unalias(
       BuildOptions options, ImmutableMap<Label, Label> aliasToActual) {

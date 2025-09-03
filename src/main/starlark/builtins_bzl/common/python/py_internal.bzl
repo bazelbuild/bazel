@@ -20,6 +20,7 @@ These may change at any time and are closely coupled to the rule implementation.
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
 _py_builtins = _builtins.internal.py_builtins
@@ -90,7 +91,7 @@ def _expand_location_and_make_variables(*args, **kwargs):
     return _py_builtins.expand_location_and_make_variables(*args, **kwargs)
 
 def _extra_libraries_build_libraries(extra_libraries, *args, **kwargs):
-    return extra_libraries.build_libraries(*args, **kwargs)
+    return cc_common.build_extra_link_time_libraries(extra_libraries.libraries, *args, **kwargs)
 
 def _get_current_os_name(*args, **kwargs):
     return _py_builtins.get_current_os_name(*args, **kwargs)
@@ -126,7 +127,7 @@ def _link(*args, **kwargs):
     return cc_common.link(*args, **kwargs)
 
 def _linking_context_extra_link_time_libraries(linking_context, *args, **kwargs):
-    return linking_context.extra_link_time_libraries(*args, **kwargs)
+    return linking_context._extra_link_time_libraries
 
 def _linking_context_linkstamps(linking_context, *args, **kwargs):
     return linking_context.linkstamps(*args, **kwargs)
@@ -158,7 +159,7 @@ def _strip_opts(ctx):
 
 # This replaces the Java-defined name using exports.bzl toplevels mapping.
 py_internal = struct(
-    CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider,
+    CcLauncherInfo = CcLauncherInfo,
     PackageSpecificationInfo = PackageSpecificationInfo,
     add_py_extra_pseudo_action = _add_py_extra_pseudo_action,
     are_action_listeners_enabled = _are_action_listeners_enabled,

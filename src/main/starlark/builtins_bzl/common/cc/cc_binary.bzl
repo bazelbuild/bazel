@@ -19,12 +19,12 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_debug_helper.bzl", "create_debug_packager_actions")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "dynamic_deps_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/debug_package_info.bzl", "DebugPackageInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
-DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_internal = _builtins.internal.cc_internal
-StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
 # TODO(blaze-team): cleanup lint target types
 _EXECUTABLE = "executable"
@@ -386,7 +386,7 @@ def _create_transitive_linking_actions(
         variables_extension = link_variables,
         additional_outputs = additional_outputs,
     )
-    cc_launcher_info = cc_internal.create_cc_launcher_info(cc_info = cc_info_without_extra_link_time_libraries, compilation_outputs = cc_compilation_outputs_with_only_objects)
+    cc_launcher_info = CcLauncherInfo(cc_info = cc_info_without_extra_link_time_libraries, compilation_outputs = cc_compilation_outputs_with_only_objects)
     return (cc_linking_outputs, cc_launcher_info, cc_linking_context)
 
 def _use_pic(ctx, cc_toolchain, feature_configuration):
@@ -433,6 +433,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     Returns:
       Appropriate providers for cc_binary/cc_test.
     """
+    semantics.validate(ctx, "cc_binary")
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
 
     if len(ctx.attr.dynamic_deps) > 0:
@@ -510,7 +511,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         cxx_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "cxxopts"),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps),
-        system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
+        includes = cc_helper.include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
@@ -612,11 +613,11 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         linkmap = ctx.actions.declare_file(binary.basename + ".map", sibling = binary)
         additional_linker_outputs.append(linkmap)
 
-    extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
+    extra_link_time_libraries = deps_cc_linking_context._extra_link_time_libraries.libraries
     linker_inputs_extra = depset()
     runtime_libraries_extra = depset()
     if extra_link_time_libraries != None:
-        linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
+        linker_inputs_extra, runtime_libraries_extra = cc_common.build_extra_link_time_libraries(extra_libraries = extra_link_time_libraries, ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
 
     cc_linking_outputs_binary, cc_launcher_info, deps_cc_linking_context = _create_transitive_linking_actions(
         ctx,
@@ -664,6 +665,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         ctx,
         cc_toolchain,
         dwp_file,
+        feature_configuration = feature_configuration,
         cc_compilation_outputs = cc_compilation_outputs,
         cc_debug_context = cc_helper.merge_cc_debug_contexts(cc_compilation_outputs, _get_providers(ctx)),
         linking_mode = linking_mode,
@@ -775,8 +777,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         debug_package_info,
         OutputGroupInfo(**output_groups),
     ]
-    if "fully_static_link" in ctx.features:
-        result.append(StaticallyLinkedMarkerInfo(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
     return binary_info, result

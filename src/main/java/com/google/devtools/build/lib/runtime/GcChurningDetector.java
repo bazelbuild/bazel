@@ -45,16 +45,25 @@ class GcChurningDetector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Duration MIN_INVOCATION_WALL_TIME_DURATION = Duration.ofMinutes(1);
 
-  private final int thresholdPercentage;
+  private volatile int thresholdPercentage;
+  private final int thresholdPercentageIfMultipleTopLevelTargets;
   private Duration cumulativeFullGcDuration = Duration.ZERO;
   private final Clock clock;
   private final Instant start;
   private final ArrayList<FullGcFractionPoint> fullGcFractionPoints = new ArrayList<>();
+
+  private FullGcFractionPoint peakFullGcPractionPoint = FullGcFractionPoint.getDefaultInstance();
   private final BugReporter bugReporter;
 
   @VisibleForTesting
-  GcChurningDetector(int thresholdPercentage, Clock clock, BugReporter bugReporter) {
+  GcChurningDetector(
+      int thresholdPercentage,
+      int thresholdPercentageIfMultipleTopLevelTargets,
+      Clock clock,
+      BugReporter bugReporter) {
     this.thresholdPercentage = thresholdPercentage;
+    this.thresholdPercentageIfMultipleTopLevelTargets =
+        thresholdPercentageIfMultipleTopLevelTargets;
     this.clock = clock;
     this.start = clock.now();
     this.bugReporter = bugReporter;
@@ -62,7 +71,19 @@ class GcChurningDetector {
 
   static GcChurningDetector createForCommand(MemoryPressureOptions options) {
     return new GcChurningDetector(
-        options.gcChurningThreshold, BlazeClock.instance(), BugReporter.defaultInstance());
+        options.gcChurningThreshold,
+        options.gcChurningThresholdIfMultipleTopLevelTargets.orElse(options.gcChurningThreshold),
+        BlazeClock.instance(),
+        BugReporter.defaultInstance());
+  }
+
+  void targetParsingComplete(int numTopLevelTargets) {
+    if (numTopLevelTargets > 1) {
+      thresholdPercentage = thresholdPercentageIfMultipleTopLevelTargets;
+      logger.atInfo().log(
+          "Switched to thresholdPercentage of %s because there were %s top-level targets",
+          thresholdPercentage, numTopLevelTargets);
+    }
   }
 
   // This is called from MemoryPressureListener on a single memory-pressure-listener-0 thread, so it
@@ -71,9 +92,15 @@ class GcChurningDetector {
     if (!event.wasFullGc() || event.wasManualGc()) {
       return;
     }
-
-    cumulativeFullGcDuration = cumulativeFullGcDuration.plus(event.duration());
     Duration invocationWallTimeDuration = Duration.between(start, clock.now());
+    Duration gcEventDuration = event.duration();
+    if (event.duration().compareTo(invocationWallTimeDuration) > 0) {
+      // Clamp the GC event's duration to the duration of the current invocation in case this is an
+      // event for a full GC that started before the current invocation started.
+      gcEventDuration = invocationWallTimeDuration;
+    }
+    cumulativeFullGcDuration = cumulativeFullGcDuration.plus(gcEventDuration);
+
     // This narrowing conversion is fine in practice since MAX_INT ms is almost 25 days, and
     // we don't care about supporting an invocation running for that long.
     int invocationWallTimeSoFarMs = (int) invocationWallTimeDuration.toMillis();
@@ -82,12 +109,17 @@ class GcChurningDetector {
       // if it's been less than a full millisecond so far.
       return;
     }
+
     double gcFraction = cumulativeFullGcDuration.toMillis() * 1.0 / invocationWallTimeSoFarMs;
-    fullGcFractionPoints.add(
+    FullGcFractionPoint fullGcFractionPoint =
         FullGcFractionPoint.newBuilder()
             .setInvocationWallTimeSoFarMs(invocationWallTimeSoFarMs)
             .setFullGcFractionSoFar(gcFraction)
-            .build());
+            .build();
+    if (gcFraction > peakFullGcPractionPoint.getFullGcFractionSoFar()) {
+      peakFullGcPractionPoint = fullGcFractionPoint;
+    }
+    fullGcFractionPoints.add(fullGcFractionPoint);
     logger.atInfo().log(
         "cumulativeFullGcDuration=%s invocationWallTimeDuration=%s gcFraction=%.3f",
         cumulativeFullGcDuration, invocationWallTimeDuration, gcFraction);
@@ -119,5 +151,8 @@ class GcChurningDetector {
 
   void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
     memoryPressureStatsBuilder.addAllFullGcFractionPoint(fullGcFractionPoints);
+    if (!fullGcFractionPoints.isEmpty()) {
+      memoryPressureStatsBuilder.setPeakFullGcFractionPoint(peakFullGcPractionPoint);
+    }
   }
 }

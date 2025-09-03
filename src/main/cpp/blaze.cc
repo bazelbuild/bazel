@@ -52,6 +52,8 @@
 #include <utility>
 #include <vector>
 
+#include "src/main/cpp/startup_interceptor.h"
+
 #if !defined(_WIN32)
 #include <sys/stat.h>
 #include <unistd.h>
@@ -385,9 +387,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // Add JVM arguments particular to building blaze64 and particular JVM
   // versions.
   string error;
+  auto [server_javabase, server_javabase_type] =
+      startup_options.GetServerJavabaseAndType();
   blaze_exit_code::ExitCode jvm_args_exit_code =
-      startup_options.AddJVMArguments(startup_options.GetServerJavabase(),
-                                      &result, user_options, &error);
+      startup_options.AddJVMArguments(server_javabase, &result, user_options,
+                                      &error);
   if (jvm_args_exit_code != blaze_exit_code::SUCCESS) {
     BAZEL_DIE(jvm_args_exit_code) << error;
   }
@@ -436,6 +440,31 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // protobuf.
   // TODO: Drop this when protobuf uses VarHandle.
   result.push_back("-Dsun.misc.unsafe.memory.access=allow");
+
+  if (server_javabase_type == StartupOptions::JavabaseType::EMBEDDED) {
+    // Use the system trust store instead of the certificates shipped with the
+    // embedded JDK since users can't easily update it and may not even be aware
+    // of its existence.
+#if defined(_WIN32)
+    result.push_back("-Djavax.net.ssl.trustStoreType=Windows-ROOT");
+#elif defined(__APPLE__)
+    // This type is available as of JDK 23 and provides root certificates in
+    // addition to user certificates.
+    // https://bugs.openjdk.org/browse/JDK-8320362
+    result.push_back("-Djavax.net.ssl.trustStoreType=KeychainStore-ROOT");
+#elif defined(__linux__)
+    if (blaze_util::IsDirectory(
+            blaze_util::Path("/etc/ssl/certs/java/cacerts"))) {
+      // The default trust store location on Debian and Ubuntu.
+      result.push_back(
+          "-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts");
+    } else if (blaze_util::IsDirectory(
+                   blaze_util::Path("/etc/pki/java/cacerts"))) {
+      // The default trust store location on Fedora and CentOS.
+      result.push_back("-Djavax.net.ssl.trustStore=/etc/pki/java/cacerts");
+    }
+#endif
+  }
 
 #if defined(_WIN32)
   // See and use more than 64 CPUs on Windows.
@@ -666,8 +695,8 @@ static void EnsureServerDir(const blaze_util::Path &server_dir) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
-                                const string &workspace) {
+static void GoToWorkspace(const WorkspaceLayout &workspace_layout,
+                          const string &workspace) {
   if (workspace_layout.InWorkspace(workspace) &&
       !blaze_util::ChangeDirectory(workspace)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
@@ -676,7 +705,7 @@ static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
   }
 }
 
-static const bool IsServerMode(const string &command) {
+static bool IsServerMode(const string &command) {
   return "exec-server" == command;
 }
 
@@ -911,7 +940,12 @@ static void StartServerAndConnect(
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, const string &build_label,
+    StartupInterceptor *interceptor) {
+  if (interceptor != nullptr) {
+    interceptor->MaybeReroute(&startup_options, build_label);
+  }
+
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before
   // the new server has written the new file and we try to connect to the old
@@ -1170,12 +1204,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     const std::optional<DurationMillis> extract_data_duration,
     const std::optional<DurationMillis> command_wait_duration,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, StartupInterceptor *interceptor,
+    const string &build_label) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(server_exe, server_exe_args, server_dir,
                             workspace_layout, workspace, option_processor,
-                            startup_options, logging_info, server, build_label);
+                            startup_options, logging_info, server, build_label,
+                            interceptor);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1338,31 +1374,31 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // TODO(bazel-team):  We've also seen a failure during loading (creating
   // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
 
-  // Make the JVM use ISO-8859-1 for parsing its command line because "blaze
-  // run" doesn't handle non-ASCII command line arguments. This is apparently
-  // the most reliable way to select the platform default encoding.
-  //
-  // On Linux, only do this if the locale is available to avoid the JVM
-  // falling back to ASCII-only mode.
+  // Ensure that the JVM runs with a locale that supports Unicode characters in
+  // filenames, environment variables, etc. The approach differs by OS:
+  // - On macOS, the JVM always uses UTF-8, so we don't need to do anything.
+  // - On Windows, the JVM uses the system code page to determine the encoding.
+  //   For the embedded JDK, we force this to UTF-8 in minimize_jdk.sh.
+  // - On Linux, the JVM goes through the regular locale mechanism. In
+  //   particular, we can only force UTF-8 if we can find a locale that supports
+  //   it. Furthermore, for backwards compatibility with setups using other
+  //   encodings, we pick a Latin-1 locale if possible to support arbitrary byte
+  //   sequences, not just valid UTF-8.
+#ifdef __linux__
+  const char *want_locale = nullptr;
+  for (auto candidate_locale : {"en_US.ISO-8859-1", "C.UTF-8", "en_US.UTF-8"}) {
+    locale_t locale = newlocale(LC_CTYPE_MASK, candidate_locale, nullptr);
+    if (locale != nullptr) {
+      freelocale(locale);
+      want_locale = candidate_locale;
+      break;
+    }
+  }
 
-  const char *want_locale = "en_US.ISO-8859-1";
-  bool override_locale = true;
-#ifndef _WIN32
-  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, (locale_t)0);
-  if (iso_locale == 0) {
-    // ISO-8859-1 locale not available, use whatever the user has defined.
-    override_locale = false;
-  } else {
-    freelocale(iso_locale);
+  if (want_locale != nullptr) {
+    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
   }
 #endif
-
-  if (override_locale) {
-    result["LANG"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LANGUAGE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_CTYPE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-  }
 
   return result;
 }
@@ -1486,7 +1522,8 @@ static void RunLauncher(const string &self_path,
                         const StartupOptions &startup_options,
                         const OptionProcessor &option_processor,
                         const WorkspaceLayout &workspace_layout,
-                        const string &workspace, LoggingInfo *logging_info) {
+                        const string &workspace, LoggingInfo *logging_info,
+                        StartupInterceptor *interceptor) {
   blaze_server = new BlazeServer(startup_options);
 
   const std::optional<DurationMillis> command_wait_duration =
@@ -1559,15 +1596,16 @@ static void RunLauncher(const string &self_path,
   } else {
     string build_label;
     ExtractBuildLabel(self_path, &build_label);
-    RunClientServerMode(server_exe, server_exe_args, server_dir,
-                        workspace_layout, workspace, option_processor,
-                        startup_options, logging_info, extract_data_duration,
-                        command_wait_duration, blaze_server, build_label);
+    RunClientServerMode(
+        server_exe, server_exe_args, server_dir, workspace_layout, workspace,
+        option_processor, startup_options, logging_info, extract_data_duration,
+        command_wait_duration, blaze_server, interceptor, build_label);
   }
 }
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
-         OptionProcessor *option_processor, uint64_t start_time) {
+         OptionProcessor *option_processor, StartupInterceptor *interceptor,
+         uint64_t start_time) {
   blaze_util::InitializeStdOutErrForUtf8();
 
   // Logging must be set first to assure no log statements are missed.
@@ -1659,7 +1697,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   PrepareDirectories(startup_options);
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
-              *option_processor, *workspace_layout, workspace, &logging_info);
+              *option_processor, *workspace_layout, workspace, &logging_info,
+              interceptor);
   return 0;
 }
 

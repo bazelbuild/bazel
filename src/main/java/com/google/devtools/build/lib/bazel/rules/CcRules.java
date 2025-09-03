@@ -14,28 +14,17 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcModule;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
-import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
-import java.io.IOException;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -52,43 +41,26 @@ public class CcRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     BazelCcModule bazelCcModule = new BazelCcModule();
     builder.addConfigurationFragment(CppConfiguration.class);
+    builder.addBzlToplevel("DebugPackageInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
 
     builder.addRuleDefinition(new EmptyRule("cc_toolchain") {});
-    builder.addRuleDefinition(new CcToolchainSuiteRule());
+    builder.addRuleDefinition(new EmptyRule("cc_toolchain_suite") {});
     builder.addRuleDefinition(new CcToolchainAliasRule());
     builder.addRuleDefinition(new CcLibcTopAlias());
-    builder.addRuleDefinition(new CcToolchainRequiringRule());
-    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_binary") {});
+    builder.addRuleDefinition(new EmptyRule("cc_binary") {});
     builder.addRuleDefinition(new EmptyRule("cc_shared_library") {});
     builder.addRuleDefinition(new EmptyRule("cc_static_library") {});
-    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_test") {});
-    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_library") {});
+    builder.addRuleDefinition(new EmptyRule("cc_test") {});
+    builder.addRuleDefinition(new EmptyRule("cc_library") {});
     builder.addRuleDefinition(new EmptyRule("cc_import") {});
-    builder.addRuleDefinition(new CcIncludeScanningRule(/* addGrepIncludes= */ false));
     builder.addRuleDefinition(new EmptyRule("fdo_profile") {});
     builder.addRuleDefinition(new EmptyRule("fdo_prefetch_hints") {});
-    builder.addRuleDefinition(new CcLinkingRule());
     builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
     builder.addRuleDefinition(new EmptyRule("propeller_optimize") {});
-    builder.addStarlarkBuiltinsInternal(
-        "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
-    builder.addStarlarkBootstrap(
-        new CcBootstrap(
-            bazelCcModule,
-            CcInfo.PROVIDER,
-            DebugPackageProvider.PROVIDER,
-            CcToolchainConfigInfo.PROVIDER));
-
-    try {
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
+    builder.addStarlarkBootstrap(new CcBootstrap(bazelCcModule, CcInfo.PROVIDER));
   }
 
   @Override

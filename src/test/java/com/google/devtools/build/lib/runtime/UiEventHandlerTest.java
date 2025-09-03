@@ -71,7 +71,7 @@ public sealed class UiEventHandlerTest {
   private static final ArtifactRoot OUTPUT_ROOT =
       ArtifactRoot.asDerivedRoot(
           new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/base/exec"),
-          RootType.Output,
+          RootType.OUTPUT,
           "out");
 
   @TestParameter private boolean skymeldMode;
@@ -303,7 +303,7 @@ public sealed class UiEventHandlerTest {
       NullAction action2 = actionWithProgressMessage("Executing action 2", "action2.out");
       uiEventHandler.loadingComplete(
           new LoadingPhaseCompleteEvent(
-              ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.ALWAYS_FALLBACK));
+              ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.EMPTY));
       uiEventHandler.analysisComplete(mock(AnalysisPhaseCompleteEvent.class));
       output.flushed.clear();
 

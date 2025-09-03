@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
@@ -30,7 +33,7 @@ import net.starlark.java.eval.StarlarkValue;
 public interface CppSemantics extends StarlarkValue {
 
   /** Returns cpp toolchain type. */
-  String getCppToolchainType();
+  Label getCppToolchainType();
 
   /** What language to treat the headers. */
   Language language();
@@ -55,6 +58,10 @@ public interface CppSemantics extends StarlarkValue {
   boolean allowIncludeScanning();
 
   /** Returns true iff this build should perform .d input pruning. */
+  @StarlarkMethod(
+      name = "needs_dotd_input_pruning",
+      documented = false,
+      parameters = {@Param(name = "config")})
   boolean needsDotdInputPruning(BuildConfigurationValue configuration);
 
   /** Returns true iff this build requires include validation. */

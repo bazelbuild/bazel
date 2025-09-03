@@ -59,6 +59,12 @@ class BazelLockfileTest(test_base.TestBase):
     # TODO(pcloudy): investigate why this is needed, MODULE.bazel.lock is not
     # deterministic?
     os.remove(self.Path('MODULE.bazel.lock'))
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    output_base = pathlib.Path(stdout[0].strip())
+    try:
+      os.remove(output_base.joinpath('MODULE.bazel.lock'))
+    except FileNotFoundError:
+      pass
 
   def tearDown(self):
     self.main_registry.stop()
@@ -116,7 +122,7 @@ class BazelLockfileTest(test_base.TestBase):
 
     # Shutdown bazel to empty any cache of the deps tree
     self.RunBazel(['shutdown'])
-    # Runing again will try to get 'sss' which should produce an error
+    # Running again will try to get 'sss' which should produce an error
     exit_code, _, stderr = self.RunBazel(
         [
             'build',
@@ -399,6 +405,67 @@ class BazelLockfileTest(test_base.TestBase):
         ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
     )
     self.assertNotIn('Hello from the other side!', ''.join(stderr))
+
+  def testReproducibleModuleExtension(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'lockfile_ext.dep(name = "bmbm", versions = ["v1", "v2"])',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other side!")',
+            '    repo_rule(name="hello")',
+            '    for mod in ctx.modules:',
+            '        for dep in mod.tags.dep:',
+            '            print("Name:", dep.name, ", Versions:", dep.versions)',
+            '    return ctx.extension_metadata(reproducible = True)',
+            '',
+            '_dep = tag_class(attrs={"name": attr.string(), "versions":',
+            ' attr.string_list()})',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            '    tag_classes={"dep": _dep},',
+            '    environ=["GREEN_TREES", "NOT_SET"],',
+            '    os_dependent=True,',
+            '    arch_dependent=True,',
+            ')',
+        ],
+    )
+
+    # Only set one env var, to make sure null variables don't crash
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+    self.assertIn('Name: bmbm , Versions: ["v1", "v2"]', ''.join(stderr))
+
+    self.RunBazel(['clean'])
+    self.RunBazel(['shutdown'])
+    # Verify that the lockfile entry is not stored in the regular lockfile.
+    os.remove(self.Path('MODULE.bazel.lock'))
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertNotIn('Hello from the other side!', ''.join(stderr))
+
+    self.RunBazel(['clean', '--expunge'])
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertIn('Hello from the other side!', ''.join(stderr))
 
   def testIsolatedAndNonIsolatedModuleExtensions(self):
     self.ScratchFile(

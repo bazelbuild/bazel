@@ -277,12 +277,12 @@ public class IncrementalPackageRoots implements PackageRoots {
       Package.Metadata pkg, Set<Path> lazilyPlantedSymlinksRef) throws AbruptExitException {
     try {
       PackageIdentifier pkgId = pkg.packageIdentifier();
-      if (isExternalRepository(pkgId) && pkg.sourceRoot().isPresent()) {
+      if (isExternalRepository(pkgId)) {
         threadSafeExternalRepoPackageRootsMap.putIfAbsent(
-            pkg.packageIdentifier(), pkg.sourceRoot().get());
+            pkg.packageIdentifier(), pkg.sourceRoot());
         SymlinkForest.plantSingleSymlinkForExternalRepo(
             pkgId.getRepository(),
-            pkg.sourceRoot().get().asPath(),
+            pkg.sourceRoot().asPath(),
             execroot,
             useSiblingRepositoryLayout,
             lazilyPlantedSymlinksRef);

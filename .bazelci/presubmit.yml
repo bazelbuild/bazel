@@ -73,7 +73,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2204:
+  ubuntu2404:
     shards: 4
     shell_commands:
       - rm -rf $HOME/bazeltest
@@ -351,7 +351,6 @@ tasks:
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
       - "-//src/test/shell/bazel:starlark_repository_test"
-      - "-//src/test/shell/bazel:verify_workspace"
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"

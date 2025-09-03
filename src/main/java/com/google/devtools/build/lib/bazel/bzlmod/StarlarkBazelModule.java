@@ -113,7 +113,7 @@ public class StarlarkBazelModule implements StarlarkValue {
       throws ExternalDepsException {
     LabelConverter labelConverter =
         new LabelConverter(
-            PackageIdentifier.create(repoMapping.ownerRepo(), PathFragment.EMPTY_FRAGMENT),
+            PackageIdentifier.create(repoMapping.contextRepo(), PathFragment.EMPTY_FRAGMENT),
             repoMapping,
             repoMappingRecorder);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();

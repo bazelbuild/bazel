@@ -90,25 +90,6 @@ public final class AggregatedSpawnMetrics {
 
   /**
    * Returns a new {@link AggregatedSpawnMetrics} that incorporates the provided metrics by summing
-   * them with the existing ones (if any).
-   */
-  public AggregatedSpawnMetrics sumAllMetrics(SpawnMetrics other) {
-    SpawnMetrics existing = getMetrics(other.execKind());
-    SpawnMetrics.Builder builder =
-        SpawnMetrics.Builder.forExec(other.execKind())
-            .addDurations(existing)
-            .addDurations(other)
-            .addNonDurations(existing)
-            .addNonDurations(other);
-
-    EnumMap<SpawnMetrics.ExecKind, SpawnMetrics> map = new EnumMap<>(SpawnMetrics.ExecKind.class);
-    map.putAll(metricsMap);
-    map.put(other.execKind(), builder.build());
-    return new AggregatedSpawnMetrics(Maps.immutableEnumMap(map));
-  }
-
-  /**
-   * Returns a new {@link AggregatedSpawnMetrics} that incorporates the provided metrics by summing
    * the duration ones and taking the maximum for the non-duration ones.
    */
   public AggregatedSpawnMetrics sumDurationsMaxOther(SpawnMetrics other) {
@@ -120,10 +101,11 @@ public final class AggregatedSpawnMetrics {
             .maxNonDurations(existing)
             .maxNonDurations(other);
 
-    EnumMap<SpawnMetrics.ExecKind, SpawnMetrics> map = new EnumMap<>(SpawnMetrics.ExecKind.class);
-    map.putAll(metricsMap);
-    map.put(other.execKind(), builder.build());
-    return new AggregatedSpawnMetrics(Maps.immutableEnumMap(map));
+    return new AggregatedSpawnMetrics(
+        ImmutableMap.<SpawnMetrics.ExecKind, SpawnMetrics>builder()
+            .putAll(metricsMap)
+            .put(other.execKind(), builder.build())
+            .buildKeepingLast());
   }
 
   /**

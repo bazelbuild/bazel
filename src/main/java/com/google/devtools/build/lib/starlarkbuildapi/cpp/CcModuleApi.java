@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -51,17 +51,11 @@ public interface CcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
-        LinkingContextT extends CcLinkingContextApi<?>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
-        DebugInfoT extends CcDebugInfoContextApi,
-        CppModuleMapT extends CppModuleMapApi<FileT>,
-        LinkingOutputsT extends CcLinkingOutputsApi<FileT, LtoBackendArtifactsT>>
+        CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -389,7 +383,7 @@ public interface CcModuleApi<
             documented = false,
             defaultValue = "unbound"),
       })
-  Tuple compile(
+  default Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
@@ -431,7 +425,9 @@ public interface CcModuleApi<
       Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
 
   // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile_api)
 
@@ -639,7 +635,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  default LinkingOutputsT link(
+  default CcLinkingOutputsApi<FileT, LtoBackendArtifactsT> link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
@@ -648,7 +644,7 @@ public interface CcModuleApi<
       String outputType,
       boolean linkDepsStatically,
       Object compilationOutputs,
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       StarlarkInt stamp,
       Object additionalInputs, // <FileT> expected
@@ -988,23 +984,33 @@ public interface CcModuleApi<
         @Param(
             name = "source_file",
             doc =
-                "Optional source file for the compilation. Please prefer passing source_file here "
-                    + "over appending it to the end of the command line generated from "
+                "Optional source file path for the compilation. Please prefer passing source_file "
+                    + "here over appending it to the end of the command line generated from "
                     + "cc_common.get_memory_inefficient_command_line, as then it's in the power of "
                     + "the toolchain author to properly specify and position compiler flags.",
             named = true,
             positional = false,
-            defaultValue = "None"),
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
         @Param(
             name = "output_file",
             doc =
-                "Optional output file of the compilation. Please prefer passing output_file here "
-                    + "over appending it to the end of the command line generated from "
+                "Optional output file path of the compilation. Please prefer passing output_file "
+                    + "here over appending it to the end of the command line generated from "
                     + "cc_common.get_memory_inefficient_command_line, as then it's in the power of "
                     + "the toolchain author to properly specify and position compiler flags.",
             named = true,
             positional = false,
-            defaultValue = "None"),
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
         @Param(
             name = "user_compile_flags",
             doc = "List of additional compilation flags (copts).",
@@ -1132,6 +1138,7 @@ public interface CcModuleApi<
             positional = false,
             defaultValue = "unbound",
             allowedTypes = {
+              @ParamType(type = FileApi.class),
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class),
             }),
@@ -1385,7 +1392,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  default LibraryToLinkT createLibraryLinkerInput(
+  default LibraryToLinkApi createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -1407,7 +1414,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_linker_input",
       doc = "Creates a <code>LinkerInput</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "owner",
@@ -1452,14 +1458,14 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
       })
-  LinkerInputT createLinkerInput(
+  default LinkerInputApi<FileT> createLinkerInput(
       Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Object linkstamps,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object linkstamps) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "check_experimental_cc_shared_library",
@@ -1467,13 +1473,6 @@ public interface CcModuleApi<
       useStarlarkThread = true,
       documented = false)
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "check_experimental_cc_static_library",
-      doc = "DO NOT USE. This is to guard use of cc_static_library.",
-      useStarlarkThread = true,
-      documented = false)
-  boolean checkExperimentalCcStaticLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "incompatible_disable_objc_library_transition",
@@ -1490,39 +1489,13 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "linker_inputs",
             doc = "Depset of <code>LinkerInput</code>.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
-        @Param(
-            name = "libraries_to_link",
-            doc = "List of <code>LibraryToLink</code>.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "user_link_flags",
-            doc = "List of user link flags passed as strings.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "additional_inputs",
-            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "extra_link_time_library",
             documented = false,
@@ -1530,26 +1503,14 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound",
             allowedTypes = {
-              @ParamType(type = ExtraLinkTimeLibraryApi.class),
+              @ParamType(type = StarlarkInfo.class),
               @ParamType(type = NoneType.class)
             }),
-        @Param(
-            name = "owner",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Label.class)})
       })
-  LinkingContextT createCcLinkingInfo(
-      Object linkerInputs,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputs, // <FileT> expected
-      Object extraLinkTimeLibraryObject,
-      Object ownerObject,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  default CcLinkingContextApi createCcLinkingInfo(
+      Depset linkerInputs, Object extraLinkTimeLibraryObject) throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_compilation_context",
@@ -1989,7 +1950,7 @@ public interface CcModuleApi<
                 "The built-in sysroot. If this attribute is not present, Bazel does not "
                     + "allow using a different sysroot, i.e. through the --grte_top option."),
       })
-  CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
+  default void ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> features, // <StructApi> expected
       Sequence<?> actionConfigs, // <StructApi> expected
@@ -2006,8 +1967,9 @@ public interface CcModuleApi<
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
-      StarlarkThread thread)
-      throws EvalException;
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   @StarlarkMethod(
       name = "create_linking_context_from_compilation_outputs",
@@ -2127,7 +2089,7 @@ public interface CcModuleApi<
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       CompilationOutputsT compilationOutputs,
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       boolean alwayslink,
       Sequence<?> additionalInputs, // <FileT> expected
@@ -2139,30 +2101,6 @@ public interface CcModuleApi<
       throws InterruptedException, EvalException {
     throw new UnsupportedOperationException();
   }
-
-  @StarlarkMethod(
-      name = "create_debug_context",
-      doc = "Create debug context",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "compilation_outputs", positional = true, named = false, defaultValue = "[]"),
-      })
-  DebugInfoT createCcDebugInfoFromStarlark(
-      CompilationOutputsT compilationOutputs, StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "merge_debug_context",
-      doc = "Merge debug contexts",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "debug_contexts", defaultValue = "[]"),
-      })
-  DebugInfoT mergeCcDebugInfoFromStarlark(
-      Sequence<?> debugInfos, // <DebugInfoT> expected
-      StarlarkThread thread)
-      throws EvalException;
 
   @StarlarkMethod(
       name = "create_lto_backend_artifacts",
