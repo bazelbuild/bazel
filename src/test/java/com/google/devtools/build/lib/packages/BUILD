@@ -146,6 +146,7 @@ java_library(
         "//tools/build_defs/cc:action_names.bzl",
         "//tools/python:srcs",  # For BazelMockPythonSupport
         "@rules_cc//cc:srcs",
+        "@rules_cc//cc/common:srcs",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",

@@ -583,6 +583,8 @@ launcher_flag_alias(
     config.create(
         "embedded_tools/tools/zip/BUILD",
         """
+        load("@bazel_tools//third_party/cc_rules/macros:defs.bzl", "cc_binary")
+
         package(default_visibility = ["//visibility:public"])
 
         exports_files(["precompile.py"])
