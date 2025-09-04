@@ -1,3 +1,256 @@
+## Release 8.4.0 (2025-09-04)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250805.4 (2025-09-03)
+
+```
+Baseline: 02edc50f114f75f4cb73f60cdd5eb71f0283cd10
+
+Cherry picks:
+
+   + bbfb288a7b24bff645c62fa2bf3521d1de293cb1:
+     Fix
+     https://github.com/bazelbuild/bazel/commit/9aa7583e97bffb17d2a6f4
+     8aecefa932e8064daa performance regression.
+   + d5821edee8f1743a01ea7e7a4a77943683d38052:
+     Automated rollback of commit
+     f0a0d8a680aa4aefa1e6c0a0d14adeb85e2b2af5.
+   + 48d63a6ae0e21b4807cfaa1697c0a85e488c2f0a:
+     Automated rollback of commit
+     f726568e1bf24fe96de2cda25525e1f8ae237132.
+   + 0d9e2b3b6f4cd9e7e2c78477949a77c84ad87f92:
+     Automated rollback of commit
+     3fe2a1c6dfc0a5b9d21ad872285aac6e1d581852.
+```
+
+Incompatible changes:
+
+  - Bazel releases that include a bundled JDK now use the system
+    trust store for certificates by default. Set
+    `-Djavax.net.ssl.trustStore` and `-Djavax.net.ssl.trustStoreType`
+    via `--host_jvm_args` to override the default location.
+
+New features:
+
+  - The `--experimental_cancel_concurrent_tests` option now accepts
+    the values `on_passed`, `on_failed` and `never` and cancels
+    concurrent test runs on the first matching result. If enabled,
+    it's now effective by default and no longer requires
+    `--test_strategy=standalone` to be passed explicitly.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, James Judd, Keith Smiley, nialdaly, PikachuHy, Valentin Grigorev.
+
+## Release 9.0.0-pre.20250730.2 (2025-08-07)
+
+```
+Baseline: b4216efd8c13c564e92115dae25dd6620423bac1
+
+Cherry picks:
+
+   + bbfb288a7b24bff645c62fa2bf3521d1de293cb1:
+     Fix
+     https://github.com/bazelbuild/bazel/commit/9aa7583e97bffb17d2a6f4
+     8aecefa932e8064daa performance regression.
+```
+
+Important changes:
+
+  - Tool paths specified in `cc_toolchain` action configs are now
+    normalized based on the current execution platform's OS rather
+    than the host OS. In particular, Windows-style absolute paths are
+    now treated as absolute paths when building on a Windows executor
+    from a non-Windows host.
+
+This release contains contributions from many people at Google, as well as Austin Schuh, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, George Gensure, Mike Lundy, Wade Carpenter.
+
+## Release 9.0.0-pre.20250721.4 (2025-07-31)
+
+```
+Baseline: 20cf927d8ce4e3fbd29d7bb45c5037b4fea49da8
+
+Cherry picks:
+
+   + 5b2baea3d70e2e1381bc6dbfb0327130d00d98ee:
+     Freeze lists in extra link time libraries
+   + e84de1792205bcfdd3a5a2014755a58027972101:
+     Deflake jvm_flags_escaping_test
+```
+
+New features:
+
+  - The new `--*_env==NAME` syntax can be used with any of
+    `--action_env`, `--host_action_env`, `--repo_env`, `--run_env`,
+    and `--test_env` to undo any previous occurrences of the
+    respective flags for that environment variable name. For
+    `--repo_env` and `--run_env`, this also results in the variable
+    being unset if it is set in the environment of the Bazel client.
+
+This release contains contributions from many people at Google, as well as Alexander Golovlev, Benjamin Peterson, Fabian Meumertzheim, Jordan Mele, Yannic Bonenberger.
+
+## Release 9.0.0-pre.20250716.1 (2025-07-23)
+
+```
+Baseline: 3e62cbbd9410e2a52d551cc7c00b9e2984d7ec02
+```
+
+Important changes:
+
+  - `ctx.actions.write` now supports path mapping when passed an
+    `Args` object. Use the `mnemonics` attribute to assign it a
+    dedicated mnemonic, which can then be used with
+    `--modify_execution_info` to opt in to path mapping (see
+    https://github.com/bazelbuild/bazel/discussions/22658 for details
+    on path mapping).
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jonathan Woodbury, Jordan Mele.
+
+## Release 9.0.0-pre.20250714.1 (2025-07-18)
+
+```
+Baseline: e08faa5de8095fe27223b6af84b41fd135aa9b4a
+```
+
+Incompatible changes:
+
+  - `linking_context.linkstamps` has been removed.
+
+Important changes:
+
+  - If a cc toolchain feature named `shorten_virtual_includes` is
+    enabled, virtual include header files are linked under
+    `bin/_virtual_includes/<hash of target path>` instead of
+    `bin/<target package path>/_virtual_includes/<target name>`. This
+    shortens the virtual include paths which is critical for
+    mitigating long path issue with MSVC on Windows.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
+## Release 9.0.0-pre.20250710.1 (2025-07-16)
+
+```
+Baseline: ed358a15be98fe048494fa2e834ebad66b393515
+```
+
+New features:
+
+  - The mnemonic of a file write action can now be set via the
+    `mnemonic` parameter of `ctx.actions.write`.
+
+Important changes:
+
+  - Symbolic macros which use inherit_attrs now correctly inherit the
+    aspect_hints attribute.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley, PikachuHy.
+
+## Release 9.0.0-pre.20250706.3 (2025-07-11)
+
+```
+Baseline: 07bd9661b56710aac7670738e81338715946785e
+```
+
+Important changes:
+
+  - Branches will always be merged as best as possible based on
+    branch and
+      block numbers during coverage report generation.
+  - `--experimental_worker_for_repo_fetching` is removed.
+  - Modules backed by `http_archive` or `git_repository` no longer
+    require a MODULE.bazel file to be contained in the source archive.
+
+This release contains contributions from many people at Google, as well as Adrian Vogelsgesang, Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Javier Maestro, Jordan Mele, Keith Smiley, Xdng Yng.
+
+## Release 9.0.0-pre.20250625.1 (2025-07-09)
+
+```
+Baseline: c3198249288246211a2e7d5e9f28c4837a37f3b0
+```
+
+Important changes:
+
+  - Added `--incompatible_compact_repo_mapping_manifest`, which
+    causes the repo mapping manifest file for runfiles to use a more
+    compat format when necessary.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley.
+
+## Release 9.0.0-pre.20250620.1 (2025-07-01)
+
+```
+Baseline: 3f42ff95d59921ed0bb96258e191bfee58fed554
+
+Cherry picks:
+
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
+   + fefcfa1b1dd4dfd17b12c29b0cc62272da590ea1:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
+   + 861f25e307aec74b2d6dc38e91182da9f8852d53:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
+   + 013dedf6387ce4047b51153692e47ccc37f4f15c:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 9.0.0-pre.20250620.1 (2025-07-01)
+
+```
+Baseline: 3f42ff95d59921ed0bb96258e191bfee58fed554
+
+Cherry picks:
+
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
+```
+
+Incompatible changes:
+
+  - `--combined_report` now defaults to `lcov` (was: `none`).
+
+New features:
+
+  - `repository_ctx.download_and_extract` now supports the `.whl`
+    file extension for Python wheel files, treating them as ZIP
+    archives under PEP 427.
+
+Important changes:
+
+  - Rules can now register their own baseline coverage files in LCOV
+    format via the new `baseline_coverage_files` parameter of
+    `ctx.instrumented_files_info`. If the target matches the
+    instrumentation filter, Bazel will merge the data into the
+    combined coverage report generated with `--combined_report`.
+
+This release contains contributions from many people at Google, as well as Alberto Cavalcante, David Sanderson, Fabian Meumertzheim, Keith Smiley, Siva Mahadevan, Stephan Pleines.
+
+## Release 9.0.0-pre.20250616.2 (2025-06-27)
+
+```
+Baseline: 066a162fb3a53c7a4e1355580de635182ae92216
+
+Cherry picks:
+
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
+```
+
+Important changes:
+
+  - Added the `load_wasm` and `execute_wasm` methods to
+    `repository_ctx` and `module_ctx` that allow repo rules and
+    module extensions to run a WebAssembly binary. These methods are
+    only available if `--experimental_repository_ctx_execute_wasm` is
+    set.
+  - Singlejar can exclude certain entries
+
+This release contains contributions from many people at Google, as well as Carmen Chui, David Sanderson, dependabot[bot], Fabian Meumertzheim, Jaden Peterson, John Millikin, Jordan Mele, Keith Smiley, Son Luong Ngoc.
+
 ## Release 8.3.0 (2025-06-23)
 
 ```
