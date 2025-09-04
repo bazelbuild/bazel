@@ -142,11 +142,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
       SequencedMap<? extends RepoRecordedInput, String> recordedInputValues,
       Reproducibility reproducible) {}
 
-  private static class FetchState extends WorkerSkyKeyComputeState<FetchResult> {
-    @Nullable FetchResult result;
-  }
-
-  private static class ComputeState implements Environment.SkyKeyComputeState {
+  private static class State extends WorkerSkyKeyComputeState<FetchResult> {
+    @Nullable FetchResult fetchResult;
     @Nullable RepositoryDirectoryValue.Success unvalidatedResult;
   }
 
@@ -154,7 +151,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
-    var computeState = env.getState(ComputeState::new);
+    var computeState = env.getState(State::new);
     if (computeState.unvalidatedResult == null) {
       var result = computeUnchecked(skyKey, env);
       if (!(result instanceof RepositoryDirectoryValue.Success successfulResult)) {
@@ -525,14 +522,14 @@ public final class RepositoryFetchFunction implements SkyFunction {
       throws RepositoryFunctionException, InterruptedException {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
-      var state = env.getState(FetchState::new);
-      if (state.result != null) {
+      var state = env.getState(State::new);
+      if (state.fetchResult != null) {
         // Escape early if we've already finished fetching once. This can happen if
         // a Skyframe restart is triggered _after_ fetch() is finished.
-        return state.result;
+        return state.fetchResult;
       }
       try {
-        state.result =
+        state.fetchResult =
             state.startOrContinueWork(
                 env,
                 "starlark-repository-" + repoDefinition.name(),
@@ -540,7 +537,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                   setupRepoRoot(outputDirectory);
                   return fetchInternal(repoDefinition, outputDirectory, workerEnv, key);
                 });
-        return state.result;
+        return state.fetchResult;
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
