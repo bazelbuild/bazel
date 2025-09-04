@@ -25,8 +25,10 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.De
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.time.Instant;
 import java.util.function.Supplier;
 
 /**
@@ -54,7 +56,8 @@ public final class SkyValueRetrieverUtils {
       return NO_CACHED_DATA;
     }
 
-    RetrievalResult retrievalResult;
+    Instant before = Instant.now();
+    RetrievalResult retrievalResult = null;
     try {
       SerializableSkyKeyComputeState state = env.getState(stateSupplier);
       retrievalResult =
@@ -67,12 +70,24 @@ public final class SkyValueRetrieverUtils {
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
+      analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
     } catch (SerializationException e) {
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
       analysisCachingDeps.recordSerializationException(e);
-      return NO_CACHED_DATA;
+      retrievalResult = NO_CACHED_DATA;
+    } finally {
+      RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getLogWriter();
+      if (logWriter != null) {
+        Instant after = Instant.now();
+        try (var entry = logWriter.startEntry("retrieve", before, after)) {
+          entry.addField("skyKey", key.toString());
+          if (retrievalResult != null) {
+            entry.addField("result", retrievalResult.toString());
+          }
+        }
+      }
     }
-    analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
+
     return retrievalResult;
   }
 

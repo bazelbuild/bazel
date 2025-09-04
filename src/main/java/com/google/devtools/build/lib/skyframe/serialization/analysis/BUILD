@@ -27,9 +27,20 @@ java_library(
 )
 
 java_library(
+    name = "json_log_writer",
+    srcs = ["RemoteAnalysisJsonLogWriter.java"],
+    deps = [
+        "//third_party:flogger",
+        "//third_party:gson",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "dependencies_provider",
     srcs = ["RemoteAnalysisCachingDependenciesProvider.java"],
     deps = [
+        ":json_log_writer",
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_server_state",
@@ -38,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

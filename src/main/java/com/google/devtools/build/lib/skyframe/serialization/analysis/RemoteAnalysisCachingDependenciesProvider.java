@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -69,6 +70,10 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
   RemoteAnalysisCacheClient getAnalysisCacheClient();
+
+  /** Returns the JSON log writer or null if this log is not enabled. */
+  @Nullable
+  RemoteAnalysisJsonLogWriter getLogWriter();
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
@@ -133,6 +138,12 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     @Override
     public RemoteAnalysisCacheClient getAnalysisCacheClient() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public RemoteAnalysisJsonLogWriter getLogWriter() {
+      return null;
     }
 
     @Override

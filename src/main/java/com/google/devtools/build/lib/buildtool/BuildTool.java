@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ForkJoinPool.commonPool;
@@ -135,6 +136,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -154,9 +156,13 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.RegexPatternOption;
+import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.List;
@@ -424,6 +430,14 @@ public class BuildTool {
         // Log stats and sync state even on failure.
         if (analysisCachingDeps != null) {
           logAnalysisCachingStats(analysisCachingDeps);
+          RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getLogWriter();
+          if (logWriter != null) {
+            logWriter.close();
+            if (logWriter.hadErrors()) {
+              env.getReporter()
+                  .handle(Event.warn("Skycache JSON log writing had errors, check Java logs"));
+            }
+          }
         }
       }
     }
@@ -1241,6 +1255,8 @@ public class BuildTool {
     /** Cache lookup parameter requiring integration with external version control. */
     private final Optional<ClientId> snapshot;
 
+    @Nullable private final RemoteAnalysisJsonLogWriter logWriter;
+
     private final Future<ObjectCodecs> objectCodecsFuture;
     private final Future<FingerprintValueService> fingerprintValueServiceFuture;
     @Nullable private final Future<RemoteAnalysisCacheClient> analysisCacheClient;
@@ -1363,6 +1379,34 @@ public class BuildTool {
         throws InterruptedException, AbruptExitException {
       RemoteAnalysisCachingOptions options =
           env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
+
+      if (options.jsonLog != null) {
+        try {
+          this.logWriter =
+              new RemoteAnalysisJsonLogWriter(
+                  new JsonWriter(
+                      new OutputStreamWriter(
+                          new BufferedOutputStream(new FileOutputStream(options.jsonLog), 262144),
+                          ISO_8859_1)));
+          env.getReporter()
+              .handle(
+                  Event.info(String.format("Writing Skycache JSON log to '%s'", options.jsonLog)));
+        } catch (FileNotFoundException e) {
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(
+                          String.format(
+                              "Cannot open remote analysis JSON log file '%s': %s",
+                              options.jsonLog, e.getMessage()))
+                      .setRemoteAnalysisCaching(
+                          RemoteAnalysisCaching.newBuilder()
+                              .setCode(RemoteAnalysisCaching.Code.CANNOT_OPEN_LOG_FILE))
+                      .build()));
+        }
+      } else {
+        this.logWriter = null;
+      }
 
       this.mode = mode;
       this.serializedFrontierProfile = serializedFrontierProfile;
@@ -1561,6 +1605,11 @@ public class BuildTool {
         logger.atWarning().withCause(e).log("Unable to initialize analysis cache service");
         return null;
       }
+    }
+
+    @Override
+    public RemoteAnalysisJsonLogWriter getLogWriter() {
+      return logWriter;
     }
 
     @Override
