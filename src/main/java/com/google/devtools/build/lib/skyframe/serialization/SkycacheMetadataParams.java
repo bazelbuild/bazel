@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Stores the parameters needed for Skycache's metadata insertion and queries about builds stored in
@@ -35,6 +37,27 @@ public interface SkycacheMetadataParams {
 
   void init(
       long clNumber, String bazelVersion, Collection<String> targets, boolean useFakeStampData);
+
+  /**
+   * Sets the user map options which contains all the options that were passed either from the
+   * command line or bazelrc file. The value in the map contains the name of the config they were
+   * expanded from or an empty string if they weren't expanded.
+   *
+   * <p>This map is used by later by the method setContractedConfigAffectingOptions. The user
+   * options map is not passed to setContractedConfigAffectingOptions directly because we have a
+   * reference to it at a different point in the code where we need to call the method.
+   * setUserOptionsMap only stores the reference.
+   */
+  void setUserOptionsMap(Map<String, String> userOptionsMap);
+
+  /**
+   * Using the user options map (setUserOptionsMap must have been called before this method) and
+   * using a set of all the existing options that affect the configuration checksum used by
+   * Skycache, we compute the top level flags (contracted as opposed to flags expanded from their
+   * configs) in order to print a diff of the flags vs cached writer builds for the user during
+   * reader builds if there was a config mismatch causing Skycache misses.
+   */
+  void setOriginalConfigurationOptions(Set<String> configOptions);
 
   void setConfigurationHash(String configurationHash);
 
@@ -58,4 +81,7 @@ public interface SkycacheMetadataParams {
 
   /** The invocation targets */
   Collection<String> getTargets();
+
+  /** The user flags passed in this invocation */
+  Collection<String> getConfigFlags();
 }

@@ -249,6 +249,7 @@ java_library(
     name = "remote_analysis_cache_client",
     srcs = ["RemoteAnalysisCacheClient.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],

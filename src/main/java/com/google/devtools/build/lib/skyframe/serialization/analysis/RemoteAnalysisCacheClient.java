@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.protobuf.ByteString;
 import java.util.Collection;
 
@@ -40,15 +41,18 @@ public interface RemoteAnalysisCacheClient {
       String configurationHash,
       String bazelVersion,
       String area,
-      Collection<String> targets);
+      Collection<String> targets,
+      Collection<String> configFlags);
 
   /** Looks up the targets in the metadata table */
-  ListenableFuture<String> lookupTopLevelTargets(
+  void lookupTopLevelTargets(
       long evaluatingVersion,
       String configurationHash,
       String bazelVersion,
       String area,
-      Collection<String> targets);
+      Collection<String> targets,
+      Collection<String> configFlags,
+      EventHandler eventHandler);
 
   void shutdown();
 }

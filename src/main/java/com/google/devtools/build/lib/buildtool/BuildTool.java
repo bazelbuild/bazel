@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.Comparator.comparing;
@@ -40,7 +39,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -55,7 +53,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -159,6 +159,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -375,6 +376,7 @@ public class BuildTool {
               env,
               projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels());
+      analysisCachingDeps.setUserOptionsMap(request.getUserOptions());
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // a.k.a. Skymeld.
@@ -1059,7 +1061,8 @@ public class BuildTool {
                   skycacheMetadataParams.getConfigurationHash(),
                   skycacheMetadataParams.getBazelVersion(),
                   skycacheMetadataParams.getArea(),
-                  skycacheMetadataParams.getTargets())
+                  skycacheMetadataParams.getTargets(),
+                  skycacheMetadataParams.getConfigFlags())
               .get(SkycacheMetadataParams.TIMEOUT.toSeconds(), SECONDS);
     } catch (TimeoutException | ExecutionException e) {
       // To avoid build failures for a UX-enhancing feature, errors writing build metadata do not
@@ -1557,9 +1560,18 @@ public class BuildTool {
     }
 
     @Override
+    public void setUserOptionsMap(Map<String, String> userOptionsMap) {
+      if (isAnalysisCacheMetadataQueriesEnabled) {
+        skycacheMetadataParams.setUserOptionsMap(userOptionsMap);
+      }
+    }
+
+    @Override
     public void setTopLevelConfigMetadata(BuildOptions topLevelOptions) {
       if (isAnalysisCacheMetadataQueriesEnabled) {
         skycacheMetadataParams.setConfigurationHash(topLevelOptions.checksum());
+        skycacheMetadataParams.setOriginalConfigurationOptions(
+            getConfigurationOptionsAsStrings(topLevelOptions));
         if (mode == RemoteAnalysisCacheMode.DOWNLOAD) {
           if (skycacheMetadataParams.getUseFakeStampData()) {
             if (skycacheMetadataParams.getTargets().isEmpty()) {
@@ -1578,30 +1590,43 @@ public class BuildTool {
       }
     }
 
-    private void tryReadSkycacheMetadata() {
-      // This is done asynchronously without blocking because we do not want to prevent builds from
-      // finishing while waiting for the metadata query.
-      Futures.addCallback(
-          getAnalysisCacheClient()
-              .lookupTopLevelTargets(
-                  skycacheMetadataParams.getEvaluatingVersion(),
-                  skycacheMetadataParams.getConfigurationHash(),
-                  skycacheMetadataParams.getBazelVersion(),
-                  skycacheMetadataParams.getArea(),
-                  skycacheMetadataParams.getTargets()),
-          new FutureCallback<String>() {
-            @Override
-            public void onSuccess(String result) {
-              eventHandler.handle(Event.info("Skycache: " + result));
-            }
+    /**
+     * This method returns all the configuration affecting options regardless of where they have
+     * been set and regardless of whether they have been set at all (using default values).
+     *
+     * <p>They exclude test options since test options do not affect the configuration checksum used
+     * by Skycache's frontier node versions. Test configuration trimming is an optimization that
+     * removes test options from all but *_test targets. The details of the optimization aren't
+     * relevant here for this method, the only relevant part is that the top level target checksum
+     * is always computed without test options.
+     */
+    private static ImmutableSet<String> getConfigurationOptionsAsStrings(
+        BuildOptions targetOptions) {
+      ImmutableSet.Builder<String> allOptionsAsStringsBuilder = new ImmutableSet.Builder<>();
 
-            @Override
-            public void onFailure(Throwable t) {
-              eventHandler.handle(
-                  Event.warn("Skycache: Error with metadata store : " + t.getMessage()));
-            }
-          },
-          directExecutor());
+      // Collect a list of BuildOptions, excluding TestOptions.
+      targetOptions.getStarlarkOptions().keySet().stream()
+          .map(Object::toString)
+          .forEach(allOptionsAsStringsBuilder::add);
+      for (FragmentOptions fragmentOptions : targetOptions.getNativeOptions()) {
+        if (fragmentOptions.getClass().equals(TestConfiguration.TestOptions.class)) {
+          continue;
+        }
+        fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
+      }
+      return allOptionsAsStringsBuilder.build();
+    }
+
+    private void tryReadSkycacheMetadata() {
+      getAnalysisCacheClient()
+          .lookupTopLevelTargets(
+              skycacheMetadataParams.getEvaluatingVersion(),
+              skycacheMetadataParams.getConfigurationHash(),
+              skycacheMetadataParams.getBazelVersion(),
+              skycacheMetadataParams.getArea(),
+              skycacheMetadataParams.getTargets(),
+              skycacheMetadataParams.getConfigFlags(),
+              eventHandler);
     }
 
     @Override

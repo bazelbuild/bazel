@@ -165,6 +165,11 @@ public class BlazeRuntimeWrapper {
     return newCommand(BuildCommand.class);
   }
 
+  public final CommandEnvironment newCommand(boolean ignoreUserOptions) throws Exception {
+    return newCommandWithExtensions(
+        BuildCommand.class, /* extensions= */ ImmutableList.of(), ignoreUserOptions);
+  }
+
   /** Creates a new command environment; executeBuild does this automatically if you do not. */
   public final CommandEnvironment newCommand(Class<? extends BlazeCommand> command)
       throws Exception {
@@ -181,7 +186,7 @@ public class BlazeRuntimeWrapper {
    */
   @CanIgnoreReturnValue
   public final CommandEnvironment newCustomCommandWithExtensions(
-      BlazeCommand command, List<Message> extensions) throws Exception {
+      BlazeCommand command, List<Message> extensions, boolean ignoreUserOptions) throws Exception {
     Command commandAnnotation =
         checkNotNull(
             command.getClass().getAnnotation(Command.class),
@@ -192,7 +197,7 @@ public class BlazeRuntimeWrapper {
     additionalOptionsClasses.addAll(
         BlazeCommandUtils.getOptions(
             command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()));
-    initializeOptionsParser(commandAnnotation);
+    initializeOptionsParser(commandAnnotation, ignoreUserOptions);
 
     checkNotNull(
         optionsParser,
@@ -231,8 +236,14 @@ public class BlazeRuntimeWrapper {
    */
   public final CommandEnvironment newCommandWithExtensions(
       Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
+    return newCommandWithExtensions(command, extensions, /* ignoreUserOptions= */ true);
+  }
+
+  private CommandEnvironment newCommandWithExtensions(
+      Class<? extends BlazeCommand> command, List<Message> extensions, boolean ignoreUserOptions)
+      throws Exception {
     return newCustomCommandWithExtensions(
-        command.getDeclaredConstructor().newInstance(), extensions);
+        command.getDeclaredConstructor().newInstance(), extensions, ignoreUserOptions);
   }
 
   /**
@@ -298,9 +309,10 @@ public class BlazeRuntimeWrapper {
    * Initializes a new options parser, parsing all the options set by {@link
    * #addOptions(String...)}.
    */
-  private void initializeOptionsParser(Command commandAnnotation) throws OptionsParsingException {
+  private void initializeOptionsParser(Command commandAnnotation, boolean ignoreUserOptions)
+      throws OptionsParsingException {
     // Create the options parser and parse all the options collected so far
-    optionsParser = createOptionsParser(commandAnnotation);
+    optionsParser = createOptionsParser(commandAnnotation, ignoreUserOptions);
     optionsParser.parse(optionsToParse);
 
     // Allow the command to edit the options.
@@ -320,7 +332,7 @@ public class BlazeRuntimeWrapper {
     }
   }
 
-  private OptionsParser createOptionsParser(Command commandAnnotation) {
+  private OptionsParser createOptionsParser(Command commandAnnotation, boolean ignoreUserOptions) {
     Set<Class<? extends OptionsBase>> options =
         new HashSet<>(
             ImmutableList.of(
@@ -348,7 +360,11 @@ public class BlazeRuntimeWrapper {
     // Because the tests that use this class don't set sources for their options, the normal logic
     // for determining user options assumes that all options are user options. This causes tests
     // that enable PROJECT.scl files to fail, so ignore user options instead.
-    return OptionsParser.builder().optionsClasses(options).ignoreUserOptions().build();
+    var optionserParserBuilder = OptionsParser.builder().optionsClasses(options);
+    if (ignoreUserOptions) {
+      optionserParserBuilder.ignoreUserOptions();
+    }
+    return optionserParserBuilder.build();
   }
 
   public void executeCustomCommand() throws Exception {
