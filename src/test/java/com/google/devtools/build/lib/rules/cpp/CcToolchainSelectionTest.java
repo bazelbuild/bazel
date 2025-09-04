@@ -54,8 +54,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             .write();
     ToolchainInfo toolchainInfo =
         getRuleContext(target).getToolchainInfo(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
-    CcToolchainProvider toolchain =
-        CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
+    CcToolchainProvider toolchain = CcToolchainProvider.wrap((Info) toolchainInfo.getValue("cc"));
 
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }
@@ -72,8 +71,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             .write();
     ToolchainInfo toolchainInfo =
         getRuleContext(target).getToolchainInfo(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
-    CcToolchainProvider toolchain =
-        CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
+    CcToolchainProvider toolchain = CcToolchainProvider.wrap((Info) toolchainInfo.getValue("cc"));
     ;
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }

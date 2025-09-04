@@ -72,9 +72,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
 
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-            .get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(
+            getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain"));
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -136,9 +136,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-            .get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(
+            getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain"));
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(

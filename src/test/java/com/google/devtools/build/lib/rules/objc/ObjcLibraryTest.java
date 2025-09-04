@@ -2336,7 +2336,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--incompatible_use_specific_tool_files");
 
     ConfiguredTarget target = getConfiguredTarget("//a:a");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
     ActionAnalysisMetadata archiveAction =
@@ -2462,7 +2462,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:toolchain").get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:toolchain"));
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
 

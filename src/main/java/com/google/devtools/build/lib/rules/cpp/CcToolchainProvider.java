@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBzlmod;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -48,16 +51,61 @@ import net.starlark.java.syntax.Location;
 public final class CcToolchainProvider {
 
   public static final String STARLARK_NAME = "CcToolchainInfo";
-  public static final CcToolchainInfoProvider PROVIDER = new CcToolchainInfoProvider();
+  public static final CcToolchainInfoProvider BUILTINS_PROVIDER =
+      new BuiltinCcToolchainInfoProvider();
+  private static final CcToolchainInfoProvider RULES_CC_PROVIDER =
+      new RulesCcCcToolchainInfoProvider();
 
-  /** Provider class for {@link CcToolchainProvider} objects. */
-  public static class CcToolchainInfoProvider extends StarlarkProviderWrapper<CcToolchainProvider>
-      implements Provider {
-    public CcToolchainInfoProvider() {
+  public static CcToolchainProvider wrapOrThrowEvalException(Info toolchainInfo)
+      throws EvalException {
+    if (toolchainInfo.getProvider().getKey().equals(BUILTINS_PROVIDER.getKey())) {
+      return BUILTINS_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
+    }
+    return RULES_CC_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
+  }
+
+  public static CcToolchainProvider wrap(Info toolchainInfo) throws RuleErrorException {
+    if (toolchainInfo.getProvider().getKey().equals(BUILTINS_PROVIDER.getKey())) {
+      return BUILTINS_PROVIDER.wrap(toolchainInfo);
+    }
+    return RULES_CC_PROVIDER.wrap(toolchainInfo);
+  }
+
+  public static CcToolchainProvider getFromTarget(ConfiguredTarget target)
+      throws RuleErrorException {
+    CcToolchainProvider provider = target.get(BUILTINS_PROVIDER);
+    if (provider == null) {
+      provider = target.get(RULES_CC_PROVIDER);
+    }
+    return provider;
+  }
+
+  private static class RulesCcCcToolchainInfoProvider extends CcToolchainInfoProvider {
+
+    private RulesCcCcToolchainInfoProvider() {
+      super(
+          keyForBzlmod(
+              Label.parseCanonicalUnchecked(
+                  "@rules_cc+//cc/private/rules_impl/cc_toolchain_info.bzl")),
+          STARLARK_NAME);
+    }
+  }
+
+  private static class BuiltinCcToolchainInfoProvider extends CcToolchainInfoProvider {
+    private BuiltinCcToolchainInfoProvider() {
       super(
           keyForBuiltins(
               Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl")),
           STARLARK_NAME);
+    }
+  }
+
+  /** Provider class for {@link CcToolchainProvider} objects. */
+  public abstract static class CcToolchainInfoProvider
+      extends StarlarkProviderWrapper<CcToolchainProvider> implements Provider {
+
+    protected CcToolchainInfoProvider(BzlLoadValue.Key loadKey, String name) {
+      super(loadKey, name);
     }
 
     public CcToolchainProvider wrapOrThrowEvalException(Info value) throws EvalException {

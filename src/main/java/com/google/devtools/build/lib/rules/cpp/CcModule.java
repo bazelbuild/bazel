@@ -117,7 +117,9 @@ public abstract class CcModule
 
   @Override
   public Provider getCcToolchainProvider() {
-    return CcToolchainProvider.PROVIDER;
+    // TODO: b/433485282 this will need to change for Bazel once we update rules_cc containing
+    // cl/791606702
+    return CcToolchainProvider.BUILTINS_PROVIDER;
   }
 
   @Override
@@ -146,8 +148,7 @@ public abstract class CcModule
         ImmutableSet.copyOf(
             Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
     final CppConfiguration cppConfiguration;
-    CcToolchainProvider toolchain =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(toolchainInfo);
+    CcToolchainProvider toolchain = CcToolchainProvider.wrapOrThrowEvalException(toolchainInfo);
     if (ruleContext == null) {
       throw Starlark.errorf(
           "Mandatory parameter 'ctx' of cc_common.configure_features is missing. "
@@ -277,7 +278,7 @@ public abstract class CcModule
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
     CcToolchainProvider ccToolchainProvider =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
+        CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder(
                 CompileBuildVariables.setupVariablesOrThrowEvalException(
@@ -602,8 +603,7 @@ public abstract class CcModule
     }
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
     PathFragment ltoObjRootPrefix = PathFragment.create(ltoObjRootPrefixString);
-    CcToolchainProvider ccToolchain =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
+    CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
     LtoBackendArtifacts ltoBackendArtifacts;
     ltoBackendArtifacts =
         new LtoBackendArtifacts(
@@ -654,8 +654,7 @@ public abstract class CcModule
   public String legacyCcFlagsMakeVariable(Info ccToolchainInfo, StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    CcToolchainProvider ccToolchain =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
+    CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
     return ccToolchain.getLegacyCcFlagsMakeVariable();
   }
 
@@ -1434,8 +1433,7 @@ public abstract class CcModule
         stampingObject instanceof Boolean
             ? (Boolean) stampingObject
             : AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration());
-    CcToolchainProvider ccToolchain =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
+    CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
     CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
     if (AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())) {
       // Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets

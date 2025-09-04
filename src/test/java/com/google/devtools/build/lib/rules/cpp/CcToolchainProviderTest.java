@@ -180,7 +180,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
     assertThat(
             CcToolchainProvider.getToolPathString(
@@ -251,7 +251,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:b"));
     assertThat(getMakeVariables(ccToolchainProvider)).doesNotContainKey("GCOVTOOL");
   }
 
@@ -298,7 +298,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--host_platform=" + TestConstants.PLATFORM_LABEL);
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:b"));
     assertThat(getMakeVariables(ccToolchainProvider)).containsKey("GCOVTOOL");
   }
 
@@ -385,7 +385,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
 
-    CcToolchainProvider provider = getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider provider = CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:b"));
 
     assertThat(artifactsToStrings(provider.getCoverageFiles()))
         .containsExactly("src a/file1", "src a/file2");
@@ -514,7 +514,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:toolchain").get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:toolchain"));
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
 

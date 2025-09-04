@@ -60,7 +60,7 @@ public class CppHelper {
               + " --platforms?");
     }
     try {
-      return CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
+      return CcToolchainProvider.wrap((Info) toolchainInfo.getValue("cc"));
     } catch (EvalException e) {
       // There is not actually any reason for toolchainInfo.getValue to throw an exception.
       throw ruleContext.throwWithRuleError(

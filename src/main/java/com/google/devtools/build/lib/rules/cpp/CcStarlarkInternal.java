@@ -335,7 +335,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public String getArtifactNameForCategory(Info ccToolchainInfo, String category, String outputName)
       throws RuleErrorException, EvalException {
-    CcToolchainProvider ccToolchain = CcToolchainProvider.PROVIDER.wrap(ccToolchainInfo);
+    CcToolchainProvider ccToolchain = CcToolchainProvider.wrap(ccToolchainInfo);
     return ccToolchain
         .getFeatures()
         .getArtifactNameForCategory(ArtifactCategory.valueOf(category), outputName);
@@ -350,7 +350,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public String getArtifactNameExtensionForCategory(Info ccToolchainInfo, String category)
       throws RuleErrorException, EvalException {
-    CcToolchainProvider ccToolchain = CcToolchainProvider.PROVIDER.wrap(ccToolchainInfo);
+    CcToolchainProvider ccToolchain = CcToolchainProvider.wrap(ccToolchainInfo);
     return ccToolchain
         .getFeatures()
         .getArtifactNameExtensionForCategory(ArtifactCategory.valueOf(category));

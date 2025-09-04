@@ -5237,39 +5237,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigNames).containsAtLeast("assemble", "custom-action").inOrder();
   }
 
-  private void getBasicCcToolchainConfigInfoWithAdditionalParameter(String s) throws Exception {
-    scratch.file(
-        "foo/crosstool.bzl",
-        "def _impl(ctx):",
-        "    return cc_common.create_cc_toolchain_config_info(",
-        "                ctx = ctx,",
-        "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
-        "                target_system_name = 'target',",
-        "                target_cpu = 'cpu',",
-        "                target_libc = 'libc',",
-        "                compiler = 'compiler',",
-        "                abi_libc_version = 'abi_libc',",
-        "                abi_version = 'abi',",
-        "                " + s + ",",
-        "        )",
-        "cc_toolchain_config_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {},",
-        "    provides = [CcToolchainConfigInfo], ",
-        ")");
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":crosstool.bzl", "cc_toolchain_config_rule")
-
-        cc_toolchain_alias(name = "alias")
-
-        cc_toolchain_config_rule(name = "r")
-        """);
-  }
-
   @Test
   public void testGetLegacyCcFlagsMakeVariable() throws Exception {
     AnalysisMock.get()
@@ -8552,7 +8519,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     Artifact grepIncludes = toolchainProvider.getGrepIncludes();
 
     assertThat(grepIncludes).isNull();

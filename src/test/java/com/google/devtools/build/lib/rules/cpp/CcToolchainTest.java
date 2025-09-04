@@ -191,7 +191,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
   private boolean usePicForBinariesWithConfiguration(String... configuration) throws Exception {
     useConfiguration(configuration);
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
@@ -436,7 +436,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
   public void testToolchainAlias() throws Exception {
     ConfiguredTarget reference =
         scratchConfiguredTarget("a", "ref", "cc_toolchain_alias(name='ref')");
-    assertThat(reference.get(CcToolchainProvider.PROVIDER.getKey())).isNotNull();
+    assertThat(CcToolchainProvider.getFromTarget(reference)).isNotNull();
   }
 
   @Test
@@ -651,7 +651,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     assertThat(
             CcToolchainProvider.getToolPathString(
                 toolchainProvider.getToolPaths(),
@@ -771,7 +771,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
     assertThat(toolchainProvider.getSysroot()).isEqualTo("/usr/grte/v1");
   }
@@ -805,7 +805,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     useConfiguration("--incompatible_use_specific_tool_files");
     ConfiguredTarget target = getConfiguredTarget("//a:a");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
     Artifact staticLib =
         getOutputGroup(libTarget, "archive").toList().stream()
