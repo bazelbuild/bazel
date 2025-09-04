@@ -75,7 +75,7 @@ public class ExternalFilesHelper {
     return TestType.isInTest()
         ? createForTesting(pkgLocator, externalFileAction, directories)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /*maxNumExternalFilesToLog=*/ 100);
+            pkgLocator, externalFileAction, directories, /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
@@ -87,9 +87,8 @@ public class ExternalFilesHelper {
         externalFileAction,
         directories,
         // These log lines are mostly spam during unit and integration tests.
-        /*maxNumExternalFilesToLog=*/ 0);
+        /* maxNumExternalFilesToLog= */ 0);
   }
-
 
   /**
    * The action to take when an external path is encountered. See {@link FileType} for the
@@ -161,11 +160,10 @@ public class ExternalFilesHelper {
   }
 
   /**
-   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see
-   * {@link ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
+   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see {@link
+   * ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
    */
-  static class NonexistentImmutableExternalFileException extends Exception {
-  }
+  static class NonexistentImmutableExternalFileException extends Exception {}
 
   static class ExternalFilesKnowledge {
     final boolean anyOutputFilesSeen;
@@ -271,26 +269,19 @@ public class ExternalFilesHelper {
 
     FileType fileType = Preconditions.checkNotNull(pair.getFirst());
     switch (fileType) {
-      case BUNDLED:
-      case INTERNAL:
-        break;
-      case EXTERNAL_OTHER:
-        if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
-          logger.atInfo().log("Encountered an external path %s", rootedPath);
-        }
-        // fall through
-      case OUTPUT:
+      case BUNDLED, INTERNAL -> {}
+      case EXTERNAL_OTHER, OUTPUT -> {
         if (externalFileAction
             == ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS) {
           throw new NonexistentImmutableExternalFileException();
         }
-        break;
-      case EXTERNAL_REPO:
+      }
+      case EXTERNAL_REPO -> {
         Preconditions.checkState(
             externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             externalFileAction);
         addExternalFilesDependencies(rootedPath, directories, env);
-        break;
+      }
     }
     return fileType;
   }
@@ -325,6 +316,6 @@ public class ExternalFilesHelper {
       // add a dependency on it.
       return;
     }
-    env.getValue(RepositoryDirectoryValue.key(repositoryName));
+//    env.getValue(RepositoryDirectoryValue.key(repositoryName));
   }
 }
