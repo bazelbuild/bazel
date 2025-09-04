@@ -161,4 +161,9 @@ public interface InputMetadataProvider {
     }
     return result;
   }
+
+  @Nullable
+  default public PathFragment getSomeArtifactWithPrefix(PathFragment execPath) {
+      return null;
+  }
 }
