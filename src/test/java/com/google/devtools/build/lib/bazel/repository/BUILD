@@ -42,7 +42,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:autoload_symbols",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile",
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_function",

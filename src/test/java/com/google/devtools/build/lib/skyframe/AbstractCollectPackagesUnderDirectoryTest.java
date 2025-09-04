@@ -262,7 +262,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     CollectPackagesUnderDirectoryValue collectPackagesUnderDirectoryValue =
         getCollectPackagesUnderDirectoryValue(
             "",
-            /*excludedPaths=*/ ImmutableSet.of(
+            /* excludedPaths= */ ImmutableSet.of(
                 PathFragment.create("a1"),
                 PathFragment.create("a2/b1"),
                 PathFragment.create("a2/b2/c2")));
@@ -316,7 +316,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 /* diffAwarenessFactories= */ ImmutableList.of(),
                 getExtraSkyFunctions(),
                 SyscallCache.NO_CACHE,
-                /* repositoryHelpersHolder= */ null,
+                /* allowExternalRepositories= */ false,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -347,7 +347,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   private CollectPackagesUnderDirectoryValue getCollectPackagesUnderDirectoryValue(String directory)
       throws InterruptedException {
-    return getCollectPackagesUnderDirectoryValue(directory, /*excludedPaths=*/ ImmutableSet.of());
+    return getCollectPackagesUnderDirectoryValue(directory, /* excludedPaths= */ ImmutableSet.of());
   }
 
   private CollectPackagesUnderDirectoryValue getCollectPackagesUnderDirectoryValue(
