@@ -311,6 +311,19 @@ public final class ActionInputMap implements InputMetadataProvider {
   }
 
   @Nullable
+  public PathFragment getSomeArtifactWithPrefix(PathFragment execPath) {
+    for (Object path : paths) {
+      if (path != null) {
+        var artifactPath = PathFragment.createAlreadyNormalized((String)path);
+        if (artifactPath.startsWith(execPath)) {
+          return artifactPath;
+        }
+      }
+    }
+    return null;
+  }
+
+  @Nullable
   private FileArtifactValue getMetadataFromTreeArtifacts(PathFragment execPath) {
     TreeArtifactValue tree = treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
     if (tree == null) {
