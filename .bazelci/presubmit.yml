@@ -34,6 +34,7 @@ tasks:
       - "//tools/compliance/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # These tests are not compatible with the gcov version of Rocky Linux 8.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
@@ -100,6 +101,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
     include_json_profile:
       - build
       - test
@@ -153,6 +155,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
     include_json_profile:
       - build
       - test
@@ -184,6 +187,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # Disable python and shell integration tests on Intel Macs
       - "-//src/test/shell/..."
       - "-//src/test/py/..."
@@ -228,6 +232,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable some slow tests
@@ -336,6 +341,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # See https://github.com/bazelbuild/bazel/issues/8033
       - "-//src/tools/singlejar:output_jar_simple_test"
       - "-//src/test/shell/bazel:external_integration_test"
