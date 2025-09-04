@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -58,9 +57,6 @@ public final class WorkspaceBuilder {
   private final ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions =
       ImmutableMap.builder();
   private AllocationTracker allocationTracker;
-
-  @Nullable
-  private SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder = null;
 
   @Nullable private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
   private SyscallCache syscallCache;
@@ -126,7 +122,7 @@ public final class WorkspaceBuilder {
             diffAwarenessFactories.build(),
             skyFunctions.buildOrThrow(),
             singleFsSyscallCache,
-            skyframeExecutorRepositoryHelpersHolder,
+            allowExternalRepositories,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
                 : skyKeyStateReceiver,
@@ -152,9 +148,11 @@ public final class WorkspaceBuilder {
   @CanIgnoreReturnValue
   public WorkspaceBuilder setSkyframeExecutorFactory(
       SkyframeExecutorFactory skyframeExecutorFactory) {
-    Preconditions.checkState(this.skyframeExecutorFactory == null,
+    Preconditions.checkState(
+        this.skyframeExecutorFactory == null,
         "At most one Skyframe factory supported. But found two: %s and %s",
-        this.skyframeExecutorFactory, skyframeExecutorFactory);
+        this.skyframeExecutorFactory,
+        skyframeExecutorFactory);
     this.skyframeExecutorFactory = Preconditions.checkNotNull(skyframeExecutorFactory);
     return this;
   }
@@ -166,9 +164,11 @@ public final class WorkspaceBuilder {
   @CanIgnoreReturnValue
   public WorkspaceBuilder setWorkspaceStatusActionFactory(
       WorkspaceStatusAction.Factory workspaceStatusActionFactory) {
-    Preconditions.checkState(this.workspaceStatusActionFactory == null,
+    Preconditions.checkState(
+        this.workspaceStatusActionFactory == null,
         "At most one workspace status action factory supported. But found two: %s and %s",
-        this.workspaceStatusActionFactory, workspaceStatusActionFactory);
+        this.workspaceStatusActionFactory,
+        workspaceStatusActionFactory);
     this.workspaceStatusActionFactory = Preconditions.checkNotNull(workspaceStatusActionFactory);
     return this;
   }
@@ -218,14 +218,7 @@ public final class WorkspaceBuilder {
   }
 
   @CanIgnoreReturnValue
-  public WorkspaceBuilder setSkyframeExecutorRepositoryHelpersHolder(
-      SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder) {
-    this.skyframeExecutorRepositoryHelpersHolder = skyframeExecutorRepositoryHelpersHolder;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public WorkspaceBuilder setAllowExternalRepositories(boolean allowExternalRepositories) {
+  public WorkspaceBuilder allowExternalRepositories(boolean allowExternalRepositories) {
     this.allowExternalRepositories = allowExternalRepositories;
     return this;
   }

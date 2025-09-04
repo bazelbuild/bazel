@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import javax.annotation.Nullable;
 
 /** A factory of SkyframeExecutors that returns SequencedSkyframeExecutor. */
 public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory {
@@ -38,7 +37,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
-      @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
+      boolean allowExternalRepositories,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
@@ -50,7 +49,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
         .setDiffAwarenessFactories(diffAwarenessFactories)
         .setExtraSkyFunctions(extraSkyFunctions)
         .setSyscallCache(syscallCache)
-        .setRepositoryHelpersHolder(repositoryHelpersHolder)
+        .allowExternalRepositories(allowExternalRepositories)
         .setSkyKeyStateReceiver(skyKeyStateReceiver)
         .setBugReporter(bugReporter)
         .build();

@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
@@ -524,8 +523,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       getCrossRepositoryLabelViolationStrategy();
 
   protected abstract ImmutableList<BuildFileName> getBuildFilesByPriority();
-
-  protected abstract ExternalPackageHelper getExternalPackageHelper();
 
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
 

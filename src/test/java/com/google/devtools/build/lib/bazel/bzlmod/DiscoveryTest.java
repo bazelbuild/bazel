@@ -67,7 +67,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -182,7 +181,6 @@ public class DiscoveryTest extends FoundationTestCase {
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
                         ImmutableMap::of,
-                        new AtomicBoolean(true),
                         directories,
                         new RepoContentsCache()))
                 .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -31,12 +30,6 @@ public class BazelSkyframeExecutorConstants {
 
   public static final ImmutableList<BuildFileName> BUILD_FILES_BY_PRIORITY =
       ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD);
-
-  private static final ImmutableList<BuildFileName> WORKSPACE_FILES_BY_PRIORITY =
-      ImmutableList.of(BuildFileName.WORKSPACE_DOT_BAZEL, BuildFileName.WORKSPACE);
-
-  public static final ExternalPackageHelper EXTERNAL_PACKAGE_HELPER =
-      new ExternalPackageHelper(WORKSPACE_FILES_BY_PRIORITY);
 
   public static final ActionOnIOExceptionReadingBuildFile
       ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE =
@@ -67,10 +60,8 @@ public class BazelSkyframeExecutorConstants {
         .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
         .setActionOnFilesystemErrorCodeLoadingBzlFile(
             ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE)
-        .setShouldUseRepoDotBazel(USE_REPO_DOT_BAZEL)
         .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
         .setBuildFilesByPriority(BUILD_FILES_BY_PRIORITY)
-        .setExternalPackageHelper(EXTERNAL_PACKAGE_HELPER)
         .setDiffCheckNotificationOptions(DIFF_CHECK_NOTIFICATION_OPTIONS);
   }
 }

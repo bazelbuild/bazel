@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -95,7 +94,6 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 
@@ -206,14 +204,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
         .setSyscallCache(delegatingSyscallCache)
-        .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+        .allowExternalRepositories(allowExternalRepositories())
         .build();
   }
 
   @ForOverride
-  @Nullable
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
-    return null;
+  protected boolean allowExternalRepositories() {
+    return false;
   }
 
   /** Changes the rule class provider to be used for the loading and the analysis phase. */

@@ -39,6 +39,7 @@ import java.util.Optional;
  */
 public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
 
+  Precomputed<Boolean> FETCH_DISABLED = new Precomputed<>("fetch_disabled");
   String FORCE_FETCH_DISABLED = "";
   Precomputed<String> FORCE_FETCH = new Precomputed<>("dependency_for_force_fetching_repository");
   Precomputed<String> FORCE_FETCH_CONFIGURE =
@@ -55,8 +56,7 @@ public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
    *     is true for local as well as configure repos.
    */
   @AutoCodec
-  record Success(Root root, boolean isFetchingDelayed, boolean excludeFromVendoring)
-      implements RepositoryDirectoryValue {}
+  record Success(Root root, boolean excludeFromVendoring) implements RepositoryDirectoryValue {}
 
   /**
    * Represents an unsuccessful repository lookup, because the repo doesn't exist.

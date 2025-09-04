@@ -55,7 +55,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Create a mock client for the analysis phase, as well as a configuration factory. */
@@ -184,7 +183,7 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryFetchFunction(
-                ImmutableMap::of, new AtomicBoolean(true), directories, new RepoContentsCache()))
+                ImmutableMap::of, directories, new RepoContentsCache()))
         .put(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
