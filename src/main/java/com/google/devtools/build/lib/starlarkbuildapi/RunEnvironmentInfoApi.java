@@ -52,12 +52,20 @@ public interface RunEnvironmentInfoApi extends StructApi {
   @StarlarkMethod(
       name = "inherited_environment",
       doc =
-          "A sequence of names of environment variables. These variables are made  available with"
+          "A sequence of names of environment variables. These variables are made available with"
               + " their current value taken from the shell environment when the target that returns"
               + " this provider is executed, either as a test or via the run command. If a variable"
               + " is contained in both <code>environment</code> and"
               + " <code>inherited_environment</code>, the value inherited from the shell"
-              + " environment will take precedence if set.",
+              + " environment will take precedence if set. This is most useful for test rules,"
+              + " which run with a hermetic environment under <code>bazel test</code> and can"
+              + " use this mechanism to non-hermetically include a variable from the outer"
+              + " environment. By contrast, <code>bazel run</code> already forwards the outer"
+              + " environment. Note, though, that it may be surprising for an otherwise hermetic"
+              + " test to hardcode a non-hermetic dependency on the environment, and that this may"
+              + " even accidentally expose sensitive information. Prefer setting the test"
+              + " environment explicitly with the <code>--test_env</code> flag, and even then"
+              + " prefer to avoid using this flag and instead populate the environment explicitly.",
       structField = true)
   List<String> getInheritedEnvironment();
 
