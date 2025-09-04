@@ -245,6 +245,8 @@ public sealed class ActionConflictException extends AbstractSaneAnalysisExceptio
         aNull ? null : aOwner.getConfigurationChecksum(),
         bNull ? null : bOwner.getConfigurationChecksum());
     addStringDetail(sb, "Mnemonic", a.getMnemonic(), b.getMnemonic());
+    addStringDetail(
+        sb, "IsShareable", String.valueOf(a.isShareable()), String.valueOf(b.isShareable()));
     try {
       addStringDetail(
           sb,
