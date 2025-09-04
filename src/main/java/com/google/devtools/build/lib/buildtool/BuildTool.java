@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingL
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
@@ -1360,6 +1361,9 @@ public class BuildTool {
         String serializedFrontierProfile,
         Collection<Label> targets)
         throws InterruptedException, AbruptExitException {
+      RemoteAnalysisCachingOptions options =
+          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
+
       this.mode = mode;
       this.serializedFrontierProfile = serializedFrontierProfile;
       this.objectCodecsFuture =
@@ -1382,11 +1386,32 @@ public class BuildTool {
             BuildView.getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
                 env.getSkyframeBuildView().getBuildConfiguration().getOptions(), env.getReporter());
       }
-      this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
-      this.distinguisher =
-          env.getOptions()
-              .getOptions(RemoteAnalysisCachingOptions.class)
-              .analysisCacheKeyDistinguisherForTesting;
+
+      if (options.serverChecksumOverride != null) {
+        if (mode != RemoteAnalysisCacheMode.DOWNLOAD) {
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage("Server checksum override can only be used in download mode")
+                      .setRemoteAnalysisCaching(
+                          RemoteAnalysisCaching.newBuilder()
+                              .setCode(RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS))
+                      .build()));
+        }
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    String.format(
+                        "Skycache will use server checksum '%s' instead of '%s', which describes"
+                            + " this binary. This may cause crashes or even silent incorrectness."
+                            + " You've been warned! (check the documentation of the command line "
+                            + " flag for more details)",
+                        options.serverChecksumOverride, env.getDirectories().getInstallMD5())));
+        this.blazeInstallMD5 = options.serverChecksumOverride;
+      } else {
+        this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
+      }
+      this.distinguisher = options.analysisCacheKeyDistinguisherForTesting;
       this.useFakeStampData = env.getUseFakeStampData();
 
       var workspaceInfoFromDiff = env.getWorkspaceInfoFromDiff();
@@ -1404,10 +1429,7 @@ public class BuildTool {
       ClientId clientId =
           this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal()));
       listener.setClientId(clientId);
-      servicesSupplier.configure(
-          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class),
-          clientId,
-          env.getBuildRequestId());
+      servicesSupplier.configure(options, clientId, env.getBuildRequestId());
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.eventHandler = env.getReporter();
@@ -1416,10 +1438,7 @@ public class BuildTool {
               .remoteAnalysisCachingServicesSupplier()
               .getSkycacheMetadataParams();
       this.isAnalysisCacheMetadataQueriesEnabled =
-          skycacheMetadataParams != null
-              && env.getOptions()
-                  .getOptions(RemoteAnalysisCachingOptions.class)
-                  .analysisCacheEnableMetadataQueries;
+          skycacheMetadataParams != null && options.analysisCacheEnableMetadataQueries;
       if (isAnalysisCacheMetadataQueriesEnabled) {
         this.skycacheMetadataParams.init(
             evaluatingVersion.getVal(),

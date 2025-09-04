@@ -13,16 +13,51 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.base.Strings;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
+import javax.annotation.Nullable;
 
 /** Options for caching analysis results remotely. */
 public class RemoteAnalysisCachingOptions extends OptionsBase {
+
+  /** A converter for MD5 checksums. */
+  public static final class Md5Converter implements Converter<HashCode> {
+    @Override
+    public HashCode convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      if (Strings.isNullOrEmpty(input)) {
+        return null;
+      }
+
+      HashCode result = null;
+      try {
+        result = HashCode.fromString(input);
+      } catch (IllegalArgumentException e) {
+        // Handled just below in the if (result == null) branch
+      }
+
+      if (result == null || result.bits() != Hashing.md5().bits()) {
+        throw new OptionsParsingException("Blaze checksum must be exactly 32 hex characters");
+      }
+
+      return result;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "";
+    }
+  }
 
   @Option(
       name = "serialized_frontier_profile",
@@ -170,4 +205,18 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
               + " then be deleted later. For writers it requires passing an analysis cache service"
               + " address.")
   public boolean analysisCacheEnableMetadataQueries;
+
+  @Option(
+      name = "experimental_analysis_cache_server_checksum_override",
+      converter = Md5Converter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, Blaze will use this checksum to look up entries in the remote analysis cache"
+              + " and not its own. WARNING: this might result in incorrect behavior. Only for"
+              + " debugging. It's best if the difference between the writer and the reader is only"
+              + " additional logging. In particular, the data structures that are being serialized "
+              + " and the observable behavior of the serialization machinery must not change.")
+  public HashCode serverChecksumOverride;
 }

@@ -206,6 +206,8 @@ java_library(
     srcs = ["RemoteAnalysisCachingOptions.java"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
