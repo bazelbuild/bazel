@@ -304,7 +304,7 @@ tasks:
     platform: ubuntu2004
     name: "RBE"
     build_flags:
-      - "--config=remote"
+      - "--config=remote_bazelci"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
@@ -316,7 +316,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
-      - "--config=remote"
+      - "--config=remote_bazelci"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
