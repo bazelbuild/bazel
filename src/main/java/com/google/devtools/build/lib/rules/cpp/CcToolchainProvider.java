@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBzlmod;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -53,13 +53,18 @@ public final class CcToolchainProvider {
   public static final String STARLARK_NAME = "CcToolchainInfo";
   public static final CcToolchainInfoProvider BUILTINS_PROVIDER =
       new BuiltinCcToolchainInfoProvider();
+  // provider when rules_cc itself is the main module
   private static final CcToolchainInfoProvider RULES_CC_PROVIDER =
       new RulesCcCcToolchainInfoProvider();
+  private static final CcToolchainInfoProvider BAZEL_PROVIDER = new BazelCcToolchainInfoProvider();
 
   public static CcToolchainProvider wrapOrThrowEvalException(Info toolchainInfo)
       throws EvalException {
     if (toolchainInfo.getProvider().getKey().equals(BUILTINS_PROVIDER.getKey())) {
       return BUILTINS_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
+    }
+    if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
+      return BAZEL_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
     }
     return RULES_CC_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
   }
@@ -67,6 +72,9 @@ public final class CcToolchainProvider {
   public static CcToolchainProvider wrap(Info toolchainInfo) throws RuleErrorException {
     if (toolchainInfo.getProvider().getKey().equals(BUILTINS_PROVIDER.getKey())) {
       return BUILTINS_PROVIDER.wrap(toolchainInfo);
+    }
+    if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
+      return BAZEL_PROVIDER.wrap(toolchainInfo);
     }
     return RULES_CC_PROVIDER.wrap(toolchainInfo);
   }
@@ -81,12 +89,20 @@ public final class CcToolchainProvider {
   }
 
   private static class RulesCcCcToolchainInfoProvider extends CcToolchainInfoProvider {
-
     private RulesCcCcToolchainInfoProvider() {
       super(
-          keyForBzlmod(
+          keyForBuild(
+              Label.parseCanonicalUnchecked("//cc/private/rules_impl:cc_toolchain_info.bzl")),
+          STARLARK_NAME);
+    }
+  }
+
+  private static class BazelCcToolchainInfoProvider extends CcToolchainInfoProvider {
+    private BazelCcToolchainInfoProvider() {
+      super(
+          keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@rules_cc+//cc/private/rules_impl/cc_toolchain_info.bzl")),
+                  "@rules_cc+//cc/private/rules_impl:cc_toolchain_info.bzl")),
           STARLARK_NAME);
     }
   }
