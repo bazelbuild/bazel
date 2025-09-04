@@ -29,6 +29,7 @@ import net.starlark.java.types.Types;
 import net.starlark.java.types.Types.CollectionType;
 import net.starlark.java.types.Types.DictType;
 import net.starlark.java.types.Types.ListType;
+import net.starlark.java.types.Types.SequenceType;
 import net.starlark.java.types.Types.SetType;
 import net.starlark.java.types.Types.TupleType;
 import net.starlark.java.types.Types.UnionType;
@@ -94,6 +95,9 @@ public final class TypeChecker {
     // Immutable collections are covariant. This matches Python's behaviour.
     if (type1 instanceof TupleType tuple1 && type2 instanceof TupleType tuple2) {
       return isTupleSubtypeOf(tuple1, tuple2);
+    }
+    if (type1 instanceof SequenceType sequence1 && type2 instanceof SequenceType sequence2) {
+      return isSubtypeOf(sequence1.getElementType(), sequence2.getElementType());
     }
     if (type1 instanceof CollectionType collection1
         && type2 instanceof CollectionType collection2) {
@@ -178,6 +182,8 @@ public final class TypeChecker {
     } else if (cls instanceof ParameterizedType ptype
         && ptype.getRawType() == StarlarkIterable.class) {
       return Types.collection(fromJava(ptype.getActualTypeArguments()[0], ImmutableList.of()));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
+      return Types.sequence(fromJava(ptype.getActualTypeArguments()[0], ImmutableList.of()));
     } else if (cls == Object.class || cls == StarlarkValue.class) {
       // User supplied type
       if (allowedClassesAnnotation != null && !allowedClassesAnnotation.isEmpty()) {

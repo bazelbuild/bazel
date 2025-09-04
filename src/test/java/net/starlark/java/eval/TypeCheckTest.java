@@ -163,6 +163,25 @@ public class TypeCheckTest {
   }
 
   @Test
+  public void runtimeTypecheck_sequence() throws Exception {
+    ev.exec("def f(a: Sequence[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: Sequence[str]): pass", "f(('a', 'b'))");
+    ev.exec("def f(a: Sequence[list[str]]): pass", "f([['a', 'b'], ['c']])");
+    ev.exec("def f(a: Sequence[int|str]): pass", "f(['a', 'b'])");
+    ev.exec("def f(a: Sequence[int|str]): pass", "f(['a', 1])");
+    ev.exec("def f(a: Sequence[int|str]): pass", "f(('a', 1))");
+    ev.exec("def f(a: Sequence[Sequence[str]]): pass", "f([['a', 'b'], ['c']])");
+    assertExecThrows(EvalException.class, "def f(a: Sequence[int]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
+                + " 'Sequence[int]'");
+    assertExecThrows(EvalException.class, "def f(a: Sequence[int]): pass", "f(set([1, 2]))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'set[int]', want"
+                + " 'Sequence[int]'");
+  }
+
+  @Test
   public void union_edgeCaseSyntax() throws Exception {
     ev.exec("def f(a: None|None): pass", "f(None)");
     ev.exec("def f(a: None|bool|bool): pass", "f(None)");
@@ -239,7 +258,8 @@ public class TypeCheckTest {
             "int: (str|bool|int|float, /, base: [int]) -> int",
             "dir: (object, /) -> list[str]",
             "all: (Collection[object], /) -> bool",
-            "any: (Collection[object], /) -> bool");
+            "any: (Collection[object], /) -> bool",
+            "range: (int, int|None, int, /) -> Sequence[int]");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(

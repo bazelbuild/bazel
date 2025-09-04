@@ -69,7 +69,8 @@ public final class Types {
         .put("dict", wrapTypeConstructor("dict", Types::dict))
         .put("set", wrapTypeConstructor("set", Types::set))
         .put("tuple", wrapTupleConstructorProxy())
-        .put("Collection", wrapTypeConstructor("Collection", Types::collection));
+        .put("Collection", wrapTypeConstructor("Collection", Types::collection))
+        .put("Sequence", wrapTypeConstructor("Sequence", Types::sequence));
     return env.buildOrThrow();
   }
 
@@ -391,7 +392,7 @@ public final class Types {
 
     @Override
     public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(collection(getElementType()));
+      return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
     }
 
     @Override
@@ -453,7 +454,8 @@ public final class Types {
 
     @Override
     public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(collection(union(ImmutableSet.copyOf(getElementTypes()))));
+      StarlarkType elementType = union(ImmutableSet.copyOf(getElementTypes()));
+      return ImmutableList.of(sequence(elementType), collection(elementType));
     }
 
     @Override
@@ -477,6 +479,27 @@ public final class Types {
     @Override
     public final String toString() {
       return "Collection[" + getElementType() + "]";
+    }
+  }
+
+  /** Sequence type */
+  public static SequenceType sequence(StarlarkType elementType) {
+    return new AutoValue_Types_SequenceType(elementType);
+  }
+
+  /** Sequence type */
+  @AutoValue
+  public abstract static class SequenceType extends StarlarkType {
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(collection(getElementType()));
+    }
+
+    @Override
+    public final String toString() {
+      return "Sequence[" + getElementType() + "]";
     }
   }
 
