@@ -171,6 +171,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       boolean allowExternalRepositories,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
+      boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter,
       boolean globUnderSingleDep,
@@ -190,6 +191,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         actionOnFilesystemErrorCodeLoadingBzlFile,
+        shouldUseRepoDotBazel,
         /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
         new AnalysisProgressReceiver(),
@@ -816,6 +818,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
     private ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile;
+    private boolean shouldUseRepoDotBazel = true;
 
     // Fields with default values.
     private ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
@@ -864,6 +867,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               allowExternalRepositories,
               actionOnIOExceptionReadingBuildFile,
               actionOnFilesystemErrorCodeLoadingBzlFile,
+              shouldUseRepoDotBazel,
               skyKeyStateReceiver,
               bugReporter,
               globUnderSingleDep,
@@ -965,6 +969,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     public Builder setActionOnFilesystemErrorCodeLoadingBzlFile(
         ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile) {
       this.actionOnFilesystemErrorCodeLoadingBzlFile = actionOnFilesystemErrorCodeLoadingBzlFile;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setShouldUseRepoDotBazel(boolean shouldUseRepoDotBazel) {
+      this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
       return this;
     }
 

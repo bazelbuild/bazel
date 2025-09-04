@@ -54,7 +54,7 @@ public final class BazelPackageLoaderTester {
     Root workspaceDir = Root.fromPath(fs.getPath(StandardSystemProperty.USER_DIR.value()));
     Path installBasePath = fs.getPath(installBase);
     return BazelPackageLoader.builder(workspaceDir, installBasePath, installBasePath)
-        .setFetchForTesting()
+        .enableFetchForTesting()
         .setStarlarkSemantics(
             StarlarkSemantics.builder()
                 .set(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY, ImmutableList.of())
