@@ -453,6 +453,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile;
 
+  private final boolean shouldUseRepoDotBazel;
+
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
   private final SkyKeyStateReceiver skyKeyStateReceiver;
@@ -683,6 +685,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableList<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
+      boolean shouldUseRepoDotBazel,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable PackageProgressReceiver packageProgress,
       @Nullable AnalysisProgressReceiver analysisProgress,
@@ -742,6 +745,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.actionOnFilesystemErrorCodeLoadingBzlFile = actionOnFilesystemErrorCodeLoadingBzlFile;
+    this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
     this.packageProgress = packageProgress;
     this.analysisProgress = analysisProgress;
     this.diffAwarenessManager =
@@ -824,7 +828,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .setPackageProgress(packageProgress)
             .setActionOnIOExceptionReadingBuildFile(actionOnIOExceptionReadingBuildFile)
             .setActionOnFilesystemErrorCodeLoadingBzlFile(actionOnFilesystemErrorCodeLoadingBzlFile)
-            .setShouldUseRepoDotBazel(allowExternalRepositories)
+            .setShouldUseRepoDotBazel(shouldUseRepoDotBazel)
             .setGlobbingStrategy(getGlobbingStrategy())
             .setThreadStateReceiverFactoryForMetrics(skyKeyStateReceiver::makeThreadStateReceiver)
             .setCpuBoundSemaphore(cpuBoundSemaphore)
@@ -886,7 +890,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
     map.put(
         SkyFunctions.REPO_FILE,
-        allowExternalRepositories
+        shouldUseRepoDotBazel
             ? new RepoFileFunction(
                 ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace())
             : (k, env) -> {

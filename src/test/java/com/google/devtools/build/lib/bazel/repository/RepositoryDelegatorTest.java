@@ -121,8 +121,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     RepositoryFetchFunction delegatorFunction =
-        new RepositoryFetchFunction(
-            ImmutableMap::of, /* isFetch= */ directories, new RepoContentsCache());
+        new RepositoryFetchFunction(ImmutableMap::of, directories, new RepoContentsCache());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(

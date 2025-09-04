@@ -55,7 +55,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -68,10 +67,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
 
   /** Returns a fresh {@link Builder} instance. */
   public static Builder builder(Root workspaceDir, Path installBase, Path outputBase) {
-    // Prevent PackageLoader from fetching any remote repositories; these should only be fetched by
-    // Bazel before calling PackageLoader.
-    AtomicBoolean isFetch = new AtomicBoolean(false);
-    return new Builder(workspaceDir, installBase, outputBase, isFetch);
+    return new Builder(workspaceDir, installBase, outputBase);
   }
 
   /** Builder for {@link BazelPackageLoader} instances. */
@@ -79,7 +75,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     private static final ConfiguredRuleClassProvider DEFAULT_RULE_CLASS_PROVIDER =
         createRuleClassProvider();
 
-    private final AtomicBoolean isFetch;
+    // Prevent PackageLoader from fetching any remote repositories; these should only be fetched by
+    // Bazel before calling PackageLoader.
+    private boolean fetchDisabled = true;
 
     private static ConfiguredRuleClassProvider createRuleClassProvider() {
       ConfiguredRuleClassProvider.Builder classProvider = new ConfiguredRuleClassProvider.Builder();
@@ -88,14 +86,13 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       return classProvider.build();
     }
 
-    private Builder(Root workspaceDir, Path installBase, Path outputBase, AtomicBoolean isFetch) {
+    private Builder(Root workspaceDir, Path installBase, Path outputBase) {
       super(
           workspaceDir,
           installBase,
           outputBase,
           BUILD_FILES_BY_PRIORITY,
           ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS);
-      this.isFetch = isFetch;
       addExtraPrecomputedValues(
           PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
           PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
@@ -189,6 +186,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(SkyFunctions.REPO_SPEC, repoSpecFunction)
               .put(SkyFunctions.YANKED_VERSIONS, yankedVersionsFunction)
               .buildOrThrow());
+      addExtraPrecomputedValues(
+          PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, fetchDisabled));
 
       return new BazelPackageLoader(this);
     }
@@ -199,8 +198,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     }
 
     @CanIgnoreReturnValue
-    public Builder setFetchForTesting() {
-      this.isFetch.set(true);
+    public Builder enableFetchForTesting() {
+      this.fetchDisabled = false;
       return this;
     }
   }
