@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -128,8 +128,4 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:truth",
     ],
-)
-
-test_suite(
-    name = "PlatformAnalysisTests",
 )
