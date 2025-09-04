@@ -405,7 +405,15 @@ class MethodLibrary {
       doc =
           "Returns the length of a string, sequence (such as a list or tuple), dict, set, or other"
               + " iterable.",
-      parameters = {@Param(name = "x", doc = "The value whose length to report.")},
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The value whose length to report.",
+            allowedTypes = {
+              @ParamType(type = StarlarkIterable.class, generic1 = Object.class),
+              @ParamType(type = String.class)
+            })
+      },
       useStarlarkThread = true)
   public int len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);

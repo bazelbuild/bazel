@@ -26,6 +26,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
@@ -133,8 +134,7 @@ final class MethodDescriptor {
 
   private StarlarkType buildStarlarkType() {
     if (getAnnotation().structField()) {
-      StarlarkType returnType =
-          TypeChecker.fromJava(getMethod().getGenericReturnType(), ImmutableList.of());
+      StarlarkType returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -155,9 +155,13 @@ final class MethodDescriptor {
       if (parameters[i].isNamed()) {
         parameterNames.add(parameters[i].getName());
       }
-      parameterTypes.add(
-          TypeChecker.fromJava(
-              method.getGenericParameterTypes()[i], parameters[i].getAllowedClasses()));
+      ParamType[] allowedTypes = annotation.parameters()[i].allowedTypes();
+      // User supplied type
+      if (allowedTypes.length > 0) {
+        parameterTypes.add(TypeChecker.fromAnnotation(allowedTypes));
+      } else {
+        parameterTypes.add(TypeChecker.fromJava(method.getGenericParameterTypes()[i]));
+      }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
       }
@@ -166,7 +170,7 @@ final class MethodDescriptor {
     if (getMethod().getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = TypeChecker.fromJava(getMethod().getGenericReturnType(), ImmutableList.of());
+      returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
