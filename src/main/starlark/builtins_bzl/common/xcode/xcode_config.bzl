@@ -36,10 +36,14 @@ def _xcode_config_impl(ctx):
     ] if ctx.attr.local_versions else []
 
     local_default_version = ctx.attr.local_versions[AvailableXcodesInfo].default_version if ctx.attr.local_versions else None
-    xcode_version_properties = None
-    availability = "unknown"
+    availability = "UNKNOWN"
 
-    if _use_available_xcodes(
+    xcode_version_flag = apple_fragment.xcode_version_flag
+    if xcode_version_flag and xcode_version_flag.startswith("/"):
+        xcode_version_properties = XcodeVersionPropertiesInfo(
+            xcode_version = xcode_version_flag,
+        )
+    elif _use_available_xcodes(
         explicit_default_version,
         explicit_versions,
         local_versions,
@@ -48,7 +52,7 @@ def _xcode_config_impl(ctx):
         xcode_version_properties, availability = _resolve_xcode_from_local_and_remote(
             local_versions,
             remote_versions,
-            apple_fragment.xcode_version_flag,
+            xcode_version_flag,
             apple_fragment.prefer_mutual_xcode,
             local_default_version,
         )
@@ -56,9 +60,8 @@ def _xcode_config_impl(ctx):
         xcode_version_properties = _resolve_explicitly_defined_version(
             explicit_versions,
             explicit_default_version,
-            apple_fragment.xcode_version_flag,
+            xcode_version_flag,
         )
-        availability = "UNKNOWN"
 
     ios_sdk_version = apple_fragment.ios_sdk_version_flag or _dotted_version_or_default(xcode_version_properties.default_ios_sdk_version, "8.4")
     macos_sdk_version = apple_fragment.macos_sdk_version_flag or _dotted_version_or_default(xcode_version_properties.default_macos_sdk_version, "10.11")
@@ -349,8 +352,6 @@ def _resolve_explicitly_defined_version(
         flag_version = alias_to_versions.get(str(xcode_version_flag))
         if flag_version:
             return flag_version.xcode_version_properties
-        elif xcode_version_flag.startswith("/"):
-            return XcodeVersionPropertiesInfo(xcode_version = xcode_version_flag)
         else:
             fail(
                 ("--xcode_version={0} specified, but '{0}' is not an available Xcode version. " +
