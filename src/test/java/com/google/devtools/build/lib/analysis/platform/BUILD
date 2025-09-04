@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -13,14 +13,9 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-java_test(
-    name = "PlatformAnalysisTests",
-    srcs = glob(["*.java"]),
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-    ],
-    deps = [
+java_library(
+    name = "deps",
+    exports = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -42,4 +37,62 @@ java_test(
         "//third_party:truth",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
+)
+
+java_test(
+    name = "ConstraintCollectionTest",
+    srcs = ["ConstraintCollectionTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "ConstraintSettingInfoTest",
+    srcs = ["ConstraintSettingInfoTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "ConstraintValueInfoTest",
+    srcs = ["ConstraintValueInfoTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "DeclaredToolchainInfoTest",
+    srcs = ["DeclaredToolchainInfoTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "PlatformInfoTest",
+    srcs = ["PlatformInfoTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "PlatformPropertiesTest",
+    srcs = ["PlatformPropertiesTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "PlatformUtilsTest",
+    srcs = ["PlatformUtilsTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "TemplateVariableInfoTest",
+    srcs = ["TemplateVariableInfoTest.java"],
+    deps = [":deps"],
+)
+
+java_test(
+    name = "ToolchainInfoTest",
+    srcs = ["ToolchainInfoTest.java"],
+    deps = [":deps"],
+)
+
+test_suite(
+    name = "PlatformAnalysisTests",
 )
