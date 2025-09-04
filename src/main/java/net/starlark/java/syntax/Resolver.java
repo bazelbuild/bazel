@@ -441,16 +441,24 @@ public final class Resolver extends NodeVisitor {
   private final Module module;
   // List whose order defines the numbering of global variables in this program.
   private final List<String> globals = new ArrayList<>();
+  // A map from global variable names to their doc comments; added to by bind(); null if doc
+  // comments for global variables are not being collected.
+  @Nullable private final Map<String, DocComments> docCommentsMap;
   // A cache of PREDECLARED, UNIVERSAL, and GLOBAL bindings queried from the module.
   private final Map<String, Binding> toplevel = new HashMap<>();
   // Linked list of blocks, innermost first, for functions and comprehensions and (finally) file.
   private Block locals;
   private int loopCount;
 
-  private Resolver(List<SyntaxError> errors, Module module, FileOptions options) {
+  private Resolver(
+      List<SyntaxError> errors,
+      Module module,
+      FileOptions options,
+      @Nullable Map<String, DocComments> docCommentsMap) {
     this.errors = errors;
     this.module = module;
     this.options = options;
+    this.docCommentsMap = docCommentsMap;
   }
 
   // Formats and reports an error at the start of the specified node.
@@ -479,7 +487,8 @@ public final class Resolver extends NodeVisitor {
   private void createBindings(Statement stmt) {
     switch (stmt.kind()) {
       case ASSIGNMENT:
-        createBindingsForLHS(((AssignmentStatement) stmt).getLHS());
+        AssignmentStatement assignStmt = (AssignmentStatement) stmt;
+        createBindingsForLHS(assignStmt.getLHS(), assignStmt.getDocComments());
         break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
@@ -524,10 +533,14 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  private void createBindingsForLHS(Expression lhs) {
+  private void createBindingsForLHS(Expression lhs, @Nullable DocComments docComments) {
     for (Identifier id : Identifier.boundIdentifiers(lhs)) {
-      bind(id, /*isLoad=*/ false);
+      bind(id, /* isLoad= */ false, docComments);
     }
+  }
+
+  private void createBindingsForLHS(Expression lhs) {
+    createBindingsForLHS(lhs, /* docComments= */ null);
   }
 
   private void assign(Expression lhs) {
@@ -1094,7 +1107,7 @@ public final class Resolver extends NodeVisitor {
    * Process a binding use of a name by adding a binding to the current block if not already bound,
    * and associate the identifier with it. Reports whether the name was already bound in this block.
    */
-  private boolean bind(Identifier id, boolean isLoad) {
+  private boolean bind(Identifier id, boolean isLoad, @Nullable DocComments docComments) {
     String name = id.getName();
     boolean isNew = false;
     Binding bind;
@@ -1110,6 +1123,9 @@ public final class Resolver extends NodeVisitor {
         isNew = true;
         bind = new Binding(Scope.GLOBAL, globals.size(), id);
         globals.add(name);
+        if (docComments != null && docCommentsMap != null) {
+          docCommentsMap.put(name, docComments);
+        }
         toplevel.put(name, bind);
 
         // Does this new global binding conflict with a file-local load binding?
@@ -1156,6 +1172,10 @@ public final class Resolver extends NodeVisitor {
 
     id.setBinding(bind);
     return !isNew;
+  }
+
+  private boolean bind(Identifier id, boolean isLoad) {
+    return bind(id, isLoad, /* docComments= */ null);
   }
 
   // Report conflicting top-level bindings of same scope, unless options.allowToplevelRebinding.
@@ -1216,11 +1236,18 @@ public final class Resolver extends NodeVisitor {
 
   /**
    * Performs static checks, including resolution of identifiers in {@code file} in the environment
-   * defined by {@code module}. The StarlarkFile is mutated. Errors are appended to {@link
-   * StarlarkFile#errors}.
+   * defined by {@code module}. Syntax must be resolved before it is evaluated.
+   *
+   * @param file file whose statements are to be resolved. Mutated by this method: {@link
+   *     Identifier} nodes get bindings, resolver errors get appended to {@link
+   *     StarlarkFile#errors}.
+   * @param module defines predeclared variables. Not mutated. There is no requirement that this
+   *     object be the same as the module object used for evaluation (by {@link
+   *     net.starlark.java.eval.Starlark#execFileProgram} and friends), although they are expected
+   *     to have consistent behavior for {@link Module#resolve}.
    */
   public static void resolveFile(StarlarkFile file, Module module) {
-    Resolver r = new Resolver(file.errors, module, file.getOptions());
+    Resolver r = new Resolver(file.errors, module, file.getOptions(), file.docCommentsMap);
     ImmutableList<Statement> stmts = file.getStatements();
 
     // Check that load statements are on top.
@@ -1268,13 +1295,18 @@ public final class Resolver extends NodeVisitor {
 
   /**
    * Performs static checks, including resolution of identifiers in {@code expr} in the environment
-   * defined by {@code module}. This operation mutates the Expression. Syntax must be resolved
-   * before it is evaluated.
+   * defined by {@code module}. Syntax must be resolved before it is evaluated.
+   *
+   * @param expr resolved and mutated by this method: {@link Identifier} nodes get bindings.
+   * @param module defines predeclared variables. Not mutated. There is no requirement that this
+   *     object be the same as the module object used for evaluation (by {@link
+   *     net.starlark.java.eval.Starlark#execFileProgram} and friends), although they are expected
+   *     to have consistent behavior for {@link Module#resolve}.
    */
   public static Function resolveExpr(Expression expr, Module module, FileOptions options)
       throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    Resolver r = new Resolver(errors, module, options);
+    Resolver r = new Resolver(errors, module, options, /* docCommentsMap= */ null);
 
     ArrayList<Binding> frame = new ArrayList<>();
     r.pushLocalBlock(null, frame, /*freevars=*/ null); // for bindings in list comprehensions

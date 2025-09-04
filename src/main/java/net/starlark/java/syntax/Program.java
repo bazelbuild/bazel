@@ -13,8 +13,12 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.util.HashSet;
 
 /**
  * An opaque, executable representation of a valid Starlark program. Programs may
@@ -26,9 +30,15 @@ public final class Program {
   private final Resolver.Function body;
   private final ImmutableList<String> loads;
   private final ImmutableList<Location> loadLocations;
+  private final ImmutableMap<String, DocComments> docCommentsMap;
+  private final ImmutableList<Comment> unusedDocCommentLines;
 
   private Program(
-      Resolver.Function body, ImmutableList<String> loads, ImmutableList<Location> loadLocations) {
+      Resolver.Function body,
+      ImmutableList<String> loads,
+      ImmutableList<Location> loadLocations,
+      ImmutableMap<String, DocComments> docCommentsMap,
+      ImmutableList<Comment> unusedDocCommentLines) {
     Preconditions.checkArgument(
         loads.size() == loadLocations.size(), "each load must have a corresponding location");
 
@@ -36,6 +46,8 @@ public final class Program {
     this.body = body;
     this.loads = loads;
     this.loadLocations = loadLocations;
+    this.docCommentsMap = docCommentsMap;
+    this.unusedDocCommentLines = unusedDocCommentLines;
   }
 
   // TODO(adonovan): eliminate once Eval no longer needs access to syntax.
@@ -56,6 +68,20 @@ public final class Program {
   /*** Returns the location of the ith load (see {@link #getLoads}). */
   public Location getLoadLocation(int i) {
     return loadLocations.get(i);
+  }
+
+  /**
+   * Returns a map from global variable names to Sphinx autodoc-style doc comments associated with
+   * the variable's declarations; global variables without a doc comment are not included in the
+   * map.
+   */
+  public ImmutableMap<String, DocComments> getDocCommentsMap() {
+    return docCommentsMap;
+  }
+
+  /** Returns the list of doc comments not associated with any global variable. */
+  public ImmutableList<Comment> getUnusedDocCommentLines() {
+    return unusedDocCommentLines;
   }
 
   /**
@@ -84,7 +110,23 @@ public final class Program {
       }
     }
 
-    return new Program(file.getResolvedFunction(), loads.build(), loadLocations.build());
+    // Find unused doc comments.
+    ImmutableMap<String, DocComments> docCommentsMap = ImmutableMap.copyOf(file.docCommentsMap);
+    HashSet<Comment> usedDocCommentLines = new HashSet<>();
+    for (DocComments docComments : docCommentsMap.values()) {
+      usedDocCommentLines.addAll(docComments.getLines());
+    }
+    ImmutableList<Comment> unusedDocCommentLines =
+        file.getComments().stream()
+            .filter(c -> c.hasDocCommentPrefix() && !usedDocCommentLines.contains(c))
+            .collect(toImmutableList());
+
+    return new Program(
+        file.getResolvedFunction(),
+        loads.build(),
+        loadLocations.build(),
+        docCommentsMap,
+        unusedDocCommentLines);
   }
 
   /**
@@ -97,6 +139,11 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-    return new Program(body, /*loads=*/ ImmutableList.of(), /*loadLocations=*/ ImmutableList.of());
+    return new Program(
+        body,
+        /* loads= */ ImmutableList.of(),
+        /* loadLocations= */ ImmutableList.of(),
+        /* docCommentsMap= */ ImmutableMap.of(),
+        /* unusedDocCommentLines= */ ImmutableList.of());
   }
 }

@@ -15,7 +15,9 @@ package net.starlark.java.syntax;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -30,6 +32,8 @@ public final class StarlarkFile extends Node {
   private final FileOptions options;
   private final ImmutableList<Comment> comments;
   final List<SyntaxError> errors; // appended to by Resolver
+  // Map from global variable name to doc comments. Added to by Resolver.
+  final Map<String, DocComments> docCommentsMap = new LinkedHashMap<>();
 
   // set by resolver
   @Nullable private Resolver.Function resolved;

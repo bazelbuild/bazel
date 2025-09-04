@@ -25,6 +25,7 @@ java_test(
         "NodeVisitorTest.java",
         "ParserInputTest.java",
         "ParserTest.java",
+        "ProgramTest.java",
         "ResolverTest.java",
         "StarlarkFileTest.java",
         "StarlarkTypesTest.java",
