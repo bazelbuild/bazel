@@ -163,9 +163,6 @@ public final class ToolchainContextUtil {
           mapper.get(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
     }
 
-    execConstraintLabels.addAll(
-        platformConfiguration.getAdditionalExecutionConstraintsFor(rule.getLabel()));
-
     return execConstraintLabels.build();
   }
 
