@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoI
 import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemHandlerFactoryImpl;
 import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemOutputType;
 import com.google.devtools.build.lib.runtime.commands.info.InstallBaseInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.InstallMd5InfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaHomeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaRuntimeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaVirtualMachineInfoItem;
@@ -301,6 +302,7 @@ public class InfoCommand implements BlazeCommand {
         ImmutableList.<InfoItem>of(
             new WorkspaceInfoItem(),
             new InstallBaseInfoItem(),
+            new InstallMd5InfoItem(),
             new OutputBaseInfoItem(productName),
             new ExecutionRootInfoItem(),
             new OutputPathInfoItem(),
