@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.util.Comparator.naturalOrder;
+
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
@@ -836,7 +839,10 @@ public final class RemoteOptions extends CommonRemoteOptions {
     }
 
     if (hasExecProperties) {
-      return ImmutableSortedMap.copyOf(remoteDefaultExecProperties);
+      return remoteDefaultExecProperties.stream()
+          .collect(
+              toImmutableSortedMap(
+                  naturalOrder(), Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b));
     }
     if (hasPlatformProperties) {
       // Try and use the provided default value.
@@ -853,11 +859,10 @@ public final class RemoteOptions extends CommonRemoteOptions {
             e, createFailureDetail(message, Code.REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE));
       }
 
-      ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
-      for (Property property : platform.getPropertiesList()) {
-        builder.put(property.getName(), property.getValue());
-      }
-      return builder.buildOrThrow();
+      return platform.getPropertiesList().stream()
+          .collect(
+              toImmutableSortedMap(
+                  naturalOrder(), Property::getName, Property::getValue, (a, b) -> b));
     }
 
     return ImmutableSortedMap.of();
