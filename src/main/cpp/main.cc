@@ -24,6 +24,9 @@
 
 int main_impl(int argc, char **argv) {
   uint64_t start_time = blaze::GetMillisecondsMonotonic();
+  // Technically, we're leaking memory below but it doesn't matter since the
+  // leak occurs only on program exit and no bespoke cleanup in dtors is
+  // needed.
   std::unique_ptr<blaze::WorkspaceLayout> workspace_layout =
       std::make_unique<blaze::WorkspaceLayout>();
   std::unique_ptr<blaze::StartupOptions> startup_options(
