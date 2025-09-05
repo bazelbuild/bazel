@@ -280,8 +280,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           return null;
         }
         if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
-          return new RepositoryDirectoryValue.Success(
-              Root.fromPath(repoRoot), excludeRepoFromVendoring);
+          return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
         }
 
         // Then check if the global repo contents cache has this.
@@ -297,8 +296,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
             if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
               setupOverride(candidate.contentsDir().asFragment(), repoRoot, repositoryName);
               candidate.touch();
-              return new RepositoryDirectoryValue.Success(
-                  Root.fromPath(repoRoot), excludeRepoFromVendoring);
+              return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
             }
           }
         }
@@ -334,8 +332,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 Transience.TRANSIENT);
           }
         }
-        return new RepositoryDirectoryValue.Success(
-            Root.fromPath(repoRoot), excludeRepoFromVendoring);
+        return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
       }
 
       if (!repoRoot.exists()) {
@@ -357,8 +354,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                           + " update, run the build without the '--nofetch' command line option.",
                       repositoryName)));
 
-      return new RepositoryDirectoryValue.Success(
-          Root.fromPath(repoRoot), excludeRepoFromVendoring);
+      return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
     }
   }
 
@@ -754,7 +750,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
 
-    return new RepositoryDirectoryValue.Success(
-        Root.fromPath(repoRoot), /* excludeFromVendoring= */ true);
+    return new RepositoryDirectoryValue.Success(repoRoot, /* excludeFromVendoring= */ true);
   }
 }

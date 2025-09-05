@@ -47,16 +47,38 @@ public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
   Precomputed<Boolean> IS_VENDOR_COMMAND = new Precomputed<>("is_vendor_command");
   Precomputed<Optional<Path>> VENDOR_DIRECTORY = new Precomputed<>("vendor_directory");
 
-  /**
-   * Represents a successful repository lookup.
-   *
-   * @param root Returns the root containing the repository's contents. This directory is guaranteed
-   *     to exist.
-   * @param excludeFromVendoring Returns if this repo should be excluded from vendoring. The value
-   *     is true for local as well as configure repos.
-   */
+  /** Represents a successful repository lookup. */
   @AutoCodec
-  record Success(Root root, boolean excludeFromVendoring) implements RepositoryDirectoryValue {}
+  final class Success implements RepositoryDirectoryValue {
+    private final Root root;
+    private final boolean excludeFromVendoring;
+
+    public Success(Path path, boolean excludeFromVendoring) {
+      this.root = Root.fromExternalRepo(path, this);
+      this.excludeFromVendoring = excludeFromVendoring;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static Success create(Root root, boolean excludeFromVendoring) {
+      return new Success(root.asPath(), excludeFromVendoring);
+    }
+
+    /**
+     * Returns the root containing the repository's contents. This directory is guaranteed to exist.
+     */
+    public Root root() {
+      return root;
+    }
+
+    /**
+     * Returns if this repo should be excluded from vendoring. The value is true for local as well
+     * as configure repos.
+     */
+    public boolean excludeFromVendoring() {
+      return excludeFromVendoring;
+    }
+  }
 
   /**
    * Represents an unsuccessful repository lookup, because the repo doesn't exist.

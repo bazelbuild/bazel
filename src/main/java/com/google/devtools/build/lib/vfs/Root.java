@@ -34,6 +34,12 @@ import javax.annotation.Nullable;
  */
 public abstract sealed class Root implements Comparable<Root> {
 
+  protected enum RootType {
+    PATH,
+    EXTERNAL_REPO,
+    ABSOLUTE,
+  }
+
   /** Constructs a root from a path. */
   public static Root fromPath(Path path) {
     return new PathRoot(path);
@@ -83,7 +89,11 @@ public abstract sealed class Root implements Comparable<Root> {
   /** Returns the underlying FileSystem this Root is on. */
   public abstract FileSystem getFileSystem();
 
-  public abstract boolean isAbsolute();
+  public final boolean isAbsolute() {
+    return getType() == RootType.ABSOLUTE;
+  }
+
+  protected abstract RootType getType();
 
   /** Implementation of Root that is backed by a {@link Path}. */
   public static final class PathRoot extends Root {
@@ -136,8 +146,8 @@ public abstract sealed class Root implements Comparable<Root> {
     }
 
     @Override
-    public boolean isAbsolute() {
-      return false;
+    protected RootType getType() {
+      return RootType.PATH;
     }
 
     @Override
@@ -147,13 +157,8 @@ public abstract sealed class Root implements Comparable<Root> {
 
     @Override
     public int compareTo(Root o) {
-      if (o instanceof AbsoluteRoot) {
-        return 1;
-      } else if (o instanceof PathRoot pathRoot) {
-        return path.compareTo(pathRoot.path);
-      } else {
-        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
-      }
+      int compareType = this.getType().compareTo(o.getType());
+      return compareType != 0 ? compareType : path.compareTo(((PathRoot) o).path);
     }
 
     @Override
@@ -161,11 +166,7 @@ public abstract sealed class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      PathRoot pathRoot = (PathRoot) o;
-      return path.equals(pathRoot.path);
+      return o instanceof PathRoot pathRoot && path.equals(pathRoot.path);
     }
 
     @Override
@@ -226,26 +227,26 @@ public abstract sealed class Root implements Comparable<Root> {
     }
 
     @Override
-    public boolean isAbsolute() {
-      return false;
+    protected RootType getType() {
+      return RootType.EXTERNAL_REPO;
     }
 
     @Override
     public String toString() {
-      return path.toString() + " (from " + value + ")";
+      return path.toString() + " (external repo root)";
     }
 
     @Override
     public int compareTo(Root o) {
-      if (o instanceof AbsoluteRoot) {
-        return 1;
-      } else if (o instanceof PathRoot) {
-        return 1;
-      } else if (o instanceof ExternalRepoRoot externalRepoRoot) {
-        return path.compareTo(externalRepoRoot.path);
-      } else {
-        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
+      int compareType = this.getType().compareTo(o.getType());
+      if (compareType != 0) {
+        return compareType;
       }
+      int comparePath = path.compareTo(((ExternalRepoRoot) o).path);
+      if (comparePath != 0) {
+        return comparePath;
+      }
+      return Integer.compare(value.hashCode(), ((ExternalRepoRoot) o).value.hashCode());
     }
 
     @Override
@@ -253,16 +254,12 @@ public abstract sealed class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      ExternalRepoRoot externalRepoRoot = (ExternalRepoRoot) o;
-      return path.equals(externalRepoRoot.path) && value == externalRepoRoot.value;
+      return o instanceof ExternalRepoRoot that && path.equals(that.path) && value == that.value;
     }
 
     @Override
     public int hashCode() {
-      return path.hashCode();
+      return 1031 + path.hashCode();
     }
   }
 
@@ -306,11 +303,6 @@ public abstract sealed class Root implements Comparable<Root> {
       return absolutePathFragment.isAbsolute();
     }
 
-    @Override
-    public boolean isAbsolute() {
-      return true;
-    }
-
     @Nullable
     @Override
     public Path asPath() {
@@ -323,19 +315,19 @@ public abstract sealed class Root implements Comparable<Root> {
     }
 
     @Override
+    protected RootType getType() {
+      return RootType.ABSOLUTE;
+    }
+
+    @Override
     public String toString() {
       return "<absolute root>";
     }
 
     @Override
     public int compareTo(Root o) {
-      if (o instanceof AbsoluteRoot) {
-        return Integer.compare(hashCode(), o.hashCode());
-      } else if (o instanceof PathRoot) {
-        return -1;
-      } else {
-        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
-      }
+      int compareType = this.getType().compareTo(o.getType());
+      return compareType != 0 ? compareType : Integer.compare(hashCode(), o.hashCode());
     }
 
     @Override
@@ -343,10 +335,7 @@ public abstract sealed class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof AbsoluteRoot that)) {
-        return false;
-      }
-      return fileSystem.equals(that.fileSystem);
+      return o instanceof AbsoluteRoot that && fileSystem.equals(that.fileSystem);
     }
 
     @Override
