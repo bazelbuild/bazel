@@ -55,12 +55,15 @@ public class UtilsTest {
         new IOException(
             "wrapped error", Status.ABORTED.withDescription("grpc error").asRuntimeException());
 
-    assertThat(Utils.grpcAwareErrorMessage(ioError, /* verboseFailures= */ true))
+    assertThat(
+            Utils.grpcAwareErrorMessage(ioError, /* verboseFailures= */ true).replace("\r\n", "\n"))
         .startsWith(
             "io error\n"
                 + "java.io.IOException: io error\n"
                 + "\tat com.google.devtools.build.lib.remote.UtilsTest.testGrpcAwareErrorMessage_verboseFailures");
-    assertThat(Utils.grpcAwareErrorMessage(wrappedGrpcError, /* verboseFailures= */ true))
+    assertThat(
+            Utils.grpcAwareErrorMessage(wrappedGrpcError, /* verboseFailures= */ true)
+                .replace("\r\n", "\n"))
         .startsWith(
             "ABORTED: grpc error\n"
                 + "java.io.IOException: wrapped error\n"

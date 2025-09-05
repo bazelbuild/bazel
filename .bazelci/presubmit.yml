@@ -284,8 +284,6 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
-      - "-//src/test/java/com/google/devtools/build/lib/worker/..."
-      - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
     include_json_profile:
