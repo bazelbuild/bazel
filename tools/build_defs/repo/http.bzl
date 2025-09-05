@@ -228,6 +228,8 @@ def _http_file_impl(ctx):
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 
 _HTTP_JAR_BUILD = """\
+load("@rules_java//java:java_import.bzl", "java_import")
+
 package(default_visibility = ["//visibility:public"])
 
 java_import(

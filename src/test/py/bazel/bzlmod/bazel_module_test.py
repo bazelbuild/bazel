@@ -823,7 +823,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['build', '@data//:data.txt'])
 
   def testHttpJar(self):
-    """Tests that using http_jar does not require a bazel_dep on rules_java."""
+    """Tests that using http_jar works with a bazel_dep on rules_java."""
 
     my_jar_path = self.ScratchFile('my_jar.jar')
     my_jar_uri = pathlib.Path(my_jar_path).as_uri()
@@ -846,6 +846,7 @@ class BazelModuleTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_java')
 
     self.RunBazel(['build', '@my_jar//jar'])
 
