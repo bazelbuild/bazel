@@ -160,10 +160,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
       computeState.unvalidatedResult = successfulResult;
     }
 
-    var repoDirectoryPath = computeState.unvalidatedResult.path();
+    var repoRoot = computeState.unvalidatedResult.root();
     var repoDirectoryRootedPath =
-        RootedPath.toRootedPath(
-            Root.absoluteRoot(repoDirectoryPath.getFileSystem()), repoDirectoryPath);
+        RootedPath.toRootedPath(Root.absoluteRoot(repoRoot.getFileSystem()), repoRoot.asPath());
     FileValue repoDirectoryFileValue;
     try {
       repoDirectoryFileValue =
@@ -171,7 +170,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
               env.getValueOrThrow(FileValue.key(repoDirectoryRootedPath), IOException.class);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException("Could not access %s: %s".formatted(repoDirectoryPath, e.getMessage())),
+          new IOException("Could not access %s: %s".formatted(repoRoot, e.getMessage())),
           Transience.PERSISTENT);
     }
     if (repoDirectoryFileValue == null) {
@@ -185,15 +184,14 @@ public final class RepositoryFetchFunction implements SkyFunction {
               String.format(
                   "The repository's path is \"%s\" "
                       + "but it does not exist or is not a directory.",
-                  repoDirectoryPath.getPathString())),
+                  repoRoot.asPath().getPathString())),
           Transience.PERSISTENT);
     }
 
     // Check that the directory contains a repo boundary file.
-    if (!RepositoryUtils.isValidRepoRoot(repoDirectoryPath)) {
+    if (!RepositoryUtils.isValidRepoRoot(repoRoot.asPath())) {
       throw new RepositoryFunctionException(
-          new IOException(
-              "No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + repoDirectoryPath),
+          new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + repoRoot),
           Transience.TRANSIENT);
     }
 
@@ -282,7 +280,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
           return null;
         }
         if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
-          return new RepositoryDirectoryValue.Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
+          return new RepositoryDirectoryValue.Success(
+              Root.fromPath(repoRoot), excludeRepoFromVendoring);
         }
 
         // Then check if the global repo contents cache has this.
@@ -298,8 +297,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
             if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
               setupOverride(candidate.contentsDir().asFragment(), repoRoot, repositoryName);
               candidate.touch();
-              return new RepositoryDirectoryValue.Success(Root.fromPath(repoRoot),
-                  excludeRepoFromVendoring);
+              return new RepositoryDirectoryValue.Success(
+                  Root.fromPath(repoRoot), excludeRepoFromVendoring);
             }
           }
         }
@@ -335,7 +334,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 Transience.TRANSIENT);
           }
         }
-        return new RepositoryDirectoryValue.Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
+        return new RepositoryDirectoryValue.Success(
+            Root.fromPath(repoRoot), excludeRepoFromVendoring);
       }
 
       if (!repoRoot.exists()) {
@@ -357,7 +357,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
                           + " update, run the build without the '--nofetch' command line option.",
                       repositoryName)));
 
-      return new RepositoryDirectoryValue.Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
+      return new RepositoryDirectoryValue.Success(
+          Root.fromPath(repoRoot), excludeRepoFromVendoring);
     }
   }
 
@@ -753,6 +754,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
 
-    return new RepositoryDirectoryValue.Success(repoRoot, /* excludeFromVendoring= */ true);
+    return new RepositoryDirectoryValue.Success(
+        Root.fromPath(repoRoot), /* excludeFromVendoring= */ true);
   }
 }
