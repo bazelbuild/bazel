@@ -218,6 +218,13 @@ EOF
 "
   expected="$expected$(get_python_runtime_runfiles)"
 
+  # Some files are Google-specific and don't exist in the upstream Bazel.
+  if [[ "$PRODUCT_NAME" == "blaze" ]]; then
+    expected="${expected}
+./test_foo_runfiles/_private_py.lazy_imports_info.json file
+"
+  fi
+
   # For shell binary and python binary, we build both `bin` and `bin.exe`,
   # but on Linux we only build `bin`.
   if is_windows; then
