@@ -173,6 +173,9 @@ public final class DependencyResolver {
     @Nullable private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> dependencyMap;
     @Nullable private DependencyError dependencyMapError;
 
+    @Nullable
+    private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
+
     final TransitiveDependencyState transitiveState;
     private final TransitionCollector transitionCollector;
 
@@ -243,6 +246,12 @@ public final class DependencyResolver {
     }
 
     @Override
+    public void acceptMaterializerTargets(
+        OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value) {
+      this.materializerTargets = value;
+    }
+
+    @Override
     public void acceptDependencyMapError(DependencyError error) {
       this.dependencyMapError = error;
     }
@@ -266,6 +275,10 @@ public final class DependencyResolver {
 
   private final TargetAndConfiguration targetAndConfiguration;
   private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap = null;
+
+  @Nullable
+  private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets = null;
+
   private ConfigConditions configConditions = null;
   private PlatformInfo platformInfo = null;
   @Nullable private ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
@@ -286,6 +299,11 @@ public final class DependencyResolver {
    */
   public OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getDepValueMap() {
     return Preconditions.checkNotNull(depValueMap);
+  }
+
+  @Nullable
+  public OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getMaterializerTargets() {
+    return materializerTargets;
   }
 
   /**
@@ -441,6 +459,9 @@ public final class DependencyResolver {
       if (depValueMap == null) {
         return false;
       }
+
+      this.materializerTargets = state.materializerTargets;
+
     } catch (DependencyEvaluationException
         | ConfiguredValueCreationException
         | AspectCreationException

@@ -1451,6 +1451,10 @@ public class RuleContext extends TargetContext
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap;
+
+    @Nullable
+    private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
+
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
@@ -1618,6 +1622,13 @@ public class RuleContext extends TargetContext
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setMaterializerTargets(
+        @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets) {
+      this.materializerTargets = materializerTargets;
+      return this;
+    }
+
     /**
      * Sets the configuration conditions needed to determine which paths to follow for this rule's
      * configurable attributes.
@@ -1766,6 +1777,18 @@ public class RuleContext extends TargetContext
         }
       }
 
+      if (materializerTargets != null) {
+        for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry :
+            materializerTargets.entries()) {
+          Attribute attribute = entry.getKey().getAttribute();
+          if (attribute == null) {
+            continue;
+          }
+          ConfiguredTargetAndData materializerTarget = entry.getValue();
+          validateDirectPrerequisite(attribute, materializerTarget);
+        }
+      }
+
       return mapBuilder.build();
     }
 
@@ -1822,6 +1845,13 @@ public class RuleContext extends TargetContext
 
     private void validateDirectPrerequisiteType(
         ConfiguredTargetAndData prerequisite, Attribute attribute) {
+
+      if (prerequisite.getRuleClassObject() != null
+          && prerequisite.getRuleClassObject().isMaterializerRule()) {
+        // Materializer rules pass along other targets, so don't check their providers.
+        return;
+      }
+
       String ruleClass = prerequisite.getRuleClass();
       if (!ruleClass.isEmpty()) {
         validateRuleDependency(prerequisite, attribute);

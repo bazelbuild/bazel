@@ -60,6 +60,9 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   public interface ResultSink extends TransitionCollector {
     void acceptDependencyMap(OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
 
+    void acceptMaterializerTargets(
+        OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
+
     void acceptDependencyMapError(DependencyError error);
 
     void acceptDependencyMapError(MissingEdgeError error);
@@ -89,6 +92,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
    * additional overhead of maps would consume significant resources.
    */
   private final ConfiguredTargetAndData[][] results;
+
+  private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
 
   private ImmutableMultimap<Aspect, String> computedAttributeAspects;
   private ImmutableMultimap<Aspect, Label> computedToolchainsAspects;
@@ -251,6 +256,12 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     @Override
+    public void acceptMaterializerTarget(
+        DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+      DependencyMapProducer.this.acceptMaterializerTarget(dependencyKind, target);
+    }
+
+    @Override
     public void acceptDependencyError(DependencyError error) {
       DependencyMapProducer.this.acceptDependencyError(error);
     }
@@ -374,6 +385,17 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   }
 
   @Override
+  public void acceptMaterializerTarget(
+      DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+
+    // Lazily allocate since materializers should be relatively rare.
+    if (materializerTargets == null) {
+      materializerTargets = new OrderedSetMultimap<>();
+    }
+    materializerTargets.put(dependencyKind, target);
+  }
+
+  @Override
   public void acceptDependencyError(DependencyError error) {
     emitErrorIfMostImportant(error);
   }
@@ -437,6 +459,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     sink.acceptDependencyMap(output);
+    sink.acceptMaterializerTargets(materializerTargets);
     return DONE;
   }
 

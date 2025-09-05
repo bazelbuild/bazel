@@ -98,6 +98,8 @@ final class DependencyProducer
      */
     void acceptDependencyValues(int index, ConfiguredTargetAndData[] values);
 
+    void acceptMaterializerTarget(DependencyKind dependencyKind, ConfiguredTargetAndData target);
+
     void acceptDependencyError(DependencyError error);
 
     void acceptDependencyError(MissingEdgeError error);
@@ -476,6 +478,8 @@ final class DependencyProducer
         return DONE;
       }
 
+      sink.acceptMaterializerTarget(kind, dep);
+
       // StarlarkRuleConfiguredTargetUtil checks that this provider exists.
       MaterializedDepsInfo materializedDepsInfo =
           dep.getConfiguredTarget().get(MaterializedDepsInfo.PROVIDER);
@@ -536,6 +540,12 @@ final class DependencyProducer
     @Override
     public void acceptDependencyValues(int index, ConfiguredTargetAndData[] values) {
       System.arraycopy(values, 0, prerequisiteValues, index, values.length);
+    }
+
+    @Override
+    public void acceptMaterializerTarget(
+        DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+      sink.acceptMaterializerTarget(dependencyKind, target);
     }
 
     @Override

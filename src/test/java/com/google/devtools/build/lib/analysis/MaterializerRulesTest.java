@@ -2212,4 +2212,175 @@ component(name = "b_yes")
         "in deps attribute of binary rule //:bin: '//:b_yes' does not have mandatory providers:"
             + " 'ComponentInfo'");
   }
+
+  private void writeVisibilityDefsBzlFile() throws Exception {
+    scratch.file(
+        "defs.bzl",
+"""
+# Component ######################################
+
+ComponentInfo = provider()
+
+def _component_impl(ctx):
+   return ComponentInfo()
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+)
+
+# Component selector #############################
+
+def _component_selector_impl(ctx):
+    selected = []
+    for c in ctx.attr.all_components:
+        if "foo" in str(c.label):
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components": attr.dormant_label_list(),
+    },
+)
+
+# Binary #########################################
+
+def _binary_impl(ctx):
+    return DefaultInfo()
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
+)
+""");
+  }
+
+  @Test
+  public void materializerRuleVisibilityViolation_throwsError() throws Exception {
+    writeVisibilityDefsBzlFile();
+    scratch.file("BUILD", "");
+
+    scratch.file(
+        "binary1/BUILD",
+"""
+load("//:defs.bzl", "binary")
+
+binary(
+    name = "bin1",
+    deps = [
+        "//components:component_selector",
+    ],
+)
+""");
+
+    scratch.file(
+        "binary2/BUILD",
+"""
+load("//:defs.bzl", "binary")
+
+binary(
+    name = "bin2",
+    deps = [
+        "//components:component_selector",
+    ],
+)
+""");
+
+    scratch.file(
+        "components/BUILD",
+"""
+load("//:defs.bzl", "component", "component_selector", "binary")
+
+component_selector(
+    name = "component_selector",
+    all_components = [
+        ":foo_a",
+        ":foo_b",
+        ":bar_a",
+        ":bar_b",
+    ],
+    visibility = ["//binary1:__pkg__"],
+)
+
+component(name = "foo_a", visibility = ["//:__subpackages__"])
+component(name = "foo_b", visibility = ["//:__subpackages__"])
+component(name = "bar_a", visibility = ["//:__subpackages__"])
+component(name = "bar_b", visibility = ["//:__subpackages__"])
+""");
+
+    // The materializer target is visible to bin1.
+    update("//binary1:bin1");
+
+    // The materializer target is not visible to bin2.
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//binary2:bin2"));
+    assertContainsEvent(
+"""
+ERROR /workspace/binary2/BUILD:3:7: in binary rule //binary2:bin2: Visibility error:
+target '//components:component_selector' is not visible from
+target '//binary2:bin2'
+""");
+  }
+
+  @Test
+  public void materializerRuleMaterializedTargetVisibilityViolation_throwsError() throws Exception {
+    scratch.file("BUILD", "");
+
+    writeVisibilityDefsBzlFile();
+
+    scratch.file(
+        "binary/BUILD",
+"""
+load("//:defs.bzl", "binary")
+
+binary(
+    name = "bin",
+    deps = [
+        "//components:component_selector",
+    ],
+)
+""");
+
+    scratch.file(
+        "components/BUILD",
+"""
+load("//:defs.bzl", "component", "component_selector", "binary")
+
+component_selector(
+    name = "component_selector",
+    all_components = [
+        ":foo_a",
+        ":foo_b",
+        ":bar_a",
+        ":bar_b",
+    ],
+    visibility = ["//binary:__pkg__"],
+)
+
+component(name = "foo_a", visibility = ["//visibility:private"])
+component(name = "foo_b", visibility = ["//visibility:private"])
+component(name = "bar_a", visibility = ["//visibility:private"])
+component(name = "bar_b", visibility = ["//visibility:private"])
+""");
+
+    // The materializer target is visible to bin, but the materialized targets are not.
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//binary:bin"));
+    assertContainsEvent(
+"""
+ERROR /workspace/binary/BUILD:3:7: in binary rule //binary:bin: Visibility error:
+target '//components:foo_a' is not visible from
+target '//binary:bin'
+""");
+    assertContainsEvent(
+"""
+ERROR /workspace/binary/BUILD:3:7: in binary rule //binary:bin: Visibility error:
+target '//components:foo_b' is not visible from
+target '//binary:bin'
+""");
+  }
 }

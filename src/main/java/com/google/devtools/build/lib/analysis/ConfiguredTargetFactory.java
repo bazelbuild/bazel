@@ -186,6 +186,7 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue config,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
@@ -204,6 +205,7 @@ public final class ConfiguredTargetFactory {
             config,
             configuredTargetKey,
             prerequisiteMap,
+            materializerTargets,
             configConditions,
             toolchainContexts,
             transitivePackages,
@@ -306,6 +308,7 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue configuration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
@@ -327,6 +330,7 @@ public final class ConfiguredTargetFactory {
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
             .setPrerequisites(removeToolchainDeps(prerequisiteMap))
+            .setMaterializerTargets(materializerTargets)
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
