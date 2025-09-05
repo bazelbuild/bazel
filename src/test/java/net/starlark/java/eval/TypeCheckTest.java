@@ -263,6 +263,54 @@ public class TypeCheckTest {
             "len: (Collection[object]|str, /) -> int");
   }
 
+  @Test
+  public void testStringFields() throws Exception {
+    String s = "Hello!";
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s)) {
+      StarlarkType type =
+          TypeChecker.type(
+              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s, name, null));
+      if (type instanceof CallableType callable) {
+        builder.add(name + ": " + callable.toSignatureString());
+      } else {
+        builder.add(name + ": " + type);
+      }
+    }
+
+    assertThat(builder.build())
+        .containsAtLeast(
+            "capitalize: (str, /) -> str",
+            "count: (str, str, [int|None], [int|None], /) -> int",
+            "elems: (str, /) -> Sequence[str]",
+            "find: (str, str, [int|None], [int|None], /) -> int",
+            "index: (str, str, [int|None], [int|None], /) -> int",
+            "isalnum: (str, /) -> bool",
+            "isalpha: (str, /) -> bool",
+            "isdigit: (str, /) -> bool",
+            "islower: (str, /) -> bool",
+            "isspace: (str, /) -> bool",
+            "istitle: (str, /) -> bool",
+            "isupper: (str, /) -> bool",
+            "join: (str, Collection[str], /) -> str",
+            "lower: (str, /) -> str",
+            "lstrip: (str, [str|None], /) -> str",
+            "removeprefix: (str, str, /) -> str",
+            "removesuffix: (str, str, /) -> str",
+            "replace: (str, str, str, [int], /) -> str",
+            "rfind: (str, str, [int|None], [int|None], /) -> int",
+            "rindex: (str, str, [int|None], [int|None], /) -> int",
+            "rsplit: (str, str, [int], /) -> list[str]",
+            "rstrip: (str, [str|None], /) -> str",
+            "split: (str, str, [int], /) -> list[str]",
+            "splitlines: (str, [bool], /) -> Sequence[str]",
+            "strip: (str, [str|None], /) -> str",
+            "title: (str, /) -> str",
+            "upper: (str, /) -> str");
+    // TODO(ilist@): format (args,kwargs), partition, rpartition (returns tuple), startswith,
+    // endswith (takes tuple)
+  }
+
   private <T extends Throwable> StringSubject assertExecThrows(
       Class<T> expectedThrowable, String... lines) {
     T evalException = assertThrows(expectedThrowable, () -> ev.exec(lines));
