@@ -37,8 +37,9 @@ public class OptionsTest {
 
     @Option(
       name = "host",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "www.google.com",
       help = "The URL at which the server will be running."
     )
@@ -47,8 +48,9 @@ public class OptionsTest {
     @Option(
       name = "port",
       abbrev = 'p',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "80",
       help = "The port at which the server will be running."
     )
@@ -57,8 +59,9 @@ public class OptionsTest {
     @Option(
       name = "debug",
       abbrev = 'd',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false",
       help = "debug"
     )
@@ -67,8 +70,9 @@ public class OptionsTest {
     @Option(
       name = "tristate",
       abbrev = 't',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "auto",
       help = "tri-state option returning auto by default"
     )
@@ -76,8 +80,9 @@ public class OptionsTest {
 
     @Option(
       name = "special",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null",
       expansion = {"--host=special.google.com", "--port=8080"}
     )
@@ -345,8 +350,9 @@ public class OptionsTest {
   public static class NullTestOptions extends OptionsBase {
     @Option(
       name = "host",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null",
       help = "The URL at which the server will be running."
     )
@@ -354,8 +360,9 @@ public class OptionsTest {
 
     @Option(
       name = "none",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null",
       expansion = {"--host=www.google.com"},
       help = "An expanded option."
@@ -398,8 +405,9 @@ public class OptionsTest {
 
     @Option(
       name = "url",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "http://www.google.com/",
       converter = MyURLConverter.class
     )
@@ -470,8 +478,9 @@ public class OptionsTest {
   public static class J extends OptionsBase {
     @Option(
       name = "j",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "null"
     )
     public String string;

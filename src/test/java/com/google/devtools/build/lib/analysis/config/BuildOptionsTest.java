@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import com.google.devtools.common.options.OptionMetadataTag;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -56,6 +57,7 @@ public final class BuildOptionsTest {
         name = "str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String strOption;
 
@@ -63,6 +65,7 @@ public final class BuildOptionsTest {
         name = "another_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String anotherStrOption;
 
@@ -70,6 +73,7 @@ public final class BuildOptionsTest {
         name = "bool_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false")
     public boolean boolOption;
 
@@ -78,6 +82,7 @@ public final class BuildOptionsTest {
         converter = CommaSeparatedOptionListConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public List<String> listOption;
 
@@ -85,6 +90,7 @@ public final class BuildOptionsTest {
         name = "null_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public String nullOption;
 
@@ -93,6 +99,7 @@ public final class BuildOptionsTest {
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "null")
     public List<String> accumulatingOption;
 
@@ -100,6 +107,7 @@ public final class BuildOptionsTest {
         name = "dummy_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "internal_default",
         implicitRequirements = {"--implicit_option=set_implicitly"})
     public String dummyOption;
@@ -108,6 +116,7 @@ public final class BuildOptionsTest {
         name = "implicit_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "implicit_default")
     public String implicitOption;
   }
@@ -118,6 +127,7 @@ public final class BuildOptionsTest {
         name = "second_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defVal")
     public String strOption;
   }

@@ -15,6 +15,7 @@
 package com.google.devtools.common.options.testing;
 
 import static com.google.common.truth.Truth.assertThat;
+import com.google.devtools.common.options.OptionMetadataTag;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.common.options.Converter;
@@ -41,8 +42,9 @@ public final class OptionsTesterTest {
   public static class BaseAllFieldsAnnotated extends OptionsBase {
     @Option(
         name = "public_inherited_field_with_annotation",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defaultFoo")
     public String inheritedField;
   }
@@ -51,15 +53,17 @@ public final class OptionsTesterTest {
   public static final class OptionAnnotationCheckAllFieldsAnnotated extends BaseAllFieldsAnnotated {
     @Option(
         name = "public_declared_field_with_annotation",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defaultFoo")
     public String publicField;
 
     @Option(
         name = "other_public_declared_field_with_annotation",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defaultFoo")
     public String publicField2;
   }
@@ -137,8 +141,9 @@ public final class OptionsTesterTest {
   public static class BaseAllFieldsPublicNotStaticNotFinal extends OptionsBase {
     @Option(
         name = "public_inherited_field_with_annotation",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defaultFoo")
     public String inheritedField;
   }
@@ -148,8 +153,9 @@ public final class OptionsTesterTest {
       extends BaseAllFieldsPublicNotStaticNotFinal {
     @Option(
         name = "public_declared_field_with_annotation",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "defaultFoo")
     public String annotatedField;
   }
@@ -197,39 +203,44 @@ public final class OptionsTesterTest {
   public static final class DefaultTestCheck extends OptionsBase {
     @Option(
         name = "tested_field",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = TestConverter.class,
         defaultValue = "testedDefault")
     public String testedField;
 
     @Option(
         name = "field_implicitly_using_default_converter",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "implicitConverterDefault")
     public String implicitConverterField;
 
     @Option(
         name = "other_tested_field",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = TestConverter.class,
         defaultValue = "otherTestedDefault")
     public String otherTestedField;
 
     @Option(
         name = "field_with_null_default",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = TestConverter.class,
         defaultValue = "null")
     public String nullDefaultField;
 
     @Option(
         name = "allowMultiple_field",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = TestConverter.class,
         defaultValue = "null",
         allowMultiple = true)
@@ -273,8 +284,9 @@ public final class OptionsTesterTest {
   public static final class DefaultTestCheckUntestedField extends OptionsBase {
     @Option(
         name = "untested_field",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = TestConverter.class,
         defaultValue = "untestedDefault")
     public String untestedField;
@@ -296,8 +308,9 @@ public final class OptionsTesterTest {
   public static final class DefaultTestCheckUntestedNullField extends OptionsBase {
     @Option(
         name = "untested_field",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = TestConverter.class,
         defaultValue = "null")
     public String untestedNullField;
@@ -319,8 +332,9 @@ public final class OptionsTesterTest {
   public static final class DefaultTestCheckUntestedMultipleField extends OptionsBase {
     @Option(
         name = "untested_field",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         converter = TestConverter.class,
         defaultValue = "null",
         allowMultiple = true)

@@ -16,6 +16,7 @@ package com.google.devtools.common.options.processor.optiontestsources;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** This example options class should fail to compile. */
@@ -24,7 +25,8 @@ public class ProtectedOptionField extends OptionsBase {
     name = "bad_option",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = OptionEffectTag.NO_OP
+    effectTags = OptionEffectTag.NO_OP,
+    metadataTags = {OptionMetadataTag.HIDDEN}
   )
   boolean badOption;
 }

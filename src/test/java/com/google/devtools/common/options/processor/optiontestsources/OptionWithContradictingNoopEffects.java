@@ -16,6 +16,7 @@ package com.google.devtools.common.options.processor.optiontestsources;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** This example options class should fail to compile. */
@@ -24,7 +25,8 @@ public class OptionWithContradictingNoopEffects extends OptionsBase {
     name = "affect_terminal_without_affecting_anything",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP, OptionEffectTag.TERMINAL_OUTPUT}
+    effectTags = {OptionEffectTag.NO_OP, OptionEffectTag.TERMINAL_OUTPUT},
+    metadataTags = {OptionMetadataTag.HIDDEN}
   )
   public boolean effectAndNoopEffect;
 }

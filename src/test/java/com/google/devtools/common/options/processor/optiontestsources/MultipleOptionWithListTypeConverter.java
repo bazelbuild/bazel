@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 
@@ -29,8 +30,9 @@ public class MultipleOptionWithListTypeConverter extends OptionsBase {
       name = "multiple_strings_multiple_times_grouped",
       defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       allowMultiple = true
   )
   public List<List<String>> multipleStringsKeptInGroups;
@@ -39,8 +41,9 @@ public class MultipleOptionWithListTypeConverter extends OptionsBase {
       name = "multiple_strings_multiple_times_concatenated",
       defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       allowMultiple = true
   )
   public List<String> multipleStringsConcatenated; // Not List<List<String>>
@@ -49,8 +52,9 @@ public class MultipleOptionWithListTypeConverter extends OptionsBase {
     name = "multiple_strings_single_time",
     defaultValue = "a,b,c",
     converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN}
   )
   public List<String> multipleStringsSingleMention;
 }

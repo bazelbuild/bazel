@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** Options for the example worker itself. */
@@ -25,64 +26,72 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
   public static class ExampleWorkMultiplexerOptions extends OptionsBase {
     @Option(
         name = "output_file",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "",
         help = "Write the output to a file instead of stdout.")
     public String outputFile;
 
     @Option(
         name = "uppercase",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Uppercase the input.")
     public boolean uppercase;
 
     @Option(
         name = "write_uuid",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Writes a UUID into the output.")
     public boolean writeUUID;
 
     @Option(
         name = "write_counter",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Writes a counter that increases with each work unit processed into the output.")
     public boolean writeCounter;
 
     @Option(
         name = "print_inputs",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Writes a list of input files and their digests.")
     public boolean printInputs;
 
     @Option(
         name = "print_env",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Prints a list of all environment variables.")
     public boolean printEnv;
 
     @Option(
         name = "delay",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Randomly delay the worker response (between 100 to 300 ms).")
     public boolean delay;
 
     @Option(
         name = "ignore_sandbox",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "false",
         help = "Ignore the sandbox settings in work requests.")
     public boolean ignoreSandbox;
@@ -90,23 +99,26 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
 
   @Option(
       name = "persistent_worker",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false")
   public boolean persistentWorker;
 
   @Option(
       name = "exit_after",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0",
       help = "The worker exits after processing this many work units (default: disabled).")
   public int exitAfter;
 
   @Option(
       name = "poison_after",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "0",
       help =
           "Poisons the worker after processing this many work units, so that it returns a "
@@ -115,8 +127,9 @@ public class ExampleWorkerMultiplexerOptions extends OptionsBase {
 
   @Option(
       name = "hard_poison",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "false",
       help = "Instead of writing an error message to stdout, write it to stderr and terminate.")
   public boolean hardPoison;

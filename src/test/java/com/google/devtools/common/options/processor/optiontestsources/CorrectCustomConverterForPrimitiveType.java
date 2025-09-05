@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** This example options specifies a custom converter that passes the compile-time checks. */
@@ -25,8 +26,9 @@ public class CorrectCustomConverterForPrimitiveType extends OptionsBase {
     name = "option_with_primitive_type_and_correct_converter",
     defaultValue = "5",
     converter = Converters.RangeConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.NO_OP},
+    metadataTags = {OptionMetadataTag.HIDDEN}
   )
   public int intInARange;
 }

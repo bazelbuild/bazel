@@ -43,8 +43,9 @@ public class FieldOptionDefinitionTest {
       name = "assignments",
       defaultValue = "foo is not an assignment",
       converter = AssignmentConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = OptionEffectTag.NO_OP
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.NO_OP,
+      metadataTags = {OptionMetadataTag.HIDDEN}
     )
     public Map.Entry<String, String> assignments;
   }
@@ -88,8 +89,9 @@ public class FieldOptionDefinitionTest {
   public static class ValidOptionUsingDefaultConverterForMocking extends OptionsBase {
     @Option(
       name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "42"
     )
     public int foo;
@@ -97,8 +99,9 @@ public class FieldOptionDefinitionTest {
     @Option(
       name = "bar",
       converter = StringConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       defaultValue = "strings"
     )
     public String bar;
@@ -181,32 +184,36 @@ public class FieldOptionDefinitionTest {
     @Option(
         name = "null_non_multiple_option",
         defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = OptionEffectTag.NO_OP)
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.NO_OP,
+        metadataTags = {OptionMetadataTag.HIDDEN})
     public String nullNonMultipleOption;
 
     @Option(
         name = "null_multiple_option",
         allowMultiple = true,
         defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = OptionEffectTag.NO_OP)
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.NO_OP,
+        metadataTags = {OptionMetadataTag.HIDDEN})
     public List<String> nullMultipleOption;
 
     @Option(
         name = "empty_string_multiple_option",
         allowMultiple = true,
         defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = OptionEffectTag.NO_OP)
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.NO_OP,
+        metadataTags = {OptionMetadataTag.HIDDEN})
     public List<String> emptyStringMultipleOption;
 
     @Option(
         name = "non_empty_string_multiple_option",
         allowMultiple = true,
         defaultValue = "text",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = OptionEffectTag.NO_OP)
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.NO_OP,
+        metadataTags = {OptionMetadataTag.HIDDEN})
     public List<String> nonEmptyStringMultipleOption;
   }
 

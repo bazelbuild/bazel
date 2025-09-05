@@ -50,13 +50,14 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "non-configurable",
-        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE, OptionMetadataTag.HIDDEN})
     public String nonConfigurableOption;
 
     @Option(
         name = "disallowed_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         defaultValue = "default")
     public String disallowedOption;
   }
