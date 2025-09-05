@@ -282,8 +282,6 @@ tasks:
       - "//tools/test/..."
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
-      - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
     include_json_profile:

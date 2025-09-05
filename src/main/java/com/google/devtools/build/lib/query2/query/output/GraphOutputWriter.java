@@ -128,7 +128,8 @@ public final class GraphOutputWriter<T> {
   private void outputUnfactored(
       Digraph<T> graph, @Nullable ConditionalEdges conditionalEdges, PrintWriter out) {
     graph.visitNodesBeforeEdges(
-        new DotOutputVisitor<T>(out, node -> nodeReader.getLabel(node, labelPrinter)) {
+        new DotOutputVisitor<T>(
+            out, lineTerminator, node -> nodeReader.getLabel(node, labelPrinter)) {
           @Override
           public void beginVisit() {
             super.beginVisit();
@@ -143,7 +144,7 @@ public final class GraphOutputWriter<T> {
                 getConditionsGraphLabel(
                     ImmutableSet.of(lhs), ImmutableSet.of(rhs), conditionalEdges);
             if (!outputLabel.isEmpty()) {
-              out.printf("  [label=\"%s\"];\n", outputLabel);
+              out.printf("  [label=\"%s\"];%s", outputLabel, lineTerminator);
             }
           }
         },
@@ -208,12 +209,12 @@ public final class GraphOutputWriter<T> {
         };
 
     factoredGraph.visitNodesBeforeEdges(
-        new DotOutputVisitor<Set<Node<T>>>(out, labelSerializer) {
+        new DotOutputVisitor<Set<Node<T>>>(out, lineTerminator, labelSerializer) {
           @Override
           public void beginVisit() {
             super.beginVisit();
             // TODO(bazel-team): (2009) make this the default in Digraph.
-            out.println("  node [shape=box];");
+            out.printf("  node [shape=box];%s", lineTerminator);
           }
 
           @Override
@@ -223,7 +224,7 @@ public final class GraphOutputWriter<T> {
             String outputLabel =
                 getConditionsGraphLabel(lhs.getLabel(), rhs.getLabel(), conditionalEdges);
             if (!outputLabel.isEmpty()) {
-              out.printf("  [label=\"%s\"];\n", outputLabel);
+              out.printf("  [label=\"%s\"];%s", outputLabel, lineTerminator);
             }
           }
         },
