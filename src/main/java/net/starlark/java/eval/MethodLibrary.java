@@ -750,12 +750,11 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
-            name = "stop_or_none",
+            name = "stop",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
             },
-            defaultValue = "None",
+            defaultValue = "unbound",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
                     + "list; generation of the list stops before <code>stop</code> is reached."),
@@ -766,16 +765,16 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       },
       useStarlarkThread = true)
   public Sequence<StarlarkInt> range(
-      StarlarkInt startOrStop, Object stopOrNone, StarlarkInt stepI, StarlarkThread thread)
+      StarlarkInt startOrStop, Object stopOrUnbound, StarlarkInt stepI, StarlarkThread thread)
       throws EvalException {
     int start;
     int stop;
-    if (stopOrNone == Starlark.NONE) {
+    if (stopOrUnbound == Starlark.UNBOUND) {
       start = 0;
       stop = startOrStop.toInt("stop");
     } else {
       start = startOrStop.toInt("start");
-      stop = Starlark.toInt(stopOrNone, "stop");
+      stop = Starlark.toInt(stopOrUnbound, "stop");
     }
     int step = stepI.toInt("step");
     if (step == 0) {

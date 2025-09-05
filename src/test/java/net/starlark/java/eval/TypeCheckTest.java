@@ -259,7 +259,7 @@ public class TypeCheckTest {
             "dir: (object, /) -> list[str]",
             "all: (Collection[object], /) -> bool",
             "any: (Collection[object], /) -> bool",
-            "range: (int, [int|None], [int], /) -> Sequence[int]",
+            "range: (int, [int], [int], /) -> Sequence[int]",
             "len: (Collection[object]|str, /) -> int");
   }
 
