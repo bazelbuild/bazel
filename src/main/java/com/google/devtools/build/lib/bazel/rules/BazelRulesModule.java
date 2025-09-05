@@ -497,6 +497,46 @@ public final class BazelRulesModule extends BlazeModule {
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     @Option(
+        name = "experimental_disallow_legacy_java_toolchain_flags",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean experimentalDisallowLegacyJavaToolchainFlags;
+
+    @Option(
+        name = "javabase",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String javabase;
+
+    @Option(
+        name = "java_toolchain",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String javaToolchain;
+
+    @Option(
+        name = "host_java_toolchain",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String hostJavaToolchain;
+
+    @Option(
+        name = "host_javabase",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String hostJavabase;
+
+    @Option(
         name = "apple_crosstool_top",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

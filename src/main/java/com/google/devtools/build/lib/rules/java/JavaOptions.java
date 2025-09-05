@@ -49,58 +49,6 @@ public class JavaOptions extends FragmentOptions {
   }
 
   @Option(
-      name = "experimental_disallow_legacy_java_toolchain_flags",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If enabled, disallow legacy Java toolchain flags (--javabase, --host_javabase,"
-              + " --java_toolchain, --host_java_toolchain) and require the use of --platforms"
-              + " instead; see #7849")
-  public boolean disallowLegacyJavaToolchainFlags;
-
-  @Deprecated
-  @Option(
-      name = "javabase",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public Label javaBase;
-
-  @Deprecated
-  @Option(
-      name = "java_toolchain",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public Label javaToolchain;
-
-  @Deprecated
-  @Option(
-      name = "host_java_toolchain",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public Label hostJavaToolchain;
-
-  @Deprecated
-  @Option(
-      name = "host_javabase",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op.  Kept here for backwards compatibility.")
-  public Label hostJavaBase;
-
-  @Option(
       name = "javacopt",
       allowMultiple = true,
       defaultValue = "null",

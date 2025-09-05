@@ -155,42 +155,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.experimentalTurbineAnnotationProcessing;
     this.experimentalEnableJspecify = javaOptions.experimentalEnableJspecify;
-
-    if (javaOptions.disallowLegacyJavaToolchainFlags) {
-      checkLegacyToolchainFlagIsUnset("javabase", javaOptions.javaBase);
-      checkLegacyToolchainFlagIsUnset("host_javabase", javaOptions.hostJavaBase);
-      checkLegacyToolchainFlagIsUnset("java_toolchain", javaOptions.javaToolchain);
-      checkLegacyToolchainFlagIsUnset("host_java_toolchain", javaOptions.hostJavaToolchain);
-    }
-
-    boolean oldToolchainFlagSet =
-        javaOptions.javaBase != null
-            || javaOptions.hostJavaBase != null
-            || javaOptions.javaToolchain != null
-            || javaOptions.hostJavaToolchain != null;
-    boolean newToolchainFlagSet =
-        javaOptions.javaLanguageVersion != null
-            || javaOptions.hostJavaLanguageVersion != null
-            || javaOptions.javaRuntimeVersion != null
-            || javaOptions.hostJavaRuntimeVersion != null;
-    if (oldToolchainFlagSet && !newToolchainFlagSet) {
-      throw new InvalidConfigurationException(
-          "At least one of the deprecated no-op toolchain configuration flags is set (--javabase,"
-              + " --host_javabase, --java_toolchain, --host_java_toolchain) and none of the new"
-              + " toolchain configuration flags is set (--java_language_version,"
-              + " --tool_java_language_version, --java_runtime_version,"
-              + " --tool_java_runtime_version). This may result in incorrect toolchain selection "
-              + "(see https://github.com/bazelbuild/bazel/issues/7849).");
-    }
-  }
-
-  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label)
-      throws InvalidConfigurationException {
-    if (label != null) {
-      throw new InvalidConfigurationException(
-          String.format(
-              "--%s=%s is no longer supported, use --platforms instead (see #7849)", flag, label));
-    }
   }
 
   @Override
