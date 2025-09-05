@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skyframe.serialization.AsyncObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -31,11 +32,15 @@ import javax.annotation.Nullable;
  * <p>A typical root could be the exec path, a package root, or an output root specific to some
  * configuration. We also support absolute roots for non-hermetic paths outside the user workspace.
  */
-public abstract class Root implements Comparable<Root> {
+public abstract sealed class Root implements Comparable<Root> {
 
   /** Constructs a root from a path. */
   public static Root fromPath(Path path) {
     return new PathRoot(path);
+  }
+
+  public static Root fromExternalRepo(Path path, SkyValue value) {
+    return new ExternalRepoRoot(path, value);
   }
 
   /** Returns an absolute root. Can only be used with absolute path fragments. */
@@ -45,8 +50,8 @@ public abstract class Root implements Comparable<Root> {
 
   public static Root toFileSystem(Root root, FileSystem fileSystem) {
     return root.isAbsolute()
-      ? new AbsoluteRoot(fileSystem)
-      : new PathRoot(fileSystem.getPath(root.asPath().asFragment()));
+        ? new AbsoluteRoot(fileSystem)
+        : new PathRoot(fileSystem.getPath(root.asPath().asFragment()));
   }
 
   /** Returns a path by concatenating the root and the root-relative path. */
@@ -161,6 +166,98 @@ public abstract class Root implements Comparable<Root> {
       }
       PathRoot pathRoot = (PathRoot) o;
       return path.equals(pathRoot.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return path.hashCode();
+    }
+  }
+
+  public static final class ExternalRepoRoot extends Root {
+    private final Path path;
+    private final SkyValue value;
+
+    private ExternalRepoRoot(Path path, SkyValue value) {
+      this.path = path;
+      this.value = value;
+    }
+
+    @Override
+    public Path getRelative(PathFragment rootRelativePath) {
+      return path.getRelative(rootRelativePath);
+    }
+
+    @Override
+    public Path getRelative(String rootRelativePath) {
+      return path.getRelative(rootRelativePath);
+    }
+
+    @Override
+    public PathFragment relativize(Path path) {
+      return path.relativeTo(this.path);
+    }
+
+    @Override
+    public PathFragment relativize(PathFragment absolutePathFragment) {
+      Preconditions.checkArgument(absolutePathFragment.isAbsolute());
+      return absolutePathFragment.relativeTo(path.asFragment());
+    }
+
+    @Override
+    public boolean contains(Path path) {
+      return path.startsWith(this.path);
+    }
+
+    @Override
+    public boolean contains(PathFragment absolutePathFragment) {
+      return absolutePathFragment.isAbsolute()
+          && absolutePathFragment.startsWith(path.asFragment());
+    }
+
+    @Override
+    public Path asPath() {
+      return path;
+    }
+
+    @Override
+    public FileSystem getFileSystem() {
+      return path.getFileSystem();
+    }
+
+    @Override
+    public boolean isAbsolute() {
+      return false;
+    }
+
+    @Override
+    public String toString() {
+      return path.toString() + " (from " + value + ")";
+    }
+
+    @Override
+    public int compareTo(Root o) {
+      if (o instanceof AbsoluteRoot) {
+        return 1;
+      } else if (o instanceof PathRoot) {
+        return 1;
+      } else if (o instanceof ExternalRepoRoot externalRepoRoot) {
+        return path.compareTo(externalRepoRoot.path);
+      } else {
+        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
+      }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      ExternalRepoRoot externalRepoRoot = (ExternalRepoRoot) o;
+      return path.equals(externalRepoRoot.path) && value == externalRepoRoot.value;
     }
 
     @Override
