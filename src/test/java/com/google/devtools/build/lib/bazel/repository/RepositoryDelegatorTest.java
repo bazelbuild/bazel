@@ -270,7 +270,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     Path expectedPath = scratch.dir("/outputbase/external/foo");
-    Path actualPath = ((Success) repositoryDirectoryValue).getPath();
+    Path actualPath = ((Success) repositoryDirectoryValue).root().asPath();
     assertThat(actualPath).isEqualTo(expectedPath);
     assertThat(actualPath.isSymbolicLink()).isTrue();
     assertThat(actualPath.readSymbolicLink()).isEqualTo(overrideDirectory.asFragment());
@@ -286,7 +286,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     Success usual =
         new Success(
-            rootDirectory.getRelative("a"),
+            Root.fromPath(rootDirectory.getRelative("a")),
             /* isFetchingDelayed= */ false,
             /* excludeFromVendoring= */ false);
 
@@ -296,7 +296,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     Success fetchDelayed =
         new Success(
-            rootDirectory.getRelative("b"),
+            Root.fromPath(rootDirectory.getRelative("b")),
             /* isFetchingDelayed= */ true,
             /* excludeFromVendoring= */ false);
 
@@ -374,7 +374,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
-    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
+    assertThat(((Failure) repositoryDirectoryValue).errorMsg())
         .contains("Repository '@@foo' is not defined");
   }
 
@@ -397,7 +397,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
-    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
+    assertThat(((Failure) repositoryDirectoryValue).errorMsg())
         .contains("No repository visible as '@foo' from repository '@@fake_owner_repo'");
   }
 
@@ -421,7 +421,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
-    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
+    assertThat(((Failure) repositoryDirectoryValue).errorMsg())
         .contains("No repository visible as '@foo' from main repository");
   }
 }
