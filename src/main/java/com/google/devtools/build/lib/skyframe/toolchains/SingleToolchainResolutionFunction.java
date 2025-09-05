@@ -54,8 +54,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       throws ToolchainResolutionFunctionException, InterruptedException {
     SingleToolchainResolutionKey key = (SingleToolchainResolutionKey) skyKey.argument();
 
-    // This call could be combined with the call below, but this SkyFunction is evaluated so rarely
-    // it's not worth optimizing.
+    // This call could be combined with other Skyframe calls, but this SkyFunction is evaluated so
+    // rarely it's not worth optimizing.
     BuildConfigurationValue configuration =
         (BuildConfigurationValue) env.getValue(key.configurationKey());
     if (env.valuesMissing()) {
@@ -84,8 +84,17 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       throw new ToolchainResolutionFunctionException(e);
     }
 
+    Map<ConfiguredTargetKey, PlatformInfo> platforms =
+        getPlatforms(env, key.targetPlatformKey(), key.availableExecutionPlatformKeys());
+    if (platforms == null) {
+      return null;
+    }
+
     SingleToolchainResolutionDebugPrinter debugPrinter =
         SingleToolchainResolutionDebugPrinter.create(debug, env.getListener());
+    PlatformInfo targetPlatform = platforms.get(key.targetPlatformKey());
+    debugPrinter.startToolchainResolution(
+        key.toolchainType().toolchainType(), targetPlatform.label());
 
     // Describe rejected toolchains if any are present.
     Optional.ofNullable(toolchains.rejectedToolchains())
@@ -95,17 +104,40 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     // Find the right one.
     SingleToolchainResolutionValue toolchainResolution =
         resolveConstraints(
-            env,
             debugPrinter,
             key.toolchainType(),
             key.toolchainTypeInfo(),
             key.availableExecutionPlatformKeys(),
-            key.targetPlatformKey(),
+            platforms,
+            targetPlatform,
             toolchains.registeredToolchains());
 
     debugPrinter.finishDebugging();
 
     return toolchainResolution;
+  }
+
+  /**
+   * Loads {@link PlatformInfo} from Skyframe for checking against toolchain constraints. Returns
+   * null if Skyframe value isn't available yet.
+   */
+  @Nullable
+  private Map<ConfiguredTargetKey, PlatformInfo> getPlatforms(
+      Environment env,
+      ConfiguredTargetKey targetPlatformKey,
+      List<ConfiguredTargetKey> availableExecutionPlatformKeys)
+      throws ToolchainResolutionFunctionException, InterruptedException {
+    try {
+      return PlatformLookupUtil.getPlatformInfo(
+          ImmutableList.<ConfiguredTargetKey>builderWithExpectedSize(
+                  availableExecutionPlatformKeys.size() + 1)
+              .add(targetPlatformKey)
+              .addAll(availableExecutionPlatformKeys)
+              .build(),
+          env);
+    } catch (InvalidPlatformException e) {
+      throw new ToolchainResolutionFunctionException(e);
+    }
   }
 
   /**
@@ -115,36 +147,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
    */
   @Nullable
   private static SingleToolchainResolutionValue resolveConstraints(
-      Environment env,
       SingleToolchainResolutionDebugPrinter debugPrinter,
       ToolchainTypeRequirement toolchainType,
       ToolchainTypeInfo toolchainTypeInfo,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
-      ConfiguredTargetKey targetPlatformKey,
+      Map<ConfiguredTargetKey, PlatformInfo> platforms,
+      PlatformInfo targetPlatform,
       ImmutableList<DeclaredToolchainInfo> toolchains)
       throws ToolchainResolutionFunctionException, InterruptedException {
-
-    // Load the PlatformInfo needed to check constraints.
-    Map<ConfiguredTargetKey, PlatformInfo> platforms;
-    try {
-      platforms =
-          PlatformLookupUtil.getPlatformInfo(
-              ImmutableList.<ConfiguredTargetKey>builderWithExpectedSize(
-                      availableExecutionPlatformKeys.size() + 1)
-                  .add(targetPlatformKey)
-                  .addAll(availableExecutionPlatformKeys)
-                  .build(),
-              env);
-      if (env.valuesMissing()) {
-        return null;
-      }
-    } catch (InvalidPlatformException e) {
-      throw new ToolchainResolutionFunctionException(e);
-    }
-
-    PlatformInfo targetPlatform = platforms.get(targetPlatformKey);
-    debugPrinter.startToolchainResolution(toolchainType.toolchainType(), targetPlatform.label());
-
     // Platforms may exist multiple times in availableExecutionPlatformKeys. The Set lets this code
     // check whether a platform has already been seen during processing.
     Set<ConfiguredTargetKey> platformKeysSeen = new HashSet<>();
