@@ -268,7 +268,7 @@ final class RegularRunnableExtension implements RunnableExtension {
             usagesValue.getRepoOverrides(),
             mainRepositoryMapping,
             env.getListener());
-    Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
+    ModuleExtensionMetadata moduleExtensionMetadata;
     var repoMappingRecorder = new Label.RepoMappingRecorder();
     repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
     try (Mutability mu =
@@ -300,9 +300,9 @@ final class RegularRunnableExtension implements RunnableExtension {
               Starlark.type(returnValue));
         }
         if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
-          moduleExtensionMetadata = Optional.of(retMetadata);
+          moduleExtensionMetadata = retMetadata;
         } else {
-          moduleExtensionMetadata = Optional.empty();
+          moduleExtensionMetadata = ModuleExtensionMetadata.DEFAULT;
         }
       } catch (NeedsSkyframeRestartException e) {
         // Restart by returning null.

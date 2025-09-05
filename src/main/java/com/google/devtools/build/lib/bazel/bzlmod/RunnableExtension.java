@@ -62,6 +62,6 @@ interface RunnableExtension {
       ImmutableSortedMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs,
       ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> recordedEnvVarInputs,
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
-      Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
+      ModuleExtensionMetadata moduleExtensionMetadata,
       ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {}
 }

@@ -215,7 +215,7 @@ final class InnateRunnableExtension implements RunnableExtension {
         ImmutableSortedMap.of(),
         ImmutableSortedMap.of(),
         generatedRepoSpecs.buildOrThrow(),
-        Optional.of(ModuleExtensionMetadata.REPRODUCIBLE),
+        ModuleExtensionMetadata.REPRODUCIBLE,
         ImmutableTable.of());
   }
 }

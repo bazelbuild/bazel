@@ -63,13 +63,17 @@ public abstract class LockfileModuleExtensionMetadata {
 
   abstract boolean getReproducible();
 
-  public static LockfileModuleExtensionMetadata of(
+  public static Optional<LockfileModuleExtensionMetadata> of(
       ModuleExtensionMetadata moduleExtensionMetadata) {
-    return new AutoValue_LockfileModuleExtensionMetadata(
-        moduleExtensionMetadata.getExplicitRootModuleDirectDeps(),
-        moduleExtensionMetadata.getExplicitRootModuleDirectDevDeps(),
-        moduleExtensionMetadata.getUseAllRepos(),
-        moduleExtensionMetadata.getReproducible());
+    if (moduleExtensionMetadata.equals(ModuleExtensionMetadata.DEFAULT)) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new AutoValue_LockfileModuleExtensionMetadata(
+            moduleExtensionMetadata.getExplicitRootModuleDirectDeps(),
+            moduleExtensionMetadata.getExplicitRootModuleDirectDevDeps(),
+            moduleExtensionMetadata.getUseAllRepos(),
+            moduleExtensionMetadata.getReproducible()));
   }
 
   public Optional<RootModuleFileFixup> generateFixup(

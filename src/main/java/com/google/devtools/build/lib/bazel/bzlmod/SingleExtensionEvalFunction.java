@@ -199,7 +199,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<String, RepoSpec> generatedRepoSpecs = moduleExtensionResult.generatedRepoSpecs();
-    Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
+    ModuleExtensionMetadata moduleExtensionMetadata =
         moduleExtensionResult.moduleExtensionMetadata();
 
     if (!lockfileMode.equals(LockfileMode.OFF)) {
@@ -218,8 +218,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                         extensionId, nonVisibleRepoNames)));
       }
     }
-    if (lockfileMode.equals(LockfileMode.ERROR)
-        && !moduleExtensionMetadata.map(ModuleExtensionMetadata::getReproducible).orElse(false)) {
+    if (lockfileMode.equals(LockfileMode.ERROR) && !moduleExtensionMetadata.getReproducible()) {
       // The extension is not reproducible and can't be in the lockfile, since an existing (but
       // possibly out-of-date) entry would have been handled by tryGettingValueFromLockFile above.
       throw new SingleExtensionEvalFunctionException(
@@ -231,8 +230,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   ? ""
                   : " for platform " + extension.getEvalFactors()));
     }
-    var newFacts =
-        moduleExtensionMetadata.map(ModuleExtensionMetadata::getFacts).orElse(Facts.EMPTY);
+    var newFacts = moduleExtensionMetadata.getFacts();
     if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
       String reason =
           "The extension '%s' has changed its facts: %s != %s"
@@ -244,7 +242,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     Optional<LockfileModuleExtensionMetadata> lockfileModuleExtensionMetadata =
-        moduleExtensionMetadata.map(LockfileModuleExtensionMetadata::of);
+        LockfileModuleExtensionMetadata.of(moduleExtensionMetadata);
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo;
     // At this point the extension has been evaluated successfully, but SingleExtensionEvalFunction
     // may still fail if imported repositories were not generated. However, since imports do not

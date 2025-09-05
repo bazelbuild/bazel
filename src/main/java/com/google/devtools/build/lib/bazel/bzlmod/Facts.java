@@ -1,6 +1,8 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.TreeMap;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -11,7 +13,12 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
 
+/**
+ * A container for user-provided JSON-like data attached to a module extension that is persisted
+ * across reevaluations of the extension.
+ */
 @AutoValue
+@AutoCodec
 public abstract class Facts {
   public static final Facts EMPTY = new AutoValue_Facts(Starlark.NONE);
 
@@ -19,6 +26,12 @@ public abstract class Facts {
 
   public static Facts validateAndCreate(Object value) throws EvalException {
     return new AutoValue_Facts(validateAndNormalize(value));
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  public static Facts createUnchecked(Object value) {
+    return new AutoValue_Facts(value);
   }
 
   // This limit only exists to prevent pathological uses of facts, which are meant to be

@@ -38,6 +38,14 @@ import net.starlark.java.eval.StarlarkValue;
 @AutoValue
 public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
+  static final ModuleExtensionMetadata DEFAULT =
+      create(
+          /* explicitRootModuleDirectDeps= */ null,
+          /* explicitRootModuleDirectDevDeps= */ null,
+          UseAllRepos.NO,
+          /* reproducible= */ false,
+          /* facts= */ Facts.EMPTY);
+
   static final ModuleExtensionMetadata REPRODUCIBLE =
       create(
           /* explicitRootModuleDirectDeps= */ null,
