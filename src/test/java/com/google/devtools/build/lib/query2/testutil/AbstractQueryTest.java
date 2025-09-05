@@ -353,6 +353,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "c/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
         genrule(name='c', srcs=['p', 'q'], outs=['r', 's'], cmd=':')
         cc_binary(name='d', srcs=['e.cc'], data=['r'])
         cc_test(name='f', srcs=['g.cc'])
@@ -588,6 +591,9 @@ public abstract class AbstractQueryTest<T> {
         """);
     writeFile(
         "configurable/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "",
         "cc_binary(",
         "    name = 'main',",
         "    srcs = ['main.cc'],",
@@ -1110,7 +1116,10 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testNoImplicitDeps() throws Exception {
-    writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
+    writeFile(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name='x', srcs=['x.cc'])");
 
     // Implicit dependencies:
     String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
