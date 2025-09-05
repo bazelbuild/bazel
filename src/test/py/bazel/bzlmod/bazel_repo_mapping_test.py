@@ -198,11 +198,12 @@ quux+2.0,quux,quux+2.0""",
     )
 
     self.main_registry.createLocalPathModule(
-        'test', '1.0', 'test', {'data': '1.0'}
+        'test', '1.0', 'test', {'data': '1.0', 'rules_shell': self.GetModuleVersionFromDefaultLockFile('rules_shell')}
     )
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             'sh_test(',
             '    name = "test",',
             '    srcs = ["test.sh"],',
@@ -260,11 +261,12 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.main_registry.createLocalPathModule(
-        'test', '1.0', 'test', {'data': '1.0'}
+        'test', '1.0', 'test', {'data': '1.0', 'rules_cc': self.GetModuleVersionFromDefaultLockFile('rules_cc')}
     )
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
+            'load("@rules_cc//cc:cc_test.bzl", "cc_test")',
             'cc_test(',
             '    name = "test",',
             '    srcs = ["test.cpp"],',
@@ -312,11 +314,12 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.main_registry.createLocalPathModule(
-        'test', '1.0', 'test', {'data': '1.0', 'rules_cc': '0.0.17'}
+        'test', '1.0', 'test', {'data': '1.0', 'rules_cc': self.GetModuleVersionFromDefaultLockFile('rules_cc')}
     )
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
-        [
+        [ 
+            'load("@rules_cc//cc:cc_test.bzl", "cc_test")',
             'cc_test(',
             '    name = "test",',
             '    srcs = ["test.cpp"],',
@@ -364,11 +367,12 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.main_registry.createLocalPathModule(
-        'test', '1.0', 'test', {'data': '1.0'}
+        'test', '1.0', 'test', {'data': '1.0', 'rules_java': self.GetModuleVersionFromDefaultLockFile('rules_java')}
     )
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
+            'load("@rules_java//java:java_test.bzl", "java_test")',
             'java_test(',
             '    name = "test",',
             '    srcs = ["Test.java"],',
