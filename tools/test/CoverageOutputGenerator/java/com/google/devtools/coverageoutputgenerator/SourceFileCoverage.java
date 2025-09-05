@@ -34,13 +34,13 @@ class SourceFileCoverage {
   private final SortedMap<String, Integer> functionLineNumbers; // function name to line numbers
   private final SortedMap<String, Long> functionsExecution; // function name to execution count
   private final ListMultimap<Integer, BranchCoverage> branches; // line number to branches
-  private final SortedMap<Integer, Long> lines; // line number to line execution
+  private final LineCoverage lineCoverage;
 
-  SourceFileCoverage(String sourcefile) {
+  public SourceFileCoverage(String sourcefile) {
     this.sourceFileName = sourcefile;
     this.functionsExecution = new TreeMap<>();
     this.functionLineNumbers = new TreeMap<>();
-    this.lines = new TreeMap<>();
+    this.lineCoverage = LineCoverage.create();
     this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
   }
 
@@ -49,13 +49,12 @@ class SourceFileCoverage {
 
     this.functionsExecution = new TreeMap<>();
     this.functionLineNumbers = new TreeMap<>();
-    this.lines = new TreeMap<>();
     this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
 
     this.functionLineNumbers.putAll(other.functionLineNumbers);
     this.functionsExecution.putAll(other.functionsExecution);
     this.branches.putAll(other.branches);
-    this.lines.putAll(other.lines);
+    this.lineCoverage = LineCoverage.copy(other.lineCoverage);
   }
 
   void changeSourcefileName(String newSourcefileName) {
@@ -82,32 +81,6 @@ class SourceFileCoverage {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum, TreeMap::new));
   }
 
-  static int getNumberOfBranchesHit(SourceFileCoverage sourceFileCoverage) {
-    return (int)
-        sourceFileCoverage.branches.values().stream().filter(BranchCoverage::wasExecuted).count();
-  }
-
-  /** Returns the merged line execution found in the two given {@code SourceFileCoverage}s. */
-  @VisibleForTesting
-  static SortedMap<Integer, Long> mergeLines(SourceFileCoverage s1, SourceFileCoverage s2) {
-    SortedMap<Integer, Long> merged = new TreeMap<>();
-    merged.putAll(s1.lines);
-    for (Entry<Integer, Long> entry : s2.lines.entrySet()) {
-      Long value = entry.getValue();
-      Long old = merged.get(entry.getKey());
-      if (old != null) {
-        value = old + value;
-      }
-      merged.put(entry.getKey(), value);
-    }
-    return merged;
-  }
-
-  private static int getNumberOfExecutedLines(SourceFileCoverage sourceFileCoverage) {
-    return (int)
-        sourceFileCoverage.lines.entrySet().stream().filter(line -> line.getValue() > 0).count();
-  }
-
   /**
    * Merges all the fields of {@code other} with the current {@link SourceFileCoverage} into a new
    * {@link SourceFileCoverage}
@@ -117,46 +90,44 @@ class SourceFileCoverage {
    *
    * @return a new {@link SourceFileCoverage} that contains the merged coverage.
    */
-  static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2) {
+  public static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2) {
     assert source1.sourceFileName.equals(source2.sourceFileName);
-    SourceFileCoverage merged = new SourceFileCoverage(source2.sourceFileName);
+    SourceFileCoverage merged = new SourceFileCoverage(source1);
 
-    merged.addAllFunctionLineNumbers(mergeFunctionLineNumbers(source1, source2));
-    merged.addAllFunctionsExecution(mergeFunctionsExecution(source1, source2));
-    merged.addAllBranches(source1.branches);
+    merged.addAllFunctionLineNumbers(source2.functionLineNumbers);
+    merged.addAllFunctionsExecution(source2.functionsExecution);
     merged.addAllBranches(source2.branches);
-    merged.addAllLines(source1.lines);
-    merged.addAllLines(source2.lines);
+    merged.lineCoverage.add(source2.lineCoverage);
     return merged;
   }
 
-  String sourceFileName() {
+  public String sourceFileName() {
     return sourceFileName;
   }
 
-  int nrFunctionsFound() {
+  public int nrFunctionsFound() {
     return functionsExecution.size();
   }
 
-  int nrFunctionsHit() {
+  public int nrFunctionsHit() {
     return (int)
         functionsExecution.entrySet().stream().filter(function -> function.getValue() > 0).count();
   }
 
-  int nrBranchesFound() {
+  public int nrBranchesFound() {
     return branches.size();
   }
 
-  int nrBranchesHit() {
-    return getNumberOfBranchesHit(this);
+  public int nrBranchesHit() {
+    return (int) branches.values().stream().filter(BranchCoverage::wasExecuted).count();
   }
 
-  int nrOfLinesWithNonZeroExecution() {
-    return getNumberOfExecutedLines(this);
+  public int nrOfLinesWithNonZeroExecution() {
+    return lineCoverage.numberOfExecutedLines();
   }
 
-  int nrOfInstrumentedLines() {
-    return this.lines.size();
+  public int nrOfInstrumentedLines() {
+    return lineCoverage.numberOfInstrumentedLines();
   }
 
   @VisibleForTesting
@@ -187,11 +158,15 @@ class SourceFileCoverage {
 
   @VisibleForTesting
   Map<Integer, Long> getLines() {
-    return lines;
+    TreeMap<Integer, Long> result = new TreeMap<>();
+    for (Entry<Integer, Long> entry : lineCoverage) {
+      result.put(entry.getKey(), entry.getValue());
+    }
+    return result;
   }
 
-  Set<Entry<Integer, Long>> getAllLines() {
-    return lines.entrySet();
+  public Iterable<Entry<Integer, Long>> getAllLines() {
+    return lineCoverage;
   }
 
   void addFunctionLineNumber(String functionName, Integer lineNumber) {
@@ -202,16 +177,28 @@ class SourceFileCoverage {
     this.functionLineNumbers.putAll(lineNumber);
   }
 
-  void addFunctionExecution(String functionName, Long executionCount) {
-    this.functionsExecution.put(functionName, executionCount);
+  public void addFunctionExecution(String functionName, Long executionCount) {
+    long value = functionsExecution.getOrDefault(functionName, 0L) + executionCount;
+    this.functionsExecution.put(functionName, value);
   }
 
-  void addAllFunctionsExecution(SortedMap<String, Long> functionsExecution) {
-    this.functionsExecution.putAll(functionsExecution);
+  private void addAllFunctionsExecution(SortedMap<String, Long> functionsExecution) {
+    for (Entry<String, Long> entry : functionsExecution.entrySet()) {
+      addFunctionExecution(entry.getKey(), entry.getValue());
+    }
   }
 
-  /** Creates and adds a new branch to the source file. */
-  void addNewBranch(
+  /**
+   * Creates and adds a new branch to the source file. If the branch already exists, the execution
+   * count and evaluated status are combined with the existing one.
+   *
+   * @param lineNumber The line number the branch is on
+   * @param blockNumber ID for the block containing the branch
+   * @param branchNumber ID for the specific branch at this line
+   * @param evaluated Whether branches for this line were ever evaluated
+   * @param executionCount How many times this particular branch was taken
+   */
+  public void addNewBranch(
       int lineNumber,
       String blockNumber,
       String branchNumber,
@@ -222,7 +209,11 @@ class SourceFileCoverage {
     addBranch(lineNumber, branch);
   }
 
-  void addBranch(Integer lineNumber, BranchCoverage branch) {
+  /**
+   * Adds the given branch to the source file. If the branch already exists, it is merged with the
+   * existing one.
+   */
+  public void addBranch(Integer lineNumber, BranchCoverage branch) {
     // if a line was already given for the same block and branch, merge it with the new one.
     for (int i = 0; i < branches.get(lineNumber).size(); i++) {
       BranchCoverage original = branches.get(lineNumber).get(i);
@@ -236,27 +227,13 @@ class SourceFileCoverage {
     branches.put(lineNumber, branch);
   }
 
-  void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {
+  private void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {
     for (Entry<Integer, BranchCoverage> entry : branches.entries()) {
       addBranch(entry.getKey(), entry.getValue());
     }
   }
 
-  void addLine(int lineNumber, long executionCount) {
-    addLine(Integer.valueOf(lineNumber), Long.valueOf(executionCount));
-  }
-
-  void addLine(Integer lineNumber, Long executionCount) {
-    Long old = lines.get(lineNumber);
-    if (old != null) {
-      executionCount = executionCount + old;
-    }
-    lines.put(lineNumber, executionCount);
-  }
-
-  void addAllLines(SortedMap<Integer, Long> lines) {
-    for (Entry<Integer, Long> entry : lines.entrySet()) {
-      addLine(entry.getKey(), entry.getValue());
-    }
+  public void addLine(int lineNumber, long executionCount) {
+    lineCoverage.addLine(lineNumber, executionCount);
   }
 }

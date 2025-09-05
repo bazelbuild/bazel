@@ -68,13 +68,17 @@ java_library(
 )
 
 java_library(
+    name = "LineCoverage",
+    srcs = ["LineCoverage.java"],
+)
+
+java_library(
     name = "SourceFileCoverage",
     srcs = ["SourceFileCoverage.java"],
     deps = [
         ":BranchCoverage",
-        "//third_party:auto_value",
+        ":LineCoverage",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

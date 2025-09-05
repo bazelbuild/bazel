@@ -17,6 +17,16 @@ java_test(
 )
 
 java_test(
+    name = "LineCoverageTest",
+    srcs = ["LineCoverageTest.java"],
+    deps = [
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LineCoverage",
+    ],
+)
+
+java_test(
     name = "SourceFileCoverageTest",
     srcs = ["SourceFileCoverageTest.java"],
     deps = [
