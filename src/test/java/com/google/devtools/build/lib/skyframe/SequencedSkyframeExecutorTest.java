@@ -727,6 +727,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["foo.cc"],

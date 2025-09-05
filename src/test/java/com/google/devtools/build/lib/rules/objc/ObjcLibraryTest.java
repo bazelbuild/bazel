@@ -85,6 +85,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "bin/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         objc_library(
             name = "objc",
             srcs = ["objc.m"],
@@ -116,6 +117,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "bin/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         objc_library(
             name = "objc",
             srcs = ["objc.m"],
@@ -1907,6 +1909,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         scratchConfiguredTarget(
             "foo",
             "x",
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_binary(name = 'x', deps = [':y', ':z'])",
             "cc_library(name = 'y', hdrs = ['y.h'])",
             "objc_library(name = 'z', srcs = ['z.h'])");
@@ -2634,6 +2638,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "bin/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         objc_library(
             name = "objc",
             srcs = ["objc.m"],

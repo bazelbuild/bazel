@@ -1094,6 +1094,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "lib",

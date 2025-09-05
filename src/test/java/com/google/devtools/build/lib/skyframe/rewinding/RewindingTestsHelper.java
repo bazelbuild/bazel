@@ -2249,6 +2249,7 @@ public class RewindingTestsHelper {
     testCase.write(
         "genheader/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         genrule(
             name = "gen_header",
             srcs = [],
@@ -2378,6 +2379,8 @@ public class RewindingTestsHelper {
     testCase.write(
         "genheader/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         genrule(
             name = "gen_header",
             srcs = [],

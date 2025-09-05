@@ -3767,6 +3767,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test:defs.bzl', 'my_rule')
         my_rule(
           name = 'my_target',
@@ -6711,7 +6712,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl, requires = [aspect_c])
         aspect_a = aspect(implementation = _impl, requires = [aspect_b])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
@@ -6734,7 +6738,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl, requires = [aspect_c])
         aspect_a = aspect(implementation = _impl, requires = [aspect_c])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(
@@ -6760,7 +6767,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl, requires = [aspect_d])
         aspect_a = aspect(implementation = _impl, requires = [aspect_b, aspect_c])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
@@ -6783,7 +6793,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl)
         aspect_a = aspect(implementation = _impl, requires = [aspect_b])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
         update(
@@ -6806,7 +6819,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         aspect_b = aspect(implementation = _impl)
         aspect_a = aspect(implementation = _impl, requires = [aspect_b])
         """);
-    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'main_target')");
     reporter.removeHandler(failFastHandler);
 
     // The call to `update` does not throw an exception when "--keep_going" is passed in the

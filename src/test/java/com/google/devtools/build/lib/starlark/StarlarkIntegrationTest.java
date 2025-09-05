@@ -328,6 +328,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -364,6 +365,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -404,6 +406,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -434,6 +437,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -1264,6 +1268,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl', 'wrapper')
 
         cc_binary(name = 'tool', srcs = [':tool.cc'])

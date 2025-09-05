@@ -41,6 +41,7 @@ public final class StarlarkActionTemplateTest extends BuildIntegrationTestCase {
     write(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load(":rules.bzl", "my_rule")
         my_rule(name = "target")
         cc_binary(
