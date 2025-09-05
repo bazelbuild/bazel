@@ -558,8 +558,11 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testNonexistingTargetErrorMsg() throws Exception {
-    checkError("foo", "foo", getErrorNonExistingTarget(
-        "deps", "cc_binary", "//foo:foo", "//foo:nonesuch"),
+    checkError(
+        "foo",
+        "foo",
+        getErrorNonExistingTarget("deps", "cc_binary", "//foo:foo", "//foo:nonesuch"),
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "cc_binary(name = 'foo',",
         "srcs = ['foo.cc'],",
         "deps = [':nonesuch'])");

@@ -737,9 +737,13 @@ public class BuildViewTest extends BuildViewTestBase {
   public void testHelpfulErrorForWrongPackageLabels() throws Exception {
     reporter.removeHandler(failFastHandler);
 
-    scratch.file("x/BUILD",
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='x', srcs=['x.cc'])");
-    scratch.file("y/BUILD",
+    scratch.file(
+        "y/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='y', srcs=['y.cc'], deps=['//x:z'])");
 
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//y:y");
@@ -1133,6 +1137,8 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         config_setting(name = 'a', values = {'compilation_mode': 'dbg'})
         cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))
         cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])
@@ -1153,6 +1159,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(name = 'java', srcs = ['DoesntMatter.java'])
         cc_binary(name = 'cpp', data = [':java'])
@@ -1200,6 +1207,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "cycle/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])
         cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])
         """);
@@ -1225,6 +1233,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "cycle/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])
         cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])
         cc_library(name = 'bat', srcs = ['bat.cc'], deps = [':bas'])

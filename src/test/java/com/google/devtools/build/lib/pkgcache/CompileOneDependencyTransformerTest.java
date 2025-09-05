@@ -17,13 +17,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,7 +41,7 @@ import org.junit.runners.JUnit4;
 
 /** A test for {@link CompileOneDependencyTransformer}. */
 @RunWith(JUnit4.class)
-public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase {
+public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
 
   private static Set<Label> targetsToLabels(Iterable<Target> targets) {
     return AbstractTargetPatternEvaluatorTest.targetsToLabels(targets);
@@ -52,6 +54,11 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   public final void createTransformer() throws Exception {
     parser = skyframeExecutor.newTargetPatternPreloader();
     transformer = new CompileOneDependencyTransformer(getPackageManager());
+  }
+
+  @Before
+  public final void setupLangRules() throws Exception {
+    MockCcSupport.get().setup(new MockToolsConfig(rootDirectory));
   }
 
   private void writeSimpleExample() throws IOException {
@@ -404,6 +411,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     String srcs = "srcs = [ 'a.cc', 'a.c', 'a.h', 'a.py', 'a.txt' ])";
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl','cc_binary')",
         "genrule(name = 'gen_rule', cmd = '', outs = [ 'out' ], " + srcs,
         "cc_binary(name = 'cc_rule', " + srcs);
 
