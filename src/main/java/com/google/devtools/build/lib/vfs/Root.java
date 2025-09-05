@@ -35,9 +35,9 @@ import javax.annotation.Nullable;
 public abstract sealed class Root implements Comparable<Root> {
 
   protected enum RootType {
+    ABSOLUTE,
     PATH,
     EXTERNAL_REPO,
-    ABSOLUTE,
   }
 
   /** Constructs a root from a path. */
@@ -381,6 +381,8 @@ public abstract sealed class Root implements Comparable<Root> {
   private static class RootCodec extends AsyncObjectCodec<Root> {
     private static final DynamicCodec PATH_ROOT_CODEC = new DynamicCodec(PathRoot.class);
     private static final DynamicCodec ABSOLUTE_ROOT_CODEC = new DynamicCodec(AbsoluteRoot.class);
+    private static final DynamicCodec EXTERNAL_REPO_ROOT_CODEC =
+        new DynamicCodec(ExternalRepoRoot.class);
 
     @Override
     public Class<? extends Root> getEncodedClass() {
@@ -403,14 +405,12 @@ public abstract sealed class Root implements Comparable<Root> {
       // Everything else.
       codedOut.write((byte) 0);
 
-      if (root instanceof PathRoot) {
-        codedOut.writeBoolNoTag(true);
-        PATH_ROOT_CODEC.serialize(context, root, codedOut);
-      } else if (root instanceof AbsoluteRoot) {
-        codedOut.writeBoolNoTag(false);
-        ABSOLUTE_ROOT_CODEC.serialize(context, root, codedOut);
-      } else {
-        throw new IllegalStateException("Unexpected Root: " + root);
+      codedOut.write((byte) root.getType().ordinal());
+      switch (root) {
+        case PathRoot pathRoot -> PATH_ROOT_CODEC.serialize(context, root, codedOut);
+        case AbsoluteRoot absoluteRoot -> ABSOLUTE_ROOT_CODEC.serialize(context, root, codedOut);
+        case ExternalRepoRoot externalRepoRoot ->
+            EXTERNAL_REPO_ROOT_CODEC.serialize(context, root, codedOut);
       }
     }
 
