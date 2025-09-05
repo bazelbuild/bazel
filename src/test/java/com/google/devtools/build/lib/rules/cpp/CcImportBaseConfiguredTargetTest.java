@@ -433,7 +433,10 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
             "foo",
             starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', shared_library = 'libfoo.so')");
-    scratch.file("bin/BUILD", "cc_binary(name='bin', deps=['//a:foo'])");
+    scratch.file(
+        "bin/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name='bin', deps=['//a:foo'])");
 
     Artifact dynamicLibrary =
         target
@@ -515,6 +518,8 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     scratch.file(
         "bin/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":custom_transition.bzl", "apply_custom_transition")
 
         cc_library(

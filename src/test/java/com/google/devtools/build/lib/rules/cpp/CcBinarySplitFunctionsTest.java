@@ -40,7 +40,9 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   @Before
   public void createBasePkg() throws IOException {
     scratch.overwriteFile(
-        "base/BUILD", "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])");
+        "base/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])");
   }
 
   private Action getPredecessorByInputName(Action action, String str) {
@@ -107,6 +109,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = ["thin_lto"])
 
         cc_binary(
@@ -152,6 +155,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = ["thin_lto"])
 
         cc_binary(
@@ -179,6 +183,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = ["thin_lto"])
 
         cc_binary(
@@ -222,6 +227,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = ["thin_lto"])
 
         cc_binary(
@@ -267,6 +273,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = ["thin_lto"])
 
         cc_binary(
@@ -309,6 +316,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = ["thin_lto"])
 
         cc_binary(
@@ -355,6 +363,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = ["thin_lto"])
 
         cc_binary(
@@ -396,6 +405,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(features = [
             "thin_lto",
             "-split_functions",

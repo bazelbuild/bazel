@@ -379,6 +379,7 @@ public class AliasTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(

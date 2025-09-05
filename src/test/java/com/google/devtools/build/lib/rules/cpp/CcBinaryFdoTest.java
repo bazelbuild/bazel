@@ -53,6 +53,7 @@ public class CcBinaryFdoTest extends BuildViewTestCase {
     scratch.file("binary.cc", "int main() { return 0; }");
     scratch.file(
         "BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "genrule(name = 'generate-mock-profraw',",
         "    outs = ['mock.profraw'],",
         "    cmd = 'touch $@',",
