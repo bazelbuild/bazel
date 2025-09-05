@@ -97,7 +97,14 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
       return;
     }
     Path trashPath = trashBase.getRelative(Integer.toString(trashCount.getAndIncrement()));
-    path.renameTo(trashPath);
+    try {
+        path.renameTo(trashPath);
+    } catch (IOException e) {
+        logger.atWarning().withCause(e).log(
+            "Failed to rename %s -> %s for asynchronous removal. Removing synchronously.", path, trashPath);
+        path.deleteTree();
+        return;
+    }
     checkNotNull(service, "Cannot call deleteTree after shutdown")
         .execute(
             () -> {
