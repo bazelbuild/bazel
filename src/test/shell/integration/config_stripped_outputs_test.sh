@@ -385,9 +385,11 @@ EOF
 }
 
 function test_builtin_cc_support() {
+  add_rules_cc MODULE.bazel
   local -r pkg="third_party/${FUNCNAME[0]}"
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "main",
     srcs = ["main.cc"],
@@ -411,6 +413,7 @@ EOF
 
   mkdir -p "$pkg"/lib1
   cat > "$pkg/lib1/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib1",
     srcs = ["lib1.cc"],
@@ -440,6 +443,7 @@ EOF
 
   mkdir -p "$pkg"/lib2
   cat > "$pkg/lib2/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 genrule(
     name = "gen_header",
     srcs = ["lib2.h.tpl"],
@@ -482,6 +486,7 @@ EOF
 
   mkdir -p "$pkg"/common/utils
   cat > "$pkg/common/utils/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 genrule(
     name = "gen_header",
     srcs = ["utils.h.tpl"],

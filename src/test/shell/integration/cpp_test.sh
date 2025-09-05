@@ -49,9 +49,12 @@ fi
 #### TESTS #############################################################
 
 function test_no_rebuild_on_irrelevant_header_change() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(name="a", srcs=["a.cc"], deps=["b"])
 cc_library(name="b", srcs=["b1.h", "b2.h"])
 EOF
@@ -79,9 +82,12 @@ EOF
 }
 
 function test_new_header_is_required() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(name="a", srcs=["a.cc"], deps=[":b"])
 cc_library(name="b", srcs=["b1.h", "b2.h"])
 EOF
@@ -116,9 +122,12 @@ EOF
 }
 
 function test_no_recompile_on_shutdown() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(name="a", srcs=["a.cc"], deps=["b"])
 cc_library(name="b", includes=["."], hdrs=["b.h"])
 EOF

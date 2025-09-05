@@ -41,9 +41,11 @@ local_repository(
     path = "../$pkg2",
 )
 EOF
+  add_rules_cc "${pkg}/MODULE.bazel"
 
   touch "$pkg/foo.cpp"
   cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name = "foo",
           srcs = ["foo.cpp"],
           deps = ["@pkg2//:bar"]
@@ -53,6 +55,7 @@ EOF
   touch "$pkg2/REPO.bazel"
   touch "$pkg2/bar.cpp"
   cat > "$pkg2/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name = "bar",
           srcs = ["bar.cpp"],
           visibility=["//visibility:public"],

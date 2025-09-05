@@ -378,6 +378,7 @@ EOF
 
 # regression test for b/237547165
 function test_fail_on_runfiles_tree_in_transitive_runfiles_for_executable() {
+  add_rules_cc MODULE.bazel
   local exit_code
 
   cat > rule.bzl <<EOF
@@ -394,6 +395,7 @@ bad_runfiles = rule(
 )
 EOF
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":rule.bzl", "bad_runfiles");
 cc_binary(
     name = "thing",

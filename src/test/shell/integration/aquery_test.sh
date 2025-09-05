@@ -247,9 +247,12 @@ EOF
 }
 
 function test_prunable_headers() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(
   name = "foo",
   srcs = ["foo.cc"],
@@ -1008,9 +1011,11 @@ EOF
 }
 
 function test_aquery_noinclude_artifacts() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name='foo',
     srcs=['foo.cc']
@@ -1120,9 +1125,11 @@ EOF
 }
 
 function test_aquery_include_param_file_not_enabled_by_default() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name='foo',
     srcs=['foo.cc']
@@ -1143,6 +1150,7 @@ EOF
 }
 
 function test_aquery_cpp_action_template_treeartifact_output() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/a.bzl" <<'EOF'
@@ -1165,6 +1173,7 @@ cc_tree_artifact_files = rule(
 EOF
 
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(':a.bzl', 'cc_tree_artifact_files')
 cc_tree_artifact_files(
     name = 'tree_artifact',
@@ -2098,11 +2107,13 @@ EOF
 }
 
 function test_cpp_compile_action_env() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
 
   touch "$pkg/main.cpp"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "main",
     srcs = ["main.cpp"],

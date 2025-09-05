@@ -140,6 +140,7 @@ EOF
 }
 
 function test_target_exec_properties_cc() {
+  add_rules_cc MODULE.bazel
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
@@ -149,6 +150,7 @@ int main() {
 }
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_binary(
@@ -179,6 +181,7 @@ EOF
 }
 
 function test_target_exec_properties_cc_test() {
+  add_rules_cc MODULE.bazel
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
@@ -188,6 +191,7 @@ int main() {
 }
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -396,6 +400,7 @@ function test_platform_execgroup_properties_nongroup_override_cc_test() {
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")

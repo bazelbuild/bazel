@@ -74,6 +74,7 @@ EOF
 }
 
 function write_cc_source_files() {
+  add_rules_cc MODULE.bazel
   mkdir -p cc
   cat > cc/kitty.cc <<EOF
 #include <stdio.h>
@@ -98,6 +99,7 @@ int main(void) {
 EOF
 
   cat > cc/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name='kitty',
           srcs=['kitty.cc'],
           data=glob(['*.txt'], allow_empty = True))
@@ -302,8 +304,10 @@ EOF
 
 # Tests bazel run with --color=no on a failed build does not produce color.
 function test_no_color_on_failed_run() {
+  add_rules_cc MODULE.bazel
   mkdir -p x || fail "mkdir failed"
-  echo "cc_binary(name = 'x', srcs = ['x.cc'])" > x/BUILD
+  echo "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')" > x/BUILD
+  echo "cc_binary(name = 'x', srcs = ['x.cc'])" >> x/BUILD
   cat > x/x.cc <<EOF
 int main(int, char**) {
   // Missing semicolon
@@ -330,8 +334,10 @@ function test_no_ansi_stripping_in_stdout_or_stderr() {
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
+  add_rules_cc MODULE.bazel
   mkdir -p x || fail "mkdir failed"
-  echo "cc_binary(name = 'x', srcs = ['x.cc'])" > x/BUILD
+  echo "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')" > x/BUILD
+  echo "cc_binary(name = 'x', srcs = ['x.cc'])" >> x/BUILD
   cat > x/x.cc <<EOF
 #include <unistd.h>
 #include <stdio.h>

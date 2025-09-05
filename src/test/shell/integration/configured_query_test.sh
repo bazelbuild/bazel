@@ -288,7 +288,9 @@ function test_show_transitive_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   add_rules_python "MODULE.bazel"
+  add_rules_cc MODULE.bazel
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_library.bzl", "py_library")
 
 cc_library(
@@ -325,9 +327,11 @@ EOF
 }
 
 function test_show_transitive_config_fragments_select() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cclib",
     srcs = ["mylib.cc"],
@@ -363,7 +367,9 @@ function test_show_transitive_config_fragments_alias() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   add_rules_python "MODULE.bazel"
+  add_rules_cc MODULE.bazel
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_library.bzl", "py_library")
 
 cc_library(
@@ -394,9 +400,11 @@ function test_direct_alias_requirements() {
   # Aliases delegate many read calls to their actual targets. This test
   # ensures we don't skip requirements that the alias has but its actual
   # target doesn't.
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "ccrule",
     srcs = ["ccrule.cc"],
@@ -425,7 +433,9 @@ function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   add_rules_python "MODULE.bazel"
+  add_rules_cc MODULE.bazel
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_library.bzl", "py_library")
 
 cc_library(
@@ -457,7 +467,9 @@ function test_show_transitive_config_fragments_through_output_file() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   add_rules_python "MODULE.bazel"
+  add_rules_cc MODULE.bazel
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_library.bzl", "py_library")
 
 cc_library(
@@ -489,7 +501,9 @@ function test_show_direct_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   add_rules_python "MODULE.bazel"
+  add_rules_cc MODULE.bazel
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_library.bzl", "py_library")
 
 cc_library(
@@ -520,9 +534,11 @@ EOF
 }
 
 function test_show_direct_config_fragments_select() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cclib",
     srcs = ["mylib.cc"],
@@ -561,6 +577,7 @@ EOF
 }
 
 function test_show_config_fragments_select_on_starlark_option() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/defs.bzl <<'EOF'
@@ -573,6 +590,7 @@ string_flag = rule(
 )
 EOF
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":defs.bzl", "string_flag")
 string_flag(
     name = "my_flag",
@@ -650,6 +668,7 @@ EOF
 }
 
 function test_show_config_fragments_select_on_feature_flag_info_provider() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/defs.bzl <<'EOF'
@@ -661,6 +680,7 @@ feature_flag_provider_rule = rule(
 )
 EOF
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":defs.bzl", "feature_flag_provider_rule")
 feature_flag_provider_rule(name = "foo_feature")
 
@@ -714,9 +734,11 @@ EOF
 }
 
 function test_show_config_fragments_on_define() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 config_setting(
     name = "is_a_on",
     define_values = {"a": "on"}
@@ -773,6 +795,7 @@ EOF
 # *why* a rule requires a fragment if only through an aspect. That's an argument
 # for making cquery generally aspect-aware.
 function test_show_config_fragments_includes_starlark_aspects() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/defs.bzl <<EOF
@@ -800,6 +823,7 @@ simple_rule = rule(
 EOF
 
   cat > $pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//$pkg:defs.bzl", "simple_rule")
 
 simple_rule(
@@ -851,9 +875,11 @@ EOF
 }
 
 function test_include_test_suites() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 test_suite(
   name = "my_suite",
   tests = [":my_test"])
@@ -868,9 +894,11 @@ EOF
 }
 
 function test_build_tests_only_override() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "not_a_test",
   srcs = ["not_a_test.cc"])
@@ -1232,9 +1260,11 @@ EOF
 }
 
 function test_starlark_output_cc_library_files() {
+  add_rules_cc MODULE.bazel
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cclib",
     srcs = ["mylib.cc"],
