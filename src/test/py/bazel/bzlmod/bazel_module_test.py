@@ -85,16 +85,20 @@ class BazelModuleTest(test_base.TestBase):
         '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
         ' }',
     ])
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = [',
-        '    "@aaa//:lib_aaa",',
-        '    "@bbb//:lib_bbb",',
-        '  ],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = [',
+            '    "@aaa//:lib_aaa",',
+            '    "@bbb//:lib_bbb",',
+            '  ],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         '#include "aaa.h"',
         '#include "bbb.h"',
@@ -108,13 +112,18 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0")',
     ])
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = ["@aaa//:lib_aaa"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         '#include "aaa.h"',
         'int main() {',
@@ -128,13 +137,18 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = ["@bbb//:lib_bbb"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@bbb//:lib_bbb"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         '#include "bbb.h"',
         'int main() {',
@@ -154,6 +168,7 @@ class BazelModuleTest(test_base.TestBase):
             # bbb@1.0 has to depend on aaa@1.1 after MVS.
             'bazel_dep(name = "bbb", version = "1.0")',
         ])
+    self.AddBazelDep('rules_cc')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1', stdout)
     self.assertIn('main function => bbb@1.0', stdout)
@@ -177,13 +192,18 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.1-1")',
     ])
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = ["@aaa//:lib_aaa"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         '#include "aaa.h"',
         'int main() {',
@@ -225,9 +245,11 @@ class BazelModuleTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -264,9 +286,11 @@ class BazelModuleTest(test_base.TestBase):
             '  patches=["@bbb//:aaa.patch"])',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -301,16 +325,21 @@ class BazelModuleTest(test_base.TestBase):
             # bbb should still be able to access aaa as com_foo_aaa
             'bazel_dep(name = "bbb", version = "1.0")',
         ])
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = [',
-        '    "@my_repo_a_name//:lib_aaa",',
-        '    "@bbb//:lib_bbb",',
-        '  ],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = [',
+            '    "@my_repo_a_name//:lib_aaa",',
+            '    "@bbb//:lib_bbb",',
+            '  ],',
+            ')',
+        ],
+    )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
     self.assertIn('main function => bbb@1.0', stdout)
@@ -323,6 +352,7 @@ class BazelModuleTest(test_base.TestBase):
         'bazel_dep(name = "bbb", version = "1.0")',
         'bazel_dep(name = "ccc", version = "1.1")',
     ])
+    self.AddBazelDep('rules_cc')
     _, stdout, stderr = self.RunBazel(
         ['run', '//:main', '--check_direct_dependencies=warning']
     )
@@ -455,13 +485,18 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "%s", version = "%s")' % (dep_name, dep_version),
     ])
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = ["@%s//:lib_%s"],' % (dep_name, dep_name),
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@%s//:lib_%s"],' % (dep_name, dep_name),
+            ')',
+        ],
+    )
 
   def setUpProjectWithGitRegistryModule(self, dep_name, dep_version):
     src_dir = self.main_registry.generateCcSource(dep_name, dep_version)
@@ -580,9 +615,11 @@ class BazelModuleTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.2")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -821,6 +858,7 @@ class BazelModuleTest(test_base.TestBase):
             'include("//java:java.MODULE.bazel")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile('java/BUILD')
     self.ScratchFile(
         'java/java.MODULE.bazel',
@@ -831,6 +869,7 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -987,6 +1026,7 @@ class BazelModuleTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.RunBazel(['build', '@module//:choose_me'])
 
   def testUnicodeTags(self):

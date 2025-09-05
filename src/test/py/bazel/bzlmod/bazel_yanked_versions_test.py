@@ -98,9 +98,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -118,9 +120,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "yanked1", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -146,9 +150,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -173,9 +179,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -209,9 +217,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -245,9 +255,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -273,9 +285,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -304,6 +318,7 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "fff", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.RunBazel(['build', '--nobuild', '//:main'])
     self.RunBazel(['shutdown'])
     self.RunBazel(['build', '--nobuild', '//:main'])
@@ -319,6 +334,7 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.1")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     exit_code, _, stderr = self.RunBazel(
         ['build', '--nobuild', '//:main'], allow_failure=True
     )
@@ -337,9 +353,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -377,9 +395,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -415,9 +435,11 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',

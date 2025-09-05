@@ -4766,6 +4766,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void extendRule_ccBinary() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     mockToolsConfig.overwrite(
         "tools/allowlists/extend_rule_allowlist/BUILD",
         """

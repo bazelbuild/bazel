@@ -81,6 +81,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -119,6 +120,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_cc')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
@@ -144,6 +146,7 @@ class BazelOverridesTest(test_base.TestBase):
               ')',
           ],
       )
+      self.AddBazelDep('rules_cc')
       _, stdout, _ = self.RunBazel(['run', '//:main'])
       self.assertIn('main function => aaa@1.0 from another registry', stdout)
       self.assertIn('main function => bbb@1.0', stdout)
@@ -227,6 +230,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_cc')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn(
         'main function => aaa@1.0 (locally patched all over again)', stdout
@@ -270,6 +274,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_cc')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
@@ -282,6 +287,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -366,7 +372,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-
+    self.AddBazelDep('rules_cc')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
@@ -387,6 +393,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_cc')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
     self.assertIn('main function => bbb@1.1', stdout)

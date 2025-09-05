@@ -377,11 +377,13 @@ class BazelFetchTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "rules_cc", version = "0.2.3")',
         ],
     )
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -414,11 +416,13 @@ class BazelFetchTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "rules_cc", version = "0.2.3")',
         ],
     )
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',

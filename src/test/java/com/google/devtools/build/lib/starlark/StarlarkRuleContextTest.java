@@ -645,6 +645,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('rule.bzl', 'sample')
         cc_binary(name = 'tool')
         sample(name = 'sample')
@@ -688,6 +689,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         extra_action(
             name = 'foo',
             cmd = 'cmd',
@@ -2112,6 +2114,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load(':rule.bzl', 'bad_runfiles')
         cc_binary(name = 'bin')
         bad_runfiles(name = 'test', bin = ':bin')
