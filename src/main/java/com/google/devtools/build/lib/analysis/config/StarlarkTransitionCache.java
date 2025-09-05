@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -68,11 +70,16 @@ public final class StarlarkTransitionCache {
       }
       return cachedResult.result;
     }
+
+    List<Entry<String, String>> flagsAliases =
+        fromOptions.get(CoreOptions.class).commandLineFlagAliases;
+
     // All code below here only executes on a cache miss and thus should rely only on values that
     // are part of the above cache key or constants that exist throughout the lifetime of the
     // Blaze server instance.
     BuildOptions adjustedOptions =
-        StarlarkTransition.addDefaultStarlarkOptions(fromOptions, transition, details);
+        StarlarkTransition.addDefaultStarlarkOptions(
+            fromOptions, flagsAliases, transition, details);
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
@@ -90,7 +97,7 @@ public final class StarlarkTransitionCache {
     if (handlerWithErrorStatus.hasErrors()) {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
-    result = StarlarkTransition.validate(transition, details, result);
+    result = StarlarkTransition.validate(transition, details, flagsAliases, result);
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.

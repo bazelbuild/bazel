@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
@@ -93,7 +94,9 @@ final class TransitionApplier
     }
 
     ImmutableSet<Label> starlarkBuildSettings =
-        StarlarkTransition.getAllStarlarkBuildSettings(transition);
+        StarlarkTransition.getAllStarlarkBuildSettings(
+            transition,
+            fromConfiguration.getOptions().get(CoreOptions.class).commandLineFlagAliases);
     if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;

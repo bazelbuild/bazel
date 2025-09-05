@@ -306,6 +306,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.nio.file.FileSystems;
 import java.time.Duration;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -314,6 +315,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -1838,10 +1840,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     RepoContext mainRepoContext =
         RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.repositoryMapping());
 
+    ImmutableList<Entry<String, String>> flagAliasMappings =
+        args.stream()
+            .filter(arg -> arg.startsWith("--flag_alias="))
+            .map(arg -> arg.substring("--flag_alias=".length()).split("="))
+            .map(pair -> new SimpleImmutableEntry<>(pair[0], pair[1]))
+            .collect(toImmutableList());
     // Parse the options.
     PackageContext rootPackage = mainRepoContext.rootPackage();
     ParsedFlagsValue.Key parsedFlagsKey =
-        ParsedFlagsValue.Key.create(args, rootPackage, /* flagAliasMappings= */ ImmutableList.of());
+        ParsedFlagsValue.Key.create(args, rootPackage, flagAliasMappings);
     EvaluationResult<SkyValue> result =
         evaluateSkyKeys(eventHandler, ImmutableList.of(parsedFlagsKey));
     if (result.hasError()) {

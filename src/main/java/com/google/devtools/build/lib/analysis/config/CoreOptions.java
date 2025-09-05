@@ -947,6 +947,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help =
           "Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form"
               + " \"<key>=<value>\" as an argument.")
