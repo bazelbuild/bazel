@@ -46,7 +46,7 @@ public class ExternalFilesHelper {
   private final BlazeDirectories directories;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
-  private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
+  private static final int MAX_EXTERNAL_FILES_TO_TRACK = 0;
 
   // These variables are set to true from multiple threads, but only read in the main thread.
   // So volatility or an AtomicBoolean is not needed.
