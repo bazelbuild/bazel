@@ -214,6 +214,7 @@ java_library(
     name = "action_environment",
     srcs = ["ActionEnvironment.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",

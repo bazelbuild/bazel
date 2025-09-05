@@ -53,7 +53,7 @@ public final class ActionEnvironmentTest {
     Map<String, String> clientEnv =
         ImmutableMap.of("INHERITED_ONLY", "inherited", "FIXED_AND_INHERITED", "inherited");
     Map<String, String> result = new HashMap<>();
-    env.resolve(result, clientEnv);
+    env.resolve(result, clientEnv, PathMapper.NOOP);
 
     assertThat(result)
         .containsExactly(

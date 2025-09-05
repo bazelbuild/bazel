@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -84,7 +83,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -341,7 +339,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .build();
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv(), pathMapper),
         getExecutionInfo(),
         inputs,
         /* onlyMandatoryOutput= */ fallback ? null : outputDepsProto,
@@ -362,7 +360,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv(), pathMapper),
         getExecutionInfo(),
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
@@ -379,15 +377,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .build(),
         /* onlyMandatoryOutput= */ null,
         pathMapper);
-  }
-
-  @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
-    ActionEnvironment env = getEnvironment();
-    LinkedHashMap<String, String> effectiveEnvironment =
-        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
-    env.resolve(effectiveEnvironment, clientEnv);
-    return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   private ActionExecutionException wrapIOException(IOException e, String message) {
