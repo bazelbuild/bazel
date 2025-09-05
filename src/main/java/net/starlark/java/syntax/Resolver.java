@@ -971,6 +971,7 @@ public final class Resolver extends NodeVisitor {
     return Types.callable(
         names.build(),
         types.build(),
+        /* numPositionalOnlyParameters= */ 0,
         numPositionalParameters,
         mandatoryParameters.build(),
         varargsType,

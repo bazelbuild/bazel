@@ -248,18 +248,18 @@ public class TypeCheckTest {
             "True: bool",
             "None: None",
             "hash: (str, /) -> int",
-            "bool: (object, /) -> bool",
-            "getattr: (object, str, object, /) -> Any",
+            "bool: ([object], /) -> bool",
+            "getattr: (object, str, [object], /) -> Any",
             "hasattr: (object, str, /) -> bool",
             "repr: (object, /) -> str",
             "str: (object, /) -> str",
             "type: (object, /) -> str",
-            "float: (str|bool|int|float, /) -> float",
+            "float: ([str|bool|int|float], /) -> float",
             "int: (str|bool|int|float, /, base: [int]) -> int",
             "dir: (object, /) -> list[str]",
             "all: (Collection[object], /) -> bool",
             "any: (Collection[object], /) -> bool",
-            "range: (int, int|None, int, /) -> Sequence[int]",
+            "range: (int, [int|None], [int], /) -> Sequence[int]",
             "len: (Collection[object]|str, /) -> int");
   }
 

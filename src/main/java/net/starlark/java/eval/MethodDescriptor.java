@@ -145,16 +145,20 @@ final class MethodDescriptor {
     ImmutableList.Builder<String> parameterNames = ImmutableList.builder();
     ImmutableList.Builder<StarlarkType> parameterTypes = ImmutableList.builder();
     ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
-    boolean positional = true;
+    boolean processingPositionalOnly = true;
+    boolean processingPositional = true;
+    int numPositionalOnlyParameters = parameters.length;
     int numOrdinaryParameters = parameters.length;
     for (int i = 0; i < parameters.length; i++) {
-      if (parameters[i].isPositional() != positional) { // the first keyword argument
-        positional = false;
+      if (parameters[i].isNamed() && processingPositionalOnly) {
+        processingPositionalOnly = false;
+        numPositionalOnlyParameters = i;
+      }
+      if (!parameters[i].isPositional() && processingPositional) { // the first keyword argument
+        processingPositional = false;
         numOrdinaryParameters = i;
       }
-      if (parameters[i].isNamed()) {
-        parameterNames.add(parameters[i].getName());
-      }
+      parameterNames.add(parameters[i].getName());
       ParamType[] allowedTypes = annotation.parameters()[i].allowedTypes();
       // User supplied type
       if (allowedTypes.length > 0) {
@@ -179,6 +183,7 @@ final class MethodDescriptor {
     return Types.callable(
         parameterNames.build(),
         parameterTypes.build(),
+        numPositionalOnlyParameters,
         numOrdinaryParameters,
         mandatoryParameters.build(),
         // TODO(ilist@): more precise type on args and kwargs
