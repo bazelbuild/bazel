@@ -50,6 +50,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             deps = ["a"],
@@ -113,6 +115,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "libfoo.so",
             linkshared = 1,
@@ -161,6 +165,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             deps = ["a"],
@@ -190,6 +196,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             deps = ["a"],
@@ -226,6 +234,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             srcs = ["main.cc"],
@@ -278,6 +288,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             copts = ["-bar_copt_from_attribute"],
@@ -308,6 +320,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             copts = ["-bar_copt_from_attribute"],
@@ -341,6 +355,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             deps = ["a"],

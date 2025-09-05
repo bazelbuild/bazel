@@ -621,6 +621,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
@@ -670,6 +671,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
         "cc_binary(name = 'test', linkstatic = 0, srcs = [ 'test.cc' ],)",

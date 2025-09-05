@@ -1249,6 +1249,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//tools/build_defs/cc:rule.bzl", "crule")
 
         licenses(["notice"])
@@ -1668,6 +1669,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//tools/build_defs/cc:rule.bzl", "crule")
 
         cc_binary(
@@ -1711,6 +1713,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//tools/build_defs/cc:rule.bzl", "crule")
 
         cc_binary(
@@ -1866,6 +1869,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//tools/build_defs/cc:rule.bzl", "crule")
 
         cc_binary(
@@ -5292,6 +5297,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//tools/build_defs/cc:rule.bzl", "crule")
 
         cc_binary(
@@ -5958,6 +5964,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         "load('//" + bzlFilePath + ":extension.bzl', 'cc_starlark_library')",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(",
         "    name = 'dep1',",
         "    srcs = ['dep1.cc'],",
@@ -6382,6 +6390,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":foo.bzl", "foo")
 
         foo(
@@ -6622,6 +6631,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(\"//" + bzlPath + ":extension.bzl\", \"cc_bin\")",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "dep1",
             srcs = ["dep1.cc"],
@@ -6694,6 +6704,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "direct/libs/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo_lib",
             srcs = [
@@ -6789,6 +6800,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "direct/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//direct:cc_merger.bzl", "cc_merger")
 
         cc_library(
@@ -6875,6 +6887,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "direct/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//direct:cc_merger.bzl", "cc_merger")
 
         cc_library(
@@ -6989,6 +7002,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load(":rule.bzl", "wrapped_binary")
 
         wrapped_binary(
@@ -7483,6 +7497,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -7537,6 +7552,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//b:rule.bzl", "cc_rule")
 
         cc_library(
@@ -7591,6 +7607,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":linkstamps.bzl", "linkstamps")
 
         cc_library(
@@ -7629,6 +7646,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//b:rule.bzl", "cc_rule")
 
         cc_library(
@@ -7764,6 +7782,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile(rulePkg + "/BUILD", "");
     scratch.overwriteFile(
         "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('//" + rulePkg + ":rule.bzl', 'cc_rule')",
         "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
         "cc_toolchain_alias(name='alias')",
