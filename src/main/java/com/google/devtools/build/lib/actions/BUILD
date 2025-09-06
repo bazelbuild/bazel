@@ -330,6 +330,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
         "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
