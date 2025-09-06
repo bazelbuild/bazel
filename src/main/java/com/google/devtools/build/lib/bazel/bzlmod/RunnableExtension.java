@@ -25,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * An internal abstraction to support the two "flavors" of module extensions: the "regular", which
@@ -51,7 +52,8 @@ interface RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException;
 
   /* Holds the result data from running a module extension */
@@ -60,6 +62,6 @@ interface RunnableExtension {
       ImmutableSortedMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs,
       ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> recordedEnvVarInputs,
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
-      Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
+      ModuleExtensionMetadata moduleExtensionMetadata,
       ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {}
 }
