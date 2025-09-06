@@ -157,13 +157,10 @@ public final class RepoContentsCache {
    */
   public Path moveToCache(
       Path fetchedRepoDir, Path fetchedRepoMarkerFile, String predeclaredInputHash)
-      throws IOException {
+      throws IOException, InterruptedException {
     Preconditions.checkState(path != null);
 
     Path entryDir = path.getRelative(predeclaredInputHash);
-    if (!entryDir.isDirectory()) {
-      entryDir.delete();
-    }
     String counter = getNextCounterInDir(entryDir);
     Path cacheRecordedInputsFile = entryDir.getChild(counter + RECORDED_INPUTS_SUFFIX);
     Path cacheRepoDir = entryDir.getChild(counter);
@@ -188,8 +185,12 @@ public final class RepoContentsCache {
     return cacheRepoDir;
   }
 
-  private static String getNextCounterInDir(Path entryDir) throws IOException {
+  private static String getNextCounterInDir(Path entryDir)
+      throws IOException, InterruptedException {
     Path counterFile = entryDir.getRelative("counter");
+    // This use of FileSystemLock.get is safe since the predeclared input hash is part of entryDir's
+    // path and in particular includes the canonical repository name. This ensures that the same
+    // lock file will not be acquired concurrently by multiple threads, which isn't supported.
     try (var lock = FileSystemLock.get(entryDir.getRelative("lock"), LockMode.EXCLUSIVE)) {
       int c = 0;
       if (counterFile.exists()) {
@@ -205,7 +206,7 @@ public final class RepoContentsCache {
     }
   }
 
-  public void acquireSharedLock() throws IOException {
+  public void acquireSharedLock() throws IOException, InterruptedException {
     Preconditions.checkState(path != null);
     Preconditions.checkState(sharedLock == null, "this process already has the shared lock");
     sharedLock = FileSystemLock.get(path.getRelative(LOCK_PATH), LockMode.SHARED);
