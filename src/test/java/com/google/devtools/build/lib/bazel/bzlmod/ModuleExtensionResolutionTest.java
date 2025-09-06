@@ -2542,21 +2542,21 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     var result =
         evaluateSimpleModuleExtension(
             """
-            return ctx.extension_metadata(\
-                facts = {\
-                    "one": "string",\
-                    "two": 42,\
-                    "three": 3.14,\
-                    "four": True,\
-                    "five": None,\
-                    "six": [1, 2, 3],\
-                    "seven": {\
-                        "c": "v1",\
-                        "b": "v2",\
-                        "a": "v3",\
-                    },\
-                    "eight": (4, 5, "foo"),\
-                }\
+            return ctx.extension_metadata(
+                facts = {
+                    "one": "string",
+                    "two": 42,
+                    "three": 3.14,
+                    "four": True,
+                    "five": None,
+                    "six": [1, 2, 3],
+                    "seven": {
+                        "c": "v1",
+                        "b": "v2",
+                        "a": "v3",
+                    },
+                    "eight": (4, 5, "foo"),
+                }
             )""");
 
     if (result.hasError()) {
@@ -2665,7 +2665,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         "def _ext_impl(ctx):",
         "  repo(name = 'dep1')",
         "  repo(name = 'dep2')",
-        "  " + returnStatement,
+        returnStatement.indent(2),
         "ext = module_extension(implementation=_ext_impl)");
     scratch.overwriteFile("BUILD");
     invalidatePackages(false);
