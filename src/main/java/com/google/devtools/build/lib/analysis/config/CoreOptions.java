@@ -142,11 +142,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean excludeDefinesFromExecConfig;
 
   @Option(
-      name = "experimental_exclude_starlark_flags_from_exec_config",
+      name = "incompatible_exclude_starlark_flags_from_exec_config",
+      oldName = "experimental_exclude_starlark_flags_from_exec_config",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, don't propagate starlark flags to the exec transition at default; only"
               + " propagate starlark flags specified in `--experimental_propagate_custom_flag`.")
