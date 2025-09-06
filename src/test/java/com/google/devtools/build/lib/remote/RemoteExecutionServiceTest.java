@@ -2867,7 +2867,10 @@ public class RemoteExecutionServiceTest {
 
     assertThat(remoteAction.getCommand().getOutputPathsList())
         .containsExactly(
-            "/execroot/" + one, "/execroot/" + two, "/execroot/" + three, "/execroot/" + four)
+            execRoot.getRelative(one).getPathString(),
+            execRoot.getRelative(two).getPathString(),
+            execRoot.getRelative(three).getPathString(),
+            execRoot.getRelative(four).getPathString())
         .inOrder();
   }
 
