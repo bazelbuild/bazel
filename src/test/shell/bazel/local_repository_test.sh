@@ -1291,7 +1291,7 @@ public class A {
 }
 EOF
   cat > a/BUILD <<EOF
-load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
 
 java_binary(
     name = "a",
