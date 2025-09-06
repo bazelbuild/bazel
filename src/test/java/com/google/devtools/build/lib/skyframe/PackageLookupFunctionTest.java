@@ -98,8 +98,11 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
 
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
@@ -124,7 +127,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.REPO_FILE,
         new RepoFileFunction(
-            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
+            ruleClassProvider.getBazelStarlarkEnvironment(),
+            Root.fromPath(directories.getWorkspace())));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
@@ -206,8 +210,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   @Test
   public void testDeletedPackage() throws Exception {
     scratch.file("parentpackage/deletedpackage/BUILD");
-    deletedPackages.set(ImmutableSet.of(
-        PackageIdentifier.createInMainRepo("parentpackage/deletedpackage")));
+    deletedPackages.set(
+        ImmutableSet.of(PackageIdentifier.createInMainRepo("parentpackage/deletedpackage")));
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/deletedpackage");
     assertThat(packageLookupValue.packageExists()).isFalse();
     assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);

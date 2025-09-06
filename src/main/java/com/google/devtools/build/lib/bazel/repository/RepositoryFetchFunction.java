@@ -237,7 +237,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
         if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
           return new RepositoryDirectoryValue.Success(
-              repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+              Root.fromPath(repoRoot), /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
         }
 
         // Then check if the global repo contents cache has this.
@@ -257,7 +257,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
               }
               candidate.touch();
               return new RepositoryDirectoryValue.Success(
-                  repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+                  Root.fromPath(repoRoot),
+                  /* isFetchingDelayed= */ false,
+                  excludeRepoFromVendoring);
             }
           }
         }
@@ -305,7 +307,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           }
         }
         return new RepositoryDirectoryValue.Success(
-            repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+            Root.fromPath(repoRoot), /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
       }
 
       if (!repoRoot.exists()) {
@@ -328,7 +330,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                       repositoryName)));
 
       return new RepositoryDirectoryValue.Success(
-          repoRoot, /* isFetchingDelayed= */ true, excludeRepoFromVendoring);
+          Root.fromPath(repoRoot), /* isFetchingDelayed= */ true, excludeRepoFromVendoring);
     }
   }
 
@@ -800,6 +802,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
     return new RepositoryDirectoryValue.Success(
-        source, /* isFetchingDelayed= */ false, /* excludeFromVendoring= */ true);
+        Root.fromPath(source), /* isFetchingDelayed= */ false, /* excludeFromVendoring= */ true);
   }
 }
