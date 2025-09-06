@@ -78,14 +78,25 @@ java_library(
 )
 
 java_library(
+    name = "frontier_node_version",
+    srcs = ["FrontierNodeVersion.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "serialization",
     srcs = glob(
         ["**/*.java"],
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
-            "ModuleCodec.java",
             "CodecScanningConstants.java",
             "DependOnFutureShim.java",
+            "FrontierNodeVersion.java",
+            "ModuleCodec.java",
             "SerializationRegistrySetupHelpers.java",
             "SerializationConstants.java",
             "SerializationModule.java",
@@ -99,9 +110,9 @@ java_library(
         ":codec-scanning-constants",
         ":constants",
         ":depend_on_future_shim",
+        ":frontier_node_version",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
