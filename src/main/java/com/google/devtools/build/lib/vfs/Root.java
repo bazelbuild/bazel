@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skyframe.serialization.AsyncObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -31,11 +32,21 @@ import javax.annotation.Nullable;
  * <p>A typical root could be the exec path, a package root, or an output root specific to some
  * configuration. We also support absolute roots for non-hermetic paths outside the user workspace.
  */
-public abstract class Root implements Comparable<Root> {
+public abstract sealed class Root implements Comparable<Root> {
+
+  protected enum RootType {
+    ABSOLUTE,
+    PATH,
+    EXTERNAL_REPO,
+  }
 
   /** Constructs a root from a path. */
   public static Root fromPath(Path path) {
     return new PathRoot(path);
+  }
+
+  public static Root fromExternalRepo(Path path, SkyValue value) {
+    return new ExternalRepoRoot(path, value);
   }
 
   /** Returns an absolute root. Can only be used with absolute path fragments. */
@@ -45,8 +56,8 @@ public abstract class Root implements Comparable<Root> {
 
   public static Root toFileSystem(Root root, FileSystem fileSystem) {
     return root.isAbsolute()
-      ? new AbsoluteRoot(fileSystem)
-      : new PathRoot(fileSystem.getPath(root.asPath().asFragment()));
+        ? new AbsoluteRoot(fileSystem)
+        : new PathRoot(fileSystem.getPath(root.asPath().asFragment()));
   }
 
   /** Returns a path by concatenating the root and the root-relative path. */
@@ -78,7 +89,11 @@ public abstract class Root implements Comparable<Root> {
   /** Returns the underlying FileSystem this Root is on. */
   public abstract FileSystem getFileSystem();
 
-  public abstract boolean isAbsolute();
+  public final boolean isAbsolute() {
+    return getType() == RootType.ABSOLUTE;
+  }
+
+  protected abstract RootType getType();
 
   /** Implementation of Root that is backed by a {@link Path}. */
   public static final class PathRoot extends Root {
@@ -131,8 +146,8 @@ public abstract class Root implements Comparable<Root> {
     }
 
     @Override
-    public boolean isAbsolute() {
-      return false;
+    protected RootType getType() {
+      return RootType.PATH;
     }
 
     @Override
@@ -142,13 +157,8 @@ public abstract class Root implements Comparable<Root> {
 
     @Override
     public int compareTo(Root o) {
-      if (o instanceof AbsoluteRoot) {
-        return 1;
-      } else if (o instanceof PathRoot pathRoot) {
-        return path.compareTo(pathRoot.path);
-      } else {
-        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
-      }
+      int compareType = this.getType().compareTo(o.getType());
+      return compareType != 0 ? compareType : path.compareTo(((PathRoot) o).path);
     }
 
     @Override
@@ -156,16 +166,100 @@ public abstract class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      PathRoot pathRoot = (PathRoot) o;
-      return path.equals(pathRoot.path);
+      return o instanceof PathRoot pathRoot && path.equals(pathRoot.path);
     }
 
     @Override
     public int hashCode() {
       return path.hashCode();
+    }
+  }
+
+  public static final class ExternalRepoRoot extends Root {
+    private final Path path;
+    private final SkyValue value;
+
+    private ExternalRepoRoot(Path path, SkyValue value) {
+      this.path = path;
+      this.value = value;
+    }
+
+    @Override
+    public Path getRelative(PathFragment rootRelativePath) {
+      return path.getRelative(rootRelativePath);
+    }
+
+    @Override
+    public Path getRelative(String rootRelativePath) {
+      return path.getRelative(rootRelativePath);
+    }
+
+    @Override
+    public PathFragment relativize(Path path) {
+      return path.relativeTo(this.path);
+    }
+
+    @Override
+    public PathFragment relativize(PathFragment absolutePathFragment) {
+      Preconditions.checkArgument(absolutePathFragment.isAbsolute());
+      return absolutePathFragment.relativeTo(path.asFragment());
+    }
+
+    @Override
+    public boolean contains(Path path) {
+      return path.startsWith(this.path);
+    }
+
+    @Override
+    public boolean contains(PathFragment absolutePathFragment) {
+      return absolutePathFragment.isAbsolute()
+          && absolutePathFragment.startsWith(path.asFragment());
+    }
+
+    @Override
+    public Path asPath() {
+      return path;
+    }
+
+    @Override
+    public FileSystem getFileSystem() {
+      return path.getFileSystem();
+    }
+
+    @Override
+    protected RootType getType() {
+      return RootType.EXTERNAL_REPO;
+    }
+
+    @Override
+    public String toString() {
+      return path.toString() + " (external repo root)";
+    }
+
+    @Override
+    public int compareTo(Root o) {
+      int compareType = this.getType().compareTo(o.getType());
+      if (compareType != 0) {
+        return compareType;
+      }
+      int comparePath = path.compareTo(((ExternalRepoRoot) o).path);
+      if (comparePath != 0) {
+        return comparePath;
+      }
+      return Integer.compare(value.hashCode(), ((ExternalRepoRoot) o).value.hashCode());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      return o instanceof ExternalRepoRoot that && path.equals(that.path) && value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return 1031 + path.hashCode();
     }
   }
 
@@ -209,11 +303,6 @@ public abstract class Root implements Comparable<Root> {
       return absolutePathFragment.isAbsolute();
     }
 
-    @Override
-    public boolean isAbsolute() {
-      return true;
-    }
-
     @Nullable
     @Override
     public Path asPath() {
@@ -226,19 +315,19 @@ public abstract class Root implements Comparable<Root> {
     }
 
     @Override
+    protected RootType getType() {
+      return RootType.ABSOLUTE;
+    }
+
+    @Override
     public String toString() {
       return "<absolute root>";
     }
 
     @Override
     public int compareTo(Root o) {
-      if (o instanceof AbsoluteRoot) {
-        return Integer.compare(hashCode(), o.hashCode());
-      } else if (o instanceof PathRoot) {
-        return -1;
-      } else {
-        throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
-      }
+      int compareType = this.getType().compareTo(o.getType());
+      return compareType != 0 ? compareType : Integer.compare(hashCode(), o.hashCode());
     }
 
     @Override
@@ -246,10 +335,7 @@ public abstract class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof AbsoluteRoot that)) {
-        return false;
-      }
-      return fileSystem.equals(that.fileSystem);
+      return o instanceof AbsoluteRoot that && fileSystem.equals(that.fileSystem);
     }
 
     @Override
@@ -295,6 +381,8 @@ public abstract class Root implements Comparable<Root> {
   private static class RootCodec extends AsyncObjectCodec<Root> {
     private static final DynamicCodec PATH_ROOT_CODEC = new DynamicCodec(PathRoot.class);
     private static final DynamicCodec ABSOLUTE_ROOT_CODEC = new DynamicCodec(AbsoluteRoot.class);
+    private static final DynamicCodec EXTERNAL_REPO_ROOT_CODEC =
+        new DynamicCodec(ExternalRepoRoot.class);
 
     @Override
     public Class<? extends Root> getEncodedClass() {
@@ -317,14 +405,12 @@ public abstract class Root implements Comparable<Root> {
       // Everything else.
       codedOut.write((byte) 0);
 
-      if (root instanceof PathRoot) {
-        codedOut.writeBoolNoTag(true);
-        PATH_ROOT_CODEC.serialize(context, root, codedOut);
-      } else if (root instanceof AbsoluteRoot) {
-        codedOut.writeBoolNoTag(false);
-        ABSOLUTE_ROOT_CODEC.serialize(context, root, codedOut);
-      } else {
-        throw new IllegalStateException("Unexpected Root: " + root);
+      codedOut.write((byte) root.getType().ordinal());
+      switch (root) {
+        case PathRoot pathRoot -> PATH_ROOT_CODEC.serialize(context, root, codedOut);
+        case AbsoluteRoot absoluteRoot -> ABSOLUTE_ROOT_CODEC.serialize(context, root, codedOut);
+        case ExternalRepoRoot externalRepoRoot ->
+            EXTERNAL_REPO_ROOT_CODEC.serialize(context, root, codedOut);
       }
     }
 

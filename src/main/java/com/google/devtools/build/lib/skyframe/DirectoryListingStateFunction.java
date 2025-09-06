@@ -26,8 +26,8 @@ import javax.annotation.Nullable;
 /**
  * A {@link SkyFunction} for {@link DirectoryListingStateValue}s.
  *
- * <p>Merely calls DirectoryListingStateValue#create, but also has special handling for
- * directories outside the package roots (see {@link ExternalFilesHelper}).
+ * <p>Merely calls DirectoryListingStateValue#create, but also has special handling for directories
+ * outside the package roots (see {@link ExternalFilesHelper}).
  */
 public class DirectoryListingStateFunction implements SkyFunction {
 
@@ -53,10 +53,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
 
     try {
-      FileType fileType = externalFilesHelper.maybeHandleExternalFile(dirRootedPath, env);
-      if (env.valuesMissing()) {
-        return null;
-      }
+      FileType fileType = externalFilesHelper.maybeHandleExternalFile(dirRootedPath);
       if (fileType == FileType.EXTERNAL_REPO) {
         // Do not use syscallCache as files under repositories get generated during the build,
         // while syscallCache is used independently from Skyframe and generally assumes
@@ -74,11 +71,10 @@ public class DirectoryListingStateFunction implements SkyFunction {
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link DirectoryListingStateFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * DirectoryListingStateFunction#compute}.
    */
-  private static final class DirectoryListingStateFunctionException
-      extends SkyFunctionException {
+  private static final class DirectoryListingStateFunctionException extends SkyFunctionException {
     public DirectoryListingStateFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
     }

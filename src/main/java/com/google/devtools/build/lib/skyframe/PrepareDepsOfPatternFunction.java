@@ -321,13 +321,13 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           throw new MissingDepException();
         }
 
-        if (repositoryValue instanceof Failure f) {
+        if (repositoryValue instanceof Failure(String errorMsg)) {
           // This shouldn't be possible; we're given a repository, so we assume that the caller has
           // already checked for its existence.
           throw new IllegalStateException(
-              String.format("No such repository '%s': %s", repository, f.getErrorMsg()));
+              String.format("No such repository '%s': %s", repository, errorMsg));
         }
-        roots.add(Root.fromPath(((Success) repositoryValue).getPath()));
+        roots.add(((Success) repositoryValue).root());
       }
 
       for (Root root : roots) {

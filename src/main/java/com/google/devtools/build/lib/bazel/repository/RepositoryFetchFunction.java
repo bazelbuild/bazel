@@ -77,7 +77,6 @@ import java.util.Optional;
 import java.util.SequencedMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -92,9 +91,6 @@ import net.starlark.java.eval.SymbolGenerator;
 /** A {@link SkyFunction} that fetches the given repository. */
 public final class RepositoryFetchFunction implements SkyFunction {
 
-  // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
-  // command is a fetch. Remote repository lookups are only allowed during fetches.
-  private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
   private final RepoContentsCache repoContentsCache;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
@@ -107,11 +103,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   public RepositoryFetchFunction(
       Supplier<Map<String, String>> clientEnvironmentSupplier,
-      AtomicBoolean isFetch,
       BlazeDirectories directories,
       RepoContentsCache repoContentsCache) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
-    this.isFetch = isFetch;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
   }
@@ -149,12 +143,63 @@ public final class RepositoryFetchFunction implements SkyFunction {
       Reproducibility reproducible) {}
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
-    @Nullable FetchResult result;
+    @Nullable FetchResult fetchResult;
+    @Nullable RepositoryDirectoryValue.Success unvalidatedResult;
+  }
+
+  @Override
+  @Nullable
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, RepositoryFunctionException {
+    var computeState = env.getState(State::new);
+    if (computeState.unvalidatedResult == null) {
+      var result = computeUnchecked(skyKey, env);
+      if (!(result instanceof RepositoryDirectoryValue.Success successfulResult)) {
+        return result;
+      }
+      computeState.unvalidatedResult = successfulResult;
+    }
+
+    var repoRoot = computeState.unvalidatedResult.root();
+    var repoDirectoryRootedPath =
+        RootedPath.toRootedPath(Root.absoluteRoot(repoRoot.getFileSystem()), repoRoot.asPath());
+    FileValue repoDirectoryFileValue;
+    try {
+      repoDirectoryFileValue =
+          (FileValue)
+              env.getValueOrThrow(FileValue.key(repoDirectoryRootedPath), IOException.class);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Could not access %s: %s".formatted(repoRoot, e.getMessage())),
+          Transience.PERSISTENT);
+    }
+    if (repoDirectoryFileValue == null) {
+      return null;
+    }
+
+    if (!repoDirectoryFileValue.isDirectory()) {
+      // TODO: Improve error message for symlinks.
+      throw new RepositoryFunctionException(
+          new IOException(
+              String.format(
+                  "The repository's path is \"%s\" "
+                      + "but it does not exist or is not a directory.",
+                  repoRoot.asPath().getPathString())),
+          Transience.PERSISTENT);
+    }
+
+    // Check that the directory contains a repo boundary file.
+    if (!RepositoryUtils.isValidRepoRoot(repoRoot.asPath())) {
+      throw new RepositoryFunctionException(
+          new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + repoRoot),
+          Transience.TRANSIENT);
+    }
+
+    return computeState.unvalidatedResult;
   }
 
   @Nullable
-  @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
+  public RepositoryDirectoryValue computeUnchecked(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -176,12 +221,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
               .getRelative(repositoryName.getName());
       Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
       if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
-        return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName);
+        return setupOverride(overrides.get(repositoryName), repoRoot, repositoryName);
       }
       if (repositoryName.equals(RepositoryName.BAZEL_TOOLS)) {
         return setupOverride(
             directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").asFragment(),
-            env,
             repoRoot,
             repositoryName);
       }
@@ -236,8 +280,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           return null;
         }
         if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
-          return new RepositoryDirectoryValue.Success(
-              repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+          return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
         }
 
         // Then check if the global repo contents cache has this.
@@ -251,13 +294,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
               return null;
             }
             if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
-              if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
-                  == null) {
-                return null;
-              }
+              setupOverride(candidate.contentsDir().asFragment(), repoRoot, repositoryName);
               candidate.touch();
-              return new RepositoryDirectoryValue.Success(
-                  repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+              return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
             }
           }
         }
@@ -266,7 +305,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       /* At this point: This is a force fetch, a local repository, OR The repository cache is old or
       didn't exist. In any of those cases, we initiate the fetching process UNLESS this is offline
       mode (fetching is disabled) */
-      if (isFetch.get()) {
+      if (!RepositoryDirectoryValue.FETCH_DISABLED.get(env)) {
         // Fetching a repository is a long-running operation that can easily be interrupted. If it
         // is and the marker file exists on disk, a new call of this method may treat this
         // repository as valid even though it is in an inconsistent state. Clear the marker file and
@@ -281,11 +320,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
             && result.reproducible() == RepoMetadata.Reproducibility.YES
             && !repoDefinition.repoRule().local()) {
           // This repo is eligible for the repo contents cache.
-          Path cachedRepoDir;
           try {
-            cachedRepoDir =
-                repoContentsCache.moveToCache(
-                    repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
+            repoContentsCache.moveToCache(
+                repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
           } catch (IOException e) {
             throw new RepositoryFunctionException(
                 new IOException(
@@ -294,18 +331,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     e),
                 Transience.TRANSIENT);
           }
-          // Don't forget to register a FileValue on the cache repo dir, so that we know to refetch
-          // if the cache entry gets GC'd from under us.
-          if (env.getValue(
-                  FileValue.key(
-                      RootedPath.toRootedPath(
-                          Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
-              == null) {
-            return null;
-          }
         }
-        return new RepositoryDirectoryValue.Success(
-            repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+        return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
       }
 
       if (!repoRoot.exists()) {
@@ -327,8 +354,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                           + " update, run the build without the '--nofetch' command line option.",
                       repositoryName)));
 
-      return new RepositoryDirectoryValue.Success(
-          repoRoot, /* isFetchingDelayed= */ true, excludeRepoFromVendoring);
+      return new RepositoryDirectoryValue.Success(repoRoot, excludeRepoFromVendoring);
     }
   }
 
@@ -353,7 +379,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         } catch (IOException e) {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
         }
-        return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
+        return setupOverride(vendorRepoPath.asFragment(), repoRoot, repositoryName);
       }
 
       DigestWriter.RepoDirectoryState vendoredRepoState =
@@ -364,8 +390,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
       // If our repo is up-to-date, or this is an offline build (--nofetch), then the vendored repo
       // is used.
       if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.UpToDate
-          || (!RepositoryDirectoryValue.IS_VENDOR_COMMAND.get(env).booleanValue()
-              && !isFetch.get())) {
+          || (!RepositoryDirectoryValue.IS_VENDOR_COMMAND.get(env)
+              && RepositoryDirectoryValue.FETCH_DISABLED.get(env))) {
         if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.OutOfDate(String reason)) {
           env.getListener()
               .handle(
@@ -376,7 +402,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                               + " the bazel vendor command to update it",
                           repositoryName.getName(), reason)));
         }
-        return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
+        return setupOverride(vendorRepoPath.asFragment(), repoRoot, repositoryName);
       } else if (!RepositoryDirectoryValue.IS_VENDOR_COMMAND
           .get(env)
           .booleanValue()) { // build command & fetch enabled
@@ -398,7 +424,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
                   + repositoryName.getName()
                   + " not found under the vendor directory"),
           Transience.PERSISTENT);
-    } else if (!isFetch.get()) { // repo not vendored & fetching is disabled (--nofetch)
+    } else if (RepositoryDirectoryValue.FETCH_DISABLED.get(env)) {
+      // repo not vendored & fetching is disabled (--nofetch)
       throw new RepositoryFunctionException(
           new IOException(
               "Vendored repository "
@@ -416,25 +443,17 @@ public final class RepositoryFetchFunction implements SkyFunction {
    */
   private boolean shouldUseCachedRepoContents(Environment env, RepoDefinition repoDefinition)
       throws InterruptedException {
-    if (env.getState(State::new).result != null) {
-      // If this SkyFunction has finished fetching once, then we should always use the cached
-      // result. This means that we _very_ recently (as in, in the same command invocation) fetched
-      // this repo (possibly with --force or --configure), and are only here again due to a Skyframe
-      // restart very late into RepositoryDelegatorFunction.
-      return true;
+    /* If fetching is enabled & this is a local repo: do NOT use cache!
+     * Local repository are generally fast and do not rely on non-local data, making caching them
+     * across server instances impractical. */
+    if (!RepositoryDirectoryValue.FETCH_DISABLED.get(env) && repoDefinition.repoRule().local()) {
+      return false;
     }
 
     boolean forceFetchEnabled = !RepositoryDirectoryValue.FORCE_FETCH.get(env).isEmpty();
     boolean forceFetchConfigureEnabled =
         repoDefinition.repoRule().configure()
             && !RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE.get(env).isEmpty();
-
-    /* If fetching is enabled & this is a local repo: do NOT use cache!
-     * Local repository are generally fast and do not rely on non-local data, making caching them
-     * across server instances impractical. */
-    if (isFetch.get() && repoDefinition.repoRule().local()) {
-      return false;
-    }
 
     /* For the non-local repositories, do NOT use cache if:
      * 1) Force fetch is enabled (bazel sync, or bazel fetch --force), OR
@@ -501,13 +520,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
       var state = env.getState(State::new);
-      if (state.result != null) {
+      if (state.fetchResult != null) {
         // Escape early if we've already finished fetching once. This can happen if
         // a Skyframe restart is triggered _after_ fetch() is finished.
-        return state.result;
+        return state.fetchResult;
       }
       try {
-        state.result =
+        state.fetchResult =
             state.startOrContinueWork(
                 env,
                 "starlark-repository-" + repoDefinition.name(),
@@ -515,7 +534,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                   setupRepoRoot(outputDirectory);
                   return fetchInternal(repoDefinition, outputDirectory, workerEnv, key);
                 });
-        return state.result;
+        return state.fetchResult;
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
@@ -617,14 +636,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
       // This rule is mainly executed for its side effect. Nevertheless, the return value is
       // of importance, as it provides information on how the call has to be modified to be a
       // reproducible rule.
-      //
-      // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
-      // it possible to return null and not block but it doesn't seem to be easy with Starlark
-      // structure as it is.
       Object result;
       try (SilentCloseable c =
-          Profiler.instance()
-              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> repoDefinition.name())) {
+          Profiler.instance().profile(ProfilerTask.STARLARK_REPOSITORY_FN, repoDefinition::name)) {
         result = Starlark.positionalOnlyCall(thread, function, starlarkRepositoryContext);
         starlarkRepositoryContext.markSuccessful();
       }
@@ -712,94 +726,30 @@ public final class RepositoryFetchFunction implements SkyFunction {
         Collections.unmodifiableSequencedMap(recordedInputValues), repoMetadata.reproducible());
   }
 
-  @Nullable
   private RepositoryDirectoryValue setupOverride(
-      PathFragment sourcePath, Environment env, Path repoRoot, RepositoryName repoName)
-      throws RepositoryFunctionException, InterruptedException {
+      PathFragment sourcePath, Path repoRoot, RepositoryName repoName)
+      throws RepositoryFunctionException {
     DigestWriter.clearMarkerFile(directories, repoName);
-    return symlinkRepoRoot(
-        directories,
-        repoRoot,
-        directories.getWorkspace().getRelative(sourcePath),
-        repoName.getName(),
-        env);
-  }
-
-  @Nullable
-  public static RepositoryDirectoryValue symlinkRepoRoot(
-      BlazeDirectories directories,
-      Path source,
-      Path destination,
-      String userDefinedPath,
-      Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    if (source.isDirectory(Symlinks.NOFOLLOW)) {
+    Path destination = directories.getWorkspace().getRelative(sourcePath);
+    if (repoRoot.isDirectory(Symlinks.NOFOLLOW)) {
       try {
-        source.deleteTree();
+        repoRoot.deleteTree();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
     }
     try {
-      FileSystemUtils.ensureSymbolicLink(source, destination);
+      FileSystemUtils.ensureSymbolicLink(repoRoot, destination);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
               String.format(
                   "Could not create symlink to repository \"%s\" (absolute path: \"%s\"): %s",
-                  userDefinedPath, destination, e.getMessage()),
+                  repoName.getName(), destination, e.getMessage()),
               e),
           Transience.TRANSIENT);
     }
 
-    // Check that the target directory exists and is a directory.
-    // Note that we have to check `destination` and not `source` here, otherwise we'd have a
-    // circular dependency between SkyValues.
-    RootedPath targetDirRootedPath;
-    if (destination.startsWith(directories.getInstallBase())) {
-      // The install base only changes with the Bazel binary so it's acceptable not to add its
-      // ancestors as Skyframe dependencies.
-      targetDirRootedPath =
-          RootedPath.toRootedPath(Root.fromPath(destination), PathFragment.EMPTY_FRAGMENT);
-    } else {
-      targetDirRootedPath =
-          RootedPath.toRootedPath(Root.absoluteRoot(destination.getFileSystem()), destination);
-    }
-
-    FileValue targetDirValue;
-    try {
-      targetDirValue =
-          (FileValue) env.getValueOrThrow(FileValue.key(targetDirRootedPath), IOException.class);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException("Could not access " + destination + ": " + e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    if (targetDirValue == null) {
-      // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
-      // second execution.
-      return null;
-    }
-
-    if (!targetDirValue.isDirectory()) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              String.format(
-                  "The repository's path is \"%s\" (absolute: \"%s\") "
-                      + "but it does not exist or is not a directory.",
-                  userDefinedPath, destination)),
-          Transience.PERSISTENT);
-    }
-
-    // Check that the directory contains a repo boundary file.
-    // Note that we need to do this here since we're not creating a repo boundary file ourselves,
-    // but entrusting the entire contents of the repo root to this target directory.
-    if (!RepositoryUtils.isValidRepoRoot(destination)) {
-      throw new RepositoryFunctionException(
-          new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
-          Transience.TRANSIENT);
-    }
-    return new RepositoryDirectoryValue.Success(
-        source, /* isFetchingDelayed= */ false, /* excludeFromVendoring= */ true);
+    return new RepositoryDirectoryValue.Success(repoRoot, /* excludeFromVendoring= */ true);
   }
 }

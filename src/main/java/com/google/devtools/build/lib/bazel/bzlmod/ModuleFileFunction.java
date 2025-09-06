@@ -646,10 +646,9 @@ public class ModuleFileFunction implements SkyFunction {
       }
       // This repo _definitely_ exists, since it has a non-registry override, which directly gets
       // "translated" into a repo spec. So we can cast `repoDir` to `Success`.
-      Path repoDirPath = ((Success) repoDir).getPath();
       RootedPath moduleFilePath =
           RootedPath.toRootedPath(
-              Root.fromPath(repoDirPath), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
+              ((Success) repoDir).root(), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
       if (env.getValue(FileValue.key(moduleFilePath)) == null) {
         return null;
       }

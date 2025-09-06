@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
@@ -525,8 +524,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   protected abstract ImmutableList<BuildFileName> getBuildFilesByPriority();
 
-  protected abstract ExternalPackageHelper getExternalPackageHelper();
-
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
 
   protected abstract boolean shouldUseRepoDotBazel();
@@ -588,7 +585,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.REPO_FILE,
             new RepoFileFunction(
-                ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
+                ruleClassProvider.getBazelStarlarkEnvironment(),
+                Root.fromPath(directories.getWorkspace())))
         .put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE)
         .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction(ruleClassProvider))

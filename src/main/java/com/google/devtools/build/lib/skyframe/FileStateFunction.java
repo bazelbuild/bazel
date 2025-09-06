@@ -58,10 +58,7 @@ public class FileStateFunction implements SkyFunction {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
 
     try {
-      FileType fileType = externalFilesHelper.maybeHandleExternalFile(rootedPath, env);
-      if (env.valuesMissing()) {
-        return null;
-      }
+      FileType fileType = externalFilesHelper.maybeHandleExternalFile(rootedPath);
       if (fileType == FileType.EXTERNAL_REPO) {
         // do not use syscallCache as files under repositories get generated during the build
         return FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, tsgm.get());

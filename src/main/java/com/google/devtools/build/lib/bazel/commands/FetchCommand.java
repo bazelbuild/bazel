@@ -167,9 +167,7 @@ public final class FetchCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult fetchAll(
-      CommandEnvironment env,
-      LoadingPhaseThreadsOption threadsOption,
-      boolean configureEnabled)
+      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, boolean configureEnabled)
       throws InterruptedException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -209,8 +207,8 @@ public final class FetchCommand implements BlazeCommand {
         repositoryNamesAndValues.values().stream()
             .flatMap(
                 value ->
-                    value instanceof RepositoryDirectoryValue.Failure failure
-                        ? Stream.of(failure.getErrorMsg())
+                    value instanceof RepositoryDirectoryValue.Failure(String errorMsg)
+                        ? Stream.of(errorMsg)
                         : Stream.of())
             .collect(joining("; "));
     if (!notFoundRepos.isEmpty()) {

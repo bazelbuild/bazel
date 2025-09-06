@@ -25,9 +25,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
-/**
-* A factory that creates instances of SkyframeExecutor.
-*/
+/** A factory that creates instances of SkyframeExecutor. */
 public interface SkyframeExecutorFactory {
 
   /**
@@ -51,7 +49,7 @@ public interface SkyframeExecutorFactory {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
-      SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
+      boolean allowExternalRepositories,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter)
       throws AbruptExitException;
