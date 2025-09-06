@@ -61,6 +61,27 @@ function stop_worker() {
   fi
 }
 
+function stop_worker_gracefully_and_keep_data() {
+  if [ -s "${pid_file}" ]; then
+    local pid=$(cat "${pid_file}")
+    kill -TERM "${pid}"
+    local grace_sec=30
+    local poll_interval_sec=0.2
+    local remaining_polls=$(awk "BEGIN{print int($grace_sec/$poll_interval_sec)}")
+    while kill -0 "$pid" 2>/dev/null && [ $remaining_polls -gt 0 ]; do
+          sleep $poll_interval_sec
+          remaining_polls=$((remaining_polls-1))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "WARNING: Worker was not responding to SIGTERM within ${grace_sec} seconds."
+        echo "WARNING: Terminating worker abruptly. Logs may be incomplete."
+        kill -9 "$pid" 2>/dev/null || true
+    fi
+    rm -f "${pid_file}"
+  fi
+}
+
+
 # Pass in the root of the disk cache and count number of files under /ac directory
 # output int to stdout
 function count_disk_ac_files() {
