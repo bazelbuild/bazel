@@ -656,7 +656,7 @@ public class RunCommand implements BlazeCommand {
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     HashSet<String> envVariablesToClear = new HashSet<>();
     ImmutableMap<String, String> clientEnv = env.getClientEnv();
-    actionEnvironment.resolve(runEnvironment, clientEnv);
+    // Process --run_env flags first
     for (var envVar : extraRunEnvironment) {
       switch (envVar) {
         case Converters.EnvVar.Set(String name, String value) -> {
@@ -680,6 +680,8 @@ public class RunCommand implements BlazeCommand {
         }
       }
     }
+    // Then let the target's environment override --run_env flags
+    actionEnvironment.resolve(runEnvironment, clientEnv);
 
     return constructCommandLine(
         env,
