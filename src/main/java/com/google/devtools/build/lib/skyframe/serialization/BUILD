@@ -69,6 +69,15 @@ java_library(
 )
 
 java_library(
+    name = "depend_on_future_shim",
+    srcs = ["DependOnFutureShim.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "serialization",
     srcs = glob(
         ["**/*.java"],
@@ -76,6 +85,7 @@ java_library(
             "AbstractExportedStarlarkSymbolCodec.java",
             "ModuleCodec.java",
             "CodecScanningConstants.java",
+            "DependOnFutureShim.java",
             "SerializationRegistrySetupHelpers.java",
             "SerializationConstants.java",
             "SerializationModule.java",
@@ -88,17 +98,16 @@ java_library(
     deps = [
         ":codec-scanning-constants",
         ":constants",
+        ":depend_on_future_shim",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:file_invalidation_data_java_proto",
-        "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:fastutil",

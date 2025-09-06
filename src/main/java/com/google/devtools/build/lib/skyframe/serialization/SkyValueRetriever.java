@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.util.concurrent.Futures.getDone;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.Sn
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.IntVersion;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -72,53 +70,9 @@ public final class SkyValueRetriever {
     }
   }
 
-  /** Returned status of {@link DependOnFutureShim#dependOnFuture}. */
-  public enum ObservedFutureStatus {
-    /** If the future was already done. */
-    DONE,
-    /**
-     * If the future was not done.
-     *
-     * <p>Indicates that a Skyframe restart is needed.
-     */
-    NOT_DONE
-  }
-
-  /**
-   * Encapsulates {@link Environment#dependOnFuture}, {@link Environment#valuesMissing} in a single
-   * method.
-   *
-   * <p>Decoupling this from {@link Environment} simplifies testing and the API.
-   */
-  public interface DependOnFutureShim {
-    /**
-     * Outside of testing, delegates to {@link Environment#dependOnFuture} then {@link
-     * Environment#valuesMissing} to determine the return value.
-     *
-     * @throws IllegalStateException if called when an underlying environment's {@link
-     *     Environment#valuesMissing} is already true.
-     */
-    ObservedFutureStatus dependOnFuture(ListenableFuture<?> future);
-  }
-
-  /** A convenience implementation used with an {@link Environment} instance. */
-  public static final class DefaultDependOnFutureShim implements DependOnFutureShim {
-    private final Environment env;
-
-    public DefaultDependOnFutureShim(Environment env) {
-      this.env = env;
-    }
-
-    @Override
-    public ObservedFutureStatus dependOnFuture(ListenableFuture<?> future) {
-      checkState(!env.valuesMissing());
-      env.dependOnFuture(future);
-      return env.valuesMissing() ? ObservedFutureStatus.NOT_DONE : ObservedFutureStatus.DONE;
-    }
-  }
-
   /**
    * Opaque state of serialization.
+
    *
    * <p>Clients must call {@link cleanupSerializationState} if state is evicted.
    *
