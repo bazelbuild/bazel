@@ -700,7 +700,8 @@ public class GrpcCacheClientTest {
             outErr,
             /* exitCode= */ 0,
             /* startTime= */ null,
-            /* wallTimeInMs= */ 0);
+            /* wallTimeInMs= */ 0,
+            /* preserveExecutableBit= */ false);
     return uploadManifest.upload(context, combinedCache, NullEventHandler.INSTANCE);
   }
 

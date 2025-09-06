@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -44,7 +45,7 @@ public class BazelSkyframeExecutorConstants {
 
   public static final ActionOnFilesystemErrorCodeLoadingBzlFile
       ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE =
-          ActionOnFilesystemErrorCodeLoadingBzlFile.ALWAYS_USE_PACKAGE_LOADING_CODE;
+          filesystemCode -> filesystemCode == FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED;
 
   public static final boolean USE_REPO_DOT_BAZEL = true;
 
