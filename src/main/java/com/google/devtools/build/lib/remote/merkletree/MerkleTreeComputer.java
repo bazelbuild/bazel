@@ -454,6 +454,7 @@ public final class MerkleTreeComputer {
     directoryStack.push(Directory.newBuilder());
 
     PathFragment currentParent = PathFragment.EMPTY_FRAGMENT;
+    PathFragment lastSourceDirPath = null;
     for (var entry : Iterables.concat(sortedInputs, END_OF_INPUTS_SENTINEL)) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
@@ -462,6 +463,13 @@ public final class MerkleTreeComputer {
       PathFragment path = entry.getKey();
       if (spawnScrubber != null && spawnScrubber.shouldOmitInput(path)) {
         continue;
+      }
+      if (lastSourceDirPath != null) {
+        if (path.startsWith(lastSourceDirPath)) {
+          // The input is part of a source directory that has already been added to the tree.
+          continue;
+        }
+        lastSourceDirPath = null;
       }
       ActionInput input = entry.getValue();
       PathFragment newParent = path.getParentDirectory();
@@ -590,6 +598,12 @@ public final class MerkleTreeComputer {
                 .setDigest(subTreeRoot.rootDigest());
             inputFiles += subTreeRoot.inputFiles();
             inputBytes += subTreeRoot.inputBytes();
+            // The source directory subsumes all children paths, which may be staged separately as
+            // individual files or subdirectories. We rely on the inputs being sorted such that a
+            // path is directly succeeded by all its children.
+            if (lastSourceDirPath == null || !path.startsWith(lastSourceDirPath)) {
+              lastSourceDirPath = path;
+            }
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
