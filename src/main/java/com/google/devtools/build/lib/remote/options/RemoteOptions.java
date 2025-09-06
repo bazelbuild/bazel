@@ -741,8 +741,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
               + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
-              + " output prefixes) and --incompatible_strict_action_env (to normalize environment"
-              + " variables).")
+              + " output prefixes).")
   public Scrubber scrubber;
 
   @Option(
