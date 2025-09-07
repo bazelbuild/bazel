@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
+import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
 import static com.google.devtools.build.lib.util.TestType.isInTest;
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -77,8 +77,6 @@ import javax.annotation.Nullable;
  * --experimental_remote_analysis_cache_mode=upload}.
  */
 public final class FrontierSerializer {
-  @VisibleForTesting static final int MAX_ERRORS_TO_REPORT = 5;
-
   private FrontierSerializer() {}
 
   /**
@@ -491,24 +489,5 @@ public final class FrontierSerializer {
           incrementalInMemoryNodeEntry.consolidateReverseDeps();
         });
     return deletedRdeps.get();
-  }
-
-  @VisibleForTesting
-  static String getErrorMessage(ImmutableList<Throwable> errors) {
-    var message = new StringBuilder();
-    if (errors.size() > 1) {
-      message.append("There were ").append(errors.size()).append(" write errors.");
-      if (errors.size() > MAX_ERRORS_TO_REPORT) {
-        message
-            .append(" Only the first ")
-            .append(MAX_ERRORS_TO_REPORT)
-            .append(" will be reported.");
-      }
-      message.append('\n');
-    }
-    for (int i = 0; i < min(errors.size(), MAX_ERRORS_TO_REPORT); i++) {
-      message.append(errors.get(i).getMessage()).append('\n');
-    }
-    return message.toString();
   }
 }

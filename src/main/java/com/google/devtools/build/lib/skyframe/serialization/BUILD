@@ -95,6 +95,7 @@ java_library(
             "AbstractExportedStarlarkSymbolCodec.java",
             "CodecScanningConstants.java",
             "DependOnFutureShim.java",
+            "ErrorMessageHelper.java",
             "FrontierNodeVersion.java",
             "ModuleCodec.java",
             "SerializationRegistrySetupHelpers.java",
@@ -144,6 +145,12 @@ java_library(
 java_library(
     name = "visible-for-serialization",
     srcs = ["VisibleForSerialization.java"],
+)
+
+java_library(
+    name = "error_message_helper",
+    srcs = ["ErrorMessageHelper.java"],
+    deps = ["//third_party:guava"],
 )
 
 java_library(

@@ -5,17 +5,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-java_test(
-    name = "FrontierSerializerTest",
-    srcs = ["FrontierSerializerTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:frontier_serializer",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
