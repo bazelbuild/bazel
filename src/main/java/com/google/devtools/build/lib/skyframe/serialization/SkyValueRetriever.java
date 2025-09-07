@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Throwables.getRootCause;
+import static com.google.common.io.BaseEncoding.base16;
 import static com.google.common.util.concurrent.Futures.getDone;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -21,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
@@ -157,6 +159,7 @@ public final class SkyValueRetriever {
       ObjectCodecs codecs,
       FingerprintValueService fingerprintValueService,
       @Nullable RemoteAnalysisCacheClient analysisCacheClient,
+      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       SkyKey key,
       SerializationStateProvider stateProvider,
       FrontierNodeVersion frontierNodeVersion)
@@ -170,7 +173,12 @@ public final class SkyValueRetriever {
               PackedFingerprint cacheKey =
                   SkyKeySerializationHelper.computeFingerprint(
                       codecs, fingerprintValueService, key, frontierNodeVersion);
-
+              if (jsonLogWriter != null) {
+                try (var entry = jsonLogWriter.startEntry("skyKeyCacheKey")) {
+                  entry.addField("skyKey", key.toString());
+                  entry.addField("cacheKey", base16().lowerCase().encode(cacheKey.toBytes()));
+                }
+              }
               ListenableFuture<?> responseFuture;
               if (analysisCacheClient == null) {
                 ListenableFuture<byte[]> futureValueBytes;

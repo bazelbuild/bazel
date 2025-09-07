@@ -124,6 +124,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -173,6 +174,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             analysisCacheClient,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -205,6 +207,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -232,6 +235,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             analysisCacheClient,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -262,6 +266,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
           codecs,
           fingerprintValueService,
           analysisCacheClient,
+          /* jsonLogWriter= */ null,
           key,
           (SerializationStateProvider) this,
           /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -278,6 +283,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             FingerprintValueService.createForTesting(),
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             new TrivialKey("a"), // nothing is uploaded to the service
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -310,6 +316,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             /* stateProvider= */ this,
             /* frontierNodeVersion= */ version);
@@ -341,6 +348,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             FingerprintValueService.createForTesting(),
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             new TrivialKey("a"), // same key..
             /* stateProvider= */ this,
             /* frontierNodeVersion= */ new FrontierNodeVersion(
@@ -370,6 +378,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -395,6 +404,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -411,6 +421,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -430,6 +441,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -448,6 +460,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -477,6 +490,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -496,6 +510,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -519,6 +534,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -539,6 +555,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     codecs,
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
+                    /* jsonLogWriter= */ null,
                     key,
                     (SerializationStateProvider) this,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
@@ -567,6 +584,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -583,6 +601,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -606,6 +625,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     codecs,
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
+                    /* jsonLogWriter= */ null,
                     key,
                     (SerializationStateProvider) this,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
@@ -636,6 +656,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -660,6 +681,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     codecs,
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
+                    /* jsonLogWriter= */ null,
                     key,
                     (SerializationStateProvider) this,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
@@ -696,6 +718,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             codecs,
             fingerprintValueService,
             /* analysisCacheClient= */ null,
+            /* jsonLogWriter= */ null,
             key,
             (SerializationStateProvider) this,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
@@ -724,6 +747,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     codecs,
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
+                    /* jsonLogWriter= */ null,
                     key,
                     (SerializationStateProvider) this,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
@@ -762,6 +786,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     codecs,
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
+                    /* jsonLogWriter= */ null,
                     key,
                     (SerializationStateProvider) this,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));

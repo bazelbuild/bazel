@@ -36,6 +36,10 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
     this.jsonWriter = jsonWriter;
     this.lock = new ReentrantLock();
     this.hadErrors = false;
+
+    try (var entry = startEntry("start")) {
+      entry.addField("time", Instant.now());
+    }
   }
 
   /**
@@ -54,16 +58,12 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
    * <p>Returns a {@link Closeable} that can be used to add data to the log entry. Care should be
    * taken to close this object as soon as possible, since while it's active, a lock is held.
    */
-  public Entry startEntry(String op, Instant start, Instant end) {
+  public Entry startEntry(String op) {
     Entry entry = new Entry(); // Acquire the lock
 
     try {
       Verify.verify(jsonWriter != null);
       jsonWriter.beginObject();
-      jsonWriter.name("start");
-      writeInstant(start);
-      jsonWriter.name("end");
-      writeInstant(end);
       jsonWriter.name("op").value(op);
     } catch (IOException e) {
       hadErrors = true;
@@ -108,6 +108,20 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
       }
     }
 
+    public void addField(String name, Instant value) {
+      Verify.verify(lock.isHeldByCurrentThread());
+      try {
+        jsonWriter.name(name);
+        jsonWriter.beginObject();
+        jsonWriter.name("seconds").value(value.getEpochSecond());
+        jsonWriter.name("nanos").value(value.getNano());
+        jsonWriter.endObject();
+      } catch (IOException e) {
+        hadErrors = true;
+        logger.atWarning().withCause(e).log("Cannot write JSON log entry");
+      }
+    }
+
     /** Adds a new field to this log entry. */
     public void addField(String name, long value) {
       Verify.verify(lock.isHeldByCurrentThread());
@@ -122,6 +136,10 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
 
   @Override
   public void close() {
+    try (var entry = startEntry("end")) {
+      entry.addField("time", Instant.now());
+    }
+
     lock.lock();
     try {
       jsonWriter.close();
@@ -132,12 +150,5 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
       jsonWriter = null;
       lock.unlock();
     }
-  }
-
-  private void writeInstant(Instant instant) throws IOException {
-    jsonWriter.beginObject();
-    jsonWriter.name("seconds").value(instant.getEpochSecond());
-    jsonWriter.name("nanos").value(instant.getNano());
-    jsonWriter.endObject();
   }
 }

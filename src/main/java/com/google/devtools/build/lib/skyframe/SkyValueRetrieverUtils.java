@@ -67,6 +67,7 @@ public final class SkyValueRetrieverUtils {
               analysisCachingDeps.getObjectCodecs(),
               analysisCachingDeps.getFingerprintValueService(),
               analysisCachingDeps.getAnalysisCacheClient(),
+              analysisCachingDeps.getLogWriter(),
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
@@ -79,7 +80,9 @@ public final class SkyValueRetrieverUtils {
       RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getLogWriter();
       if (logWriter != null) {
         Instant after = Instant.now();
-        try (var entry = logWriter.startEntry("retrieve", before, after)) {
+        try (var entry = logWriter.startEntry("retrieve")) {
+          entry.addField("start", before);
+          entry.addField("end", after);
           entry.addField("skyKey", key.toString());
           if (retrievalResult != null) {
             entry.addField("result", retrievalResult.toString());
