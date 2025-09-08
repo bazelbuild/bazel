@@ -59,13 +59,13 @@ public class CoverageTest {
     sourceFileCoverage1.addLine(1, 2);
     sourceFileCoverage1.addLine(2, 1);
     sourceFileCoverage1.addLine(3, 2);
-    sourceFileCoverage1.addBranch(1, BranchCoverage.create(1, "", "0", true, 2));
-    sourceFileCoverage1.addBranch(1, BranchCoverage.create(1, "", "1", true, 1));
+    sourceFileCoverage1.addBranch(1, "", "0", true, 2);
+    sourceFileCoverage1.addBranch(1, "", "1", true, 1);
     sourceFileCoverage2.addLine(1, 3);
     sourceFileCoverage2.addLine(2, 3);
     sourceFileCoverage2.addLine(3, 0);
-    sourceFileCoverage2.addBranch(1, BranchCoverage.create(1, "", "0", true, 1));
-    sourceFileCoverage2.addBranch(1, BranchCoverage.create(1, "", "1", true, 2));
+    sourceFileCoverage2.addBranch(1, "", "0", true, 1);
+    sourceFileCoverage2.addBranch(1, "", "1", true, 2);
 
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);
@@ -75,7 +75,8 @@ public class CoverageTest {
         .containsExactly(1, 5L, 2, 4L, 3, 2L);
     assertThat(Iterables.get(coverage.getAllSourceFiles(), 0).getAllBranches())
         .containsExactly(
-            BranchCoverage.create(1, "", "0", true, 3), BranchCoverage.create(1, "", "1", true, 3));
+            BranchCoverageItem.create(1, "", "0", true, 3),
+            BranchCoverageItem.create(1, "", "1", true, 3));
   }
 
   @Test

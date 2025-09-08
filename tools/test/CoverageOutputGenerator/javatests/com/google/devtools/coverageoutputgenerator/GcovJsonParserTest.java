@@ -127,7 +127,7 @@ public final class GcovJsonParserTest {
     assertThat(sourceFiles.get(0).getLines()).containsExactly(4, 3L, 5, 3L, 6, 1L, 7, 3L);
     assertThat(sourceFiles.get(0).getAllBranches())
         .containsExactly(
-            BranchCoverage.create(5, "0", "0", true, 1),
-            BranchCoverage.create(5, "0", "1", true, 2));
+            BranchCoverageItem.create(5, "0", "0", true, 1),
+            BranchCoverageItem.create(5, "0", "1", true, 2));
   }
 }

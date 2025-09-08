@@ -31,10 +31,10 @@ public class SourceFileCoverageTest {
     sourceFile.addLine(3, 2);
     sourceFile.addLine(4, 1);
     sourceFile.addLine(5, 0);
-    sourceFile.addBranch(3, BranchCoverage.create(3, "0", "0", true, 2));
-    sourceFile.addBranch(3, BranchCoverage.create(3, "0", "1", true, 0));
-    sourceFile.addBranch(5, BranchCoverage.create(5, "7", "0", false, 0));
-    sourceFile.addBranch(5, BranchCoverage.create(5, "7", "1", false, 0));
+    sourceFile.addBranch(3, "0", "0", true, 2);
+    sourceFile.addBranch(3, "0", "1", true, 0);
+    sourceFile.addBranch(5, "7", "0", false, 0);
+    sourceFile.addBranch(5, "7", "1", false, 0);
 
     SourceFileCoverage copy = new SourceFileCoverage(sourceFile);
 
@@ -42,10 +42,10 @@ public class SourceFileCoverageTest {
     assertThat(copy.getFunctionLineNumbers()).isEqualTo(sourceFile.getFunctionLineNumbers());
     assertThat(copy.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(3, "0", "0", true, 2),
-            BranchCoverage.create(3, "0", "1", true, 0),
-            BranchCoverage.create(5, "7", "0", false, 0),
-            BranchCoverage.create(5, "7", "1", false, 0));
+            BranchCoverageItem.create(3, "0", "0", true, 2),
+            BranchCoverageItem.create(3, "0", "1", true, 0),
+            BranchCoverageItem.create(5, "7", "0", false, 0),
+            BranchCoverageItem.create(5, "7", "1", false, 0));
   }
 
   @Test
@@ -100,37 +100,37 @@ public class SourceFileCoverageTest {
   public void testMergeBranches() {
     SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
     SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
-    sourceFile1.addNewBranch(1, "0", "0", true, 1);
-    sourceFile1.addNewBranch(1, "0", "1", true, 0);
-    sourceFile1.addNewBranch(1, "0", "2", true, 0);
-    sourceFile1.addNewBranch(1, "0", "0", true, 0);
-    sourceFile1.addNewBranch(1, "1", "0", true, 3);
-    sourceFile1.addNewBranch(1, "1", "1", true, 4);
-    sourceFile2.addNewBranch(1, "0", "1", true, 0);
-    sourceFile2.addNewBranch(1, "0", "2", true, 1);
-    sourceFile2.addNewBranch(1, "1", "0", true, 7);
-    sourceFile2.addNewBranch(1, "1", "1", true, 8);
+    sourceFile1.addBranch(1, "0", "0", true, 1);
+    sourceFile1.addBranch(1, "0", "1", true, 0);
+    sourceFile1.addBranch(1, "0", "2", true, 0);
+    sourceFile1.addBranch(1, "0", "0", true, 0);
+    sourceFile1.addBranch(1, "1", "0", true, 3);
+    sourceFile1.addBranch(1, "1", "1", true, 4);
+    sourceFile2.addBranch(1, "0", "1", true, 0);
+    sourceFile2.addBranch(1, "0", "2", true, 1);
+    sourceFile2.addBranch(1, "1", "0", true, 7);
+    sourceFile2.addBranch(1, "1", "1", true, 8);
 
     SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
 
     assertThat(merged.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(1, "0", "0", true, 1),
-            BranchCoverage.create(1, "0", "1", true, 0),
-            BranchCoverage.create(1, "0", "2", true, 1),
-            BranchCoverage.create(1, "1", "0", true, 10),
-            BranchCoverage.create(1, "1", "1", true, 12));
+            BranchCoverageItem.create(1, "0", "0", true, 1),
+            BranchCoverageItem.create(1, "0", "1", true, 0),
+            BranchCoverageItem.create(1, "0", "2", true, 1),
+            BranchCoverageItem.create(1, "1", "0", true, 10),
+            BranchCoverageItem.create(1, "1", "1", true, 12));
   }
 
   @Test
   public void testMismatchedBranchMerge() throws Exception {
     SourceFileCoverage sourceFile1 = new SourceFileCoverage("source");
     SourceFileCoverage sourceFile2 = new SourceFileCoverage("source");
-    sourceFile1.addNewBranch(800, "0", "0", true, 1);
-    sourceFile1.addNewBranch(800, "0", "1", true, 0);
-    sourceFile1.addNewBranch(800, "1", "0", true, 1);
-    sourceFile2.addNewBranch(800, "1", "0", true, 3);
-    sourceFile2.addNewBranch(800, "1", "1", true, 4);
+    sourceFile1.addBranch(800, "0", "0", true, 1);
+    sourceFile1.addBranch(800, "0", "1", true, 0);
+    sourceFile1.addBranch(800, "1", "0", true, 1);
+    sourceFile2.addBranch(800, "1", "0", true, 3);
+    sourceFile2.addBranch(800, "1", "1", true, 4);
 
     // Check the results are the same no matter the order of the merge.
     SourceFileCoverage merged1 = SourceFileCoverage.merge(sourceFile1, sourceFile2);
@@ -138,31 +138,31 @@ public class SourceFileCoverageTest {
 
     assertThat(merged1.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(800, "0", "0", true, 1),
-            BranchCoverage.create(800, "0", "1", true, 0),
-            BranchCoverage.create(800, "1", "0", true, 4),
-            BranchCoverage.create(800, "1", "1", true, 4));
+            BranchCoverageItem.create(800, "0", "0", true, 1),
+            BranchCoverageItem.create(800, "0", "1", true, 0),
+            BranchCoverageItem.create(800, "1", "0", true, 4),
+            BranchCoverageItem.create(800, "1", "1", true, 4));
     assertThat(merged2.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(800, "0", "0", true, 1),
-            BranchCoverage.create(800, "0", "1", true, 0),
-            BranchCoverage.create(800, "1", "0", true, 4),
-            BranchCoverage.create(800, "1", "1", true, 4));
+            BranchCoverageItem.create(800, "0", "0", true, 1),
+            BranchCoverageItem.create(800, "0", "1", true, 0),
+            BranchCoverageItem.create(800, "1", "0", true, 4),
+            BranchCoverageItem.create(800, "1", "1", true, 4));
   }
 
   @Test
   public void testDifferentLinesReportedAreMergeable() throws Exception {
     SourceFileCoverage sourceFile1 = new SourceFileCoverage("source");
     SourceFileCoverage sourceFile2 = new SourceFileCoverage("source");
-    sourceFile1.addNewBranch(1, "0", "0", true, 1);
-    sourceFile1.addNewBranch(1, "0", "1", true, 1);
+    sourceFile1.addBranch(1, "0", "0", true, 1);
+    sourceFile1.addBranch(1, "0", "1", true, 1);
     sourceFile1.addLine(1, 2);
     sourceFile1.addLine(2, 1);
     sourceFile1.addLine(3, 1);
 
-    sourceFile2.addNewBranch(30, "0", "0", true, 3);
-    sourceFile2.addNewBranch(30, "0", "1", true, 0);
-    sourceFile2.addNewBranch(30, "0", "2", true, 1);
+    sourceFile2.addBranch(30, "0", "0", true, 3);
+    sourceFile2.addBranch(30, "0", "1", true, 0);
+    sourceFile2.addBranch(30, "0", "2", true, 1);
     sourceFile2.addLine(30, 4);
     sourceFile2.addLine(31, 3);
     sourceFile2.addLine(32, 0);
@@ -171,11 +171,11 @@ public class SourceFileCoverageTest {
     SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
     assertThat(merged.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(1, "0", "0", true, 1),
-            BranchCoverage.create(1, "0", "1", true, 1),
-            BranchCoverage.create(30, "0", "0", true, 3),
-            BranchCoverage.create(30, "0", "1", true, 0),
-            BranchCoverage.create(30, "0", "2", true, 1));
+            BranchCoverageItem.create(1, "0", "0", true, 1),
+            BranchCoverageItem.create(1, "0", "1", true, 1),
+            BranchCoverageItem.create(30, "0", "0", true, 3),
+            BranchCoverageItem.create(30, "0", "1", true, 0),
+            BranchCoverageItem.create(30, "0", "2", true, 1));
     assertThat(merged.getLines())
         .containsExactly(1, 2L, 2, 1L, 3, 1L, 30, 4L, 31, 3L, 32, 0L, 33, 1L);
   }
@@ -183,16 +183,16 @@ public class SourceFileCoverageTest {
   @Test
   public void testRepeatedBranchesAreMerged() {
     SourceFileCoverage sourceFile = new SourceFileCoverage("source");
-    sourceFile.addNewBranch(1, "0", "0", false, 0);
-    sourceFile.addNewBranch(1, "0", "1", false, 0);
-    sourceFile.addNewBranch(1, "0", "0", true, 1);
-    sourceFile.addNewBranch(1, "0", "1", true, 1);
-    sourceFile.addNewBranch(1, "0", "0", true, 2);
-    sourceFile.addNewBranch(1, "0", "1", true, 2);
+    sourceFile.addBranch(1, "0", "0", false, 0);
+    sourceFile.addBranch(1, "0", "1", false, 0);
+    sourceFile.addBranch(1, "0", "0", true, 1);
+    sourceFile.addBranch(1, "0", "1", true, 1);
+    sourceFile.addBranch(1, "0", "0", true, 2);
+    sourceFile.addBranch(1, "0", "1", true, 2);
 
     assertThat(sourceFile.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(1, "0", "0", true, 3),
-            BranchCoverage.create(1, "0", "1", true, 3));
+            BranchCoverageItem.create(1, "0", "0", true, 3),
+            BranchCoverageItem.create(1, "0", "1", true, 3));
   }
 }

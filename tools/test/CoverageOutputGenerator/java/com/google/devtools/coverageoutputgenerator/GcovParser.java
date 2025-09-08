@@ -234,10 +234,7 @@ public class GcovParser {
             throw new AssertionError("Invalid branch value '" + value + "'");
         }
         currentSourceFileCoverage.addBranch(
-            lineEntry.getKey(),
-            BranchCoverage.create(
-                lineEntry.getKey(), "0", Integer.toString(branchNumber), evaluated, execCount));
-
+            lineEntry.getKey(), "0", Integer.toString(branchNumber), evaluated, execCount);
         branchNumber++;
       }
     }

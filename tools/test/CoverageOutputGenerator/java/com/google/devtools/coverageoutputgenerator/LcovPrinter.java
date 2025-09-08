@@ -134,7 +134,7 @@ class LcovPrinter {
 
   // BRDA:<line number>,<block number>,<branch number>,<taken>
   private void printBRDALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
+    for (BranchCoverageItem branch : sourceFile.getAllBranches()) {
       bufferedWriter.write(Constants.BRDA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
@@ -153,7 +153,7 @@ class LcovPrinter {
 
   // BA:<line number>,<taken>
   private void printBALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
+    for (BranchCoverageItem branch : sourceFile.getAllBranches()) {
       bufferedWriter.write(Constants.BA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);

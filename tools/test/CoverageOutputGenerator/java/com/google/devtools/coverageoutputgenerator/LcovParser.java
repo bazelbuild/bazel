@@ -49,6 +49,8 @@ class LcovParser {
   private static final Logger logger = Logger.getLogger(LcovParser.class.getName());
   private final InputStream inputStream;
   private SourceFileCoverage currentSourceFileCoverage;
+  private int baBranchesAtLine = 0;
+  private int lastBaLine = -1;
 
   private LcovParser(InputStream inputStream) {
     this.inputStream = inputStream;
@@ -143,6 +145,7 @@ class LcovParser {
 
   // SF:<path to source file name>
   private boolean parseSFLine(String line) {
+    lastBaLine = -1;
     if (currentSourceFileCoverage != null) {
       logger.log(Level.WARNING, "Tracefile doesn't have SF:<source file> line before" + line);
       return false;
@@ -276,11 +279,14 @@ class LcovParser {
               "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
           return false;
       }
-      int branchNumber = currentSourceFileCoverage.getBranches(lineNumber).size();
+      if (lastBaLine == lineNumber) {
+        baBranchesAtLine++;
+      } else {
+        baBranchesAtLine = 0;
+        lastBaLine = lineNumber;
+      }
       currentSourceFileCoverage.addBranch(
-          lineNumber,
-          BranchCoverage.create(
-              lineNumber, "0", Integer.toString(branchNumber), evaluated, execCount));
+          lineNumber, "0", Integer.toString(baBranchesAtLine), evaluated, execCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number BA line " + line);
       return false;
@@ -314,11 +320,8 @@ class LcovParser {
         executionCount = Long.parseLong(taken);
         wasEvaluated = true;
       }
-      BranchCoverage branchCoverage =
-          BranchCoverage.create(
-              lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
-
-      currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
+      currentSourceFileCoverage.addBranch(
+          lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number BRDA line " + line);
       return false;

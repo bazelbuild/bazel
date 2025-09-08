@@ -155,21 +155,21 @@ public class GcovParserTest {
 
     assertThat(sourceFileCoverage.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(21, "0", "0", true, 1),
-            BranchCoverage.create(21, "0", "1", true, 0),
-            BranchCoverage.create(23, "0", "0", true, 1),
-            BranchCoverage.create(23, "0", "1", true, 0),
-            BranchCoverage.create(24, "0", "0", true, 1),
-            BranchCoverage.create(24, "0", "1", true, 0),
-            BranchCoverage.create(27, "0", "0", true, 1),
-            BranchCoverage.create(27, "0", "1", true, 1),
-            BranchCoverage.create(30, "0", "0", true, 0),
-            BranchCoverage.create(30, "0", "1", true, 1),
-            BranchCoverage.create(32, "0", "0", true, 0),
-            BranchCoverage.create(32, "0", "1", true, 1),
-            BranchCoverage.create(33, "0", "0", false, 0),
-            BranchCoverage.create(33, "0", "1", false, 0),
-            BranchCoverage.create(35, "0", "0", true, 1),
-            BranchCoverage.create(35, "0", "1", true, 0));
+            BranchCoverageItem.create(21, "0", "0", true, 1),
+            BranchCoverageItem.create(21, "0", "1", true, 0),
+            BranchCoverageItem.create(23, "0", "0", true, 1),
+            BranchCoverageItem.create(23, "0", "1", true, 0),
+            BranchCoverageItem.create(24, "0", "0", true, 1),
+            BranchCoverageItem.create(24, "0", "1", true, 0),
+            BranchCoverageItem.create(27, "0", "0", true, 1),
+            BranchCoverageItem.create(27, "0", "1", true, 1),
+            BranchCoverageItem.create(30, "0", "0", true, 0),
+            BranchCoverageItem.create(30, "0", "1", true, 1),
+            BranchCoverageItem.create(32, "0", "0", true, 0),
+            BranchCoverageItem.create(32, "0", "1", true, 1),
+            BranchCoverageItem.create(33, "0", "0", false, 0),
+            BranchCoverageItem.create(33, "0", "1", false, 0),
+            BranchCoverageItem.create(35, "0", "0", true, 1),
+            BranchCoverageItem.create(35, "0", "1", true, 0));
   }
 }

@@ -6,17 +6,6 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])  # Apache 2.0
 
 java_test(
-    name = "BranchCoverageTest",
-    srcs = ["BranchCoverageTest.java"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
-    ],
-)
-
-java_test(
     name = "LineCoverageTest",
     srcs = ["LineCoverageTest.java"],
     deps = [
@@ -33,7 +22,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
 )
@@ -49,7 +38,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovPrinter",
@@ -64,7 +52,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovParser",
@@ -79,7 +67,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:GcovParser",
@@ -93,7 +81,7 @@ java_test(
     deps = [
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:GcovJsonParser",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],
@@ -106,7 +94,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
     ],

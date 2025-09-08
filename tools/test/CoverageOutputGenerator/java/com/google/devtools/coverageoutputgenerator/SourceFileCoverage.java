@@ -15,10 +15,11 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -33,7 +34,8 @@ class SourceFileCoverage {
   private String sourceFileName;
   private final SortedMap<String, Integer> functionLineNumbers; // function name to line numbers
   private final SortedMap<String, Long> functionsExecution; // function name to execution count
-  private final ListMultimap<Integer, BranchCoverage> branches; // line number to branches
+  private final Map<BranchCoverageKey, Long> branchExecutions; // branch to execution count
+  private final Map<Integer, Boolean> branchEvaluations; // line to branch evaluations
   private final LineCoverage lineCoverage;
 
   public SourceFileCoverage(String sourcefile) {
@@ -41,7 +43,8 @@ class SourceFileCoverage {
     this.functionsExecution = new TreeMap<>();
     this.functionLineNumbers = new TreeMap<>();
     this.lineCoverage = LineCoverage.create();
-    this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
+    this.branchExecutions = new HashMap<>();
+    this.branchEvaluations = new HashMap<>();
   }
 
   SourceFileCoverage(SourceFileCoverage other) {
@@ -49,11 +52,13 @@ class SourceFileCoverage {
 
     this.functionsExecution = new TreeMap<>();
     this.functionLineNumbers = new TreeMap<>();
-    this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
+    this.branchExecutions = new HashMap<>();
+    this.branchEvaluations = new HashMap<>();
 
     this.functionLineNumbers.putAll(other.functionLineNumbers);
     this.functionsExecution.putAll(other.functionsExecution);
-    this.branches.putAll(other.branches);
+    this.branchExecutions.putAll(other.branchExecutions);
+    this.branchEvaluations.putAll(other.branchEvaluations);
     this.lineCoverage = LineCoverage.copy(other.lineCoverage);
   }
 
@@ -96,7 +101,7 @@ class SourceFileCoverage {
 
     merged.addAllFunctionLineNumbers(source2.functionLineNumbers);
     merged.addAllFunctionsExecution(source2.functionsExecution);
-    merged.addAllBranches(source2.branches);
+    merged.addAllBranches(source2.branchExecutions, source2.branchEvaluations);
     merged.lineCoverage.add(source2.lineCoverage);
     return merged;
   }
@@ -115,11 +120,11 @@ class SourceFileCoverage {
   }
 
   public int nrBranchesFound() {
-    return branches.size();
+    return branchExecutions.size();
   }
 
   public int nrBranchesHit() {
-    return (int) branches.values().stream().filter(BranchCoverage::wasExecuted).count();
+    return (int) branchExecutions.values().stream().filter(x -> x > 0).count();
   }
 
   public int nrOfLinesWithNonZeroExecution() {
@@ -144,16 +149,40 @@ class SourceFileCoverage {
     return functionsExecution;
   }
 
-  Set<Entry<String, Long>> getAllExecutionCount() {
+  @VisibleForTesting
+  Map<BranchCoverageKey, Long> getBranchExecutions() {
+    return branchExecutions;
+  }
+
+  public Set<Entry<String, Long>> getAllExecutionCount() {
     return functionsExecution.entrySet();
   }
 
-  Collection<BranchCoverage> getAllBranches() {
-    return branches.values();
+  public Collection<BranchCoverageItem> getAllBranches() {
+    // this is not efficient, but should only ever be called when printing out lcov
+    ImmutableList.Builder<BranchCoverageItem> builder = ImmutableList.builder();
+    ArrayList<BranchCoverageKey> sortedKeys = new ArrayList<>(branchExecutions.keySet());
+    Collections.sort(sortedKeys);
+    for (BranchCoverageKey branch : sortedKeys) {
+      long executionCount = branchExecutions.get(branch);
+      boolean evaluated = branchEvaluations.getOrDefault(branch.lineNumber(), false);
+      builder.add(
+          BranchCoverageItem.create(
+              branch.lineNumber(),
+              branch.blockNumber(),
+              branch.branchNumber(),
+              evaluated,
+              executionCount));
+    }
+    return builder.build();
   }
 
-  List<BranchCoverage> getBranches(int lineNumber) {
-    return branches.get(lineNumber);
+  public long getBranchExecutionCount(BranchCoverageKey branch) {
+    return branchExecutions.getOrDefault(branch, 0L);
+  }
+
+  public boolean isBranchEvaluated(int lineNumber) {
+    return branchEvaluations.getOrDefault(lineNumber, false);
   }
 
   @VisibleForTesting
@@ -189,8 +218,8 @@ class SourceFileCoverage {
   }
 
   /**
-   * Creates and adds a new branch to the source file. If the branch already exists, the execution
-   * count and evaluated status are combined with the existing one.
+   * Adds a new branch to the source file. If the branch already exists, the execution count and
+   * evaluated status are combined with the existing one.
    *
    * @param lineNumber The line number the branch is on
    * @param blockNumber ID for the block containing the branch
@@ -198,38 +227,31 @@ class SourceFileCoverage {
    * @param evaluated Whether branches for this line were ever evaluated
    * @param executionCount How many times this particular branch was taken
    */
-  public void addNewBranch(
+  public void addBranch(
       int lineNumber,
       String blockNumber,
       String branchNumber,
       boolean evaluated,
       long executionCount) {
-    BranchCoverage branch =
-        BranchCoverage.create(lineNumber, blockNumber, branchNumber, evaluated, executionCount);
-    addBranch(lineNumber, branch);
+    BranchCoverageKey branch = BranchCoverageKey.create(lineNumber, blockNumber, branchNumber);
+    addBranchFromKey(branch, evaluated, executionCount);
   }
 
-  /**
-   * Adds the given branch to the source file. If the branch already exists, it is merged with the
-   * existing one.
-   */
-  public void addBranch(Integer lineNumber, BranchCoverage branch) {
-    // if a line was already given for the same block and branch, merge it with the new one.
-    for (int i = 0; i < branches.get(lineNumber).size(); i++) {
-      BranchCoverage original = branches.get(lineNumber).get(i);
-      if (original.blockNumber().equals(branch.blockNumber())
-          && original.branchNumber().equals(branch.branchNumber())) {
-        BranchCoverage merged = BranchCoverage.merge(original, branch);
-        branches.get(lineNumber).set(i, merged);
-        return;
-      }
-    }
-    branches.put(lineNumber, branch);
+  private void addBranchFromKey(BranchCoverageKey branch, boolean evaluated, long executionCount) {
+    long prevCount = branchExecutions.getOrDefault(branch, 0L);
+    branchExecutions.put(branch, prevCount + executionCount);
+    branchEvaluations.put(
+        branch.lineNumber(),
+        evaluated || branchEvaluations.getOrDefault(branch.lineNumber(), false));
   }
 
-  private void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {
-    for (Entry<Integer, BranchCoverage> entry : branches.entries()) {
-      addBranch(entry.getKey(), entry.getValue());
+  private void addAllBranches(
+      Map<BranchCoverageKey, Long> branchExecutions, Map<Integer, Boolean> branchEvaluations) {
+    for (Entry<BranchCoverageKey, Long> entry : branchExecutions.entrySet()) {
+      BranchCoverageKey branch = entry.getKey();
+      long executionCount = entry.getValue();
+      boolean evaluated = branchEvaluations.getOrDefault(branch.lineNumber(), false);
+      addBranchFromKey(branch, evaluated, executionCount);
     }
   }
 

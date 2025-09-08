@@ -14,12 +14,10 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import static com.google.common.base.Verify.verify;
-
 import com.google.auto.value.AutoValue;
 
 /**
- * Stores branch coverage information.
+ * An identifier (line, block, branch) for a particular branch.
  *
  * <p>Corresponds to either a BRDA or BA (Google only) line in an lcov report.
  *
@@ -45,7 +43,7 @@ import com.google.auto.value.AutoValue;
  * may be 0).
  */
 @AutoValue
-abstract class BranchCoverage {
+abstract class BranchCoverageKey implements Comparable<BranchCoverageKey> {
 
   /**
    * Creates an instance of a BranchCoverage.
@@ -53,58 +51,29 @@ abstract class BranchCoverage {
    * @param lineNumber The line number the branch is on
    * @param blockNumber GCC internal ID - often "0"
    * @param branchNumber ID for the specific branch at this line
-   * @param evaluated Whether the branches were ever evaluated
-   * @param nrOfExecutions How many times this particular branch was taken
    */
-  static BranchCoverage create(
-      int lineNumber,
-      String blockNumber,
-      String branchNumber,
-      boolean evaluated,
-      long nrOfExecutions) {
-    return new AutoValue_BranchCoverage(
-        lineNumber, blockNumber, branchNumber, evaluated, nrOfExecutions);
-  }
-
-  /**
-   * Merges two given instances of {@link BranchCoverage}.
-   *
-   * <p>Calling {@code lineNumber()}, {@code blockNumber()} and {@code branchNumber()} must return
-   * the same values for {@code first} and {@code second}.
-   */
-  static BranchCoverage merge(BranchCoverage first, BranchCoverage second) {
-    verify(first.lineNumber() == second.lineNumber(), "Branch line numbers must match");
-    verify(first.blockNumber().equals(second.blockNumber()), "Branch block numbers must match");
-    verify(first.branchNumber().equals(second.branchNumber()), "Branch branch numbers must match");
-
-    return create(
-        first.lineNumber(),
-        first.blockNumber(),
-        first.branchNumber(),
-        first.evaluated() || second.evaluated(),
-        first.nrOfExecutions() + second.nrOfExecutions());
+  static BranchCoverageKey create(int lineNumber, String blockNumber, String branchNumber) {
+    return new AutoValue_BranchCoverageKey(lineNumber, blockNumber, branchNumber);
   }
 
   abstract int lineNumber();
 
-  /**
-   * Internal GCC ID for the branch.
-   *
-   * <p>Empty for BA lines.
-   */
+  /** Internal GCC ID for the branch. */
   abstract String blockNumber();
 
   /** Either the internal GCC ID for the branch or an increasing counter for BA lines. */
   abstract String branchNumber();
 
-  abstract boolean evaluated();
-
-  abstract long nrOfExecutions();
-
-  boolean wasExecuted() {
-    // if there's no block number then this is a BA branch so only taken if the "nrOfExecutions"
-    // value == 2 (since it refers to the BA taken value)
-    // otherwise it really is an execution count, so a count > 0 means the branch was executed
-    return blockNumber().isEmpty() ? nrOfExecutions() == 2 : nrOfExecutions() > 0;
+  @Override
+  public int compareTo(BranchCoverageKey other) {
+    int lineDiff = this.lineNumber() - other.lineNumber();
+    if (lineDiff != 0) {
+      return lineDiff;
+    }
+    int blockDiff = this.blockNumber().compareTo(other.blockNumber());
+    if (blockDiff != 0) {
+      return blockDiff;
+    }
+    return this.branchNumber().compareTo(other.branchNumber());
   }
 }
