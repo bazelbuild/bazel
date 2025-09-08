@@ -53,6 +53,7 @@
 #include <vector>
 
 #include "src/main/cpp/startup_interceptor.h"
+#include "src/main/cpp/command_extension_adder.h"
 
 #if !defined(_WIN32)
 #include <sys/stat.h>
@@ -201,7 +202,8 @@ static const char *ReasonString(RestartReason reason) {
 
 class BlazeServer final {
  public:
-  explicit BlazeServer(const StartupOptions &startup_options);
+  explicit BlazeServer(const StartupOptions &startup_options,
+                       CommandExtensionAdder* command_extension_adder);
 
   // Acquires locks for the install and output bases this server is running in.
   // Returns the time spent waiting for locks.
@@ -273,6 +275,7 @@ class BlazeServer final {
   const bool lock_install_base_;
   const blaze_util::Path install_base_;
   const blaze_util::Path output_base_;
+  CommandExtensionAdder* command_extension_adder_;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -1523,8 +1526,9 @@ static void RunLauncher(const string &self_path,
                         const OptionProcessor &option_processor,
                         const WorkspaceLayout &workspace_layout,
                         const string &workspace, LoggingInfo *logging_info,
-                        StartupInterceptor *interceptor) {
-  blaze_server = new BlazeServer(startup_options);
+                        StartupInterceptor *interceptor,
+                        CommandExtensionAdder *command_extension_adder) {
+  blaze_server = new BlazeServer(startup_options, command_extension_adder);
 
   const std::optional<DurationMillis> command_wait_duration =
       blaze_server->AcquireLocks();
@@ -1605,6 +1609,7 @@ static void RunLauncher(const string &self_path,
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, StartupInterceptor *interceptor,
+         CommandExtensionAdder *command_extension_adder,
          uint64_t start_time) {
   blaze_util::InitializeStdOutErrForUtf8();
 
@@ -1698,11 +1703,12 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
               *option_processor, *workspace_layout, workspace, &logging_info,
-              interceptor);
+              interceptor, command_extension_adder);
   return 0;
 }
 
-BlazeServer::BlazeServer(const StartupOptions &startup_options)
+BlazeServer::BlazeServer(const StartupOptions &startup_options,
+                         CommandExtensionAdder *command_extension_adder)
     : process_info_(startup_options.output_base,
                     startup_options.server_jvm_out),
       connect_timeout_secs_(startup_options.connect_timeout_secs),
@@ -1712,7 +1718,8 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       preemptible_(startup_options.preemptible),
       lock_install_base_(startup_options.lock_install_base),
       install_base_(startup_options.install_base),
-      output_base_(startup_options.output_base) {
+      output_base_(startup_options.output_base),
+      command_extension_adder_(command_extension_adder) {
   pipe_.reset(blaze_util::CreatePipe());
   if (!pipe_) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -1900,6 +1907,9 @@ void BlazeServer::KillRunningServer() {
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
+  if (command_extension_adder_ != nullptr) {
+    command_extension_adder_->MaybeAddCommandExtensions(request);
+  }
   BAZEL_LOG(INFO) << "Shutting running server with RPC request";
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(context.get(), request));
@@ -1988,6 +1998,9 @@ unsigned int BlazeServer::Communicate(
   }
   if (!invocation_policy.empty()) {
     request.set_invocation_policy(invocation_policy);
+  }
+  if (command_extension_adder_ != nullptr) {
+    command_extension_adder_->MaybeAddCommandExtensions(request);
   }
 
   for (const auto &startup_option : original_startup_options) {

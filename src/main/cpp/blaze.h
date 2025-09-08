@@ -16,6 +16,7 @@
 
 #include <string>
 
+#include "src/main/cpp/command_extension_adder.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/startup_interceptor.h"
 #include "src/main/cpp/util/logging.h"
@@ -30,6 +31,7 @@ void PrintVersionInfo(const std::string& self_path,
 
 int Main(int argc, const char* const* argv, WorkspaceLayout* workspace_layout,
          OptionProcessor* option_processor, StartupInterceptor* interceptor,
+         CommandExtensionAdder* command_extension_adder,
          uint64_t start_time);
 
 }  // namespace blaze
