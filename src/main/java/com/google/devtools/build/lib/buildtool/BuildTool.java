@@ -98,6 +98,8 @@ import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLi
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ExecRootEvent;
+import com.google.devtools.build.lib.runtime.InstrumentationOutput;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -158,8 +160,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.RegexPatternOption;
 import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -1382,16 +1382,27 @@ public class BuildTool {
 
       if (options.jsonLog != null) {
         try {
+          InstrumentationOutput jsonLog =
+              env.getRuntime()
+                  .getInstrumentationOutputFactory()
+                  .createInstrumentationOutput(
+                      "remote_cache_jsonlog",
+                      PathFragment.create(options.jsonLog),
+                      DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
+                      env,
+                      env.getReporter(),
+                      /* append= */ false,
+                      /* internal= */ false);
           this.logWriter =
               new RemoteAnalysisJsonLogWriter(
                   new JsonWriter(
                       new OutputStreamWriter(
-                          new BufferedOutputStream(new FileOutputStream(options.jsonLog), 262144),
+                          new BufferedOutputStream(jsonLog.createOutputStream(), 262144),
                           ISO_8859_1)));
           env.getReporter()
               .handle(
                   Event.info(String.format("Writing Skycache JSON log to '%s'", options.jsonLog)));
-        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
           throw new AbruptExitException(
               DetailedExitCode.of(
                   FailureDetail.newBuilder()

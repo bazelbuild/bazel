@@ -74,7 +74,8 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "If set, a JSON file is written to this location that contains a detailed log of "
-              + "the behavior of remote analysis caching.")
+              + "the behavior of remote analysis caching. It's interpreted as a path relative "
+              + "to the current working directory.")
   public String jsonLog;
 
   @Option(
