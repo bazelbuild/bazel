@@ -1,17 +1,27 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.TreeMap;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /**
  * A container for user-provided JSON-like data attached to a module extension that is persisted
@@ -19,7 +29,11 @@ import net.starlark.java.eval.Tuple;
  */
 @AutoValue
 @AutoCodec
-public abstract class Facts {
+@StarlarkBuiltin(
+    name = "Facts",
+    doc = "User-provided data attached to a module extension.",
+    category = DocCategory.BUILTIN)
+public abstract class Facts implements StarlarkIndexable {
   public static final Facts EMPTY = new AutoValue_Facts(Dict.empty());
 
   public abstract Dict<String, Object> value();
@@ -88,5 +102,60 @@ public abstract class Facts {
           throw Starlark.errorf(
               "'%s' (%s) is not supported in facts", Starlark.repr(facts), Starlark.type(facts));
     };
+  }
+
+  @Override
+  public Object getIndex(StarlarkSemantics semantics, Object key) {
+    return value().get(key);
+  }
+
+  @Override
+  public boolean containsKey(StarlarkSemantics semantics, Object key) {
+    return value().containsKey(key);
+  }
+
+  @StarlarkMethod(
+      name = "get",
+      doc = "Returns the value for <code>key</code> if it exists, or <code>default</code>.",
+      parameters = {
+        @Param(name = "key", doc = "The key to look up.", named = true),
+        @Param(
+            name = "default",
+            doc = "The value to return if <code>key</code> is not present.",
+            named = true,
+            defaultValue = "None"),
+      })
+  public Object get(String key, Object defaultValue) throws EvalException {
+    return value().getOrDefault(key, defaultValue);
+  }
+
+  @Override
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    // Don't leak the contents to Starlark.
+    printer.append("Facts(<opaque, inspect with print()>)");
+  }
+
+  @Override
+  public void debugPrint(Printer printer, StarlarkThread thread) {
+    // Print the contents for debugging purposes.
+    printer.append("Facts(");
+    value().repr(printer, thread.getSemantics());
+    printer.append(")");
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void checkHashable() throws EvalException {
+    throw Starlark.errorf("unhashable type: '%s'", Starlark.type(this));
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    // TODO: Use Mapping instead of dict when available.
+    return Types.dict(Types.STR, Types.ANY);
   }
 }

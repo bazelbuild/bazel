@@ -35,6 +35,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /** The Starlark object passed to the implementation function of module extensions. */
 @StarlarkBuiltin(
@@ -127,8 +128,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
           Note that the returned value may have been created by a different version of the \
           extension, which may have used a different schema.
           """)
-  public Dict<String, Object> getFacts() {
-    return facts.value();
+  public StarlarkValue getFacts() {
+    return facts;
   }
 
   @StarlarkMethod(
