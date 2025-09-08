@@ -37,13 +37,13 @@ class BazelModuleTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main'))
     self.main_registry.start()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
-    ).createCcModule(
+    ).createShModule(
         'bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_aaa'}
-    ).createCcModule(
+    ).createShModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
     )
     self.ScratchFile(
@@ -74,62 +74,59 @@ class BazelModuleTest(test_base.TestBase):
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [
-        '--- a/aaa.cc',
-        '+++ b/aaa.cc',
-        '@@ -1,6 +1,6 @@',
-        ' #include <stdio.h>',
-        ' #include "aaa.h"',
-        ' void hello_aaa(const std::string& caller) {',
-        '-    std::string lib_name = "aaa@1.0";',
-        '+    std::string lib_name = "aaa@1.0 (locally patched)";',
-        '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+        '--- a/aaa.sh',
+        '+++ b/aaa.sh',
+        '@@ -1,5 +1,5 @@',
+        ' function hello_aaa {',
+        '     caller_name="${1}"',
+        '-    lib_name="aaa@1.0"',
+        '+    lib_name="aaa@1.0 (locally patched)"',
+        '     echo "${caller_name} => ${lib_name}"',
         ' }',
     ])
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@aaa//:lib_aaa",',
             '    "@bbb//:lib_bbb",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
-    self.ScratchFile('main.cc', [
-        '#include "aaa.h"',
-        '#include "bbb.h"',
-        'int main() {',
-        '    hello_aaa("main function");',
-        '    hello_bbb("main function");',
-        '}',
-    ])
+    self.ScratchFile('main.sh', [
+        'source $(rlocation aaa/aaa.sh)',
+        'source $(rlocation bbb/bbb.sh)',
+        'hello_aaa "main function"',
+        'hello_bbb "main function"',
+    ], executable=True)
 
   def testSimple(self):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0")',
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
-    self.ScratchFile('main.cc', [
-        '#include "aaa.h"',
-        'int main() {',
-        '    hello_aaa("main function");',
-        '}',
-    ])
+    self.ScratchFile('main.sh', [
+        'source $(rlocation aaa/aaa.sh)',
+        'hello_aaa "main function"',
+    ], executable=True)
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
 
@@ -137,24 +134,23 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@bbb//:lib_bbb"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
-    self.ScratchFile('main.cc', [
-        '#include "bbb.h"',
-        'int main() {',
-        '    hello_bbb("main function");',
-        '}',
-    ])
+    self.ScratchFile('main.sh', [
+        'source $(rlocation bbb/bbb.sh)',
+        'hello_bbb "main function"',
+    ], executable=True)
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => bbb@1.0', stdout)
     self.assertIn('bbb@1.0 => aaa@1.0', stdout)
@@ -168,7 +164,7 @@ class BazelModuleTest(test_base.TestBase):
             # bbb@1.0 has to depend on aaa@1.1 after MVS.
             'bazel_dep(name = "bbb", version = "1.0")',
         ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1', stdout)
     self.assertIn('main function => bbb@1.0', stdout)
@@ -176,40 +172,38 @@ class BazelModuleTest(test_base.TestBase):
 
   def testRemotePatchForBazelDep(self):
     patch_file = self.ScratchFile('aaa.patch', [
-        '--- a/aaa.cc',
-        '+++ b/aaa.cc',
-        '@@ -1,6 +1,6 @@',
-        ' #include <stdio.h>',
-        ' #include "aaa.h"',
-        ' void hello_aaa(const std::string& caller) {',
-        '-    std::string lib_name = "aaa@1.1-1";',
-        '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
-        '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+        '--- a/aaa.sh',
+        '+++ b/aaa.sh',
+        '@@ -1,5 +1,5 @@',
+        ' function hello_aaa {',
+        '     caller_name="${1}"',
+        '-    lib_name="aaa@1.1-1"',
+        '+    lib_name="aaa@1.1-1 (remotely patched)"',
+        '     echo "${caller_name} => ${lib_name}"',
         ' }',
     ])
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'aaa', '1.1-1', patches=[patch_file], patch_strip=1)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.1-1")',
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
-    self.ScratchFile('main.cc', [
-        '#include "aaa.h"',
-        'int main() {',
-        '    hello_aaa("main function");',
-        '}',
-    ])
+    self.ScratchFile('main.sh', [
+        'source $(rlocation aaa/aaa.sh)',
+        'hello_aaa "main function"',
+    ], executable=True)
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1-1 (remotely patched)', stdout)
 
@@ -217,19 +211,18 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'aaa.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@lol";',
-            '+    std::string lib_name = "aaa@lol (locally patched)";',
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@lol"',
+            '+    lib_name="aaa@lol (locally patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
-    self.main_registry.createCcModule('aaa', 'lol')
+    self.main_registry.createShModule('aaa', 'lol')
     integ = integrity(read(self.main_registry.archives.joinpath('aaa.lol.zip')))
     self.ScratchFile(
         'MODULE.bazel',
@@ -245,33 +238,33 @@ class BazelModuleTest(test_base.TestBase):
             ')',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '}',
+            'source $(rlocation aaa/aaa.sh)',
+            'hello_aaa "main function"',
         ],
+        executable=True,
     )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@lol (locally patched)', stdout)
 
   def testArchiveOverrideWithBadLabelPatch(self):
-    self.main_registry.createCcModule('aaa', '1')
-    self.main_registry.createCcModule('bbb', '1')
+    self.main_registry.createShModule('aaa', '1')
+    self.main_registry.createShModule('bbb', '1')
     integ = integrity(read(self.main_registry.archives.joinpath('aaa.1.zip')))
     self.ScratchFile(
         'MODULE.bazel',
@@ -286,26 +279,26 @@ class BazelModuleTest(test_base.TestBase):
             '  patches=["@bbb//:aaa.patch"])',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '}',
+            'source $(rlocation aaa/aaa.sh)',
+            'hello_aaa "main function"',
         ],
+        executable=True
     )
     exit_code, _, stderr = self.RunBazel(['run', '//:main'], allow_failure=True)
     self.AssertNotExitCode(exit_code, 0, stderr)
@@ -324,19 +317,20 @@ class BazelModuleTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo_a_name")',
             # bbb should still be able to access aaa as com_foo_aaa
             'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "rules_shell", version = "0.6.0")',
         ])
-    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@my_repo_a_name//:lib_aaa",',
             '    "@bbb//:lib_bbb",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
@@ -352,7 +346,7 @@ class BazelModuleTest(test_base.TestBase):
         'bazel_dep(name = "bbb", version = "1.0")',
         'bazel_dep(name = "ccc", version = "1.1")',
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     _, stdout, stderr = self.RunBazel(
         ['run', '//:main', '--check_direct_dependencies=warning']
     )
@@ -470,36 +464,35 @@ class BazelModuleTest(test_base.TestBase):
     )
 
   def setUpProjectWithLocalRegistryModule(self, dep_name, dep_version):
-    self.main_registry.generateCcSource(dep_name, dep_version)
+    self.main_registry.generateShSource(dep_name, dep_version)
     self.main_registry.createLocalPathModule(dep_name, dep_version,
                                              dep_name + '/' + dep_version)
-    self.writeCcProjectFiles(dep_name, dep_version)
+    self.writeShProjectFiles(dep_name, dep_version)
 
-  def writeCcProjectFiles(self, dep_name, dep_version):
-    self.ScratchFile('main.cc', [
-        '#include "%s.h"' % dep_name,
-        'int main() {',
-        '    hello_%s("main function");' % dep_name,
-        '}',
-    ])
+  def writeShProjectFiles(self, dep_name, dep_version):
+    self.ScratchFile('main.sh', [
+        'source $(rlocation %s/%s.sh)' % (dep_name, dep_name),
+        'hello_%s "main function"' % dep_name,
+    ], executable=True)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "%s", version = "%s")' % (dep_name, dep_version),
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@%s//:lib_%s"],' % (dep_name, dep_name),
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
 
   def setUpProjectWithGitRegistryModule(self, dep_name, dep_version):
-    src_dir = self.main_registry.generateCcSource(dep_name, dep_version)
+    src_dir = self.main_registry.generateShSource(dep_name, dep_version)
 
     # Move the src_dir to a temp dir and make that temp dir a git repo.
     repo_dir = os.path.join(self.registries_work_dir, 'git_repo', dep_name)
@@ -531,7 +524,7 @@ class BazelModuleTest(test_base.TestBase):
         verbose=True,
         shallow_since='2000-01-02',
     )
-    self.writeCcProjectFiles(dep_name, dep_version)
+    self.writeShProjectFiles(dep_name, dep_version)
 
   def testLocalRepoInSourceJsonAbsoluteBasePath(self):
     self.main_registry.setModuleBasePath(str(self.main_registry.projects))
@@ -605,7 +598,7 @@ class BazelModuleTest(test_base.TestBase):
 
   def testArchiveWithArchiveType(self):
     # make the archive without the .zip extension
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'aaa', '1.2', archive_pattern='%s.%s', archive_type='zip'
     )
 
@@ -615,26 +608,25 @@ class BazelModuleTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.2")',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '}',
-        ],
+            'source $(rlocation aaa/aaa.sh)',
+            'hello_aaa "main function"',
+        ],executable=True
     )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.2', stdout)
@@ -769,7 +761,7 @@ class BazelModuleTest(test_base.TestBase):
   def testLocationRegistry(self):
     """Tests that the reported location of the MODULE.bazel file of a module from a registry is as expected."""
     self.ScratchFile('MODULE.bazel', ['bazel_dep(name="hello",version="1.0")'])
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'hello', '1.0', extra_module_file_contents=['wat']
     )
     _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
@@ -859,7 +851,7 @@ class BazelModuleTest(test_base.TestBase):
             'include("//java:java.MODULE.bazel")',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile('java/BUILD')
     self.ScratchFile(
         'java/java.MODULE.bazel',
@@ -870,22 +862,21 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@lol//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '}',
-        ],
+            'source $(rlocation aaa+/aaa.sh)',
+            'hello_aaa "main function"',
+        ],executable=True
     )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
@@ -1027,7 +1018,7 @@ class BazelModuleTest(test_base.TestBase):
             ')',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.RunBazel(['build', '@module//:choose_me'])
 
   def testUnicodeTags(self):

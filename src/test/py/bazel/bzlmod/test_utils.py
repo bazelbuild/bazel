@@ -130,7 +130,7 @@ class BazelRegistry:
     """Return the local file:// URL of this registry."""
     return self.root.as_uri()
 
-  def generateCcSource(
+  def generateShSource(
       self,
       name,
       version,
@@ -138,9 +138,9 @@ class BazelRegistry:
       repo_names=None,
       extra_module_file_contents=None,
   ):
-    """Generate a cc project with given dependency information.
+    """Generate a sh project with given dependency information.
 
-    1. The cc projects implements a hello_<lib_name> function.
+    1. The sh library implements a hello_<lib_name> function.
     2. The hello_<lib_name> function calls the same function of its
     dependencies.
     3. The hello_<lib_name> function prints "<caller name> =>
@@ -194,32 +194,39 @@ class BazelRegistry:
     )
 
     scratchFile(
-        src_dir.joinpath(name.lower() + '.h'), [
-            '#ifndef %s_H' % name.upper(),
-            '#define %s_H' % name.upper(),
-            '#include <string>',
-            'void hello_%s(const std::string& caller);' % name.lower(),
-            '#endif',
-        ])
-    scratchFile(
-        src_dir.joinpath(name.lower() + '.cc'), [
-            '#include <stdio.h>',
-            '#include "%s.h"' % name.lower(),
-        ] + ['#include "%s.h"' % dep.lower() for dep in deps] + [
-            'void hello_%s(const std::string& caller) {' % name.lower(),
-            '    std::string lib_name = "%s@%s%s";' %
-            (name, version, self.registry_suffix),
-            '    printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
-        ] + ['    hello_%s(lib_name);' % dep.lower() for dep in deps] + [
+        src_dir.joinpath(name.lower() + '.sh'), [
+             'source $(rlocation %s+/%s.sh)' % (dep.lower(), dep.lower()) for dep in deps] + [
+             'function hello_%s {' % name.lower(),
+             '    caller_name="${1}"',
+             '    lib_name="%s@%s%s"' % (name, version, self.registry_suffix),
+             '    echo "${caller_name} => ${lib_name}"'] + [
+             '    hello_%s ${lib_name}' % dep.lower() for dep in deps] + [
             '}',
         ])
     scratchFile(
+        src_dir.joinpath('sh_library.bzl'), [
+            'def _impl(ctx):',
+            '  f = ctx.actions.declare_file(ctx.label.name + ".dummy")',
+            '  ctx.actions.write(f, "dummy out")', # dummy action for aquery
+            '  files = depset(',
+            '     ctx.files.srcs,',
+            '     transitive = [d[DefaultInfo].files for d in ctx.attr.deps]',
+            '  )',
+            '  runfiles = ctx.runfiles(transitive_files = files)',
+            '  return DefaultInfo(files = files, runfiles = runfiles)',
+            'sh_library = rule(_impl, attrs = {',
+            '  "srcs": attr.label_list(allow_files = True),'
+            '  "deps": attr.label_list(allow_rules = ["sh_library"]),'
+            '})'
+        ]
+    )
+    scratchFile(
         src_dir.joinpath('BUILD'), [
+            'load(":sh_library.bzl", "sh_library")',
             'package(default_visibility = ["//visibility:public"])',
-            'cc_library(',
+            'sh_library(',
             '  name = "lib_%s",' % name.lower(),
-            '  srcs = ["%s.cc"],' % name.lower(),
-            '  hdrs = ["%s.h"],' % name.lower(),
+            '  srcs = ["%s.sh"],' % name.lower(),
         ] + ([
             '  deps = ["%s"],' % ('", "'.join([
                 '@%s//:lib_%s' % (repo_names[dep], dep.lower()) for dep in deps
@@ -291,7 +298,7 @@ class BazelRegistry:
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)
 
-  def createCcModule(
+  def createShModule(
       self,
       name,
       version,
@@ -305,7 +312,7 @@ class BazelRegistry:
       extra_module_file_contents=None,
   ):
     """Generate a cc project and add it as a module into the registry."""
-    src_dir = self.generateCcSource(
+    src_dir = self.generateShSource(
         name, version, deps, repo_names, extra_module_file_contents
     )
     if archive_pattern:

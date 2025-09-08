@@ -242,7 +242,7 @@ class BazelWindowsTest(test_base.TestBase):
         [
             'bazel_dep(name = "rules_java", version = "8.12.0")',
             'bazel_dep(name = "rules_python", version = "0.40.0")',
-            'bazel_dep(name = "rules_shell", version = "0.3.0")',
+            'bazel_dep(name = "rules_shell", version = "0.6.0")',
         ],
     )
     self.ScratchFile(
@@ -418,7 +418,7 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testRunWithScriptPath(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         'BUILD',
@@ -472,7 +472,7 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testZipUndeclaredTestOutputs(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         'BUILD',
@@ -524,7 +524,7 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testBazelForwardsRequiredEnvVariable(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         'BUILD',
@@ -561,7 +561,7 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testTestShardStatusFile(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         'BUILD',
@@ -599,7 +599,7 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testTestPrematureExitFile(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         'BUILD',

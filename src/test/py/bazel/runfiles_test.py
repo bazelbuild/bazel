@@ -307,7 +307,7 @@ class RunfilesTest(test_base.TestBase):
 
   def setUpRunfilesDirectoryIncrementalityTest(self):
     self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         "BUILD",
@@ -432,7 +432,7 @@ class RunfilesTest(test_base.TestBase):
 
   def testTestsRunWithNoBuildRunfileLinksAndNoEnableRunfiles(self):
     self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         "BUILD",
@@ -453,7 +453,7 @@ class RunfilesTest(test_base.TestBase):
   def testWrappedShBinary(self):
     self.writeWrapperRule()
     self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+        "MODULE.bazel", ['bazel_dep(name = "rules_shell", version = "0.6.0")']
     )
     self.ScratchFile(
         "BUILD",

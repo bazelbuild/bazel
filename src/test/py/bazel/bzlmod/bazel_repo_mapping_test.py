@@ -31,11 +31,11 @@ class BazelRepoMappingTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'main')
     )
     self.main_registry.start()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
-    ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
+    ).createShModule('bbb', '1.0', {'aaa': '1.0'}).createShModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
     )
     self.ScratchFile(

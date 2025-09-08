@@ -83,9 +83,9 @@ class BazelVendorTest(test_base.TestBase):
 
   def testBasicVendoring(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
-    ).createCcModule('bbb', '2.0')
+    ).createShModule('bbb', '2.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -144,7 +144,7 @@ class BazelVendorTest(test_base.TestBase):
 
   def testVendorAfterFetch(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0')
+    self.main_registry.createShModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -162,7 +162,7 @@ class BazelVendorTest(test_base.TestBase):
 
   def testVendoringMultipleTimes(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0')
+    self.main_registry.createShModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -186,9 +186,9 @@ class BazelVendorTest(test_base.TestBase):
 
   def testVendorRepo(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
-    ).createCcModule('ccc', '1.0')
+    ).createShModule('ccc', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -209,7 +209,7 @@ class BazelVendorTest(test_base.TestBase):
 
   def testVendorExistingRepo(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0')
+    self.main_registry.createShModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -263,7 +263,7 @@ class BazelVendorTest(test_base.TestBase):
     self.useMockBuiltinModules()
     # Repos should be excluded from vendoring:
     # 1.Local Repos, 2.Config Repos, 3.Repos declared in VENDOR.bazel file
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     self.ScratchFile(
@@ -556,9 +556,9 @@ class BazelVendorTest(test_base.TestBase):
     )
 
   def testBasicVendorTarget(self):
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0'
-    ).createCcModule('ccc', '1.0')
+    ).createShModule('ccc', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -592,9 +592,9 @@ class BazelVendorTest(test_base.TestBase):
     self.assertNotIn('ccc+', os.listdir(self._test_cwd + '/vendor'))
 
   def testVendorWithTargetPatternFile(self):
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0'
-    ).createCcModule('ccc', '1.0')
+    ).createShModule('ccc', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -623,21 +623,21 @@ class BazelVendorTest(test_base.TestBase):
     self.assertNotIn('ccc+', os.listdir(self._test_cwd + '/vendor'))
 
   def testVendorDirIsIgnored(self):
-    self.main_registry.createCcModule('aaa', '1.0')
+    self.main_registry.createShModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
             'bazel_dep(name = "aaa", version = "1.0")',
-            'bazel_dep(name = "rules_cc", version = "0.2.4")',
         ],
     )
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@aaa//:lib_aaa",',
             '  ],',
@@ -645,13 +645,11 @@ class BazelVendorTest(test_base.TestBase):
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("Hello there!");',
-            '}',
+            'hello_aaa "Hello there!"',
         ],
+        executable=True,
     )
 
     self.RunBazel([
@@ -670,37 +668,37 @@ class BazelVendorTest(test_base.TestBase):
     ])
 
   def testBuildVendoredTargetOffline(self):
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     self.ScratchFile(
         'MODULE.bazel',
         [
             'bazel_dep(name = "bbb", version = "1.0")',
-            'bazel_dep(name = "rules_cc", version = "0.2.4")',
         ],
     )
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@bbb//:lib_bbb",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "bbb.h"',
-            'int main() {',
-            '    hello_bbb("Hello there!");',
-            '}',
+            'source $(rlocation bbb/bbb.sh)',
+            'hello_bbb "Hello there!"',
         ],
+        executable=True,
     )
 
     self.RunBazel(['vendor', '//:main', '--vendor_dir=vendor'])
@@ -726,7 +724,7 @@ class BazelVendorTest(test_base.TestBase):
 
   def testVendorConflictRegistryFile(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     # The registry URLs of main_registry and another_registry only differ by the
@@ -735,7 +733,7 @@ class BazelVendorTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'MAIN'),
     )
     another_registry.start()
-    another_registry.createCcModule('aaa', '1.0')
+    another_registry.createShModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
