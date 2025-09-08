@@ -2835,20 +2835,29 @@ class BazelLockfileTest(test_base.TestBase):
         [
             'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-            'repo_rule = repository_rule(implementation = impl)',
-            'def _fetch_repo_names(_ctx):',
-            '    # Fake function to simulate fetching repo names from the internet',
-            '    print("Fetching repo names...")',
-            '    return ["hello", "world"]',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _fetch_metadata(ctx, resource_name):',
+            '    # Fake function to simulate fetching metadata from the internet',
+            '    if resource_name in ctx.facts:',
+            '        return ctx.facts[resource_name]',
+            '    print("Fetching metadata for {}...".format(resource_name))',
+            '    return {"hash": resource_name[::-1]}',
             'def _mod_ext_impl(ctx):',
             '    print("Hello from the other side!")',
-            '    repos = ctx.facts or _fetch_repo_names(ctx)',
-            '    for repo in repos:',
-            '        repo_rule(name = repo)',
-            '    print("Repositories: [" + ", ".join(repos) + "]")',
+            '    metadata = {}',
+            '    for repo in ["hello", "world"]:',
+            '        metadata[repo] = _fetch_metadata(ctx, repo)',
+            '        print("{}: hash={}".format(repo, metadata[repo]["hash"]))',
+            '        repo_rule(',
+            '            name = repo,',
+            '            hash = metadata[repo]["hash"],',
+            '        )',
             '    return ctx.extension_metadata(',
             '        reproducible = True,',
-            '        facts = repos,',
+            '        facts = metadata,',
             '    )',
             'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
         ],
@@ -2856,8 +2865,10 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     stderr = ''.join(stderr)
     self.assertIn('Hello from the other side!', stderr)
-    self.assertIn('Fetching repo names...', stderr)
-    self.assertIn('Repositories: [hello, world]', stderr)
+    self.assertIn('Fetching metadata for hello...', stderr)
+    self.assertIn('hello: hash=olleh', stderr)
+    self.assertIn('Fetching metadata for world...', stderr)
+    self.assertIn('world: hash=dlrow', stderr)
 
     # Clean out the hidden lockfile to ensure that the extension is
     # evaluated again and verify that the reevaluation reuses the facts.
@@ -2866,8 +2877,10 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'])
     stderr = ''.join(stderr)
     self.assertIn('Hello from the other side!', stderr)
-    self.assertNotIn('Fetching repo names...', stderr)
-    self.assertIn('Repositories: [hello, world]', stderr)
+    self.assertNotIn('Fetching metadata for hello...', stderr)
+    self.assertIn('hello: hash=olleh', stderr)
+    self.assertNotIn('Fetching metadata for world...', stderr)
+    self.assertIn('world: hash=dlrow', stderr)
 
     # Update extension in a way that does *not* change the facts.
     with open(self.Path('extension.bzl'), 'r') as f:
@@ -2880,15 +2893,17 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'])
     stderr = ''.join(stderr)
     self.assertIn('Hello from this side!', stderr)
-    self.assertNotIn('Fetching repo names...', stderr)
-    self.assertIn('Repositories: [hello, world]', stderr)
+    self.assertNotIn('Fetching metadata for hello...', stderr)
+    self.assertIn('hello: hash=olleh', stderr)
+    self.assertNotIn('Fetching metadata for world...', stderr)
+    self.assertIn('world: hash=dlrow', stderr)
 
     # Update extension in a way that *does* change the facts.
     with open(self.Path('extension.bzl'), 'r') as f:
         lines = [
             (
-                l.replace('return ["hello", "world"]', 'return ["hello", "world", "baz"]')
-                 .replace('repos = ctx.facts or _fetch_repo_names(ctx)', 'repos = _fetch_repo_names(ctx)')
+                l.replace('resource_name[::-1]', 'resource_name[::-2]')
+                 .replace('if resource_name in ctx.facts:', 'if False:')
             )
             for l in f.readlines()
         ]
@@ -2898,9 +2913,12 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr, stdout)
     stderr = ''.join(stderr)
     self.assertIn('Hello from this side!', stderr)
-    self.assertIn('Fetching repo names...', stderr)
+    self.assertIn('Fetching metadata for hello...', stderr)
+    self.assertIn('hello: hash=olh', stderr)
+    self.assertIn('Fetching metadata for world...', stderr)
+    self.assertIn('world: hash=drw', stderr)
     self.assertIn(
-        'ERROR: MODULE.bazel.lock is no longer up-to-date because: The extension \'@@//:extension.bzl%lockfile_ext\' has changed its facts: ["hello", "world", "baz"] != ["hello", "world"]. Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.',
+        'ERROR: MODULE.bazel.lock is no longer up-to-date because: The extension \'@@//:extension.bzl%lockfile_ext\' has changed its facts: {"hello": {"hash": "olh"}, "world": {"hash": "drw"}} != {"hello": {"hash": "olleh"}, "world": {"hash": "dlrow"}}',
         stderr)
 
   def testFactsInNonReproducibleExtension(self):
@@ -2915,53 +2933,66 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def impl(ctx):',
-            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-            'repo_rule = repository_rule(implementation = impl)',
-            'def _fetch_repo_names(_ctx):',
-            '    # Fake function to simulate fetching repo names from the internet',
-            '    print("Fetching repo names...")',
-            '    return ["hello", "world"]',
-            'def _mod_ext_impl(ctx):',
-            '    print("Hello from the other side!")',
-            '    repos = ctx.facts or _fetch_repo_names(ctx)',
-            '    for repo in repos:',
-            '        repo_rule(name = repo)',
-            '    print("Repositories: [" + ", ".join(repos) + "]")',
-            '    return ctx.extension_metadata(',
-            '        reproducible = False,',
-            '        facts = repos,',
-            '    )',
-            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+          'def impl(ctx):',
+          '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+          'repo_rule = repository_rule(',
+          '    implementation = impl,',
+          '    attrs = {"hash": attr.string()},',
+          ')',
+          'def _fetch_metadata(ctx, resource_name):',
+          '    # Fake function to simulate fetching metadata from the internet',
+          '    if resource_name in ctx.facts:',
+          '        return ctx.facts[resource_name]',
+          '    print("Fetching metadata for {}...".format(resource_name))',
+          '    return {"hash": resource_name[::-1]}',
+          'def _mod_ext_impl(ctx):',
+          '    print("Hello from the other side!")',
+          '    metadata = {}',
+          '    for repo in ["hello", "world"]:',
+          '        metadata[repo] = _fetch_metadata(ctx, repo)',
+          '        print("{}: hash={}".format(repo, metadata[repo]["hash"]))',
+          '        repo_rule(',
+          '            name = repo,',
+          '            hash = metadata[repo]["hash"],',
+          '        )',
+          '    return ctx.extension_metadata(',
+          '        reproducible = False,',
+          '        facts = metadata,',
+          '    )',
+          'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
         ],
     )
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     stderr = ''.join(stderr)
     self.assertIn('Hello from the other side!', stderr)
-    self.assertIn('Fetching repo names...', stderr)
-    self.assertIn('Repositories: [hello, world]', stderr)
+    self.assertIn('Fetching metadata for hello...', stderr)
+    self.assertIn('hello: hash=olleh', stderr)
+    self.assertIn('Fetching metadata for world...', stderr)
+    self.assertIn('world: hash=dlrow', stderr)
 
     # Update extension in a way that does *not* change the facts and simulate
     # non-reproducibility by changing the fake remote information.
     with open(self.Path('extension.bzl'), 'r') as f:
-        lines = [
-            l.replace('Hello from the other side!', 'Hello from this side!')
-             .replace('return ["hello", "world"]', 'return ["hello", "world", "baz"]')
-            for l in f.readlines()
-        ]
+      lines = [
+          l.replace('Hello from the other side!', 'Hello from this side!')
+           .replace('resource_name[::-1]', 'resource_name[::-2]')
+          for l in f.readlines()
+      ]
     self.ScratchFile('extension.bzl', lines)
 
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     stderr = ''.join(stderr)
     self.assertIn('Hello from this side!', stderr)
-    self.assertNotIn('Fetching repo names...', stderr)
-    self.assertIn('Repositories: [hello, world]', stderr)
+    self.assertNotIn('Fetching metadata for hello...', stderr)
+    self.assertIn('hello: hash=olleh', stderr)
+    self.assertNotIn('Fetching metadata for world...', stderr)
+    self.assertIn('world: hash=dlrow', stderr)
 
     # Update extension in a way that *does* change the facts.
     with open(self.Path('extension.bzl'), 'r') as f:
         lines = [
             (
-                l.replace('repos = ctx.facts or _fetch_repo_names(ctx)', 'repos = _fetch_repo_names(ctx)')
+                l.replace('if resource_name in ctx.facts:', 'if False:')
             )
             for l in f.readlines()
         ]
@@ -2970,8 +3001,10 @@ class BazelLockfileTest(test_base.TestBase):
     exit_code, stdout, stderr = self.RunBazel(['build', '@hello//:all'])
     stderr = ''.join(stderr)
     self.assertIn('Hello from this side!', stderr)
-    self.assertIn('Fetching repo names...', stderr)
-    self.assertIn('Repositories: [hello, world, baz]', stderr)
+    self.assertIn('Fetching metadata for hello...', stderr)
+    self.assertIn('hello: hash=olh', stderr)
+    self.assertIn('Fetching metadata for world...', stderr)
+    self.assertIn('world: hash=drw', stderr)
 
 
 if __name__ == '__main__':
