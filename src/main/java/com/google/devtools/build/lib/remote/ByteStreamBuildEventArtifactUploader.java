@@ -178,8 +178,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
         || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
-                || file.type == LocalFileType.FAILED_TEST_OUTPUT
-                || file.type == LocalFileType.OUTPUT)
+                || file.type == LocalFileType.FAILED_TEST_OUTPUT)
             && path.isDirectory())) {
       return new PathMetadata(
           path,

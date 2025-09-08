@@ -86,7 +86,7 @@ class NamedArtifactGroup implements BuildEvent {
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().convertPath(expandedArtifact.target),
-                LocalFileType.OUTPUT,
+                LocalFileType.forArtifact(expandedArtifact.artifact, expandedArtifact.metadata),
                 expandedArtifact.metadata));
       }
     }

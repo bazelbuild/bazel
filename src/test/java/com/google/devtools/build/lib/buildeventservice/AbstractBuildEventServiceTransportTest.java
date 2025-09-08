@@ -604,7 +604,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     BuildEvent withFiles =
         new BuildEventWithFiles(
             ImmutableList.of(
-                new LocalFile(file1, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
+                new LocalFile(file1, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null),
                 new LocalFile(file2, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)));
 
     BuildEventArtifactUploader uploader =
@@ -643,15 +643,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
             eq(
                 ImmutableMap.of(
                     file1,
-                    new LocalFile(
-                        file1,
-                        LocalFileType.OUTPUT,
-                        /*artifactMetadata=*/ null),
+                    new LocalFile(file1, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null),
                     file2,
                     new LocalFile(
-                        file2,
-                        LocalFileType.OUTPUT_FILE,
-                        /*artifactMetadata=*/ null))));
+                        file2, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null))));
 
     List<PublishBuildToolEventStreamRequest> events =
         fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT));
@@ -683,8 +678,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     BuildEvent withFiles =
         new BuildEventWithFiles(
             ImmutableList.of(
-                new LocalFile(file1, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
-                new LocalFile(file1, LocalFileType.OUTPUT, /* artifactMetadata= */ null)));
+                new LocalFile(file1, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null),
+                new LocalFile(file1, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)));
 
     BuildEventArtifactUploader uploader =
         new BuildEventArtifactUploaderWithRefCounting() {
@@ -712,9 +707,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 ImmutableMap.of(
                     file1,
                     new LocalFile(
-                        file1,
-                        LocalFileType.OUTPUT,
-                        /*artifactMetadata=*/ null))));
+                        file1, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null))));
   }
 
   /** Regression test for b/111389420. */

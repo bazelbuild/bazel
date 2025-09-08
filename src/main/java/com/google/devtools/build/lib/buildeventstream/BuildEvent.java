@@ -49,7 +49,6 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
      * associated files for.
      */
     public enum LocalFileType {
-      OUTPUT, /* of uncertain file type */
       OUTPUT_FILE,
       OUTPUT_DIRECTORY,
       OUTPUT_SYMLINK,
@@ -64,10 +63,7 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
 
       /** Returns whether the LocalFile is a declared action output. */
       public boolean isOutput() {
-        return this == OUTPUT
-            || this == OUTPUT_FILE
-            || this == OUTPUT_DIRECTORY
-            || this == OUTPUT_SYMLINK;
+        return this == OUTPUT_FILE || this == OUTPUT_DIRECTORY || this == OUTPUT_SYMLINK;
       }
 
       /**
