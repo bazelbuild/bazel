@@ -20,24 +20,13 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProv
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import java.util.regex.Pattern;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Common parts of the implementation of cc rules. */
-public final class CcCommon implements StarlarkValue {
-
-  /** Name of the build variable for the sysroot path variable name. */
-  public static final String SYSROOT_VARIABLE_NAME = "sysroot";
-
-
-  /** Name of the build variable for the minimum_os_version being targeted. */
-  public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
-
+public final class CcCommon {
   public static final String PIC_CONFIGURATION_ERROR =
       "PIC compilation is requested but the toolchain does not support it "
           + "(feature named 'supports_pic' is not enabled)";
@@ -153,11 +142,6 @@ public final class CcCommon implements StarlarkValue {
       printer.append(Boolean.toString(allPasses));
       printer.append(")");
     }
-  }
-
-  @StarlarkMethod(name = "loose_include_dirs", structField = true, documented = false)
-  public Sequence<String> getLooseIncludeDirsForStarlark() {
-    return StarlarkList.empty();
   }
 
   public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {

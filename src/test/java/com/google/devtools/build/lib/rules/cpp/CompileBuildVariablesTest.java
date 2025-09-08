@@ -37,6 +37,11 @@ import org.junit.runners.JUnit4;
 /** Tests that {@code CppCompileAction} is populated with the correct build variables. */
 @RunWith(JUnit4.class)
 public class CompileBuildVariablesTest extends BuildViewTestCase {
+  /** Name of the build variable for the sysroot path variable name. */
+  public static final String SYSROOT_VARIABLE_NAME = "sysroot";
+
+  /** Name of the build variable for the minimum_os_version being targeted. */
+  public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
 
   private CppCompileAction getCppCompileAction(ConfiguredTarget target, final String name)
       throws Exception {
@@ -217,7 +222,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
+    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("/usr/local/custom-sysroot");
   }
 
@@ -238,7 +243,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
+    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("target_libc");
   }
 
@@ -263,7 +268,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
+    assertThat(variables.getStringVariable(SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("target_libc");
   }
 
@@ -406,8 +411,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-    assertThat(
-            variables.getStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME, PathMapper.NOOP))
+    assertThat(variables.getStringVariable(MINIMUM_OS_VERSION_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("6");
   }
 

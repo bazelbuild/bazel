@@ -601,7 +601,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     CcToolchainVariables testVariables =
         getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
 
-    assertThat(testVariables.isAvailable(CcCommon.SYSROOT_VARIABLE_NAME)).isTrue();
+    assertThat(testVariables.isAvailable(SYSROOT_VARIABLE_NAME)).isTrue();
   }
 
   private Action getPredecessorByInputName(Action action, String str) {

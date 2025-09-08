@@ -322,7 +322,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
   public void testSplitAlwaysLinkLinkCommand() throws Exception {
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder()
-            .addVariable(CcCommon.SYSROOT_VARIABLE_NAME, "/usr/grte/v1")
+            .addVariable(SYSROOT_VARIABLE_NAME, "/usr/grte/v1")
             .addVariable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
             .addVariable(LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
             .addVariable(

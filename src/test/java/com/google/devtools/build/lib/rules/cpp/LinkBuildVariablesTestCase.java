@@ -33,6 +33,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Common test code to test that C++ linking action is populated with the correct build variables.
  */
 public class LinkBuildVariablesTestCase extends BuildViewTestCase {
+  /** Name of the build variable for the sysroot path variable name. */
+  public static final String SYSROOT_VARIABLE_NAME = "sysroot";
 
   private final AtomicInteger counter = new AtomicInteger(0);
 
