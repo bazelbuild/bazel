@@ -15,9 +15,10 @@
 All build variables we create for various `CppCompileAction`s
 """
 
-load(":common/cc/cc_helper_internal.bzl", "extensions")
+load(":common/cc/cc_helper_internal.bzl", "extensions", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
 
 _cc_internal = _builtins.internal.cc_internal
+cc_common_internal = _builtins.internal.cc_common
 
 # deliberately short name for less clutter while using in this file, we can have
 # a different symbol with a more descriptive name if we ever export this
@@ -78,6 +79,105 @@ _VARS = struct(
     # Variable for includes that compiler needs to include into sources.
     INCLUDES = "includes",
 )
+
+_UnboundValueProviderDoNotUse = provider("This provider is used as an unique symbol to distinguish between bound and unbound Starlark values, to avoid using kwargs.", fields = [])
+_UNBOUND = _UnboundValueProviderDoNotUse()
+
+# IMPORTANT: This function is public API exposed on cc_common module!
+def create_compile_variables(
+        *,
+        cc_toolchain,
+        feature_configuration,
+        source_file = None,
+        output_file = None,
+        user_compile_flags = None,
+        include_directories = None,
+        quote_include_directories = None,
+        system_include_directories = None,
+        framework_include_directories = None,
+        preprocessor_defines = None,
+        thinlto_index = None,
+        thinlto_input_bitcode_file = None,
+        thinlto_output_object_file = None,
+        use_pic = False,
+        # TODO(b/65151735): Remove once we migrate crosstools to features
+        add_legacy_cxx_options = False,  # unused
+        variables_extension = {},
+        strip_opts = _UNBOUND,
+        input_file = _UNBOUND):
+    """Returns variables used for compilation actions.
+
+    Args:
+        cc_toolchain: cc_toolchain for which we are creating build variables.
+        feature_configuration: Feature configuration to be queried.
+        source_file: Optional source file path for the compilation. Please prefer passing source_file
+            here over appending it to the end of the command line generated from
+            cc_common.get_memory_inefficient_command_line, as then it's in the power of
+            the toolchain author to properly specify and position compiler flags.
+        output_file: Optional output file path of the compilation. Please prefer passing output_file
+            here over appending it to the end of the command line generated from
+            cc_common.get_memory_inefficient_command_line, as then it's in the power of
+            the toolchain author to properly specify and position compiler flags.
+        user_compile_flags: List of additional compilation flags (copts).
+        include_directories: Depset of include directories.
+        quote_include_directories: Depset of quote include directories.
+        system_include_directories: Depset of system include directories.
+        framework_include_directories: Depset of framework include directories.
+        preprocessor_defines: Depset of preprocessor defines.
+        thinlto_index: LTO index file path.
+        thinlto_input_bitcode_file: Bitcode file that is input to LTO backend.
+        thinlto_output_object_file: Object file that is output by LTO backend.
+        use_pic: When true the compilation will generate position independent code.
+        add_legacy_cxx_options: Unused.
+        variables_extension: A dictionary of additional variables used by compile actions.
+        strip_opts: (Private API)
+        input_file: (Private API)
+
+    Returns:
+      (CcToolchainVariables) common compile build variables
+    """
+    if strip_opts != _UNBOUND or input_file != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    if strip_opts == _UNBOUND:
+        strip_opts = []
+    if input_file == _UNBOUND:
+        input_file = None
+    if (use_pic and not feature_configuration.is_enabled("pic") and not feature_configuration.is_enabled("supports_pic")):
+        fail("PIC compilation is requested but the toolchain does not support it " +
+             "(feature named 'supports_pic' is not enabled)")
+
+    cpp_configuration = cc_toolchain._cpp_configuration
+    fdo_context = cc_toolchain._fdo_context
+
+    common_vars = _setup_common_compile_build_variables_internal(
+        feature_configuration = feature_configuration,
+        is_using_memprof = getattr(fdo_context, "memprof_profile_artifact", None) != None,
+        fdo_build_stamp = _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration),
+        variables_extension = variables_extension,
+        include_dirs = include_directories or depset(),
+        quote_include_dirs = quote_include_directories or depset(),
+        system_include_dirs = system_include_directories or depset(),
+        framework_include_dirs = framework_include_directories or depset(),
+        defines = preprocessor_defines or depset(),
+    )
+
+    additional_build_variables = {}
+    additional_build_variables["stripopts"] = strip_opts
+    if input_file:
+        additional_build_variables["input_file"] = input_file
+
+    variables = get_specific_compile_build_variables(
+        feature_configuration,
+        use_pic = use_pic,
+        source_file = source_file,
+        output_file = output_file,
+        thinlto_index = thinlto_index,
+        thinlto_bitcode_file = thinlto_input_bitcode_file,
+        thinlto_output_object_file = thinlto_output_object_file,
+        additional_build_variables = additional_build_variables,
+        user_compile_flags = user_compile_flags or [],
+    )
+    return _cc_internal.combine_cc_toolchain_variables(cc_toolchain._build_variables, common_vars, variables)
 
 # buildifier: disable=function-docstring
 def setup_common_compile_build_variables(

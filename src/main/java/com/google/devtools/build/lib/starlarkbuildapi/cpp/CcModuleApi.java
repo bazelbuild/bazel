@@ -969,7 +969,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_compile_variables",
       doc = "Returns variables used for compilation actions.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "cc_toolchain",
@@ -1143,7 +1142,7 @@ public interface CcModuleApi<
               @ParamType(type = NoneType.class),
             }),
       })
-  CcToolchainVariablesT getCompileBuildVariables(
+  default CcToolchainVariablesT getCompileBuildVariables(
       Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object sourceFile,
@@ -1161,9 +1160,9 @@ public interface CcModuleApi<
       boolean addLegacyCxxOptions,
       Object variablesExtension,
       Object stripOpts,
-      Object inputFile,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object inputFile) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_link_variables",

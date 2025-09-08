@@ -22,6 +22,7 @@ load(":common/cc/cc_info.bzl", "CcNativeLibraryInfo", "create_debug_context", "c
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
+load(":common/cc/compile/compile_build_variables.bzl", "create_compile_variables")
 load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "create_extra_link_time_library")
 load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
 load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
@@ -208,62 +209,6 @@ def _get_memory_inefficient_command_line(*, feature_configuration, action_name, 
 
 def _get_environment_variables(*, feature_configuration, action_name, variables):
     return cc_common_internal.get_environment_variables(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
-
-def _get_path_str(file, allow_none = True):
-    if type(file) == "File":
-        return file.path
-    elif type(file) == "string":
-        return file
-    elif allow_none and type(file) == "NoneType":
-        return file
-    fail("expected File or string, got:", type(file))
-
-def _create_compile_variables(
-        *,
-        cc_toolchain,
-        feature_configuration,
-        source_file = None,
-        output_file = None,
-        user_compile_flags = None,
-        include_directories = None,
-        quote_include_directories = None,
-        system_include_directories = None,
-        framework_include_directories = None,
-        preprocessor_defines = None,
-        thinlto_index = None,
-        thinlto_input_bitcode_file = None,
-        thinlto_output_object_file = None,
-        use_pic = False,
-        add_legacy_cxx_options = False,
-        variables_extension = {},
-        strip_opts = _UNBOUND,
-        input_file = _UNBOUND):
-    if strip_opts != _UNBOUND or input_file != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if strip_opts == _UNBOUND:
-        strip_opts = []
-    if input_file == _UNBOUND:
-        input_file = None
-    return cc_common_internal.create_compile_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        source_file = _get_path_str(source_file),
-        output_file = _get_path_str(output_file),
-        user_compile_flags = user_compile_flags,
-        include_directories = include_directories,
-        quote_include_directories = quote_include_directories,
-        system_include_directories = system_include_directories,
-        framework_include_directories = framework_include_directories,
-        preprocessor_defines = preprocessor_defines,
-        thinlto_index = thinlto_index,
-        thinlto_input_bitcode_file = thinlto_input_bitcode_file,
-        thinlto_output_object_file = thinlto_output_object_file,
-        use_pic = use_pic,
-        add_legacy_cxx_options = add_legacy_cxx_options,
-        variables_extension = variables_extension,
-        strip_opts = strip_opts,
-        input_file = _get_path_str(input_file),
-    )
 
 def _empty_variables():
     return cc_common_internal.empty_variables()
@@ -826,7 +771,7 @@ cc_common = struct(
     action_is_enabled = _action_is_enabled,
     get_memory_inefficient_command_line = _get_memory_inefficient_command_line,
     get_environment_variables = _get_environment_variables,
-    create_compile_variables = _create_compile_variables,
+    create_compile_variables = create_compile_variables,
     create_link_variables = create_link_variables,
     empty_variables = _empty_variables,
     create_library_to_link = _create_library_to_link,

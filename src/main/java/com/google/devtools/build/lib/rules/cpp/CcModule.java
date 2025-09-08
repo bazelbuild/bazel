@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
@@ -23,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -60,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -251,77 +247,6 @@ public abstract class CcModule
   }
 
   @Override
-  public CcToolchainVariables getCompileBuildVariables(
-      Info ccToolchainInfo,
-      FeatureConfigurationForStarlark featureConfiguration,
-      Object sourceFile,
-      Object outputFile,
-      Object userCompileFlags,
-      Object includeDirs,
-      Object quoteIncludeDirs,
-      Object systemIncludeDirs,
-      Object frameworkIncludeDirs,
-      Object defines,
-      Object thinLtoIndex,
-      Object thinLtoInputBitcodeFile,
-      Object thinLtoOutputObjectFile,
-      boolean usePic,
-      boolean addLegacyCxxOptions,
-      Object variablesExtension,
-      Object stripOpts,
-      Object inputFile,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    isCalledFromStarlarkCcCommon(thread);
-    ImmutableList<VariablesExtension> variablesExtensions =
-        asDict(variablesExtension).isEmpty()
-            ? ImmutableList.of()
-            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
-    CcToolchainProvider ccToolchainProvider =
-        CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
-    CcToolchainVariables.Builder variables =
-        CcToolchainVariables.builder(
-                CompileBuildVariables.setupVariablesOrThrowEvalException(
-                    featureConfiguration.getFeatureConfiguration(),
-                    ccToolchainProvider,
-                    convertFromNoneable(sourceFile, /* defaultValue= */ null),
-                    convertFromNoneable(outputFile, /* defaultValue= */ null),
-                    /* isCodeCoverageEnabled= */ false,
-                    /* gcnoFile= */ null,
-                    /* isUsingFission= */ false,
-                    /* dwoFile= */ null,
-                    /* ltoIndexingFile= */ null,
-                    convertFromNoneable(thinLtoIndex, /* defaultValue= */ null),
-                    convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue= */ null),
-                    convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue= */ null),
-                    /* includes= */ ImmutableList.of(),
-                    userFlagsToIterable(userCompileFlags),
-                    /* cppModuleMap= */ null,
-                    usePic,
-                    /* fdoStamp= */ null,
-                    /* dotdFile= */ null,
-                    /* diagnosticsFile= */ null,
-                    variablesExtensions,
-                    /* additionalBuildVariables= */ ImmutableMap.of(),
-                    /* directModuleMaps= */ ImmutableList.of(),
-                    Depset.noneableCast(includeDirs, String.class, "framework_include_directories"),
-                    Depset.noneableCast(
-                        quoteIncludeDirs, String.class, "quote_include_directories"),
-                    Depset.noneableCast(
-                        systemIncludeDirs, String.class, "system_include_directories"),
-                    Depset.noneableCast(
-                        frameworkIncludeDirs, String.class, "framework_include_directories"),
-                    Depset.noneableCast(defines, String.class, "preprocessor_defines").toList(),
-                    ImmutableList.of()))
-            .addStringSequenceVariable("stripopts", asClassImmutableList(stripOpts));
-    String inputFileString = convertFromNoneable(inputFile, null);
-    if (inputFileString != null) {
-      variables.addVariable("input_file", inputFileString);
-    }
-    return variables.build();
-  }
-
-  @Override
   public CcToolchainVariables getVariables(StarlarkThread thread) throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     return CcToolchainVariables.empty();
@@ -350,31 +275,6 @@ public abstract class CcModule
       return starlarkList.getImmutableList();
     } else {
       return ImmutableList.of();
-    }
-  }
-
-  /** Converts an object that represents user flags as either Sequence or None into Iterable. */
-  protected Iterable<String> userFlagsToIterable(Object o) throws EvalException {
-    if (o instanceof Sequence) {
-      return asStringImmutableList(o);
-    } else if (o instanceof NoneType) {
-      return ImmutableList.of();
-    } else {
-      throw Starlark.errorf("Only list is allowed.");
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  @Nullable
-  protected <T> ImmutableList<T> asClassImmutableList(Object o) {
-    if (o == Starlark.UNBOUND) {
-      return ImmutableList.of();
-    } else {
-      ImmutableList<T> list = ((Sequence<T>) o).getImmutableList();
-      if (list.isEmpty()) {
-        return ImmutableList.of();
-      }
-      return list;
     }
   }
 
@@ -1254,15 +1154,6 @@ public abstract class CcModule
     try {
       return Language.valueOf(Ascii.toUpperCase(string.replace('+', 'p')));
     } catch (IllegalArgumentException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-  }
-
-  protected Label getCallerLabel(StarlarkActionFactory actions, String name) throws EvalException {
-    try {
-      return Label.create(
-          actions.getRuleContext().getActionOwner().getLabel().getPackageIdentifier(), name);
-    } catch (LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
   }
