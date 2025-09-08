@@ -103,8 +103,6 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
   @Test
   public void changedFile_detectsChange() throws Exception {
-    // TODO(b/238606809): Understand why these tests are flaky on Mac. Probably real watchfs bug?
-    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");
@@ -117,10 +115,6 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
   @Test
   public void changedIgnoredFile_ignoresChange() throws Exception {
-    // MacOSXFsEventsDiffAwareness doesn't currently support not registering
-    // watches for ignored paths.
-    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
-
     String notIgnoredFilePath = "foo/BUILD";
     String ignoredFilePath = "foo/ignored-dir/BUILD";
 
@@ -169,8 +163,6 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
   @Test
   public void changedFile_statFails_throwsError() throws Exception {
-    // TODO(b/238606809): Understand why these tests are flaky on Mac. Probably real watchfs bug?
-    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");
