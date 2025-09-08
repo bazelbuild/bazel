@@ -357,6 +357,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "foo",
             deps = ["a"],

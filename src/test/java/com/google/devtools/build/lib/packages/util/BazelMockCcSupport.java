@@ -145,7 +145,17 @@ public final class BazelMockCcSupport extends MockCcSupport {
               """,
               ruleName));
     }
-    for (String ruleName : ImmutableList.of("fdo_prefetch_hints", "fdo_profile")) {
+    for (String ruleName : ImmutableList.of("cc_toolchain")) {
+      config.overwrite(
+          "third_party/bazel_rules/rules_cc/cc/toolchains/" + ruleName + ".bzl",
+          MessageFormat.format(
+              """
+              load("//cc/private/rules_impl:{0}.bzl", _{0} = "{0}")
+              {0} = _{0}
+              """,
+              ruleName));
+    }
+    for (String ruleName : ImmutableList.of("fdo_prefetch_hints", "fdo_profile", "propeller_optimize")) {
       config.overwrite(
           "third_party/bazel_rules/rules_cc/cc/toolchains/" + ruleName + ".bzl",
           MessageFormat.format(

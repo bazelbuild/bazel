@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
     ],

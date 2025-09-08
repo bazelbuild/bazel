@@ -546,6 +546,7 @@ public final class Crosstool {
     String build =
         Joiner.on("\n")
             .join(
+                "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
@@ -624,7 +625,7 @@ public final class Crosstool {
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
-                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library')",
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain')",
                 "exports_files(glob(['**']))",
                 "",
                 "cc_library(",

@@ -263,6 +263,7 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         package(features = ["thin_lto"])
 
         cc_binary(
