@@ -15,16 +15,10 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import java.util.List;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -348,23 +342,5 @@ public final class CcCommon implements StarlarkValue {
     } catch (CollidingProvidesException ex) {
       throw new EvalException(ex);
     }
-  }
-
-  public static boolean isOldStarlarkApiWhiteListed(
-      StarlarkRuleContext starlarkRuleContext, List<String> whitelistedPackages) {
-    RuleContext context = starlarkRuleContext.getRuleContext();
-    Rule rule = context.getRule();
-
-    RuleClass ruleClass = rule.getRuleClassObject();
-    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label.getRepository().getName().equals("_builtins")) {
-      // always permit builtins
-      return true;
-    }
-    if (label != null) {
-      return whitelistedPackages.stream()
-          .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
-    }
-    return false;
   }
 }
