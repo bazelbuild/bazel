@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Optional;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,7 +65,7 @@ public class BazelLockFileModuleTest {
                         Starlark.NONE,
                         Starlark.NONE,
                         /* reproducible= */ true,
-                        /* facts= */ Starlark.NONE)))
+                        /* facts= */ Dict.empty())))
             .build();
     evalFactors = ModuleExtensionEvalFactors.create("linux", "x86_64");
     otherEvalFactors = ModuleExtensionEvalFactors.create("linux", "aarch64");

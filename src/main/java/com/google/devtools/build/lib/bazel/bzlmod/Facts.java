@@ -20,31 +20,33 @@ import net.starlark.java.eval.Tuple;
 @AutoValue
 @AutoCodec
 public abstract class Facts {
-  public static final Facts EMPTY = new AutoValue_Facts(Starlark.NONE);
+  public static final Facts EMPTY = new AutoValue_Facts(Dict.empty());
 
-  public abstract Object value();
+  public abstract Dict<String, Object> value();
 
   public static Facts validateAndCreate(Object value) throws EvalException {
-    return new AutoValue_Facts(validateAndNormalize(value));
+    return new AutoValue_Facts(
+        validateAndNormalize(Dict.cast(value, String.class, Object.class, "facts")));
   }
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  public static Facts createUnchecked(Object value) {
+  public static Facts createUnchecked(Dict<String, Object> value) {
     return new AutoValue_Facts(value);
   }
 
   // This limit only exists to prevent pathological uses of facts, which are meant to be
   // human-readable and friendly to VCS merges.
-  private static final int MAX_FACTS_DEPTH = 5;
+  private static final int MAX_FACTS_DEPTH = 7;
 
-  private static Object validateAndNormalize(Object facts) throws EvalException {
-    return validateAndNormalize(facts, MAX_FACTS_DEPTH);
+  private static Dict<String, Object> validateAndNormalize(Dict<String, Object> facts)
+      throws EvalException {
+    return (Dict<String, Object>) validateAndNormalize(facts, MAX_FACTS_DEPTH);
   }
 
   private static Object validateAndNormalize(Object facts, int remainingDepth)
       throws EvalException {
-    if (remainingDepth == 0) {
+    if (remainingDepth < 0) {
       throw Starlark.errorf("Facts cannot be nested more than %s levels deep", MAX_FACTS_DEPTH);
     }
     // Only permit types that can be serialized to JSON and ensure that they contain no information

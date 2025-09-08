@@ -2563,7 +2563,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
       throw result.getError().getException();
     }
     var facts = Iterables.getOnlyElement(result.values()).facts().value();
-    assertThat(facts)
+    assertThat((Map<?, ?>) facts)
         .isEqualTo(
             Dict.immutableCopyOf(
                 ImmutableMap.of(
@@ -2597,10 +2597,10 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     var result =
         evaluateSimpleModuleExtension(
             """
-            return ctx.extension_metadata(\
-                facts = {\
-                    "unsupported": set([1, 2, 3]),\
-                }\
+            return ctx.extension_metadata(
+                facts = {
+                    "unsupported": set([1, 2, 3]),
+                }
             )""");
 
     assertThat(result.hasError()).isTrue();
@@ -2612,10 +2612,12 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     var result =
         evaluateSimpleModuleExtension(
             """
-            return ctx.extension_metadata(\
-                facts = {\
-                    1: "one",\
-                }\
+            return ctx.extension_metadata(
+                facts = {
+                    "top_level": {
+                        1: "one",
+                    },
+                }
             )""");
 
     assertThat(result.hasError()).isTrue();
@@ -2627,24 +2629,26 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     var result =
         evaluateSimpleModuleExtension(
             """
-            return ctx.extension_metadata(\
-                facts = {\
-                    "nested": {\
-                        "too": {\
-                            "deep": {\
-                                "to": {\
-                                    "be": {\
-                                        "valid": True\
-                                    }\
-                                }\
-                            }\
-                        }\
-                    }\
-                }\
+            return ctx.extension_metadata(
+                facts = {
+                    "nested": {
+                        "too": {
+                            "deep": {
+                                "to": {
+                                    "be": {
+                                        "considered": {
+                                            "valid": [1, 2, 3]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             )""");
 
     assertThat(result.hasError()).isTrue();
-    assertContainsEvent("Facts cannot be nested more than 5 levels deep");
+    assertContainsEvent("Facts cannot be nested more than 7 levels deep");
   }
 
   private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(

@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -88,7 +89,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
       boolean reproducible,
-      Object factsObj)
+      Dict<String, Object> factsObj)
       throws EvalException {
     var facts = Facts.validateAndCreate(factsObj);
 

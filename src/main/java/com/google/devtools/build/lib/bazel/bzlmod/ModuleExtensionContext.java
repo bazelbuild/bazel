@@ -29,6 +29,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -118,15 +119,15 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       structField = true,
       doc =
           """
-          The JSON-like value returned by a previous execution of this extension in the <code>\
+          The JSON-like dict returned by a previous execution of this extension in the <code>\
           facts</code> parameter of <a href="../builtins/module_ctx#extension_metadata"><code>\
-          extension_metadata</code></a> or else <code>None</code>.
+          extension_metadata</code></a> or else <code>{}</code>.
           This is useful for extensions that want to preserve universally true facts such as the \
           hashes of artifacts in an immutable repository.
           Note that the returned value may have been created by a different version of the \
           extension, which may have used a different schema.
           """)
-  public Object getFacts() {
+  public Dict<String, Object> getFacts() {
     return facts.value();
   }
 
@@ -244,7 +245,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
             name = "facts",
             doc =
                 """
-                A JSON-like value that is made available to future executions of this extension via
+                A JSON-like dict that is made available to future executions of this extension via
                 the <code>module_ctx.facts</code> property.
                 This is useful for extensions that want to preserve universally true facts such as
                 the hashes of artifacts in an immutable repository.
@@ -254,7 +255,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
                 """,
             positional = false,
             named = true,
-            defaultValue = "None"),
+            defaultValue = "{}",
+            allowedTypes = {
+              @ParamType(type = Dict.class, generic1 = String.class),
+            }),
       })
   public ModuleExtensionMetadata extensionMetadata(
       Object rootModuleDirectDepsUnchecked,
@@ -263,6 +267,9 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       Object facts)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible, facts);
+        rootModuleDirectDepsUnchecked,
+        rootModuleDirectDevDepsUnchecked,
+        reproducible,
+        Dict.cast(facts, String.class, Object.class, "facts"));
   }
 }
