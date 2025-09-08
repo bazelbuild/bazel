@@ -14,34 +14,12 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
-import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 
 /** A module that contains Starlark utilities for C++ support. */
-public class BazelCcModule extends CcModule
-    implements BazelCcModuleApi<
-        StarlarkActionFactory,
-        Artifact,
-        ConstraintValueInfo,
-        StarlarkRuleContext,
-        FeatureConfigurationForStarlark,
-        CcCompilationContext,
-        CcCompilationOutputs,
-        LtoBackendArtifacts,
-        CcToolchainVariables,
-        CppModuleMap> {
+public class BazelCcModule extends CcModule {
 
   @Override
   public CppSemantics getSemantics() {
