@@ -30,6 +30,7 @@ repo_with_local_include() {
   # //src:hello that includes a file via a local path.
 
   setup_module_dot_bazel
+  add_rules_cc MODULE.bazel
   mkdir src
   cat > src/main.c <<'EOF'
 #include <stdio.h>
@@ -45,6 +46,7 @@ EOF
 #define GREETING "Hello World"
 EOF
   cat > src/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c", "consts/greeting.h"],
@@ -77,6 +79,7 @@ int greet(char *s) {
 }
 EOF
   cat > lib/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name="lib",
   srcs=["lib.c"],
@@ -123,6 +126,7 @@ http_archive(
   urls=["file://${WRKDIR}/remote.tar"],
 )
 EOF
+  add_rules_cc MODULE.bazel
 
   bazel build @remote//src:hello || fail "Expected build to succeed"
   bazel run @remote//src:hello | grep 'Hello World' \
@@ -150,7 +154,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 EOF
+  add_rules_cc MODULE.bazel
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c"],
@@ -195,7 +201,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 EOF
+  add_rules_cc MODULE.bazel
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c"],
@@ -233,6 +241,7 @@ int main(int argc, char **argv) {
 }
 EOF
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name="hello",
   srcs=["main.c"],
@@ -258,6 +267,7 @@ http_archive(
   urls=["file://${WRKDIR}/remotemain.tar"],
 )
 EOF
+  add_rules_cc MODULE.bazel
   bazel build @remotemain//:hello || fail "Expected build to succeed"
   bazel run @remotemain//:hello | grep 'Hello World' \
       || fail "Expected output 'Hello World'"

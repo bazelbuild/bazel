@@ -2409,6 +2409,7 @@ function test_cc_rbe_coverage_produces_report() {
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 

@@ -161,8 +161,10 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name='a', srcs=['a.cc'])
 EOF
 

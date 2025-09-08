@@ -22,8 +22,11 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function write_files {
+  add_rules_cc MODULE.bazel
   mkdir -p hello || fail "mkdir hello failed"
   cat >hello/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(
   name = 'hello',
   srcs = ['hello.cc'],

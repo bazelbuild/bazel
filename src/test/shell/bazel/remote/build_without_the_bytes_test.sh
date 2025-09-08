@@ -115,7 +115,9 @@ function test_cc_tree_prefetching_download_minimal() {
 }
 
 function test_cc_include_scanning_and_minimal_downloads() {
+  add_rules_cc MODULE.bazel
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
 name = 'bin',
 srcs = ['bin.cc', ':header.h'],
@@ -353,7 +355,9 @@ EOF
 int main() { std::cout << "foo" << std::endl; return 0; }
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 genrule(
   name = "bar",
   srcs = ["create_bar.tmpl"],
@@ -397,7 +401,9 @@ extern int f();
 int main() { return f() == 42 ? 0 : 1; }
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "foo",
   srcs = ["foo.cc"],
@@ -534,7 +540,9 @@ def _gentree(ctx):
 gentree = rule(implementation = _gentree)
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":gentree.bzl", "gentree")
 gentree(name = "tree")
 cc_binary(name = "main", srcs = [":tree"])
@@ -579,7 +587,9 @@ def _gentree(ctx):
 gentree = rule(implementation = _gentree)
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":gentree.bzl", "gentree")
 gentree(name = "tree")
 cc_binary(name = "main", srcs = [":tree"])

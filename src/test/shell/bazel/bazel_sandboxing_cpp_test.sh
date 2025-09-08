@@ -62,8 +62,11 @@ if is_windows; then
 fi
 
 function set_up {
+  add_rules_cc MODULE.bazel
   mkdir -p examples/cpp/{bin,lib}
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["lib/hello-lib.c"],
@@ -152,7 +155,10 @@ EOF
 # header files from libraries that are specified in "hdrs" and not "srcs", but we never check that,
 # so the test fails. :(
 function DISABLED_test_sandboxed_cpp_build_catches_header_only_in_srcs() {
+  add_rules_cc MODULE.bazel
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["hello-lib.c", "hello-lib.h"],

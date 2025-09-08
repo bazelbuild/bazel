@@ -187,9 +187,12 @@ function test_cc_dependency_with_utf8_filename() {
   local unicode="äöüÄÖÜß🌱"
 
   setup_module_dot_bazel
+  add_rules_cc MODULE.bazel
 
   mkdir pkg
   cat >pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib",
     hdrs = ["${unicode}.h"],

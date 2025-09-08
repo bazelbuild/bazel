@@ -66,8 +66,10 @@ EOF
 }
 
 function test_cc_binary_tags_propagated() {
- mkdir -p test
+  add_rules_cc MODULE.bazel
+  mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
   name = "test",
