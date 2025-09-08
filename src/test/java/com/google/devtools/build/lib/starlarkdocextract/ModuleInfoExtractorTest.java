@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_VARARGS;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,6 +46,9 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Prov
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkOtherSymbolInfo;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -55,9 +59,8 @@ import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class ModuleInfoExtractorTest {
 
   private String fakeLabelString = null; // set by exec()
@@ -69,16 +72,17 @@ public final class ModuleInfoExtractorTest {
   private Module execWithOptions(ImmutableList<String> options, String... lines) throws Exception {
     BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
     ev.setSemantics(options.toArray(new String[0]));
-    Module module = ev.getModule();
-    Label fakeLabel = BazelModuleContext.of(module).label();
+    Module moduleForCompilation = ev.newModule();
+    Label fakeLabel = BazelModuleContext.of(moduleForCompilation).label();
     ev.setThreadOwner(keyForBuild(fakeLabel));
     fakeLabelString = fakeLabel.getCanonicalForm();
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
-    Program program = Program.compileFile(file, module);
+    Program program = Program.compileFile(file, moduleForCompilation);
+    Module moduleForEvaluation = ev.newModule(program);
     BzlLoadFunction.execAndExport(
-        program, fakeLabel, ev.getEventHandler(), module, ev.getStarlarkThread());
-    return ev.getModule();
+        program, fakeLabel, ev.getEventHandler(), moduleForEvaluation, ev.getStarlarkThread());
+    return moduleForEvaluation;
   }
 
   private static ModuleInfoExtractor getExtractor() {
@@ -1244,5 +1248,119 @@ my_macro = macro(
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getAspectInfoList()).isEmpty();
+  }
+
+  @Test
+  public void starlarkOtherSymbols_extractedIfExportableAndDocumented() throws Exception {
+    Module module =
+        exec(
+            """
+            #: Exportable and documented
+            NAMES = ["foo", "bar"]
+
+            # Exportable but not documented
+            MORE_NAMES = ["baz", "qux"]
+
+            #: Ignored - non-exportable symbol
+            _PRIVATE_CONSTANT = 42
+
+            #: Struct
+            S = struct(answer = _PRIVATE_CONSTANT)
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getStarlarkOtherSymbolInfoList())
+        .containsExactly(
+            StarlarkOtherSymbolInfo.newBuilder()
+                .setName("NAMES")
+                .setDoc("Exportable and documented")
+                .setTypeName("list")
+                .build(),
+            StarlarkOtherSymbolInfo.newBuilder()
+                .setName("S")
+                .setDoc("Struct")
+                .setTypeName("struct")
+                .build());
+  }
+
+  @Test
+  public void starlarkOtherSymbols_conflictingDocComments(
+      @TestParameter boolean allowUnusedDocComments) throws Exception {
+    Module module =
+        exec(
+            """
+            #: Leading doc comment
+            ANSWER = 42 #: Trailing doc comment
+            """);
+    if (allowUnusedDocComments) {
+      assertThat(
+              getExtractor()
+                  .allowUnusedDocComments()
+                  .extractFrom(module)
+                  .getStarlarkOtherSymbolInfoList())
+          .containsExactly(
+              StarlarkOtherSymbolInfo.newBuilder()
+                  .setName("ANSWER")
+                  .setDoc("Trailing doc comment") // Overrides leading doc comment.
+                  .setTypeName("int")
+                  .build());
+    } else {
+      ExtractionException exception =
+          assertThrows(ExtractionException.class, () -> getExtractor().extractFrom(module));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains("unexpected or conflicting doc comments on line 1");
+    }
+  }
+
+  @Test
+  public void functions_cannotUseDocComments(@TestParameter boolean allowUnusedDocComments)
+      throws Exception {
+    Module module =
+        exec(
+            """
+            def _my_function():
+                pass
+
+            #: Unexpected doc comment
+            MY_FUNCTION_ALIAS = _my_function
+            """);
+    if (allowUnusedDocComments) {
+      assertThat(getExtractor().allowUnusedDocComments().extractFrom(module).getFuncInfoList())
+          .hasSize(1);
+    } else {
+      ExtractionException exception =
+          assertThrows(ExtractionException.class, () -> getExtractor().extractFrom(module));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains(
+              "unexpected doc comment for MY_FUNCTION_ALIAS on line 4; API documentation for a"
+                  + " function must be provided in a docstring at the top of the function body");
+    }
+  }
+
+  @Test
+  public void rules_cannotUseDocComments(@TestParameter boolean allowUnusedDocComments)
+      throws Exception {
+    Module module =
+        exec(
+            """
+            def _impl(ctx):
+                pass
+
+            #: Unexpected doc comment
+            my_rule = rule(implementation = _impl)
+            """);
+    if (allowUnusedDocComments) {
+      assertThat(getExtractor().allowUnusedDocComments().extractFrom(module).getRuleInfoList())
+          .hasSize(1);
+    } else {
+      ExtractionException exception =
+          assertThrows(ExtractionException.class, () -> getExtractor().extractFrom(module));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains(
+              "unexpected doc comment for my_rule on line 4; API documentation for a rule must be"
+                  + " provided in the doc argument to rule()");
+    }
   }
 }

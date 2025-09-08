@@ -48,6 +48,8 @@ message ModuleInfo {
   repeated RepositoryRuleInfo repository_rule_info = 8;
 
   repeated MacroInfo macro_info = 9;
+
+  repeated StarlarkOtherSymbolInfo starlark_other_symbol_info = 10;
 }
 
 // Representation of a Starlark rule attribute type. These generally
@@ -395,6 +397,21 @@ message RepositoryRuleInfo {
   // The Starlark module where and the name under which the repository rule was
   // originally declared.
   OriginKey origin_key = 5;
+}
+
+// Representation of a Starlark symbol whose value is of type which lacks
+// built-in docstring and needs to be documented using `#:`-prefixed doc
+// comments; for example, a bool, dict, float, int, list, range, set, string,
+// struct, or tuple.
+message StarlarkOtherSymbolInfo {
+  // The name of the symbol.
+  string name = 1;
+
+  // The content of the symbol's doc comments.
+  string doc = 2;
+
+  // The symbol's value's data type.
+  string type_name = 3;
 }
 
 // Representation of the origin of a rule, provider, aspect, or function.

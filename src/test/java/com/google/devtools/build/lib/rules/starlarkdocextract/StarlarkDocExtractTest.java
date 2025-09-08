@@ -45,13 +45,14 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Star
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.NoSuchElementException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   private static ModuleInfo protoFromBinaryFileWriteAction(Action action) throws Exception {
@@ -1176,5 +1177,42 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     assertThat(moduleInfo.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("@dep_mod//:foo.bzl");
     assertThat(getFirstRuleFirstAttr(moduleInfo).getDefaultValue())
         .isEqualTo("\"@dep_mod//target\"");
+  }
+
+  @Test
+  public void unusedDocComments(@TestParameter boolean allowUnusedDocComments) throws Exception {
+    scratch.file(
+        "foo.bzl",
+        """
+        #: Unused doc comment
+        def my_func():
+            pass
+
+        def _my_function():
+            pass
+
+        #: Unexpected doc comment
+        MY_FUNCTION_ALIAS = _my_function
+        """);
+    scratch.file(
+        "BUILD",
+        String.format(
+            """
+            starlark_doc_extract(
+                name = "extract",
+                src = "foo.bzl",%s
+            )
+            """,
+            allowUnusedDocComments ? "\n    allow_unused_doc_comments = True" : ""));
+    if (allowUnusedDocComments) {
+      assertThat(protoFromConfiguredTarget("//:extract").getStarlarkOtherSymbolInfoList())
+          .isEmpty();
+    } else {
+      AssertionError error =
+          assertThrows(AssertionError.class, () -> getConfiguredTarget("//:extract"));
+      assertThat(error)
+          .hasMessageThat()
+          .contains("in /workspace/foo.bzl: unexpected or conflicting doc comments on line 1");
+    }
   }
 }

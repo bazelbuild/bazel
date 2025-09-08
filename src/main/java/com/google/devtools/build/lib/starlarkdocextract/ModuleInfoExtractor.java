@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -42,20 +45,28 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Orig
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkOtherSymbolInfo;
 import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.syntax.Comment;
+import net.starlark.java.syntax.DocComments;
+import net.starlark.java.syntax.Program;
 
 /** API documentation extractor for a compiled, loaded Starlark module. */
 public final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
   private final LabelRenderer labelRenderer;
+  private boolean allowUnusedDocComments = false;
 
   @VisibleForTesting
   public static final ImmutableMap<String, AttributeInfo> IMPLICIT_MACRO_ATTRIBUTES =
@@ -110,8 +121,32 @@ public final class ModuleInfoExtractor {
     this.labelRenderer = labelRenderer;
   }
 
+  /** Allows unused doc comments in modules. */
+  @CanIgnoreReturnValue
+  public ModuleInfoExtractor allowUnusedDocComments() {
+    this.allowUnusedDocComments = true;
+    return this;
+  }
+
   /** Extracts structured documentation for the loadable symbols of a given module. */
-  public ModuleInfo extractFrom(Module module) throws ExtractionException {
+  public ModuleInfo extractFrom(
+      Module module,
+      ImmutableMap<String, DocComments> docCommentsMap,
+      ImmutableList<Comment> unusedDocCommentLines)
+      throws ExtractionException {
+    if (!allowUnusedDocComments && !unusedDocCommentLines.isEmpty()) {
+      throw new ExtractionException(
+          module,
+          String.format(
+              "unexpected or conflicting doc comments on line%s %s; a doc comment must be attached"
+                  + " to the declaration of a global variable",
+              unusedDocCommentLines.size() > 1 ? "s" : "",
+              Joiner.on(", ")
+                  .join(
+                      unusedDocCommentLines.stream()
+                          .map(c -> c.getStartLocation().line())
+                          .iterator())));
+    }
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
     Optional.ofNullable(module.getDocumentation())
         .map(StringEncoding::internalToUnicode)
@@ -127,18 +162,33 @@ public final class ModuleInfoExtractor {
     // proto, using the information from traversal 1 for provider names references by rules and
     // attributes.
     ProviderQualifiedNameCollector providerQualifiedNameCollector =
-        new ProviderQualifiedNameCollector();
-    providerQualifiedNameCollector.traverse(module);
+        new ProviderQualifiedNameCollector(module);
+    providerQualifiedNameCollector.traverse();
     DocumentationExtractor documentationExtractor =
         new DocumentationExtractor(
+            module,
+            docCommentsMap,
             builder,
             isWantedQualifiedName,
             ExtractorContext.builder()
                 .labelRenderer(labelRenderer)
                 .providerQualifiedNames(providerQualifiedNameCollector.buildQualifiedNames())
-                .build());
-    documentationExtractor.traverse(module);
+                .build(),
+            allowUnusedDocComments);
+    documentationExtractor.traverse();
     return builder.build();
+  }
+
+  public ModuleInfo extractFrom(Module module, Program program) throws ExtractionException {
+    return extractFrom(module, program.getDocCommentsMap(), program.getUnusedDocCommentLines());
+  }
+
+  public ModuleInfo extractFrom(Module module) throws ExtractionException {
+    BazelModuleContext moduleContext =
+        checkNotNull(
+            BazelModuleContext.of(module), "Module %s does not have a BazelModuleContext", module);
+    return extractFrom(
+        module, moduleContext.getDocCommentsMap(), moduleContext.getUnusedDocCommentLines());
   }
 
   /**
@@ -146,8 +196,8 @@ public final class ModuleInfoExtractor {
    * structs.
    */
   private abstract static class GlobalsVisitor {
-    public void traverse(Module module) throws ExtractionException {
-      for (var entry : module.getGlobals().entrySet()) {
+    void traverse() throws ExtractionException {
+      for (var entry : getModule().getGlobals().entrySet()) {
         String globalSymbol = entry.getKey();
         if (ExtractorContext.isPublicName(globalSymbol)) {
           maybeVisit(globalSymbol, entry.getValue(), /* shouldVisitVerifiedForAncestor= */ false);
@@ -155,12 +205,14 @@ public final class ModuleInfoExtractor {
       }
     }
 
+    abstract Module getModule();
+
     /**
      * Returns whether the visitor should visit (and possibly recurse into) the value with the given
      * qualified name. Note that the visitor will not visit global names and struct fields for which
      * {@link #isPublicName} is false, regardless of {@code shouldVisit}.
      */
-    protected abstract boolean shouldVisit(String qualifiedName);
+    abstract boolean shouldVisit(String qualifiedName);
 
     /**
      * @param qualifiedName the name under which the value may be accessed by a user of the module;
@@ -174,7 +226,7 @@ public final class ModuleInfoExtractor {
         String qualifiedName, Object value, boolean shouldVisitVerifiedForAncestor)
         throws ExtractionException {
       if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
-        if (value instanceof StarlarkExportable && !((StarlarkExportable) value).isExported()) {
+        if (value instanceof StarlarkExportable exportable && !exportable.isExported()) {
           // Unexported StarlarkExportables are not usable and therefore do not need to have docs
           // generated.
           return;
@@ -193,55 +245,59 @@ public final class ModuleInfoExtractor {
           visitRepositoryRule(qualifiedName, starlarkRepoRule.getRepoRule());
         } else if (value instanceof ModuleExtension moduleExtension) {
           visitModuleExtension(qualifiedName, moduleExtension);
-        } else if (value instanceof Structure) {
-          recurseIntoStructure(
-              qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ true);
+        } else {
+          maybeVisitOtherSymbol(qualifiedName, value);
+          if (value instanceof Structure structure) {
+            recurseIntoStructure(
+                qualifiedName, structure, /* shouldVisitVerifiedForAncestor= */ true);
+          }
         }
-      } else if (value instanceof Structure) {
-        recurseIntoStructure(
-            qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ false);
+      } else if (value instanceof Structure structure) {
+        recurseIntoStructure(qualifiedName, structure, /* shouldVisitVerifiedForAncestor= */ false);
       }
-      // If the value is a constant (string, list etc.), we currently don't have a convention for
-      // associating a doc string with one - so we don't emit documentation for it.
       // TODO(b/276733504): should we recurse into dicts to search for documentable values? Note
       // that dicts (unlike structs!) can have reference cycles, so we would need to track the set
       // of traversed entities.
     }
 
-    protected void visitRule(
+    void visitRule(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkRuleFunction value)
         throws ExtractionException {}
 
-    protected void visitMacroFunction(
+    void visitMacroFunction(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") MacroFunction value)
         throws ExtractionException {}
 
-    protected void visitProvider(
+    void visitProvider(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkProvider value)
         throws ExtractionException {}
 
-    protected void visitFunction(
+    void visitFunction(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkFunction value)
         throws ExtractionException {}
 
-    protected void visitAspect(
+    void visitAspect(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkDefinedAspect aspect)
         throws ExtractionException {}
 
-    protected void visitModuleExtension(
+    void visitModuleExtension(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") ModuleExtension moduleExtension)
         throws ExtractionException {}
 
-    protected void visitRepositoryRule(
+    void visitRepositoryRule(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") RepoRule repoRule)
         throws ExtractionException {}
+
+    void maybeVisitOtherSymbol(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") Object value) {}
 
     private void recurseIntoStructure(
         String qualifiedName, Structure structure, boolean shouldVisitVerifiedForAncestor)
@@ -258,6 +314,7 @@ public final class ModuleInfoExtractor {
             }
           } catch (EvalException e) {
             throw new ExtractionException(
+                getModule(),
                 String.format(
                     "in struct %s field %s: failed to read value", qualifiedName, fieldName),
                 e);
@@ -272,8 +329,18 @@ public final class ModuleInfoExtractor {
    * providers loadable from this module.
    */
   private static final class ProviderQualifiedNameCollector extends GlobalsVisitor {
+    private final Module module;
     private final LinkedHashMap<StarlarkProvider.Key, String> qualifiedNames =
         new LinkedHashMap<>();
+
+    private ProviderQualifiedNameCollector(Module module) {
+      this.module = module;
+    }
+
+    @Override
+    Module getModule() {
+      return module;
+    }
 
     /**
      * Builds a map from the keys of the Starlark providers which were walked via {@link #traverse}
@@ -282,7 +349,7 @@ public final class ModuleInfoExtractor {
      *
      * <p>If the same provider is accessible under multiple names, the first documentable name wins.
      */
-    public ImmutableMap<StarlarkProvider.Key, String> buildQualifiedNames() {
+    ImmutableMap<StarlarkProvider.Key, String> buildQualifiedNames() {
       return ImmutableMap.copyOf(qualifiedNames);
     }
 
@@ -295,21 +362,24 @@ public final class ModuleInfoExtractor {
      * to vary when we change the isWantedQualifiedName filter.
      */
     @Override
-    protected boolean shouldVisit(String qualifiedName) {
+    boolean shouldVisit(String qualifiedName) {
       return true;
     }
 
     @Override
-    protected void visitProvider(String qualifiedName, StarlarkProvider value) {
+    void visitProvider(String qualifiedName, StarlarkProvider value) {
       qualifiedNames.putIfAbsent(value.getKey(), qualifiedName);
     }
   }
 
   /** A {@link GlobalsVisitor} which extracts documentation for symbols in this module. */
   private static final class DocumentationExtractor extends GlobalsVisitor {
+    private final Module module;
+    private final ImmutableMap<String, DocComments> docCommentsMap;
     private final ModuleInfo.Builder moduleInfoBuilder;
     private final Predicate<String> isWantedQualifiedName;
     private final ExtractorContext context;
+    private final boolean allowUnusedDocComments;
 
     /**
      * @param moduleInfoBuilder builder to which {@link #traverse} adds extracted documentation
@@ -324,37 +394,63 @@ public final class ModuleInfoExtractor {
      *     those providers are accessible to a user of this module
      */
     DocumentationExtractor(
+        Module module,
+        ImmutableMap<String, DocComments> docCommentsMap,
         ModuleInfo.Builder moduleInfoBuilder,
         Predicate<String> isWantedQualifiedName,
-        ExtractorContext context) {
+        ExtractorContext context,
+        boolean allowUnusedDocComments) {
+      this.module = module;
+      this.docCommentsMap = docCommentsMap;
       this.moduleInfoBuilder = moduleInfoBuilder;
       this.isWantedQualifiedName = isWantedQualifiedName;
       this.context = context;
+      this.allowUnusedDocComments = allowUnusedDocComments;
     }
 
     @Override
-    protected boolean shouldVisit(String qualifiedName) {
+    Module getModule() {
+      return module;
+    }
+
+    @Override
+    boolean shouldVisit(String qualifiedName) {
       return isWantedQualifiedName.test(qualifiedName);
     }
 
-    @Override
-    protected void visitFunction(String qualifiedName, StarlarkFunction function)
+    private void checkNoDocComments(String qualifiedName, String what, String expected)
         throws ExtractionException {
+      @Nullable DocComments docComments = docCommentsMap.get(qualifiedName);
+      if (docComments != null && !allowUnusedDocComments) {
+        throw new ExtractionException(
+            module,
+            String.format(
+                "unexpected doc comment for %s on line %s; API documentation for a %s must be"
+                    + " provided in %s",
+                qualifiedName, docComments.getStartLocation().line(), what, expected));
+      }
+    }
+
+    @Override
+    void visitFunction(String qualifiedName, StarlarkFunction function) throws ExtractionException {
+      checkNoDocComments(qualifiedName, "function", "a docstring at the top of the function body");
       moduleInfoBuilder.addFuncInfo(
           StarlarkFunctionInfoExtractor.fromNameAndFunction(
               qualifiedName, function, context.labelRenderer()));
     }
 
     @Override
-    protected void visitRule(String qualifiedName, StarlarkRuleFunction ruleFunction)
+    void visitRule(String qualifiedName, StarlarkRuleFunction ruleFunction)
         throws ExtractionException {
+      checkNoDocComments(qualifiedName, "rule", "the doc argument to rule()");
       moduleInfoBuilder.addRuleInfo(
           RuleInfoExtractor.buildRuleInfo(context, qualifiedName, ruleFunction.getRuleClass()));
     }
 
     @Override
-    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction)
+    void visitMacroFunction(String qualifiedName, MacroFunction macroFunction)
         throws ExtractionException {
+      checkNoDocComments(qualifiedName, "macro", "the doc argument to macro()");
       MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
@@ -390,8 +486,8 @@ public final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitProvider(String qualifiedName, StarlarkProvider provider)
-        throws ExtractionException {
+    void visitProvider(String qualifiedName, StarlarkProvider provider) throws ExtractionException {
+      checkNoDocComments(qualifiedName, "provider", "the doc argument to provider()");
       ProviderInfo.Builder providerInfoBuilder = ProviderInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name.
@@ -444,8 +540,9 @@ public final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
+    void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
         throws ExtractionException {
+      checkNoDocComments(qualifiedName, "aspect", "the doc argument to aspect()");
       AspectInfo.Builder aspectInfoBuilder = AspectInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
@@ -482,8 +579,10 @@ public final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
+    void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
         throws ExtractionException {
+      checkNoDocComments(
+          qualifiedName, "module extension", "the doc argument to module_extension()");
       ModuleExtensionInfo.Builder moduleExtensionInfoBuilder = ModuleExtensionInfo.newBuilder();
       moduleExtensionInfoBuilder.setExtensionName(internalToUnicode(qualifiedName));
       moduleExtensionInfoBuilder.setOriginKey(
@@ -520,7 +619,9 @@ public final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitRepositoryRule(String qualifiedName, RepoRule repoRule) {
+    protected void visitRepositoryRule(String qualifiedName, RepoRule repoRule)
+        throws ExtractionException {
+      checkNoDocComments(qualifiedName, "repository rule", "the doc argument to repository_rule()");
       RepositoryRuleInfo.Builder repositoryRuleInfoBuilder = RepositoryRuleInfo.newBuilder();
       repositoryRuleInfoBuilder.setRuleName(internalToUnicode(qualifiedName));
       repoRule
@@ -541,6 +642,20 @@ public final class ModuleInfoExtractor {
         repositoryRuleInfoBuilder.addEnviron(internalToUnicode(env));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
+    }
+
+    @Override
+    void maybeVisitOtherSymbol(String qualifiedName, Object value) {
+      @Nullable DocComments docComments = docCommentsMap.get(qualifiedName);
+      if (docComments == null) {
+        // Don't emit documentation for symbols without doc comments.
+        return;
+      }
+      moduleInfoBuilder.addStarlarkOtherSymbolInfo(
+          StarlarkOtherSymbolInfo.newBuilder()
+              .setName(internalToUnicode(qualifiedName))
+              .setDoc(internalToUnicode(docComments.getText()))
+              .setTypeName(Starlark.type(value)));
     }
   }
 }
