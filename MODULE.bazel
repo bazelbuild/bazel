@@ -82,6 +82,13 @@ single_version_override(
     patches = ["//third_party:zstd-jni.patch"],
 )
 
+single_version_override(
+    module_name = "chicory",
+    patch_strip = 1,
+    patches = ["//third_party:chicory.patch"],
+)
+
+
 
 # 1. Expose @com_google_protobuf//java/core:lite_runtime_only
 # due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
