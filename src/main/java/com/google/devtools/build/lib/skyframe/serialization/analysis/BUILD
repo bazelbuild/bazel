@@ -277,6 +277,7 @@ java_library(
     srcs = ["RemoteAnalysisCachingServicesSupplier.java"],
     deps = [
         ":client_id",
+        ":json_log_writer",
         ":options",
         ":remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",

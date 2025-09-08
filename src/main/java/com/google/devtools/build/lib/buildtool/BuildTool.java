@@ -430,7 +430,7 @@ public class BuildTool {
         // Log stats and sync state even on failure.
         if (analysisCachingDeps != null) {
           logAnalysisCachingStats(analysisCachingDeps);
-          RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getLogWriter();
+          RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getJsonLogWriter();
           if (logWriter != null) {
             logWriter.close();
             if (logWriter.hadErrors()) {
@@ -1255,7 +1255,7 @@ public class BuildTool {
     /** Cache lookup parameter requiring integration with external version control. */
     private final Optional<ClientId> snapshot;
 
-    @Nullable private final RemoteAnalysisJsonLogWriter logWriter;
+    @Nullable private final RemoteAnalysisJsonLogWriter jsonLogWriter;
 
     private final Future<ObjectCodecs> objectCodecsFuture;
     private final Future<FingerprintValueService> fingerprintValueServiceFuture;
@@ -1393,7 +1393,7 @@ public class BuildTool {
                       env.getReporter(),
                       /* append= */ false,
                       /* internal= */ false);
-          this.logWriter =
+          this.jsonLogWriter =
               new RemoteAnalysisJsonLogWriter(
                   new JsonWriter(
                       new OutputStreamWriter(
@@ -1416,7 +1416,7 @@ public class BuildTool {
                       .build()));
         }
       } else {
-        this.logWriter = null;
+        this.jsonLogWriter = null;
       }
 
       this.mode = mode;
@@ -1484,7 +1484,7 @@ public class BuildTool {
       ClientId clientId =
           this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal()));
       listener.setClientId(clientId);
-      servicesSupplier.configure(options, clientId, env.getBuildRequestId());
+      servicesSupplier.configure(options, clientId, env.getBuildRequestId(), jsonLogWriter);
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.eventHandler = env.getReporter();
@@ -1618,9 +1618,10 @@ public class BuildTool {
       }
     }
 
+    @Nullable
     @Override
-    public RemoteAnalysisJsonLogWriter getLogWriter() {
-      return logWriter;
+    public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
+      return jsonLogWriter;
     }
 
     @Override

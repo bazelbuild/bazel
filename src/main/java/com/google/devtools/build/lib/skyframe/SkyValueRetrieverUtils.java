@@ -85,8 +85,8 @@ public final class SkyValueRetrieverUtils {
     } finally {
       if (retrievalResult == Restart.RESTART) {
         state.addRestart();
-      } else if (analysisCachingDeps.getLogWriter() != null && !state.isLogged()) {
-        RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getLogWriter();
+      } else if (analysisCachingDeps.getJsonLogWriter() != null && !state.isLogged()) {
+        RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getJsonLogWriter();
         try (var entry = logWriter.startEntry("retrieve")) {
           entry.addField("start", state.getStart());
           entry.addField("end", Instant.now());

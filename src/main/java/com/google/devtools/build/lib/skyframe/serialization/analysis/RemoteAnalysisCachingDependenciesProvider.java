@@ -73,7 +73,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   /** Returns the JSON log writer or null if this log is not enabled. */
   @Nullable
-  RemoteAnalysisJsonLogWriter getLogWriter();
+  RemoteAnalysisJsonLogWriter getJsonLogWriter();
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
@@ -142,7 +142,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     @Nullable
-    public RemoteAnalysisJsonLogWriter getLogWriter() {
+    public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
       return null;
     }
 
