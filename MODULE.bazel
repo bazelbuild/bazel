@@ -106,6 +106,7 @@ single_version_override(
         "//third_party:grpc-java.patch",
         "//third_party:grpc-java-12207.patch",
         "//third_party:grpc-java-12222.patch",
+        "//third_party:grpc-java-addloads.patch",
     ],
 )
 

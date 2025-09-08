@@ -76,6 +76,7 @@ genrule(
         "//third_party:grpc-java.patch",
         "//third_party:grpc-java-12207.patch",
         "//third_party:grpc-java-12222.patch",
+        "//third_party:grpc-java-addloads.patch",
         "//third_party:rules_jvm_external_6.5.patch",
         "//third_party:rules_graalvm_fix.patch",
         "//third_party:rules_graalvm_unicode.patch",
