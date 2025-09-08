@@ -74,6 +74,8 @@ genrule(
         "//third_party:BUILD",
         "//third_party:chicory.patch",
         "//third_party:protobuf.patch",
+        "//third_party:protoc-gen-validate.patch",
+        "//third_party:googleapis.patch",
         "//third_party:grpc-java.patch",
         "//third_party:grpc-java-12207.patch",
         "//third_party:grpc-java-12222.patch",
