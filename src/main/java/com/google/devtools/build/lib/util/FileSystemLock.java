@@ -100,6 +100,7 @@ public final class FileSystemLock implements AutoCloseable {
     try {
       lock = channel.lock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
     } catch (FileLockInterruptionException e) {
+      Thread.interrupted();
       channel.close();
       throw new InterruptedException();
     }
