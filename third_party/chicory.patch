@@ -1,0 +1,70 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 4204500..5819608 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -5,3 +5,4 @@ module(
+ )
+ 
+ bazel_dep(name = "javaparser", version = "3.26.2")
++bazel_dep(name = "rules_java", version = "8.15.2")
+diff --git a/host-module/annotations/BUILD.bazel b/host-module/annotations/BUILD.bazel
+index 2499180..664dcee 100644
+--- a/host-module/annotations/BUILD.bazel
++++ b/host-module/annotations/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "annotations",
+     srcs = glob(["src/main/**/*.java"]),
+diff --git a/host-module/processor/BUILD.bazel b/host-module/processor/BUILD.bazel
+index 723af62..d557c8b 100644
+--- a/host-module/processor/BUILD.bazel
++++ b/host-module/processor/BUILD.bazel
+@@ -1,3 +1,6 @@
++load("@rules_java//java:java_library.bzl", "java_library")
++load("@rules_java//java:java_plugin.bzl", "java_plugin")
++
+ java_library(
+     name = "processor",
+     srcs = glob(["src/main/**/*.java"]),
+diff --git a/log/BUILD.bazel b/log/BUILD.bazel
+index 049bcee..bf63381 100644
+--- a/log/BUILD.bazel
++++ b/log/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "log",
+     srcs = glob(["src/main/**/*.java"]),
+diff --git a/runtime/BUILD.bazel b/runtime/BUILD.bazel
+index f825c2c..1783079 100644
+--- a/runtime/BUILD.bazel
++++ b/runtime/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "runtime",
+     srcs = glob(["src/main/**/*.java"]),
+diff --git a/wasi/BUILD.bazel b/wasi/BUILD.bazel
+index 2788884..726313f 100644
+--- a/wasi/BUILD.bazel
++++ b/wasi/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "wasi",
+     srcs = glob(["src/main/**/*.java"]),
+diff --git a/wasm/BUILD.bazel b/wasm/BUILD.bazel
+index d851d7c..7c42d8b 100644
+--- a/wasm/BUILD.bazel
++++ b/wasm/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "wasm",
+     srcs = glob(["src/main/**/*.java"]),

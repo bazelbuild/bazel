@@ -27,14 +27,14 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "protobuf", version = "32.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_java", version = "8.15.2")
-bazel_dep(name = "rules_jvm_external", version = "6.5")
+bazel_dep(name = "rules_jvm_external", version = "6.6")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_python", version = "1.4.1")
 bazel_dep(name = "rules_shell", version = "0.3.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
-bazel_dep(name = "with_cfg.bzl", version = "0.6.0")
+bazel_dep(name = "with_cfg.bzl", version = "0.10.3")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 
@@ -63,7 +63,7 @@ single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
     patches = ["//third_party:rules_jvm_external_6.5.patch"],
-    version = "6.5",
+    version = "6.6",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
@@ -74,6 +74,32 @@ single_version_override(
         "//third_party:rules_graalvm_fix.patch",
         "//third_party:rules_graalvm_unicode.patch",
     ],
+)
+
+single_version_override(
+    module_name = "zstd-jni",
+    patch_strip = 1,
+    patches = ["//third_party:zstd-jni.patch"],
+)
+
+single_version_override(
+    module_name = "chicory",
+    patch_strip = 1,
+    patches = ["//third_party:chicory.patch"],
+)
+
+single_version_override(
+    module_name = "googleapis",
+    patch_strip = 1,
+    patches = ["//third_party:googleapis.patch"],
+    version = "0.0.0-20250604-de157ca3",
+)
+
+single_version_override(
+    module_name = "protoc-gen-validate",
+    patch_strip = 1,
+    patches = ["//third_party:protoc-gen-validate.patch"],
+    version = "1.2.1.bcr.1",
 )
 
 # 1. Expose @com_google_protobuf//java/core:lite_runtime_only
@@ -99,6 +125,7 @@ single_version_override(
         "//third_party:grpc-java.patch",
         "//third_party:grpc-java-12207.patch",
         "//third_party:grpc-java-12222.patch",
+        "//third_party:grpc-java-addloads.patch",
     ],
 )
 

@@ -569,11 +569,11 @@ my_java_library(
 )
 EOF
 
-  bazel query --noincompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 || fail "build failed"
-  bazel query --incompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  bazel query --incompatible_autoload_externally=java_library --noincompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 || fail "build failed"
+  bazel query --incompatible_autoload_externally=java_library --incompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   expect_log "name 'java_library' is not defined"
-  bazel query --noincompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 || fail "build failed"
-  bazel query --incompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  bazel query --incompatible_autoload_externally=java_library --noincompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 || fail "build failed"
+  bazel query --incompatible_autoload_externally=java_library --incompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   expect_log "Error: no native function or rule 'java_library'"
 }
 

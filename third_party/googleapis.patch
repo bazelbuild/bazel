@@ -1,0 +1,247 @@
+commit c2dc8c77803e41ac29096b99ab126b9bdf609c2d
+Author: Ivo List <ilist@google.com>
+Date:   Mon Sep 8 20:39:53 2025 +0200
+
+    add loads
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 82488a5..5ac16b8 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -13,6 +13,8 @@ bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
+ 
+ bazel_dep(name = "googleapis-rules-registry", version = "1.0.0")
+ 
++bazel_dep(name = "rules_python", version = "1.4.1")
++
+ rules_registry = use_extension("@googleapis-rules-registry//private/extensions:rules_registry.bzl", "rules_registry")
+ use_repo(
+     rules_registry,
+diff --git a/google/cloud/asset/v1p7beta1/BUILD.bazel b/google/cloud/asset/v1p7beta1/BUILD.bazel
+index 6897862..bc6174d 100755
+--- a/google/cloud/asset/v1p7beta1/BUILD.bazel
++++ b/google/cloud/asset/v1p7beta1/BUILD.bazel
+@@ -13,6 +13,7 @@
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "csharp_grpc_library",
+diff --git a/google/cloud/bigquery/connection/v1beta1/BUILD.bazel b/google/cloud/bigquery/connection/v1beta1/BUILD.bazel
+index 445482e..318c6d1 100755
+--- a/google/cloud/bigquery/connection/v1beta1/BUILD.bazel
++++ b/google/cloud/bigquery/connection/v1beta1/BUILD.bazel
+@@ -7,6 +7,7 @@ package(default_visibility = ["//visibility:public"])
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ load("@com_google_googleapis_imports//:imports.bzl", "proto_library_with_info")
+ 
+ proto_library(
+diff --git a/google/cloud/bigquery/storage/v1/BUILD.bazel b/google/cloud/bigquery/storage/v1/BUILD.bazel
+index d0988c9..da28081 100755
+--- a/google/cloud/bigquery/storage/v1/BUILD.bazel
++++ b/google/cloud/bigquery/storage/v1/BUILD.bazel
+@@ -2,6 +2,7 @@
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "cc_grpc_library",
+diff --git a/google/cloud/bigquery/storage/v1beta2/BUILD.bazel b/google/cloud/bigquery/storage/v1beta2/BUILD.bazel
+index c7ad0cf..8d87df6 100755
+--- a/google/cloud/bigquery/storage/v1beta2/BUILD.bazel
++++ b/google/cloud/bigquery/storage/v1beta2/BUILD.bazel
+@@ -5,6 +5,7 @@ package(default_visibility = ["//visibility:public"])
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ load("@com_google_googleapis_imports//:imports.bzl", "proto_library_with_info")
+ 
+ proto_library(
+diff --git a/google/cloud/oslogin/common/BUILD.bazel b/google/cloud/oslogin/common/BUILD.bazel
+index 0711bd1..b99b643 100755
+--- a/google/cloud/oslogin/common/BUILD.bazel
++++ b/google/cloud/oslogin/common/BUILD.bazel
+@@ -7,6 +7,7 @@ package(default_visibility = ["//visibility:public"])
+ # Common
+ ##############################################################################
+ load("@com_google_googleapis_imports//:imports.bzl", "proto_library_with_info")
++load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+ 
+ proto_library(
+     name = "common_proto",
+diff --git a/google/cloud/recommendationengine/v1beta1/BUILD.bazel b/google/cloud/recommendationengine/v1beta1/BUILD.bazel
+index 39427fd..8c5a72a 100755
+--- a/google/cloud/recommendationengine/v1beta1/BUILD.bazel
++++ b/google/cloud/recommendationengine/v1beta1/BUILD.bazel
+@@ -4,6 +4,7 @@
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "csharp_gapic_assembly_pkg",
+diff --git a/google/devtools/build/v1/BUILD.bazel b/google/devtools/build/v1/BUILD.bazel
+index 9ac62c0..97a3a72 100755
+--- a/google/devtools/build/v1/BUILD.bazel
++++ b/google/devtools/build/v1/BUILD.bazel
+@@ -13,6 +13,7 @@
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "cc_grpc_library",
+diff --git a/google/devtools/containeranalysis/v1beta1/build/BUILD.bazel b/google/devtools/containeranalysis/v1beta1/build/BUILD.bazel
+index 7d478fa..284187c 100755
+--- a/google/devtools/containeranalysis/v1beta1/build/BUILD.bazel
++++ b/google/devtools/containeranalysis/v1beta1/build/BUILD.bazel
+@@ -30,6 +30,7 @@ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "java_grpc_library",
+ )
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+ 
+ java_proto_library(
+     name = "build_java_proto",
+diff --git a/google/devtools/containeranalysis/v1beta1/deployment/BUILD.bazel b/google/devtools/containeranalysis/v1beta1/deployment/BUILD.bazel
+index 921d489..15a97aa 100755
+--- a/google/devtools/containeranalysis/v1beta1/deployment/BUILD.bazel
++++ b/google/devtools/containeranalysis/v1beta1/deployment/BUILD.bazel
+@@ -30,6 +30,7 @@ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "java_grpc_library",
+ )
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+ 
+ java_proto_library(
+     name = "deployment_java_proto",
+diff --git a/google/devtools/containeranalysis/v1beta1/discovery/BUILD.bazel b/google/devtools/containeranalysis/v1beta1/discovery/BUILD.bazel
+index 58a4b6c..87525e0 100755
+--- a/google/devtools/containeranalysis/v1beta1/discovery/BUILD.bazel
++++ b/google/devtools/containeranalysis/v1beta1/discovery/BUILD.bazel
+@@ -32,6 +32,7 @@ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "java_grpc_library",
+ )
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+ 
+ java_proto_library(
+     name = "discovery_java_proto",
+diff --git a/google/devtools/containeranalysis/v1beta1/image/BUILD.bazel b/google/devtools/containeranalysis/v1beta1/image/BUILD.bazel
+index 7fbc648..9ff3b2f 100755
+--- a/google/devtools/containeranalysis/v1beta1/image/BUILD.bazel
++++ b/google/devtools/containeranalysis/v1beta1/image/BUILD.bazel
+@@ -28,6 +28,7 @@ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "java_grpc_library",
+ )
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+ 
+ java_proto_library(
+     name = "image_java_proto",
+diff --git a/google/devtools/remoteworkers/v1test2/BUILD.bazel b/google/devtools/remoteworkers/v1test2/BUILD.bazel
+index f2a1f41..3dc7dbb 100755
+--- a/google/devtools/remoteworkers/v1test2/BUILD.bazel
++++ b/google/devtools/remoteworkers/v1test2/BUILD.bazel
+@@ -41,6 +41,7 @@ load(
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ 
+ # This is an API workspace, having public visibility by default makes perfect sense.
+ package(default_visibility = ["//visibility:public"])
+diff --git a/google/devtools/source/v1/BUILD.bazel b/google/devtools/source/v1/BUILD.bazel
+index 31da1d1..41b36fd 100755
+--- a/google/devtools/source/v1/BUILD.bazel
++++ b/google/devtools/source/v1/BUILD.bazel
+@@ -21,6 +21,7 @@ load(
+     "ruby_grpc_library",
+     "ruby_proto_library",
+ )
++load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+ 
+ # This is an API workspace, having public visibility by default makes perfect sense.
+ package(default_visibility = ["//visibility:public"])
+diff --git a/google/home/graph/v1/BUILD.bazel b/google/home/graph/v1/BUILD.bazel
+index 5520e5a..cb40749 100755
+--- a/google/home/graph/v1/BUILD.bazel
++++ b/google/home/graph/v1/BUILD.bazel
+@@ -4,6 +4,7 @@
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ load(
+     "@com_google_googleapis_imports//:imports.bzl",
+     "csharp_gapic_assembly_pkg",
+diff --git a/google/maps/BUILD.bazel b/google/maps/BUILD.bazel
+index d796eca..c4a3ed8 100755
+--- a/google/maps/BUILD.bazel
++++ b/google/maps/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
++
+ package(default_visibility = ["//google/maps:__subpackages__"])
+ 
+ sh_binary(
+diff --git a/google/maps/fleetengine/delivery/v1/BUILD.bazel b/google/maps/fleetengine/delivery/v1/BUILD.bazel
+index cf715b2..2ba9cb5 100755
+--- a/google/maps/fleetengine/delivery/v1/BUILD.bazel
++++ b/google/maps/fleetengine/delivery/v1/BUILD.bazel
+@@ -31,6 +31,7 @@ load(
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ 
+ # This is an API workspace, having public visibility by default makes perfect sense.
+ package(default_visibility = ["//visibility:public"])
+diff --git a/google/maps/fleetengine/v1/BUILD.bazel b/google/maps/fleetengine/v1/BUILD.bazel
+index 7c84856..f9b66d0 100755
+--- a/google/maps/fleetengine/v1/BUILD.bazel
++++ b/google/maps/fleetengine/v1/BUILD.bazel
+@@ -31,6 +31,7 @@ load(
+ # Common
+ ##############################################################################
+ load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@rules_python//python:defs.bzl", "py_test")
+ 
+ # This is an API workspace, having public visibility by default makes perfect sense.
+ package(default_visibility = ["//visibility:public"])
+diff --git a/google/shopping/merchant/notifications/v1beta/BUILD.bazel b/google/shopping/merchant/notifications/v1beta/BUILD.bazel
+index 1a11ae8..db83456 100755
+--- a/google/shopping/merchant/notifications/v1beta/BUILD.bazel
++++ b/google/shopping/merchant/notifications/v1beta/BUILD.bazel
+@@ -11,6 +11,8 @@
+ 
+ # buildifier: disable=load-on-top
+ 
++load("@rules_python//python:defs.bzl", "py_test")
++
+ # This is an API workspace, having public visibility by default makes perfect sense.
+ package(default_visibility = ["//visibility:public"])
+ 
+diff --git a/google/shopping/merchant/reports/v1beta/BUILD.bazel b/google/shopping/merchant/reports/v1beta/BUILD.bazel
+index 8415965..34868ff 100755
+--- a/google/shopping/merchant/reports/v1beta/BUILD.bazel
++++ b/google/shopping/merchant/reports/v1beta/BUILD.bazel
+@@ -11,6 +11,8 @@
+ 
+ # buildifier: disable=load-on-top
+ 
++load("@rules_python//python:defs.bzl", "py_test")
++
+ # This is an API workspace, having public visibility by default makes perfect sense.
+ package(default_visibility = ["//visibility:public"])
+ 
