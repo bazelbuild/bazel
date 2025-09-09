@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -48,20 +49,14 @@ public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
   /**
    * Represents a successful repository lookup.
    *
-   * @param path Returns the path to the directory containing the repository's contents. This
-   *     directory is guaranteed to exist. It may contain a full Bazel repository (with a WORKSPACE
-   *     file, directories, and BUILD files) or simply contain a file (or set of files) for, say, a
-   *     jar from Maven.
+   * @param root Returns the root containing the repository's contents. This directory is guaranteed
+   *     to exist.
    * @param excludeFromVendoring Returns if this repo should be excluded from vendoring. The value
-   *     is true for local & configure repos
+   *     is true for local as well as configure repos.
    */
   @AutoCodec
-  record Success(Path path, boolean isFetchingDelayed, boolean excludeFromVendoring)
-      implements RepositoryDirectoryValue {
-    public Path getPath() {
-      return path;
-    }
-  }
+  record Success(Root root, boolean isFetchingDelayed, boolean excludeFromVendoring)
+      implements RepositoryDirectoryValue {}
 
   /**
    * Represents an unsuccessful repository lookup, because the repo doesn't exist.
@@ -70,11 +65,7 @@ public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
    *     suitable for reporting to a user.
    */
   @AutoCodec
-  record Failure(String errorMsg) implements RepositoryDirectoryValue {
-    public String getErrorMsg() {
-      return errorMsg;
-    }
-  }
+  record Failure(String errorMsg) implements RepositoryDirectoryValue {}
 
   /** Creates a key from the given repository name. */
   static Key key(RepositoryName repository) {

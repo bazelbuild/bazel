@@ -166,8 +166,7 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
       }
       if (repositoryValue instanceof RepositoryDirectoryValue.Success success) {
         RootedPath rootedPrefixFile =
-            RootedPath.toRootedPath(
-                Root.fromPath(success.getPath()), BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
+            RootedPath.toRootedPath(success.root(), BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
         FileValue prefixFileValue = (FileValue) env.getValue(FileValue.key(rootedPrefixFile));
         if (prefixFileValue == null) {
           return null;

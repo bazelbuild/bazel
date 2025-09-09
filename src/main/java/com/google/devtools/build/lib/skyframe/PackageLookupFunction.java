@@ -357,8 +357,8 @@ public class PackageLookupFunction implements SkyFunction {
       throw new PackageLookupFunctionException(
           new RepositoryFetchException(id, e.getMessage()), Transience.PERSISTENT);
     }
-    if (repositoryValue instanceof Failure f) {
-      return new NoRepositoryPackageLookupValue(id.getRepository(), f.getErrorMsg());
+    if (repositoryValue instanceof Failure(String errorMsg)) {
+      return new NoRepositoryPackageLookupValue(id.getRepository(), errorMsg);
     }
 
     // Check .bazelignore file after fetching the external repository.
@@ -374,7 +374,7 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
-    Root root = Root.fromPath(((Success) repositoryValue).getPath());
+    Root root = ((Success) repositoryValue).root();
 
     // This checks for the build file names in the correct precedence order.
     for (BuildFileName buildFileName : buildFilesByPriority) {

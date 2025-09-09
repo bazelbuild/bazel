@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
@@ -195,12 +196,12 @@ public final class EnvironmentBackedRecursivePackageProvider
         throw new MissingDepException();
       }
 
-      if (repositoryValue instanceof Failure f) {
+      if (repositoryValue instanceof Failure(String errorMsg)) {
         eventHandler.handle(
-            Event.error(String.format("No such repository '%s': %s", repository, f.getErrorMsg())));
+            Event.error(String.format("No such repository '%s': %s", repository, errorMsg)));
         return;
       }
-      roots.add(Root.fromPath(((Success) repositoryValue).getPath()));
+      roots.add(((Success) repositoryValue).root());
     }
 
     IgnoredSubdirectories filteredIgnoredSubdirectories =
