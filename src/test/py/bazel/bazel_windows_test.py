@@ -23,8 +23,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "platforms", version = "0.0.9")',
-            'bazel_dep(name = "rules_cc", version = "0.0.12")',
             (
                 'cc_configure ='
                 ' use_extension("@rules_cc//cc:extensions.bzl",'
@@ -33,6 +31,8 @@ class BazelWindowsTest(test_base.TestBase):
             'use_repo(cc_configure, "local_config_cc")',
         ],
     )
+    self.AddBazelDep("platforms")
+    self.AddBazelDep("rules_cc")
     self.ScratchFile('foo/BUILD', [
         'platform(',
         '    name = "x64_windows-msys-gcc",',
@@ -237,14 +237,10 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testBuildNonCcRuleWithoutVCInstalled(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "rules_java", version = "8.12.0")',
-            'bazel_dep(name = "rules_python", version = "0.40.0")',
-            'bazel_dep(name = "rules_shell", version = "0.6.0")',
-        ],
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep("rules_java")
+    self.AddBazelDep("rules_python")
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
@@ -348,9 +344,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.RunBazel(['clean'])
 
   def testBuildJavaTargetWithClasspathJar(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep("rules_java")
     self.ScratchFile(
         'BUILD',
         [
@@ -417,9 +412,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('Hello World!', '\n'.join(stdout))
 
   def testRunWithScriptPath(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
@@ -471,9 +465,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('Hello from test!', '\n'.join(stdout))
 
   def testZipUndeclaredTestOutputs(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
@@ -523,9 +516,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertFalse(os.path.exists(output_zip))
 
   def testBazelForwardsRequiredEnvVariable(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
@@ -560,9 +552,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
   def testTestShardStatusFile(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
@@ -598,9 +589,8 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testTestPrematureExitFile(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.6.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [

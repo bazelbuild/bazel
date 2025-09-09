@@ -317,8 +317,8 @@ class BazelModuleTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo_a_name")',
             # bbb should still be able to access aaa as com_foo_aaa
             'bazel_dep(name = "bbb", version = "1.0")',
-            'bazel_dep(name = "rules_shell", version = "0.6.0")',
         ])
+    self.AddBazelDep("rules_shell")
     self.ScratchFile(
         'BUILD',
         [
