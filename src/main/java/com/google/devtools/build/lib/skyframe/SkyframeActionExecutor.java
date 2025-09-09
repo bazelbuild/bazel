@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -422,10 +421,6 @@ public final class SkyframeActionExecutor {
       }
     }
     return false;
-  }
-
-  boolean publishTargetSummaries() {
-    return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
   public boolean rewindingEnabled() {
