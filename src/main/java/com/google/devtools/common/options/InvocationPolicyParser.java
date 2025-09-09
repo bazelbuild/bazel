@@ -43,12 +43,12 @@ public class InvocationPolicyParser {
         // First try decoding the policy as a base64 encoded binary proto.
         return InvocationPolicy.parseFrom(
             BaseEncoding.base64().decode(CharMatcher.whitespace().removeFrom(policy)));
-      } catch (IllegalArgumentException e) {
+      } catch (IllegalArgumentException | InvalidProtocolBufferException e) {
         // If the flag value can't be decoded from base64, try decoding the policy as a text
         // formatted proto.
         return TextFormat.parse(policy, InvocationPolicy.class);
       }
-    } catch (InvalidProtocolBufferException | TextFormat.ParseException e) {
+    } catch (TextFormat.ParseException e) {
       throw new OptionsParsingException("Malformed value of --invocation_policy: " + policy, e);
     }
   }
