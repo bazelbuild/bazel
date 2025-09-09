@@ -234,6 +234,15 @@ EOF
     //"$pkg":fail &> $TEST_log \
     && fail "expected failure"
   expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
+
+  # Confirm printed path is relative to the current working directory.
+  cd "$pkg"
+  bazel test --print_relative_test_log_paths=true \
+    --experimental_convenience_symlinks=log_only \
+    //"$pkg":fail &> $TEST_log \
+    && fail "expected failure"
+  # $pkg is just the test name, so we should only need to go up one directory.
+  expect_log "^  \.\./${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/pull/8322

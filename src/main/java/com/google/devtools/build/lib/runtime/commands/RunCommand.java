@@ -813,6 +813,7 @@ public class RunCommand implements BlazeCommand {
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     PathPrettyPrinter prettyPrinter =
         new PathPrettyPrinter(
+            env.getRelativeWorkingDirectory(),
             requestOptions.getSymlinkPrefix(env.getRuntime().getProductName()),
             builtTargets.convenienceSymlinks);
 

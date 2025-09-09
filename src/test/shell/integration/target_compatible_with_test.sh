@@ -1243,7 +1243,7 @@ EOF
     --extra_execution_platforms= \
     //target_skipping:host_tool_message.txt &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
-  expect_log " ${PRODUCT_NAME}-bin/target_skipping/host_tool_message.txt$"
+  expect_log " \.\./${PRODUCT_NAME}-bin/target_skipping/host_tool_message.txt$"
   expect_log ' Build completed successfully, '
 
   # Make sure that the contents of the file are what we expect.
@@ -1718,7 +1718,7 @@ EOF
     --host_platform=@//target_skipping:platform_foo2 \
     --platforms=@//target_skipping:platform_foo2 \
     //target_skipping:mytarget &> "${TEST_log}" || fail "Bazel failed unexpectedly."
-  expect_log " ${PRODUCT_NAME}-bin/target_skipping/mytarget.txt$"
+  expect_log " \.\./${PRODUCT_NAME}-bin/target_skipping/mytarget.txt$"
   expect_log 'Build completed successfully'
 }
 
