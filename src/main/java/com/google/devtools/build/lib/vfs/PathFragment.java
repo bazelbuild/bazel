@@ -837,14 +837,14 @@ public abstract sealed class PathFragment
       char c = path.charAt(i);
       boolean isSeparator = OS.isSeparator(c);
       switch (state) {
-        case Base:
+        case Base -> {
           if (isSeparator) {
             state = NormalizedImplState.Separator;
           } else {
             state = NormalizedImplState.Base;
           }
-          break;
-        case Separator:
+        }
+        case Separator -> {
           if (isSeparator) {
             state = NormalizedImplState.Separator;
           } else if (c == '.') {
@@ -852,8 +852,8 @@ public abstract sealed class PathFragment
           } else {
             state = NormalizedImplState.Base;
           }
-          break;
-        case Dot:
+        }
+        case Dot -> {
           if (isSeparator) {
             if (lookForSameLevelReferences) {
               // "." segment found
@@ -865,17 +865,15 @@ public abstract sealed class PathFragment
           } else {
             state = NormalizedImplState.Base;
           }
-          break;
-        case DotDot:
+        }
+        case DotDot -> {
           if (isSeparator) {
             // ".." segment found
             return false;
           } else {
             state = NormalizedImplState.Base;
           }
-          break;
-        default:
-          throw new IllegalStateException("Unhandled state: " + state);
+        }
       }
     }
     // The character just after the string is equivalent to a separator
