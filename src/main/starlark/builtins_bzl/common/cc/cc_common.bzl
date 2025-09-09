@@ -31,6 +31,7 @@ load(":common/cc/link/create_linkstamp.bzl", "create_linkstamp")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "create_cc_toolchain_config_info")
+load(":common/cc/toolchain_config/configure_features.bzl", "configure_features")
 
 cc_common_internal = _builtins.internal.cc_common
 
@@ -182,15 +183,6 @@ def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compi
 
 def _merge_compilation_outputs(*, compilation_outputs = []):
     return cc_common_internal.merge_compilation_outputs(compilation_outputs = compilation_outputs)
-
-def _configure_features(*, ctx, cc_toolchain, language = None, requested_features = [], unsupported_features = []):
-    return cc_common_internal.configure_features(
-        ctx = ctx,
-        cc_toolchain = cc_toolchain,
-        language = language,
-        requested_features = requested_features,
-        unsupported_features = unsupported_features,
-    )
 
 def _get_tool_for_action(*, feature_configuration, action_name):
     return cc_common_internal.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
@@ -764,7 +756,7 @@ cc_common = struct(
     # And also deprecate this public API.
     CcToolchainInfo = cc_common_internal.CcToolchainInfo,
     do_not_use_tools_cpp_compiler_present = cc_common_internal.do_not_use_tools_cpp_compiler_present,
-    configure_features = _configure_features,
+    configure_features = configure_features,
     get_tool_for_action = _get_tool_for_action,
     get_execution_requirements = _get_execution_requirements,
     is_enabled = _is_enabled,

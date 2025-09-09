@@ -72,6 +72,8 @@ LTO_INDEX_FOR_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME = "lto-index-for-nodeps-dynamic
 # Name of the action compiling lto bitcodes into native objects.
 LTO_BACKEND_ACTION_NAME = "lto-backend"
 
+CPP_HEADER_ANALYSIS_ACTION_NAME = "c++-header-analysis"
+
 # Name of the link action producing executable binary.
 CPP_LINK_EXECUTABLE_ACTION_NAME = "c++-link-executable"
 
@@ -128,6 +130,7 @@ ACTION_NAMES = struct(
     dwp = DWP,
     lto_indexing = LTO_INDEXING_ACTION_NAME,
     lto_backend = LTO_BACKEND_ACTION_NAME,
+    cpp_header_analysis = CPP_HEADER_ANALYSIS_ACTION_NAME,
     lto_index_for_executable = LTO_INDEX_FOR_EXECUTABLE_ACTION_NAME,
     lto_index_for_dynamic_library = LTO_INDEX_FOR_DYNAMIC_LIBRARY_ACTION_NAME,
     lto_index_for_nodeps_dynamic_library = LTO_INDEX_FOR_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,

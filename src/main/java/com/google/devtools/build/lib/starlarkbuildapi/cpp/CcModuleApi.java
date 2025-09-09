@@ -699,16 +699,16 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]"),
-      },
-      useStarlarkThread = true)
-  FeatureConfigurationT configureFeatures(
+      })
+  default FeatureConfigurationT configureFeatures(
       StarlarkRuleContextT ruleContext,
       Info toolchain,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures, // <String> expected
-      StarlarkThread thread)
-      throws EvalException;
+      Sequence<?> unsupportedFeatures) { // <String> expected
+
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_lto_compilation_context",

@@ -680,10 +680,15 @@ public final class CppConfiguration extends Fragment
     return propellerOptimizeAbsoluteLdProfile;
   }
 
-  @Nullable
   @StarlarkConfigurationField(
       name = "fdo_prefetch_hints",
       doc = "The label specified in --fdo_prefetch_hints")
+  @StarlarkMethod(
+      name = "_fdo_prefetch_hints_label",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
   public Label getFdoPrefetchHintsLabel() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
@@ -765,6 +770,7 @@ public final class CppConfiguration extends Fragment
     return shareNativeDeps();
   }
 
+  @StarlarkMethod(name = "_dont_enable_host_nonhost", documented = false, structField = true)
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
   }

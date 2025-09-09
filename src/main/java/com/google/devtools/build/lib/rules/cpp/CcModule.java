@@ -118,49 +118,6 @@ public abstract class CcModule
     return CcToolchainProvider.BUILTINS_PROVIDER;
   }
 
-  @Override
-  public FeatureConfigurationForStarlark configureFeatures(
-      StarlarkRuleContext ruleContext,
-      Info toolchainInfo,
-      Object languageObject,
-      Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures, // <String> expected
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-
-    String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
-    Language language = parseLanguage(languageString);
-    // TODO(236152224): Remove the following when all Starlark objc configure_features have the
-    // chance to migrate to using the language parameter.
-    if (requestedFeatures.contains(CppRuleClasses.LANG_OBJC)) {
-      language = Language.OBJC;
-    }
-
-    ImmutableSet<String> requestedFeaturesSet =
-        ImmutableSet.copyOf(Sequence.cast(requestedFeatures, String.class, "requested_features"));
-    ImmutableSet<String> unsupportedFeaturesSet =
-        ImmutableSet.copyOf(
-            Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
-    final CppConfiguration cppConfiguration;
-    CcToolchainProvider toolchain = CcToolchainProvider.wrapOrThrowEvalException(toolchainInfo);
-    if (!ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
-      throw Starlark.errorf(
-          "%s must declare '%s' as a required configuration fragment to access it.",
-          ruleContext.getRuleContext().getRuleClassNameForLogging(),
-          CppConfiguration.class.getSimpleName());
-    }
-    cppConfiguration = toolchain.getCppConfiguration();
-    getSemantics(language)
-        .validateLayeringCheckFeatures(
-            ruleContext.getRuleContext(),
-            ruleContext.getAspectDescriptor(),
-            toolchain,
-            unsupportedFeaturesSet);
-    return FeatureConfigurationForStarlark.from(
-        CcCommon.configureFeaturesOrThrowEvalException(
-            requestedFeaturesSet, unsupportedFeaturesSet, language, toolchain, cppConfiguration));
-  }
 
   @Override
   public String getToolForAction(
@@ -1090,7 +1047,8 @@ public abstract class CcModule
     // directly without creating a cycle.
     if (!label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common.bzl")
         && !label.getCanonicalForm().contains("_builtins//:common/cc/compile")
-        && !label.getCanonicalForm().contains("_builtins//:common/cc/link")) {
+        && !label.getCanonicalForm().contains("_builtins//:common/cc/link")
+        && !label.getCanonicalForm().contains("_builtins//:common/cc/toolchain_config")) {
       throw Starlark.errorf(
           "cc_common_internal can only be used by cc_common.bzl in builtins, "
               + "please use cc_common instead.");

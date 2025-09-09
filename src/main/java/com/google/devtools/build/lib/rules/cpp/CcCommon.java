@@ -157,6 +157,12 @@ public final class CcCommon {
     return coverageFeatures.build();
   }
 
+  /**
+   * Legacy implementation of configure_features only used in tests.
+   *
+   * @deprecated The uses should be replaced with <code>cc_common.configure_features</code>.
+   */
+  @Deprecated
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
