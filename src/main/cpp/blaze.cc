@@ -390,11 +390,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // Add JVM arguments particular to building blaze64 and particular JVM
   // versions.
   string error;
-  auto [server_javabase, server_javabase_type] =
-      startup_options.GetServerJavabaseAndType();
   blaze_exit_code::ExitCode jvm_args_exit_code =
-      startup_options.AddJVMArguments(server_javabase, &result, user_options,
-                                      &error);
+      startup_options.AddJVMArguments(startup_options.GetServerJavabase(),
+                                      &result, user_options, &error);
   if (jvm_args_exit_code != blaze_exit_code::SUCCESS) {
     BAZEL_DIE(jvm_args_exit_code) << error;
   }
@@ -443,31 +441,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // protobuf.
   // TODO: Drop this when protobuf uses VarHandle.
   result.push_back("-Dsun.misc.unsafe.memory.access=allow");
-
-  if (server_javabase_type == StartupOptions::JavabaseType::EMBEDDED) {
-    // Use the system trust store instead of the certificates shipped with the
-    // embedded JDK since users can't easily update it and may not even be aware
-    // of its existence.
-#if defined(_WIN32)
-    result.push_back("-Djavax.net.ssl.trustStoreType=Windows-ROOT");
-#elif defined(__APPLE__)
-    // This type is available as of JDK 23 and provides root certificates in
-    // addition to user certificates.
-    // https://bugs.openjdk.org/browse/JDK-8320362
-    result.push_back("-Djavax.net.ssl.trustStoreType=KeychainStore-ROOT");
-#elif defined(__linux__)
-    if (blaze_util::IsDirectory(
-            blaze_util::Path("/etc/ssl/certs/java/cacerts"))) {
-      // The default trust store location on Debian and Ubuntu.
-      result.push_back(
-          "-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts");
-    } else if (blaze_util::IsDirectory(
-                   blaze_util::Path("/etc/pki/java/cacerts"))) {
-      // The default trust store location on Fedora and CentOS.
-      result.push_back("-Djavax.net.ssl.trustStore=/etc/pki/java/cacerts");
-    }
-#endif
-  }
 
 #if defined(_WIN32)
   // See and use more than 64 CPUs on Windows.
