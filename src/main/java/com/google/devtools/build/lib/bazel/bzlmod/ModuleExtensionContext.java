@@ -35,7 +35,6 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
 
 /** The Starlark object passed to the implementation function of module extensions. */
 @StarlarkBuiltin(
@@ -128,7 +127,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
           Note that the returned value may have been created by a different version of the \
           extension, which may have used a different schema.
           """)
-  public StarlarkValue getFacts() {
+  public Facts getFacts() {
     return facts;
   }
 
@@ -250,6 +249,15 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
                 the <code>module_ctx.facts</code> property.
                 This is useful for extensions that want to preserve universally true facts such as
                 the hashes of artifacts in an immutable repository.
+
+                Bazel may shallowly merge multiple facts dicts returned by different versions of the
+                extension in order to resolve merge conflicts on the MODULE.bazel.lock file, as if
+                by applying the <code>dict.update()</code> method or the <code>|</code> operator in
+                Starlark. Extensions should use facts for key-value storage only and ensure that
+                the key uniquely determines the value, although perhaps only via additional
+                information and network access. An extension can opt out of this merging by
+                providing a dict with a single, fixed top-level key and an arbitrary value.
+
                 Note that the value provided here may be read back by a different version of the
                 extension, so either include a version number or use a schema that is unlikely to
                 result in ambiguities.

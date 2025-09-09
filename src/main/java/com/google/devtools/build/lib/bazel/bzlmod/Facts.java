@@ -31,7 +31,15 @@ import net.starlark.java.types.Types;
 @AutoCodec
 @StarlarkBuiltin(
     name = "Facts",
-    doc = "User-provided data attached to a module extension.",
+    doc =
+        """
+        User-provided data attached to a module extension that is persisted across reevaluations of
+        the extension.
+
+        This type supports dict-like access (e.g. `facts["key"]` and `facts.get("key")`) as well as
+        membership tests (e.g. `"key" in facts`). It does not support iteration or methods like
+        `keys()`, `items()`, or `len()`.
+        """,
     category = DocCategory.BUILTIN)
 public abstract class Facts implements StarlarkIndexable {
   public static final Facts EMPTY = new AutoValue_Facts(Dict.empty());
