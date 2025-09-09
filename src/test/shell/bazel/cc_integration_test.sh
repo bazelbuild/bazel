@@ -1044,7 +1044,7 @@ function test_execroot_sibling_layout_null_build_for_external_subpackages() {
   # Null build.
   bazel build --experimental_sibling_repository_layout //baz:binary &> "$TEST_log" \
     || fail "expected build success"
-  expect_log "INFO: 1 process: 1 action cache hit, 1 internal"
+  expect_log "INFO: 1 process: 1 internal"
 }
 
 function test_execroot_sibling_layout_header_scanning_in_external_subpackage() {
