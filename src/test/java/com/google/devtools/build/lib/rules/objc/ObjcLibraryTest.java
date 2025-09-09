@@ -2669,4 +2669,55 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             actionsTestUtil().artifactClosureOf(getFilesToBuild(cc)), "objc.o");
     assertThat(objcObject.getExecPathString()).contains("ios_arm64");
   }
+
+  @Test
+  public void testObjcTransitionInExecConfig(
+      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+    scratch.file(
+        "bin/defs.bzl",
+        """
+        def _impl(ctx):
+          return [DefaultInfo(files = ctx.attr.dep[DefaultInfo].files)]
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"dep": attr.label(cfg = 'exec')}
+        )
+        """);
+    scratch.file(
+        "bin/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        objc_library(
+            name = "objc",
+            srcs = ["objc.m"],
+        )
+
+        my_rule(
+            name = "t1",
+            dep = ":objc",
+        )
+        """);
+
+    setBuildLanguageOptions("--noincompatible_disable_objc_library_transition");
+    ImmutableList.Builder<String> args = ImmutableList.builder();
+    args.add(
+        "--apple_platform_type=ios",
+        "--platforms=" + MockObjcSupport.IOS_ARM64,
+        "--experimental_platform_in_output_dir",
+        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition,
+        "--host_platform=" + MockObjcSupport.DARWIN_ARM64);
+    if (!usePlatformsInAppleCrosstoolTransition) {
+      args.add("--host_cpu=darwin_arm64");
+    }
+    useConfiguration(args.build().toArray(new String[0]));
+
+    ConfiguredTarget t1 = getConfiguredTarget("//bin:t1");
+    Artifact objcObject =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(t1)), "objc.o");
+    String execPath = objcObject.getExecPathString();
+    assertThat(execPath).contains("darwin_arm64");
+    assertThat(execPath).doesNotContain("-ST-");
+  }
 }
