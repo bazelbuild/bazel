@@ -120,7 +120,8 @@ public class SerializationModule extends BlazeModule {
             // TODO: b/358347099 - use a persistent store
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-            FingerprintValueService.NONPROD_FINGERPRINTER);
+            FingerprintValueService.NONPROD_FINGERPRINTER,
+            /* jsonLogWriter= */ null);
 
     private static final ListenableFuture<FingerprintValueService> WRAPPED_SERVICE_INSTANCE =
         immediateFuture(SERVICE_INSTANCE);
