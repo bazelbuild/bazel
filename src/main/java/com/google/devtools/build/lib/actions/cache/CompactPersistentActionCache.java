@@ -74,7 +74,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 21;
+  private static final int VERSION = 22;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
