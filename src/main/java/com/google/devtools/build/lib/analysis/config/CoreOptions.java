@@ -197,8 +197,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Each entry should be of the form label=value where label refers to a platform and values"
               + " is the desired shortname to override the platform's CPU name in $(TARGET_CPU)"
               + " make variable and output path. Only used when"
-              + " --experimental_platform_in_output_dir or --incompatible_target_cpu_from_platform"
-              + " is true. Has highest naming priority.")
+              + " --experimental_platform_in_output_dir, --incompatible_target_cpu_from_platform or"
+              + " --incompatible_bep_cpu_from_platform is true. Has highest naming priority.")
   public List<Map.Entry<Label, String>> overridePlatformCpuName;
 
   @Option(
@@ -211,6 +211,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "If specified, the value of the cpu constraint (@platforms//cpu:cpu) of"
               + " the target platform is used to set the $(TARGET_CPU) make variable.")
   public boolean incompatibleTargetCpuFromPlatform;
+
+  @Option(
+      name = "incompatible_bep_cpu_from_platform",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If specified, the value of the cpu constraint (@platforms//cpu:cpu) of"
+              + " the target platform is used to set the Configuration.cpu and"
+              + " Configuration.platform_name fields in the BEP.")
+  public boolean incompatibleBepCpuFromPlatform;
 
   @Option(
       name = "define",
