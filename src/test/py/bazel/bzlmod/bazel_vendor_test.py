@@ -628,7 +628,7 @@ class BazelVendorTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'bazel_dep(name = "aaa", version = "1.0")',
-            'bazel_dep(name = "rules_cc", version = "0.2.3")',
+            'bazel_dep(name = "rules_cc", version = "0.2.4")',
         ],
     )
     self.ScratchFile(
@@ -677,7 +677,7 @@ class BazelVendorTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'bazel_dep(name = "bbb", version = "1.0")',
-            'bazel_dep(name = "rules_cc", version = "0.2.3")',
+            'bazel_dep(name = "rules_cc", version = "0.2.4")',
         ],
     )
     self.ScratchFile(

@@ -56,7 +56,7 @@ public final class CcToolchainProvider {
   // provider when rules_cc itself is the main module
   private static final CcToolchainInfoProvider RULES_CC_PROVIDER =
       new RulesCcCcToolchainInfoProvider();
-  private static final CcToolchainInfoProvider BAZEL_PROVIDER = new BazelCcToolchainInfoProvider();
+  public static final CcToolchainInfoProvider BAZEL_PROVIDER = new BazelCcToolchainInfoProvider();
 
   public static CcToolchainProvider wrapOrThrowEvalException(Info toolchainInfo)
       throws EvalException {
@@ -84,6 +84,9 @@ public final class CcToolchainProvider {
     CcToolchainProvider provider = target.get(BUILTINS_PROVIDER);
     if (provider == null) {
       provider = target.get(RULES_CC_PROVIDER);
+    }
+    if (provider == null) {
+      provider = target.get(BAZEL_PROVIDER);
     }
     return provider;
   }

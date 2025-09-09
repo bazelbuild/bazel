@@ -1599,6 +1599,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1636,6 +1637,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1680,6 +1682,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1725,6 +1728,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -1772,6 +1776,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         package(features = [
             "-thin_lto",
             "use_lto_native_object_directory",
@@ -1816,6 +1821,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         package(features = [
             "thin_lto",
             "use_lto_native_object_directory",
@@ -1866,6 +1872,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "bin",
             srcs = ["binfile.cc"],
@@ -2124,6 +2131,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     createBuildFiles();
     scratch.file(
         "fdo/BUILD",
+        "load('@rules_cc//cc/toolchains:propeller_optimize.bzl',"
+            + " 'propeller_optimize')",
         "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
             + " ld_profile=':ld_profile.txt')");
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
@@ -2157,7 +2166,11 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
   private void testLLVMCachePrefetchBackendOption(String extraOption) throws Exception {
     createBuildFiles();
-    scratch.file("fdo/BUILD", "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
+    scratch.file(
+        "fdo/BUILD",
+        "load('@rules_cc//cc/toolchains:fdo_prefetch_hints.bzl',"
+            + " 'fdo_prefetch_hints')",
+        "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
     useConfiguration(

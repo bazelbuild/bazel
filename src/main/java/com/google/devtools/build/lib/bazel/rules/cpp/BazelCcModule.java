@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 
 /** A module that contains Starlark utilities for C++ support. */
@@ -29,5 +31,10 @@ public class BazelCcModule extends CcModule {
   @Override
   public CppSemantics getSemantics(Language language) {
     return (language == Language.CPP) ? BazelCppSemantics.CPP : BazelCppSemantics.OBJC;
+  }
+
+  @Override
+  public Provider getCcToolchainProvider() {
+    return CcToolchainProvider.BAZEL_PROVIDER;
   }
 }

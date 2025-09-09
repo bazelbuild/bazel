@@ -554,6 +554,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_toolchain_alias(name = "b")
 
         fdo_profile(
@@ -572,6 +573,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_toolchain_alias(name = "b")
 
         fdo_profile(
