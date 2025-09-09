@@ -65,6 +65,7 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
       Verify.verify(jsonWriter != null);
       jsonWriter.beginObject();
       jsonWriter.name("op").value(op);
+      jsonWriter.name("thread").value(Thread.currentThread().threadId());
     } catch (IOException e) {
       hadErrors = true;
       logger.atWarning().withCause(e).log("Cannot write JSON log entry");
