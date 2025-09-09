@@ -671,16 +671,7 @@ public interface CcModuleApi<
       name = "configure_features",
       doc = "Creates a feature_configuration instance. Requires the cpp configuration fragment.",
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = StarlarkRuleContextApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            doc = "The rule context."),
+        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
         @Param(
             name = "cc_toolchain",
             doc = "cc_toolchain for which we configure features.",
@@ -711,7 +702,7 @@ public interface CcModuleApi<
       },
       useStarlarkThread = true)
   FeatureConfigurationT configureFeatures(
-      Object ruleContextOrNone,
+      StarlarkRuleContextT ruleContext,
       Info toolchain,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected

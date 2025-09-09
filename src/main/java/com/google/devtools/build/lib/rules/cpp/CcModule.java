@@ -120,7 +120,7 @@ public abstract class CcModule
 
   @Override
   public FeatureConfigurationForStarlark configureFeatures(
-      Object ruleContextOrNone,
+      StarlarkRuleContext ruleContext,
       Info toolchainInfo,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
@@ -128,7 +128,6 @@ public abstract class CcModule
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    StarlarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, StarlarkRuleContext.class);
 
     String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
     Language language = parseLanguage(languageString);
@@ -145,29 +144,19 @@ public abstract class CcModule
             Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
     final CppConfiguration cppConfiguration;
     CcToolchainProvider toolchain = CcToolchainProvider.wrapOrThrowEvalException(toolchainInfo);
-    if (ruleContext == null) {
+    if (!ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
       throw Starlark.errorf(
-          "Mandatory parameter 'ctx' of cc_common.configure_features is missing. "
-              + "Please add 'ctx' as a named parameter. See "
-              + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
-    } else {
-      if (!ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
-        throw Starlark.errorf(
-            "%s must declare '%s' as a required configuration fragment to access it.",
-            ruleContext.getRuleContext().getRuleClassNameForLogging(),
-            CppConfiguration.class.getSimpleName());
-      }
-      cppConfiguration = toolchain.getCppConfiguration();
-      // buildOptions are only used when --incompatible_enable_cc_toolchain_resolution is flipped,
-      // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
-      // flipped.
-      getSemantics(language)
-          .validateLayeringCheckFeatures(
-              ruleContext.getRuleContext(),
-              ruleContext.getAspectDescriptor(),
-              toolchain,
-              unsupportedFeaturesSet);
+          "%s must declare '%s' as a required configuration fragment to access it.",
+          ruleContext.getRuleContext().getRuleClassNameForLogging(),
+          CppConfiguration.class.getSimpleName());
     }
+    cppConfiguration = toolchain.getCppConfiguration();
+    getSemantics(language)
+        .validateLayeringCheckFeatures(
+            ruleContext.getRuleContext(),
+            ruleContext.getAspectDescriptor(),
+            toolchain,
+            unsupportedFeaturesSet);
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
             requestedFeaturesSet, unsupportedFeaturesSet, language, toolchain, cppConfiguration));

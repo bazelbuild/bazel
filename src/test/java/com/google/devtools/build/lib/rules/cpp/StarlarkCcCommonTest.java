@@ -720,11 +720,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             fragments = ["cpp"],
         )
         """);
-    useConfiguration("--incompatible_require_ctx_in_configure_features");
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//a:r");
-    assertContainsEvent("Mandatory parameter 'ctx' of cc_common.configure_features is missing");
+    assertContainsEvent("configure_features() missing 1 required keyword-only argument: ctx");
   }
 
   @Test

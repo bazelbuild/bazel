@@ -183,7 +183,7 @@ def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compi
 def _merge_compilation_outputs(*, compilation_outputs = []):
     return cc_common_internal.merge_compilation_outputs(compilation_outputs = compilation_outputs)
 
-def _configure_features(*, cc_toolchain, ctx = None, language = None, requested_features = [], unsupported_features = []):
+def _configure_features(*, ctx, cc_toolchain, language = None, requested_features = [], unsupported_features = []):
     return cc_common_internal.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
