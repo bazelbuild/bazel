@@ -124,12 +124,10 @@ public class ModOptions extends OptionsBase {
 
   @Option(
       name = "cycles",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Points out dependency cycles inside the displayed tree, which are normally ignored by"
-              + " default.")
+      help = "Points out dependency cycles inside the displayed tree.")
   public boolean cycles;
 
   @Option(

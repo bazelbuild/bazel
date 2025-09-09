@@ -103,24 +103,59 @@ public class ModExecutor {
   }
 
   public void graph(ImmutableSet<ModuleKey> from) {
-    ImmutableMap<ModuleKey, ResultNode> result =
-        expandAndPrune(from, computeExtensionFilterTargets(), false);
+    ImmutableMap<ModuleKey, ResultNode> result;
+    ImmutableSet<ModuleKey> targets = computeExtensionFilterTargets();
+    if (targets.isEmpty()) {
+      result = expandAndPrune(from);
+    } else {
+      result = expandPathsToTargets(from, targets, false);
+    }
     OutputFormatters.getFormatter(options.outputFormat)
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
   public void path(ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> to) {
-    MaybeCompleteSet<ModuleKey> targets =
-        MaybeCompleteSet.unionElements(computeExtensionFilterTargets(), to);
-    ImmutableMap<ModuleKey, ResultNode> result = expandAndPrune(from, targets, true);
+    ImmutableSet<ModuleKey> targets =
+        ImmutableSet.<ModuleKey>builder()
+            .addAll(computeExtensionFilterTargets())
+            .addAll(to)
+            .build();
+
+    if (targets.isEmpty()) {
+      printer.println("No target modules specified.");
+      printer.flush();
+      return;
+    }
+
+    ImmutableMap<ModuleKey, ResultNode> result = expandPathsToTargets(from, targets, true);
+    if (result.isEmpty()) {
+      printer.println("No path found to the specified target modules.");
+      printer.flush();
+      return;
+    }
     OutputFormatters.getFormatter(options.outputFormat)
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
   public void allPaths(ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> to) {
-    MaybeCompleteSet<ModuleKey> targets =
-        MaybeCompleteSet.unionElements(computeExtensionFilterTargets(), to);
-    ImmutableMap<ModuleKey, ResultNode> result = expandAndPrune(from, targets, false);
+    ImmutableSet<ModuleKey> targets =
+        ImmutableSet.<ModuleKey>builder()
+            .addAll(computeExtensionFilterTargets())
+            .addAll(to)
+            .build();
+
+    if (targets.isEmpty()) {
+      printer.println("No target modules specified.");
+      printer.flush();
+      return;
+    }
+
+    ImmutableMap<ModuleKey, ResultNode> result = expandPathsToTargets(from, targets, false);
+    if (result.isEmpty()) {
+      printer.println("No path found to the specified target modules.");
+      printer.flush();
+      return;
+    }
     OutputFormatters.getFormatter(options.outputFormat)
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
@@ -143,77 +178,182 @@ public class ModExecutor {
   }
 
   /**
-   * The core function which produces the {@link ResultNode} graph for all the graph-generating
-   * queries above. First, it expands the result graph starting from the {@code from} modules, up
-   * until the {@code to} target modules if they are specified. If {@code singlePath} is set, it
-   * will only contain a single path to one of the targets. <br>
-   * Then it calls {@link ResultGraphPruner#pruneByDepth()} to prune nodes after the specified
-   * {@code depth} (root is at depth 0). If the query specifies any {@code to} targets, even if they
-   * are below the specified depth, they will still be included in the graph using some indirect
-   * (dotted) edges. If {@code from} nodes other than the root are specified, they will be pinned
-   * (connected directly under the root - using indirect edges if necessary).
+   * Reconstructs a path backwards from a child to the root and adds it to the result graph.
+   *
+   * <p>This is a helper function for {@link #expandPathsToTargets}. Once a path to a target is
+   * found, this function is called to walk up the dependency chain (using the {@code bfsParentMap})
+   * and add the necessary nodes and edges to the {@code resultGraph}.
    */
-  @VisibleForTesting
-  ImmutableMap<ModuleKey, ResultNode> expandAndPrune(
-      ImmutableSet<ModuleKey> from, MaybeCompleteSet<ModuleKey> targets, boolean singlePath) {
-    final MaybeCompleteSet<ModuleKey> coloredPaths = colorReversePathsToRoot(targets);
-    ImmutableMap.Builder<ModuleKey, ResultNode> resultBuilder = new ImmutableMap.Builder<>();
-    ResultNode.Builder rootBuilder = ResultNode.builder();
+  private void addPathToResultGraph(
+      Map<ModuleKey, ResultNode> resultGraph,
+      Map<ModuleKey, ModuleKey> bfsParentMap,
+      ModuleKey pathParent,
+      ModuleKey pathChild) {
+    // Mark the child node as a target in the result graph.
+    ResultNode.Builder childNodeBuilder = ResultNode.builder();
+    if (resultGraph.containsKey(pathChild)) {
+      childNodeBuilder.addChildren(resultGraph.get(pathChild).getChildren());
+    }
+    resultGraph.put(pathChild, childNodeBuilder.setTarget(true).build());
 
-    ImmutableSet<ModuleKey> rootDirectChildren =
+    // Traverse up from the found path to the root, adding the path to the result graph.
+    ImmutableSortedSet<ModuleKey> rootDirectChildren =
         depGraph.get(ModuleKey.ROOT).getAllDeps(options.includeUnused).keySet();
-    ImmutableSet<ModuleKey> rootPinnedChildren =
-        getPinnedChildrenOfRootInTheResultGraph(rootDirectChildren, from).stream()
-            .filter(coloredPaths::contains)
-            .filter(this::filterBuiltin)
-            .collect(toImmutableSortedSet(ModuleKey.LEXICOGRAPHIC_COMPARATOR));
-    rootPinnedChildren.forEach(
-        moduleKey ->
-            rootBuilder.addChild(
-                moduleKey,
-                IsExpanded.TRUE,
-                rootDirectChildren.contains(moduleKey) ? IsIndirect.FALSE : IsIndirect.TRUE));
-    resultBuilder.put(ModuleKey.ROOT, rootBuilder.build());
 
-    Set<ModuleKey> seen = new HashSet<>(rootPinnedChildren);
-    Deque<ModuleKey> toVisit = new ArrayDeque<>(rootPinnedChildren);
-    seen.add(ModuleKey.ROOT);
+    ModuleKey currentChild = pathChild;
+    ModuleKey currentParent = pathParent;
 
-    while (!toVisit.isEmpty()) {
-      ModuleKey key = toVisit.pop();
-      AugmentedModule module = depGraph.get(key);
-      ResultNode.Builder nodeBuilder = ResultNode.builder();
-      nodeBuilder.setTarget(!targets.isComplete() && targets.contains(key));
+    while (currentParent != null) {
+      ResultNode.Builder parentNodeBuilder = ResultNode.builder();
 
-      ImmutableSortedSet<ModuleKey> moduleDeps = module.getAllDeps(options.includeUnused).keySet();
-      for (ModuleKey childKey : moduleDeps) {
-        if (!coloredPaths.contains(childKey)) {
-          continue;
-        }
-        if (isBuiltin(childKey) && !options.includeBuiltin) {
-          continue;
-        }
-        if (seen.contains(childKey)) {
-          // Single paths should not contain cycles or unexpanded (duplicate) children
-          // TODO(andreisolo): Move the single path extraction to DFS otherwise it can produce a
-          //  wrong answer in cycle edge-case A -> B -> C -> B with target D will not find ABD
-          //                                        \__ D
-          if (!singlePath) {
-            nodeBuilder.addChild(childKey, IsExpanded.FALSE, IsIndirect.FALSE);
-          }
-          continue;
-        }
-        nodeBuilder.addChild(childKey, IsExpanded.TRUE, IsIndirect.FALSE);
-        seen.add(childKey);
-        toVisit.add(childKey);
-        if (singlePath) {
-          break;
-        }
+      // Preserve existing children if the parent node is already in the graph.
+      if (resultGraph.containsKey(currentParent)) {
+        ResultNode existingNode = resultGraph.get(currentParent);
+        parentNodeBuilder
+            .addChildren(existingNode.getChildren())
+            .setTarget(existingNode.isTarget());
       }
 
-      resultBuilder.put(key, nodeBuilder.build());
+      // Add the edge from parent to child.
+      boolean isIndirect =
+          currentParent.equals(ModuleKey.ROOT) && !rootDirectChildren.contains(currentChild);
+      parentNodeBuilder.addChild(
+          currentChild, IsExpanded.TRUE, isIndirect ? IsIndirect.TRUE : IsIndirect.FALSE);
+
+      resultGraph.put(currentParent, parentNodeBuilder.build());
+
+      // Move up the path.
+      currentChild = currentParent;
+      currentParent = bfsParentMap.get(currentChild);
     }
-    return new ResultGraphPruner(targets, resultBuilder.buildOrThrow()).pruneByDepth();
+  }
+
+  /**
+   * Finds paths from a set of modules to a set of target modules and returns a dependency graph
+   * containing these paths.
+   *
+   * <p>This function performs a breadth-first search (BFS) starting from the {@code from} modules
+   * to find paths to the {@code targets}. When a path is found, it's added to the result graph. The
+   * search can be configured to stop after finding a single path to each target or to find all
+   * possible paths. The final graph is then pruned to the depth specified in the options by {@link
+   * ResultGraphPruner}.
+   *
+   * @param from The set of modules to start the search from.
+   * @param targets The set of target modules to find paths to.
+   * @param findSinglePath If true, the search for paths to a specific target will stop once the
+   *     first path is found.
+   * @return An immutable map representing the pruned dependency graph containing the paths.
+   */
+  ImmutableMap<ModuleKey, ResultNode> expandPathsToTargets(
+      ImmutableSet<ModuleKey> from, ImmutableSet<ModuleKey> targets, boolean findSinglePath) {
+    // 1. Perform a BFS to find paths from the "from" modules to the "targets".
+    // This map tracks the parent of each visited module to reconstruct paths later.
+    Map<ModuleKey, ModuleKey> bfsParentMap = new HashMap<>();
+    from.stream()
+        .filter(this::filterBuiltin)
+        .sorted(ModuleKey.LEXICOGRAPHIC_COMPARATOR)
+        .forEach(moduleKey -> bfsParentMap.put(moduleKey, ModuleKey.ROOT));
+    bfsParentMap.put(ModuleKey.ROOT, null); // The root has no parent.
+
+    Map<ModuleKey, ResultNode> resultGraph = new HashMap<>();
+    Deque<ModuleKey> queue = new ArrayDeque<>(from);
+    Set<ModuleKey> foundTargets = new HashSet<>();
+
+    while (!queue.isEmpty()) {
+      // If we only need one path to each target, and we've found them all, we can stop.
+      if (findSinglePath && foundTargets.containsAll(targets)) {
+        break;
+      }
+
+      ModuleKey currentModuleKey = queue.pop();
+      AugmentedModule module = depGraph.get(currentModuleKey);
+      ImmutableSortedSet<ModuleKey> dependencies =
+          module.getAllDeps(options.includeUnused).keySet().stream()
+              .filter(this::filterBuiltin)
+              .collect(toImmutableSortedSet(ModuleKey.LEXICOGRAPHIC_COMPARATOR));
+
+      for (ModuleKey depKey : dependencies) {
+        // A path to a target is found.
+        if (targets.contains(depKey) && !(findSinglePath && foundTargets.contains(depKey))) {
+          addPathToResultGraph(resultGraph, bfsParentMap, currentModuleKey, depKey);
+          foundTargets.add(depKey);
+        }
+        // If this dependency hasn't been visited, add it to the queue for traversal.
+        if (!bfsParentMap.containsKey(depKey)) {
+          bfsParentMap.put(depKey, currentModuleKey);
+          queue.add(depKey);
+        }
+      }
+    }
+
+    // 2. Prune the resulting graph containing the found paths to the specified depth.
+    return new ResultGraphPruner(MaybeCompleteSet.copyOf(targets), ImmutableMap.copyOf(resultGraph))
+        .pruneByDepth();
+  }
+
+  /**
+   * Expands the full dependency graph starting from a given set of modules and then prunes it to
+   * the depth specified in the options.
+   *
+   * <p>This function first performs a breadth-first traversal to build a complete graph of all
+   * dependencies reachable from the {@code from} modules. The {@code from} modules themselves are
+   * "pinned" as direct children of the root node in the resulting graph. Finally, it uses {@link
+   * ResultGraphPruner} to trim the graph to the requested depth.
+   */
+  @VisibleForTesting
+  ImmutableMap<ModuleKey, ResultNode> expandAndPrune(ImmutableSet<ModuleKey> from) {
+    // This map will store the fully expanded dependency graph as ResultNode objects.
+    ImmutableMap.Builder<ModuleKey, ResultNode> fullGraphBuilder = new ImmutableMap.Builder<>();
+
+    // 1. Initialize the graph with the ROOT module and its immediate "pinned" children.
+    // "Pinned" children are the modules that are explicitly requested to start the graph from.
+    ResultNode.Builder rootBuilder = ResultNode.builder();
+    ImmutableSet<ModuleKey> rootDirectChildren =
+        depGraph.get(ModuleKey.ROOT).getAllDeps(options.includeUnused).keySet();
+    ImmutableSortedSet<ModuleKey> pinnedChildren =
+        getPinnedChildrenOfRootInTheResultGraph(rootDirectChildren, from).stream()
+            .filter(this::filterBuiltin)
+            .collect(toImmutableSortedSet(ModuleKey.LEXICOGRAPHIC_COMPARATOR));
+
+    for (ModuleKey pinnedChild : pinnedChildren) {
+      boolean isDirect = rootDirectChildren.contains(pinnedChild);
+      rootBuilder.addChild(
+          pinnedChild, IsExpanded.TRUE, isDirect ? IsIndirect.FALSE : IsIndirect.TRUE);
+    }
+    fullGraphBuilder.put(ModuleKey.ROOT, rootBuilder.build());
+
+    // 2. Traverse the dependency graph starting from the pinned children (BFS).
+    Set<ModuleKey> visited = new HashSet<>(pinnedChildren);
+    Deque<ModuleKey> queue = new ArrayDeque<>(pinnedChildren);
+    visited.add(ModuleKey.ROOT);
+
+    while (!queue.isEmpty()) {
+      ModuleKey currentModuleKey = queue.pop();
+      AugmentedModule module = depGraph.get(currentModuleKey);
+      ResultNode.Builder nodeBuilder = ResultNode.builder();
+
+      ImmutableSortedSet<ModuleKey> dependencies =
+          module.getAllDeps(options.includeUnused).keySet().stream()
+              .filter(this::filterBuiltin)
+              .collect(toImmutableSortedSet(ModuleKey.LEXICOGRAPHIC_COMPARATOR));
+
+      for (ModuleKey depKey : dependencies) {
+        if (visited.contains(depKey)) {
+          // This dependency has been seen before, but we add a non-expanded edge to it.
+          nodeBuilder.addChild(depKey, IsExpanded.FALSE, IsIndirect.FALSE);
+        } else {
+          // New dependency found, add it to the queue to visit and mark as expanded.
+          nodeBuilder.addChild(depKey, IsExpanded.TRUE, IsIndirect.FALSE);
+          visited.add(depKey);
+          queue.add(depKey);
+        }
+      }
+      fullGraphBuilder.put(currentModuleKey, nodeBuilder.build());
+    }
+
+    // 3. Prune the fully expanded graph based on the specified depth.
+    return new ResultGraphPruner(MaybeCompleteSet.completeSet(), fullGraphBuilder.buildOrThrow())
+        .pruneByDepth();
   }
 
   private class ResultGraphPruner {
@@ -244,6 +384,10 @@ public class ModExecutor {
      * appear after the max depth).
      */
     private ImmutableMap<ModuleKey, ResultNode> pruneByDepth() {
+      if (oldResult.isEmpty()) {
+        return ImmutableMap.of();
+      }
+
       ResultNode.Builder rootBuilder = ResultNode.builder();
       resultBuilder.put(ModuleKey.ROOT, rootBuilder);
 
@@ -374,53 +518,17 @@ public class ModExecutor {
 
   /**
    * If the extensionFilter option is set, computes the set of target modules that use the specified
-   * extension(s) and adds them to the list of specified targets if the query is a path(s) query.
+   * extension(s)
    */
-  private MaybeCompleteSet<ModuleKey> computeExtensionFilterTargets() {
+  private ImmutableSet<ModuleKey> computeExtensionFilterTargets() {
     if (extensionFilter.isEmpty()) {
-      // If no --extension_filter is set, don't do anything here.
-      return MaybeCompleteSet.completeSet();
+      return ImmutableSet.of();
     }
-    return MaybeCompleteSet.copyOf(
-        depGraph.keySet().stream()
-            .filter(this::filterUnused)
-            .filter(this::filterBuiltin)
-            .filter(k -> intersect(extensionFilter.get(), extensionUsages.column(k).keySet()))
-            .collect(toImmutableSet()));
-  }
-
-  /**
-   * Color all reverse paths from the target modules to the root so only modules which are part of
-   * these paths will be included in the output graph during the breadth-first traversal.
-   */
-  private MaybeCompleteSet<ModuleKey> colorReversePathsToRoot(MaybeCompleteSet<ModuleKey> to) {
-    if (to.isComplete()) {
-      return MaybeCompleteSet.completeSet();
-    }
-
-    Set<ModuleKey> seen = new HashSet<>(to.getElementsIfNotComplete());
-    Deque<ModuleKey> toVisit = new ArrayDeque<>(to.getElementsIfNotComplete());
-
-    while (!toVisit.isEmpty()) {
-      ModuleKey key = toVisit.pop();
-      AugmentedModule module = depGraph.get(key);
-      Set<ModuleKey> parents = new HashSet<>(module.dependants());
-      if (options.includeUnused) {
-        parents.addAll(module.originalDependants());
-      }
-      for (ModuleKey parent : parents) {
-        if (isBuiltin(parent) && !options.includeBuiltin) {
-          continue;
-        }
-        if (seen.contains(parent)) {
-          continue;
-        }
-        seen.add(parent);
-        toVisit.add(parent);
-      }
-    }
-
-    return MaybeCompleteSet.copyOf(seen);
+    return depGraph.keySet().stream()
+        .filter(this::filterUnused)
+        .filter(this::filterBuiltin)
+        .filter(k -> intersect(extensionFilter.get(), extensionUsages.column(k).keySet()))
+        .collect(toImmutableSet());
   }
 
   /** Compute the multimap of repo imports to modules for each extension. */
@@ -602,6 +710,12 @@ public class ModExecutor {
       @CanIgnoreReturnValue
       final Builder addChild(ModuleKey value, IsExpanded expanded, IsIndirect indirect) {
         childrenBuilder().put(value, NodeMetadata.create(expanded, indirect, IsCycle.FALSE));
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      final Builder addChildren(ImmutableSetMultimap<ModuleKey, NodeMetadata> children) {
+        childrenBuilder().putAll(children);
         return this;
       }
 
