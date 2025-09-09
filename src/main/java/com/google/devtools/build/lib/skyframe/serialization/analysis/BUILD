@@ -67,6 +67,7 @@ java_library(
         ":file_dependency_serializer",
         ":file_op_node_map",
         ":invalidation_data_reference_or_future",
+        ":json_log_writer",
         ":long_version_getter_test_injection",
         ":missing_skyframe_entry_exception",
         ":options",

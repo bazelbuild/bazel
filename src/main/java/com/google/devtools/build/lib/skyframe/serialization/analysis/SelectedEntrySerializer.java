@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.io.BaseEncoding.base16;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureFileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FutureListingDataInfo;
@@ -61,6 +63,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -115,6 +118,9 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
   private final FingerprintValueService fingerprintValueService;
 
+  @Nullable // If not JSON log is written
+  private final RemoteAnalysisJsonLogWriter jsonLogWriter;
+
   private final FileOpNodeMemoizingLookup fileOpNodes;
   private final FileDependencySerializer fileDependencySerializer;
 
@@ -132,6 +138,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       FrontierNodeVersion frontierVersion,
       ImmutableSet<SkyKey> selection,
       FingerprintValueService fingerprintValueService,
+      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats) {
@@ -145,6 +152,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             codecs,
             frontierVersion,
             fingerprintValueService,
+            jsonLogWriter,
             fileOpNodes,
             fileDependencySerializer,
             writeStatuses,
@@ -161,6 +169,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
       FingerprintValueService fingerprintValueService,
+      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
       WriteStatusesFuture writeStatuses,
@@ -170,8 +179,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
-
     this.fingerprintValueService = fingerprintValueService;
+    this.jsonLogWriter = jsonLogWriter;
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
     this.writeStatuses = writeStatuses;
@@ -220,6 +229,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     }
 
     writeStatuses.selectedEntryStarting();
+    Instant before = Instant.now();
 
     InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
     if (nodeEntry == null) {
@@ -239,7 +249,8 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
                     fingerprintValueService, nodeEntry.getValue(), profileCollector),
             fingerprintValueService.getExecutor());
 
-    new FileOpNodeProcessor(futureKeyBytes, futureValueBytes, isExecutionValue(key), dependencyKey)
+    new FileOpNodeProcessor(
+            futureKeyBytes, futureValueBytes, isExecutionValue(key), key, dependencyKey, before)
         .run();
   }
 
@@ -247,17 +258,23 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     private final ListenableFuture<SerializationResult<ByteString>> futureKeyBytes;
     private final ListenableFuture<SerializationResult<ByteString>> futureValueBytes;
     private final boolean isExecutionValue;
+    private final SkyKey skyKey;
     private final ActionLookupKey dependencyKey;
+    private final Instant start;
 
     private FileOpNodeProcessor(
         ListenableFuture<SerializationResult<ByteString>> futureKeyBytes,
         ListenableFuture<SerializationResult<ByteString>> futureValueBytes,
         boolean isExecutionValue,
-        ActionLookupKey dependencyKey) {
+        SkyKey skyKey,
+        ActionLookupKey dependencyKey,
+        Instant start) {
       this.futureKeyBytes = futureKeyBytes;
       this.futureValueBytes = futureValueBytes;
       this.isExecutionValue = isExecutionValue;
+      this.skyKey = skyKey;
       this.dependencyKey = dependencyKey;
+      this.start = start;
     }
 
     @Override
@@ -375,7 +392,20 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             fingerprintValueService.fingerprint(
                 frontierVersion.concat(keyBytes.getObject().toByteArray()));
         byte[] entryBytes = bytesOut.toByteArray();
-        writeStatuses.addWriteStatus(fingerprintValueService.put(versionedKey, entryBytes));
+        WriteStatus writeStatus = fingerprintValueService.put(versionedKey, entryBytes);
+        if (jsonLogWriter != null) {
+          // TODO(lberki): The log entry should only be written after the WriteStatus is done so
+          // that we can also log the result of the write.
+          try (var entry = jsonLogWriter.startEntry("upload")) {
+            entry.addField("skyKey", skyKey.toString());
+            entry.addField("dependencyKey", dependencyKey.toString());
+            entry.addField("cacheKey", base16().lowerCase().encode(versionedKey.toBytes()));
+            entry.addField("valueSize", entryBytes.length);
+            entry.addField("start", start);
+            entry.addField("end", Instant.now());
+          }
+        }
+        writeStatuses.addWriteStatus(writeStatus);
 
         // IMPORTANT: when this completes, no more write statuses can be added.
         writeStatuses.selectedEntryDone();

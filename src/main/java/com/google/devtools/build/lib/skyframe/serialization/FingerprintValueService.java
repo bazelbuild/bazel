@@ -108,6 +108,8 @@ public final class FingerprintValueService {
     Instant before = Instant.now();
     WriteStatus result = store.put(fingerprint, serializedBytes);
     if (jsonLogWriter != null) {
+      // TODO(lberki): The log entry should only be written after the WriteStatus is done so that we
+      // can also log the result of the write.
       try (var entry = jsonLogWriter.startEntry("fvsPut")) {
         entry.addField("start", before);
         entry.addField("end", Instant.now());
