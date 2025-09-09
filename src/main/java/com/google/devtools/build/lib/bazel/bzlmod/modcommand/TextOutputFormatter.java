@@ -175,7 +175,7 @@ public class TextOutputFormatter extends OutputFormatter {
     } else if (expanded == IsExpanded.FALSE) {
       str.append("(*) ");
     } else {
-      if (totalChildrenNum != 0 && node.isTarget()) {
+      if (node.isTarget()) {
         str.append("# ");
       }
     }
