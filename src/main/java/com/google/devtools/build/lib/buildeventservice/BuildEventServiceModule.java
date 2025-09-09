@@ -1024,18 +1024,12 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     @Override
     public BufferedOutputStream create(BuildEventFileType eventFileType, String filePath)
         throws IOException {
-      String buildEventFileName = "";
-      switch (eventFileType) {
-        case TEXT:
-          buildEventFileName = "build_event_text_file";
-          break;
-        case BINARY:
-          buildEventFileName = "build_event_binary_file";
-          break;
-        case JSON:
-          buildEventFileName = "build_event_json_file";
-          break;
-      }
+      String buildEventFileName =
+          switch (eventFileType) {
+            case TEXT -> "build_event_text_file";
+            case BINARY -> "build_event_binary_file";
+            case JSON -> "build_event_json_file";
+          };
       InstrumentationOutput output =
           cmdEnv
               .getRuntime()
