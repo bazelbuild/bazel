@@ -35,14 +35,6 @@ common --check_direct_dependencies=error
 # Add mirrors for certain download URLs
 common --downloader_config=bazel_downloader.cfg
 
-# Enable modern C++ features
-common:linux --cxxopt=-std=c++17
-common:linux --host_cxxopt=-std=c++17
-common:macos --cxxopt=-std=c++17
-common:macos --host_cxxopt=-std=c++17
-common:windows --cxxopt=/std:c++17
-common:windows --host_cxxopt=/std:c++17
-
 # Suppress warnings from external repos, we have no direct control on them anyway.
 common:linux --per_file_copt=external/.*@-w
 common:linux --host_per_file_copt=external/.*@-w
