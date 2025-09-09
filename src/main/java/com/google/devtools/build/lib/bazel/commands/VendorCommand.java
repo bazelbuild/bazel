@@ -258,7 +258,7 @@ public final class VendorCommand implements BlazeCommand {
             reposToVendor.add(entry.getKey());
           }
         }
-        case Failure f -> notFoundRepoErrors.add(f.getErrorMsg());
+        case Failure(String errorMsg) -> notFoundRepoErrors.add(errorMsg);
       }
     }
 

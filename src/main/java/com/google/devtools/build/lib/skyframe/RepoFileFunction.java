@@ -55,9 +55,9 @@ import net.starlark.java.syntax.SyntaxError;
 /** The function to evaluate the REPO.bazel file at the root of a repo. */
 public class RepoFileFunction implements SkyFunction {
   private final BazelStarlarkEnvironment starlarkEnv;
-  private final Path workspaceRoot;
+  private final Root workspaceRoot;
 
-  public RepoFileFunction(BazelStarlarkEnvironment starlarkEnv, Path workspaceRoot) {
+  public RepoFileFunction(BazelStarlarkEnvironment starlarkEnv, Root workspaceRoot) {
     this.starlarkEnv = starlarkEnv;
     this.workspaceRoot = workspaceRoot;
   }
@@ -69,7 +69,7 @@ public class RepoFileFunction implements SkyFunction {
     RepositoryName repoName = (RepositoryName) skyKey.argument();
     // First we need to find the REPO.bazel file. How we do this depends on whether this is for the
     // main repo or an external repo.
-    Path repoRoot;
+    Root repoRoot;
     if (repoName.isMain()) {
       repoRoot = workspaceRoot;
     } else {
@@ -79,14 +79,12 @@ public class RepoFileFunction implements SkyFunction {
         return null;
       }
       switch (repoDirValue) {
-        case Success s -> repoRoot = s.getPath();
-        case Failure f ->
-            throw new RepoFileFunctionException(
-                new IOException(f.getErrorMsg()), Transience.PERSISTENT);
+        case Success s -> repoRoot = s.root();
+        case Failure(String errorMsg) ->
+            throw new RepoFileFunctionException(new IOException(errorMsg), Transience.PERSISTENT);
       }
     }
-    RootedPath repoFilePath =
-        RootedPath.toRootedPath(Root.fromPath(repoRoot), LabelConstants.REPO_FILE_NAME);
+    RootedPath repoFilePath = RootedPath.toRootedPath(repoRoot, LabelConstants.REPO_FILE_NAME);
     FileValue repoFileValue = (FileValue) env.getValue(FileValue.key(repoFilePath));
     if (repoFileValue == null) {
       return null;

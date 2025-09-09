@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -38,6 +39,7 @@ import java.util.Optional;
  */
 public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
 
+  Precomputed<Boolean> FETCH_DISABLED = new Precomputed<>("fetch_disabled");
   String FORCE_FETCH_DISABLED = "";
   Precomputed<String> FORCE_FETCH = new Precomputed<>("dependency_for_force_fetching_repository");
   Precomputed<String> FORCE_FETCH_CONFIGURE =
@@ -45,21 +47,36 @@ public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
   Precomputed<Boolean> IS_VENDOR_COMMAND = new Precomputed<>("is_vendor_command");
   Precomputed<Optional<Path>> VENDOR_DIRECTORY = new Precomputed<>("vendor_directory");
 
-  /**
-   * Represents a successful repository lookup.
-   *
-   * @param path Returns the path to the directory containing the repository's contents. This
-   *     directory is guaranteed to exist. It may contain a full Bazel repository (with a WORKSPACE
-   *     file, directories, and BUILD files) or simply contain a file (or set of files) for, say, a
-   *     jar from Maven.
-   * @param excludeFromVendoring Returns if this repo should be excluded from vendoring. The value
-   *     is true for local & configure repos
-   */
+  /** Represents a successful repository lookup. */
   @AutoCodec
-  record Success(Path path, boolean isFetchingDelayed, boolean excludeFromVendoring)
-      implements RepositoryDirectoryValue {
-    public Path getPath() {
-      return path;
+  final class Success implements RepositoryDirectoryValue {
+    private final Root root;
+    private final boolean excludeFromVendoring;
+
+    public Success(Path path, boolean excludeFromVendoring) {
+      this.root = Root.fromExternalRepo(path, this);
+      this.excludeFromVendoring = excludeFromVendoring;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static Success create(Root root, boolean excludeFromVendoring) {
+      return new Success(root.asPath(), excludeFromVendoring);
+    }
+
+    /**
+     * Returns the root containing the repository's contents. This directory is guaranteed to exist.
+     */
+    public Root root() {
+      return root;
+    }
+
+    /**
+     * Returns if this repo should be excluded from vendoring. The value is true for local as well
+     * as configure repos.
+     */
+    public boolean excludeFromVendoring() {
+      return excludeFromVendoring;
     }
   }
 
@@ -70,11 +87,7 @@ public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
    *     suitable for reporting to a user.
    */
   @AutoCodec
-  record Failure(String errorMsg) implements RepositoryDirectoryValue {
-    public String getErrorMsg() {
-      return errorMsg;
-    }
-  }
+  record Failure(String errorMsg) implements RepositoryDirectoryValue {}
 
   /** Creates a key from the given repository name. */
   static Key key(RepositoryName repository) {
