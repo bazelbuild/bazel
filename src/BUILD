@@ -651,10 +651,10 @@ filegroup(
         "@rules_python//:WORKSPACE",
         "@rules_testing//:LICENSE",
     ] + select({
-        "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:darwin_x86_64": ["@remotejdk%s_macos//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:darwin_arm64": ["@remotejdk%s_macos_aarch64//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:windows_x86_64": ["@remotejdk%s_win//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:BUILD.bazel" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_x86_64": ["@remotejdk%s_macos//:BUILD.bazel" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_arm64": ["@remotejdk%s_macos_aarch64//:BUILD.bazel" % v for v in JDK_VERSIONS],
+        "//src/conditions:windows_x86_64": ["@remotejdk%s_win//:BUILD.bazel" % v for v in JDK_VERSIONS],
         "//conditions:default": [],
     }) + [
         "@bazel_tools_repo_cache//:files",
