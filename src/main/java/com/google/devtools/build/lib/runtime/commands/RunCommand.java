@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -656,7 +657,7 @@ public class RunCommand implements BlazeCommand {
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     HashSet<String> envVariablesToClear = new HashSet<>();
     ImmutableMap<String, String> clientEnv = env.getClientEnv();
-    actionEnvironment.resolve(runEnvironment, clientEnv);
+    actionEnvironment.resolve(runEnvironment, clientEnv, PathMapper.NOOP);
     for (var envVar : extraRunEnvironment) {
       switch (envVar) {
         case Converters.EnvVar.Set(String name, String value) -> {

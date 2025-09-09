@@ -942,28 +942,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
     try {
-      return getEffectiveEnvironment(ImmutableMap.of());
+      return getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP);
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
               "failed to generate compile environment variables for rule '%s: %s",
               getOwner().getLabel(), e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
-      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException {
-    return getEffectiveEnvironment(clientEnv, PathMapper.NOOP);
-  }
-
   public ImmutableMap<String, String> getEffectiveEnvironment(
       Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
     Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
-    env.resolve(environment, clientEnv);
+    // This is only the fixed action environment, which doesn't contain any action-specific
+    // variables and thus doesn't need to be path mapped.
+    env.resolve(environment, clientEnv, PathMapper.NOOP);
 
     if (!getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)) {
       // Linux: this prevents gcc/clang from writing the unpredictable (and often irrelevant) value
@@ -1038,7 +1035,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/* clientEnv= */ ImmutableMap.of(), PathMapper.NOOP).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -1180,7 +1177,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                 includePath);
         DetailedExitCode code =
             createDetailedExitCode(message, Code.INCLUDE_PATH_OUTSIDE_EXEC_ROOT);
-        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+        throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
       }
     }
   }
