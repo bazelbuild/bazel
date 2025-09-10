@@ -322,6 +322,21 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
     private final class InvalidationDataInfoHandler
         implements FutureCallback<InvalidationDataInfo> {
+      private void log(
+          PackedFingerprint versionedKey, byte[] entryBytes, @Nullable Throwable exception) {
+        try (var entry = jsonLogWriter.startEntry("upload")) {
+          entry.addField("start", start);
+          entry.addField("end", Instant.now());
+          entry.addField("skyKey", skyKey.toString());
+          entry.addField("dependencyKey", dependencyKey.toString());
+          entry.addField("cacheKey", base16().lowerCase().encode(versionedKey.toBytes()));
+          entry.addField("valueSize", entryBytes.length);
+          if (exception != null) {
+            entry.addField("exception", exception.getMessage());
+          }
+        }
+      }
+
       /**
        * Saves the entry for to the {@link FingerprintValueService}.
        *
@@ -392,20 +407,14 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             fingerprintValueService.fingerprint(
                 frontierVersion.concat(keyBytes.getObject().toByteArray()));
         byte[] entryBytes = bytesOut.toByteArray();
-        WriteStatus writeStatus = fingerprintValueService.put(versionedKey, entryBytes);
+        WriteStatus putStatus = fingerprintValueService.put(versionedKey, entryBytes);
         if (jsonLogWriter != null) {
-          // TODO(lberki): The log entry should only be written after the WriteStatus is done so
-          // that we can also log the result of the write.
-          try (var entry = jsonLogWriter.startEntry("upload")) {
-            entry.addField("skyKey", skyKey.toString());
-            entry.addField("dependencyKey", dependencyKey.toString());
-            entry.addField("cacheKey", base16().lowerCase().encode(versionedKey.toBytes()));
-            entry.addField("valueSize", entryBytes.length);
-            entry.addField("start", start);
-            entry.addField("end", Instant.now());
-          }
+          WriteStatus logStatus =
+              jsonLogWriter.logWrite(putStatus, e -> log(versionedKey, entryBytes, e));
+          writeStatuses.addWriteStatus(logStatus);
+        } else {
+          writeStatuses.addWriteStatus(putStatus);
         }
-        writeStatuses.addWriteStatus(writeStatus);
 
         // IMPORTANT: when this completes, no more write statuses can be added.
         writeStatuses.selectedEntryDone();

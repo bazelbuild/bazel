@@ -710,7 +710,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:depend_on_future_shim",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:json_log_writer",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],

@@ -106,19 +106,24 @@ public final class FingerprintValueService {
   /** Delegates to {@link FingerprintValueStore#put}. */
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     Instant before = Instant.now();
-    WriteStatus result = store.put(fingerprint, serializedBytes);
-    if (jsonLogWriter != null) {
-      // TODO(lberki): The log entry should only be written after the WriteStatus is done so that we
-      // can also log the result of the write.
-      try (var entry = jsonLogWriter.startEntry("fvsPut")) {
-        entry.addField("start", before);
-        entry.addField("end", Instant.now());
-        entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
-        entry.addField("valueSize", serializedBytes.length);
-      }
+    WriteStatus putStatus = store.put(fingerprint, serializedBytes);
+    if (jsonLogWriter == null) {
+      return putStatus;
     }
 
-    return result;
+    return jsonLogWriter.logWrite(
+        putStatus,
+        e -> {
+          try (var entry = jsonLogWriter.startEntry("fvsPut")) {
+            entry.addField("start", before);
+            entry.addField("end", Instant.now());
+            entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
+            entry.addField("valueSize", serializedBytes.length);
+            if (e != null) {
+              entry.addField("exception", e.getMessage());
+            }
+          }
+        });
   }
 
   public FingerprintValueStore.Stats getStats() {

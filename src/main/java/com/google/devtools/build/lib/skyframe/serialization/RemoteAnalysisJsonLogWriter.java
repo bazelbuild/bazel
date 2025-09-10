@@ -14,14 +14,21 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.base.Verify;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.gson.Strictness;
 import com.google.gson.stream.JsonWriter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 
 /** Writes a detailed JSON log of what's happening with remote analysis caching. */
 public class RemoteAnalysisJsonLogWriter implements Closeable {
@@ -50,6 +57,36 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
   public boolean hadErrors() {
     Verify.verify(jsonWriter == null);
     return hadErrors;
+  }
+
+  /**
+   * Writes a log entry when the write in the first parameter is done.
+   *
+   * @param write the status of the write to be logged
+   * @param logger Called when the write is done. If successful, with {@code null}, if not, with the
+   *     exception that was thrown.
+   * @return a {@link WriteStatus} that completes when the log entry is written
+   */
+  public WriteStatus logWrite(WriteStatus write, Consumer<Throwable> logger) {
+    SparseAggregateWriteStatus logStatus = new SparseAggregateWriteStatus();
+    Futures.addCallback(
+        write,
+        new FutureCallback<Void>() {
+          @Override
+          public void onSuccess(Void result) {
+            logger.accept(null);
+            logStatus.notifyWriteSucceeded();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            logger.accept(t);
+            logStatus.notifyWriteFailed(t);
+          }
+        },
+        directExecutor());
+
+    return logStatus;
   }
 
   /**
