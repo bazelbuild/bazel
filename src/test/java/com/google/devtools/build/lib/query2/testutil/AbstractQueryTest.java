@@ -452,6 +452,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "t/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name='t', srcs=['t.cc'], data=['r'], testonly=0)
         cc_library(name='t_test', srcs=['t.cc'], data=['r'], testonly=1)
         """);
@@ -499,6 +500,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "t/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(default_visibility=['//visibility:public'])
         cc_library(name='t', srcs=['t.cc'])
         """);
@@ -1298,10 +1300,11 @@ public abstract class AbstractQueryTest<T> {
   public void testTestsOperatorExpandsTestsAndExcludesNonTests() throws Exception {
     writeFile(
         "a/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
         "load('//test_defs:foo_test.bzl', 'foo_test')",
         "test_suite(name='a')",
         "foo_test(name='foo_test', srcs=['foo_test.sh'])",
-        "cc_binary(name='cc_binary')");
+        "foo_binary(name='cc_binary')");
     assertThat(eval("tests(//a)")).isEqualTo(eval("//a:foo_test"));
   }
 
@@ -1327,6 +1330,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "b/BUILD",
         getPyLoad("py_test"),
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "test_suite(name='foo_tests', tags=['foo'])",
         "test_suite(name='bar_tests', tags=['bar'])",
         "test_suite(name='foo_notbar_tests', tags=['foo', '-bar'])",
@@ -1530,7 +1534,10 @@ public abstract class AbstractQueryTest<T> {
   // Regression test for #1309697, NPE crash during Blaze query.
   @Test
   public void testRegression1309697() throws Exception {
-    writeFile("x/BUILD", "cc_library(name='x', srcs=['a.cc', 'a.cc'])");
+    writeFile(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='x', srcs=['a.cc', 'a.cc'])");
     String expectedError = "Label '//x:a.cc' is duplicated in the 'srcs' attribute of rule 'x'";
     if (helper.isKeepGoing()) {
       assertThat(evalThrows("//x:all", false).getMessage()).contains(expectedError);
@@ -1600,7 +1607,10 @@ public abstract class AbstractQueryTest<T> {
   // than just p".
   @Test
   public void testWildcardsDontLoadUnnecessaryPackages() throws Exception {
-    writeFile("x/BUILD", "cc_library(name='x', deps=['//y'])");
+    writeFile(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='x', deps=['//y'])");
     writeFile("y/BUILD");
 
     eval("//x:*");
@@ -1613,6 +1623,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name='x', deps=['z'])
         cc_library(name='y', deps=['z'])
         cc_library(name='z')
@@ -1647,6 +1658,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(name='one')
         cc_test(name='two')
         test_suite(name='all', tests=[':one'])
@@ -2552,6 +2564,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         computed_default_rule(name='x1')
         computed_default_rule(name='x2', use_default = True)
         computed_default_rule(name='x3', dep = ':custom')
@@ -2740,6 +2753,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "cclib")
         """);
 

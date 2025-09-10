@@ -47,6 +47,7 @@ public class AliasTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "a",
             srcs = ["a.cc"],
@@ -182,6 +183,7 @@ public class AliasTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "a",
             deps = [":b"],
@@ -427,6 +429,7 @@ public class AliasTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "a",
             srcs = ["a.cc"],
@@ -557,6 +560,7 @@ public class AliasTest extends BuildViewTestCase {
   public void testRedirectChasing() throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "alias(name='cc', actual='" + TestConstants.PLATFORM_LABEL + "')",
         "cc_library(name='a', srcs=['a.cc'])");
 

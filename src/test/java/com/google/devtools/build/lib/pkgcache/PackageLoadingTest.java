@@ -200,7 +200,10 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   private void createPkg1() throws IOException {
-    scratch.file("pkg1/BUILD", "cc_library(name = 'foo') # a BUILD file");
+    scratch.file(
+        "pkg1/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "cc_library(name = 'foo') # a BUILD file");
   }
 
   // Check that a substring is present in an error message.
@@ -234,7 +237,10 @@ public class PackageLoadingTest extends FoundationTestCase {
 
   @Test
   public void testGetPackageWithInvalidName() throws Exception {
-    scratch.file("invalidpackagename:42/BUILD", "cc_library(name = 'foo') # a BUILD file");
+    scratch.file(
+        "invalidpackagename:42/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "cc_library(name = 'foo') # a BUILD file");
     checkGetPackageFails(
         "invalidpackagename:42",
         "no such package 'invalidpackagename:42': Invalid package name 'invalidpackagename:42'");
@@ -387,8 +393,16 @@ public class PackageLoadingTest extends FoundationTestCase {
     // PackageLoader doesn't support --package_path.
     initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
 
-    Path buildFile1 = scratch.file("pkg/BUILD", "cc_library(name = 'foo')");
-    Path buildFile2 = scratch.file("/otherroot/pkg/BUILD", "cc_library(name = 'bar')");
+    Path buildFile1 =
+        scratch.file(
+            "pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "cc_library(name = 'foo')");
+    Path buildFile2 =
+        scratch.file(
+            "/otherroot/pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "cc_library(name = 'bar')");
     setOptions("--package_path=/workspace:/otherroot");
 
     Package oldPkg = getPackage("pkg");
@@ -551,7 +565,10 @@ public class PackageLoadingTest extends FoundationTestCase {
   @Test
   public void testAddedBuildFileCausesLabelToBecomeInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("pkg/BUILD", "cc_library(name = 'foo', srcs = ['x/y.cc'])");
+    scratch.file(
+        "pkg/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'foo', srcs = ['x/y.cc'])");
 
     assertLabelValidity(true, "//pkg:x/y.cc");
 
@@ -640,9 +657,10 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file(
         "peach/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         package(features = ["crosstool_default_false"])
 
-        cc_library(
+        foo_library(
             name = "cc",
             srcs = ["cc.cc"],
         )

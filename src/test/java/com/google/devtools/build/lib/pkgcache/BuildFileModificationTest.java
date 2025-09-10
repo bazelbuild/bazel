@@ -147,8 +147,9 @@ public class BuildFileModificationTest extends FoundationTestCase {
   @Test
   public void testCTimeChangeDetectedWithError() throws Exception {
     reporter.removeHandler(failFastHandler);
-    Path build = scratch.file(
-        "a/BUILD", "cc_library(name='a', feet='stinky')".getBytes(StandardCharsets.ISO_8859_1));
+    Path build =
+        scratch.file(
+            "a/BUILD", "filegroup(name='a', feet='stinky')".getBytes(StandardCharsets.ISO_8859_1));
     Package a1 = getPackage("a");
     assertThat(a1.containsErrors()).isTrue();
     assertContainsEvent("//a:a: no such attribute 'feet'");
@@ -156,7 +157,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     // writeContent updates mtime and ctime. Note that we keep the content length exactly the same.
     clock.advanceMillis(1);
     FileSystemUtils.writeContent(
-        build, "cc_library(name='a', srcs=['a.cc'])".getBytes(StandardCharsets.ISO_8859_1));
+        build, "filegroup(name='a', srcs=['a.cc'])".getBytes(StandardCharsets.ISO_8859_1));
 
     invalidatePackages();
     Package a2 = getPackage("a");
@@ -167,14 +168,15 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   @Test
   public void testCTimeChangeDetected() throws Exception {
-    Path path = scratch.file(
-        "pkg/BUILD", "cc_library(name = 'foo')\n".getBytes(StandardCharsets.ISO_8859_1));
+    Path path =
+        scratch.file(
+            "pkg/BUILD", "filegroup(name = 'foo')\n".getBytes(StandardCharsets.ISO_8859_1));
     Package oldPkg = getPackage("pkg");
 
     // Note that the content has exactly the same length as before.
     clock.advanceMillis(1);
     FileSystemUtils.writeContent(
-        path, "cc_library(name = 'bar')\n".getBytes(StandardCharsets.ISO_8859_1));
+        path, "filegroup(name = 'bar')\n".getBytes(StandardCharsets.ISO_8859_1));
     assertThat(getPackage("pkg"))
         .isSameInstanceAs(oldPkg); // Change only becomes visible after invalidatePackages.
 
@@ -188,14 +190,15 @@ public class BuildFileModificationTest extends FoundationTestCase {
   @Test
   public void testLengthChangeDetected() throws Exception {
     reporter.removeHandler(failFastHandler);
-    Path build = scratch.file(
-        "a/BUILD", "cc_library(name='a', srcs=['a.cc'])".getBytes(StandardCharsets.ISO_8859_1));
+    Path build =
+        scratch.file(
+            "a/BUILD", "filegroup(name='a', srcs=['a.cc'])".getBytes(StandardCharsets.ISO_8859_1));
     Package a1 = getPackage("a");
     eventCollector.clear();
     // Note that we didn't advance the clock, so ctime/mtime is the same as before.
     // However, the file contents are one byte longer.
     FileSystemUtils.writeContent(
-        build, "cc_library(name='ab', srcs=['a.cc'])".getBytes(StandardCharsets.ISO_8859_1));
+        build, "filegroup(name='ab', srcs=['a.cc'])".getBytes(StandardCharsets.ISO_8859_1));
 
     invalidatePackages();
     Package a2 = getPackage("a");
@@ -205,8 +208,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   @Test
   public void testTouchedBuildFileCausesReloadAfterSync() throws Exception {
-    Path path = scratch.file("pkg/BUILD",
-                             "cc_library(name = 'foo')");
+    Path path = scratch.file("pkg/BUILD", "filegroup(name = 'foo')");
 
     Package oldPkg = getPackage("pkg");
     // Change ctime to 1.

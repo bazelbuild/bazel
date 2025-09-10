@@ -81,6 +81,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":rule.bzl", "crule_without_srcs")
 
         cc_library(
@@ -99,6 +100,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "foo/bar/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "bar1",
             alwayslink = 1,
@@ -217,6 +219,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["foox.cc"],
@@ -240,6 +243,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -292,6 +296,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -332,6 +337,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -349,6 +355,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "recursivetoo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -375,6 +382,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo_lib",
             srcs = ["file.cc"],
@@ -388,6 +396,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "bar_lib",
             srcs = ["file.cc"],
@@ -426,6 +435,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         genrule(
             name = "gen_rule",
             outs = ["out.cc"],
@@ -445,6 +455,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         genrule(
             name = "gen_rule",
             outs = ["out.cc"],
@@ -464,6 +475,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "headers",
             srcs = ["a.h"],
@@ -488,6 +500,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         config_setting(
             name = "a",
             values = {"define": "foo=a"},
@@ -520,6 +533,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         config_setting(
             name = "a",
             values = {"define": "foo=a"},
@@ -548,6 +562,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     // By default, we assume parse_headers is enabled (via --features + toolchain).
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("a/h.h")).containsExactlyElementsIn(labels("//a:h"));
@@ -555,6 +570,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     // parse_headers explicitly disabled on the header-only target, use its reverse dep.
     scratch.file(
         "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'], features = ['-parse_headers'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("b/h.h")).containsExactlyElementsIn(labels("//b:l"));
@@ -562,6 +578,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     // ... but if it has sources, the target itself is ok.
     scratch.file(
         "c/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'], srcs = ['h.cc'], features = ['-parse_headers'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("c/h.h")).containsExactlyElementsIn(labels("//c:h"));
@@ -570,6 +587,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "d/BUILD",
         "package(features = ['-parse_headers'])",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("d/h.h")).containsExactlyElementsIn(labels("//d:l"));
@@ -578,6 +596,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "e/BUILD",
         "package(features = ['-parse_headers'])",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'], features = ['parse_headers'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("e/h.h")).containsExactlyElementsIn(labels("//e:h"));
@@ -585,7 +604,10 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
 
   @Test
   public void testFallBackToHeaderOnlyLibrary() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h"));
   }
 
@@ -594,6 +616,7 @@ public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         environment(name = "foo")
 
         environment(name = "baz")
