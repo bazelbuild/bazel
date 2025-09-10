@@ -22,12 +22,16 @@ import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.ApiVersion;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import io.grpc.stub.StreamObserver;
 
 /** A basic implementation of a Capabilities service. */
 final class CapabilitiesServer extends CapabilitiesImplBase {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final DigestUtil digestUtil;
   private final boolean execEnabled;
   private final RemoteWorkerOptions workerOptions;
@@ -42,6 +46,10 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
   @Override
   public void getCapabilities(
       GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
+
+    logger.atInfo().log("Capabilities for instance name=%s", request.getInstanceName());
+
+
     DigestFunction.Value df = digestUtil.getDigestFunction();
 
     var builder = ServerCapabilities.newBuilder();

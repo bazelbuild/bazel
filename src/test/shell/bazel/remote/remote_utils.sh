@@ -27,6 +27,13 @@ function start_worker() {
   remote_worker_log_file="${TEST_TMPDIR}/remote_worker.log"
   mkdir -p "${work_path}"
   mkdir -p "${cas_path}"
+  
+  if [ -s "${pid_file}" ]; then
+      cat "${pid_file}"
+      ps aux
+      fail "There is already a worker pid_file."
+  fi
+
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
   native_lib="${BAZEL_RUNFILES}/src/main/native/"
   "${REMOTE_WORKER}" \
@@ -40,6 +47,7 @@ function start_worker() {
   local background_pid=$!
   echo "Starting remote worker: pid=${background_pid}" port=${worker_port} >> "${TEST_log}"
   if ! wait_for_file_to_have_content "${pid_file}"; then
+    echo "Calling kill -9 ${background_pid}"
     kill -9 "${background_pid}" 2>/dev/null || true
     # Import the remote worker log to ensure any startup error messages
     # are displayed along with the timeout failure.
@@ -64,6 +72,7 @@ function stop_worker() {
     if ! wait_for_pid_to_terminate "${pid}"; then
         echo "WARNING: Remote worker pid ${pid} was not responding to SIGTERM signal."
         echo "WARNING: Terminating remote worker abruptly. Logs may be incomplete."
+        echo "Calling kill -SIGKILL ${background_pid}"        
         kill -SIGKILL "${pid}" 2>/dev/null || true
         if ! wait_for_pid_to_terminate "${pid}"; then
            failure="Remote worker pid ${pid} is still alive after SIGKILL signal."

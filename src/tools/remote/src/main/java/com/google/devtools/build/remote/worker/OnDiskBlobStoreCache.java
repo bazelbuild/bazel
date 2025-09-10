@@ -62,6 +62,7 @@ class OnDiskBlobStoreCache extends CombinedCache {
         options,
         digestUtil);
     this.remoteWorkerOptions = remoteWorkerOptions;
+    logger.atFine().log("Test logging from OnDiskBlobStoreCache with level Fine");
   }
 
   @Override
@@ -105,6 +106,10 @@ class OnDiskBlobStoreCache extends CombinedCache {
 
   @Override
   public ListenableFuture<byte[]> downloadBlob(RemoteActionExecutionContext context, Digest digest) {
+
+    System.err.println("downloadBlob on stderr. Fine isEnabled=" + logger.atFine().isEnabled());
+    System.err.flush();
+
     logger.atFine().log("downloadBlob digest=%s invocationId=%s",
         digest.getHash(), context.getRequestMetadata().getToolInvocationId());
 

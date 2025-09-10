@@ -258,8 +258,13 @@ public final class RemoteWorker {
     Path pidFile = getFileSystem().getPath(workerOptions.pidFile);
     try (Writer writer =
         new OutputStreamWriter(pidFile.getOutputStream(), StandardCharsets.UTF_8)) {
-      writer.write(Long.toString(ProcessHandle.current().pid()));
-      writer.write("\n");
+      long pid = ProcessHandle.current().pid();
+      // Attempt to make the write as atomic as possible.
+      writer.write(Long.toString(pid) + "\n");
+      writer.flush();
+      logger.atInfo().log("RemoteWorker created pid file with pid=%d", pid);
+
+
     }
 
     Runtime.getRuntime()
@@ -352,6 +357,12 @@ public final class RemoteWorker {
     worker.createPidFile();
 
     server.awaitTermination();
+
+    logger.atInfo().log("RemoteWorker shutting down... (printed by logger)");
+    System.err.println("RemoteWorker shutting down... (printed to stderr)");
+    System.err.flush();
+
+
     if (ch != null) {
       ch.closeFuture().sync().get();
     }
