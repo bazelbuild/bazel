@@ -117,7 +117,8 @@ function wait_for_condition() {
     local poll_interval_seconds=0.2
     local remaining_polls=$(awk "BEGIN{print int($grace_seconds/$poll_interval_seconds)}")
     while (( remaining_polls > 0 )); do
-        if eval "$condition" 2>/dev/null; then
+        # if eval "$condition" 2>/dev/null; then
+        if (set +e; eval "$condition" 2>/dev/null); then            
             set +x # TODO
             return 0  # Condition fulfilled
         fi
