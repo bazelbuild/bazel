@@ -22,6 +22,9 @@ function start_worker() {
   work_path="${TEST_TMPDIR}/remote.work_path"
   cas_path="${TEST_TMPDIR}/remote.cas_path"
   pid_file="${TEST_TMPDIR}/remote.pid_file"
+  # The remote worker background process needs a separate log file in
+  # order to prevent concurrent logging to the same $TEST_log.
+  remote_worker_log_file="${TEST_TMPDIR}/remote_worker.log"
   mkdir -p "${work_path}"
   mkdir -p "${cas_path}"
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
@@ -31,16 +34,17 @@ function start_worker() {
       --jvm_flag=-Djava.library.path="${native_lib}" \
       --work_path="${work_path}" \
       --cas_path="${cas_path}" \
-      --listen_port=${worker_port} \
+      --listen_port="${worker_port}" \
       --pid_file="${pid_file}" \
-      "$@" >& $TEST_log &
-  local wait_seconds=0
-  until [[ -s "${pid_file}" || "$wait_seconds" -eq 30 ]]; do
-    sleep 1
-    wait_seconds=$((${wait_seconds} + 1))
-  done
-  if [ ! -s "${pid_file}" ]; then
-    fail "Timed out waiting for remote worker to start."
+      "$@" >> "${remote_worker_log_file}" 2>&1 &
+  local background_pid=$!
+  echo "Starting remote worker: pid=${background_pid}" port=${worker_port} >> "${TEST_log}"
+  if ! wait_for_file_to_have_content "${pid_file}"; then
+    kill -9 "${background_pid}" 2>/dev/null || true
+    # Import the remote worker log to ensure any startup error messages
+    # are displayed along with the timeout failure.
+    import_to_test_log "${remote_worker_log_file}"
+    fail "Timed out waiting for remote worker to start. Expected pid ${background_pid}"
   fi
 }
 
@@ -48,10 +52,32 @@ function stop_worker() {
   work_path="${TEST_TMPDIR}/remote.work_path"
   cas_path="${TEST_TMPDIR}/remote.cas_path"
   pid_file="${TEST_TMPDIR}/remote.pid_file"
+  remote_worker_log_file="${TEST_TMPDIR}/remote_worker.log"
+  local failure=""
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
-    kill -9 "${pid}"
-    rm -rf "${pid_file}"
+    echo "Stopping remote worker: pid=${pid}" >> "${TEST_log}"
+    kill -TERM "${pid}"
+    # Waiting gives the remote worker an opportunity to flush logs and prevents
+    # interference between workers by ensuring that the previous worker has
+    # fully completed before starting any new worker.
+    if ! wait_for_pid_to_terminate "${pid}"; then
+        echo "WARNING: Remote worker pid ${pid} was not responding to SIGTERM signal."
+        echo "WARNING: Terminating remote worker abruptly. Logs may be incomplete."
+        kill -SIGKILL "${pid}" 2>/dev/null || true
+        if ! wait_for_pid_to_terminate "${pid}"; then
+           failure="Remote worker pid ${pid} is still alive after SIGKILL signal."
+        fi
+    fi
+    rm -f "${pid_file}"
+  fi
+  if [ -f "${remote_worker_log_file}" ]; then
+    # Import the remote worker log file into $TEST_log so that remote worker messages
+    # are included when unittest.bash displays the output for failed tests. This
+    # also enables the use of expect_log_* functions from unittest.bash on remote
+    # worker log content.
+    import_to_test_log "${remote_worker_log_file}"
+    rm -f "${remote_worker_log_file}"
   fi
   if [ -d "${work_path}" ]; then
     rm -rf "${work_path}"
@@ -59,6 +85,46 @@ function stop_worker() {
   if [ -d "${cas_path}" ]; then
     rm -rf "${cas_path}"
   fi
+  if [ -n "$failure" ]; then
+      fail "$failure"
+  fi
+}
+
+function import_to_test_log() {
+    local log_file=$1
+    if [ -s "${log_file}" ]; then
+        echo "Imported from: ${log_file} to test log:" >> "${TEST_log}"
+        cat "${log_file}" >> "${TEST_log}"
+        echo >> "${TEST_log}"
+    else
+        echo "No ${log_file} content." >> $TEST_log
+    fi
+}
+
+function wait_for_condition() {
+    local condition="$1"
+    local grace_seconds=30
+    local poll_interval_seconds=0.2
+    local remaining_polls=$(awk "BEGIN{print int($grace_seconds/$poll_interval_seconds)}")
+    while ! eval "$condition" 2>/dev/null && [ $remaining_polls -gt 0 ]; do
+        sleep "$poll_interval_seconds"
+        remaining_polls=$((remaining_polls - 1))
+    done
+    if eval "$condition" 2>/dev/null; then
+        return 0  # Condition fulfilled
+    else
+        return 1  # Timed out
+    fi
+}
+
+function wait_for_file_to_have_content() {
+    local file_path="$1"
+    wait_for_condition "[ -s \"${file_path}\" ]"
+}
+
+function wait_for_pid_to_terminate() {
+    local pid="$1"
+    wait_for_condition "! kill -0 \"${pid}\""
 }
 
 # Pass in the root of the disk cache and count number of files under /ac directory
