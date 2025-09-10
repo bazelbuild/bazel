@@ -404,7 +404,7 @@ public class BazelRepositoryModule extends BlazeModule {
             Profiler.instance()
                 .profile(ProfilerTask.REPO_CACHE_GC_WAIT, "waiting to acquire repo cache lock")) {
           repositoryCache.getRepoContentsCache().acquireSharedLock();
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
           throw new AbruptExitException(
               detailedExitCode(
                   "could not acquire lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE),
