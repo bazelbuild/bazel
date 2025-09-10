@@ -70,6 +70,25 @@ single_version_override(
     ],
 )
 
+# Address https://github.com/bazelbuild/bazel/issues/26922
+# Enable system_include_paths due to c-ares and grpc
+# TODO(pcloudy): upstream the patches
+single_version_override(
+    module_name = "c-ares",
+    patch_strip = 0,
+    patches = [
+        "//third_party:c-ares.patch",
+    ],
+)
+
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 0,
+    patches = [
+        "//third_party:grpc.patch",
+    ],
+)
+
 # 1. Expose @com_google_protobuf//java/core:lite_runtime_only
 # due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
 # We need to package the lite runtime jar for Bazel's bootstrap build
