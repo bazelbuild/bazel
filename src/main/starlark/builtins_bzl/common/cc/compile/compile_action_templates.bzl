@@ -62,6 +62,19 @@ def create_compile_action_templates(
         cxxopts = cxxopts,
         label = cpp_source.label,
     )
+
+    # Currently we do not generate minimized bitcode files for tree artifacts because of issues
+    # with the indexing step.
+    # If lto_index_tree_artifact is set to a tree artifact, the minimized bitcode files will be
+    # properly generated and will be an input to the indexing step. However, the lto indexing step
+    # fails. The indexing step finds the full bitcode file by replacing the suffix of the
+    # minimized bitcode file, therefore they have to be in the same directory.
+    # Since the files are in the same directory, the command line artifact expander expands the
+    # tree artifact to both the minimized bitcode files and the full bitcode files, causing an
+    # error that functions are defined twice.
+    # TODO(b/289071777): support for minimized bitcode files.
+    lto_index_tree_artifact = None
+
     if cpp_source.type == CPP_SOURCE_TYPE_HEADER:
         header_token_file = _declare_compile_output_tree_artifact(
             action_construction_context,
@@ -108,6 +121,12 @@ def create_compile_action_templates(
             output_name,
             generate_pic_action,
         )
+        if bitcode_output:
+            outputs.add_lto_bitcode_file(
+                full_bitcode_file = header_token_file,
+                lto_indexing_file = lto_index_tree_artifact,
+                copts = all_copts,
+            )
         _cc_internal.create_compile_action_template(
             action_construction_context = action_construction_context,
             cc_toolchain = cc_toolchain,
@@ -120,13 +139,11 @@ def create_compile_action_templates(
             cpp_semantics = native_cc_semantics,
             source = cpp_source,
             cpp_compile_action_builder = cpp_compile_action_builder,
-            outputs = outputs,
             output_categories = [artifact_category.GENERATED_HEADER, artifact_category.PROCESSED_HEADER],
-            bitcode_output = bitcode_output,
             output_files = header_token_file,
             dotd_tree_artifact = dotd_tree_artifact,
             diagnostics_tree_artifact = diagnostics_tree_artifact,
-            all_copts = all_copts,
+            lto_indexing_tree_artifact = lto_index_tree_artifact,
         )
         outputs.add_header_token_file(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
@@ -176,6 +193,12 @@ def create_compile_action_templates(
                 output_name,
                 generate_pic_action,
             )
+            if feature_configuration.is_enabled("thin_lto"):
+                outputs.add_lto_bitcode_file(
+                    full_bitcode_file = object_file,
+                    lto_indexing_file = lto_index_tree_artifact,
+                    copts = all_copts,
+                )
             _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
@@ -188,13 +211,11 @@ def create_compile_action_templates(
                 cpp_semantics = native_cc_semantics,
                 source = cpp_source,
                 cpp_compile_action_builder = cpp_compile_action_builder,
-                outputs = outputs,
                 output_categories = [artifact_category.OBJECT_FILE],
-                bitcode_output = feature_configuration.is_enabled("thin_lto"),
                 output_files = object_file,
                 dotd_tree_artifact = dotd_tree_artifact,
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
-                all_copts = all_copts,
+                lto_indexing_tree_artifact = lto_index_tree_artifact,
             )
             outputs.add_object_file(object_file)
         if generate_pic_action:
@@ -243,6 +264,12 @@ def create_compile_action_templates(
                 output_name,
                 generate_pic_action,
             )
+            if feature_configuration.is_enabled("thin_lto"):
+                outputs.add_lto_bitcode_file(
+                    full_bitcode_file = pic_object_file,
+                    lto_indexing_file = lto_index_tree_artifact,
+                    copts = all_copts,
+                )
             _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
@@ -255,13 +282,11 @@ def create_compile_action_templates(
                 cpp_semantics = native_cc_semantics,
                 source = cpp_source,
                 cpp_compile_action_builder = cpp_compile_action_builder,
-                outputs = outputs,
                 output_categories = [artifact_category.PIC_OBJECT_FILE],
-                bitcode_output = feature_configuration.is_enabled("thin_lto"),
                 output_files = pic_object_file,
                 dotd_tree_artifact = dotd_tree_artifact,
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
-                all_copts = all_copts,
+                lto_indexing_tree_artifact = lto_index_tree_artifact,
             )
             outputs.add_pic_object_file(pic_object_file)
 

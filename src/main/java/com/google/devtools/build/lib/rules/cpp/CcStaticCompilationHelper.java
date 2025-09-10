@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /**
@@ -52,32 +53,15 @@ public final class CcStaticCompilationHelper {
       CppSemantics semantics,
       CppSource source,
       CppCompileActionBuilder builder,
-      CcCompilationOutputs.Builder result,
       ImmutableList<ArtifactCategory> outputCategories,
-      boolean bitcodeOutput,
       SpecialArtifact outputFiles,
       SpecialArtifact dotdTreeArtifact,
       SpecialArtifact diagnosticsTreeArtifact,
-      ImmutableList<String> allCopts)
+      @Nullable SpecialArtifact ltoIndexTreeArtifact)
       throws RuleErrorException, EvalException {
     SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
     builder.setVariables(compileBuildVariables);
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-    // Currently we do not generate minimized bitcode files for tree artifacts because of issues
-    // with the indexing step.
-    // If ltoIndexTreeArtifact is set to a tree artifact, the minimized bitcode files will be
-    // properly generated and will be an input to the indexing step. However, the lto indexing step
-    // fails. The indexing step finds the full bitcode file by replacing the suffix of the
-    // minimized bitcode file, therefore they have to be in the same directory.
-    // Since the files are in the same directory, the command line artifact expander expands the
-    // tree artifact to both the minimized bitcode files and the full bitcode files, causing an
-    // error that functions are defined twice.
-    // TODO(b/289071777): support for minimized bitcode files.
-    SpecialArtifact ltoIndexTreeArtifact = null;
-
-    if (bitcodeOutput) {
-      result.addLtoBitcodeFile(outputFiles, ltoIndexTreeArtifact, allCopts);
-    }
 
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext

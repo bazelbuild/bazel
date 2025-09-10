@@ -604,13 +604,11 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "source", positional = false, named = true),
         @Param(name = "cpp_compile_action_builder", positional = false, named = true),
-        @Param(name = "outputs", positional = false, named = true),
         @Param(name = "output_categories", positional = false, named = true),
-        @Param(name = "bitcode_output", positional = false, named = true),
         @Param(name = "output_files", positional = false, named = true),
         @Param(name = "dotd_tree_artifact", positional = false, named = true),
         @Param(name = "diagnostics_tree_artifact", positional = false, named = true),
-        @Param(name = "all_copts", positional = false, named = true)
+        @Param(name = "lto_indexing_tree_artifact", positional = false, named = true),
       })
   public void createCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
@@ -621,13 +619,11 @@ public class CcStarlarkInternal implements StarlarkValue {
       CppSemantics semantics,
       CppSource source,
       CppCompileActionBuilder builder,
-      CcCompilationOutputs.Builder outputs,
       Sequence<?> outputCategoriesUnchecked,
-      boolean bitcodeOutput,
       SpecialArtifact outputFiles,
       Object dotdTreeArtifact,
       Object diagnosticsTreeArtifact,
-      Sequence<?> allCopts)
+      Object ltoIndexingTreeArtifact)
       throws RuleErrorException, EvalException {
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
@@ -656,13 +652,11 @@ public class CcStarlarkInternal implements StarlarkValue {
         semantics,
         source,
         builder,
-        outputs,
         outputCategories.build(),
-        bitcodeOutput,
         outputFiles,
         CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class),
         CcModule.nullIfNone(diagnosticsTreeArtifact, SpecialArtifact.class),
-        Sequence.cast(allCopts, String.class, "all_copts").getImmutableList());
+        CcModule.nullIfNone(ltoIndexingTreeArtifact, SpecialArtifact.class));
   }
 
   @StarlarkMethod(
