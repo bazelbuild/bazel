@@ -78,13 +78,17 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 /**
@@ -281,6 +285,62 @@ public final class RemoteWorker {
             });
   }
 
+
+  private static void dumpFile(String filePath) {
+    try {
+      Files.lines(Paths.get(filePath)).forEach(System.out::println);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private static void showLogConfigFiles() {
+
+    String configFile = System.getProperty("java.util.logging.config.file");
+    if (configFile != null && !configFile.isEmpty()) {
+      System.out.println("java.util.logging.config.file property: " + configFile);
+      dumpFile(configFile);
+    } else {
+      System.out.println("java.util.logging.config.file not set — trying JAVA_HOME default...");
+      String javaHome = System.getenv("JAVA_HOME");
+      if (javaHome != null && !javaHome.isEmpty()) {
+        // For Java 8 or earlier: <JAVA_HOME>/jre/lib/logging.properties
+        // For Java 9 and newer: <JAVA_HOME>/conf/logging.properties
+        var java8Path = Paths.get(javaHome, "jre", "lib", "logging.properties");
+        var java9Path = Paths.get(javaHome, "conf", "logging.properties");
+        if (Files.exists(java8Path)) {
+          System.out.println("Found logging.properties in: " + java8Path);
+          dumpFile(java8Path.toString());
+        } else if (Files.exists(java9Path)) {
+          System.out.println("Found logging.properties in: " + java9Path);
+          dumpFile(java9Path.toString());
+        } else {
+          System.out.println("No default logging.properties found in JAVA_HOME.");
+        }
+      } else {
+        System.out.println("JAVA_HOME is not set.");
+      }
+    }
+  }
+
+  private static void dumpLogConfiguration() {
+    LogManager logManager = LogManager.getLogManager();
+    Enumeration<String> loggerNames = logManager.getLoggerNames();
+    while (loggerNames.hasMoreElements()) {
+      String name = loggerNames.nextElement();
+      Logger logger = logManager.getLogger(name);
+      if (logger != null) {
+        System.out.println("  Logger: " + (name.isEmpty() ? "<root>" : name) +
+            ", Level: " + logger.getLevel());
+        for (Handler handler : logger.getHandlers()) {
+          System.out.println("    Handler: " + handler + ", Level: " + handler.getLevel());
+        }
+      }
+    }
+
+  }
+
+
   @SuppressWarnings("FutureReturnValueIgnored")
   public static void main(String[] args) throws Exception {
     OptionsParser parser =
@@ -291,11 +351,21 @@ public final class RemoteWorker {
     RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
+    System.out.println("Initial log configuration:");
+    dumpLogConfiguration();
+
+    showLogConfigFiles();
     rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
     if (remoteWorkerOptions.debug) {
-      rootLogger.getHandlers()[0].setLevel(FINE);
-      Logger.getLogger(OnDiskBlobStoreCache.class.getName()).setLevel(FINE);
+      for (Handler h : rootLogger.getHandlers()) {
+        h.setLevel(Level.FINE);
+      }
+      Logger.getLogger("com.google.devtools.build.remote.worker").setLevel(FINE);
     }
+    System.out.println("Updated log configuration:");
+    dumpLogConfiguration();
+
+
 
     // Only log severe log messages from Netty. Otherwise it logs warnings that look like this:
     //
