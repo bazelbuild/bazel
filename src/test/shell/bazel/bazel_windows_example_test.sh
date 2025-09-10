@@ -173,6 +173,8 @@ function test_cpp_with_mingw_gcc() {
 function test_cpp_alwayslink() {
   mkdir -p cpp/main
   cat >cpp/main/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib",
     srcs = ["lib.cc"],

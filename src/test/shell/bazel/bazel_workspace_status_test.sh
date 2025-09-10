@@ -108,7 +108,10 @@ int main() {
 }
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name="linkstamped_library",
     linkstamp="linkstamped_library.cc")

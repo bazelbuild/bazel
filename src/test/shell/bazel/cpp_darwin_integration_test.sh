@@ -27,8 +27,12 @@ if ! is_darwin; then
 fi
 
 function test_osx_cc_wrapper_rpaths_handling() {
+  add_rules_cc MODULE.bazel
   mkdir -p cpp/rpaths
   cat > cpp/rpaths/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],
@@ -81,8 +85,10 @@ EOF
 }
 
 function test_osx_binary_strip() {
+  add_rules_cc MODULE.bazel
   mkdir -p cpp/osx_binary_strip
   cat > cpp/osx_binary_strip/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
   name = "main",
   srcs = ["main.cc"],
@@ -97,8 +103,10 @@ EOF
 }
 
 function test_osx_test_strip() {
+  add_rules_cc MODULE.bazel
   mkdir -p cpp/osx_test_strip
   cat > cpp/osx_test_strip/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "main",
   srcs = ["main.cc"],
@@ -114,8 +122,10 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/pull/12046
 function test_osx_sandboxed_cc_library_build() {
+  add_rules_cc MODULE.bazel
   mkdir -p cpp/osx_sandboxed_cc_library_build
   cat > cpp/osx_sandboxed_cc_library_build/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "a",
     srcs = ["a.cc"],
@@ -142,8 +152,12 @@ EOF
 # TODO: This test passes vacuously as the default Unix toolchain doesn't use
 # the set_install_name feature yet.
 function test_cc_test_with_explicit_install_name() {
+  add_rules_cc MODULE.bazel
   mkdir -p cpp
   cat > cpp/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],
@@ -187,9 +201,13 @@ function test_cc_test_with_explicit_install_name_apple_support() {
   cat > MODULE.bazel <<EOF
 bazel_dep(name = "apple_support", version = "1.21.0")
 EOF
+  add_rules_cc MODULE.bazel
 
   mkdir -p cpp
   cat > cpp/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],

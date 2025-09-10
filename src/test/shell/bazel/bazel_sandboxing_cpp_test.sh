@@ -136,6 +136,7 @@ function test_sandboxed_cpp_build_rebuilds_on_change() {
 
 function test_sandboxed_cpp_build_catches_missing_header_via_sandbox() {
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["lib/hello-lib.c"],
@@ -203,6 +204,7 @@ function test_standalone_cpp_build_rebuilds_on_change() {
 
 function test_standalone_cpp_build_catches_missing_header() {
   cat << 'EOF' > examples/cpp/BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "hello-lib",
     srcs = ["lib/hello-lib.c"],

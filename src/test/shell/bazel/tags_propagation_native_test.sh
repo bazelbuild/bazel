@@ -24,8 +24,10 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 # Test a basic native rule which has tags, that should be propagated
 function test_cc_library_tags_propagated() {
+  add_rules_cc MODULE.bazel
   mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 package(default_visibility = ["//visibility:public"])
 cc_library(
   name = 'test',
