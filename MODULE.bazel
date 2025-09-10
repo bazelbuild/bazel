@@ -89,32 +89,6 @@ single_version_override(
     ],
 )
 
-single_version_override(
-    module_name = "zstd-jni",
-    patch_strip = 1,
-    patches = ["//third_party:zstd-jni.patch"],
-)
-
-single_version_override(
-    module_name = "chicory",
-    patch_strip = 1,
-    patches = ["//third_party:chicory.patch"],
-)
-
-single_version_override(
-    module_name = "googleapis",
-    patch_strip = 1,
-    patches = ["//third_party:googleapis.patch"],
-    version = "0.0.0-20250604-de157ca3",
-)
-
-single_version_override(
-    module_name = "protoc-gen-validate",
-    patch_strip = 1,
-    patches = ["//third_party:protoc-gen-validate.patch"],
-    version = "1.2.1.bcr.1",
-)
-
 # 1. Expose @com_google_protobuf//java/core:lite_runtime_only
 # due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
 # We need to package the lite runtime jar for Bazel's bootstrap build
