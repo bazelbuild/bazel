@@ -177,6 +177,14 @@ public interface ActionCache {
       return proxyOutputs;
     }
 
+    /** Returns whether this entry stores any output metadata. */
+    public boolean hasOutputMetadata() {
+      checkState(!isCorrupted());
+      return !outputFileMetadata.isEmpty()
+          || !outputTreeMetadata.isEmpty()
+          || !proxyOutputs.isEmpty();
+    }
+
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)

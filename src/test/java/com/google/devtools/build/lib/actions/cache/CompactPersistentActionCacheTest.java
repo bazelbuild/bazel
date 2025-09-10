@@ -219,7 +219,7 @@ public class CompactPersistentActionCacheTest {
 
     // Remove entries that discover inputs and flush the journal.
     cache.removeIf(Entry::discoversInputs);
-    assertIncrementalSave(cache);
+    assertFullSave();
 
     // Check that the entries that discover inputs are gone, and the rest are still there.
     for (int i = 0; i < 100; i++) {
