@@ -452,6 +452,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         constraint_setting(name = "incompatible_setting")
 
         constraint_value(
@@ -811,6 +812,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             srcs = ["foo.cc"],
@@ -945,6 +947,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             srcs = ["foo.cc"],

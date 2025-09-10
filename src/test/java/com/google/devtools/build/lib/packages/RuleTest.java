@@ -15,12 +15,22 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.util.TargetDataSubject.assertThat;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
@@ -32,6 +42,37 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link Rule}. */
 @RunWith(JUnit4.class)
 public class RuleTest extends PackageLoadingTestCase {
+  private static final RuleDefinition FAKE_CC_LIBRARY =
+      (MockRule) () -> MockRule.define("fake_cc_library", (builder, env) -> {});
+
+  private static final RuleDefinition FAKE_CC_BINARY =
+      (MockRule)
+          () ->
+              MockRule.define(
+                  "fake_cc_binary",
+                  (builder, env) -> builder.add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType()));
+
+  private static final RuleDefinition FAKE_CC_TEST =
+      (MockRule)
+          () ->
+              MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
+                  .type(RuleClassType.TEST)
+                  .define(
+                      "fake_cc_test",
+                      (builder, env) ->
+                          builder
+                              .add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+                              .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
+                              .add(attr("size", STRING).nonconfigurable("policy").value("small"))
+                              .add(attr("timeout", STRING).nonconfigurable("policy").value("short"))
+                              .add(attr("flaky", BOOLEAN))
+                              .add(attr("shard_count", INTEGER))
+                              .add(attr("local", BOOLEAN).nonconfigurable("policy")));
+
+  @Override
+  protected ImmutableList<RuleDefinition> getExtraRules() {
+    return ImmutableList.of(FAKE_CC_LIBRARY, FAKE_CC_BINARY, FAKE_CC_TEST);
+  }
 
   @Test
   public void testOutputNameError() throws Exception {
@@ -61,13 +102,13 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "y",
             srcs = ["a"],
             local = 0,
         )
 
-        cc_test(
+        fake_cc_test(
             name = "z",
             srcs = ["a"],
             local = 1,
@@ -84,9 +125,9 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        cc_test(name = "y")
+        fake_cc_test(name = "y")
 
-        cc_test(
+        fake_cc_test(
             name = "z",
             deprecation = "Foo",
         )
@@ -102,17 +143,17 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        cc_binary(
+        fake_cc_binary(
             name = "pr",
             visibility = ["//visibility:private"],
         )
 
-        cc_binary(
+        fake_cc_binary(
             name = "pu",
             visibility = ["//visibility:public"],
         )
 
-        cc_binary(
+        fake_cc_binary(
             name = "cu",
             visibility = ["//a:b"],
         )
@@ -127,7 +168,7 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        cc_binary(
+        fake_cc_binary(
             name = "typo",
             visibility = ["//visibility:none"],
         )
@@ -145,14 +186,14 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "visibility/BUILD",
         """
-        cc_binary(
+        fake_cc_binary(
             name = "none",
         )
         """);
     scratch.file(
         "x/BUILD",
         """
-        cc_binary(
+        fake_cc_binary(
             name = "typo",
             visibility = ["//visibility:none"],
         )
@@ -171,19 +212,19 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "visibility/BUILD",
         """
-        cc_binary(
+        fake_cc_binary(
             name = "none",
         )
         """);
     scratch.file(
         "x/BUILD",
         """
-        cc_binary(
+        fake_cc_binary(
             name = "p",
             visibility = ["//visibility:__pkg__"],
         )
 
-        cc_binary(
+        fake_cc_binary(
             name = "s",
             visibility = ["//visibility:__subpackages__"],
         )
@@ -202,7 +243,7 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        cc_binary(
+        fake_cc_binary(
             name = "is_this_public",
             visibility = ["//visibility:plubic"],
         )
@@ -222,17 +263,17 @@ public class RuleTest extends PackageLoadingTestCase {
         """
         package(default_visibility = ["//default:__pkg__"])
 
-        cc_binary(
+        fake_cc_binary(
             name = "is_this_public",
             visibility = ["//some:__pkg__", "//visibility:public"],
         )
 
-        cc_binary(
+        fake_cc_binary(
             name = "is_private_dropped",
             visibility = ["//some:__pkg__", "//visibility:private"],
         )
 
-        cc_binary(
+        fake_cc_binary(
             name = "is_empty_visibility_private",
             visibility = [],
         )
@@ -252,18 +293,18 @@ public class RuleTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        cc_library(
+        fake_cc_library(
             name = "dep",
             deprecation = "message should serialize",
         )
 
-        cc_test(
+        fake_cc_test(
             name = "y",
             srcs = ["a"],
             deps = [":dep"],
         )
 
-        cc_binary(
+        fake_cc_binary(
             name = "cu",
             visibility = ["//a:b"],
         )
