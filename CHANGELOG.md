@@ -1,3 +1,38 @@
+## Release 9.0.0-pre.20250831.1 (2025-09-10)
+
+```
+Baseline: d1c7409e60fdc72de3705994917dbc24785039f3
+
+Cherry picks:
+
+   + 08cd650a43574cb9c993fb80cc5f966b0b81fa93:
+     Fix windows build with Bazel@HEAD
+```
+
+Incompatible changes:
+
+  - `--incompatible_filegroup_runfiles_for_data` is now enabled by
+    default. See https://github.com/bazelbuild/bazel/issues/26330 for
+    details.
+  - Use `-I` instead of `-isystem` for `cc_library` / `cc_binary`
+    `includes` attr. To use `-isystem` for only external
+    repositories, you can pass `--features=external_include_paths
+    --host_features=external_include_paths`. To use `-isystem` for a
+    single `cc_library` / `cc_binary` `includes`, you can set
+    `features = ["system_include_paths"],` on the target
+
+Important changes:
+
+  - Added flag `--experimental_thread_dump_interval` to allow Bazel
+    dump threads periodically.
+  - Flip `--incompatible_target_cpu_from_platform` to enable setting
+    `TARGET_CPU` make variable based on the target platform.
+  - The new `--module_mirrors` flag accepts a comma-separated list of
+    mirrors to use for source URLs provided by modules obtained from
+    Bazel registries.
+
+This release contains contributions from many people at Google, as well as dependabot[bot], Dmitry Ryabkov, Ed Schouten, Fabian Meumertzheim, Keith Smiley, Markus Hofbauer, Philipp Stephani, PikachuHy.
+
 ## Release 8.4.0 (2025-09-04)
 
 ```
