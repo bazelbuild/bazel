@@ -20,19 +20,41 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.events.InputFileEvent;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provides support for reading target patterns from a file or the command-line. */
 public final class TargetPatternsHelper {
@@ -42,20 +64,58 @@ public final class TargetPatternsHelper {
   private TargetPatternsHelper() {}
 
   /**
-   * Reads a list of target patterns, either from the command-line residue or by reading newline
-   * delimited target patterns from the --target_pattern_file flag. If --target_pattern_file is
-   * specified and options contain a residue, or if the file cannot be read, throws {@link
-   * TargetPatternsHelperException}.
+   * Reads a list of target patterns, either from the command-line residue, by reading newline
+   * delimited target patterns from the --target_pattern_file flag, or from --query/--query_file.
+   * If multiple options are specified, throws {@link TargetPatternsHelperException}.
+   *
+   * @return A list of target patterns.
    */
   public static List<String> readFrom(CommandEnvironment env, OptionsParsingResult options)
       throws TargetPatternsHelperException {
     List<String> targets = options.getResidue();
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (!targets.isEmpty() && !buildRequestOptions.targetPatternFile.isEmpty()) {
+
+    int optionCount = 0;
+    if (!targets.isEmpty()) optionCount++;
+    if (!buildRequestOptions.targetPatternFile.isEmpty()) optionCount++;
+    if (!buildRequestOptions.query.isEmpty()) optionCount++;
+    if (!buildRequestOptions.queryFile.isEmpty()) optionCount++;
+    if (optionCount > 1) {
       throw new TargetPatternsHelperException(
-          "Command-line target pattern and --target_pattern_file cannot both be specified",
+          "Only one of command-line target patterns, --target_pattern_file, --query, "
+              + "or --query_file may be specified",
           TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
-    } else if (!buildRequestOptions.targetPatternFile.isEmpty()) {
+    }
+
+    if (!buildRequestOptions.query.isEmpty()) {
+      try {
+        return executeQuery(env, buildRequestOptions.query, options);
+      } catch (QueryException | InterruptedException | IOException e) {
+        throw new TargetPatternsHelperException(
+            "Error executing query: " + e.getMessage(),
+            TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+      }
+    } else if (!buildRequestOptions.queryFile.isEmpty()) {
+      Path queryFilePath = env.getWorkingDirectory().getRelative(buildRequestOptions.queryFile);
+      try {
+        env.getEventBus()
+            .post(
+                InputFileEvent.create(
+                    /* type= */ "query_file", queryFilePath.getFileSize()));
+        String queryExpression = FileSystemUtils.readContent(queryFilePath, ISO_8859_1).trim();
+        return executeQuery(env, queryExpression, options);
+      } catch (IOException e) {
+        throw new TargetPatternsHelperException(
+            "I/O error reading from " + queryFilePath.getPathString() + ": " + e.getMessage(),
+            TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
+      } catch (QueryException | InterruptedException e) {
+        throw new TargetPatternsHelperException(
+            "Error executing query from file: " + e.getMessage(),
+            TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+      }
+    }
+
+    if (!buildRequestOptions.targetPatternFile.isEmpty()) {
       // Works for absolute or relative file.
       Path residuePath =
           env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
@@ -98,6 +158,66 @@ public final class TargetPatternsHelper {
           .setMessage(getMessage())
           .setTargetPatterns(TargetPatterns.newBuilder().setCode(detailedCode))
           .build();
+    }
+  }
+
+  /** Executes a query and returns the resulting target patterns. */
+  private static List<String> executeQuery(
+      CommandEnvironment env, String queryExpression, OptionsParsingResult options)
+      throws QueryException, InterruptedException, IOException, TargetPatternsHelperException {
+    try {
+      LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+      RepositoryMapping repoMapping =
+          env.getSkyframeExecutor()
+              .getMainRepoMapping(false, threadsOption.threads, env.getReporter());
+      TargetPattern.Parser mainRepoTargetParser =
+          new TargetPattern.Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
+
+      StarlarkSemantics starlarkSemantics =
+          options.getOptions(BuildLanguageOptions.class).toStarlarkSemantics();
+      LabelPrinter labelPrinter =
+          new QueryOptions().getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping());
+
+      AbstractBlazeQueryEnvironment<Target> queryEnv =
+          QueryEnvironmentBasedCommand.newQueryEnvironment(
+              env,
+              /* keepGoing=*/ false,
+              /* orderedResults= */ false,
+              UniverseScope.EMPTY,
+              threadsOption.threads,
+              Set.of(),
+              /* useGraphlessQuery= */ true,
+              mainRepoTargetParser,
+              labelPrinter);
+
+      QueryExpression expr = QueryExpression.parse(queryExpression, queryEnv);
+      Set<String> targetPatterns = new LinkedHashSet<>();
+      ThreadSafeOutputFormatterCallback<Target> callback =
+          new ThreadSafeOutputFormatterCallback<Target>() {
+            @Override
+            public void processOutput(Iterable<Target> partialResult) {
+              for (Target target : partialResult) {
+                targetPatterns.add(target.getLabel().toString());
+              }
+            }
+          };
+
+      QueryEvalResult result = queryEnv.evaluateQuery(expr, callback);
+      if (!result.getSuccess()) {
+        throw new TargetPatternsHelperException("Query evaluation failed",
+            TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+      }
+
+      return new ArrayList<>(targetPatterns);
+    } catch (InterruptedException e) {
+      throw new TargetPatternsHelperException("Query interrupted",
+          TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+    } catch (RepositoryMappingResolutionException e) {
+      throw new TargetPatternsHelperException(e.getMessage(),
+          TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+    } catch (QuerySyntaxException e) {
+      throw new TargetPatternsHelperException("Query syntax error: " + e.getMessage(),
+          TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
     }
   }
 }
