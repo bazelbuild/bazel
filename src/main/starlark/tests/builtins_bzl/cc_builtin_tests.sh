@@ -66,8 +66,11 @@ EOF
 }
 
 function test_cc_static_library_duplicate_symbol() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD<<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_static_library.bzl", "cc_static_library")
 cc_static_library(
     name = "static",
     deps = [
@@ -121,8 +124,11 @@ EOF
 }
 
 function test_cc_static_library_duplicate_symbol_mixed_type() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD<<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_static_library.bzl", "cc_static_library")
 cc_static_library(
     name = "static",
     deps = [
@@ -181,9 +187,11 @@ function test_cc_static_library_protobuf() {
     return 0
   fi
 
+  add_rules_cc "MODULE.bazel"
   add_protobuf "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD<<'EOF'
+load("@rules_cc//cc:cc_static_library.bzl", "cc_static_library")
 cc_static_library(
     name = "protobuf",
     deps = ["@com_google_protobuf//:protobuf"],

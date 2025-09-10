@@ -73,6 +73,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     createStarlarkLooseHeadersWhitelist(config, "//...");
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
     if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       config.append(
