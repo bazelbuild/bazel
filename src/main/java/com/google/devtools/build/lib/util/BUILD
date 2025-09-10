@@ -48,6 +48,7 @@ java_library(
     srcs = ["FileSystemLock.java"],
     deps = [
         ":string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],

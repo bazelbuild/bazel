@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.FileLockInterruptionException;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -71,9 +72,12 @@ public final class FileSystemLock implements AutoCloseable {
    * Tries to acquires a lock on the given path with the given mode. Throws an exception if the lock
    * is already held by another process.
    *
+   * <p>This method must not be called concurrently from multiple threads with the same path.
+   *
    * @throws LockAlreadyHeldException if the lock is already exclusively held by another process
    * @throws IOException if another error occurred
    */
+  @ThreadSafety.ThreadHostile
   public static FileSystemLock tryGet(Path path, LockMode mode) throws IOException {
     FileChannel channel = prepareChannel(path);
     FileLock lock = channel.tryLock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
@@ -83,10 +87,23 @@ public final class FileSystemLock implements AutoCloseable {
     return new FileSystemLock(channel, lock);
   }
 
-  /** Acquires a lock on the given path with the given mode. Blocks until the lock is acquired. */
-  public static FileSystemLock get(Path path, LockMode mode) throws IOException {
+  /**
+   * Acquires a lock on the given path with the given mode. Blocks until the lock is acquired.
+   *
+   * <p>This method must not be called concurrently from multiple threads with the same path.
+   */
+  @ThreadSafety.ThreadHostile
+  public static FileSystemLock get(Path path, LockMode mode)
+      throws IOException, InterruptedException {
     FileChannel channel = prepareChannel(path);
-    FileLock lock = channel.lock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
+    FileLock lock;
+    try {
+      lock = channel.lock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
+    } catch (FileLockInterruptionException e) {
+      Thread.interrupted(); // clear interrupt bit
+      channel.close();
+      throw new InterruptedException();
+    }
     return new FileSystemLock(channel, lock);
   }
 
