@@ -31,7 +31,7 @@ class BzlmodCredentialsTest(test_base.TestBase):
     self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
     self.registry_root = os.path.join(self.registries_work_dir, 'main')
     self.main_registry = BazelRegistry(self.registry_root)
-    self.main_registry.createCcModule('aaa', '1.0')
+    self.main_registry.createShModule('aaa', '1.0')
 
     self.ScratchFile(
         '.bazelrc',
@@ -46,28 +46,28 @@ class BzlmodCredentialsTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'bazel_dep(name = "aaa", version = "1.0")',
-            'bazel_dep(name = "rules_cc", version = "0.2.4")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '}',
+            'source $(rlocation aaa/aaa.sh)',
+            'hello_aaa "main function"',
         ],
+        executable=True,
     )
     self.ScratchFile(
         'credhelper',

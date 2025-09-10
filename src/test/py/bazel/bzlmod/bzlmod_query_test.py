@@ -31,10 +31,13 @@ class BzlmodQueryTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main'))
     self.main_registry.start()
-    self.main_registry.createCcModule('aaa', '1.0', {'ccc': '1.2'}) \
-      .createCcModule('aaa', '1.1') \
-      .createCcModule('bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_bar_aaa'}) \
-      .createCcModule('ccc', '1.2')
+    self.main_registry.createShModule(
+        'aaa', '1.0', {'ccc': '1.2'}
+    ).createShModule('aaa', '1.1').createShModule(
+        'bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_bar_aaa'}
+    ).createShModule(
+        'ccc', '1.2'
+    )
 
     self.ScratchFile(
         '.bazelrc',
@@ -66,21 +69,21 @@ class BzlmodQueryTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'query',
-        'kind("cc_.* rule", deps(//:main))',
+        'kind("sh_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
     ])
@@ -89,7 +92,6 @@ class BzlmodQueryTest(test_base.TestBase):
             '//:main',
             '@my_repo//:lib_aaa',
             '@@ccc+//:lib_ccc',
-            '@rules_cc//:link_extra_lib',
         ],
         stdout,
     )
@@ -101,21 +103,21 @@ class BzlmodQueryTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'query',
-        'kind("cc_.* rule", deps(//:main))',
+        'kind("sh_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
         '--consistent_labels',
@@ -125,7 +127,6 @@ class BzlmodQueryTest(test_base.TestBase):
             '@@//:main',
             '@@aaa+//:lib_aaa',
             '@@ccc+//:lib_ccc',
-            '@@rules_cc+//:link_extra_lib',
         ],
         stdout,
     )
@@ -137,29 +138,27 @@ class BzlmodQueryTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'pkg/BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'query',
-        'kind("cc_.* rule", deps(//pkg:main))',
+        'kind("sh_.* rule", deps(//pkg:main))',
         '--noimplicit_deps',
         '--notool_deps',
         '--consistent_labels',
         '--output=package',
     ])
-    self.assertListEqual(
-        ['@@//pkg', '@@aaa+//', '@@ccc+//', '@@rules_cc+//'], stdout
-    )
+    self.assertListEqual(['@@//pkg', '@@aaa+//', '@@ccc+//'], stdout)
 
   def testQueryModuleRepoTransitiveDeps_consistentLabels_outputBuild(self):
     self.ScratchFile(
@@ -168,21 +167,21 @@ class BzlmodQueryTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'pkg/BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'query',
-        'kind("cc_.* rule", deps(//pkg:main))',
+        'kind("sh_.* rule", deps(//pkg:main))',
         '--noimplicit_deps',
         '--notool_deps',
         '--consistent_labels',
@@ -206,21 +205,21 @@ class BzlmodQueryTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'aquery',
-        'kind("cc_.* rule", deps(//:main))',
+        'kind("sh_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
     ])
@@ -235,21 +234,21 @@ class BzlmodQueryTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'aquery',
-        'kind("cc_.* rule", deps(//:main))',
+        'kind("sh_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
         '--consistent_labels',
@@ -270,21 +269,21 @@ class BzlmodQueryTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
     ])
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'cquery',
-        'kind("cc_.* rule", deps(//:main))',
+        'kind("sh_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
     ])
@@ -292,9 +291,7 @@ class BzlmodQueryTest(test_base.TestBase):
     self.assertRegex(stdout[0], r'^//:main \([\w\d]+\)$')
     self.assertRegex(stdout[1], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
     self.assertRegex(stdout[2], r'^@my_repo//:lib_aaa \([\w\d]+\)$')
-    self.assertRegex(stdout[3], r'^@rules_cc//:empty_lib \([\w\d]+\)$')
-    self.assertRegex(stdout[4], r'^@rules_cc//:link_extra_lib \([\w\d]+\)$')
-    self.assertEqual(len(stdout), 5)
+    self.assertEqual(len(stdout), 3)
 
   def testCqueryModuleRepoTransitiveDeps_consistentLabels(self):
     self.ScratchFile(
@@ -303,21 +300,21 @@ class BzlmodQueryTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         ],
     )
-    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@my_repo//:lib_aaa"],',
             ')',
         ],
     )
     _, stdout, _ = self.RunBazel([
         'cquery',
-        'kind("cc_.* rule", deps(//:main))',
+        'kind("sh_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
         '--consistent_labels',
@@ -326,9 +323,7 @@ class BzlmodQueryTest(test_base.TestBase):
     self.assertRegex(stdout[0], r'^@@//:main \([\w\d]+\)$')
     self.assertRegex(stdout[1], r'^@@aaa\+//:lib_aaa \([\w\d]+\)$')
     self.assertRegex(stdout[2], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
-    self.assertRegex(stdout[3], r'^@@rules_cc\+//:empty_lib \([\w\d]+\)$')
-    self.assertRegex(stdout[4], r'^@@rules_cc\+//:link_extra_lib \([\w\d]+\)$')
-    self.assertEqual(len(stdout), 5)
+    self.assertEqual(len(stdout), 3)
 
   def testFetchModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
