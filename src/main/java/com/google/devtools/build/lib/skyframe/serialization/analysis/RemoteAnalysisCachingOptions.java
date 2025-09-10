@@ -166,6 +166,19 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       help = "Deadline to use for remote analysis cache operations.")
   public Duration deadline;
 
+  // TODO: b/443947033 - add a way to disable retries
+  @Option(
+      name = "experimental_remote_analysis_unreachable_cache_retry_interval",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "250ms",
+      converter = DurationConverter.class,
+      help =
+          "How long to wait before retrying a cache get request that failed due to an UNREACHABLE"
+              + " channel. This is a workaround for the client library reporting 'ready' "
+              + "prematurely.")
+  public Duration unreachableCacheRetryInterval;
+
   @Option(
       name = "experimental_analysis_cache_service",
       defaultValue = "",
