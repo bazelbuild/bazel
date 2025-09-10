@@ -87,6 +87,5 @@ exported_rules = {
 
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
-    "cc_common_compile": cc_common.compile,  # Only needed for CppCompileActionTemplateTest.
     "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
 }
