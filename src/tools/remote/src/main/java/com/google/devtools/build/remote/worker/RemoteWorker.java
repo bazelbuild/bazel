@@ -351,10 +351,10 @@ public final class RemoteWorker {
     RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
-    System.out.println("Initial log configuration:");
-    dumpLogConfiguration();
+    // System.out.println("Initial log configuration:");
+    // dumpLogConfiguration();
 
-    showLogConfigFiles();
+    // showLogConfigFiles();
     rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
     if (remoteWorkerOptions.debug) {
       for (Handler h : rootLogger.getHandlers()) {

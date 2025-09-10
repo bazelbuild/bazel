@@ -818,6 +818,7 @@ function run_suite() {
         fi
         set +o pipefail
         (
+          set -x  
           set "${__opt_switch}" pipefail
           # if errexit is enabled, make sure we run cleanup and collect the log.
           if [[ "$-" = *e* ]]; then

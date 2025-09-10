@@ -45,10 +45,12 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
+  echo "FOO: SET_UP"  
   start_worker
 }
 
 function tear_down() {
+  echo "FOO: TEAR_DOWN"  
   bazel clean >& $TEST_log
   stop_worker
 }
@@ -1960,72 +1962,8 @@ function test_inmemory_files_downloaded_only_once() {
 
   expect_log_once "downloadBlob digest=${dotd_hash}"
 
-  fail "on purpose to get logs"  
+  # fail "on purpose to get logs"  
 }
-
-
-function test_inmemory_files_downloaded_only_once_with_sleep() {
-
-  # Set up the remote worker cache to accept the first download
-  # (into memory) and to reject subsequent downloads (to disk)
-  # of the same digest. This simulates a scenario reproducing build
-  # failure #22387. The rejection could be due to blob eviction or
-  # a remote cache server that is overloaded, unavailable, or malfunctioning.
-  stop_worker
-  start_worker --fake_error_for_duplicated_downloads --debug
-
-  echo 'cc_library(name="foo", srcs=["foo.c"])' > BUILD
-  touch foo.c
-
-  # Populate the remote cache with .d file.
-  bazel build \
-      --remote_upload_local_results \
-      --remote_cache=grpc://localhost:"${worker_port}" \
-      //:foo  ||  fail "Expected success from uploading bazel invocation"
-
-  # Search for alternative .d file names for compatibility across platforms.
-  dotd_file=$(find -L bazel-bin -type f -name 'foo*.d' | head -n1)
-  if [ -z "$dotd_file" ]; then
-      find -L bazel-bin
-      fail "No .d file is found."
-  fi
-  dotd_hash=$(sha256sum ${dotd_file} | awk '{print $1}')
-  echo ${dotd_file} with hash ${dotd_hash}
-
-  # Delete .d file and other result, cached locally.
-  bazel clean
-
-  echo "Connecting bazel to port ${worker_port}"
-  # Download .d file in-memory combined with --remote_download_all
-  date --rfc-3339=ns
-  bazel build \
-      --experimental_inmemory_dotd_files \
-      --remote_download_all \
-      --announce_rc \
-      --remote_cache=grpc://localhost:"${worker_port}" \
-      //:foo  ||  fail "Expected success from downloading bazel invocation"
-
-  # The in memory file should not be downloaded to disk, regardless
-  # of --remote_download_all.
-  assert_not_exists ${dotd_file}
-
-  sleep 15
-
-  date --rfc-3339=ns
-  cat "${TEST_TMPDIR}/remote_worker.log"
-  date --rfc-3339=ns
-  
-  # Assert that the in memory .d file is downloaded only once
-  # according to log from the remote worker.
-  stop_worker # Flush and import logs.
-
-  date --rfc-3339=ns
-
-  expect_log_once "downloadBlob digest=${dotd_hash}"
-
-  fail "on purpose to get logs"
-}
-
 
 
 function test_remote_download_regex() {
