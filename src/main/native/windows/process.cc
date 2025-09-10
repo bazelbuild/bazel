@@ -28,6 +28,9 @@
 #include <locale.h>
 #include <string_view>
 
+#include <chrono>
+#include <filesystem>
+
 namespace bazel {
 namespace windows {
 
@@ -74,7 +77,17 @@ static std::wstring CreateProcessWrapper(const std::wstring argv0,
     stem.remove_suffix(1);
   }
 
-  std::wstring wrapper_file_name = std::wstring(stem) + L".wrapper.bat";
+  // Create a temporary file and sidestep any issues with existing files and/or permissions
+  std::filesystem::path temp_dir = std::filesystem::temp_directory_path();
+
+  auto now = std::chrono::system_clock::now().time_since_epoch();
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+
+  // A full path of C:\foo\bar\test_exe.exe will turn into test_exe.exe_1757517727004.bat
+  std::wstringstream filename;
+  filename << stem << "_" << ms << L".bat";
+
+  std::wstring wrapper_file_name = (temp_dir / filename.str()).wstring();
   HANDLE handle = ::CreateFileW(
       /* lpFileName */ wrapper_file_name.c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
