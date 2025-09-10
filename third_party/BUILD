@@ -40,6 +40,11 @@ filegroup(
     srcs = [],
 )
 
+filegroup(
+    name = "patches",
+    srcs = glob(["*.patch"]),
+)
+
 alias(
     name = "apache_commons_collections",
     actual = "@maven//:commons_collections_commons_collections",
