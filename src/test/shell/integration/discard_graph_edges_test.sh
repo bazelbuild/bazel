@@ -56,7 +56,9 @@ set -e
 
 function set_up() {
   mkdir -p testing || fail "Couldn't create directory"
-  echo "cc_test(name='mytest', srcs=['mytest.cc'], malloc=':system_malloc')" > testing/BUILD || fail
+  echo "load('@rules_cc//cc:cc_library.bzl', 'cc_library')" > testing/BUILD || fail
+  echo "load('@rules_cc//cc:cc_test.bzl', 'cc_test')" >> testing/BUILD || fail
+  echo "cc_test(name='mytest', srcs=['mytest.cc'], malloc=':system_malloc')" >> testing/BUILD || fail
   echo "cc_library(name='system_malloc', srcs=[])"                           >> testing/BUILD || fail
   echo "int main() {return 0;}"         > testing/mytest.cc || fail
 }
@@ -64,18 +66,22 @@ function set_up() {
 #### TESTS #############################################################
 
 function test_build() {
+  add_rules_cc MODULE.bazel
   bazel $STARTUP_FLAGS build $BUILD_FLAGS //testing:mytest >& $TEST_log \
     || fail "Expected success"
 }
 
 function test_test() {
+  add_rules_cc MODULE.bazel
   bazel $STARTUP_FLAGS test $BUILD_FLAGS //testing:mytest >& $TEST_log \
     || fail "Expected success"
 }
 
 function test_failed_build() {
+  add_rules_cc MODULE.bazel
   mkdir -p foo || fail "Couldn't make directory"
   cat > foo/BUILD <<'EOF' || fail "Couldn't make BUILD file"
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])
 cc_library(name = 'bar', srcs = ['bar.cc'])
 EOF
@@ -99,6 +105,7 @@ function test_empty_build() {
 }
 
 function test_query() {
+  add_rules_cc MODULE.bazel
   bazel $STARTUP_FLAGS query 'somepath(//testing:mytest,//testing:system_malloc)' >& $TEST_log \
     || fail "Expected success"
   expect_log "//testing:mytest"
@@ -189,6 +196,7 @@ def baz():
 EOF
 
   cat > histodump/BUILD <<EOF || fail "Couldn't create BUILD file"
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":foo.bzl", "foo")
 load(":bar.bzl", "bar")
 load(":baz.bzl", "baz")
@@ -234,6 +242,7 @@ EOF
 
 # TODO(b/62450749): This is flaky on CI.
 function test_packages_cleared() {
+  add_rules_cc MODULE.bazel
   local histo_file="$(prepare_histogram "--nodiscard_analysis_cache")"
   local package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
@@ -284,6 +293,7 @@ function test_packages_cleared() {
 
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.
 function test_action_conflict() {
+  add_rules_cc MODULE.bazel
   mkdir -p conflict || fail "Couldn't create directory"
 
   cat > conflict/conflict_rule.bzl <<EOF || fail "Couldn't write bzl file"
@@ -333,14 +343,17 @@ EOF
 }
 
 function test_remove_actions() {
+  add_rules_cc MODULE.bazel
   bazel "$STARTUP_FLAGS" test $BUILD_FLAGS \
       --noexperimental_enable_critical_path_profiling //testing:mytest \
       >& $TEST_log || fail "Expected success"
 }
 
 function test_modules() {
+  add_rules_cc MODULE.bazel
   mkdir -p foo || fail "mkdir failed"
   cat > foo/BUILD <<EOF || fail "BUILD file creation failed"
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 package(features=['prune_header_modules','header_modules','use_header_modules'])
 cc_library(name = 'a', hdrs = ['a.h'])
 cc_library(name = 'b', hdrs = ['b.h'], deps = [':a'])
@@ -358,11 +371,13 @@ EOF
 # The following tests are not expected to exercise codepath -- make sure nothing bad happens.
 
 function test_no_batch() {
+  add_rules_cc MODULE.bazel
   bazel $STARTUP_FLAGS --nobatch test $BUILD_FLAGS --track_incremental_state \
       //testing:mytest >& "$TEST_log" || fail "Expected success"
 }
 
 function test_no_discard_analysis_cache() {
+  add_rules_cc MODULE.bazel
   bazel $STARTUP_FLAGS test $BUILD_FLAGS --nodiscard_analysis_cache \
       --track_incremental_state //testing:mytest >& "$TEST_log" \
       || fail "Expected success"
@@ -469,6 +484,7 @@ EOF
 }
 
 function test_dump_after_discard_incrementality_data() {
+  add_rules_cc MODULE.bazel
   bazel build --notrack_incremental_state //testing:mytest >& "$TEST_log" \
        || fail "Expected success"
   bazel dump --skyframe=deps >& "$TEST_log" || fail "Expected success"
@@ -476,6 +492,7 @@ function test_dump_after_discard_incrementality_data() {
 }
 
 function test_query_after_discard_incrementality_data() {
+  add_rules_cc MODULE.bazel
   bazel build --nobuild --notrack_incremental_state //testing:mytest \
        >& "$TEST_log" || fail "Expected success"
   bazel query --experimental_ui_debug_all_events --output=label_kind //testing:mytest \
@@ -485,6 +502,7 @@ function test_query_after_discard_incrementality_data() {
 }
 
 function test_shutdown_after_discard_incrementality_data() {
+  add_rules_cc MODULE.bazel
   readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
   [[ -z "$server_pid" ]] && fail "Couldn't get server pid"
   bazel build --nobuild --notrack_incremental_state //testing:mytest \
@@ -496,12 +514,14 @@ function test_shutdown_after_discard_incrementality_data() {
 }
 
 function test_clean_after_discard_incrementality_data() {
+  add_rules_cc MODULE.bazel
   bazel build --nobuild --notrack_incremental_state //testing:mytest \
        >& "$TEST_log" || fail "Expected success"
   bazel clean >& "$TEST_log" || fail "Expected success"
 }
 
 function test_switch_back_and_forth() {
+  add_rules_cc MODULE.bazel
   readonly local server_pid="$(bazel info \
       --notrack_incremental_state server_pid 2> /dev/null)"
   [[ -z "$server_pid" ]] && fail "Couldn't get server pid"

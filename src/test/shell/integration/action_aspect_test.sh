@@ -280,6 +280,7 @@ function test_starlark_action_rerun_after_shadowed_action_inputs_change() {
 }
 
 function create_starlark_action_with_shadowed_action_cache_test_files() {
+  add_rules_cc MODULE.bazel
   local package="$1"
 
   mkdir -p "${package}"
@@ -319,6 +320,7 @@ EOF
 int a() { return x(); }
 EOF
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "x",
   hdrs  = ["x.h"],

@@ -549,6 +549,7 @@ function test_platform_execgroup_properties_test_inherits_default() {
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")

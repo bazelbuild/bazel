@@ -1146,8 +1146,10 @@ function test_changed_async_deleter_filesystem() {
     return
   fi
 
+  add_rules_cc MODULE.bazel
   mkdir pkg
   cat >pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "a",
   srcs = [ "a.cc" ],

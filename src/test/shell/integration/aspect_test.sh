@@ -505,6 +505,7 @@ EOF
 }
 
 function test_aspects_propagating_other_aspects_stack_of_required_aspects() {
+  add_rules_cc MODULE.bazel
   local package="pkg"
   mkdir -p "${package}"
 
@@ -550,6 +551,7 @@ echo "inline int x() { return 42; }" > "${package}/x.h"
 int a() { return x(); }
 EOF
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//${package}:lib.bzl", "rule_r")
 
 cc_library(
@@ -589,7 +591,9 @@ function test_aspect_has_access_to_aspect_hints_attribute_in_native_rules() {
   create_aspect_hints_rule_and_aspect "${package}"
   create_aspect_hints_cc_files "${package}"
 
+  add_rules_cc MODULE.bazel
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//${package}:hints_counter.bzl", "count_hints")
 load("//${package}:hints.bzl", "hint")
 

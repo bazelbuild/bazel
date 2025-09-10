@@ -205,11 +205,13 @@ EOF
 }
 
 function test_cache_computed_file_digests_ui() {
+  add_rules_cc MODULE.bazel
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
   mkdir -p $pkg/package || fail "mkdir failed"
-  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >$pkg/package/BUILD
+  echo "load('@rules_cc//cc:cc_library.bzl', 'cc_library')" > $pkg/package/BUILD
+  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >> $pkg/package/BUILD
   echo "int foo(void) { return 0; }" >$pkg/package/foo.cc
 
   local java_log
