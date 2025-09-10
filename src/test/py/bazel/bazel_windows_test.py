@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 
@@ -234,6 +235,53 @@ class BazelWindowsTest(test_base.TestBase):
         # Set BAZEL_VC to a non-existing path,
         # Bazel should still work when analyzing cc rules .
         env_add={'BAZEL_VC': 'C:/not/exists/VC'},
+    )
+
+  def testWindowsLongPathWorkaround(self):
+    # This test requires that 8dot3name support be turned OFF for the volume in testing,
+    # else the test may pass on its own without actually validating the behaviour.
+
+    # Long directory that will cause the resulting test_exe binary to not be runnable
+    # via the windows CreateProcessW due to MAX_PATH issues.
+    long_dir = "a/decently/long/set/of/paths/to/cause/failures"
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "rules_cc", version = "0.0.12")',
+            (
+                'cc_configure ='
+                ' use_extension("@rules_cc//cc:extensions.bzl",'
+                ' "cc_configure_extension")'
+            ),
+            'use_repo(cc_configure, "local_config_cc")',
+        ],
+    )
+
+    self.ScratchFile(
+        f'{long_dir}/BUILD',
+        [
+            'cc_test(',
+            '  name = "test_exe",',
+            '  srcs = ["test.cc"],',
+            ')',
+        ],
+    )
+
+    self.ScratchFile(f'{long_dir}/test.cc', [
+        '#include <stdio.h>',
+        'int main(int, char**) {',
+        '  printf("hello\\n");',
+        '  return 0;',
+        '}',
+    ])
+
+    self.RunBazel(
+        [
+            'run',
+            f'//{long_dir}:test_exe',
+            "--enable_runfiles=true",
+        ],
     )
 
   def testBuildNonCcRuleWithoutVCInstalled(self):
