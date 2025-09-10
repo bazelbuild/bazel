@@ -47,8 +47,8 @@ function start_worker() {
   local background_pid=$!
   echo "Starting remote worker: pid=${background_pid}" port=${worker_port} >> "${TEST_log}"
   if ! wait_for_file_to_have_content "${pid_file}"; then
-    echo "Calling kill -9 ${background_pid}"
-    kill -9 "${background_pid}" 2>/dev/null || true
+    echo "Calling kill -SIGKILL ${background_pid}"
+    kill -SIGKILL "${background_pid}" 2>/dev/null || true
     # Import the remote worker log to ensure any startup error messages
     # are displayed along with the timeout failure.
     import_to_test_log "${remote_worker_log_file}"
@@ -65,14 +65,14 @@ function stop_worker() {
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
     echo "Stopping remote worker: pid=${pid}" >> "${TEST_log}"
-    kill -TERM "${pid}"
+    kill -TERM "${pid}" || true
     # Waiting gives the remote worker an opportunity to flush logs and prevents
     # interference between workers by ensuring that the previous worker has
     # fully completed before starting any new worker.
     if ! wait_for_pid_to_terminate "${pid}"; then
         echo "WARNING: Remote worker pid ${pid} was not responding to SIGTERM signal."
         echo "WARNING: Terminating remote worker abruptly. Logs may be incomplete."
-        echo "Calling kill -SIGKILL ${background_pid}"        
+        echo "Calling kill -SIGKILL ${pid}"        
         kill -SIGKILL "${pid}" 2>/dev/null || true
         if ! wait_for_pid_to_terminate "${pid}"; then
            failure="Remote worker pid ${pid} is still alive after SIGKILL signal."
@@ -111,19 +111,33 @@ function import_to_test_log() {
 }
 
 function wait_for_condition() {
+    set -x # TODO
     local condition="$1"
     local grace_seconds=30
     local poll_interval_seconds=0.2
     local remaining_polls=$(awk "BEGIN{print int($grace_seconds/$poll_interval_seconds)}")
-    while ! eval "$condition" 2>/dev/null && [ $remaining_polls -gt 0 ]; do
+    while (( remaining_polls > 0 )); do
+        if eval "$condition" 2>/dev/null; then
+            set +x # TODO
+            return 0  # Condition fulfilled
+        fi
         sleep "$poll_interval_seconds"
-        remaining_polls=$((remaining_polls - 1))
+        (( remaining_polls-- ))
     done
-    if eval "$condition" 2>/dev/null; then
-        return 0  # Condition fulfilled
-    else
-        return 1  # Timed out
-    fi
+    set +x # TODO
+    return 1  # Timed out
+
+    
+    
+    #while ! eval "$condition" 2>/dev/null && [ $remaining_polls -gt 0 ]; do
+    #    sleep "$poll_interval_seconds"
+    #    remaining_polls=$((remaining_polls - 1))
+    #done
+    #if eval "$condition" 2>/dev/null; then
+    #    return 0  # Condition fulfilled
+    #else
+    #    return 1  # Timed out
+    #fi
 }
 
 function wait_for_file_to_have_content() {
