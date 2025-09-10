@@ -102,6 +102,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     scratch.file(
         "toolchain/BUILD",
 """
+load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
 load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
 cc_toolchain_config_rule(name = "toolchain_config")
 filegroup(name = "empty")

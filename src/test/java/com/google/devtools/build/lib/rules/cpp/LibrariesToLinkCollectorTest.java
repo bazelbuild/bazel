@@ -64,6 +64,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     scratch.file(
         "toolchain/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name = 'empty',",
@@ -169,8 +170,10 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file("BUILD");
 
     scratch.file("toolchain/MODULE.bazel", "module(name = 'toolchain')");
+    analysisMock.ccSupport().setup(new MockToolsConfig(scratch.resolve("toolchain")));
     scratch.file(
         "toolchain/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load('@@//:cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name = 'empty',",

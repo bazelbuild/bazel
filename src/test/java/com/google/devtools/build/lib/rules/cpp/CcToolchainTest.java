@@ -209,6 +209,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(
@@ -263,6 +264,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(
@@ -360,6 +362,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
@@ -386,6 +389,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratchConfiguredTarget(
         "modules/map",
         "c",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain(",
         "    name = 'c',",
@@ -411,6 +415,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
         "modules/multiple",
         "c",
         "expected a single artifact",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name = 'multiple-maps', srcs = ['a.cppmap', 'b.cppmap'])",
         "cc_toolchain(",
@@ -592,6 +597,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(
@@ -618,6 +624,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "fdo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         exports_files(["my_profile.afdo"])
 
         fdo_profile(
@@ -674,6 +681,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
 
         cc_toolchain_config_rule(name = "toolchain_config")

@@ -466,6 +466,7 @@ my_rule = rule(
         """);
     writeFile(
         "test/toolchain/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':toolchain_config.bzl', 'cc_toolchain_config')",
         "cc_toolchain_config(name = 'some-cc-toolchain-config')",
         "filegroup(name = 'nothing', srcs = [])",
