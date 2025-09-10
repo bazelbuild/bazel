@@ -758,6 +758,10 @@ public class BuildConfigurationValue
     return options.checkVisibility;
   }
 
+  public boolean enforceTransitiveVisibility() {
+    return options.enforceTransitiveVisibility;
+  }
+
   public boolean verboseVisibilityErrors() {
     return options.verboseVisibilityErrors;
   }

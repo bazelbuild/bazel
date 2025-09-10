@@ -610,6 +610,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean checkVisibility;
 
   @Option(
+      name = "experimental_enforce_transitive_visibility",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, enable package()s to set the transitive_visibility attribute to restrict which"
+              + " packages may depend on them.")
+  public boolean enforceTransitiveVisibility;
+
+  @Option(
       name = "verbose_visibility_errors",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,

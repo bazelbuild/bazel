@@ -252,6 +252,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_strict_fileset_output",
         "//command_line_option:strict_filesets",
         "//command_line_option:check_visibility",
+        "//command_line_option:experimental_enforce_transitive_visibility",
         "//command_line_option:check_licenses",
         "//command_line_option:host_features",
         "//command_line_option:host_action_env",

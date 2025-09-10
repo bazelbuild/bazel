@@ -110,6 +110,32 @@ public final class RuleConfiguredTargetBuilder {
         ruleContext.getRule().getRuleClassObject().getAllowlistCheckers()) {
       handleAllowlistChecker(allowlistChecker);
     }
+    if (ruleContext.getConfiguration().enforceTransitiveVisibility()) {
+      // Gather the transitive_visibility from this target's package and deps.
+      // If there are any, propagate their union in a TransitiveVisibilityProvider.
+      ImmutableSet.Builder<Label> transitiveVisibilityLabels = ImmutableSet.builder();
+      Label transitiveVisibility =
+          ruleContext.getRule().getPackageDeclarations().getPackageArgs().transitiveVisibility();
+      if (transitiveVisibility != null) {
+        transitiveVisibilityLabels.add(transitiveVisibility);
+      }
+      for (String attributeName : ruleContext.attributes().getAttributeNames()) {
+        Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
+        if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+          for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attributeName)) {
+            TransitiveVisibilityProvider provider =
+                dep.getProvider(TransitiveVisibilityProvider.class);
+            if (provider != null && provider.getTransitiveVisibility() != null) {
+              transitiveVisibilityLabels.addAll(provider.getTransitiveVisibility());
+            }
+          }
+        }
+      }
+      ImmutableSet<Label> finalLabels = transitiveVisibilityLabels.build();
+      if (!finalLabels.isEmpty()) {
+        addProvider(TransitiveVisibilityProvider.create(finalLabels));
+      }
+    }
 
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;

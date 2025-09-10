@@ -231,6 +231,10 @@ public final class ConfiguredTargetFactory {
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageGroupContents> visibility =
         convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target);
+    Label transitiveVisibility =
+        config != null && config.enforceTransitiveVisibility()
+            ? getTransitiveVisibility(target)
+            : null;
     if (target instanceof OutputFile outputFile) {
       TargetContext targetContext =
           new TargetContext(
@@ -238,7 +242,11 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
-              visibility);
+              visibility,
+              transitiveVisibility // We are passing around this object because it looks nice,
+              // but it's
+              // never used. OutputFiles get the transitive visibility from their generating rule.
+              );
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
       }
@@ -268,7 +276,11 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
-              visibility);
+              visibility,
+              getTransitiveVisibility(target)); // For InputFiles, we're not gating on
+      // --experimental_enforce_transitive_visibility because they have no config, so we can't check
+      // whether --experimental_enforce_transitive_visibility is set. Some unnecessary memory cost
+      // here, but no enforcement because we'll also check for the flag where the provider is read.
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
@@ -288,13 +300,22 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
-              visibility);
+              visibility,
+              /* transitiveVisibility= */ null);
+      // No transitive visibility checking on package_groups, in part because transitive visibility
+      // groups *are* package_groups, and
+      // we want to avoid circular dependencies.
       return new PackageGroupConfiguredTarget(configuredTargetKey, targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
       return new EnvironmentGroupConfiguredTarget(configuredTargetKey);
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }
+  }
+
+  @Nullable
+  private Label getTransitiveVisibility(Target target) {
+    return target.getPackageDeclarations().getPackageArgs().transitiveVisibility();
   }
 
   /**
@@ -321,6 +342,7 @@ public final class ConfiguredTargetFactory {
     RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         ruleClass.getConfigurationFragmentPolicy();
+
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(env, rule, /* aspects= */ ImmutableList.of(), configuration)
@@ -333,6 +355,7 @@ public final class ConfiguredTargetFactory {
             .setMaterializerTargets(materializerTargets)
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
+            .setTransitiveVisibility(getTransitiveVisibility(rule))
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(

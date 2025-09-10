@@ -1220,6 +1220,9 @@ public abstract class PackageFunction implements SkyFunction {
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics);
+        // TODO: b/155396641 - Validate that transitive visibility groups are correctly declared and
+        // that this package is a member of all transitive visibility groups it declares, but
+        // probably not in this part of the code.
         if (packagePieceId == null) {
           try {
             ((Package.Builder) pkgBuilder)

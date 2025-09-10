@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.TargetContext;
+import com.google.devtools.build.lib.analysis.TransitiveVisibilityProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
@@ -41,11 +44,13 @@ import net.starlark.java.eval.Printer;
 public final class InputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final boolean isCreatedInSymbolicMacro;
+  private final Label transitiveVisibility;
 
   public InputFileConfiguredTarget(TargetContext targetContext, SourceArtifact artifact) {
     this(
         targetContext.getAnalysisEnvironment().getOwner(),
         targetContext.getVisibility(),
+        targetContext.getTransitiveVisibility(),
         artifact,
         targetContext.getTarget().isCreatedInSymbolicMacro());
     checkArgument(targetContext.getTarget() instanceof InputFile, targetContext.getTarget());
@@ -57,10 +62,12 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   InputFileConfiguredTarget(
       ActionLookupKey lookupKey,
       NestedSet<PackageGroupContents> visibility,
+      @Nullable Label transitiveVisibility,
       SourceArtifact artifact,
       boolean isCreatedInSymbolicMacro) {
     super(lookupKey, visibility, artifact);
     this.isCreatedInSymbolicMacro = isCreatedInSymbolicMacro;
+    this.transitiveVisibility = transitiveVisibility;
   }
 
   @Override
@@ -71,6 +78,14 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   @Override
   public SourceArtifact getArtifact() {
     return (SourceArtifact) super.getArtifact();
+  }
+
+  @Nullable
+  @Override
+  protected TransitiveVisibilityProvider createTransitiveVisibilityProvider() {
+    return transitiveVisibility == null
+        ? null
+        : TransitiveVisibilityProvider.create(ImmutableSet.of(transitiveVisibility));
   }
 
   @Override
