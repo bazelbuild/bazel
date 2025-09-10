@@ -24,8 +24,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "platforms", version = "0.0.9")',
-            'bazel_dep(name = "rules_cc", version = "0.0.12")',
             (
                 'cc_configure ='
                 ' use_extension("@rules_cc//cc:extensions.bzl",'
@@ -36,38 +34,45 @@ class BazelWindowsCppTest(test_base.TestBase):
             'register_toolchains("@local_config_cc//:all")',
         ],
     )
+    self.AddBazelDep('rules_cc')
+    self.AddBazelDep('platforms')
 
   def createProjectFiles(self):
     self.createModuleDotBazel()
-    self.ScratchFile('BUILD', [
-        'package(',
-        '  default_visibility = ["//visibility:public"],',
-        '  features=["windows_export_all_symbols"]',
-        ')',
-        '',
-        'cc_library(',
-        '  name = "A",',
-        '  srcs = ["a.cc"],',
-        '  hdrs = ["a.h"],',
-        '  copts = ["/DCOMPILING_A_DLL"],',
-        '  features = ["no_windows_export_all_symbols"],',
-        ')',
-        '',
-        'cc_library(',
-        '  name = "B",',
-        '  srcs = ["b.cc"],',
-        '  hdrs = ["b.h"],',
-        '  deps = [":A"],',
-        '  copts = ["/DNO_DLLEXPORT"],',
-        ')',
-        '',
-        'cc_binary(',
-        '  name = "C",',
-        '  srcs = ["c.cc"],',
-        '  deps = [":A", ":B" ],',
-        '  linkstatic = 0,',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'package(',
+            '  default_visibility = ["//visibility:public"],',
+            '  features=["windows_export_all_symbols"]',
+            ')',
+            '',
+            'cc_library(',
+            '  name = "A",',
+            '  srcs = ["a.cc"],',
+            '  hdrs = ["a.h"],',
+            '  copts = ["/DCOMPILING_A_DLL"],',
+            '  features = ["no_windows_export_all_symbols"],',
+            ')',
+            '',
+            'cc_library(',
+            '  name = "B",',
+            '  srcs = ["b.cc"],',
+            '  hdrs = ["b.h"],',
+            '  deps = [":A"],',
+            '  copts = ["/DNO_DLLEXPORT"],',
+            ')',
+            '',
+            'cc_binary(',
+            '  name = "C",',
+            '  srcs = ["c.cc"],',
+            '  deps = [":A", ":B" ],',
+            '  linkstatic = 0,',
+            ')',
+        ],
+    )
 
     self.ScratchFile('a.cc', [
         '#include <stdio.h>',
@@ -128,14 +133,18 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     self.ScratchFile('c.cc', c_cc_content)
 
-    self.ScratchFile('lib/BUILD', [
-        'cc_library(',
-        '  name = "A",',
-        '  srcs = ["dummy.cc"],',
-        '  features = ["windows_export_all_symbols"],',
-        '  visibility = ["//visibility:public"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'lib/BUILD',
+        [
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'cc_library(',
+            '  name = "A",',
+            '  srcs = ["dummy.cc"],',
+            '  features = ["windows_export_all_symbols"],',
+            '  visibility = ["//visibility:public"],',
+            ')',
+        ],
+    )
     self.ScratchFile('lib/dummy.cc', ['void dummy() {}'])
 
     self.ScratchFile('main/main.cc', c_cc_content)
@@ -226,14 +235,18 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildCcBinaryFromDifferentPackage(self):
     self.createProjectFiles()
-    self.ScratchFile('main/BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = ["//:B"],',
-        '  linkstatic = 0,',
-        ')',
-    ])
+    self.ScratchFile(
+        'main/BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["//:B"],',
+            '  linkstatic = 0,',
+            ')',
+        ],
+    )
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     self.RunBazel(['build', '//main:main'])
@@ -253,13 +266,15 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'main/BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B", "//lib:A"],',  # Transitively depends on //:A
             '  linkstatic = 0,',
             ')',
-        ])
+        ],
+    )
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     # //main:main depends on both //lib:A and //:A
@@ -282,6 +297,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'main/BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main",',
             '  srcs = ["main.cc"],',
@@ -295,7 +311,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  deps = ["//lib:A"],',
             '  linkstatic = 0,',
             ')',
-        ])
+        ],
+    )
     bazel_bin = self.getBazelInfo('bazel-bin')
     self.ScratchFile('main/other_main.cc', ['int main() {return 0;}'])
 
@@ -331,14 +348,18 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testDLLIsCopiedFromExternalRepo(self):
     self.ScratchFile('ext_repo/REPO.bazel')
-    self.ScratchFile('ext_repo/BUILD', [
-        'cc_library(',
-        '  name = "A",',
-        '  srcs = ["a.cc"],',
-        '  features = ["windows_export_all_symbols"],',
-        '  visibility = ["//visibility:public"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'ext_repo/BUILD',
+        [
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'cc_library(',
+            '  name = "A",',
+            '  srcs = ["a.cc"],',
+            '  features = ["windows_export_all_symbols"],',
+            '  visibility = ["//visibility:public"],',
+            ')',
+        ],
+    )
     self.ScratchFile('ext_repo/a.cc', [
         '#include <stdio.h>',
         'void hello_A() {',
@@ -359,14 +380,19 @@ class BazelWindowsCppTest(test_base.TestBase):
             ')',
         ],
     )
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = ["@ext_repo//:A"],',
-        '  linkstatic = 0,',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@ext_repo//:A"],',
+            '  linkstatic = 0,',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         'extern void hello_A();',
         '',
@@ -467,6 +493,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'main/BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
@@ -475,7 +502,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  linkshared = 1,',
             '  features=["windows_export_all_symbols"]',
             ')',
-        ])
+        ],
+    )
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel([
@@ -502,6 +530,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'main/BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
@@ -517,7 +546,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  outs = ["main_renamed.dll"],',
             '  cmd = "cp $< $@",',
             ')',
-        ])
+        ],
+    )
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel([
@@ -551,6 +581,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'main/BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
@@ -558,7 +589,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  linkstatic = 1,',
             '  linkshared = 1,',
             ')',
-        ])
+        ],
+    )
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel(
@@ -575,14 +607,17 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildSharedLibraryWithoutAnySymbolExported(self):
     self.createProjectFiles()
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "A.dll",',
-        '  srcs = ["a.cc", "a.h"],',
-        '  copts = ["/DNO_DLLEXPORT"],',
-        '  linkshared = 1,'
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "A.dll",',
+            '  srcs = ["a.cc", "a.h"],',
+            '  copts = ["/DNO_DLLEXPORT"],',
+            '  linkshared = 1,)',
+        ],
+    )
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel(['build', '//:A.dll'])
@@ -595,33 +630,39 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertFileContentNotContains(empty_def_file, 'hello_A')
 
   def testUsingDefFileGeneratedFromCcLibrary(self):
+    self.AddBazelDep('rules_cc')
     self.ScratchFile('lib_A.cc', ['void hello_A() {}'])
     self.ScratchFile('lib_B.cc', ['void hello_B() {}'])
-    self.ScratchFile('BUILD', [
-        'cc_library(',
-        '  name = "lib_A",',
-        '  srcs = ["lib_A.cc"],',
-        ')',
-        '',
-        'cc_library(',
-        '  name = "lib_B",',
-        '  srcs = ["lib_B.cc"],',
-        '  deps = [":lib_A"]',
-        ')',
-        '',
-        'filegroup(',
-        '  name = "lib_B_symbols",',
-        '  srcs = [":lib_B"],',
-        '  output_group = "def_file",',
-        ')',
-        '',
-        'cc_binary(',
-        '  name = "lib.dll",',
-        '  deps = [":lib_B"],',
-        '  win_def_file = ":lib_B_symbols",',
-        '  linkshared = 1,',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'cc_library(',
+            '  name = "lib_A",',
+            '  srcs = ["lib_A.cc"],',
+            ')',
+            '',
+            'cc_library(',
+            '  name = "lib_B",',
+            '  srcs = ["lib_B.cc"],',
+            '  deps = [":lib_A"]',
+            ')',
+            '',
+            'filegroup(',
+            '  name = "lib_B_symbols",',
+            '  srcs = [":lib_B"],',
+            '  output_group = "def_file",',
+            ')',
+            '',
+            'cc_binary(',
+            '  name = "lib.dll",',
+            '  deps = [":lib_B"],',
+            '  win_def_file = ":lib_B_symbols",',
+            '  linkshared = 1,',
+            ')',
+        ],
+    )
     # Test specifying DEF file in cc_binary
     bazel_bin = self.getBazelInfo('bazel-bin')
     exit_code, _, stderr = self.RunBazel(['build', '//:lib.dll', '-s'])
@@ -634,25 +675,31 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertFileContentContains(def_file, 'hello_B')
 
   def testWinDefFileAttribute(self):
+    self.AddBazelDep('rules_cc')
     self.ScratchFile('lib.cc', ['void hello() {}'])
     self.ScratchFile('my_lib.def', [
         'EXPORTS',
         '        ?hello@@YAXXZ',
     ])
-    self.ScratchFile('BUILD', [
-        'cc_library(',
-        '  name = "lib",',
-        '  srcs = ["lib.cc"],',
-        '  win_def_file = "my_lib.def",',
-        ')',
-        '',
-        'cc_binary(',
-        '  name = "lib_dy.dll",',
-        '  srcs = ["lib.cc"],',
-        '  win_def_file = "my_lib.def",',
-        '  linkshared = 1,',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'cc_library(',
+            '  name = "lib",',
+            '  srcs = ["lib.cc"],',
+            '  win_def_file = "my_lib.def",',
+            ')',
+            '',
+            'cc_binary(',
+            '  name = "lib_dy.dll",',
+            '  srcs = ["lib.cc"],',
+            '  win_def_file = "my_lib.def",',
+            '  linkshared = 1,',
+            ')',
+        ],
+    )
 
     # Test exporting symbols using custom DEF file in cc_library.
     # Auto-generating DEF file should be disabled when custom DEF file specified
@@ -679,51 +726,66 @@ class BazelWindowsCppTest(test_base.TestBase):
       self.assertIn('/DEF:my_lib.def', param_file.read())
 
   def testCcImportRule(self):
+    self.AddBazelDep('rules_cc')
     self.ScratchFile('A.lib', [])
     self.ScratchFile('A.dll', [])
     self.ScratchFile('A.if.lib', [])
-    self.ScratchFile('BUILD', [
-        'cc_import(',
-        '  name = "a_import",',
-        '  static_library = "A.lib",',
-        '  shared_library = "A.dll",',
-        '  interface_library = "A.if.lib",',
-        '  hdrs = ["a.h"],',
-        '  alwayslink = 1,',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_import.bzl", "cc_import")',
+            'cc_import(',
+            '  name = "a_import",',
+            '  static_library = "A.lib",',
+            '  shared_library = "A.dll",',
+            '  interface_library = "A.if.lib",',
+            '  hdrs = ["a.h"],',
+            '  alwayslink = 1,',
+            ')',
+        ],
+    )
     exit_code, _, stderr = self.RunBazel([
         'build', '//:a_import',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCopyDLLAsSource(self):
-    self.ScratchFile('BUILD', [
-        'cc_import(',
-        '  name = "a_import",',
-        '  shared_library = "A.dll",',
-        '  visibility = ["//:__subpackages__"],',
-        ')',
-        '',
-        'filegroup(',
-        '  name = "bin_src",',
-        '  srcs = ["bin.cc"],',
-        '  visibility = ["//:__subpackages__"],',
-        ')',
-        '',
-        'cc_binary(',
-        '  name = "bin",',
-        '  srcs = ["//:bin_src"],',
-        '  deps = ["//:a_import"],',
-        ')',
-    ])
-    self.ScratchFile('package/BUILD', [
-        'cc_binary(',
-        '  name = "dir1/dir2/bin",',
-        '  srcs = ["//:bin_src"],',
-        '  deps = ["//:a_import"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'load("@rules_cc//cc:cc_import.bzl", "cc_import")',
+            'cc_import(',
+            '  name = "a_import",',
+            '  shared_library = "A.dll",',
+            '  visibility = ["//:__subpackages__"],',
+            ')',
+            '',
+            'filegroup(',
+            '  name = "bin_src",',
+            '  srcs = ["bin.cc"],',
+            '  visibility = ["//:__subpackages__"],',
+            ')',
+            '',
+            'cc_binary(',
+            '  name = "bin",',
+            '  srcs = ["//:bin_src"],',
+            '  deps = ["//:a_import"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'package/BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "dir1/dir2/bin",',
+            '  srcs = ["//:bin_src"],',
+            '  deps = ["//:a_import"],',
+            ')',
+        ],
+    )
     self.ScratchFile('A.dll')
     self.ScratchFile('bin.cc', [
         'int main() {',
@@ -747,12 +809,17 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(nested_a_dll))
 
   def testCppErrorShouldBeVisible(self):
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "bad",',
-        '  srcs = ["bad.cc"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "bad",',
+            '  srcs = ["bad.cc"],',
+            ')',
+        ],
+    )
     self.ScratchFile('bad.cc', [
         'int main(int argc, char** argv) {',
         '  this_is_an_error();',
@@ -766,10 +833,15 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def createSimpleCppWorkspace(self, name):
     work_dir = self.ScratchDir(name)
-    self.ScratchFile(name + '/WORKSPACE', ['workspace(name = "%s")' % name])
+    self.ScratchFile(name + '/MODULE.bazel', ['module(name = "%s")' % name])
+    self.AddBazelDep('rules_cc', path=name)
     self.ScratchFile(
         name + '/BUILD',
-        ['cc_library(name = "lib", srcs = ["lib.cc"], hdrs = ["lib.h"])'])
+        [
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'cc_library(name = "lib", srcs = ["lib.cc"], hdrs = ["lib.h"])',
+        ],
+    )
     self.ScratchFile(name + '/lib.h', ['void hello();'])
     self.ScratchFile(name + '/lib.cc', ['#include "lib.h"', 'void hello() {}'])
     return work_dir
@@ -777,8 +849,8 @@ class BazelWindowsCppTest(test_base.TestBase):
   # Regression test for https://github.com/bazelbuild/bazel/issues/9172
   def testCacheBetweenWorkspaceWithDifferentNames(self):
     cache_dir = self.ScratchDir('cache')
-    dir_a = self.createSimpleCppWorkspace('A')
-    dir_b = self.createSimpleCppWorkspace('B')
+    dir_a = self.createSimpleCppWorkspace('a')
+    dir_b = self.createSimpleCppWorkspace('b')
     exit_code, _, stderr = self.RunBazel(
         ['build', '--disk_cache=' + cache_dir, ':lib'], cwd=dir_a)
     self.AssertExitCode(exit_code, 0, stderr)
@@ -788,23 +860,29 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/9321
   def testCcCompileWithTreeArtifactAsSource(self):
-    self.ScratchFile('BUILD', [
-        'load(":genccs.bzl", "genccs")',
-        '',
-        'genccs(',
-        '    name = "gen_tree",',
-        ')',
-        '',
-        'cc_library(',
-        '    name = "main",',
-        '    srcs = [ "gen_tree" ]',
-        ')',
-        '',
-        'cc_binary(',
-        '    name = "genccs",',
-        '    srcs = [ "genccs.cpp" ],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'load(":genccs.bzl", "genccs")',
+            '',
+            'genccs(',
+            '    name = "gen_tree",',
+            ')',
+            '',
+            'cc_library(',
+            '    name = "main",',
+            '    srcs = [ "gen_tree" ]',
+            ')',
+            '',
+            'cc_binary(',
+            '    name = "genccs",',
+            '    srcs = [ "genccs.cpp" ],',
+            ')',
+        ],
+    )
     self.ScratchFile('genccs.bzl', [
         'def _impl(ctx):',
         '  tree = ctx.actions.declare_directory(ctx.attr.name + ".cc")',
@@ -848,19 +926,23 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuild32BitCppBinaryWithMsvcCL(self):
     self.createModuleDotBazel()
-    self.ScratchFile('BUILD', [
-        'platform(',
-        '  name = "windows_32",',
-        '  constraint_values = [',
-        '    "@platforms//cpu:x86_32",',
-        '    "@platforms//os:windows",',
-        '  ]',
-        ')',
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'platform(',
+            '  name = "windows_32",',
+            '  constraint_values = [',
+            '    "@platforms//cpu:x86_32",',
+            '    "@platforms//os:windows",',
+            '  ]',
+            ')',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         'int main() {',
         '  return 0;',
@@ -874,19 +956,23 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildArm64CppBinaryWithMsvcCLAndCpuX64Arm64Windows(self):
     self.createModuleDotBazel()
-    self.ScratchFile('BUILD', [
-        'platform(',
-        '  name = "windows_arm64",',
-        '  constraint_values = [',
-        '    "@platforms//cpu:arm64",',
-        '    "@platforms//os:windows",',
-        '  ]',
-        ')',
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'platform(',
+            '  name = "windows_arm64",',
+            '  constraint_values = [',
+            '    "@platforms//cpu:arm64",',
+            '    "@platforms//os:windows",',
+            '  ]',
+            ')',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         'int main() {',
         '  return 0;',
@@ -900,20 +986,24 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildCppBinaryWithMingwGCC(self):
     self.createModuleDotBazel()
-    self.ScratchFile('BUILD', [
-        'platform(',
-        '    name = "x64_windows-mingw-gcc",',
-        '    constraint_values = [',
-        '        "@platforms//cpu:x86_64",',
-        '        "@platforms//os:windows",',
-        '        "@bazel_tools//tools/cpp:mingw",',
-        '    ],',
-        ')',
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'platform(',
+            '    name = "x64_windows-mingw-gcc",',
+            '    constraint_values = [',
+            '        "@platforms//cpu:x86_64",',
+            '        "@platforms//os:windows",',
+            '        "@bazel_tools//tools/cpp:mingw",',
+            '    ],',
+            ')',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         'int main() {',
         '  return 0;',
@@ -964,20 +1054,24 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildCppBinaryWithMsysGCC(self):
     self.createModuleDotBazel()
-    self.ScratchFile('BUILD', [
-        'platform(',
-        '    name = "x64_windows-msys-gcc",',
-        '    constraint_values = [',
-        '        "@platforms//cpu:x86_64",',
-        '        "@platforms//os:windows",',
-        '        "@bazel_tools//tools/cpp:msys",',
-        '    ],',
-        ')',
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'platform(',
+            '    name = "x64_windows-msys-gcc",',
+            '    constraint_values = [',
+            '        "@platforms//cpu:x86_64",',
+            '        "@platforms//os:windows",',
+            '        "@bazel_tools//tools/cpp:msys",',
+            '    ],',
+            ')',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         'int main() {',
         '  return 0;',
@@ -1035,19 +1129,23 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildArm64CppBinaryWithMsvcCLAndCpuArm64Windows(self):
     self.createModuleDotBazel()
-    self.ScratchFile('BUILD', [
-        'platform(',
-        '  name = "windows_arm64",',
-        '  constraint_values = [',
-        '    "@platforms//cpu:arm64",',
-        '    "@platforms//os:windows",',
-        '  ]',
-        ')',
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'platform(',
+            '  name = "windows_arm64",',
+            '  constraint_values = [',
+            '    "@platforms//cpu:arm64",',
+            '    "@platforms//os:windows",',
+            '  ]',
+            ')',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         'int main() {',
         '  return 0;',
@@ -1060,9 +1158,11 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
 
   def testLongCompileCommandLines(self):
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '    name = "long",',
             '    srcs = ["long.cc"],',
@@ -1084,6 +1184,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'platform(',
             '    name = "x64_windows-msvc",',
             '    constraint_values = [',
@@ -1117,6 +1218,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'platform(',
             '    name = "x64_windows-clang-cl",',
             '    constraint_values = [',
@@ -1150,6 +1252,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'platform(',
             '    name = "x64_windows-mingw-gcc",',
             '    constraint_values = [',
@@ -1184,6 +1287,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '    name = "main",',
             '    srcs = ["main.cc"],',
