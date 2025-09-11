@@ -7413,7 +7413,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ImmutableList<String> calls =
         ImmutableList.of(
             "comp_outputs.temps()",
-            "comp_outputs.files_to_compile(parse_headers=False, use_pic=True)",
             "comp_outputs.header_tokens()",
             "comp_outputs.module_files()");
     for (String call : calls) {

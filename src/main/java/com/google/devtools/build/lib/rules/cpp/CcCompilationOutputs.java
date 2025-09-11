@@ -130,13 +130,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public Depset getStarlarkFilesToCompile(
-      boolean parseHeaders, boolean usePic, StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.class, getFilesToCompile(parseHeaders, usePic));
-  }
-
-  @Override
   public Sequence<Artifact> getStarlarkHeaderTokens(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return StarlarkList.immutableCopyOf(getHeaderTokenFiles());
@@ -220,16 +213,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   /** Returns an unmodifiable view of the .pcm files. */
   public Iterable<Artifact> getModuleFiles() {
     return moduleFiles;
-  }
-
-  /** Returns the output files that are considered "compiled" by this C++ compile action. */
-  NestedSet<Artifact> getFilesToCompile(boolean parseHeaders, boolean usePic) {
-    NestedSetBuilder<Artifact> files = NestedSetBuilder.stableOrder();
-    files.addAll(getObjectFiles(usePic));
-    if (parseHeaders) {
-      files.addAll(getHeaderTokenFiles());
-    }
-    return files.build();
   }
 
   /** Creates a new builder. */

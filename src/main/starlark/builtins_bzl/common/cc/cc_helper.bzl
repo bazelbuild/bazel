@@ -239,19 +239,13 @@ def _build_output_groups_for_emitting_compile_providers(
     process_hdrs = cpp_configuration.process_headers_in_dependencies()
     use_pic = cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration)
     output_groups_builder["temp_files_INTERNAL_"] = compilation_outputs.temps()
-    if hasattr(compilation_outputs, "files_to_compile"):
-        files_to_compile = compilation_outputs.files_to_compile(
-            parse_headers = process_hdrs,
-            use_pic = use_pic,
-        )
-    else:
-        files_to_compile = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
-        if process_hdrs:
-            if hasattr(compilation_outputs, "header_tokens"):
-                files_to_compile = files_to_compile + compilation_outputs.header_tokens()
-            else:
-                files_to_compile = files_to_compile + compilation_outputs._header_tokens
-        files_to_compile = depset(files_to_compile)
+    files_to_compile = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
+    if process_hdrs:
+        if hasattr(compilation_outputs, "header_tokens"):
+            files_to_compile = files_to_compile + compilation_outputs.header_tokens()
+        else:
+            files_to_compile = files_to_compile + compilation_outputs._header_tokens
+    files_to_compile = depset(files_to_compile)
     output_groups_builder["compilation_outputs"] = files_to_compile
     output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
     if hasattr(compilation_outputs, "module_files"):

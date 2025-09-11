@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -49,27 +47,6 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
 
   @StarlarkMethod(name = "temps", documented = false, useStarlarkThread = true)
   Depset getStarlarkTemps(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "files_to_compile",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "parse_headers",
-            positional = false,
-            named = true,
-            defaultValue = "False",
-            allowedTypes = {@ParamType(type = Boolean.class)}),
-        @Param(
-            name = "use_pic",
-            positional = false,
-            named = true,
-            defaultValue = "False",
-            allowedTypes = {@ParamType(type = Boolean.class)}),
-      },
-      useStarlarkThread = true)
-  Depset getStarlarkFilesToCompile(boolean parseHeaders, boolean usePic, StarlarkThread thread)
-      throws EvalException;
 
   @StarlarkMethod(name = "header_tokens", documented = false, useStarlarkThread = true)
   Sequence<FileT> getStarlarkHeaderTokens(StarlarkThread thread) throws EvalException;
