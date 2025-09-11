@@ -2925,6 +2925,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:my_rule.bzl", "my_rule")
 
         my_rule(

@@ -101,7 +101,10 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
 
   @Test
   public void testTargetsWithConfiguration() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'a', srcs = [ 'some.cpp' ])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', srcs = [ 'some.cpp' ])");
 
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a:a").getTargetsToBuild());
     BuildConfigurationValue config = getConfiguration(target);

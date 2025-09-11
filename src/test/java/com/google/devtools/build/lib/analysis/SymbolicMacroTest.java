@@ -253,7 +253,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         String.format(
             """
             def _impl(name, visibility):
-                native.cc_library(name="%s")
+                native.filegroup(name="%s")
             my_macro = macro(implementation=_impl)
             """,
             targetName));
@@ -420,7 +420,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name + "_inside_macro")
+            native.filegroup(name = name + "_inside_macro")
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -428,7 +428,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """
         load(":foo.bzl", "my_macro")
         my_macro(name="abc")
-        cc_library(name = "abc_outside_macro")
+        filegroup(name = "abc_outside_macro")
         """);
 
     Package pkg = getPackage("pkg");
@@ -443,7 +443,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name + "_target")
+            native.filegroup(name = name + "_target")
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -451,11 +451,11 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """
         load(":foo.bzl", "my_macro")
         my_macro(name="abc")
-        cc_library(name = "abc_target")
+        filegroup(name = "abc_target")
         """);
 
     assertGetPackageFailsWithEvent(
-        "pkg", "cc_library rule 'abc_target' conflicts with existing cc_library rule");
+        "pkg", "filegroup rule 'abc_target' conflicts with existing filegroup rule");
   }
 
   @Test
@@ -464,7 +464,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name,
                 srcs = [
                     "explicit_input.cc",
@@ -482,7 +482,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         load(":foo.bzl", "my_macro")
         my_macro(name="abc")
         exports_files(["explicit_input.cc"])
-        cc_library(name = "bar", srcs = ["implicit_input.cc"])
+        filegroup(name = "bar", srcs = ["implicit_input.cc"])
         """);
 
     Package pkg = getPackage("pkg");
@@ -498,7 +498,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _sub_impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_target",
                 srcs = ["implicit_input.cc"],
             )
@@ -506,7 +506,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_submacro = macro(implementation=_sub_impl)
 
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_target",
                 srcs = ["implicit_input.cc"],
             )
@@ -538,7 +538,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _inner_impl(name, visibility):
-            native.cc_library(name = name + "_lib")
+            native.filegroup(name = name + "_lib")
         inner_macro = macro(implementation=_inner_impl)
         def _impl(name, visibility):
             inner_macro(name = name + "_inner")
@@ -595,7 +595,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _inner_impl(name, visibility):
-            native.cc_library(name = name)
+            native.filegroup(name = name)
         inner_macro = macro(implementation=_inner_impl)
 
         def _middle_impl(name, visibility):
@@ -627,8 +627,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name)
-            native.cc_library(name = name)
+            native.filegroup(name = name)
+            native.filegroup(name = name)
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -639,7 +639,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """);
 
     assertGetPackageFailsWithEvent(
-        "pkg", "cc_library rule 'abc' conflicts with existing cc_library rule");
+        "pkg", "filegroup rule 'abc' conflicts with existing filegroup rule");
   }
 
   @Test
@@ -680,7 +680,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
         def _impl(name, visibility):
             inner_macro(name = name)
-            native.cc_library(name = name)
+            native.filegroup(name = name)
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -706,7 +706,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         inner_macro = macro(implementation=_inner_impl)
 
         def _impl(name, visibility):
-            native.cc_library(name = name)
+            native.filegroup(name = name)
             inner_macro(name = name)
         my_macro = macro(implementation=_impl)
         """);
@@ -813,7 +813,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_macro", "query")
-        cc_library(name = "outer_target")
+        filegroup(name = "outer_target")
         my_macro(name="abc")
         query()
         """);
@@ -838,7 +838,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_macro", "query")
-        cc_library(name = "outer_target")
+        filegroup(name = "outer_target")
         my_macro(name="abc")
         query()
         """);
@@ -1438,10 +1438,10 @@ Label("//conditions:default"): None})\
         "lib1/macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_exported",
                 visibility = visibility)
-            native.cc_library(name = name + "_internal")
+            native.filegroup(name = name + "_internal")
 
         submacro = macro(implementation=_impl)
         """);
@@ -1455,10 +1455,10 @@ Label("//conditions:default"): None})\
         load("//lib1:macro.bzl", "submacro")
 
         def _impl(name, visibility):
-            native.cc_library(
+            native.filegroup(
                 name = name + "_exported",
                 visibility = visibility)
-            native.cc_library(name = name + "_internal")
+            native.filegroup(name = name + "_internal")
             submacro(name=name + "_subexported", visibility = visibility)
             submacro(name=name + "_subinternal")
 
@@ -2271,7 +2271,7 @@ my_macro = macro(
             # exceed max_computation_steps
             for i in range(1000):
                 pass
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
 
         my_macro = macro(implementation = _impl)
         """);

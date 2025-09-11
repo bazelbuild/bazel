@@ -27,9 +27,13 @@ public final class PackageGroupBuildViewTest extends BuildViewTestCase {
   /** Regression test for bug #3445835. */
   @Test
   public void testPackageGroupInDeps() throws Exception {
-    checkError("foo", "bar", "in deps attribute of cc_library rule //foo:bar: "
-        + "package group '//foo:foo' is misplaced here ",
+    checkError(
+        "foo",
+        "bar",
+        "in deps attribute of cc_library rule //foo:bar: "
+            + "package group '//foo:foo' is misplaced here ",
         "package_group(name = 'foo', packages = ['//none'])",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'bar', deps = [':foo'])");
   }
 
@@ -41,6 +45,7 @@ public final class PackageGroupBuildViewTest extends BuildViewTestCase {
         "in data attribute of cc_library rule //foo:bar: "
             + "package group '//foo:foo' is misplaced here ",
         "package_group(name = 'foo', packages = ['//none'])",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'bar', data = [':foo'])");
   }
 }

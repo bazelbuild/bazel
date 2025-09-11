@@ -1267,8 +1267,14 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testLoadingErrorReportedCorrectly() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name='a')");
-    scratch.file("b/BUILD", "cc_library(name='b', deps = ['//missing:lib'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a')");
+    scratch.file(
+        "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='b', deps = ['//missing:lib'])");
 
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");

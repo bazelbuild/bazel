@@ -2053,6 +2053,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:defs.bzl", "custom_rule")
 
         cc_library(
@@ -2121,6 +2122,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//bazel_internal/test_rules/cc:defs.bzl", "custom_rule")
 
         cc_library(
