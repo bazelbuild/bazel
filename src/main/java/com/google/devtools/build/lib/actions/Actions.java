@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.Iterables.elementsEqual;
 import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -85,17 +86,33 @@ public final class Actions {
   public static boolean canBeShared(
       ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b)
       throws InterruptedException {
-    return a.isShareable()
-        && b.isShareable()
-        && a.getMnemonic().equals(b.getMnemonic())
+    if (!(a.getMnemonic().equals(b.getMnemonic())
         // Non-Actions cannot be shared.
         && a instanceof Action
         && b instanceof Action
         && a.getKey(actionKeyContext, /* inputMetadataProvider= */ null)
-            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
-        && artifactsEqualWithoutOwner(
-            a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
-        && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());
+            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null)))) {
+      return false;
+    }
+    // Uses a standard comparison technique for shareable actions.
+    if (a.isShareable() && b.isShareable()) {
+      return artifactsEqualWithoutOwner(
+              a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
+          && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());
+    }
+
+    // If this is reached, at least one action is not shareable. If the actions differ on this, they
+    // cannot be shared.
+    if (a.isShareable() || b.isShareable()) {
+      return false;
+    }
+
+    // If the artifacts are in fact equal (with owners), these are aliases of the same action and
+    // not in conflict with each other. This can occur under remote analysis. Without remote
+    // analysis, this won't be reached because the actions would have reference equality. The
+    // MapBasedActionGraph doesn't consider actions that are the same object instance for conflicts.
+    return a.getMandatoryInputs().toList().equals(b.getMandatoryInputs().toList())
+        && elementsEqual(a.getOutputs(), b.getOutputs());
   }
 
   /**
