@@ -398,7 +398,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     useConfiguration(
         "--features=-archive_param_file", "--platforms=" + MockObjcSupport.DARWIN_X86_64);
     invalidatePackages();
-    scratch.file("foo/BUILD", "objc_library(name = 'foo', srcs = ['foo.m'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+        "objc_library(name = 'foo', srcs = ['foo.m'])");
 
     SpawnAction linkAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -620,7 +623,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     invalidatePackages();
     useConfiguration(
         "--features=archive_param_file", "--platforms=" + MockObjcSupport.DARWIN_X86_64);
-    scratch.file("foo/BUILD", "objc_library(name = 'foo', srcs = ['foo.m'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+        "objc_library(name = 'foo', srcs = ['foo.m'])");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));

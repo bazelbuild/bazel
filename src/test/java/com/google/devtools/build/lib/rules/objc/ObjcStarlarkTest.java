@@ -94,6 +94,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark/rule:apple_rules.bzl", "my_rule")
 
         package(default_visibility = ["//visibility:public"])
@@ -203,6 +204,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "test_starlark/apple_starlark/BUILD",
         """
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark/rule:apple_rules.bzl", "my_rule")
 
         package(default_visibility = ["//visibility:public"])
@@ -261,6 +263,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark/rule:apple_rules.bzl", "swift_library")
         load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
 
@@ -303,6 +306,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
 
         package(default_visibility = ["//visibility:public"])
@@ -342,6 +346,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark/rule:apple_rules.bzl", "my_rule")
         load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
 
@@ -1033,6 +1038,7 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/objc_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark/rule:objc_rules.bzl", "swift_binary")
 
         package(default_visibility = ["//visibility:public"])
@@ -1079,6 +1085,7 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/objc_starlark2/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         objc_library(
             name = "direct_dep",
             deps = ["//test_starlark/objc_starlark:my_target"],
@@ -1200,6 +1207,7 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark/rule:apple_rules.bzl", "swift_binary")
 
         package(default_visibility = ["//visibility:public"])
@@ -1469,6 +1477,7 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         load("//test_starlark/rule:apple_rules.bzl", "my_rule")
 
         package(default_visibility = ["//visibility:public"])
@@ -1534,6 +1543,7 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         objc_library(
             name = "lib",
             srcs = ["a.m"],
@@ -1549,7 +1559,7 @@ swift_binary = rule(
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "ERROR /workspace/test_starlark/apple_starlark/BUILD:1:13: "
+            "ERROR /workspace/test_starlark/apple_starlark/BUILD:2:13: "
                 + "in objc_library rule //test_starlark/apple_starlark:lib:");
 
     assertContainsEvent(
@@ -1563,6 +1573,7 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         objc_library(
             name = "lib",
             srcs = ["a.m"],
@@ -1575,7 +1586,7 @@ swift_binary = rule(
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "ERROR /workspace/test_starlark/apple_starlark/BUILD:1:13: "
+            "ERROR /workspace/test_starlark/apple_starlark/BUILD:2:13: "
                 + "in objc_library rule //test_starlark/apple_starlark:lib:");
 
     assertContainsEvent(

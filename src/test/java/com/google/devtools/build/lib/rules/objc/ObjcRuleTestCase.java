@@ -98,7 +98,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   /** Creates an {@code objc_library} target writer for the label indicated by the given String. */
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
-    return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
+    return ScratchAttributeWriter.fromLabelString(
+        this,
+        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+        "objc_library",
+        labelString);
   }
 
   private static String compilationModeFlag(CompilationMode mode) {
@@ -977,7 +981,13 @@ cc_toolchain_forwarder = rule(
         .setList("defines", "foo", "bar")
         .write();
 
-    ScratchAttributeWriter.fromLabelString(this, ruleType.getRuleTypeName(), "//objc:x")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            analysisMock
+                .ccSupport()
+                .getMacroLoadStatement(/* loadMacro= */ true, ruleType.getRuleTypeName()),
+            ruleType.getRuleTypeName(),
+            "//objc:x")
         .setList("srcs", "a.m")
         .setList("deps", "//dep:lib")
         .write();

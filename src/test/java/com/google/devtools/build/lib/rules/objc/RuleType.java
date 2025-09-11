@@ -155,6 +155,10 @@ public abstract class RuleType {
    * Starlark files to be loaded.
    */
   public String starlarkLoadPrerequisites() {
-    return "";
+    return
+"""
+load("@rules_cc//cc:objc_import.bzl", "objc_import")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
+""";
   }
 }

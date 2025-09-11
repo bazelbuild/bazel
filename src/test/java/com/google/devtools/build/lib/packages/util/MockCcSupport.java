@@ -265,6 +265,8 @@ public abstract class MockCcSupport {
             "cc/cc_library.bzl",
             "cc/cc_test.bzl",
             "cc/cc_toolchain_config_lib.bzl",
+            "cc/objc_import.bzl",
+            "cc/objc_library.bzl",
             "cc/common/BUILD",
             "cc/common/cc_common.bzl",
             "cc/find_cc_toolchain.bzl",
