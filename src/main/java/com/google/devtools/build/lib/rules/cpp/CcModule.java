@@ -1119,8 +1119,8 @@ public abstract class CcModule
         throw new EvalException(
             "wrong length tuple for an (index_file, copts), want 2, got " + t.size());
       }
-      Object minimizedBitcode = t.get(0);
-      if (!(minimizedBitcode instanceof Artifact)) {
+      Object minimizedBitcode = t.get(0) == Starlark.NONE ? null : t.get(0);
+      if (!(minimizedBitcode instanceof Artifact) && minimizedBitcode != null) {
         throw new EvalException("expected Artifact for minimized bitcode, got something else");
       }
       Object copts = t.get(1);

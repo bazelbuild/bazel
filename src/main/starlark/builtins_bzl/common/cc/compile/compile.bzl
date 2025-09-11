@@ -309,7 +309,18 @@ def compile(
         cpp_configuration = cpp_configuration,
     )
 
-    cc_outputs_builder = cc_internal.create_cc_compilation_outputs_builder()
+    compilation_outputs_dict = {
+        "objects": [],
+        "pic_objects": [],
+        "temps": [],
+        "header_tokens": [],
+        "module_files": [],
+        "lto_compilation_context": {},
+        "gcno_files": [],
+        "pic_gcno_files": [],
+        "dwo_files": [],
+        "pic_dwo_files": [],
+    }
     _create_cc_compile_actions(
         action_construction_context = ctx,
         additional_compilation_inputs = additional_inputs,
@@ -334,21 +345,25 @@ def compile(
         purpose = purpose if purpose else "",
         separate_module_headers = separate_module_headers,
         language = language,
-        outputs = cc_outputs_builder,
+        outputs = compilation_outputs_dict,
         common_compile_build_variables = common_compile_build_variables,
         auxiliary_fdo_inputs = auxiliary_fdo_inputs,
         fdo_build_variables = fdo_build_variables,
     )
-    cc_outputs = cc_outputs_builder.build()
+
+    compilation_outputs_dict["lto_compilation_context"] = cc_common_internal.create_lto_compilation_context(
+        objects = compilation_outputs_dict["lto_compilation_context"],
+    )
+    compilation_outputs = cc_internal.create_cc_compilation_outputs(**compilation_outputs_dict)
 
     if cpp_configuration.process_headers_in_dependencies():
         compilation_context = cc_internal.create_cc_compilation_context_with_extra_header_tokens(
             cc_compilation_context = public_compilation_context,
-            extra_header_tokens = cc_outputs.header_tokens(),
+            extra_header_tokens = compilation_outputs.header_tokens(),
         )
     else:
         compilation_context = public_compilation_context
-    return (compilation_context, cc_outputs)
+    return (compilation_context, compilation_outputs)
 
 def _add_suitable_headers_to_compilation_unit_sources(
         compilation_unit_sources,
@@ -728,7 +743,7 @@ def _create_cc_compile_actions(
             cpp_semantics = native_cc_semantics,
             compile_action_builder = cpp_compile_action_builder,
         )
-        outputs.add_header_token_file(output_file)
+        outputs["header_tokens"].append(output_file)
 
 def _create_pic_nopic_compile_source_actions(
         action_construction_context,
@@ -798,7 +813,7 @@ def _create_pic_nopic_compile_source_actions(
         )
         results.append(pic_object)
         if output_category == artifact_category.CPP_MODULE:
-            outputs.add_module_file(pic_object)
+            outputs["module_files"].append(pic_object)
 
     if generate_no_pic_action:
         nopic_object = _create_compile_source_action(
@@ -835,7 +850,7 @@ def _create_pic_nopic_compile_source_actions(
         )
         results.append(nopic_object)
         if output_category == artifact_category.CPP_MODULE:
-            outputs.add_module_file(nopic_object)
+            outputs["module_files"].append(nopic_object)
 
     return results
 
@@ -1033,28 +1048,24 @@ def _create_compile_source_action(
         use_pic = use_pic,
     )
 
-    outputs.add_temps(temp_action_outputs)
+    outputs["temps"].extend(temp_action_outputs)
     if add_object:
         if use_pic:
-            outputs.add_pic_object_file(object_file)
+            outputs["pic_objects"].append(object_file)
         else:
-            outputs.add_object_file(object_file)
+            outputs["objects"].append(object_file)
     if add_object and bitcode_output:
-        outputs.add_lto_bitcode_file(
-            full_bitcode_file = object_file,
-            lto_indexing_file = lto_indexing_file,
-            copts = complete_copts,
-        )
+        outputs["lto_compilation_context"][object_file] = (lto_indexing_file, complete_copts)
     if dwo_file:
         if use_pic:
-            outputs.add_pic_dwo_file(dwo_file)
+            outputs["pic_dwo_files"].append(dwo_file)
         else:
-            outputs.add_dwo_file(dwo_file)
+            outputs["dwo_files"].append(dwo_file)
     if gcno_file:
         if use_pic:
-            outputs.add_pic_gcno_file(gcno_file)
+            outputs["pic_gcno_files"].append(gcno_file)
         else:
-            outputs.add_gcno_file(gcno_file)
+            outputs["gcno_files"].append(gcno_file)
     return object_file
 
 def _create_temps_action(
@@ -1418,9 +1429,9 @@ def _create_module_codegen_action(
         feature_configuration = feature_configuration,
     )
     if use_pic:
-        outputs.add_pic_object_file(object_file)
+        outputs["pic_objects"].append(object_file)
     else:
-        outputs.add_object_file(object_file)
+        outputs["objects"].append(object_file)
 
 def _create_module_action(
         action_construction_context,

@@ -25,11 +25,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationOutputsAp
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkMethod;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -258,10 +255,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       // private to avoid class initialization deadlock between this class and its outer class
     }
 
-    @StarlarkMethod(
-        name = "build",
-        documented = false,
-        parameters = {})
     public CcCompilationOutputs build() {
       return new CcCompilationOutputs(
           ImmutableList.copyOf(objectFiles),
@@ -291,22 +284,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
-    /** Adds an object file. */
-    @StarlarkMethod(
-        name = "add_object_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
-    @CanIgnoreReturnValue
-    public Builder addObjectFile(Artifact artifact) {
-      // We skip file extension checks for TreeArtifacts because they represent directory artifacts
-      // without a file extension.
-      Preconditions.checkArgument(
-          artifact.isTreeArtifact() || Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
-      objectFiles.add(artifact);
-      return this;
-    }
 
     @CanIgnoreReturnValue
     public Builder addObjectFiles(Iterable<Artifact> artifacts) {
@@ -318,18 +295,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
-    /** Adds a pic object file. */
-    @StarlarkMethod(
-        name = "add_pic_object_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
-    @CanIgnoreReturnValue
-    public Builder addPicObjectFile(Artifact artifact) {
-      picObjectFiles.add(artifact);
-      return this;
-    }
 
     @CanIgnoreReturnValue
     public Builder addLtoBitcodeFile(
@@ -338,37 +303,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_lto_bitcode_file",
-        documented = false,
-        parameters = {
-          @Param(name = "full_bitcode_file", positional = false, named = true),
-          @Param(
-              name = "lto_indexing_file",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                @ParamType(type = Artifact.class),
-                @ParamType(type = NoneType.class)
-              }),
-          @Param(
-              name = "copts",
-              positional = false,
-              named = true,
-              allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)}),
-        })
-    public Builder addLtoBitcodeFileForStarlark(
-        Artifact fullBitcode, Object ltoIndexingBitcodeNullable, Sequence<?> coptsUnchecked)
-        throws EvalException {
-      Artifact ltoIndexingBitcode = CcModule.nullIfNone(ltoIndexingBitcodeNullable, Artifact.class);
-      ImmutableList<String> coptsChecked =
-          ImmutableList.copyOf(Sequence.cast(coptsUnchecked, String.class, "copts"));
-      return addLtoBitcodeFile(fullBitcode, ltoIndexingBitcode, coptsChecked);
-    }
-
     @CanIgnoreReturnValue
-    public Builder addLtoCompilationContext(LtoCompilationContext ltoCompilationContext) {
-      this.ltoCompilationContext.addAll(ltoCompilationContext);
+    public Builder addLtoCompilationContext(@Nullable LtoCompilationContext ltoCompilationContext) {
+      if (ltoCompilationContext != null) {
+        this.ltoCompilationContext.addAll(ltoCompilationContext);
+      }
       return this;
     }
 
@@ -383,48 +322,24 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_dwo_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
     @CanIgnoreReturnValue
     public Builder addDwoFile(Artifact artifact) {
       dwoFiles.add(artifact);
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_pic_dwo_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
     @CanIgnoreReturnValue
     public Builder addPicDwoFile(Artifact artifact) {
       picDwoFiles.add(artifact);
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_gcno_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
     @CanIgnoreReturnValue
     public Builder addGcnoFile(Artifact artifact) {
       gcnoFiles.add(artifact);
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_pic_gcno_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
     @CanIgnoreReturnValue
     public Builder addPicGcnoFile(Artifact artifact) {
       picGcnoFiles.add(artifact);
@@ -438,44 +353,39 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_temps",
-        documented = false,
-        parameters = {
-          @Param(
-              name = "artifacts",
-              positional = true,
-              named = false,
-              allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)}),
-        })
-    public Builder addTempsForStarlark(Sequence<?> artifactsUnchecked) throws EvalException {
-      Sequence<Artifact> artifactsChecked =
-          Sequence.cast(artifactsUnchecked, Artifact.class, "artifacts");
-      temps.addAll(artifactsChecked);
+    @CanIgnoreReturnValue
+    public Builder addHeaderTokenFiles(Iterable<Artifact> artifacts) {
+      Iterables.addAll(headerTokenFiles, artifacts);
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_header_token_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
     @CanIgnoreReturnValue
-    public Builder addHeaderTokenFile(Artifact artifact) {
-      headerTokenFiles.add(artifact);
+    public Builder addModuleFiles(Iterable<Artifact> artifacts) {
+      Iterables.addAll(moduleFiles, artifacts);
       return this;
     }
 
-    @StarlarkMethod(
-        name = "add_module_file",
-        documented = false,
-        parameters = {
-          @Param(name = "artifact", positional = true, named = false),
-        })
     @CanIgnoreReturnValue
-    public Builder addModuleFile(Artifact artifact) {
-      moduleFiles.add(artifact);
+    public Builder addGcnoFiles(Iterable<Artifact> artifacts) {
+      Iterables.addAll(gcnoFiles, artifacts);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addPicGcnoFiles(Iterable<Artifact> artifacts) {
+      Iterables.addAll(picGcnoFiles, artifacts);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addDwoFiles(Iterable<Artifact> artifacts) {
+      Iterables.addAll(dwoFiles, artifacts);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addPicDwoFiles(Iterable<Artifact> artifacts) {
+      Iterables.addAll(picDwoFiles, artifacts);
       return this;
     }
   }

@@ -122,11 +122,7 @@ def create_compile_action_templates(
             generate_pic_action,
         )
         if bitcode_output:
-            outputs.add_lto_bitcode_file(
-                full_bitcode_file = header_token_file,
-                lto_indexing_file = lto_index_tree_artifact,
-                copts = all_copts,
-            )
+            outputs["lto_compilation_context"][header_token_file] = (lto_index_tree_artifact, all_copts)
         _cc_internal.create_compile_action_template(
             action_construction_context = action_construction_context,
             cc_toolchain = cc_toolchain,
@@ -145,7 +141,7 @@ def create_compile_action_templates(
             diagnostics_tree_artifact = diagnostics_tree_artifact,
             lto_indexing_tree_artifact = lto_index_tree_artifact,
         )
-        outputs.add_header_token_file(header_token_file)
+        outputs["header_tokens"].append(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
         if generate_no_pic_action:
             object_file = _declare_compile_output_tree_artifact(
@@ -194,11 +190,7 @@ def create_compile_action_templates(
                 generate_pic_action,
             )
             if feature_configuration.is_enabled("thin_lto"):
-                outputs.add_lto_bitcode_file(
-                    full_bitcode_file = object_file,
-                    lto_indexing_file = lto_index_tree_artifact,
-                    copts = all_copts,
-                )
+                outputs["lto_compilation_context"][object_file] = (lto_index_tree_artifact, all_copts)
             _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
@@ -217,7 +209,7 @@ def create_compile_action_templates(
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
                 lto_indexing_tree_artifact = lto_index_tree_artifact,
             )
-            outputs.add_object_file(object_file)
+            outputs["objects"].append(object_file)
         if generate_pic_action:
             pic_object_file = _declare_compile_output_tree_artifact(
                 action_construction_context,
@@ -265,11 +257,7 @@ def create_compile_action_templates(
                 generate_pic_action,
             )
             if feature_configuration.is_enabled("thin_lto"):
-                outputs.add_lto_bitcode_file(
-                    full_bitcode_file = pic_object_file,
-                    lto_indexing_file = lto_index_tree_artifact,
-                    copts = all_copts,
-                )
+                outputs["lto_compilation_context"][pic_object_file] = (lto_index_tree_artifact, all_copts)
             _cc_internal.create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_toolchain = cc_toolchain,
@@ -288,7 +276,7 @@ def create_compile_action_templates(
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
                 lto_indexing_tree_artifact = lto_index_tree_artifact,
             )
-            outputs.add_pic_object_file(pic_object_file)
+            outputs["pic_objects"].append(pic_object_file)
 
 def _declare_compile_output_tree_artifact(
         ctx,
