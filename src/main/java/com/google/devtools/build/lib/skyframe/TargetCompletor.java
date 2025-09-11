@@ -39,6 +39,8 @@ import net.starlark.java.syntax.Location;
 final class TargetCompletor
     implements Completor<ConfiguredTargetValue, TargetCompletionValue, TargetCompletionKey> {
 
+  private final SkyframeActionExecutor skyframeActionExecutor;
+
   static SkyFunction targetCompletionFunction(
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
@@ -47,11 +49,16 @@ final class TargetCompletor
       BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
-        new TargetCompletor(),
+        new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
         actionRewindStrategy,
         bugReporter);
+  }
+
+  private TargetCompletor(SkyframeActionExecutor announceTargetSummaries) {
+    // SkyframeActionExecutor.options not populated yet, so store and query lazily later
+    this.skyframeActionExecutor = announceTargetSummaries;
   }
 
   @Override
@@ -88,7 +95,8 @@ final class TargetCompletor
         ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env),
         ctx,
         rootCauses,
-        outputs);
+        outputs,
+        skyframeActionExecutor.publishTargetSummaries());
   }
 
   @Override
@@ -107,7 +115,8 @@ final class TargetCompletor
       return TargetCompleteEvent.successfulBuildSchedulingTest(
           configuredTargetAndData,
           completionContext,
-          artifactsToBuild.getAllArtifactsByOutputGroup());
+          artifactsToBuild.getAllArtifactsByOutputGroup(),
+          skyframeActionExecutor.publishTargetSummaries());
     } else {
       if (target instanceof InputFileConfiguredTarget) {
         env.getListener()
@@ -121,7 +130,8 @@ final class TargetCompletor
       return TargetCompleteEvent.successfulBuild(
           configuredTargetAndData,
           completionContext,
-          artifactsToBuild.getAllArtifactsByOutputGroup());
+          artifactsToBuild.getAllArtifactsByOutputGroup(),
+          skyframeActionExecutor.publishTargetSummaries());
     }
   }
 }

@@ -96,7 +96,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op.")
+      help = "Whether to publish TargetSummary events.")
   public boolean publishTargetSummary;
 
   @Option(

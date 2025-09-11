@@ -66,7 +66,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
-            ctAndData, completionContext, artifactsToBuild.getAllArtifactsByOutputGroup());
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, metadata));
@@ -85,7 +88,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
-            ctAndData, completionContext, artifactsToBuild.getAllArtifactsByOutputGroup());
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
@@ -131,7 +137,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
-            ctAndData, completionContext, artifactsToBuild.getAllArtifactsByOutputGroup());
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
@@ -167,7 +176,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
-            ctAndData, completionContext, artifactsToBuild.getAllArtifactsByOutputGroup());
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, metadata));
@@ -193,7 +205,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
-            ctAndData, FAILED_COMPLETION_CTX, artifactsToBuild.getAllArtifactsByOutputGroup());
+            ctAndData,
+            FAILED_COMPLETION_CTX,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /*announceTargetSummary=*/ false);
 
     ArrayList<File> fileProtos = new ArrayList<>();
     ReportedArtifacts reportedArtifacts = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);

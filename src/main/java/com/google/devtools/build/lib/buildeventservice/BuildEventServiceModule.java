@@ -413,17 +413,20 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return;
     }
 
-    cmdEnv
-        .getEventBus()
-        .register(
-            new TargetSummaryPublisher(
-                cmdEnv.getEventBus(), cmdEnv::withMergedAnalysisAndExecutionSourceOfTruth));
+    if (bepOptions.publishTargetSummary) {
+      cmdEnv
+          .getEventBus()
+          .register(
+              new TargetSummaryPublisher(
+                  cmdEnv.getEventBus(), cmdEnv::withMergedAnalysisAndExecutionSourceOfTruth));
+    }
 
     streamer =
         new BuildEventStreamer.Builder()
             .buildEventTransports(bepTransports)
             .besStreamOptions(besStreamOptions)
             .outputGroupFileModes(bepOptions.getOutputGroupFileModesMapping())
+            .publishTargetSummaries(bepOptions.publishTargetSummary)
             .artifactGroupNamer(artifactGroupNamer)
             .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).oomMessage)
             .build();

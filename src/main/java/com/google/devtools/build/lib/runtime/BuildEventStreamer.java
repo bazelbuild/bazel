@@ -103,6 +103,7 @@ public class BuildEventStreamer {
   private final Collection<BuildEventTransport> transports;
   private final BuildEventStreamOptions besOptions;
   private final OutputGroupFileModes outputGroupFileModes;
+  private final boolean publishTargetSummaries;
 
   @GuardedBy("this")
   private Set<BuildEventId> announcedEvents;
@@ -242,11 +243,13 @@ public class BuildEventStreamer {
       Collection<BuildEventTransport> transports,
       BuildEventStreamOptions options,
       OutputGroupFileModes outputGroupFileModes,
+      boolean publishTargetSummaries,
       CountingArtifactGroupNamer artifactGroupNamer,
       String oomMessage) {
     this.transports = transports;
     this.besOptions = options;
     this.outputGroupFileModes = outputGroupFileModes;
+    this.publishTargetSummaries = publishTargetSummaries;
     this.announcedEvents = null;
     this.progressCount = 0;
     this.artifactGroupNamer = artifactGroupNamer;
@@ -702,7 +705,7 @@ public class BuildEventStreamer {
    * @param event event that is being discarded (not buffered)
    */
   private void maybePostPendingEventsBeforeDiscarding(BuildEvent event) {
-    if (isVacuousTestSummary(event)) {
+    if (publishTargetSummaries && isVacuousTestSummary(event)) {
       // Target summaries should "post after" test summaries, but we can't a priori know whether
       // test summaries will be vacuous (as that depends on test execution progress). So check for
       // and publish any pending (target summary) events here. If we don't do this then
@@ -1042,6 +1045,7 @@ public class BuildEventStreamer {
     private Set<BuildEventTransport> buildEventTransports;
     private BuildEventStreamOptions besStreamOptions;
     private OutputGroupFileModes outputGroupFileModes = OutputGroupFileModes.DEFAULT;
+    private boolean publishTargetSummaries;
     private CountingArtifactGroupNamer artifactGroupNamer;
     private String oomMessage;
 
@@ -1064,6 +1068,12 @@ public class BuildEventStreamer {
     }
 
     @CanIgnoreReturnValue
+    public Builder publishTargetSummaries(boolean publishTargetSummaries) {
+      this.publishTargetSummaries = publishTargetSummaries;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder artifactGroupNamer(CountingArtifactGroupNamer value) {
       this.artifactGroupNamer = value;
       return this;
@@ -1080,6 +1090,7 @@ public class BuildEventStreamer {
           checkNotNull(buildEventTransports),
           checkNotNull(besStreamOptions),
           outputGroupFileModes,
+          publishTargetSummaries,
           checkNotNull(artifactGroupNamer),
           nullToEmpty(oomMessage));
     }

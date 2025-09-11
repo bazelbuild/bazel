@@ -119,6 +119,7 @@ public final class TargetCompleteEvent
   // The label as appeared in the BUILD file.
   private final Label originalLabel;
   private final boolean isTest;
+  private final boolean announceTargetSummary;
   @Nullable private final Long testTimeoutSeconds;
   @Nullable private final TestProvider.TestParams testParams;
   private final BuildEvent configurationEvent;
@@ -132,7 +133,8 @@ public final class TargetCompleteEvent
       NestedSet<Cause> rootCauses,
       CompletionContext completionContext,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
-      boolean isTest) {
+      boolean isTest,
+      boolean announceTargetSummary) {
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
     this.executableTargetData = new ExecutableTargetData(targetAndData);
@@ -153,6 +155,7 @@ public final class TargetCompleteEvent
     this.completionContext = completionContext;
     this.outputs = outputs;
     this.isTest = isTest;
+    this.announceTargetSummary = announceTargetSummary;
     this.testTimeoutSeconds = isTest ? getTestTimeoutSeconds(targetAndData) : null;
     BuildConfigurationValue configuration = targetAndData.getConfiguration();
     this.configEventId = configurationId(configuration);
@@ -170,16 +173,20 @@ public final class TargetCompleteEvent
   public static TargetCompleteEvent successfulBuild(
       ConfiguredTargetAndData ct,
       CompletionContext completionContext,
-      ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
-    return new TargetCompleteEvent(ct, null, completionContext, outputs, false);
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      boolean announceTargetSummary) {
+    return new TargetCompleteEvent(
+        ct, null, completionContext, outputs, false, announceTargetSummary);
   }
 
   /** Construct a successful target completion event for a target that will be tested. */
   public static TargetCompleteEvent successfulBuildSchedulingTest(
       ConfiguredTargetAndData ct,
       CompletionContext completionContext,
-      ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
-    return new TargetCompleteEvent(ct, null, completionContext, outputs, true);
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      boolean announceTargetSummary) {
+    return new TargetCompleteEvent(
+        ct, null, completionContext, outputs, true, announceTargetSummary);
   }
 
   /**
@@ -189,9 +196,11 @@ public final class TargetCompleteEvent
       ConfiguredTargetAndData ct,
       CompletionContext completionContext,
       NestedSet<Cause> rootCauses,
-      ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      boolean announceTargetSummary) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
-    return new TargetCompleteEvent(ct, rootCauses, completionContext, outputs, false);
+    return new TargetCompleteEvent(
+        ct, rootCauses, completionContext, outputs, false, announceTargetSummary);
   }
 
   /** Returns the label of the target associated with the event. */
@@ -261,9 +270,10 @@ public final class TargetCompleteEvent
       }
       childrenBuilder.add(BuildEventIdUtil.testSummary(label, configEventId));
     }
-    return childrenBuilder
-        .add(BuildEventIdUtil.targetSummary(originalLabel, configEventId))
-        .build();
+    if (announceTargetSummary) {
+      childrenBuilder.add(BuildEventIdUtil.targetSummary(originalLabel, configEventId));
+    }
+    return childrenBuilder.build();
   }
 
   public CompletionContext getCompletionContext() {
