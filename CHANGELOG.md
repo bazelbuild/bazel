@@ -1,3 +1,20 @@
+## Release 9.0.0-pre.20250831.1 (2025-09-11)
+
+```
+Baseline: d1c7409e60fdc72de3705994917dbc24785039f3
+
+Cherry picks:
+
+   + e3609b50f9855e98ff4695df01d4bbb24a65c4c2:
+     Release 9.0.0-pre.20250831.1 (2025-09-11)
+   + 79595651c77b3909bfbda0f59f985fccd91a2b61:
+     Release 9.0.0-pre.20250831.1 (2025-09-11)
+   + 0e65851030bc52b8fdc3338ff1b6f21f4b0178cf:
+     Release 9.0.0-pre.20250831.1 (2025-09-11)
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 9.0.0-pre.20250831.1 (2025-09-10)
 
 ```
