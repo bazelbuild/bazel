@@ -189,7 +189,6 @@ java_library(
         ":skyfocus_state",
         ":skyframe_action_executor",
         ":skyframe_error_processor",
-        ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
         ":skyframe_input_metadata_provider",
         ":skyframe_stats",
@@ -338,7 +337,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
         "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/repository:external_package_helper",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
@@ -2619,12 +2617,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-java_library(
-    name = "skyframe_executor_repository_helpers_holder",
-    srcs = ["SkyframeExecutorRepositoryHelpersHolder.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker"],
 )
 
 java_library(

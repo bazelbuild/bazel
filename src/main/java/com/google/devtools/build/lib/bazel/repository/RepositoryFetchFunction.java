@@ -77,7 +77,6 @@ import java.util.Optional;
 import java.util.SequencedMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -92,9 +91,6 @@ import net.starlark.java.eval.SymbolGenerator;
 /** A {@link SkyFunction} that fetches the given repository. */
 public final class RepositoryFetchFunction implements SkyFunction {
 
-  // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
-  // command is a fetch. Remote repository lookups are only allowed during fetches.
-  private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
   private final RepoContentsCache repoContentsCache;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
@@ -107,11 +103,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   public RepositoryFetchFunction(
       Supplier<Map<String, String>> clientEnvironmentSupplier,
-      AtomicBoolean isFetch,
       BlazeDirectories directories,
       RepoContentsCache repoContentsCache) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
-    this.isFetch = isFetch;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
   }
@@ -237,7 +231,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
         if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
           return new RepositoryDirectoryValue.Success(
-              Root.fromPath(repoRoot), /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+              Root.fromPath(repoRoot), excludeRepoFromVendoring);
         }
 
         // Then check if the global repo contents cache has this.
@@ -257,9 +251,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
               }
               candidate.touch();
               return new RepositoryDirectoryValue.Success(
-                  Root.fromPath(repoRoot),
-                  /* isFetchingDelayed= */ false,
-                  excludeRepoFromVendoring);
+                  Root.fromPath(repoRoot), excludeRepoFromVendoring);
             }
           }
         }
@@ -268,7 +260,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       /* At this point: This is a force fetch, a local repository, OR The repository cache is old or
       didn't exist. In any of those cases, we initiate the fetching process UNLESS this is offline
       mode (fetching is disabled) */
-      if (isFetch.get()) {
+      if (!RepositoryDirectoryValue.FETCH_DISABLED.get(env)) {
         // Fetching a repository is a long-running operation that can easily be interrupted. If it
         // is and the marker file exists on disk, a new call of this method may treat this
         // repository as valid even though it is in an inconsistent state. Clear the marker file and
@@ -307,7 +299,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           }
         }
         return new RepositoryDirectoryValue.Success(
-            Root.fromPath(repoRoot), /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+            Root.fromPath(repoRoot), excludeRepoFromVendoring);
       }
 
       if (!repoRoot.exists()) {
@@ -330,7 +322,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
                       repositoryName)));
 
       return new RepositoryDirectoryValue.Success(
-          Root.fromPath(repoRoot), /* isFetchingDelayed= */ true, excludeRepoFromVendoring);
+          Root.fromPath(repoRoot), excludeRepoFromVendoring);
     }
   }
 
@@ -366,8 +358,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
       // If our repo is up-to-date, or this is an offline build (--nofetch), then the vendored repo
       // is used.
       if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.UpToDate
-          || (!RepositoryDirectoryValue.IS_VENDOR_COMMAND.get(env).booleanValue()
-              && !isFetch.get())) {
+          || (!RepositoryDirectoryValue.IS_VENDOR_COMMAND.get(env)
+              && RepositoryDirectoryValue.FETCH_DISABLED.get(env))) {
         if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.OutOfDate(String reason)) {
           env.getListener()
               .handle(
@@ -400,7 +392,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
                   + repositoryName.getName()
                   + " not found under the vendor directory"),
           Transience.PERSISTENT);
-    } else if (!isFetch.get()) { // repo not vendored & fetching is disabled (--nofetch)
+    } else if (RepositoryDirectoryValue.FETCH_DISABLED.get(env)) {
+      // repo not vendored & fetching is disabled (--nofetch)
       throw new RepositoryFunctionException(
           new IOException(
               "Vendored repository "
@@ -426,17 +419,17 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return true;
     }
 
+    /* If fetching is enabled & this is a local repo: do NOT use cache!
+     * Local repository are generally fast and do not rely on non-local data, making caching them
+     * across server instances impractical. */
+    if (!RepositoryDirectoryValue.FETCH_DISABLED.get(env) && repoDefinition.repoRule().local()) {
+      return false;
+    }
+
     boolean forceFetchEnabled = !RepositoryDirectoryValue.FORCE_FETCH.get(env).isEmpty();
     boolean forceFetchConfigureEnabled =
         repoDefinition.repoRule().configure()
             && !RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE.get(env).isEmpty();
-
-    /* If fetching is enabled & this is a local repo: do NOT use cache!
-     * Local repository are generally fast and do not rely on non-local data, making caching them
-     * across server instances impractical. */
-    if (isFetch.get() && repoDefinition.repoRule().local()) {
-      return false;
-    }
 
     /* For the non-local repositories, do NOT use cache if:
      * 1) Force fetch is enabled (bazel sync, or bazel fetch --force), OR
@@ -802,6 +795,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
     return new RepositoryDirectoryValue.Success(
-        Root.fromPath(source), /* isFetchingDelayed= */ false, /* excludeFromVendoring= */ true);
+        Root.fromPath(source), /* excludeFromVendoring= */ true);
   }
 }

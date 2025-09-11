@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -97,7 +96,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -129,10 +127,10 @@ public class BazelRepositoryModule extends BlazeModule {
       ImmutableSet.of("https://bcr.bazel.build/");
   public static final ImmutableSet<String> DEFAULT_MODULE_MIRRORS = ImmutableSet.of();
 
-  private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
+  private boolean fetchDisabled = false;
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
   private ImmutableMap<String, PathFragment> injections = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
@@ -206,17 +204,12 @@ public class BazelRepositoryModule extends BlazeModule {
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
     if ("bazel".equals(runtime.getProductName())) {
-      builder.setSkyframeExecutorRepositoryHelpersHolder(
-          SkyframeExecutorRepositoryHelpersHolder.create(
-              new RepositoryDirectoryDirtinessChecker()));
+      builder.allowExternalRepositories(true);
     }
 
     repositoryFetchFunction =
         new RepositoryFetchFunction(
-            clientEnvironmentSupplier,
-            isFetch,
-            directories,
-            repositoryCache.getRepoContentsCache());
+            clientEnvironmentSupplier, directories, repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
 
@@ -282,7 +275,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
-    isFetch.set(pkgOptions != null && pkgOptions.fetch);
+    fetchDisabled = pkgOptions != null && !pkgOptions.fetch;
 
     ProcessWrapper processWrapper = ProcessWrapper.fromCommandEnvironment(env);
     repositoryFetchFunction.setProcessWrapper(processWrapper);
@@ -681,6 +674,7 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(RepositoryMappingFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
+        PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, fetchDisabled),
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.
         PrecomputedValue.injected(

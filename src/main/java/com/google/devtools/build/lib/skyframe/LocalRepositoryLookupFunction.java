@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -23,9 +22,7 @@ import javax.annotation.Nullable;
 /** SkyFunction for {@link LocalRepositoryLookupValue}s. */
 public class LocalRepositoryLookupFunction implements SkyFunction {
 
-  public LocalRepositoryLookupFunction(ExternalPackageHelper externalPackageHelper) {
-    var unused = externalPackageHelper;
-  }
+  public LocalRepositoryLookupFunction() {}
 
   // Implementation note: Although LocalRepositoryLookupValue.NOT_FOUND exists, it should never be
   // returned from this method.

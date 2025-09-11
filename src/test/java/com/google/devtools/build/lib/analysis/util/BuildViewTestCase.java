@@ -158,7 +158,6 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -336,7 +335,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories)
-            .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+            .allowExternalRepositories(allowExternalRepositories())
             .setGlobUnderSingleDep(globUnderSingleDep)
             .build();
     if (usesInliningBzlLoadFunction()) {
@@ -374,9 +373,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   @ForOverride
-  @Nullable
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
-    return null;
+  protected boolean allowExternalRepositories() {
+    return false;
   }
 
   private void injectInliningBzlLoadFunction(

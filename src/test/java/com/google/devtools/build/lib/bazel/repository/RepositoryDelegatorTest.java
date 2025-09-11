@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
@@ -75,7 +74,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -93,7 +91,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -124,11 +121,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     RepositoryFetchFunction delegatorFunction =
-        new RepositoryFetchFunction(
-            ImmutableMap::of,
-            /* isFetch= */ new AtomicBoolean(true),
-            directories,
-            new RepoContentsCache());
+        new RepositoryFetchFunction(ImmutableMap::of, directories, new RepoContentsCache());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -173,10 +166,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(
-                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-                    new LocalRepositoryLookupFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.BZL_COMPILE,
@@ -232,6 +222,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDirectoryValue.IS_VENDOR_COMMAND.set(differencer, false);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
@@ -274,37 +265,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(actualPath).isEqualTo(expectedPath);
     assertThat(actualPath.isSymbolicLink()).isTrue();
     assertThat(actualPath.readSymbolicLink()).isEqualTo(overrideDirectory.asFragment());
-  }
-
-  @Test
-  public void testRepositoryDirtinessChecker() throws Exception {
-    TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(new ManualClock());
-
-    RepositoryDirectoryDirtinessChecker checker = new RepositoryDirectoryDirtinessChecker();
-    RepositoryName repositoryName = RepositoryName.create("repo");
-    RepositoryDirectoryValue.Key key = RepositoryDirectoryValue.key(repositoryName);
-
-    Success usual =
-        new Success(
-            Root.fromPath(rootDirectory.getRelative("a")),
-            /* isFetchingDelayed= */ false,
-            /* excludeFromVendoring= */ false);
-
-    assertThat(
-            checker.check(key, usual, /* oldMtsv= */ null, SyscallCache.NO_CACHE, tsgm).isDirty())
-        .isFalse();
-
-    Success fetchDelayed =
-        new Success(
-            Root.fromPath(rootDirectory.getRelative("b")),
-            /* isFetchingDelayed= */ true,
-            /* excludeFromVendoring= */ false);
-
-    assertThat(
-            checker
-                .check(key, fetchDelayed, /* oldMtsv= */ null, SyscallCache.NO_CACHE, tsgm)
-                .isDirty())
-        .isTrue();
   }
 
   @Test
