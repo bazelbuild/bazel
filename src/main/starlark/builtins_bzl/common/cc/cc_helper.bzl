@@ -96,12 +96,6 @@ def _use_cpp_toolchain(mandatory = False):
     """
     return [config_common.toolchain_type(_CPP_TOOLCHAIN_TYPE, mandatory = mandatory)]
 
-def _rule_error(msg):
-    fail(msg)
-
-def _attribute_error(attr_name, msg):
-    fail("in attribute '" + attr_name + "': " + msg)
-
 def _additional_inputs_from_linking_context(linking_context):
     inputs = []
     for linker_input in linking_context.linker_inputs.to_list():
@@ -115,6 +109,12 @@ cpp_file_types = struct(
 )
 
 artifact_category = _artifact_category
+
+def _rule_error(msg):
+    fail(msg)
+
+def _attribute_error(attr_name, msg):
+    fail("in attribute '" + attr_name + "': " + msg)
 
 def _libraries_from_linking_context(linking_context):
     libraries = []
