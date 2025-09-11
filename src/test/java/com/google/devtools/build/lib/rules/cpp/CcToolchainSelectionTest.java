@@ -49,7 +49,11 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "--experimental_platforms=//mock_platform:mock-k8-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8");
     ConfiguredTarget target =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
+        ScratchAttributeWriter.fromLabelString(
+                this,
+                "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+                "cc_library",
+                "//lib")
             .setList("srcs", "a.cc")
             .write();
     ToolchainInfo toolchainInfo =
@@ -66,7 +70,11 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "--experimental_platforms=//mock_platform:mock-k8-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8");
     ConfiguredTarget target =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
+        ScratchAttributeWriter.fromLabelString(
+                this,
+                "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+                "cc_library",
+                "//lib")
             .setList("srcs", "a.cc")
             .write();
     ToolchainInfo toolchainInfo =

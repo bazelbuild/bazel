@@ -47,7 +47,10 @@ public final class CppSysrootTest extends BuildViewTestCase {
 
   @Before
   public void writeDummyLibrary() throws Exception {
-    scratch.file("dummy/BUILD", "cc_library(name='library')");
+    scratch.file(
+        "dummy/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='library')");
   }
 
   /**
@@ -185,6 +188,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file(
         "a/grte/top/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(name = "everything")
 
         cc_library(name = "library")

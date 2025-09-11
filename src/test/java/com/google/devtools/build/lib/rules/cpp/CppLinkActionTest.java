@@ -724,7 +724,10 @@ action_configs = [action_config(
     useConfiguration(
         "--extra_toolchains=//toolchain",
         "--features=build_interface_libraries,dynamic_library_linker_tool");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['a.c'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.c'])");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 

@@ -127,6 +127,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         "pkg/BUILD",
         "package(features = ['thin_lto'])",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "cc_test(",
         "    name = 'bin_test',",
         "    srcs = ['bin_test.cc', ],",

@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -71,6 +73,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             srcs = ["foo.cc"],
@@ -368,7 +371,10 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testExpandedDefinesDuplicateTargets() throws Exception {
-    scratch.file("data/BUILD", "cc_library(name = 'a', srcs = ['foo.cc'])");
+    scratch.file(
+        "data/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', srcs = ['foo.cc'])");
     ConfiguredTarget expandedDefines =
         scratchConfiguredTarget(
             "expanded_defines",
@@ -836,9 +842,11 @@ public class CcCommonTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
     scratch.resolve("/foo/bar").createDirectoryAndParents();
     scratch.file("/foo/MODULE.bazel", "module(name = 'pkg')");
+    MockCcSupport.get().setup(new MockToolsConfig(scratch.resolve("/foo")));
     scratch.file(
         "/foo/bar/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "lib",
             srcs = ["foo.cc"],
@@ -1659,13 +1667,6 @@ public class CcCommonTest extends BuildViewTestCase {
     setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ true);
     assertThat(getConfiguredTarget("//a:a")).isNotNull();
     assertNoEvents();
-  }
-
-  @Test
-  public void testCcLibraryNotLoadedThroughMacro() throws Exception {
-    setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//a:a")).isNotNull();
   }
 
   private void setupTestCcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {

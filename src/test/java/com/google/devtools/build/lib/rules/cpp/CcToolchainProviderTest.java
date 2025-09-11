@@ -321,6 +321,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("strip", "strip"));
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
@@ -362,6 +363,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     CcToolchainConfig.Builder ccToolchainConfigBuilder = CcToolchainConfig.builder();
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name='empty')",
@@ -413,6 +415,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("strip", "strip"));
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
@@ -469,6 +472,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("strip", "strip"));
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
@@ -512,6 +516,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_toolchain_alias(name = "toolchain")
 
         cc_library(
@@ -535,6 +540,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_toolchain_alias(name = "toolchain")
 
         cc_library(

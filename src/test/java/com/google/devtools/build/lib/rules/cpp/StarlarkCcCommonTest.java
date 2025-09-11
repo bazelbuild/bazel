@@ -6241,6 +6241,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "/r/p/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "a",
             srcs = ["a.cc"],

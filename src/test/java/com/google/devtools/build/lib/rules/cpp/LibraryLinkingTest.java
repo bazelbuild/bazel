@@ -99,6 +99,7 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "custom_malloc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "custom_malloc",
             srcs = ["custom_malloc.cc"],

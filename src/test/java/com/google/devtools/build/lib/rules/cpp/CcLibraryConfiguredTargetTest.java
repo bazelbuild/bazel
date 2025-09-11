@@ -162,6 +162,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "a",
             "l",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
             "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
     assertThat(l.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines()).contains("V=BAR");
@@ -173,6 +174,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "a",
             "l",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name='l', srcs=['l.cc'], local_defines=['V=$(FOO)'], toolchains=[':v'])",
             "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
     assertThat(l.get(CcInfo.PROVIDER).getCcCompilationContext().getNonTransitiveDefines())
@@ -194,6 +196,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "test",
         "test",
         "Expected action_config for 'c++-link-static-library' to be configured",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'test', srcs = ['test.cc'])");
   }
 
@@ -212,6 +215,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "test",
         "test",
         "Expected action_config for 'c++-compile' to be configured",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'test', srcs = ['test.cc'])");
   }
 
@@ -526,6 +530,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "foo",
             "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'], linkstatic = 1)",
             "cc_library(name = 'y', srcs = ['y.cc'], deps = [':z'])",
             "cc_library(name = 'z', srcs = ['z.cc'])");
@@ -547,6 +552,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "foo",
             "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "package(features = ['header_modules'])",
             "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
@@ -569,6 +575,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "foo",
             "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "package(features = ['header_modules'])",
             "cc_library(name = 'x', srcs = ['x.cc'])");
     assertThat(
@@ -589,6 +596,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "module/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ['header_modules'])
         cc_library(
             name = 'module',
@@ -598,6 +606,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "nomodule/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ['-header_modules'])
         cc_library(
             name = 'nomodule',
@@ -650,6 +659,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "module/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ['header_modules'])
         cc_library(
             name = 'a',
@@ -686,6 +696,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = ['a.cc', 'subpkg1/b.cc', 'subpkg1/a.c', '//bar:srcs', 'subpkg2/A.c'],
@@ -732,6 +743,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "module/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ['header_modules'])
         cc_library(
             name = 'b',
@@ -751,6 +763,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
     scratch.file(
         "nomodule/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "package(features = ['-header_modules'"
             + (useHeaderModules ? ", 'use_header_modules'" : "")
             + "])",
@@ -932,6 +945,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "module/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'map',
             srcs = ['a.cc', 'a.h'],
@@ -1012,6 +1026,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "precompiled",
             "library",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'library', ",
             "           srcs = ['missing.a'])");
     assertThat(artifactsToStrings(getFilesToBuild(hello)))
@@ -1024,6 +1039,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "x",
             "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "filegroup(name = 'xso', srcs = ['x.so'])",
             "cc_library(name = 'x', srcs = ['x.so', ':xso'])");
     assertThat(x).isNotNull();
@@ -1038,7 +1054,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
     useConfiguration("--features=parse_headers");
     ConfiguredTarget x =
-        scratchConfiguredTarget("x", "x", "cc_library(name = 'x', hdrs = ['x.cc'])");
+        scratchConfiguredTarget(
+            "x",
+            "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library(name = 'x', hdrs = ['x.cc'])");
     assertThat(getGeneratingAction(getBinArtifact("_objs/x/x.o", x))).isNull();
   }
 
@@ -1054,6 +1074,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "foo",
             "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'x', deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
     assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
@@ -1133,7 +1154,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
 
     ConfiguredTarget x =
-        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', srcs = ['a.cc'])");
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library(name = 'x', srcs = ['a.cc'])");
 
     assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
   }
@@ -1628,7 +1653,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=disable_whole_archive_for_static_lib");
     // Should be fine.
     assertThat(
-            scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'], srcs=['a.cc'])"))
+            scratchConfiguredTarget(
+                "a",
+                "a",
+                "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+                "cc_library(name='a', hdrs=['a.h'], srcs=['a.cc'])"))
         .isNotNull();
     // Should error out.
     reporter.removeHandler(failFastHandler);

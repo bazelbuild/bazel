@@ -102,7 +102,10 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFission() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', srcs = ['a.cc'])");
 
     // Default configuration: disabled.
     getAnalysisMock()
@@ -791,6 +794,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_toolchain_alias(name = "a")
 
         cc_library(

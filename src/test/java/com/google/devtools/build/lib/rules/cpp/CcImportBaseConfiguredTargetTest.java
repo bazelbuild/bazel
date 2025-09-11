@@ -35,7 +35,8 @@ import org.junit.runners.JUnit4;
 /** "White-box" unit test of cc_import rule. */
 @RunWith(JUnit4.class)
 public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase {
-  protected String starlarkImplementationLoadStatement = "";
+  protected String starlarkImplementationLoadStatement =
+      "load('@rules_cc//cc:cc_import.bzl', 'cc_import')";
 
   @Before
   public void setStarlarkImplementationLoadStatement() throws Exception {
