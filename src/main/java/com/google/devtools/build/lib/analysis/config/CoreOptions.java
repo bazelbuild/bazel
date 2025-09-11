@@ -945,16 +945,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public IncludeConfigFragmentsEnum includeRequiredConfigFragmentsProvider;
 
   @Option(
-      name = "experimental_inprocess_symlink_creation",
-      defaultValue = "true",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help = "No-op.")
-  public boolean inProcessSymlinkCreation;
-
-  @Option(
       name = "experimental_remotable_source_manifests",
       defaultValue = "false",
       converter = BooleanConverter.class,
