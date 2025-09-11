@@ -262,11 +262,19 @@ def _cc_library_impl(ctx):
             elif artifacts_to_build.interface_library != None:
                 files_builder.append(artifacts_to_build.interface_library)
 
+    if hasattr(compilation_outputs, "gcno_files"):
+        gcno_files = compilation_outputs.gcno_files()
+    else:
+        gcno_files = compilation_outputs._gcno_files
+    if hasattr(compilation_outputs, "pic_gcno_files"):
+        pic_gcno_files = compilation_outputs.pic_gcno_files()
+    else:
+        pic_gcno_files = compilation_outputs._pic_gcno_files
     instrumented_files_info = cc_helper.create_cc_instrumented_files_info(
         ctx = ctx,
         cc_config = ctx.fragments.cpp,
         cc_toolchain = cc_toolchain,
-        metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
+        metadata_files = gcno_files + pic_gcno_files,
     )
 
     runfiles_list = []
