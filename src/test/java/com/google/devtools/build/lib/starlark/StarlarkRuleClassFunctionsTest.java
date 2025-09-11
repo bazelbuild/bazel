@@ -1874,6 +1874,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "p/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         # -0x7fffffff + -0x7fffffff = 2
         s = select({"//conditions:default": -0x7fffffff})
 

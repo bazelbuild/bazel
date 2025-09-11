@@ -436,7 +436,10 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   @Test
   public void testExpectedBuildEventOutput_asFlag() throws Exception {
     writeBasicIntFlag();
-    scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
+    scratch.file(
+        "blah/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'mylib')");
     useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib"),
@@ -459,7 +462,10 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   @Test
   public void testExpectedBuildEventOutput_asTarget() throws Exception {
     writeBasicIntFlag();
-    scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
+    scratch.file(
+        "blah/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'mylib')");
     useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib", "//test:my_int_setting"),

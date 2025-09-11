@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -125,11 +127,27 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                                           StarlarkProviderIdentifier.forKey(B_KEY),
                                           StarlarkProviderIdentifier.forKey(C_KEY))))));
 
+  private static final RuleDefinition FAKE_CC_LIBRARY =
+      (MockRule)
+          () ->
+              MockRule.define(
+                  "fake_cc_library",
+                  (builder, env) ->
+                      builder
+                          .add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+                          .add(
+                              attr("deps", LABEL_LIST)
+                                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                                  .allowedRuleClasses("fake_cc_library"))
+                          .add(attr("generator_name", STRING))
+                          .add(attr("generator_function", STRING)));
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
-            .addRuleDefinition(TESTING_RULE_FOR_MANDATORY_PROVIDERS);
+            .addRuleDefinition(TESTING_RULE_FOR_MANDATORY_PROVIDERS)
+            .addRuleDefinition(FAKE_CC_LIBRARY);
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -141,6 +159,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("@rules_java//java:defs.bzl", "java_library", "java_import")
         package(features = ['-f1', 'f2', 'f3'])
         genrule(name = 'foo',
@@ -190,7 +209,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           deps = [':jlib'])
         java_library(name = 'jlib',
           srcs = ['bla.java'])
-        cc_library(name = 'cclib',
+        fake_cc_library(name = 'cclib',
           deps = [':jlib'])
         starlark_rule(name = 'skyrule',
           deps = [':jlib'])
@@ -208,7 +227,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           }
         )
         def macro_native_rule(name, deps):
-          native.cc_library(name = name, deps = deps)
+          native.fake_cc_library(name = name, deps = deps)
         def macro_starlark_rule(name, deps):
           starlark_rule(name = name, deps = deps)
         """);
@@ -353,14 +372,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
-        cc_library(name = 'cclib',
+        fake_cc_library(name = 'cclib',
           srcs = ['sub/my_sub_lib.h'])
         """);
-    scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD", "fake_cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:cclib");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:11: Label '//test:sub/my_sub_lib.h' is invalid because "
+        "ERROR /workspace/test/BUILD:1:16: Label '//test:sub/my_sub_lib.h' is invalid because "
             + "'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -434,10 +453,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "/r/BUILD",
         """
-        cc_library(name = 'cclib',
+        fake_cc_library(name = 'cclib',
           srcs = ['sub/my_sub_lib.h'])
         """);
-    scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("/r/sub/BUILD", "fake_cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.overwriteFile(
         "MODULE.bazel", "bazel_dep(name = 'r')", "local_path_override(module_name='r', path='/r')");
     invalidatePackages(
@@ -445,7 +464,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@@r+//:cclib");
     assertContainsEvent(
-        "/external/r+/BUILD:1:11: Label '@@r+//:sub/my_sub_lib.h' is invalid because "
+        "/external/r+/BUILD:1:16: Label '@@r+//:sub/my_sub_lib.h' is invalid because "
             + "'@@r+//sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'@@r+//sub:my_sub_lib.h'?");
   }
@@ -503,7 +522,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/macros.bzl",
         """
         def macro_native_rule(name, deps=[], srcs=[]):
-          native.cc_library(name = name, deps = deps, srcs = srcs)
+          native.fake_cc_library(name = name, deps = deps, srcs = srcs)
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:m_native");
@@ -2823,6 +2842,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
           name = 'foo',
           srcs = ['foo.cc'],

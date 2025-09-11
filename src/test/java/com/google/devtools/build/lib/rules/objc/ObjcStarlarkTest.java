@@ -142,6 +142,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test_starlark/rule:apple_rules.bzl", "my_rule")
         package(default_visibility = ["//visibility:public"])
 
@@ -163,7 +164,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "apple_starlark/BUILD:4:8: in my_rule rule //test_starlark/apple_starlark:my_target:");
+            "apple_starlark/BUILD:5:8: in my_rule rule //test_starlark/apple_starlark:my_target:");
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -201,6 +202,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test_starlark/rule:apple_rules.bzl", "my_rule")
 
         package(default_visibility = ["//visibility:public"])

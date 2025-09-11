@@ -968,7 +968,11 @@ cc_toolchain_forwarder = rule(
 
   protected void checkDefinesFromCcLibraryDep(RuleType ruleType) throws Exception {
     useConfiguration();
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//dep:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//dep:lib")
         .setList("srcs", "a.cc")
         .setList("defines", "foo", "bar")
         .write();

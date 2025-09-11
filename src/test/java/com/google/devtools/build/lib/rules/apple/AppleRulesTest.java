@@ -108,6 +108,7 @@ public class AppleRulesTest extends AnalysisTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "xxx",
             srcs = ["dep1.cc"],

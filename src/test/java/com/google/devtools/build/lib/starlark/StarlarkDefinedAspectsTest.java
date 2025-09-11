@@ -127,6 +127,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "abc")
         """);
 
@@ -436,6 +437,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:aspect.bzl', 'my_rule')
         cc_library(
              name = 'xxx',
@@ -1107,6 +1109,7 @@ my_rule = rule(
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//a:defs.bzl', 'split_deps_rule')
         cc_library(name = 'lib', srcs = ['lib.cc'])
         split_deps_rule(
@@ -3369,6 +3372,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:aspect.bzl', 'my_rule')
         cc_library(
              name = 'xxx',
@@ -3421,6 +3425,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(':aspect.bzl', 'r1', 'r2')
         r1(name = 'r0')
         r1(name = 'r1', dep = ':r0')
@@ -3460,6 +3465,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
              name = 'xxx',
         )

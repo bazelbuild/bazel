@@ -304,7 +304,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
 
     ConfiguredTarget x =
-        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', hdrs = ['x.h'])");
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library(name = 'x', hdrs = ['x.h'])");
 
     assertThat(getGeneratingCompileAction("_objs/x/x.h.processed", x).getArguments())
         .doesNotContain("--xyzzy");
@@ -1148,6 +1152,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "package/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "cc_lib",
             srcs = ["a.cc"],
@@ -1387,6 +1392,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "package/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "cc_lib",
             srcs = ["a.cc"],
@@ -1415,6 +1421,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "third_party/cc_lib/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["unencumbered"])
 
         cc_library(
@@ -1707,7 +1714,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testHeaderPassedToCcLib() throws Exception {
     createLibraryTargetWriter("//objc:lib").setList("hdrs", "objc_hdr.h").write();
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//cc:lib")
         .setList("srcs", "a.cc")
         .setList("deps", "//objc:lib")
         .write();
@@ -1718,11 +1729,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testTextualHeaderPassedToCcLib() throws Exception {
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc/txt_dep")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//cc/txt_dep")
         .setList("textual_hdrs", "hdr.h")
         .write();
     createLibraryTargetWriter("//objc:lib").setList("deps", "//cc/txt_dep").write();
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc/lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//cc/lib")
         .setList("srcs", "a.cc")
         .setList("deps", "//objc:lib")
         .write();
@@ -1743,6 +1762,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = "d",
             deps = [":b"],
@@ -2112,6 +2133,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         objc_library(
             name = "foo",
             deps = [":bar"],
@@ -2216,6 +2238,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = "test",
             deps = [":foo"],
@@ -2250,6 +2274,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         objc_library(
             name = "baz",
             srcs = ["baz.mm"],
@@ -2380,6 +2405,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "bin/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         objc_library(
             name = "objc",
             srcs = ["objc.m"],

@@ -1478,6 +1478,7 @@ public class RewindingTestsHelper {
     testCase.write(
         "tree/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":tree.bzl", "tree")
 
         tree(

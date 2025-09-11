@@ -209,6 +209,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/a.cc");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='lib_a', srcs=['a.cc'])",
         String.format(
             "filegroup(name='group', srcs=[':lib_a'], output_group='%s')",

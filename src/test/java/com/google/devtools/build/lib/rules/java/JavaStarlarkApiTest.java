@@ -258,6 +258,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("@rules_java//java:defs.bzl", "java_library")
         load(":custom_rule.bzl", "java_custom_library")
 
@@ -361,6 +362,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":custom_rule.bzl", "java_custom_library")
 
         java_custom_library(
@@ -1648,6 +1650,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file("a/libStatic.a");
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_import.bzl', 'cc_import')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "load(':rule.bzl', 'jrule')",
         "load('"
@@ -1901,6 +1905,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":rule.bzl", "myrule")
 
         cc_library(name = "cc_lib")
