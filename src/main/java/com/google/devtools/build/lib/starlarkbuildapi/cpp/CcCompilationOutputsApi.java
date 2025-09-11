@@ -48,24 +48,24 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
   @StarlarkMethod(name = "temps", documented = false, useStarlarkThread = true)
   Depset getStarlarkTemps(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "header_tokens", documented = false, useStarlarkThread = true)
-  Sequence<FileT> getStarlarkHeaderTokens(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_header_tokens", documented = false, structField = true)
+  Sequence<FileT> getStarlarkHeaderTokens() throws EvalException;
 
-  @StarlarkMethod(name = "module_files", documented = false, useStarlarkThread = true)
-  Sequence<FileT> getStarlarkModuleFiles(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_module_files", documented = false, structField = true)
+  Sequence<FileT> getStarlarkModuleFiles() throws EvalException;
 
-  @StarlarkMethod(name = "lto_compilation_context", documented = false, useStarlarkThread = true)
-  Object getLtoCompilationContextForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_lto_compilation_context", documented = false, structField = true)
+  Object getLtoCompilationContextForStarlark() throws EvalException;
 
-  @StarlarkMethod(name = "dwo_files", documented = false, useStarlarkThread = true)
-  Sequence<FileT> getStarlarkDwoFiles(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_dwo_files", documented = false, structField = true)
+  Sequence<FileT> getStarlarkDwoFiles() throws EvalException;
 
-  @StarlarkMethod(name = "pic_dwo_files", documented = false, useStarlarkThread = true)
-  Sequence<FileT> getStarlarkPicDwoFiles(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_pic_dwo_files", documented = false, structField = true)
+  Sequence<FileT> getStarlarkPicDwoFiles() throws EvalException;
 
-  @StarlarkMethod(name = "gcno_files", documented = false, useStarlarkThread = true)
-  Sequence<FileT> getStarlarkGcnoFiles(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_gcno_files", documented = false, structField = true)
+  Sequence<FileT> getStarlarkGcnoFiles() throws EvalException;
 
-  @StarlarkMethod(name = "pic_gcno_files", documented = false, useStarlarkThread = true)
-  Sequence<FileT> getStarlarkPicGcnoFiles(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_pic_gcno_files", documented = false, structField = true)
+  Sequence<FileT> getStarlarkPicGcnoFiles() throws EvalException;
 }

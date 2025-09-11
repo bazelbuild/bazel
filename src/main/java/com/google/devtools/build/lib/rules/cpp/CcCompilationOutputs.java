@@ -130,33 +130,27 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public Sequence<Artifact> getStarlarkHeaderTokens(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public Sequence<Artifact> getStarlarkHeaderTokens() throws EvalException {
     return StarlarkList.immutableCopyOf(getHeaderTokenFiles());
   }
 
   @Override
-  public Sequence<Artifact> getStarlarkModuleFiles(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public Sequence<Artifact> getStarlarkModuleFiles() throws EvalException {
     return StarlarkList.immutableCopyOf(getModuleFiles());
   }
 
   @Override
-  public LtoCompilationContext getLtoCompilationContextForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public LtoCompilationContext getLtoCompilationContextForStarlark() throws EvalException {
     return ltoCompilationContext;
   }
 
   @Override
-  public Sequence<Artifact> getStarlarkDwoFiles(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public Sequence<Artifact> getStarlarkDwoFiles() throws EvalException {
     return StarlarkList.immutableCopyOf(getDwoFiles());
   }
 
   @Override
-  public Sequence<Artifact> getStarlarkPicDwoFiles(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public Sequence<Artifact> getStarlarkPicDwoFiles() throws EvalException {
     return StarlarkList.immutableCopyOf(getPicDwoFiles());
   }
 
@@ -175,14 +169,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public Sequence<Artifact> getStarlarkGcnoFiles(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public Sequence<Artifact> getStarlarkGcnoFiles() throws EvalException {
     return StarlarkList.immutableCopyOf(getGcnoFiles());
   }
 
   @Override
-  public Sequence<Artifact> getStarlarkPicGcnoFiles(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public Sequence<Artifact> getStarlarkPicGcnoFiles() throws EvalException {
     return StarlarkList.immutableCopyOf(getPicGcnoFiles());
   }
 

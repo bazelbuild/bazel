@@ -92,19 +92,11 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         ctx.actions.write(output = runtime_objects_list, content = file_content, is_executable = False)
         additional_meta_data = [runtime_objects_list] + runtime_objects_for_coverage
 
-    if hasattr(cc_compilation_outputs, "gcno_files"):
-        gcno_files = cc_compilation_outputs.gcno_files()
-    else:
-        gcno_files = cc_compilation_outputs._gcno_files
-    if hasattr(cc_compilation_outputs, "pic_gcno_files"):
-        pic_gcno_files = cc_compilation_outputs.pic_gcno_files()
-    else:
-        pic_gcno_files = cc_compilation_outputs._pic_gcno_files
     instrumented_files_provider = cc_helper.create_cc_instrumented_files_info(
         ctx = ctx,
         cc_config = cpp_config,
         cc_toolchain = cc_toolchain,
-        metadata_files = additional_meta_data + gcno_files + pic_gcno_files,
+        metadata_files = additional_meta_data + cc_compilation_outputs._gcno_files + cc_compilation_outputs._pic_gcno_files,
         virtual_to_original_headers = compilation_context.virtual_to_original_headers(),
     )
     output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
@@ -313,14 +305,10 @@ def _create_transitive_linking_actions(
         if cc_linking_outputs != None and cc_linking_outputs.library_to_link != None:
             libraries_for_current_cc_linking_context.append(cc_linking_outputs.library_to_link)
     else:
-        if hasattr(cc_compilation_outputs, "lto_compilation_context"):
-            lto_compilation_context = cc_compilation_outputs.lto_compilation_context()
-        else:
-            lto_compilation_context = cc_compilation_outputs._lto_compilation_context
         cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(
             objects = depset(cc_compilation_outputs.objects),
             pic_objects = depset(cc_compilation_outputs.pic_objects),
-            lto_compilation_context = lto_compilation_context,
+            lto_compilation_context = cc_compilation_outputs._lto_compilation_context,
         )
 
     # Determine the libraries to link in.

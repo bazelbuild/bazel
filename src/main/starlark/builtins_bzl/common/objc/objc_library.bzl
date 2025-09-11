@@ -79,14 +79,6 @@ def _objc_library_impl(ctx):
 
     objc_provider = common_variables.objc_provider
 
-    if hasattr(compilation_outputs, "gcno_files"):
-        gcno_files = compilation_outputs.gcno_files()
-    else:
-        gcno_files = compilation_outputs._gcno_files
-    if hasattr(compilation_outputs, "pic_gcno_files"):
-        pic_gcno_files = compilation_outputs.pic_gcno_files()
-    else:
-        pic_gcno_files = compilation_outputs._pic_gcno_files
     instrumented_files_info = coverage_common.instrumented_files_info(
         ctx = ctx,
         source_attributes = ["srcs", "non_arc_srcs", "hdrs"],
@@ -97,7 +89,7 @@ def _objc_library_impl(ctx):
         # cc_toolchain.coverage_files and the coverage_support_files parameter of
         # coverage_common.instrumented_files_info(...)
         coverage_support_files = cc_toolchain._coverage_files if ctx.configuration.coverage_enabled else depset([]),
-        metadata_files = gcno_files + pic_gcno_files,
+        metadata_files = compilation_outputs._gcno_files + compilation_outputs._pic_gcno_files,
     )
 
     return [

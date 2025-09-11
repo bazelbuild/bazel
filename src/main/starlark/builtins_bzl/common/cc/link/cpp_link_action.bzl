@@ -152,7 +152,7 @@ def link_action(
     combined_object_artifacts = object_artifacts + linkstamp_object_artifacts
 
     output_library = None
-    lto_compilation_context = compilation_outputs.lto_compilation_context()
+    lto_compilation_context = compilation_outputs._lto_compilation_context
     if not link_type.executable:
         use_archiver = link_type.linker_or_archiver == USE_ARCHIVER
         output_library = struct(

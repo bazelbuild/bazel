@@ -359,7 +359,7 @@ def compile(
     if cpp_configuration.process_headers_in_dependencies():
         compilation_context = cc_internal.create_cc_compilation_context_with_extra_header_tokens(
             cc_compilation_context = public_compilation_context,
-            extra_header_tokens = compilation_outputs.header_tokens(),
+            extra_header_tokens = compilation_outputs._header_tokens,
         )
     else:
         compilation_context = public_compilation_context

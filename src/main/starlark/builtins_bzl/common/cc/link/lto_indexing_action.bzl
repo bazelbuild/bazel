@@ -162,7 +162,7 @@ def _lto_indexing_action(
     # Get the set of object files and libraries containing the correct
     # inputs for this link, depending on whether this is LTO indexing or
     # a native link.
-    lto_compilation_context = compilation_outputs.lto_compilation_context()
+    lto_compilation_context = compilation_outputs._lto_compilation_context
     object_file_inputs = [
         lto_compilation_context.get_minimized_bitcode_or_self(input)
         for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)

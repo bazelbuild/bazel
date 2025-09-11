@@ -241,17 +241,11 @@ def _build_output_groups_for_emitting_compile_providers(
     output_groups_builder["temp_files_INTERNAL_"] = compilation_outputs.temps()
     files_to_compile = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
     if process_hdrs:
-        if hasattr(compilation_outputs, "header_tokens"):
-            files_to_compile = files_to_compile + compilation_outputs.header_tokens()
-        else:
-            files_to_compile = files_to_compile + compilation_outputs._header_tokens
+        files_to_compile = files_to_compile + compilation_outputs._header_tokens
     files_to_compile = depset(files_to_compile)
     output_groups_builder["compilation_outputs"] = files_to_compile
     output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
-    if hasattr(compilation_outputs, "module_files"):
-        output_groups_builder["module_files"] = depset(compilation_outputs.module_files())
-    else:
-        output_groups_builder["module_files"] = depset(compilation_outputs._module_files)
+    output_groups_builder["module_files"] = depset(compilation_outputs._module_files)
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(

@@ -61,10 +61,10 @@ def _compilation_outputs(cc_launcher_info):
     return cc_launcher_info.compilation_outputs()
 
 def _compilation_outputs_gcno_files(compilation_outputs, *args, **kwargs):
-    return compilation_outputs.gcno_files(*args, **kwargs)
+    return compilation_outputs._gcno_files
 
 def _compilation_outputs_pic_gcno_files(compilation_outputs, *args, **kwargs):
-    return compilation_outputs.pic_gcno_files(*args, **kwargs)
+    return compilation_outputs._pic_gcno_files
 
 def _compile(*args, **kwargs):
     return cc_common.compile(*args, **kwargs)

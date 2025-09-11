@@ -102,8 +102,8 @@ def create_debug_context(compilation_outputs):
     """
     check_private_api()
     return CcDebugContextInfo(
-        files = depset(compilation_outputs.dwo_files()),
-        pic_files = depset(compilation_outputs.pic_dwo_files()),
+        files = depset(compilation_outputs._dwo_files),
+        pic_files = depset(compilation_outputs._pic_dwo_files),
     )
 
 def merge_debug_context(debug_contexts = []):

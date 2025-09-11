@@ -203,7 +203,7 @@ def create_cc_link_actions(
         # TODO(bazel-team): There is no practical difference in non-code inputs and additional linker
         # inputs in CppLinkActionBuilder. So these should be merged. Even before that happens, it's
         # totally fine for nonCodeLinkerInputs to contains precompiled libraries.
-        link_action_kwargs["non_code_inputs"] = list(compilation_outputs.header_tokens())
+        link_action_kwargs["non_code_inputs"] = list(compilation_outputs._header_tokens)
 
         # linkopts attribute is only passed when creating .so files
         link_action_kwargs["linkopts"] = linkopts
@@ -431,7 +431,7 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
     if not feature_configuration.is_enabled("thin_lto"):
         return all_lto_artifacts, allow_lto_indexing, thinlto_param_file, additional_object_files
 
-    lto_compilation_context = compilation_outputs.lto_compilation_context()
+    lto_compilation_context = compilation_outputs._lto_compilation_context
     has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs()
 
     # TODO(b/338618120): deduplicate prefer_static_lib, prefer_pic_libs computed in finalize_link_action as well
