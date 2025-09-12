@@ -100,6 +100,23 @@ static void LinkFile(const char *path) {
   }
 }
 
+// Creates a symlink from 'target' -> 'path'. If 'path' already existed then
+// unlink and try again.
+static void SymlinkFile(const char *target, const char *path) {
+  if (symlink(target, path) < 0) {
+    if (errno == EEXIST) {
+      // Try to remove the existing file first.
+      if (unlink(path) < 0) {
+        DIE("unlink %s", path);
+      }
+      if (symlink(target, path) == 0) {
+        return;
+      }
+    }
+    DIE("symlink %s", path);
+  }
+}
+
 // Recursively creates the file or directory specified in "path" and its parent
 // directories.
 // Return -1 on failure and sets errno to:
@@ -595,9 +612,7 @@ static void MountDev() {
       DIE("mount");
     }
   }
-  if (symlink("/proc/self/fd", "dev/fd") < 0) {
-    DIE("symlink");
-  }
+  SymlinkFile("/proc/self/fd", "dev/fd");
 }
 
 static void MountAllMounts() {
