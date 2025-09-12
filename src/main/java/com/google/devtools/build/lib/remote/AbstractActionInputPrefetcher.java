@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -40,9 +41,11 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
@@ -79,6 +82,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected final RemoteOutputChecker remoteOutputChecker;
 
   @Nullable private final ActionOutputDirectoryHelper outputDirectoryHelper;
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
 
   /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
   enum DirectoryState {
@@ -96,6 +100,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @VisibleForTesting
   public interface MetadataSupplier {
     FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;
+
+    @Nullable
+    default RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+      return null;
+    }
   }
 
   /**
@@ -219,13 +228,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
       @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
-      OutputPermissions outputPermissions) {
+      OutputPermissions outputPermissions,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputDirectoryHelper = outputDirectoryHelper;
     this.outputPermissions = outputPermissions;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
@@ -386,6 +397,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       if (input instanceof VirtualActionInput virtualActionInput) {
         prefetchVirtualActionInput(virtualActionInput);
         return immediateVoidFuture();
+      }
+      if (input instanceof Artifact artifact && artifact.isRunfilesTree()) {
+        var runfilesArtifactValue = metadataSupplier.getRunfilesMetadata(input);
+        return Futures.submit(
+            () -> {
+              runfilesTreeUpdater.updateRunfiles(
+                  ImmutableList.of(runfilesArtifactValue.getRunfilesTree()));
+              return null;
+            },
+            directExecutor());
       }
 
       Path inputPath =

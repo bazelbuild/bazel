@@ -641,7 +641,7 @@ public class BazelOutputService implements OutputService {
 
   @Override
   public void createSymlinkTree(
-      Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {
+      Supplier<Map<PathFragment, PathFragment>> symlinks, PathFragment symlinkTreeRoot) {
     throw new UnsupportedOperationException();
   }
 

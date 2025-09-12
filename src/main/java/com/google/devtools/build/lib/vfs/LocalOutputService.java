@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -104,7 +105,7 @@ public class LocalOutputService implements OutputService {
 
   @Override
   public void createSymlinkTree(
-      Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {
+      Supplier<Map<PathFragment, PathFragment>> symlinks, PathFragment symlinkTreeRoot) {
     throw new UnsupportedOperationException();
   }
 
