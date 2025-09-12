@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.rules.cpp.CcModule.actionConfigFromStarlark;
-import static com.google.devtools.build.lib.rules.cpp.CcModule.featureFromStarlark;
+import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.actionConfigFromStarlark;
+import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.featureFromStarlark;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableList;
@@ -73,7 +73,7 @@ public class CcToolchainConfigInfo {
             actual.getValue("_artifact_name_patterns_DO_NOT_USE"),
             StarlarkInfo.class,
             "_artifact_name_patterns")) {
-      CcModule.artifactNamePatternFromStarlark(
+      CcToolchainFeaturesLib.artifactNamePatternFromStarlark(
           artifactNamePattern, artifactNamePatternBuilder::addOverride);
     }
     return artifactNamePatternBuilder.build();
