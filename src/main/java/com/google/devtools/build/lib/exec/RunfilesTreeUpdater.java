@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -70,37 +71,39 @@ public class RunfilesTreeUpdater {
   /** Creates or updates input runfiles trees for a spawn. */
   public void updateRunfiles(Iterable<RunfilesTree> runfilesTrees)
       throws ExecException, IOException, InterruptedException {
-    for (RunfilesTree tree : runfilesTrees) {
-      PathFragment runfilesDir = tree.getExecPath();
-      if (tree.isBuildRunfileLinks()) {
-        continue;
-      }
-
-      var freshFuture = new CompletableFuture<Void>();
-      CompletableFuture<Void> priorFuture = updatedTrees.putIfAbsent(runfilesDir, freshFuture);
-
-      if (priorFuture == null) {
-        // We are the first attempt; update the runfiles tree and mark the future complete.
-        try {
-          updateRunfilesTree(tree);
-          freshFuture.complete(null);
-        } catch (Exception e) {
-          freshFuture.completeExceptionally(e);
-          throw e;
+    try (var s = Profiler.instance().profile("updateRunfiles")) {
+      for (RunfilesTree tree : runfilesTrees) {
+        PathFragment runfilesDir = tree.getExecPath();
+        if (tree.isBuildRunfileLinks()) {
+          continue;
         }
-      } else {
-        // There was a previous attempt; wait for it to complete.
-        try {
-          priorFuture.join();
-        } catch (CompletionException e) {
-          Throwable cause = e.getCause();
-          if (cause != null) {
-            Throwables.throwIfInstanceOf(cause, ExecException.class);
-            Throwables.throwIfInstanceOf(cause, IOException.class);
-            Throwables.throwIfInstanceOf(cause, InterruptedException.class);
-            Throwables.throwIfUnchecked(cause);
+
+        var freshFuture = new CompletableFuture<Void>();
+        CompletableFuture<Void> priorFuture = updatedTrees.putIfAbsent(runfilesDir, freshFuture);
+
+        if (priorFuture == null) {
+          // We are the first attempt; update the runfiles tree and mark the future complete.
+          try {
+            updateRunfilesTree(tree);
+            freshFuture.complete(null);
+          } catch (Exception e) {
+            freshFuture.completeExceptionally(e);
+            throw e;
           }
-          throw new AssertionError("Unexpected exception", e);
+        } else {
+          // There was a previous attempt; wait for it to complete.
+          try {
+            priorFuture.join();
+          } catch (CompletionException e) {
+            Throwable cause = e.getCause();
+            if (cause != null) {
+              Throwables.throwIfInstanceOf(cause, ExecException.class);
+              Throwables.throwIfInstanceOf(cause, IOException.class);
+              Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+              Throwables.throwIfUnchecked(cause);
+            }
+            throw new AssertionError("Unexpected exception", e);
+          }
         }
       }
     }
