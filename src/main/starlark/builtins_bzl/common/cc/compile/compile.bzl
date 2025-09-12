@@ -27,6 +27,7 @@ load(
     "should_create_per_object_debug_info",
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper", "dotd_files_enabled", "serialized_diagnostics_file_enabled")
+load(":common/cc/compile/cc_compilation_outputs.bzl", "create_compilation_outputs_internal")
 load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
 load(
     ":common/cc/compile/compile_build_variables.bzl",
@@ -354,7 +355,7 @@ def compile(
     compilation_outputs_dict["lto_compilation_context"] = cc_common_internal.create_lto_compilation_context(
         objects = compilation_outputs_dict["lto_compilation_context"],
     )
-    compilation_outputs = cc_internal.create_cc_compilation_outputs(**compilation_outputs_dict)
+    compilation_outputs = create_compilation_outputs_internal(**compilation_outputs_dict)
 
     if cpp_configuration.process_headers_in_dependencies():
         compilation_context = cc_internal.create_cc_compilation_context_with_extra_header_tokens(

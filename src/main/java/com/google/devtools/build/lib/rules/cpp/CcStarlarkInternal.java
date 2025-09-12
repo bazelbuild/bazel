@@ -422,11 +422,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         ImmutableSet.of());
   }
 
-  @StarlarkMethod(name = "empty_compilation_outputs", documented = false)
-  public CcCompilationOutputs getEmpty() {
-    return CcCompilationOutputs.EMPTY;
-  }
-
   static class WrappedStarlarkActionFactory extends StarlarkActionFactory {
     final LinkActionConstruction construction;
 
@@ -660,48 +655,24 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_cc_compilation_outputs",
+      name = "merge_lto_compilation_contexts",
       documented = false,
       parameters = {
-        @Param(name = "objects", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "pic_objects", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "temps", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "header_tokens", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "module_files", positional = false, named = true, defaultValue = "[]"),
-        @Param(
-            name = "lto_compilation_context",
-            positional = false,
-            named = true,
-            defaultValue = "None"),
-        @Param(name = "gcno_files", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "pic_gcno_files", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "dwo_files", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "pic_dwo_files", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "lto_compilation_contexts", positional = false, named = true),
       })
-  public CcCompilationOutputs createCcCompilationOutputs(
-      Sequence<?> objects,
-      Sequence<?> picObjects,
-      Sequence<?> temps,
-      Sequence<?> headerTokens,
-      Sequence<?> moduleFiles,
-      Object ltoCompilationContext,
-      Sequence<?> gcnoFiles,
-      Sequence<?> picGcnoFiles,
-      Sequence<?> dwoFiles,
-      Sequence<?> picDwoFiles)
+  public LtoCompilationContext mergeLtoCompilationContext(Sequence<?> ltoCompilationContexts)
       throws EvalException {
-    return CcCompilationOutputs.builder()
-        .addObjectFiles(Sequence.cast(objects, Artifact.class, "objects"))
-        .addPicObjectFiles(Sequence.cast(picObjects, Artifact.class, "pic_objects"))
-        .addTemps(Sequence.cast(temps, Artifact.class, "temps"))
-        .addHeaderTokenFiles(Sequence.cast(headerTokens, Artifact.class, "header_tokens"))
-        .addModuleFiles(Sequence.cast(moduleFiles, Artifact.class, "module_files"))
-        .addLtoCompilationContext(nullIfNone(ltoCompilationContext, LtoCompilationContext.class))
-        .addGcnoFiles(Sequence.cast(gcnoFiles, Artifact.class, "gcno_files"))
-        .addPicGcnoFiles(Sequence.cast(picGcnoFiles, Artifact.class, "pic_gcno_files"))
-        .addDwoFiles(Sequence.cast(dwoFiles, Artifact.class, "dwo_files"))
-        .addPicDwoFiles(Sequence.cast(picDwoFiles, Artifact.class, "pic_dwo_files"))
-        .build();
+    Sequence<LtoCompilationContext> ltoCompilationContextsSequence =
+        Sequence.cast(
+            ltoCompilationContexts, LtoCompilationContext.class, "lto_compilation_contexts");
+    if (ltoCompilationContextsSequence.isEmpty()) {
+      return LtoCompilationContext.EMPTY;
+    }
+    LtoCompilationContext.Builder builder = new LtoCompilationContext.Builder();
+    for (LtoCompilationContext context : ltoCompilationContextsSequence) {
+      builder.addAll(context);
+    }
+    return builder.build();
   }
 
   @StarlarkMethod(

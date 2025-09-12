@@ -5337,6 +5337,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   public void testCcOutputsMerging() throws Exception {
     setupCcOutputsTest();
     scratch.file(
@@ -5353,15 +5354,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         )
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
-    CcCompilationOutputs compilationOutputs =
-        (CcCompilationOutputs) getMyInfoFromTarget(target).getValue("compilation_outputs");
+    StarlarkInfo compilationOutputs =
+        (StarlarkInfo) getMyInfoFromTarget(target).getValue("compilation_outputs");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
+                targetConfig, compilationOutputs.getValue("pic_objects", Iterable.class)))
         .containsExactly("src foo/pic_object1.o", "src foo/pic_object2.o");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
+                targetConfig, compilationOutputs.getValue("objects", Iterable.class)))
         .containsExactly("src foo/object1.o", "src foo/object2.o");
   }
 

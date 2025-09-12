@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -59,13 +58,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.FormatMethod;
-import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -104,7 +101,6 @@ public abstract class CcModule
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,
-        CcCompilationOutputs,
         CppModuleMap> {
 
   public abstract CppSemantics getSemantics();
@@ -340,20 +336,6 @@ public abstract class CcModule
   }
 
   @Override
-  public CcCompilationOutputs mergeCcCompilationOutputsFromStarlark(
-      Sequence<?> compilationOutputs, // <CcCompilationOutputs>
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
-    for (CcCompilationOutputs ccCompilationOutputs :
-        Sequence.cast(compilationOutputs, CcCompilationOutputs.class, "compilation_outputs")) {
-      ccCompilationOutputsBuilder.merge(ccCompilationOutputs);
-    }
-    return ccCompilationOutputsBuilder.build();
-  }
-
-  @Override
   public CcCompilationContext mergeCompilationContexts(
       Sequence<?> compilationContexts,
       Sequence<?> nonExportedCompilationContexts,
@@ -502,17 +484,6 @@ public abstract class CcModule
     isCalledFromStarlarkCcCommon(thread);
     CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
     return ccToolchain.getLegacyCcFlagsMakeVariable();
-  }
-
-  /** Converts None, or a Sequence, or a Depset to a NestedSet. */
-  private static <T> NestedSet<T> convertToNestedSet(Object o, Class<T> type, String fieldName)
-      throws EvalException {
-    if (o == Starlark.UNBOUND || o == Starlark.NONE) {
-      return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
-    }
-    return o instanceof Depset
-        ? Depset.cast(o, type, fieldName)
-        : NestedSetBuilder.wrap(Order.COMPILE_ORDER, Sequence.cast(o, type, fieldName));
   }
 
   @FormatMethod
@@ -1112,6 +1083,9 @@ public abstract class CcModule
     checkPrivateStarlarkificationAllowlist(thread);
     Dict<Artifact, Tuple> objects =
         Dict.cast(objectsObject, Artifact.class, Tuple.class, "objects");
+    if (objects.isEmpty()) {
+      return LtoCompilationContext.EMPTY;
+    }
     LtoCompilationContext.Builder builder = new LtoCompilationContext.Builder();
     for (Artifact k : objects) {
       Tuple t = objects.get(k);
@@ -1131,73 +1105,6 @@ public abstract class CcModule
           k, (Artifact) minimizedBitcode, ImmutableList.copyOf((StarlarkList<String>) copts));
     }
     return builder.build();
-  }
-
-  @Override
-  public CcCompilationOutputs createCompilationOutputsFromStarlark(
-      Object objectsObject,
-      Object picObjectsObject,
-      Object ltoCompilationContextObject,
-      Object dwoObjectsObject,
-      Object picDwoObjectsObject,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
-    NestedSet<Artifact> objects = convertToNestedSet(objectsObject, Artifact.class, "objects");
-    validateExtensions(
-        "objects",
-        objects.toList(),
-        Link.OBJECT_FILETYPES,
-        Link.OBJECT_FILETYPES,
-        /* allowAnyTreeArtifacts= */ true);
-    LtoCompilationContext ltoCompilationContext =
-        convertFromNoneable(ltoCompilationContextObject, null);
-    NestedSet<Artifact> picObjects =
-        convertToNestedSet(picObjectsObject, Artifact.class, "pic_objects");
-    validateExtensions(
-        "pic_objects",
-        picObjects.toList(),
-        Link.OBJECT_FILETYPES,
-        Link.OBJECT_FILETYPES,
-        /* allowAnyTreeArtifacts= */ true);
-    ccCompilationOutputsBuilder.addObjectFiles(objects.toList());
-    ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
-    if (ltoCompilationContext != null) {
-      ccCompilationOutputsBuilder.addLtoCompilationContext(ltoCompilationContext);
-    }
-    NestedSet<Artifact> dwoObjects =
-        convertToNestedSet(dwoObjectsObject, Artifact.class, "dwo_objects");
-    for (Artifact dwoFile : dwoObjects.toList()) {
-      ccCompilationOutputsBuilder.addDwoFile(dwoFile);
-    }
-    NestedSet<Artifact> picDwoObjects =
-        convertToNestedSet(picDwoObjectsObject, Artifact.class, "pic_dwo_objects");
-    for (Artifact picDwoFile : picDwoObjects.toList()) {
-      ccCompilationOutputsBuilder.addPicDwoFile(picDwoFile);
-    }
-    return ccCompilationOutputsBuilder.build();
-  }
-
-  private static void validateExtensions(
-      String paramName,
-      List<Artifact> files,
-      FileTypeSet validFileTypeSet,
-      FileTypeSet fileTypeForErrorMessage,
-      boolean allowAnyTreeArtifacts)
-      throws EvalException {
-    for (Artifact file : files) {
-      if (allowAnyTreeArtifacts && file.isTreeArtifact()) {
-        continue;
-      }
-      if (!validFileTypeSet.matches(file.getFilename())) {
-        throw Starlark.errorf(
-            "'%s' has wrong extension. The list of possible extensions for '%s' is: %s",
-            file.getExecPathString(),
-            paramName,
-            Joiner.on(",").join(fileTypeForErrorMessage.getExtensions()));
-      }
-    }
   }
 
   @StarlarkMethod(

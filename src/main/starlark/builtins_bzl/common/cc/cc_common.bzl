@@ -21,6 +21,7 @@ load(
 load(":common/cc/cc_info.bzl", "CcNativeLibraryInfo", "create_debug_context", "create_linking_context", "merge_cc_infos", "merge_debug_context", "merge_linking_contexts")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS", "create_compilation_outputs", "merge_compilation_outputs")
 load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/compile/compile_build_variables.bzl", "create_compile_variables")
 load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "create_extra_link_time_library")
@@ -67,7 +68,7 @@ def _link(
         language = "c++",
         output_type = "executable",
         link_deps_statically = True,
-        compilation_outputs = _builtins.internal.cc_internal.empty_compilation_outputs(),
+        compilation_outputs = EMPTY_COMPILATION_OUTPUTS,
         linking_contexts = [],
         user_link_flags = [],
         stamp = 0,
@@ -163,26 +164,6 @@ def _link(
 def _create_lto_compilation_context(*, objects = {}):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.create_lto_compilation_context(objects = objects)
-
-def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compilation_context = _UNBOUND, dwo_objects = _UNBOUND, pic_dwo_objects = _UNBOUND):
-    if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if lto_compilation_context == _UNBOUND:
-        lto_compilation_context = None
-    if dwo_objects == _UNBOUND:
-        dwo_objects = depset()
-    if pic_dwo_objects == _UNBOUND:
-        pic_dwo_objects = depset()
-    return cc_common_internal.create_compilation_outputs(
-        objects = objects,
-        pic_objects = pic_objects,
-        lto_compilation_context = lto_compilation_context,
-        dwo_objects = dwo_objects,
-        pic_dwo_objects = pic_dwo_objects,
-    )
-
-def _merge_compilation_outputs(*, compilation_outputs = []):
-    return cc_common_internal.merge_compilation_outputs(compilation_outputs = compilation_outputs)
 
 def _get_tool_for_action(*, feature_configuration, action_name):
     return cc_common_internal.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
@@ -750,8 +731,8 @@ def _cc_toolchain_variables(*, vars):
 cc_common = struct(
     link = _link,
     create_lto_compilation_context = _create_lto_compilation_context,
-    create_compilation_outputs = _create_compilation_outputs,
-    merge_compilation_outputs = _merge_compilation_outputs,
+    create_compilation_outputs = create_compilation_outputs,
+    merge_compilation_outputs = merge_compilation_outputs,
     # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.
     # And also deprecate this public API.
     CcToolchainInfo = cc_common_internal.CcToolchainInfo,

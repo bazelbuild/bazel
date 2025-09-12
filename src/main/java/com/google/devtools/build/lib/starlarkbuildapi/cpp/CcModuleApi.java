@@ -54,7 +54,6 @@ public interface CcModuleApi<
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
 
@@ -731,7 +730,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "objects",
@@ -778,26 +776,25 @@ public interface CcModuleApi<
               @ParamType(type = Depset.class),
             }),
       })
-  CompilationOutputsT createCompilationOutputsFromStarlark(
+  default CcCompilationOutputsApi<FileT> createCompilationOutputsFromStarlark(
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCopmilationContextObject,
       Object dwoObjectsObject,
-      Object picDwoObjectsObject,
-      StarlarkThread thread)
-      throws EvalException;
+      Object picDwoObjectsObject) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "merge_compilation_outputs",
       doc = "Merge compilation outputs.",
       parameters = {
         @Param(name = "compilation_outputs", positional = false, named = true, defaultValue = "[]"),
-      },
-      useStarlarkThread = true)
-  CompilationOutputsT mergeCcCompilationOutputsFromStarlark(
-      Sequence<?> compilationOutputs, // <CompilationOutputsT> expected
-      StarlarkThread thread)
-      throws EvalException;
+      })
+  default CcCompilationOutputsApi<FileT> mergeCcCompilationOutputsFromStarlark(
+      Sequence<?> compilationOutputs) { // <CompilationOutputsT> expected
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "get_tool_for_action",
@@ -2106,7 +2103,7 @@ public interface CcModuleApi<
       String language,
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
-      CompilationOutputsT compilationOutputs,
+      CcCompilationOutputsApi<?> compilationOutputs,
       Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       boolean alwayslink,

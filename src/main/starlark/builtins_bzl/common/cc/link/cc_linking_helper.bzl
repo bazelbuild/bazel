@@ -22,6 +22,7 @@ load(
     _use_pic_for_binaries = "use_pic_for_binaries",
     _use_pic_for_dynamic_libs = "use_pic_for_dynamic_libs",
 )
+load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS")
 load(":common/cc/link/cpp_link_action.bzl", "link_action")
 load(":common/cc/link/create_library_to_link.bzl", "make_library_to_link")
 load(":common/cc/link/lto_indexing_action.bzl", "create_lto_artifacts_and_lto_indexing_action")
@@ -149,7 +150,7 @@ def create_cc_link_actions(
         fail("stamp value %d is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)" % stamp)
     stamping = False if cc_toolchain._is_tool_configuration else (stamp == 1 or (stamp == -1 and cc_toolchain._stamp_binaries))
     if not compilation_outputs:
-        compilation_outputs = cc_internal.empty_compilation_outputs()
+        compilation_outputs = EMPTY_COMPILATION_OUTPUTS
     linkopts = list(linkopts)
 
     cpp_config = cc_toolchain._cpp_configuration

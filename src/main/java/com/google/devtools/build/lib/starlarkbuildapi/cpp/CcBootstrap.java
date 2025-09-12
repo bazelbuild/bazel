@@ -48,7 +48,6 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcToolchainVariablesApi,
               ? extends ConstraintValueInfoApi,
               ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
-              ? extends CcCompilationOutputsApi<? extends FileApi>,
               ? extends CppModuleMapApi<? extends FileApi>>
           ccModule) {}
 
