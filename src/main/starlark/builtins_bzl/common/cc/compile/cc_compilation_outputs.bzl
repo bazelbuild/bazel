@@ -16,6 +16,7 @@ The CcCompilationOutputs provider.
 """
 
 load(":common/cc/cc_helper_internal.bzl", "wrap_with_check_private_api", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
+load(":common/cc/compile/lto_compilation_context.bzl", "EMPTY_LTO_COMPILATION_CONTEXT", "merge_lto_compilation_contexts")
 
 cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
@@ -70,7 +71,7 @@ def create_compilation_outputs_internal(
         A CcCompilationOutputsInfo provider.
     """
     if lto_compilation_context == None:
-        lto_compilation_context = _EMPTY_LTO_COMPILATION_CONTEXT
+        lto_compilation_context = EMPTY_LTO_COMPILATION_CONTEXT
     return CcCompilationOutputsInfo(
         objects = cc_internal.freeze(objects),
         pic_objects = cc_internal.freeze(pic_objects),
@@ -84,7 +85,6 @@ def create_compilation_outputs_internal(
         _pic_dwo_files = cc_internal.freeze(pic_dwo_files),
     )
 
-_EMPTY_LTO_COMPILATION_CONTEXT = cc_common_internal.create_lto_compilation_context(objects = {})
 EMPTY_COMPILATION_OUTPUTS = create_compilation_outputs_internal()
 
 def _validate_extensions(param_name, files, valid_extensions):
@@ -201,7 +201,7 @@ def merge_compilation_outputs(*, compilation_outputs):
     return CcCompilationOutputsInfo(
         objects = objects,
         pic_objects = pic_objects,
-        _lto_compilation_context = cc_internal.merge_lto_compilation_contexts(lto_compilation_contexts = lto_compilation_contexts),
+        _lto_compilation_context = merge_lto_compilation_contexts(lto_compilation_contexts = lto_compilation_contexts),
         _dwo_files = dwo_files,
         _pic_dwo_files = pic_dwo_files,
         _gcno_files = gcno_files,

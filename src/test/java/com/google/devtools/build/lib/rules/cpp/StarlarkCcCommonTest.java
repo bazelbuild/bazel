@@ -6350,13 +6350,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo fooInfo =
         (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
-    assertThat(ImmutableList.copyOf(fooLibrary.getLtoCompilationContext().getBitcodeFiles()))
+    assertThat(ImmutableList.copyOf(fooLibrary.getLtoCompilationContextBitcodeFiles()))
         .isEqualTo(fooInfo.getValue("lto_bitcode_files"));
-    assertThat(fooLibrary.getLtoCompilationContext().getBitcodeFiles()).isNotEmpty();
+    assertThat((Map<?, ?>) fooLibrary.getLtoCompilationContextBitcodeFiles()).isNotEmpty();
 
-    assertThat(ImmutableList.copyOf(fooLibrary.getPicLtoCompilationContext().getBitcodeFiles()))
+    assertThat(ImmutableList.copyOf(fooLibrary.getPicLtoCompilationContextBitcodeFiles()))
         .isEqualTo(fooInfo.getValue("pic_lto_bitcode_files"));
-    assertThat(fooLibrary.getPicLtoCompilationContext().getBitcodeFiles()).isNotEmpty();
+    assertThat((Map<?, ?>) fooLibrary.getPicLtoCompilationContextBitcodeFiles()).isNotEmpty();
   }
 
   @Test

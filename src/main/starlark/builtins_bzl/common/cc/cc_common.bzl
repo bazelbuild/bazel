@@ -24,6 +24,7 @@ load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS", "create_compilation_outputs", "merge_compilation_outputs")
 load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/compile/compile_build_variables.bzl", "create_compile_variables")
+load(":common/cc/compile/lto_compilation_context.bzl", "create_lto_compilation_context")
 load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "create_extra_link_time_library")
 load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
 load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
@@ -160,10 +161,6 @@ def _link(
         build_config = build_config,
         emit_interface_shared_library = emit_interface_shared_library,
     )
-
-def _create_lto_compilation_context(*, objects = {}):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.create_lto_compilation_context(objects = objects)
 
 def _get_tool_for_action(*, feature_configuration, action_name):
     return cc_common_internal.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
@@ -730,7 +727,7 @@ def _cc_toolchain_variables(*, vars):
 
 cc_common = struct(
     link = _link,
-    create_lto_compilation_context = _create_lto_compilation_context,
+    create_lto_compilation_context = create_lto_compilation_context,
     create_compilation_outputs = create_compilation_outputs,
     merge_compilation_outputs = merge_compilation_outputs,
     # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.

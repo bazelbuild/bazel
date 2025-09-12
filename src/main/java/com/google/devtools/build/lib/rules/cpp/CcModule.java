@@ -1076,37 +1076,6 @@ public abstract class CcModule
     }
   }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public LtoCompilationContext createLtoCompilationContextFromStarlark(
-      Object objectsObject, StarlarkThread thread) throws EvalException {
-    checkPrivateStarlarkificationAllowlist(thread);
-    Dict<Artifact, Tuple> objects =
-        Dict.cast(objectsObject, Artifact.class, Tuple.class, "objects");
-    if (objects.isEmpty()) {
-      return LtoCompilationContext.EMPTY;
-    }
-    LtoCompilationContext.Builder builder = new LtoCompilationContext.Builder();
-    for (Artifact k : objects) {
-      Tuple t = objects.get(k);
-      if (t.size() != 2) {
-        throw new EvalException(
-            "wrong length tuple for an (index_file, copts), want 2, got " + t.size());
-      }
-      Object minimizedBitcode = t.get(0) == Starlark.NONE ? null : t.get(0);
-      if (!(minimizedBitcode instanceof Artifact) && minimizedBitcode != null) {
-        throw new EvalException("expected Artifact for minimized bitcode, got something else");
-      }
-      Object copts = t.get(1);
-      if (!(copts instanceof StarlarkList)) {
-        throw new EvalException("expected list for copts, got something else");
-      }
-      builder.addBitcodeFile(
-          k, (Artifact) minimizedBitcode, ImmutableList.copyOf((StarlarkList<String>) copts));
-    }
-    return builder.build();
-  }
-
   @StarlarkMethod(
       name = "register_linkstamp_compile_action",
       documented = false,

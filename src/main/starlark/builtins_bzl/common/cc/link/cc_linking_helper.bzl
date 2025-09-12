@@ -433,7 +433,7 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
         return all_lto_artifacts, allow_lto_indexing, thinlto_param_file, additional_object_files
 
     lto_compilation_context = compilation_outputs._lto_compilation_context
-    has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs()
+    has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs
 
     # TODO(b/338618120): deduplicate prefer_static_lib, prefer_pic_libs computed in finalize_link_action as well
     prefer_static_libs = linking_mode == LINKING_MODE.STATIC or \
@@ -452,7 +452,7 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
         for lib in static_libraries_to_link:
             pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
             context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
-            if context and context.lto_bitcode_inputs():
+            if context and context.lto_bitcode_inputs:
                 has_lto_bitcode_inputs = True
                 break
 

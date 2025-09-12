@@ -16,12 +16,12 @@ The cc_common.create_library_to_link function.
 """
 
 load(":common/cc/cc_helper_internal.bzl", "is_versioned_shared_library")
+load(":common/cc/compile/lto_compilation_context.bzl", _EMPTY_LTO = "EMPTY_LTO_COMPILATION_CONTEXT")
 load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")
 load(":common/paths.bzl", "paths")
 
 cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
-_EMPTY_LTO = cc_common_internal.create_lto_compilation_context()
 
 _warning = """ Don't use this field. It's intended for internal use and will be changed or removed
     without warning."""
@@ -104,8 +104,8 @@ def make_library_to_link(
         pic_objects = cc_internal.freeze(pic_objects),
         alwayslink = alwayslink,
         # LTO data duplication is forced by public APIs
-        lto_bitcode_files = cc_internal.freeze(_lto_compilation_context.lto_bitcode_inputs().keys() if _lto_compilation_context else []),
-        pic_lto_bitcode_files = cc_internal.freeze(_pic_lto_compilation_context.lto_bitcode_inputs().keys() if _pic_lto_compilation_context else []),
+        lto_bitcode_files = cc_internal.freeze(_lto_compilation_context.lto_bitcode_inputs.keys() if _lto_compilation_context else []),
+        pic_lto_bitcode_files = cc_internal.freeze(_pic_lto_compilation_context.lto_bitcode_inputs.keys() if _pic_lto_compilation_context else []),
         _library_identifier = _library_identifier,
         _contains_objects = _contains_objects,
         _must_keep_debug = _must_keep_debug,

@@ -712,20 +712,18 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_lto_compilation_context",
       doc = "Create LTO compilation context",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "objects",
             doc = "map of full object to index object",
             positional = false,
             named = true,
-            defaultValue = "{}",
-            allowedTypes = {
-              @ParamType(type = Dict.class),
-            })
+            defaultValue = "{}")
       })
-  LtoCompilationContextApi createLtoCompilationContextFromStarlark(
-      Object objectsObject, StarlarkThread thread) throws EvalException;
+  default LtoCompilationContextApi createLtoCompilationContextFromStarlark(
+      Dict<?, ?> objectsObject) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_compilation_outputs",

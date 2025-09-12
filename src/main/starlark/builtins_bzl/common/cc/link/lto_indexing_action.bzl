@@ -13,6 +13,7 @@
 # limitations under the License.
 """Functions that create LTO indexing action."""
 
+load(":common/cc/compile/lto_compilation_context.bzl", "get_minimized_bitcode_or_self")
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
 load(":common/cc/link/link_build_variables.bzl", "setup_lto_indexing_variables")
 load(":common/cc/link/lto_backends.bzl", "create_lto_backends")
@@ -85,7 +86,7 @@ def create_lto_artifacts_and_lto_indexing_action(
         can_include_any_link_static_test_target_in_lto_indexing or not test_only_target
     )
     allow_lto_indexing = include_link_static_in_lto_indexing or (
-        linking_mode == LINKING_MODE.DYNAMIC and bool(lto_compilation_context.lto_bitcode_inputs())
+        linking_mode == LINKING_MODE.DYNAMIC and bool(lto_compilation_context.lto_bitcode_inputs)
     )
 
     lto_output_root_prefix = output.short_path + ".lto" if allow_lto_indexing else "shared.nonlto"
@@ -164,7 +165,7 @@ def _lto_indexing_action(
     # a native link.
     lto_compilation_context = compilation_outputs._lto_compilation_context
     object_file_inputs = [
-        lto_compilation_context.get_minimized_bitcode_or_self(input)
+        get_minimized_bitcode_or_self(lto_compilation_context, input)
         for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)
     ]
 
@@ -202,11 +203,11 @@ def _lto_indexing_action(
                     # must see all objects used to produce the final link output.
                     lto_mapping[a] = lto_artifacts.object_file()
                     continue
-                elif lib_lto_compilation_context.get_minimized_bitcode_or_self(a) != a:
+                elif get_minimized_bitcode_or_self(lib_lto_compilation_context, a) != a:
                     fail(("For artifact '%s' in library '%s': unexpectedly has a shared LTO artifact for " +
                           "bitcode") % (a, lib.file))
             if lib_lto_compilation_context:
-                lto_mapping[a] = lib_lto_compilation_context.get_minimized_bitcode_or_self(a)
+                lto_mapping[a] = get_minimized_bitcode_or_self(lib_lto_compilation_context, a)
 
     # Create artifact for the file that the LTO indexing step will emit
     # object file names into for any that were included in the link as

@@ -655,27 +655,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "merge_lto_compilation_contexts",
-      documented = false,
-      parameters = {
-        @Param(name = "lto_compilation_contexts", positional = false, named = true),
-      })
-  public LtoCompilationContext mergeLtoCompilationContext(Sequence<?> ltoCompilationContexts)
-      throws EvalException {
-    Sequence<LtoCompilationContext> ltoCompilationContextsSequence =
-        Sequence.cast(
-            ltoCompilationContexts, LtoCompilationContext.class, "lto_compilation_contexts");
-    if (ltoCompilationContextsSequence.isEmpty()) {
-      return LtoCompilationContext.EMPTY;
-    }
-    LtoCompilationContext.Builder builder = new LtoCompilationContext.Builder();
-    for (LtoCompilationContext context : ltoCompilationContextsSequence) {
-      builder.addAll(context);
-    }
-    return builder.build();
-  }
-
-  @StarlarkMethod(
       name = "compute_output_name_prefix_dir",
       documented = false,
       parameters = {

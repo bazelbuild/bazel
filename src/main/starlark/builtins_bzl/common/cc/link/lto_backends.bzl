@@ -46,7 +46,7 @@ def create_lto_backends(
         static_library_files.add(library_file)
         context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
         if context:
-            compiled.update(context.lto_bitcode_inputs().keys())
+            compiled.update(context.lto_bitcode_inputs.keys())
 
     all_bitcode = []
     # Since this link includes object files from another library, we know that library must be
@@ -65,7 +65,7 @@ def create_lto_backends(
                     all_bitcode.append(obj)
 
     for obj in object_file_inputs:
-        if obj in lto_compilation_context.lto_bitcode_inputs():
+        if obj in lto_compilation_context.lto_bitcode_inputs:
             all_bitcode.append(obj)
 
     if lto_output_root_prefix == lto_obj_root_prefix:
@@ -111,7 +111,7 @@ def create_lto_backends(
                 lto_outputs.append(shared_lto_backends[obj])
 
     for obj in object_file_inputs:
-        if obj not in lto_compilation_context.lto_bitcode_inputs():
+        if obj not in lto_compilation_context.lto_bitcode_inputs:
             continue
         backend_user_compile_flags = _backend_user_compile_flags(cpp_config, obj, lto_compilation_context)
         lto_outputs.append(cc_common_internal.create_lto_backend_artifacts(
@@ -132,7 +132,7 @@ def create_lto_backends(
 
 def _backend_user_compile_flags(cpp_config, obj, context):
     argv = []
-    lto_bitcode_files = context.lto_bitcode_inputs()
+    lto_bitcode_files = context.lto_bitcode_inputs
     if obj in lto_bitcode_files:
         argv.extend(lto_bitcode_files[obj].copts)
     argv.extend(cpp_config.lto_backend_options)
@@ -161,7 +161,7 @@ def create_shared_non_lto_artifacts(
 
     shared_non_lto_backends = {}
     for obj in object_file_inputs:
-        if obj not in lto_compilation_context.lto_bitcode_inputs():
+        if obj not in lto_compilation_context.lto_bitcode_inputs:
             continue
 
         backend_user_compile_flags = _backend_user_compile_flags(cpp_config, obj, lto_compilation_context)

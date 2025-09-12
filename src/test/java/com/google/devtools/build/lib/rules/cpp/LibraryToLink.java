@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 
@@ -117,17 +118,19 @@ public final class LibraryToLink {
   }
 
   @Nullable
-  public LtoCompilationContext getLtoCompilationContext() {
-    return value.getValue("_lto_compilation_context") instanceof LtoCompilationContext ctx
-        ? ctx
-        : null;
+  public Dict<?, ?> getLtoCompilationContextBitcodeFiles() throws EvalException {
+    if (value.getValue("_lto_compilation_context") instanceof StarlarkInfo ctx) {
+      return ctx.getValue("lto_bitcode_inputs", Dict.class);
+    }
+    return null;
   }
 
   @Nullable
-  public LtoCompilationContext getPicLtoCompilationContext() {
-    return value.getValue("_pic_lto_compilation_context") instanceof LtoCompilationContext ctx
-        ? ctx
-        : null;
+  public Dict<?, ?> getPicLtoCompilationContextBitcodeFiles() throws EvalException {
+    if (value.getValue("_pic_lto_compilation_context") instanceof StarlarkInfo ctx) {
+      return ctx.getValue("lto_bitcode_inputs", Dict.class);
+    }
+    return null;
   }
 
   public boolean getAlwayslink() {

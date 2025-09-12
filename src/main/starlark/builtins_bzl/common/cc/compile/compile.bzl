@@ -36,6 +36,7 @@ load(
     "get_specific_compile_build_variables",
     "setup_common_compile_build_variables",
 )
+load(":common/cc/compile/lto_compilation_context.bzl", "create_lto_compilation_context")
 load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
@@ -352,7 +353,7 @@ def compile(
         fdo_build_variables = fdo_build_variables,
     )
 
-    compilation_outputs_dict["lto_compilation_context"] = cc_common_internal.create_lto_compilation_context(
+    compilation_outputs_dict["lto_compilation_context"] = create_lto_compilation_context(
         objects = compilation_outputs_dict["lto_compilation_context"],
     )
     compilation_outputs = create_compilation_outputs_internal(**compilation_outputs_dict)
