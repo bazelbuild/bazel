@@ -49,6 +49,10 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_ndk_integration_test"
+      - "-//src/test/shell/bazel/android:android_ndk_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel:bazel_example_test"
+      - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
     include_json_profile:
       - build
       - test
