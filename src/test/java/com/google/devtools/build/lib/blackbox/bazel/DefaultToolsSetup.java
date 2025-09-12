@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -48,12 +50,37 @@ public class DefaultToolsSetup implements ToolsSetup {
       }
     }
 
-    if (OS.getCurrent() == OS.DARWIN) {
-      // Prefer ipv6 network on macOS
+    if (OS.getCurrent() == OS.DARWIN && hasIpv6DefaultRouteOnDarwin()) {
+      // Prefer IPv6 network on macOS only when an IPv6 default route exists.
       lines.add("startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true");
       lines.add("build --jvmopt=-Djava.net.preferIPv6Addresses");
     }
 
     context.write(".bazelrc", lines);
+  }
+
+  private static boolean hasIpv6DefaultRouteOnDarwin() {
+    if (OS.getCurrent() != OS.DARWIN) {
+      return false;
+    }
+    try {
+      Process p =
+          new ProcessBuilder("netstat", "-rn", "-f", "inet6")
+              .redirectErrorStream(true)
+              .start();
+      try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+        String line;
+        while ((line = r.readLine()) != null) {
+          if (line.trim().startsWith("default")) {
+            p.destroy();
+            return true;
+          }
+        }
+      }
+      p.waitFor();
+    } catch (Exception e) {
+      // netstat not found or failed; assume no IPv6 default route.
+    }
+    return false;
   }
 }

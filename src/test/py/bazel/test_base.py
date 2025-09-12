@@ -83,8 +83,8 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
-      if TestBase.IsDarwin():
-        # Prefer ipv6 network on macOS
+      if TestBase.IsDarwin() and TestBase._HasIPv6DefaultRoute():
+        # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
         f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
 
@@ -577,11 +577,14 @@ class TestBase(absltest.TestCase):
     env['TMP'] = self._temp
 
     if TestBase.IsDarwin():
-      # Make sure rules_jvm_external works in ipv6 only environment
-      # https://github.com/bazelbuild/rules_jvm_external?tab=readme-ov-file#ipv6-support
-      env['COURSIER_OPTS'] = TestBase.GetEnv(
-          'COURSIER_OPTS', '-Djava.net.preferIPv6Addresses=true'
-      )
+      # Make sure rules_jvm_external works in IPv6-only environments.
+      # Only set a default when an IPv6 default route exists. Preserve any
+      # user-provided COURSIER_OPTS value.
+      existing = os.environ.get('COURSIER_OPTS')
+      if existing is not None:
+        env['COURSIER_OPTS'] = existing
+      elif TestBase._HasIPv6DefaultRoute():
+        env['COURSIER_OPTS'] = '-Djava.net.preferIPv6Addresses=true'
 
     if env_remove:
       for e in env_remove:
@@ -591,6 +594,25 @@ class TestBase(absltest.TestCase):
       for e in env_add:
         env[e] = env_add[e]
     return env
+
+  @staticmethod
+  def _HasIPv6DefaultRoute():
+    if not TestBase.IsDarwin():
+      return False
+    try:
+      result = subprocess.run(
+          ['netstat', '-rn', '-f', 'inet6'],
+          capture_output=True,
+          text=True,
+          check=False,
+      )
+      if result.returncode == 0:
+        for line in result.stdout.splitlines():
+          if line.strip().startswith('default'):
+            return True
+    except Exception:
+      pass
+    return False
 
   @staticmethod
   def _CreateDirs(path):
