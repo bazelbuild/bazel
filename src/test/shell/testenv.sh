@@ -341,11 +341,22 @@ EOF
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
 
-  if is_darwin; then
+  if is_darwin && has_ipv6_default_route; then
     echo "Add flags to prefer ipv6 network"
     echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
     echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
   fi
+}
+
+# Returns 0 on macOS if an IPv6 default route is present according to netstat.
+function has_ipv6_default_route() {
+  if ! is_darwin; then
+    return 1
+  fi
+  if netstat -rn -f inet6 2>/dev/null | grep -q '^default'; then
+    return 0
+  fi
+  return 1
 }
 
 function enable_disk_cache() {
