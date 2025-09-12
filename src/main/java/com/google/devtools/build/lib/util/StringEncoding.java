@@ -91,7 +91,7 @@ public final class StringEncoding {
       Field compactStrings = String.class.getDeclaredField("COMPACT_STRINGS");
       compactStrings.setAccessible(true);
       Preconditions.checkState(
-          (boolean) compactStrings.get(null), "Bazel requires -XX:-CompactStrings");
+          (boolean) compactStrings.get(null), "Bazel requires -XX:+CompactStrings");
     } catch (NoSuchFieldException | IllegalAccessException e) {
       throw new IllegalStateException(e);
     }
