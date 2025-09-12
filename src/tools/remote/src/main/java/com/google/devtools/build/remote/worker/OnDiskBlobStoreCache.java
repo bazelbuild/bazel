@@ -16,10 +16,13 @@ package com.google.devtools.build.remote.worker;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -44,15 +47,24 @@ class OnDiskBlobStoreCache extends RemoteCache {
   public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
       throws IOException {
     super(
+        /* remoteCacheClient= */ null,
         new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
         options,
         digestUtil);
   }
 
+  @Override
+  public CacheCapabilities getRemoteCacheCapabilities() {
+    return CacheCapabilities.newBuilder()
+        .setActionCacheUpdateCapabilities(
+            ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+        .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+        .build();
+  }
+
   /** If the given blob exists, updates its mtime and returns true. Otherwise, returns false. */
   boolean refresh(Digest digest) throws IOException {
-    DiskCacheClient diskCache = (DiskCacheClient) cacheProtocol;
-    return diskCache.refresh(diskCache.toPath(digest, Store.CAS));
+    return diskCacheClient.refresh(diskCacheClient.toPath(digest, Store.CAS));
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")
@@ -101,6 +113,6 @@ class OnDiskBlobStoreCache extends RemoteCache {
   }
 
   public DiskCacheClient getDiskCacheClient() {
-    return (DiskCacheClient) cacheProtocol;
+    return checkNotNull(diskCacheClient);
   }
 }
