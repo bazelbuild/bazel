@@ -175,6 +175,9 @@ filegroup(
         "//src/conditions:linux_riscv64": [
             "@openjdk_linux_riscv64_vanilla//file",
         ],
+        "//src/conditions:linux_sw_64": [
+            "@openjdk_linux_sw_64_vanilla//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
         ],
