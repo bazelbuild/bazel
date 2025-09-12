@@ -64,8 +64,7 @@ final class ConfigExpander {
       OptionValueDescription enablePlatformSpecificConfigDescription,
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
       List<String> commandsToParse) {
-    if (enablePlatformSpecificConfigDescription == null
-        || !(boolean) enablePlatformSpecificConfigDescription.getValue()) {
+    if (!(boolean) enablePlatformSpecificConfigDescription.getValue()) {
       return false;
     }
 
@@ -133,6 +132,11 @@ final class ConfigExpander {
 
     OptionValueDescription enablePlatformSpecificConfigDescription =
         optionsParser.getOptionValueDescription("enable_platform_specific_config");
+    if (enablePlatformSpecificConfigDescription == null) {
+        optionsParser.parse("--enable_platform_specific_config=true");
+        enablePlatformSpecificConfigDescription =
+            optionsParser.getOptionValueDescription("enable_platform_specific_config");
+    }
     if (shouldEnablePlatformSpecificConfig(
         enablePlatformSpecificConfigDescription, commandToRcArgs, commandsToParse)) {
       var expansion =
