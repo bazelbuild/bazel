@@ -367,8 +367,7 @@ public abstract class CcModule
    */
   @Override
   public LtoBackendArtifacts createLtoBackendArtifacts(
-      Object starlarkRuleContextObj,
-      Object actionsObj,
+      StarlarkActionFactory actions,
       String ltoOutputRootPrefixString,
       String ltoObjRootPrefixString,
       Artifact bitcodeFile,
@@ -378,36 +377,18 @@ public abstract class CcModule
       StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
-      boolean createSharedNonLto,
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
     LinkActionConstruction actionConstruction;
-    // TODO(b/331164666): remove uses of `ctx`, cleanup uses of newActionConstruction
-    if (actionsObj instanceof StarlarkActionFactory actions) {
-      if (actions instanceof WrappedStarlarkActionFactory wrapped) {
-        actionConstruction = wrapped.construction;
-      } else {
-        actionConstruction = CppLinkActionBuilder.newActionConstruction(actions.getRuleContext());
-      }
-    } else if (starlarkRuleContextObj instanceof StarlarkRuleContext starlarkRuleContext) {
-      actionConstruction =
-          CppLinkActionBuilder.newActionConstruction(starlarkRuleContext.getRuleContext());
+    // TODO(b/331164666): cleanup uses of newActionConstruction
+    if (actions instanceof WrappedStarlarkActionFactory wrapped) {
+      actionConstruction = wrapped.construction;
     } else {
-      throw Starlark.errorf("'actions' parameter is mandatory ('ctx' deprecated).");
+      actionConstruction = CppLinkActionBuilder.newActionConstruction(actions.getRuleContext());
     }
-    // Depending on whether LTO indexing is allowed, generate an LTO backend
-    // that will be fed the results of the indexing step, or a dummy LTO backend
-    // that simply compiles the bitcode into native code without any index-based
-    // cross module optimization.
-    if (createSharedNonLto) {
-      actionConstruction =
-          new LinkActionConstruction(
-              actionConstruction.getContext(),
-              actionConstruction.getConfig(),
-              /* shareableArtifacts= */ true);
-    }
+
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
     PathFragment ltoObjRootPrefix = PathFragment.create(ltoObjRootPrefixString);
     CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);

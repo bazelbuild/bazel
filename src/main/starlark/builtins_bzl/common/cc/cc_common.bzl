@@ -603,7 +603,8 @@ def _compile(
 
 def _create_lto_backend_artifacts(
         *,
-        ctx,
+        ctx = None,
+        actions = None,
         lto_output_root_prefix,
         lto_obj_root_prefix,
         bitcode_file,
@@ -615,7 +616,7 @@ def _create_lto_backend_artifacts(
         argv):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.create_lto_backend_artifacts(
-        ctx = ctx,
+        actions = actions or ctx.actions,
         bitcode_file = bitcode_file,
         lto_output_root_prefix = lto_output_root_prefix,
         lto_obj_root_prefix = lto_obj_root_prefix,

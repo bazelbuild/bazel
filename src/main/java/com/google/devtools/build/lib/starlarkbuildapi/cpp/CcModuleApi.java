@@ -2120,18 +2120,7 @@ public interface CcModuleApi<
       documented = false,
       useStarlarkThread = true,
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "None"),
-        @Param(
-            name = "actions",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "None"),
+        @Param(name = "actions", positional = false, named = true, documented = false),
         @Param(
             name = "lto_output_root_prefix",
             positional = false,
@@ -2158,17 +2147,10 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             documented = false),
-        @Param(
-            name = "create_shared_non_lto",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "False"),
         @Param(name = "argv", positional = false, named = true, documented = false),
       })
   LtoBackendArtifactsT createLtoBackendArtifacts(
-      Object starlarkRuleContextObj,
-      Object actionsObj,
+      StarlarkActionFactoryT actions,
       String ltoOutputRootPrefixString,
       String ltoObjRootPrefixString,
       FileT bitcodeFile,
@@ -2178,7 +2160,6 @@ public interface CcModuleApi<
       StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
-      boolean createSharedNonLto,
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException;
