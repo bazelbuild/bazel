@@ -1,3 +1,17 @@
+## Release 9.0.0-pre.20250831.1 (2025-09-12)
+
+```
+Baseline: d1c7409e60fdc72de3705994917dbc24785039f3
+
+Cherry picks:
+
+   + 76dae3af442a2a206a89237cb7c143e7cd524f89:
+     Fix windows build with Bazel@HEAD for Rolling Release
+     release-9.0.0-pre.20250831.1rc1 (#26947)
+```
+
+This release contains contributions from many people at Google, as well as Carmen Chui.
+
 ## Release 8.4.1 (2025-09-11)
 
 ```
