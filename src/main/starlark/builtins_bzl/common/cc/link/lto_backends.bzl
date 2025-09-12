@@ -99,7 +99,6 @@ def create_lto_backends(
                     all_bitcode_files = all_bitcode_depset,
                     feature_configuration = feature_configuration,
                     cc_toolchain = cc_toolchain,
-                    fdo_context = cc_toolchain._fdo_context,  #TODO: remove
                     use_pic = use_pic,
                     should_create_per_object_debug_info = debug,
                     argv = backend_user_compile_flags,
@@ -128,7 +127,6 @@ def create_lto_backends(
             all_bitcode_files = all_bitcode_depset if allow_lto_indexing else None,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
-            fdo_context = cc_toolchain._fdo_context,  #TODO: remove
             use_pic = use_pic,
             should_create_per_object_debug_info = debug,
             argv = backend_user_compile_flags,
@@ -178,7 +176,6 @@ def create_shared_non_lto_artifacts(
             all_bitcode_files = None,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
-            fdo_context = cc_toolchain._fdo_context,  #TODO: remove
             use_pic = use_pic,
             should_create_per_object_debug_info = debug,
             argv = backend_user_compile_flags,

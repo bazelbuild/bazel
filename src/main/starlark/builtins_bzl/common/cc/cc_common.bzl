@@ -610,7 +610,7 @@ def _create_lto_backend_artifacts(
         bitcode_file,
         feature_configuration,
         cc_toolchain,
-        fdo_context,
+        fdo_context = None,  # buildifier: disable=unused-variable
         use_pic,
         should_create_per_object_debug_info,
         argv):
@@ -622,7 +622,6 @@ def _create_lto_backend_artifacts(
         lto_obj_root_prefix = lto_obj_root_prefix,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        fdo_context = fdo_context,
         use_pic = use_pic,
         should_create_per_object_debug_info = should_create_per_object_debug_info,
         argv = argv,

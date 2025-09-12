@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -2140,7 +2139,6 @@ public interface CcModuleApi<
             named = true,
             documented = false),
         @Param(name = "cc_toolchain", positional = false, named = true, documented = false),
-        @Param(name = "fdo_context", positional = false, named = true, documented = false),
         @Param(name = "use_pic", positional = false, named = true, documented = false),
         @Param(
             name = "should_create_per_object_debug_info",
@@ -2157,7 +2155,6 @@ public interface CcModuleApi<
       Object allBitcodeFilesObj,
       FeatureConfigurationT featureConfigurationForStarlark,
       Info ccToolchain,
-      StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,

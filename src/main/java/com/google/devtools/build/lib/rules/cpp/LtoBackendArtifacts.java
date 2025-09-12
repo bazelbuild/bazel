@@ -93,7 +93,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       LinkActionConstruction linkActionConstruction,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
       List<String> userCompileFlags)
@@ -118,7 +117,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         builder,
         buildVariablesBuilder,
         ccToolchain,
-        fdoContext,
         featureConfiguration,
         userCompileFlags);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
@@ -227,13 +225,13 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       LtoBackendAction.Builder builder,
       CcToolchainVariables.Builder buildVariablesBuilder,
       CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       List<String> userCompileFlags)
       throws EvalException {
     builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
     builder.setMnemonic("CcLtoBackendCompile");
-    addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
+    addProfileForLtoBackend(
+        builder, ccToolchain.getFdoContext(), featureConfiguration, buildVariablesBuilder);
     // Add the context sensitive instrument path to the backend.
     if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
       buildVariablesBuilder.addVariable(

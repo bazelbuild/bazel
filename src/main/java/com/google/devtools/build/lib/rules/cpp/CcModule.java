@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.WrappedStarlarkActionFactory;
@@ -374,7 +373,6 @@ public abstract class CcModule
       Object allBitcodeFilesObj,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Info ccToolchainInfo,
-      StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
@@ -404,7 +402,6 @@ public abstract class CcModule
             actionConstruction,
             featureConfigurationForStarlark.getFeatureConfiguration(),
             ccToolchain,
-            new FdoContext(fdoContextStruct),
             usePic,
             shouldCreatePerObjectDebugInfo,
             Sequence.cast(argv, String.class, "argv"));
