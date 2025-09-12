@@ -263,9 +263,9 @@ public class RemoteOutputChecker implements OutputChecker {
       case RUN -> true;
       case COVERAGE, TEST -> {
         // Do not download test binary in test/coverage mode.
-        if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
-          var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-          yield !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
+        if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget
+            && isTestRuleName(ruleConfiguredTarget.getRuleClassString())) {
+          yield false;
         }
         yield outputsMode != RemoteOutputsMode.MINIMAL;
       }
