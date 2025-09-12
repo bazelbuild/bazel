@@ -51,6 +51,9 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 5,
+    tags = [
+        "requires-network",  # for Bzlmod (rules_java)
+    ],
 )
 
 sh_test(

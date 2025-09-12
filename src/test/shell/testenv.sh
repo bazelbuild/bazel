@@ -342,9 +342,14 @@ EOF
   fi
 
   if is_darwin; then
-    echo "Add flags to prefer ipv6 network"
-    echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
-    echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
+    # Prefer IPv6 on macOS only when the host actually has an IPv6 default
+    # route. Unconditionally preferring IPv6 can cause "No route to host"
+    # errors on IPv4-only networks.
+    if netstat -rn -f inet6 2>/dev/null | grep -q '^default'; then
+      echo "Add flags to prefer ipv6 network"
+      echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
+      echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
+    fi
   fi
 }
 

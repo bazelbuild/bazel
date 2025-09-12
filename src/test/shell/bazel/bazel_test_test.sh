@@ -170,8 +170,8 @@ sh_test(
 )
 EOF
 
- # The next line ensures that the test passes in IPv6-only networks on macOS.
-  if is_darwin; then
+  # Prefer IPv6 only if the host actually has an IPv6 default route.
+  if is_darwin && netstat -rn -f inet6 2>/dev/null | grep -q '^default'; then
     export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
     export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
   else
@@ -815,8 +815,8 @@ exit 1
 EOF
   chmod +x true.sh flaky.sh false.sh
 
-  # The next line ensures that the test passes in IPv6-only networks on macOS.
-  if is_darwin; then
+  # Prefer IPv6 only if the host actually has an IPv6 default route.
+  if is_darwin && netstat -rn -f inet6 2>/dev/null | grep -q '^default'; then
     export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
     export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
   else
