@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
@@ -1095,7 +1096,8 @@ public final class RemoteModule extends BlazeModule {
               tempPathGenerator,
               remoteOutputChecker,
               env.getOutputDirectoryHelper(),
-              outputPermissions);
+              outputPermissions,
+              RunfilesTreeUpdater.forCommandEnvironment(env));
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
