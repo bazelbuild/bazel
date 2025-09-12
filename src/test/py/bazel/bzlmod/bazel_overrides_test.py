@@ -108,7 +108,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "aaa", version = "1.1")',
+            'bazel_dep(name = "aaa")',
             'bazel_dep(name = "bbb", version = "1.1")',
             # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
             'single_version_override(',
@@ -124,6 +124,26 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
+
+  def testSingleVersionOverrideVersionTooLow(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.1")',
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  version = "1.0",',
+            ')',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(['mod', 'deps'], allow_failure=True)
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "ERROR: module 'aaa' is overridden to use version '1.0', which is lower"
+        " than the version '1.1' requested by the root module",
+        stderr,
+    )
 
   def testRegistryOverride(self):
     self.writeMainProjectFiles()

@@ -505,6 +505,23 @@ public class ModuleFileFunction implements SkyFunction {
             .putAll(moduleOverrides)
             .putAll(commandOverrides)
             .buildKeepingLast();
+    for (var entry : overrides.entrySet()) {
+      var moduleName = entry.getKey();
+      if (!(entry.getValue() instanceof SingleVersionOverride svo)
+          || !module.getDeps().containsKey(moduleName)) {
+        continue;
+      }
+      var depVersion = module.getDeps().get(moduleName).version();
+      if (!depVersion.isEmpty() && svo.version().compareTo(depVersion) < 0) {
+        throw errorf(
+            Code.BAD_MODULE,
+            "module '%s' is overridden to use version '%s', which is lower than the version '%s' "
+                + "requested by the root module",
+            moduleName,
+            svo.version(),
+            depVersion);
+      }
+    }
 
     // Check that overrides don't contain the root module itself.
     ModuleOverride rootOverride = overrides.get(module.getName());
