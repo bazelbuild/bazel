@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -115,17 +117,10 @@ public final class Utils {
     } catch (CancellationException e) {
       throw new InterruptedException();
     } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      if (cause instanceof InterruptedException interruptedException) {
-        throw interruptedException;
-      }
-      if (cause instanceof IOException ioException) {
-        throw ioException;
-      }
-      if (cause instanceof RuntimeException runtimeException) {
-        throw runtimeException;
-      }
-      throw new IOException(cause);
+      throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throwIfInstanceOf(e.getCause(), IOException.class);
+      throwIfUnchecked(e.getCause());
+      throw new IOException(e.getCause());
     } catch (InterruptedException e) {
       if (cancelOnInterrupt) {
         f.cancel(true);
