@@ -74,9 +74,9 @@ public class RunfilesTreeUpdater {
     try (var s = Profiler.instance().profile("updateRunfiles")) {
       for (RunfilesTree tree : runfilesTrees) {
         PathFragment runfilesDir = tree.getExecPath();
-        if (tree.isBuildRunfileLinks()) {
-          continue;
-        }
+//        if (tree.isBuildRunfileLinks()) {
+//          continue;
+//        }
 
         var freshFuture = new CompletableFuture<Void>();
         CompletableFuture<Void> priorFuture = updatedTrees.putIfAbsent(runfilesDir, freshFuture);
