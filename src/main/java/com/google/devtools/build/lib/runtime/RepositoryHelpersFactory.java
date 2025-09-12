@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.runtime;
 import javax.annotation.Nullable;
 
 /** Factory for {@link RepositoryRemoteExecutor}. */
-public interface RepositoryRemoteExecutorFactory {
+public interface RepositoryHelpersFactory {
 
   /** Returns a new {@link RepositoryRemoteExecutor} or {@code null}. */
   @Nullable
-  RepositoryRemoteExecutor create();
+  RepositoryRemoteExecutor createExecutor();
+
+  /** Returns a new {@link RepoContentsCache} or {@code null}. */
+  @Nullable
+  RepoContentsCache createRepoContentsCache();
 }

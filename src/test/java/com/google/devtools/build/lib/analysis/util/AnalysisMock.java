@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
@@ -182,7 +182,7 @@ public abstract class AnalysisMock extends LoadingMock {
     return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
-            new RepositoryFetchFunction(ImmutableMap::of, directories, new RepoContentsCache()))
+            new RepositoryFetchFunction(ImmutableMap::of, directories, new LocalRepoContentsCache()))
         .put(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
