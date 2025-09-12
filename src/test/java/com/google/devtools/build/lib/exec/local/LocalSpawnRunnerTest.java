@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -89,7 +88,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 /** Unit tests for {@link LocalSpawnRunner}. */
 @RunWith(JUnit4.class)
@@ -110,8 +108,7 @@ public class LocalSpawnRunnerTest {
           resourceManager,
           localEnvProvider,
           /* binTools= */ null,
-          processWrapper,
-          Mockito.mock(RunfilesTreeUpdater.class));
+          processWrapper);
     }
 
     // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
@@ -615,8 +612,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             LocalEnvProvider.forCurrentOs(ImmutableMap.of()),
             /* binTools= */ null,
-            /* processWrapper= */ null,
-            Mockito.mock(RunfilesTreeUpdater.class));
+            /* processWrapper= */ null);
     FileOutErr fileOutErr =
         new FileOutErr(tempDir.getRelative("stdout"), tempDir.getRelative("stderr"));
 
@@ -881,8 +877,7 @@ public class LocalSpawnRunnerTest {
                 processWrapperPath.asFragment(),
                 ActionInputHelper.fromPath(processWrapperPath.asFragment()),
                 /* killDelay= */ Duration.ZERO,
-                /* gracefulSigterm= */ false),
-            Mockito.mock(RunfilesTreeUpdater.class));
+                /* gracefulSigterm= */ false));
 
     Spawn spawn =
         new SpawnBuilder(

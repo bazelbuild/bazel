@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -29,11 +31,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -134,6 +139,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -1165,6 +1171,33 @@ public final class RemoteModule extends BlazeModule {
         remoteOutputService.setLeaseService(leaseService);
         env.getEventBus().register(outputService);
       }
+    } else {
+      var runfilesTreeUpdater = RunfilesTreeUpdater.forCommandEnvironment(env);
+      builder.setActionInputPrefetcher(
+          (action, inputs, metadataProvider, priority, reason) -> {
+            var runfileTrees =
+                StreamSupport.stream(inputs.spliterator(), false)
+                    .filter(
+                        input -> input instanceof Artifact artifact && artifact.isRunfilesTree())
+                    .map(metadataProvider::getRunfilesMetadata)
+                    .map(RunfilesArtifactValue::getRunfilesTree)
+                    .collect(toImmutableList());
+            var virtualActionInputs =
+                StreamSupport.stream(inputs.spliterator(), false)
+                    .filter(input -> input instanceof VirtualActionInput)
+                    .map(input -> (VirtualActionInput) input)
+                    .collect(toImmutableList());
+            var execRoot = env.getExecRoot();
+            return Futures.submit(
+                () -> {
+                  runfilesTreeUpdater.updateRunfiles(runfileTrees);
+                  for (var virtualInput : virtualActionInputs) {
+                    virtualInput.atomicallyWriteRelativeTo(execRoot);
+                  }
+                  return null;
+                },
+                directExecutor());
+          });
     }
 
     builder.setActionExecutionSalt(computeActionExecutionSalt(remoteOptions));

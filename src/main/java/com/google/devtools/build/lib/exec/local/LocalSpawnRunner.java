@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
@@ -96,16 +95,13 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
 
-  private final RunfilesTreeUpdater runfilesTreeUpdater;
-
   public LocalSpawnRunner(
       Path execRoot,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
-      ProcessWrapper processWrapper,
-      RunfilesTreeUpdater runfilesTreeUpdater) {
+      ProcessWrapper processWrapper) {
     this.execRoot = execRoot;
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
@@ -113,7 +109,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     this.resourceManager = resourceManager;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
-    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   @Override
@@ -339,20 +334,6 @@ public class LocalSpawnRunner implements SpawnRunner {
 
       spawnMetrics.setInputFiles(spawn.getInputFiles().memoizedFlattenAndGetSize());
       Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
-      List<RunfilesTree> runfilesTrees = new ArrayList<>();
-
-      for (ActionInput input : spawn.getInputFiles().toList()) {
-        if (input instanceof VirtualActionInput virtualActionInput) {
-          virtualActionInput.atomicallyWriteRelativeTo(execRoot);
-        } else if ((input instanceof Artifact) && ((Artifact) input).isRunfilesTree()) {
-          runfilesTrees.add(
-              context.getInputMetadataProvider().getRunfilesMetadata(input).getRunfilesTree());
-        }
-      }
-
-      try (var s = Profiler.instance().profile("updateRunfiles")) {
-        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
-      }
 
       stepLog(INFO, "running locally");
       setState(State.LOCAL_ACTION_RUNNING);
