@@ -409,7 +409,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
       assertThat(checkInfo.getValue("output_target" + suffix))
           .isEqualTo("<output file target //test/starlark:output.txt>");
       assertThat(checkInfo.getValue("alias_target" + suffix))
-          .isEqualTo("<alias target //test/starlark:foobar of //test/starlark:foo>");
+          .isEqualTo("<target //test/starlark:foo>");
       assertThat(checkInfo.getValue("aspect_target" + suffix))
           .isEqualTo("<merged target //test/starlark:bar>");
     }

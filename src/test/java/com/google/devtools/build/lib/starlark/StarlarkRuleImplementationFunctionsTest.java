@@ -190,6 +190,13 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           tools = ['r1.txt'],
           outs = ['out.txt'],
         )
+        alias(name = 'alias_to_gl', actual = ':gl')
+        genrule(name = 'alias_gen',
+          cmd = 'dummy_cmd',
+          srcs = [":alias_to_gl"],
+          tools = ['t.exe'],
+          outs = ['f.txt'],
+        )
         """);
   }
 
@@ -2801,7 +2808,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   @Test
   public void testArgsMainRepoLabel() throws Exception {
-    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:alias_gen");
     setRuleContext(ruleContext);
     ev.exec(
         "actions = ruleContext.actions",
@@ -2811,6 +2818,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "a.append(actions.args().add('-flag', Label('//bar'), format = '_%s_'))",
         "a.append(actions.args().add_all(['foo', Label('//bar')]))",
         "a.append(actions.args().add_all(depset([Label('//foo'), Label('//bar')])))",
+        "a.append(actions.args().add(ruleContext.attr.srcs[0]))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2833,7 +2841,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "foo",
             "//bar:bar",
             "//foo:foo",
-            "//bar:bar")
+            "//bar:bar",
+            "//foo:alias_to_gl")
         .inOrder();
   }
 

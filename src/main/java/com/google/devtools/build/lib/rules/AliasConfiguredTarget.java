@@ -44,6 +44,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 
 /**
@@ -80,7 +81,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
       ConfiguredTarget actual,
       NestedSet<PackageGroupContents> visibility) {
     return createWithOverrides(
-        ruleContext, actual, visibility, /*overrides=*/ ImmutableClassToInstanceMap.of());
+        ruleContext, actual, visibility, /* overrides= */ ImmutableClassToInstanceMap.of());
   }
 
   /**
@@ -244,6 +245,13 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
 
   @Override
   public void repr(Printer printer) {
+    // Don't leak the fact that this is an alias or its alias label to Starlark so that a target is
+    // always safe to be replaced by an alias. debugPrint() safely reveals the alias information.
+    actual.repr(printer);
+  }
+
+  @Override
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append(
         "<alias target " + actionLookupKey.getLabel() + " of " + actual.getLabel() + ">");
   }
