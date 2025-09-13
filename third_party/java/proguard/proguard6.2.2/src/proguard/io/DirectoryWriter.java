@@ -106,13 +106,22 @@ public class DirectoryWriter implements DataEntryWriter
     /**
      * Returns the file for the given data entry.
      */
-    private File getFile(DataEntry dataEntry)
+    private File getFile(DataEntry dataEntry) throws IOException
     {
         // Use the specified file, or construct a new file.
-        return isFile ?
+        File file = isFile ?
             baseFile :
             new File(baseFile,
                      dataEntry.getName().replace(ClassConstants.PACKAGE_SEPARATOR,
                                                  File.separatorChar));
+
+        // Validate that the file path is within the base directory.
+        File canonicalBase = baseFile.getCanonicalFile();
+        File canonicalFile = file.getCanonicalFile();
+        if (!canonicalFile.toPath().startsWith(canonicalBase.toPath())) {
+            throw new IOException("Invalid entry: " + dataEntry.getName());
+        }
+
+        return file;
     }
 }
