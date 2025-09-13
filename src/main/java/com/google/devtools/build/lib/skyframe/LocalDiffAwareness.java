@@ -108,7 +108,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
           Path.of(StringEncoding.internalToPlatform(resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
-        return new MacOSXFsEventsDiffAwareness(watchRoot);
+        return new MacOSXFsEventsDiffAwareness(watchRoot, ignoredPaths);
       }
 
       return new WatchServiceDiffAwareness(watchRoot, ignoredPaths);

@@ -46,6 +46,24 @@ struct JNIEventsDiffAwareness {
   ~JNIEventsDiffAwareness() { pthread_mutex_destroy(&mutex); }
 };
 
+// Create a CFArrayRef of CFStringRef from a Java array of UTF-8 byte strings.
+CFArrayRef CreateCFArrayFromJavaArray(JNIEnv *env, jobjectArray paths) {
+  jsize length = env->GetArrayLength(paths);
+  auto *pathsArray = new CFStringRef[length];
+  for (int i = 0; i < length; i++) {
+    auto path = (jbyteArray)env->GetObjectArrayElement(paths, i);
+    jbyte *pathBytes = env->GetByteArrayElements(path, nullptr);
+    jsize pathLength = env->GetArrayLength(path);
+    pathsArray[i] = CFStringCreateWithBytes(
+        nullptr, (UInt8 *)pathBytes, pathLength, kCFStringEncodingUTF8, false);
+    env->ReleaseByteArrayElements(path, pathBytes, JNI_ABORT);
+  }
+  CFArrayRef result =
+      CFArrayCreate(nullptr, (const void **)pathsArray, length, nullptr);
+  delete[] pathsArray;
+  return result;
+}
+
 // Callback called when an event is reported by the FSEvents API
 void FsEventsDiffAwarenessCallback(ConstFSEventStreamRef streamRef,
                                    void *clientCallBackInfo, size_t numEvents,
@@ -65,7 +83,7 @@ void FsEventsDiffAwarenessCallback(ConstFSEventStreamRef streamRef,
       info->everything_changed = true;
       break;
     } else if ((eventFlags[i] & kFSEventStreamEventFlagItemIsDir) != 0 &&
-        (eventFlags[i] & kFSEventStreamEventFlagItemRenamed) != 0) {
+               (eventFlags[i] & kFSEventStreamEventFlagItemRenamed) != 0) {
       // A directory was renamed. When this happens, fsevents may or may not
       // give us individual events about which files changed underneath, which
       // means we have to rescan the directories in order to know what changed.
@@ -87,9 +105,9 @@ void FsEventsDiffAwarenessCallback(ConstFSEventStreamRef streamRef,
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_create(
     JNIEnv *env, jobject fsEventsDiffAwareness, jobjectArray paths,
-    jdouble latency) {
+    jobjectArray excludedPaths, jdouble latency) {
   // Create a FSEventStreamContext to pass around (env, fsEventsDiffAwareness)
-  JNIEventsDiffAwareness *info = new JNIEventsDiffAwareness();
+  auto *info = new JNIEventsDiffAwareness();
 
   FSEventStreamContext context;
   context.version = 0;
@@ -98,25 +116,13 @@ Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_create(
   context.release = nullptr;
   context.copyDescription = nullptr;
 
-  // Create a CFArrayRef of CFStringRef from the Java array of UTF-8 byte
-  // strings.
-  jsize length = env->GetArrayLength(paths);
-  CFStringRef *pathsArray = new CFStringRef[length];
-  for (int i = 0; i < length; i++) {
-    jbyteArray path = (jbyteArray)env->GetObjectArrayElement(paths, i);
-    jbyte *pathBytes = env->GetByteArrayElements(path, nullptr);
-    jsize pathLength = env->GetArrayLength(path);
-    pathsArray[i] = CFStringCreateWithBytes(
-        nullptr, (UInt8 *)pathBytes, pathLength, kCFStringEncodingUTF8, false);
-    env->ReleaseByteArrayElements(path, pathBytes, JNI_ABORT);
-  }
-  CFArrayRef pathsToWatch =
-      CFArrayCreate(nullptr, (const void **)pathsArray, length, nullptr);
-  delete[] pathsArray;
+  CFArrayRef pathsToWatch = CreateCFArrayFromJavaArray(env, paths);
   info->stream = FSEventStreamCreate(
       nullptr, &FsEventsDiffAwarenessCallback, &context, pathsToWatch,
       kFSEventStreamEventIdSinceNow, static_cast<CFAbsoluteTime>(latency),
       kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagFileEvents);
+  FSEventStreamSetExclusionPaths(info->stream,
+                                 CreateCFArrayFromJavaArray(env, excludedPaths));
 
   // Save the info pointer to FSEventsDiffAwareness#nativePointer
   jbyteArray array = env->NewByteArray(sizeof(info));
@@ -134,7 +140,7 @@ JNIEventsDiffAwareness *GetInfo(JNIEnv *env, jobject fsEventsDiffAwareness) {
   return reinterpret_cast<JNIEventsDiffAwareness *>(field);
 }
 
-}  // namespace
+} // namespace
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_run(

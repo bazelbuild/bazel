@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -80,7 +81,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   @Before
   public void setUp() throws Exception {
     watchedPath = com.google.common.io.Files.createTempDir().getCanonicalFile().toPath();
-    underTest = new MacOSXFsEventsDiffAwareness(watchedPath);
+    underTest = new MacOSXFsEventsDiffAwareness(watchedPath, IgnoredSubdirectories.EMPTY);
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
     watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
