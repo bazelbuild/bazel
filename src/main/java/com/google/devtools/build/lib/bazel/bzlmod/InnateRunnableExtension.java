@@ -161,7 +161,8 @@ final class InnateRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException {
     Object exported = loadedBzl.getModule().getGlobal(ruleName);
     if (exported == null) {
@@ -214,7 +215,7 @@ final class InnateRunnableExtension implements RunnableExtension {
         ImmutableSortedMap.of(),
         ImmutableSortedMap.of(),
         generatedRepoSpecs.buildOrThrow(),
-        Optional.of(ModuleExtensionMetadata.REPRODUCIBLE),
+        ModuleExtensionMetadata.REPRODUCIBLE,
         ImmutableTable.of());
   }
 }

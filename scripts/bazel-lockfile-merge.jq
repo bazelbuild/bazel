@@ -42,9 +42,17 @@ def shallow_merge(f):
         # shallowly merged factors map, then shallowly merge the results.
         moduleExtensions:  (map(.moduleExtensions | to_entries)
                            | flatten
-                           | group_by(.key)
-                           | shallow_merge({(.[0].key): shallow_merge(.value)}))
+                           | if length > 0 then group_by(.key) | shallow_merge({(.[0].key): shallow_merge(.value)}) else {} end),
+        # Group facts by extension ID across all lockfiles with shallowly
+        # merged top-level keys, then shallowly merge the results. Handle the
+        # case where some lockfiles do not have a facts key.
+        facts: (if any(has("facts")) then
+                  map(.facts // {} | to_entries) | flatten |
+                  if length > 0 then group_by(.key) | shallow_merge({(.[0].key): shallow_merge(.value)}) else {} end
+                else null end),
     }
+    # Filter out null values for missing top-level keys such as facts.
+    | with_entries(select(.value != null))
 )? //
     # We get here if the lockfiles with the highest lockFileVersion could not be
     # processed, for example because all lockfiles have lockFileVersion < 10.
