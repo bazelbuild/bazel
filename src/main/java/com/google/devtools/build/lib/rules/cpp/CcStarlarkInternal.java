@@ -585,10 +585,11 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_compile_action_template",
+      name = "create_cpp_compile_action_template",
       documented = false,
       parameters = {
         @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(name = "cc_compilation_context", positional = false, named = true),
         @Param(name = "cc_toolchain", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
         @Param(
@@ -598,27 +599,42 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "compile_build_variables", positional = false, named = true),
         @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "source", positional = false, named = true),
-        @Param(name = "cpp_compile_action_builder", positional = false, named = true),
+        @Param(
+            name = "additional_compilation_inputs",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_include_scanning_roots",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
         @Param(name = "output_categories", positional = false, named = true),
         @Param(name = "output_files", positional = false, named = true),
         @Param(name = "dotd_tree_artifact", positional = false, named = true),
         @Param(name = "diagnostics_tree_artifact", positional = false, named = true),
         @Param(name = "lto_indexing_tree_artifact", positional = false, named = true),
+        @Param(name = "copts_filter", positional = false, named = true),
       })
-  public void createCompileActionTemplate(
+  public void createCppCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
+      CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
       CppSource source,
-      CppCompileActionBuilder builder,
+      Sequence<?> additionalCompilationInputs,
+      Sequence<?> additionalIncludeScanningRoots,
+      boolean usePic,
       Sequence<?> outputCategoriesUnchecked,
       SpecialArtifact outputFiles,
       Object dotdTreeArtifact,
       Object diagnosticsTreeArtifact,
-      Object ltoIndexingTreeArtifact)
+      Object ltoIndexingTreeArtifact,
+      CoptsFilter coptsFilter)
       throws RuleErrorException, EvalException {
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
@@ -638,6 +654,25 @@ public class CcStarlarkInternal implements StarlarkValue {
                 outputCategoryObject));
       }
     }
+    CppCompileActionBuilder builder =
+        createCppCompileActionBuilder(
+            starlarkRuleContext,
+            ccCompilationContext,
+            ccToolchain,
+            configuration,
+            coptsFilter,
+            featureConfigurationForStarlark,
+            semantics,
+            source.getSource(),
+            additionalCompilationInputs,
+            additionalIncludeScanningRoots,
+            outputFiles,
+            dotdTreeArtifact,
+            diagnosticsTreeArtifact,
+            /* gcnoFile= */ null,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            usePic);
     CcStaticCompilationHelper.createCompileActionTemplate(
         starlarkRuleContext.getRuleContext(),
         CcToolchainProvider.create(ccToolchain),

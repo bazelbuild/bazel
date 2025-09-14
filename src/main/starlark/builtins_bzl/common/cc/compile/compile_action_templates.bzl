@@ -82,20 +82,6 @@ def create_compile_action_templates(
             output_name,
             generate_pic_action,
         )
-        cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
-            action_construction_context = action_construction_context,
-            cc_compilation_context = cc_compilation_context,
-            cc_toolchain = cc_toolchain,
-            configuration = configuration,
-            copts_filter = copts_filter,
-            feature_configuration = feature_configuration,
-            semantics = native_cc_semantics,
-            source_artifact = source_artifact,
-            additional_compilation_inputs = additional_compilation_inputs,
-            additional_include_scanning_roots = additional_include_scanning_roots,
-            use_pic = generate_pic_action,
-            output_file = header_token_file,
-        )
         specific_compile_build_variables = get_specific_compile_build_variables(
             feature_configuration,
             use_pic = generate_pic_action,
@@ -123,18 +109,22 @@ def create_compile_action_templates(
         )
         if bitcode_output:
             outputs["lto_compilation_context"][header_token_file] = (lto_index_tree_artifact, all_copts)
-        _cc_internal.create_compile_action_template(
+        _cc_internal.create_cpp_compile_action_template(
             action_construction_context = action_construction_context,
+            cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
             configuration = configuration,
             feature_configuration = feature_configuration,
+            copts_filter = copts_filter,
             compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
                 common_compile_build_variables,
                 specific_compile_build_variables,
             ),
             cpp_semantics = native_cc_semantics,
             source = cpp_source,
-            cpp_compile_action_builder = cpp_compile_action_builder,
+            additional_compilation_inputs = additional_compilation_inputs,
+            additional_include_scanning_roots = additional_include_scanning_roots,
+            use_pic = generate_pic_action,
             output_categories = [artifact_category.GENERATED_HEADER, artifact_category.PROCESSED_HEADER],
             output_files = header_token_file,
             dotd_tree_artifact = dotd_tree_artifact,
@@ -149,20 +139,6 @@ def create_compile_action_templates(
                 label,
                 output_name,
                 generate_pic_action = False,
-            )
-            cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
-                action_construction_context = action_construction_context,
-                cc_compilation_context = cc_compilation_context,
-                cc_toolchain = cc_toolchain,
-                configuration = configuration,
-                copts_filter = copts_filter,
-                feature_configuration = feature_configuration,
-                semantics = native_cc_semantics,
-                source_artifact = source_artifact,
-                additional_compilation_inputs = additional_compilation_inputs,
-                additional_include_scanning_roots = additional_include_scanning_roots,
-                use_pic = False,
-                output_file = object_file,
             )
             specific_compile_build_variables = get_specific_compile_build_variables(
                 feature_configuration,
@@ -191,18 +167,22 @@ def create_compile_action_templates(
             )
             if feature_configuration.is_enabled("thin_lto"):
                 outputs["lto_compilation_context"][object_file] = (lto_index_tree_artifact, all_copts)
-            _cc_internal.create_compile_action_template(
+            _cc_internal.create_cpp_compile_action_template(
                 action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
                 configuration = configuration,
                 feature_configuration = feature_configuration,
+                copts_filter = copts_filter,
                 compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
                     common_compile_build_variables,
                     specific_compile_build_variables,
                 ),
                 cpp_semantics = native_cc_semantics,
                 source = cpp_source,
-                cpp_compile_action_builder = cpp_compile_action_builder,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
+                use_pic = False,
                 output_categories = [artifact_category.OBJECT_FILE],
                 output_files = object_file,
                 dotd_tree_artifact = dotd_tree_artifact,
@@ -216,20 +196,6 @@ def create_compile_action_templates(
                 label,
                 output_name,
                 generate_pic_action = True,
-            )
-            cpp_compile_action_builder = _cc_internal.create_cpp_compile_action_builder(
-                action_construction_context = action_construction_context,
-                cc_compilation_context = cc_compilation_context,
-                cc_toolchain = cc_toolchain,
-                configuration = configuration,
-                copts_filter = copts_filter,
-                feature_configuration = feature_configuration,
-                semantics = native_cc_semantics,
-                source_artifact = source_artifact,
-                additional_compilation_inputs = additional_compilation_inputs,
-                additional_include_scanning_roots = additional_include_scanning_roots,
-                use_pic = True,
-                output_file = pic_object_file,
             )
             specific_compile_build_variables = get_specific_compile_build_variables(
                 feature_configuration,
@@ -258,18 +224,22 @@ def create_compile_action_templates(
             )
             if feature_configuration.is_enabled("thin_lto"):
                 outputs["lto_compilation_context"][pic_object_file] = (lto_index_tree_artifact, all_copts)
-            _cc_internal.create_compile_action_template(
+            _cc_internal.create_cpp_compile_action_template(
                 action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
                 configuration = configuration,
                 feature_configuration = feature_configuration,
+                copts_filter = copts_filter,
                 compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
                     common_compile_build_variables,
                     specific_compile_build_variables,
                 ),
                 cpp_semantics = native_cc_semantics,
                 source = cpp_source,
-                cpp_compile_action_builder = cpp_compile_action_builder,
+                additional_compilation_inputs = additional_compilation_inputs,
+                additional_include_scanning_roots = additional_include_scanning_roots,
+                use_pic = True,
                 output_categories = [artifact_category.PIC_OBJECT_FILE],
                 output_files = pic_object_file,
                 dotd_tree_artifact = dotd_tree_artifact,
