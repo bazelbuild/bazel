@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -103,8 +101,6 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
   @Test
   public void changedFile_detectsChange() throws Exception {
-    // TODO(b/238606809): Understand why these tests are flaky on Mac. Probably real watchfs bug?
-    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");
@@ -117,10 +113,6 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
   @Test
   public void changedIgnoredFile_ignoresChange() throws Exception {
-    // MacOSXFsEventsDiffAwareness doesn't currently support not registering
-    // watches for ignored paths.
-    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
-
     String notIgnoredFilePath = "foo/BUILD";
     String ignoredFilePath = "foo/ignored-dir/BUILD";
 
@@ -169,8 +161,6 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
   @Test
   public void changedFile_statFails_throwsError() throws Exception {
-    // TODO(b/238606809): Understand why these tests are flaky on Mac. Probably real watchfs bug?
-    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");

@@ -183,7 +183,6 @@ java_test(
 
 java_test(
     name = "LocalDiffAwarenessIntegrationTest",
-    timeout = "short",
     srcs = ["LocalDiffAwarenessIntegrationTest.java"],
     # TODO(pcloudy): Even with --experimental_windows_watchfs, there's an extra
     #  getValues() on the second build in
@@ -196,7 +195,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -2089,6 +2087,7 @@ java_test(
         "no-windows",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
