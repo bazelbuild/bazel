@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -673,20 +675,33 @@ public class CcStarlarkInternal implements StarlarkValue {
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             usePic);
-    CcStaticCompilationHelper.createCompileActionTemplate(
-        starlarkRuleContext.getRuleContext(),
-        CcToolchainProvider.create(ccToolchain),
-        configuration,
-        featureConfigurationForStarlark.getFeatureConfiguration(),
-        compileBuildVariables,
-        semantics,
-        source,
-        builder,
-        outputCategories.build(),
-        outputFiles,
-        CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class),
-        CcModule.nullIfNone(diagnosticsTreeArtifact, SpecialArtifact.class),
-        CcModule.nullIfNone(ltoIndexingTreeArtifact, SpecialArtifact.class));
+    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+    FeatureConfiguration featureConfiguration =
+        featureConfigurationForStarlark.getFeatureConfiguration();
+    SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
+    builder.setVariables(compileBuildVariables);
+    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+
+    ActionOwner actionOwner = null;
+    if (ruleContext.useAutoExecGroups()) {
+      actionOwner = ruleContext.getActionOwner(semantics.getCppToolchainType().toString());
+    }
+    try {
+      CppCompileActionTemplate actionTemplate =
+          new CppCompileActionTemplate(
+              sourceArtifact,
+              outputFiles,
+              CcModule.nullIfNone(dotdTreeArtifact, SpecialArtifact.class),
+              CcModule.nullIfNone(diagnosticsTreeArtifact, SpecialArtifact.class),
+              CcModule.nullIfNone(ltoIndexingTreeArtifact, SpecialArtifact.class),
+              builder,
+              CcToolchainProvider.create(ccToolchain),
+              outputCategories.build(),
+              actionOwner == null ? ruleContext.getActionOwner() : actionOwner);
+      ruleContext.registerAction(actionTemplate);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
   }
 
   @StarlarkMethod(

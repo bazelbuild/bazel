@@ -15,19 +15,10 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that
@@ -41,51 +32,6 @@ import net.starlark.java.eval.EvalException;
 public final class CcStaticCompilationHelper {
 
   private CcStaticCompilationHelper() {}
-
-  // Methods creating actions:
-
-  static void createCompileActionTemplate(
-      ActionConstructionContext actionConstructionContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainVariables compileBuildVariables,
-      CppSemantics semantics,
-      CppSource source,
-      CppCompileActionBuilder builder,
-      ImmutableList<ArtifactCategory> outputCategories,
-      SpecialArtifact outputFiles,
-      SpecialArtifact dotdTreeArtifact,
-      SpecialArtifact diagnosticsTreeArtifact,
-      @Nullable SpecialArtifact ltoIndexTreeArtifact)
-      throws RuleErrorException, EvalException {
-    SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
-    builder.setVariables(compileBuildVariables);
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-
-    ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext ruleContext
-        && ruleContext.useAutoExecGroups()) {
-      actionOwner =
-          actionConstructionContext.getActionOwner(semantics.getCppToolchainType().toString());
-    }
-    try {
-      CppCompileActionTemplate actionTemplate =
-          new CppCompileActionTemplate(
-              sourceArtifact,
-              outputFiles,
-              dotdTreeArtifact,
-              diagnosticsTreeArtifact,
-              ltoIndexTreeArtifact,
-              builder,
-              ccToolchain,
-              outputCategories,
-              actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
-      actionConstructionContext.registerAction(actionTemplate);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
-  }
 
   // Helper methods used when creating actions:
 
