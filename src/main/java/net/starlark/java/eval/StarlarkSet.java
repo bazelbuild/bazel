@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.AbstractSet;
@@ -40,7 +41,7 @@ import net.starlark.java.types.Types;
     category = "core",
     doc =
 """
-The built-in set type. A set is a mutable, iterable collection of unique values &ndash; the set's
+The built-in set type. A set is a mutable collection of unique values &ndash; the set's
 <em>elements</em>. The <a href="../globals/all#type">type name</a> of a set is <code>"set"</code>.
 
 <p>Sets provide constant-time operations to insert, remove, or check for the presence of a value.
@@ -348,15 +349,18 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   /**
    * A variant of {@link #copyOf} intended to be used from Starlark. Unlike {@link #copyOf}, this
    * method does verify that the elements being added to the set are Starlark-hashable.
-   *
-   * @param elements a collection of elements to add to the new set, or a map whose keys will be
-   *     added to the new set.
    */
-  public static StarlarkSet<Object> checkedCopyOf(@Nullable Mutability mu, Object elements)
+  public static StarlarkSet<Object> checkedCopyOf(@Nullable Mutability mu, Iterable<?> elements)
       throws EvalException {
-    @SuppressWarnings("unchecked")
-    Collection<Object> collection =
-        (Collection<Object>) toHashableCollection(elements, "set constructor argument");
+    Collection<?> collection;
+    if (elements instanceof Collection<?> c) {
+      collection = c;
+    } else {
+      collection = ImmutableList.copyOf(elements);
+    }
+    for (Object element : collection) {
+      Starlark.checkHashable(element);
+    }
     return copyOf(mu, collection);
   }
 
@@ -397,9 +401,7 @@ set([1, 2]).issubset([1, 2])     # True
 set([1, 2]).issubset([2, 3])     # False
 </pre>
 """,
-      parameters = {
-        @Param(name = "other", doc = "A set, a sequence of hashable elements, or a dict.")
-      })
+      parameters = {@Param(name = "other", doc = "A collection of hashable elements.")})
   public boolean isSubset(Object other) throws EvalException {
     return toHashableCollection(other, "issubset argument").containsAll(this.contents);
   }
@@ -419,9 +421,7 @@ set([1, 2, 3]).issuperset([1, 2, 3])  # True
 set([1, 2, 3]).issuperset([2, 3, 4])  # False
 </pre>
 """,
-      parameters = {
-        @Param(name = "other", doc = "A set, a sequence of hashable elements, or a dict.")
-      })
+      parameters = {@Param(name = "other", doc = "A collection of hashable elements.")})
   public boolean isSuperset(Object other) throws EvalException {
     return contents.containsAll(toHashableCollection(other, "issuperset argument"));
   }
@@ -439,9 +439,7 @@ set().isdisjoint(set())         # True
 set([1, 2]).isdisjoint([2, 3])  # False
 </pre>
 """,
-      parameters = {
-        @Param(name = "other", doc = "A set, a sequence of hashable elements, or a dict.")
-      })
+      parameters = {@Param(name = "other", doc = "A collection of hashable elements.")})
   public boolean isDisjoint(Object other) throws EvalException {
     return Collections.disjoint(this.contents, toHashableCollection(other, "isdisjoint argument"));
   }
@@ -470,8 +468,7 @@ to be sets, while the <code>update</code> method also accepts sequences and dict
 <p>It is permissible to call <code>update</code> without any arguments; this leaves the set
 unchanged.
 """,
-      extraPositionals =
-          @Param(name = "others", doc = "Sets, sequences of hashable elements, or dicts."))
+      extraPositionals = @Param(name = "others", doc = "Collections of hashable elements."))
   public void update(Tuple others) throws EvalException {
     Starlark.checkMutable(this);
     for (Object other : others) {
@@ -605,8 +602,7 @@ set([1, 2]).union([2, 3])                    # set([1, 2, 3])
 set([1, 2]).union([2, 3], {3: "a", 4: "b"})  # set([1, 2, 3, 4])
 </pre>
 """,
-      extraPositionals =
-          @Param(name = "others", doc = "Sets, sequences of hashable elements, or dicts."),
+      extraPositionals = @Param(name = "others", doc = "Collections of hashable elements."),
       useStarlarkThread = true)
   public StarlarkSet<?> union(Tuple others, StarlarkThread thread) throws EvalException {
     LinkedHashSet<Object> newContents = new LinkedHashSet<>(contents);
@@ -635,8 +631,7 @@ set([1, 2]).intersection([2, 3])             # set([2])
 set([1, 2, 3]).intersection([0, 1], [1, 2])  # set([1])
 </pre>
 """,
-      extraPositionals =
-          @Param(name = "others", doc = "Sets, sequences of hashable elements, or dicts."),
+      extraPositionals = @Param(name = "others", doc = "Collections of hashable elements."),
       useStarlarkThread = true)
   public StarlarkSet<?> intersection(Tuple others, StarlarkThread thread) throws EvalException {
     LinkedHashSet<Object> newContents = new LinkedHashSet<>(contents);
@@ -667,8 +662,7 @@ s.intersection_update([0, 1, 2])       # None; s is set([1, 2])
 s.intersection_update([0, 1], [1, 2])  # None; s is set([1])
 </pre>
 """,
-      extraPositionals =
-          @Param(name = "others", doc = "Sets, sequences of hashable elements, or dicts."))
+      extraPositionals = @Param(name = "others", doc = "Collections of hashable elements."))
   public void intersectionUpdate(Tuple others) throws EvalException {
     Starlark.checkMutable(this);
     for (Object other : others) {
@@ -695,8 +689,7 @@ set([1, 2, 3]).difference([2])             # set([1, 3])
 set([1, 2, 3]).difference([0, 1], [3, 4])  # set([2])
 </pre>
 """,
-      extraPositionals =
-          @Param(name = "others", doc = "Sets, sequences of hashable elements, or dicts."),
+      extraPositionals = @Param(name = "others", doc = "Collections of hashable elements."),
       useStarlarkThread = true)
   public StarlarkSet<?> difference(Tuple others, StarlarkThread thread) throws EvalException {
     LinkedHashSet<Object> newContents = new LinkedHashSet<>(contents);
@@ -726,8 +719,7 @@ s.difference_update([2])             # None; s is set([1, 3, 4])
 s.difference_update([0, 1], [4, 5])  # None; s is set([3])
 </pre>
 """,
-      extraPositionals =
-          @Param(name = "others", doc = "Sets, sequences of hashable elements, or dicts."))
+      extraPositionals = @Param(name = "others", doc = "Collections of hashable elements."))
   public void differenceUpdate(Tuple others) throws EvalException {
     Starlark.checkMutable(this);
     for (Object other : others) {
@@ -739,8 +731,8 @@ s.difference_update([0, 1], [4, 5])  # None; s is set([3])
       name = "symmetric_difference",
       doc =
 """
-Returns a new mutable set containing the symmetric difference of this set with another set,
-sequence, or dict.
+Returns a new mutable set containing the symmetric difference of this set with another collection of
+hashable elements.
 
 <p>If <code>s</code> and <code>t</code> are sets, <code>s.symmetric_difference(t)</code> is
 equivalent to <code>s ^ t</code>; however, note that the <code>^</code> operation requires both
@@ -752,9 +744,7 @@ dict.
 set([1, 2]).symmetric_difference([2, 3])  # set([1, 3])
 </pre>
 """,
-      parameters = {
-        @Param(name = "other", doc = "A set, a sequence of hashable elements, or a dict.")
-      },
+      parameters = {@Param(name = "other", doc = "A collection of hashable elements.")},
       useStarlarkThread = true)
   public StarlarkSet<?> symmetricDifference(Object other, StarlarkThread thread)
       throws EvalException {
@@ -777,8 +767,8 @@ set([1, 2]).symmetric_difference([2, 3])  # set([1, 3])
       name = "symmetric_difference_update",
       doc =
 """
-Returns a new mutable set containing the symmetric difference of this set with another set,
-sequence, or dict.
+Returns a new mutable set containing the symmetric difference of this set with another collection of
+hashable elements.
 
 <p>If <code>s</code> and <code>t</code> are sets, <code>s.symmetric_difference_update(t)</code> is
 equivalent to `s ^= t<code>; however, note that the </code>^=` augmented assignment requires both
@@ -791,9 +781,7 @@ s = set([1, 2])
 s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
 </pre>
 """,
-      parameters = {
-        @Param(name = "other", doc = "A set, a sequence of hashable elements, or a dict.")
-      })
+      parameters = {@Param(name = "other", doc = "A collection of hashable elements.")})
   public void symmetricDifferenceUpdate(Object other) throws EvalException {
     Starlark.checkMutable(this);
     ImmutableSet<E> originalContents = ImmutableSet.copyOf(contents);
@@ -817,15 +805,14 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
   }
 
   /**
-   * Verifies that {@code other} is either a collection of Starlark-hashable elements or a map with
-   * Starlark-hashable keys.
+   * Verifies that {@code other} is either a {@link Collection} of Starlark-hashable elements or a
+   * {@link Map} with Starlark-hashable keys.
    *
-   * <p>Note that in the Starlark language spec, this notion is referred to as an "iterable
-   * sequence" of hashable elements; but our {@link Dict} doesn't implement {@link Sequence}, and in
-   * any case, we may need to operate on native Java collections and maps which don't implement
-   * {@link StarlarkIterable} or {@link Sequence}.
+   * <p>Note that in the Starlark language spec, this notion is referred to as a "collection", but
+   * Java {@link Map}s aren't Java {@link Collection}s.
    *
-   * @return {@code other} if it is a collection, or the key set of {@code other} if it is a map.
+   * @return {@code other} if it is a {@link Collection}, or the key set of {@code other} if it is a
+   *     {@link Map}.
    */
   private static Collection<?> toHashableCollection(Object other, String what)
       throws EvalException {
@@ -847,10 +834,9 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
       }
       return keySet;
     }
-    // The Java Starlark interpreter doesn't have a "sized iterable" interface - so we enumerate the
-    // types we expect.
     throw Starlark.errorf(
-        "for %s got value of type '%s', want a set, sequence, or dict", what, Starlark.type(other));
+        "for %s got value of type '%s', want a collection of hashable elements",
+        what, Starlark.type(other));
   }
 
   // Prohibit Java Set mutators.

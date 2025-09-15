@@ -681,13 +681,11 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
 </pre>
 """,
       parameters = {
-        @Param(
-            name = "elements",
-            defaultValue = "[]",
-            doc = "A set, a sequence of hashable values, or a dict."),
+        @Param(name = "elements", defaultValue = "[]", doc = "An iterable of hashable values."),
       },
       useStarlarkThread = true)
-  public StarlarkSet<Object> set(Object elements, StarlarkThread thread) throws EvalException {
+  public StarlarkSet<Object> set(StarlarkIterable<?> elements, StarlarkThread thread)
+      throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols, so enforce it here instead.
     if (!thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
