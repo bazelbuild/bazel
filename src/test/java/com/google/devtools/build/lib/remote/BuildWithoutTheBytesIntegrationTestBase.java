@@ -367,6 +367,69 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void intermediateOutputsAreToolsForLocalActions_prefetchIntermediateOutputs()
+      throws Exception {
+    // Test that a remote-only output that's a tool used in a local action is downloaded lazily
+    // before executing the local action and has its runfiles tree created.
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            helper = ctx.actions.declare_file(ctx.label.name + "_helper.sh")
+            ctx.actions.run_shell(
+                outputs = [helper],
+                command = \"""echo -e '#!/bin/sh
+        echo -n remote' > $1 && chmod +x $1\""",
+                arguments = [helper.path],
+            )
+            out = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = \"""echo -e '#!/bin/sh
+        $0.runfiles/{}/{} > $1' > $1 && chmod +x $1\""".format(ctx.workspace_name, helper.short_path),
+                arguments = [out.path],
+            )
+            return DefaultInfo(
+                executable = out,
+                runfiles = ctx.runfiles(files = [helper]),
+            )
+
+        make_tool = rule(implementation = _impl)
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "make_tool")
+        make_tool(
+            name = "remote",
+        )
+
+        genrule(
+            name = "local",
+            srcs = [":remote"],
+            outs = ["local.txt"],
+            cmd = "$(location :remote) $@ && echo -n local >> $@",
+            tags = ["no-remote"],
+        )
+        """);
+
+    buildTarget("//a:remote");
+    waitDownloads();
+    assertOutputsDoNotExist("//a:remote");
+
+    buildTarget("//a:local");
+    waitDownloads();
+    assertOnlyOutputContent(
+        "//a:remote",
+        "remote.sh",
+"""
+#!/bin/sh
+a/remote_helper.sh > $1
+""");
+    assertOnlyOutputContent("//a:local", "local.txt", "remotelocal");
+  }
+
+  @Test
   public void localAction_inputSymlinkToSourceFile() throws Exception {
     write(
         "a/defs.bzl",
