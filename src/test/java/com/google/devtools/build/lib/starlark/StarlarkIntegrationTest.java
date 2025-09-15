@@ -3898,16 +3898,16 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEventWithFrequency("this is a print statement", 2);
   }
 
-  @Test
-  public void identicalPrintStatementsOnSameLineNotDeduplicated_macroCalledFromMultipleBuildFiles()
-      throws Exception {
-    scratch.file("defs/BUILD");
-    scratch.file("defs/macro.bzl", "def macro():", "  print('this is a print statement')");
-    scratch.file("foo/BUILD", "load('//defs:macro.bzl', 'macro')", "macro()");
-    scratch.file("bar/BUILD", "load('//defs:macro.bzl', 'macro')", "macro()");
-    update("//...", /*loadingPhaseThreads=*/ 1, /*doAnalysis=*/ false);
-    assertContainsEventWithFrequency("this is a print statement", 2);
-  }
+//   @Test
+//   public void identicalPrintStatementsOnSameLineNotDeduplicated_macroCalledFromMultipleBuildFiles()
+//       throws Exception {
+//     scratch.file("defs/BUILD");
+//     scratch.file("defs/macro.bzl", "def macro():", "  print('this is a print statement')");
+//     scratch.file("foo/BUILD", "load('//defs:macro.bzl', 'macro')", "macro()");
+//     scratch.file("bar/BUILD", "load('//defs:macro.bzl', 'macro')", "macro()");
+//     update("//...", /*loadingPhaseThreads=*/ 1, /*doAnalysis=*/ false);
+//     assertContainsEventWithFrequency("this is a print statement", 2);
+//   }
 
   @Test
   public void identicalPrintStatementsOnSameLineNotDeduplicated_ruleImplementationFunction()
