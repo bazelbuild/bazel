@@ -68,36 +68,6 @@ public class PythonOptions extends FragmentOptions {
   public TriState buildPythonZip;
 
   /**
-   * Deprecated machinery for setting the Python version; will be removed soon.
-   *
-   * <p>Not GraveyardOptions'd because we'll delete this alongside other soon-to-be-removed options
-   * in this file.
-   */
-  @Option(
-      name = "incompatible_remove_old_python_version_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op, will be removed soon.")
-  public boolean incompatibleRemoveOldPythonVersionApi;
-
-  /**
-   * Deprecated machinery for setting the Python version; will be removed soon.
-   *
-   * <p>Not GraveyardOptions'd because we'll delete this alongside other soon-to-be-removed options
-   * in this file.
-   */
-  @Option(
-      name = "incompatible_allow_python_version_transitions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op, will be removed soon.")
-  public boolean incompatibleAllowPythonVersionTransitions;
-
-  /**
    * Native rule logic should call {@link #getDefaultPythonVersion} instead of accessing this option
    * directly.
    */
@@ -198,16 +168,6 @@ public class PythonOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
-
-  // TODO(b/230490091): Delete this flag (see also bazelbuild issue #7741)
-  @Option(
-      name = "incompatible_disallow_legacy_py_provider",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op, will be removed soon.")
-  public boolean incompatibleDisallowLegacyPyProvider;
 
   // TODO(b/153369373): Delete this flag.
   @Option(
