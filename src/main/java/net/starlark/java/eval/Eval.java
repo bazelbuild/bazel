@@ -472,6 +472,7 @@ final class Eval {
     }
   }
 
+  @SuppressWarnings("unchecked")
   private static Object inplaceBinaryOp(StarlarkThread.Frame fr, TokenKind op, Object x, Object y)
       throws EvalException {
     switch (op) {
@@ -479,7 +480,7 @@ final class Eval {
         // list += iterable  behaves like  list.extend(iterable)
         // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
         if (x instanceof StarlarkList<?> xList && y instanceof StarlarkList<?> yList) {
-          xList.extend(yList);
+          xList.extend((StarlarkIterable) yList);
           return xList;
         }
         break;

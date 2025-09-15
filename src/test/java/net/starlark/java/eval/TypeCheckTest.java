@@ -331,6 +331,33 @@ public class TypeCheckTest {
     // endswith (takes tuple)
   }
 
+  @Test
+  public void testListFields() throws Exception {
+    StarlarkList<String> list = StarlarkList.immutableOf("abc");
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list)) {
+      StarlarkType type =
+          TypeChecker.type(
+              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list, name, null));
+      if (type instanceof CallableType callable) {
+        builder.add(name + ": " + callable.toSignatureString());
+      } else {
+        builder.add(name + ": " + type);
+      }
+    }
+
+    // TODO(ilist@): Any should be string. Handle type variables
+    assertThat(builder.build())
+        .containsExactly(
+            "append: (Any, /) -> None",
+            "clear: () -> None",
+            "extend: (Collection[Any], /) -> None",
+            "index: (Any, [int], [int], /) -> int",
+            "insert: (int, Any, /) -> None",
+            "pop: ([int], /) -> Any",
+            "remove: (Any, /) -> None");
+  }
+
   private <T extends Throwable> StringSubject assertExecThrows(
       Class<T> expectedThrowable, String... lines) {
     T evalException = assertThrows(expectedThrowable, () -> ev.exec(lines));
