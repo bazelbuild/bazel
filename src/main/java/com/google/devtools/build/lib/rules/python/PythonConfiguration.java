@@ -49,9 +49,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
   private final boolean py2OutputsAreSuffixed;
 
-  // TODO(brandjon): Remove this once migration to Python toolchains is complete.
-  private final boolean useToolchains;
-
   /* Whether to include the build label in unstamped builds. */
   private final boolean includeLabelInLinkstamp;
 
@@ -68,7 +65,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.defaultVersion = pythonOptions.getDefaultPythonVersion();
     this.buildPythonZip = pythonOptions.buildPythonZip;
     this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
-    this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
     this.disablePy2 = pythonOptions.disablePy2;
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
@@ -163,9 +159,9 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   @StarlarkMethod(
       name = "use_toolchains",
       structField = true,
-      doc = "The value from the --incompatible_use_python_toolchains flag")
+      doc = "No-op: Python toolchains are always used.")
   public boolean useToolchains() {
-    return useToolchains;
+    return true;
   }
 
   @StarlarkMethod(

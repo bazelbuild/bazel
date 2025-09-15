@@ -99,8 +99,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             /* starlarkOptions= */ ImmutableMap.of(),
             "--incompatible_py3_is_default=true",
             "--incompatible_py2_outputs_are_suffixed=true",
-            "--build_python_zip=true",
-            "--incompatible_use_python_toolchains=true");
+            "--build_python_zip=true");
 
     PythonOptions execOpts =
         AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter).get(PythonOptions.class);
@@ -108,7 +107,6 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     assertThat(execOpts.incompatiblePy3IsDefault).isTrue();
     assertThat(execOpts.incompatiblePy2OutputsAreSuffixed).isTrue();
     assertThat(execOpts.buildPythonZip).isEqualTo(TriState.YES);
-    assertThat(execOpts.incompatibleUsePythonToolchains).isTrue();
   }
 
   @Test

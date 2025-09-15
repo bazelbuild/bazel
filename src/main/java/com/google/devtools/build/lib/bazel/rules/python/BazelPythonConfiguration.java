@@ -94,19 +94,16 @@ public class BazelPythonConfiguration extends Fragment {
 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    PythonOptions pythonOpts = buildOptions.get(PythonOptions.class);
     Options opts = buildOptions.get(Options.class);
-    if (pythonOpts.incompatibleUsePythonToolchains) {
       // Forbid deprecated flags.
       if (opts.pythonTop != null) {
-        reporter.handle(
-            Event.error(
-                "`--python_top` is disabled by `--incompatible_use_python_toolchains`. Instead of "
-                    + "configuring the Python runtime directly, register a Python toolchain. See "
-                    + "https://github.com/bazelbuild/bazel/issues/7899. You can temporarily revert "
-                    + "to the legacy flag-based way of specifying toolchains by setting "
-                    + "`--incompatible_use_python_toolchains=false`."));
-      }
+      reporter.handle(
+          Event.error(
+              "`--python_top` is disabled by `--incompatible_use_python_toolchains`. Instead of "
+                  + "configuring the Python runtime directly, register a Python toolchain. See "
+                  + "https://github.com/bazelbuild/bazel/issues/7899. You can temporarily revert "
+                  + "to the legacy flag-based way of specifying toolchains by setting "
+                  + "`--incompatible_use_python_toolchains=false`."));
       // TODO(#7901): Also prohibit --python_path here.
     }
   }

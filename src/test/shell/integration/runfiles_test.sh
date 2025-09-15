@@ -44,18 +44,14 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/integration/runfiles_test_utils.sh")" \
   || { echo "runfiles_test_utils.sh not found!" >&2; exit 1; }
 
-# We disable Python toolchains in EXTRA_BUILD_FLAGS because it throws off the
-# counts and manifest checks in test_foo_runfiles.
-# TODO(#8169): Update this test and remove the toolchain opt-out.
 if is_windows; then
   export EXT=".exe"
   export EXTRA_STARTUP_FLAGS="--windows_enable_symlinks"
-  export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false \
---enable_runfiles --build_python_zip=0"
+  export EXTRA_BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
 else
   export EXT=""
   export EXTRA_STARTUP_FLAGS=""
-  export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false"
+  export EXTRA_BUILD_FLAGS=""
 fi
 
 #### SETUP #############################################################
@@ -234,6 +230,10 @@ EOF
 "
   fi
 
+  # Remove Python toolchain runfiles for more focused testing.
+  export MANIFEST_NO_TOOLCHAIN=$(mktemp)
+  cat ../MANIFEST | grep -v rules_python | grep -v '^__init__.py' > "$MANIFEST_NO_TOOLCHAIN"
+
   # Sort and delete empty lines. This makes it easier to append to the
   # expected string and not have to worry about stray newlines from shell
   # commands and quoting.
@@ -244,7 +244,7 @@ EOF
   # The manifest only records files and symlinks, not real directories
   expected="$expected$(get_repo_mapping_manifest_file)"
   expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
-  actual_manifest_size=$(wc -l < ../MANIFEST)
+  actual_manifest_size=$(cat "$MANIFEST_NO_TOOLCHAIN" | wc -l)
   assert_equals $expected_manifest_size $actual_manifest_size
 
   # that accounts for everything
@@ -273,7 +273,7 @@ EOF
     echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
   fi
 
-  sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
+  sort "$MANIFEST_NO_TOOLCHAIN" > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
 

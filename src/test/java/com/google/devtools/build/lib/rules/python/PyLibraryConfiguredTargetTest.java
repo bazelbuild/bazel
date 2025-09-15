@@ -36,7 +36,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
 
   @Test
   public void pyRuntimeInfoIsNotPresent() throws Exception {
-    useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
         getPyLoad("py_library"),

@@ -76,7 +76,6 @@ java_test(
     deps = [
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",

@@ -41,6 +41,14 @@ public final class BazelRulesModule extends BlazeModule {
   public static class BuildGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "incompatible_use_python_toolchains",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleUsePythonToolchains;
+
+    @Option(
         name = "experimental_starlark_cc_import",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

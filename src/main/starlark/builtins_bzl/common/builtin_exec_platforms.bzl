@@ -452,7 +452,6 @@ bazel_fragments["PythonOptions"] = fragment(
         "//command_line_option:incompatible_py3_is_default",
         "//command_line_option:incompatible_python_disable_py2",
         "//command_line_option:incompatible_python_disallow_native_rules",
-        "//command_line_option:incompatible_use_python_toolchains",
         "//command_line_option:python_native_rules_allowlist",
     ],
     outputs = [

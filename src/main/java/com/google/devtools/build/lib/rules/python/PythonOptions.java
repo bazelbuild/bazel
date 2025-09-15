@@ -169,19 +169,6 @@ public class PythonOptions extends FragmentOptions {
       help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
 
-  // TODO(b/153369373): Delete this flag.
-  @Option(
-      name = "incompatible_use_python_toolchains",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, executable native Python rules will use the Python runtime specified by "
-              + "the Python toolchain, rather than the runtime given by legacy flags like "
-              + "--python_top.")
-  public boolean incompatibleUsePythonToolchains;
-
   @Option(
       name = "incompatible_default_to_explicit_init_py",
       defaultValue = "false",

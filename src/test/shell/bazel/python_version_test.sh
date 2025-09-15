@@ -423,9 +423,7 @@ with open(sys.argv[1], 'wt') as out:
     print("Tool output", file=out)
 EOF
 
-  bazel build //test:tooluser \
-      --incompatible_use_python_toolchains=true \
-      || fail "bazel build failed"
+  bazel build //test:tooluser || fail "bazel build failed"
   cat bazel-bin/test/out.txt &> $TEST_log
   expect_log "Tool output"
 }
