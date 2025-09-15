@@ -864,6 +864,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean legacyLocalFallback;
+
+    @Option(
+        name = "incompatible_merge_genfiles_directory",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean mergeGenfilesDirectory;
   }
 
   @Override

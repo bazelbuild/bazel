@@ -1218,7 +1218,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathOrder() throws Exception {
-    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file(
         "foo/BUILD",
         """
@@ -1244,10 +1243,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         action.getCompilerOptions(),
         ImmutableList.of(
             "-Ifoo/foo",
-            "-I" + genfilesDir + "/foo/foo",
             "-I" + binDir + "/foo/foo",
             "-Ifoo/bar",
-            "-I" + genfilesDir + "/foo/bar",
             "-I" + binDir + "/foo/bar"));
   }
 

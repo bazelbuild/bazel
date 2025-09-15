@@ -439,15 +439,11 @@ public class BuildConfigurationValue
     return outputDirectories.getGenfilesDirectory(repositoryName);
   }
 
-  public boolean hasSeparateGenfilesDirectory() {
-    return !outputDirectories.mergeGenfilesDirectory();
-  }
-
   @Override
   public boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread)
       throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return hasSeparateGenfilesDirectory();
+    return false;
   }
 
   /**
