@@ -182,6 +182,26 @@ public class TypeCheckTest {
   }
 
   @Test
+  public void runtimeTypecheck_mapping() throws Exception {
+    ev.exec("def f(a: Mapping[str, int]): pass", "f({'a': 1, 'b': 2})");
+    assertExecThrows(EvalException.class, "def f(a: Mapping[str, int]): pass", "f([1, 2])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[int]', want"
+                + " 'Mapping[str, int]'");
+    assertExecThrows(EvalException.class, "def f(a: Mapping[str, int]): pass", "f(set([1, 2]))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'set[int]', want"
+                + " 'Mapping[str, int]'");
+    // Covariance in value
+    ev.exec("def f(a: Mapping[str, None|int]): pass", "f({'a': 1})");
+    // Invariance in key
+    assertExecThrows(EvalException.class, "def f(a: Mapping[None|str, int]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
+                + " 'Mapping[None|str, int]'");
+  }
+
+  @Test
   public void union_edgeCaseSyntax() throws Exception {
     ev.exec("def f(a: None|None): pass", "f(None)");
     ev.exec("def f(a: None|bool|bool): pass", "f(None)");

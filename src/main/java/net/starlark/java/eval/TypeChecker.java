@@ -30,6 +30,7 @@ import net.starlark.java.types.Types;
 import net.starlark.java.types.Types.CollectionType;
 import net.starlark.java.types.Types.DictType;
 import net.starlark.java.types.Types.ListType;
+import net.starlark.java.types.Types.MappingType;
 import net.starlark.java.types.Types.SequenceType;
 import net.starlark.java.types.Types.SetType;
 import net.starlark.java.types.Types.TupleType;
@@ -100,6 +101,10 @@ public final class TypeChecker {
     if (type1 instanceof SequenceType sequence1 && type2 instanceof SequenceType sequence2) {
       return isSubtypeOf(sequence1.getElementType(), sequence2.getElementType());
     }
+    if (type1 instanceof MappingType mapping1 && type2 instanceof MappingType mapping2) {
+      return isEqual(mapping1.getKeyType(), mapping2.getKeyType())
+          && isSubtypeOf(mapping1.getValueType(), mapping2.getValueType());
+    }
     if (type1 instanceof CollectionType collection1
         && type2 instanceof CollectionType collection2) {
       return isSubtypeOf(collection1.getElementType(), collection2.getElementType());
@@ -125,7 +130,6 @@ public final class TypeChecker {
       }
     }
 
-    // TODO(ilist@): this just works for primitive types
     return Objects.equals(type1, type2);
   }
 

@@ -70,7 +70,8 @@ public final class Types {
         .put("set", wrapTypeConstructor("set", Types::set))
         .put("tuple", wrapTupleConstructorProxy())
         .put("Collection", wrapTypeConstructor("Collection", Types::collection))
-        .put("Sequence", wrapTypeConstructor("Sequence", Types::sequence));
+        .put("Sequence", wrapTypeConstructor("Sequence", Types::sequence))
+        .put("Mapping", wrapTypeConstructor("Mapping", Types::mapping));
     return env.buildOrThrow();
   }
 
@@ -422,7 +423,7 @@ public final class Types {
 
     @Override
     public List<StarlarkType> getSupertypes() {
-      return ImmutableList.of(collection(getKeyType()));
+      return ImmutableList.of(collection(getKeyType()), mapping(getKeyType(), getValueType()));
     }
 
     @Override
@@ -508,6 +509,24 @@ public final class Types {
     @Override
     public final String toString() {
       return "Sequence[" + getElementType() + "]";
+    }
+  }
+
+  /** Mapping type */
+  public static MappingType mapping(StarlarkType keyType, StarlarkType valueType) {
+    return new AutoValue_Types_MappingType(keyType, valueType);
+  }
+
+  /** Mapping type */
+  @AutoValue
+  public abstract static class MappingType extends StarlarkType {
+    public abstract StarlarkType getKeyType();
+
+    public abstract StarlarkType getValueType();
+
+    @Override
+    public final String toString() {
+      return "Mapping[" + getKeyType() + ", " + getValueType() + "]";
     }
   }
 
