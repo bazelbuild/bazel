@@ -232,7 +232,8 @@ public abstract class CcModule
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
 
-    CcCompilationContext.Builder ccCompilationContext = CcCompilationContext.builder();
+    CcCompilationContext.Builder ccCompilationContext =
+        CcCompilationContext.builder(thread.getNextIdentityToken());
 
     // Public parameters.
     ImmutableList<Artifact> headerList = toNestedSetOfArtifacts(headers, "headers").toList();
@@ -322,7 +323,7 @@ public abstract class CcModule
     if (compilationContexts.isEmpty() && nonExportedCompilationContexts.isEmpty()) {
       return CcCompilationContext.EMPTY;
     }
-    return CcCompilationContext.builder()
+    return CcCompilationContext.builder(thread.getNextIdentityToken())
         .addDependentCcCompilationContexts(
             Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts"),
             Sequence.cast(

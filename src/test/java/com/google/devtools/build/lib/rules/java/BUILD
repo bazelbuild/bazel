@@ -253,6 +253,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//third_party:guava",

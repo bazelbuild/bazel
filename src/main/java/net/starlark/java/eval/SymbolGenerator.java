@@ -35,6 +35,9 @@ import com.google.auto.value.AutoValue;
  * change the equality token.
  */
 public final class SymbolGenerator<T> {
+  /** An identifier that can be used for constants. */
+  public static final Symbol<?> CONSTANT_SYMBOL = createTransient().generate();
+
   private final T owner;
   private int index = 0;
 

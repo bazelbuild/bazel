@@ -33,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -60,7 +62,7 @@ import net.starlark.java.eval.Tuple;
 @Immutable
 public final class CcCompilationContext implements CcCompilationContextApi<Artifact, CppModuleMap> {
   /** An empty {@code CcCompilationContext}. */
-  public static final CcCompilationContext EMPTY = builder().build();
+  public static final CcCompilationContext EMPTY = builder(SymbolGenerator.CONSTANT_SYMBOL).build();
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
@@ -359,6 +361,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public NestedSet<Artifact> getHeaderTokens() {
     return headerTokens;
+  }
+
+  @VisibleForTesting
+  public HeaderInfo getHeaderInfo() {
+    return headerInfo;
   }
 
   /** Helper class for creating include scanning header data. */
@@ -710,8 +717,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /** Creates a new builder for a {@link CcCompilationContext} instance. */
-  public static Builder builder() {
-    return new Builder();
+  public static Builder builder(SymbolGenerator.Symbol<?> identityToken) {
+    return new Builder(identityToken);
   }
 
   /** Builder class for {@link CcCompilationContext}. */
@@ -727,7 +734,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         new TransitiveSetHelper<>();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
-    private final HeaderInfo.Builder headerInfoBuilder = new HeaderInfo.Builder();
+    private final HeaderInfo.Builder headerInfoBuilder;
     private final Set<String> defines = new LinkedHashSet<>();
     private final ImmutableList.Builder<CcCompilationContext> deps = ImmutableList.builder();
     private final ImmutableList.Builder<CcCompilationContext> exportedDeps =
@@ -739,7 +746,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    private Builder() {}
+    private Builder(SymbolGenerator.Symbol<?> identityToken) {
+      this.headerInfoBuilder = new HeaderInfo.Builder(identityToken);
+    }
 
     private void mergeDependentCcCompilationContext(
         CcCompilationContext otherCcCompilationContext,
@@ -1124,8 +1133,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * The transitive collection can be iterated without materialization in memory.
    */
   @Immutable
-  static final class HeaderInfo {
+  @VisibleForTesting
+  public static final class HeaderInfo {
     // This class has non-private visibility testing and HeaderInfoCodec.
+
+    final SymbolGenerator.Symbol<?> identityToken;
 
     /**
      * The modules built for this context. If null, then no module is being compiled for this
@@ -1158,6 +1170,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private TransitiveHeaderCollection memo = null;
 
     HeaderInfo(
+        SymbolGenerator.Symbol<?> identityToken,
         DerivedArtifact headerModule,
         DerivedArtifact picHeaderModule,
         ImmutableList<Artifact> modularPublicHeaders,
@@ -1167,6 +1180,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         DerivedArtifact separateModule,
         DerivedArtifact separatePicModule,
         ImmutableList<HeaderInfo> deps) {
+      this.identityToken = identityToken;
       this.headerModule = headerModule;
       this.picHeaderModule = picHeaderModule;
       this.modularPublicHeaders = modularPublicHeaders;
@@ -1194,6 +1208,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         flatten();
       }
       return memo;
+    }
+
+    @VisibleForTesting
+    public ImmutableList<Artifact> modularPublicHeaders() {
+      return modularPublicHeaders;
     }
 
     private synchronized void flatten() {
@@ -1225,6 +1244,19 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           dep.addOthers(result, additionalDeps);
         }
       }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof HeaderInfo that)) {
+        return false;
+      }
+      return identityToken.equals(that.identityToken);
+    }
+
+    @Override
+    public int hashCode() {
+      return identityToken.hashCode();
     }
 
     /** Represents the memoized transitive information for a HeaderInfo instance. */
@@ -1280,6 +1312,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** Builder class for {@link HeaderInfo}. */
     public static class Builder {
+      private final SymbolGenerator.Symbol<?> identityToken;
       private DerivedArtifact headerModule = null;
       private DerivedArtifact picHeaderModule = null;
       private final LinkedHashSet<Artifact> modularPublicHeaders = new LinkedHashSet<>();
@@ -1289,6 +1322,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       private DerivedArtifact separateModule = null;
       private DerivedArtifact separatePicModule = null;
       private final List<HeaderInfo> deps = new ArrayList<>();
+
+      private Builder(SymbolGenerator.Symbol<?> identityToken) {
+        this.identityToken = Preconditions.checkNotNull(identityToken);
+      }
 
       @CanIgnoreReturnValue
       Builder setHeaderModule(DerivedArtifact headerModule) {
@@ -1372,6 +1409,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
             separateModule,
             separatePicModule);
         return new HeaderInfo(
+            identityToken,
             headerModule,
             picHeaderModule,
             ImmutableList.copyOf(modularPublicHeaders),

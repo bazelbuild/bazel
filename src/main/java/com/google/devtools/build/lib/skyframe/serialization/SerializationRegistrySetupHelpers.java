@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Constructor;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -106,6 +107,7 @@ public final class SerializationRegistrySetupHelpers {
         .addReferenceConstant(StructProvider.STRUCT)
         .addReferenceConstant(Starlark.NONE)
         .addReferenceConstant(Location.BUILTIN)
+        .addReferenceConstant(SymbolGenerator.CONSTANT_SYMBOL)
         .addReferenceConstants(
             ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedBuildBzlEnv()).values());
 
