@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
  * dependencies, whereas the latter does not.
  *
  * <p>Then {@code Action.discoverInputs()} is called, which then runs the include scanning machinery
- * and eventually calls {@code Action.updateInputs()}. That method in turn addss the discovered
+ * and eventually calls {@code Action.updateInputs()}. That method in turn adds the discovered
  * inputs to what {@code getInputs()} returns. It's implemented in a separate method because when
  * the action is a local action cache hit, the discovered inputs of the action are read from the
  * local action cache and added to the action's inputs by calling {@code updateInputs()} without
