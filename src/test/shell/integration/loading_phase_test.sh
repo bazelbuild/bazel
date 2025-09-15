@@ -671,7 +671,7 @@ function test_case_sensitive_pkg_names_incrementality() {
   bazel query --incompatible_enforce_strict_label_casing \
       //$pkg1/$pkg2:all >&"$TEST_log" \
       && fail "Expected failure" || true
-  expect_log "ERROR: no such package '$pkg1/$pkg2': use the canonical form '$pkg1/$pkg2_upper' instead"
+  expect_log "ERROR: no such package '$pkg1/$pkg2': use the canonical form '$pkg1_upper/$pkg2' instead"
 
   mv "$pkg1_upper/$pkg2" "$pkg1_upper/$pkg2_upper"
   bazel query --incompatible_enforce_strict_label_casing \
@@ -722,7 +722,8 @@ function test_case_sensitive_build_file_names_incrementality() {
       || fail "Expected case-insensitive semantics"
 
   bazel query --incompatible_enforce_strict_label_casing \
-      //$pkg:all >&"$TEST_log" || fail "Expected success"
+      //$pkg:all >&"$TEST_log" && fail "Expected failure"
+  expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid build file name, use 'BUILD' instead"
 
   mv "$pkg/BuIlD" "$pkg/BUILD"
   bazel query --incompatible_enforce_strict_label_casing \
@@ -730,8 +731,7 @@ function test_case_sensitive_build_file_names_incrementality() {
 
   mv "$pkg/BUILD" "$pkg/BuIlD"
   bazel query --incompatible_enforce_strict_label_casing \
-      //$pkg:all >&"$TEST_log" \
-      && fail "Expected failure" || true
+      //$pkg:all >&"$TEST_log" && fail "Expected failure"
   expect_log "ERROR: no such package '$pkg': 'BuIlD' is not a valid build file name, use 'BUILD' instead"
 }
 
