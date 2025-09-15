@@ -587,6 +587,112 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "compute_output_name_prefix_dir",
+      documented = false,
+      parameters = {
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "purpose", positional = false, named = true),
+      })
+  public String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
+    String outputNamePrefixDir = null;
+    // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
+    // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
+    // dir with "non_arc" or "arc".
+    String mnemonic = configuration.getMnemonic();
+    if (purpose != null) {
+      mnemonic = purpose;
+    }
+    if (mnemonic.endsWith("_objc_arc")) {
+      outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
+    }
+    return Objects.requireNonNullElse(outputNamePrefixDir, "");
+  }
+
+  @StarlarkMethod(
+      name = "create_cpp_compile_action",
+      documented = false,
+      parameters = {
+        @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(name = "cc_compilation_context", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "copts_filter", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "cpp_semantics", positional = false, named = true),
+        @Param(name = "source_artifact", positional = false, named = true),
+        @Param(
+            name = "additional_compilation_inputs",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_include_scanning_roots",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(name = "output_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "dotd_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "diagnostics_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "gcno_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "dwo_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "lto_indexing_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
+        @Param(name = "compile_build_variables", positional = false, named = true),
+      })
+  public void createCppCompileAction(
+      StarlarkRuleContext starlarkRuleContext,
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      BuildConfigurationValue configuration,
+      CoptsFilter coptsFilter,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CppSemantics semantics,
+      Artifact sourceArtifact,
+      Sequence<?> additionalCompilationInputs,
+      Sequence<?> additionalIncludeScanningRoots,
+      Object outputFile,
+      Object dotdFile,
+      Object diagnosticsFile,
+      Object gcnoFile,
+      Object dwoFile,
+      Object ltoIndexingFile,
+      boolean usePic,
+      CcToolchainVariables compileBuildVariables)
+      throws EvalException {
+    CppCompileActionBuilder builder =
+        createCppCompileActionBuilder(
+            starlarkRuleContext,
+            ccCompilationContext,
+            ccToolchain,
+            configuration,
+            coptsFilter,
+            featureConfigurationForStarlark,
+            semantics,
+            sourceArtifact,
+            additionalCompilationInputs,
+            additionalIncludeScanningRoots,
+            outputFile,
+            dotdFile,
+            diagnosticsFile,
+            gcnoFile,
+            dwoFile,
+            ltoIndexingFile,
+            usePic);
+    builder.setVariables(compileBuildVariables);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
+    try {
+      CppCompileAction compileAction = builder.buildAndVerify();
+      starlarkRuleContext.getRuleContext().registerAction(compileAction);
+    } catch (CppCompileActionBuilder.UnconfiguredActionConfigException e) {
+      throw new EvalException(
+          String.format(
+              "Expected action_config for '%s' to be configured", builder.getActionName()),
+          e);
+    }
+  }
+
+  @StarlarkMethod(
       name = "create_cpp_compile_action_template",
       documented = false,
       parameters = {
@@ -704,64 +810,8 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  @StarlarkMethod(
-      name = "compute_output_name_prefix_dir",
-      documented = false,
-      parameters = {
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "purpose", positional = false, named = true),
-      })
-  public String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
-    String outputNamePrefixDir = null;
-    // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
-    // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
-    // dir with "non_arc" or "arc".
-    String mnemonic = configuration.getMnemonic();
-    if (purpose != null) {
-      mnemonic = purpose;
-    }
-    if (mnemonic.endsWith("_objc_arc")) {
-      outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
-    }
-    return Objects.requireNonNullElse(outputNamePrefixDir, "");
-  }
-
-  /**
-   * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
-   * initialized.
-   */
-  @StarlarkMethod(
-      name = "create_cpp_compile_action_builder",
-      documented = false,
-      parameters = {
-        @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "cc_compilation_context", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "copts_filter", positional = false, named = true),
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "semantics", positional = false, named = true),
-        @Param(name = "source_artifact", positional = false, named = true),
-        @Param(
-            name = "additional_compilation_inputs",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(
-            name = "additional_include_scanning_roots",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(name = "output_file", positional = false, named = true, defaultValue = "None"),
-        @Param(name = "dotd_file", positional = false, named = true, defaultValue = "None"),
-        @Param(name = "diagnostics_file", positional = false, named = true, defaultValue = "None"),
-        @Param(name = "gcno_file", positional = false, named = true, defaultValue = "None"),
-        @Param(name = "dwo_file", positional = false, named = true, defaultValue = "None"),
-        @Param(name = "lto_indexing_file", positional = false, named = true, defaultValue = "None"),
-        @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
-      })
-  public CppCompileActionBuilder createCppCompileActionBuilder(
-      StarlarkRuleContext actionConstructionContext,
+  private static CppCompileActionBuilder createCppCompileActionBuilder(
+      StarlarkRuleContext starlarkRuleContext,
       CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
@@ -781,7 +831,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
-                actionConstructionContext.getRuleContext(),
+                starlarkRuleContext.getRuleContext(),
                 CcToolchainProvider.create(ccToolchain),
                 configuration,
                 semantics)
@@ -791,8 +841,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
             .addExecutionInfo(
                 TargetUtils.getExecutionInfo(
-                    actionConstructionContext.getRuleContext().getRule(),
-                    actionConstructionContext.getRuleContext().isAllowTagsPropagation()));
+                    starlarkRuleContext.getRuleContext().getRule(),
+                    starlarkRuleContext.getRuleContext().isAllowTagsPropagation()));
     if (additionalCompilationInputs.size() > 0) {
       builder.addMandatoryInputs(
           Sequence.cast(
@@ -812,44 +862,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         nullIfNone(diagnosticsFile, Artifact.class));
     builder.setPicMode(usePic);
     return builder;
-  }
-
-  @StarlarkMethod(
-      name = "create_cpp_compile_action",
-      documented = false,
-      parameters = {
-        @Param(name = "action_construction_context", positional = false, named = true),
-        @Param(name = "compile_action_builder", positional = false, named = true),
-        @Param(name = "compile_build_variables", positional = false, named = true),
-        @Param(name = "cpp_semantics", positional = false, named = true),
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "use_pic", positional = false, named = true, defaultValue = "None"),
-      })
-  public void createCppCompileAction(
-      StarlarkRuleContext actionConstructionContext,
-      CppCompileActionBuilder builder,
-      CcToolchainVariables compileBuildVariables,
-      CppSemantics semantics,
-      BuildConfigurationValue configuration,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Object usePic)
-      throws EvalException {
-    builder.setVariables(compileBuildVariables);
-    if (usePic != Starlark.NONE) {
-      builder.setPicMode((Boolean) usePic);
-    }
-    semantics.finalizeCompileActionBuilder(
-        configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
-    try {
-      CppCompileAction compileAction = builder.buildAndVerify();
-      actionConstructionContext.getRuleContext().registerAction(compileAction);
-    } catch (CppCompileActionBuilder.UnconfiguredActionConfigException e) {
-      throw new EvalException(
-          String.format(
-              "Expected action_config for '%s' to be configured", builder.getActionName()),
-          e);
-    }
   }
 
   // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s, LinkerInputs
