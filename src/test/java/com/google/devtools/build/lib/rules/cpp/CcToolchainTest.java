@@ -47,14 +47,22 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     ConfiguredTarget b = getConfiguredTarget("//a:b");
     assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b))).isNotNull();
   }
 
   @Test
   public void testInterfaceSharedObjects() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -168,7 +176,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testPic() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
 
     assertThat(usePicForBinariesWithConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL))
         .isFalse();
@@ -337,7 +349,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   private void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
-    scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.overwriteFile(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -443,7 +459,12 @@ public final class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testToolchainAlias() throws Exception {
     ConfiguredTarget reference =
-        scratchConfiguredTarget("a", "ref", "cc_toolchain_alias(name='ref')");
+        scratchConfiguredTarget(
+            "a",
+            "ref",
+            "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+                + " 'cc_toolchain_alias')",
+            "cc_toolchain_alias(name='ref')");
     assertThat(CcToolchainProvider.getFromTarget(reference)).isNotNull();
   }
 
@@ -453,6 +474,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         genrule(
@@ -473,6 +495,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         exports_files(["profile.unexpected"])
@@ -489,6 +512,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         filegroup(
@@ -509,6 +533,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         exports_files(["profile.afdo"])
@@ -522,7 +547,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testCSFdoRejectRelativePath() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     scratch.file("a/profile.profdata", "");
     scratch.file("a/csprofile.profdata", "");
     Exception e =
@@ -543,6 +572,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "b")
 
         genrule(
@@ -562,6 +592,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_toolchain_alias(name = "b")
 
@@ -581,6 +612,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_toolchain_alias(name = "b")
 
@@ -780,7 +812,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testSysroot_fromCrosstool_unset() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
     ConfiguredTarget target = getConfiguredTarget("//a:b");
@@ -795,6 +831,7 @@ public final class CcToolchainTest extends BuildViewTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "a")
 
         cc_library(

@@ -146,7 +146,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
               """,
               ruleName));
     }
-    for (String ruleName : ImmutableList.of("cc_toolchain")) {
+    for (String ruleName : ImmutableList.of("cc_toolchain", "cc_toolchain_alias")) {
       config.overwrite(
           "third_party/bazel_rules/rules_cc/cc/toolchains/" + ruleName + ".bzl",
           MessageFormat.format(

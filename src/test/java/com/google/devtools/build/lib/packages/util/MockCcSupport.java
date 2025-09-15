@@ -272,6 +272,7 @@ public abstract class MockCcSupport {
             "cc/find_cc_toolchain.bzl",
             "cc/toolchains/BUILD",
             "cc/toolchains/cc_toolchain.bzl",
+            "cc/toolchains/cc_toolchain_alias.bzl",
             "cc/toolchain_utils.bzl",
             "cc/private/rules_impl/BUILD",
             "cc/private/rules_impl/native.bzl")) {

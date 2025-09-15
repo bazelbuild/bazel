@@ -82,6 +82,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "my_rule")
 
         cc_toolchain_alias(name = "toolchain")
@@ -517,6 +518,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "toolchain")
 
         cc_library(
@@ -541,6 +543,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "toolchain")
 
         cc_library(

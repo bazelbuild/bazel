@@ -138,6 +138,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -174,6 +175,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -245,6 +247,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -291,6 +294,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -349,6 +353,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -400,6 +405,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -450,6 +456,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -495,6 +502,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -552,6 +560,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -609,6 +618,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -659,6 +669,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -710,6 +721,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -743,6 +755,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -1216,6 +1229,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       String actionName, int pkgSuffix, String... variables) throws Exception {
     scratch.file(
         "a" + pkgSuffix + "/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
         "load(':rule.bzl', 'crule')",
         "cc_toolchain_alias(name='alias')",
         "crule(name='r')");
@@ -1882,6 +1897,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """
         load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("//tools/build_defs/cc:rule.bzl", "crule")
 
         cc_binary(
@@ -4949,6 +4965,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":crosstool.bzl", "cc_toolchain_config_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -5014,6 +5031,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":crosstool.bzl", "cc_toolchain_config_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -5078,6 +5096,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":crosstool.bzl", "cc_toolchain_config_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -5157,6 +5176,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":crosstool.bzl", "cc_toolchain_config_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -5223,6 +5243,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "cc_flags")
 
         cc_toolchain_alias(name = "alias")
@@ -7040,6 +7061,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("//bazel_internal/test_rules/cc:rule.bzl", "cc_compile_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -7187,6 +7209,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -7304,6 +7327,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("//b:rule.bzl", "link_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -7440,6 +7464,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
         cc_toolchain_alias(name = "alias")
@@ -7495,6 +7520,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "b/BUILD",
         """
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("//b:rule.bzl", "cc_rule")
 
         cc_library(
@@ -7589,6 +7615,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "b/BUILD",
         """
         load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("//b:rule.bzl", "cc_rule")
 
         cc_library(
@@ -7725,6 +7752,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "b/BUILD",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
         "load('//" + rulePkg + ":rule.bzl', 'cc_rule')",
         "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
         "cc_toolchain_alias(name='alias')",
@@ -7798,6 +7827,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load("//b:rule.bzl", "cc_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -7923,6 +7953,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":custom_rule.bzl", "cc_linking_outputs_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -7966,6 +7997,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":custom_rule.bzl", "custom_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -8040,6 +8072,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":custom_rule.bzl", "custom_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -8082,6 +8115,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":custom_rule.bzl", "custom_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -8124,6 +8158,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":custom_rule.bzl", "custom_rule")
 
         cc_toolchain_alias(name = "alias")
@@ -8168,6 +8203,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":custom_rule.bzl", "custom_rule")
 
         cc_toolchain_alias(name = "alias")

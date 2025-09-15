@@ -2320,7 +2320,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             srcs = ["starlark_lib.m"],
         )
         """);
-    scratch.file("a/BUILD", "cc_toolchain_alias(name='alias')");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+            + " 'cc_toolchain_alias')",
+        "cc_toolchain_alias(name='alias')");
     getConfiguredTarget("//foo:starlark_lib");
     assertNoEvents();
   }
@@ -2442,6 +2446,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:objc_library.bzl", "objc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "a")
 
         objc_library(
@@ -2584,6 +2589,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:objc_library.bzl", "objc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "toolchain")
 
         objc_library(
@@ -2608,6 +2614,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:objc_library.bzl", "objc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "toolchain")
 
         objc_library(
@@ -2627,6 +2634,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "a/BUILD",
         """
         load("@rules_cc//cc:objc_library.bzl", "objc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "toolchain")
 
         objc_library(

@@ -548,6 +548,8 @@ public final class Crosstool {
             .join(
                 "load('@rules_cc//cc/toolchains:cc_toolchain.bzl',"
                     + " 'cc_toolchain')",
+                "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+                    + " 'cc_toolchain_alias')",
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",

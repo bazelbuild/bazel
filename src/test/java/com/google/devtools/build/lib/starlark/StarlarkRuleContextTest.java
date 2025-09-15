@@ -1074,6 +1074,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "vars/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(':vars.bzl', 'make_var_supplier', 'make_var_user')
         make_var_supplier(name = 'supplier', value = 'foo')
         cc_toolchain_alias(name = 'current_cc_toolchain')
