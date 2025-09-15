@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
+import com.google.devtools.build.lib.runtime.commands.CoverageCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
@@ -1310,7 +1311,9 @@ public abstract class BuildIntegrationTestCase {
           new QueryCommand(),
           new CqueryCommand(),
           new InfoCommand(),
-          new TestCommand());
+          new TestCommand(),
+          new CoverageCommand(),
+          new CleanCommand());
     }
   }
 

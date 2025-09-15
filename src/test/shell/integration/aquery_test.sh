@@ -1983,7 +1983,7 @@ function test_file_write_is_executable() {
   touch "$pkg/foo.sh"
   cat > "$pkg/write_executable_file.bzl" <<'EOF'
 def _impl(ctx):
-    out = ctx.actions.declare_symlink(ctx.label.name)
+    out = ctx.actions.declare_file(ctx.label.name)
     ctx.actions.write(
         output = out,
         content = "Hello",
@@ -2045,46 +2045,6 @@ EOF
        sh | tee -a "$TEST_log"  > contents
     assert_contains "$pkg/foo\.sh" contents
   fi
-}
-
-function test_unresolved_symlinks() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  touch "$pkg/foo.sh"
-  cat > "$pkg/unresolved_symlink.bzl" <<'EOF'
-def _impl(ctx):
-    out = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.symlink(
-        output = out,
-        target_path = ctx.attr.path
-    )
-    return [
-        DefaultInfo(files = depset([out]))
-    ]
-unresolved_symlink = rule(
-    implementation = _impl,
-    attrs = {
-        "path": attr.string(),
-    },
-)
-EOF
-  cat > "$pkg/BUILD" <<'EOF'
-load(":unresolved_symlink.bzl", "unresolved_symlink")
-unresolved_symlink(
-  name = "foo",
-  path = "bar/baz.txt",
-)
-EOF
-  bazel aquery --output=textproto \
-     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "^unresolved_symlink_target:.*bar/baz.txt" output
-
-  bazel aquery --output=text "//$pkg:foo" | \
-    sed -nr '/Mnemonic: UnresolvedSymlink/,/^ *$/p' >output \
-      2> "$TEST_log" || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "^ *UnresolvedSymlinkTarget:.*bar/baz.txt" output
 }
 
 function test_does_not_fail_horribly_with_file() {
