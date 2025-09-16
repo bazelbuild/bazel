@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.ArrayList;
@@ -109,10 +108,12 @@ public final class CompletionContextTest {
     InOrder inOrder = inOrder(receiver);
     inOrder
         .verify(receiver)
-        .acceptFilesetMapping(fileset, PathFragment.create("a1"), b1.getPath(), DUMMY_METADATA);
+        .acceptFilesetMapping(
+            fileset, new FilesetOutputSymlink(PathFragment.create("a1"), b1, DUMMY_METADATA));
     inOrder
         .verify(receiver)
-        .acceptFilesetMapping(fileset, PathFragment.create("a2"), b2.getPath(), DUMMY_METADATA);
+        .acceptFilesetMapping(
+            fileset, new FilesetOutputSymlink(PathFragment.create("a2"), b2, DUMMY_METADATA));
   }
 
   private static List<Artifact> visit(CompletionContext ctx, Artifact artifact) {
@@ -121,13 +122,12 @@ public final class CompletionContextTest {
         ImmutableList.of(artifact),
         new ArtifactReceiver() {
           @Override
-          public void accept(Artifact artifact) {
+          public void accept(Artifact artifact, FileArtifactValue metadata) {
             visited.add(artifact);
           }
 
           @Override
-          public void acceptFilesetMapping(
-              Artifact fileset, PathFragment relName, Path targetFile, FileArtifactValue metadata) {
+          public void acceptFilesetMapping(Artifact fileset, FilesetOutputSymlink link) {
             throw new AssertionError(fileset);
           }
         });

@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.CompletionContext.FAILED_COMPLETION_CTX;
-import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -28,21 +26,17 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CompletionContext;
-import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
-import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -202,31 +196,14 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     scratch.file(utf8InLatin1FileName, "content does not matter");
     ConfiguredTargetAndData ctAndData = getCtAndData("//sh:globby");
     ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    Artifact artifact = Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    FileArtifactValue metadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
 
-    TargetCompleteEvent event =
-        TargetCompleteEvent.successfulBuild(
-            ctAndData,
-            FAILED_COMPLETION_CTX,
-            artifactsToBuild.getAllArtifactsByOutputGroup(),
-            /*announceTargetSummary=*/ false);
+    File fileProto = TargetCompleteEvent.newFile(artifact, metadata);
 
-    ArrayList<File> fileProtos = new ArrayList<>();
-    ReportedArtifacts reportedArtifacts = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);
-    for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
-      for (Artifact a : artifactSet.toListInterruptibly()) {
-        fileProtos.add(
-            newFileFromArtifact(
-                /* name= */ null,
-                a,
-                PathFragment.EMPTY_FRAGMENT,
-                FAILED_COMPLETION_CTX,
-                /* uri= */ null));
-      }
-    }
     // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
-    String utf8FileName = new String(filenameBytes, UTF_8);
-    assertThat(fileProtos).hasSize(1);
-    assertThat(fileProtos.get(0).getName()).isEqualTo(utf8FileName);
+    assertThat(fileProto.getName()).isEqualTo(new String(filenameBytes, UTF_8));
   }
 
   private ConfiguredTargetAndData getCtAndData(String target) throws Exception {

@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -81,37 +81,41 @@ public final class CompletionContext {
       }
       if (artifact.isFileset()) {
         if (expandFilesets) {
-          visitFileset(artifact, receiver);
+          FilesetOutputTree filesetOutput =
+              checkNotNull(
+                  importantInputMap.getFileset(artifact),
+                  "missing metadata for fileset: %s",
+                  artifact);
+          for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+            receiver.acceptFilesetMapping(artifact, link);
+          }
         }
       } else if (artifact.isTreeArtifact()) {
         TreeArtifactValue treeValue =
             checkNotNull(
-                importantInputMap.getTreeMetadata(artifact), "Missing tree artifact: %s", artifact);
-        for (Artifact child : treeValue.getChildren()) {
-          receiver.accept(child);
+                importantInputMap.getTreeMetadata(artifact),
+                "missing metadata for tree artifact: %s",
+                artifact);
+        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
+            treeValue.getChildValues().entrySet()) {
+          receiver.accept(entry.getKey(), entry.getValue());
         }
       } else {
-        receiver.accept(artifact);
+        FileArtifactValue metadata =
+            checkNotNull(
+                importantInputMap.getInputMetadata(artifact),
+                "missing metadata for artifact: %s",
+                artifact);
+        receiver.accept(artifact, metadata);
       }
-    }
-  }
-
-  private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
-    FilesetOutputTree filesetOutput =
-        checkNotNull(
-            importantInputMap.getFileset(filesetArtifact), "Missing fileset: %s", filesetArtifact);
-    for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-      receiver.acceptFilesetMapping(
-          filesetArtifact, link.name(), link.target().getPath(), link.metadata());
     }
   }
 
   /** A function that accepts an {@link Artifact}. */
   public interface ArtifactReceiver {
-    void accept(Artifact artifact);
+    void accept(Artifact artifact, FileArtifactValue metadata);
 
-    void acceptFilesetMapping(
-        Artifact fileset, PathFragment relName, Path targetFile, FileArtifactValue metadata);
+    void acceptFilesetMapping(Artifact fileset, FilesetOutputSymlink link);
   }
 
   /** A factory for {@link ArtifactPathResolver}. */
