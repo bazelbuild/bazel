@@ -14,18 +14,21 @@
 
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
+import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -55,6 +59,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -66,10 +71,12 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -4283,5 +4290,140 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "    name = 'generating_target',",
         "    template = ':template.txt',",
         ")");
+  }
+
+  @Test
+  public void invalidDefaultValue_stringSet() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        string_set_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string_set(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "string_set_flag")
+
+        string_set_flag(
+            name = "my_flag",
+            build_setting_default = set(["v1", 123]),
+        )
+        """);
+
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_flag"));
+    assertContainsEvent(
+        "expected value of type 'string' for element 1 of attribute 'build_setting_default' of"
+            + " 'string_set_flag', but got 123 (int)");
+  }
+
+  @Test
+  public void stringSet_repeatableWithoutFlag_fails() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        string_set_setting = rule(
+            implementation = _impl,
+            build_setting = config.string_set(repeatable = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_set_setting")
+
+        string_set_setting(
+            name = "my_flag",
+            build_setting_default = set(["default_value"]),
+        )
+        """);
+
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_flag"));
+    assertContainsEvent("'repeatable' can only be set for a setting with 'flag = True'");
+  }
+
+  @Test
+  @TestParameters({
+    // Only default value is set.
+    "{defaultValue: ['v2', 'v1', 'v1', 'v3', 'v2', 'v3', 'v4'], repeatable: false, cmdValue: null,"
+        + " expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Not repeatable, flag value is not the same as the default.
+    "{defaultValue: ['default'], repeatable: false, cmdValue:"
+        + " ['v1,v4,v3,v2,v3,v1,v4,v1'], expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Repeatable, flag value is not the same as the default.
+    "{defaultValue: ['default'], repeatable: true, cmdValue: ['v2', 'v2', 'v1', 'v3', 'v4', 'v1'],"
+        + " expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Not repeatable, flag value is the same as the default.
+    "{defaultValue: ['v2', 'v1', 'v1', 'v3', 'v2', 'v3', 'v4'], repeatable: false, cmdValue:"
+        + " ['v1,v4,v3,v2,v3,v1,v4,v1'], expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Repeatable, flag value is the same as the default.
+    "{defaultValue: ['v2', 'v1', 'v1', 'v3', 'v2', 'v3', 'v4'], repeatable: true, cmdValue: ['v2',"
+        + " 'v2', 'v1', 'v3', 'v4', 'v1'], expectedValue: ['v1', 'v2', 'v3', 'v4']}"
+  })
+  public void testStringSetFlag(
+      List<String> defaultValue,
+      boolean repeatable,
+      List<String> cmdValue,
+      List<String> expectedValue)
+      throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        String.format(
+            """
+            BuildSettingInfo = provider(fields = ['name', 'value'])
+            def _impl(ctx):
+              if type(ctx.build_setting_value) != "set":
+                fail("expected value of type 'set(string)' for attribute 'build_setting_value', but got {}".format(type(ctx.build_setting_value)))
+              return [BuildSettingInfo(name = ctx.attr.name, value = ctx.build_setting_value)]
+
+            string_set_flag = rule(
+              implementation = _impl,
+              build_setting = config.string_set(flag = True, repeatable = %s),
+            )
+            """,
+            repeatable ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load('//test:build_setting.bzl', 'string_set_flag')
+            string_set_flag(
+                name = "my_flag",
+                build_setting_default = set([%s]),
+            )
+            """,
+            defaultValue.stream().map(v -> String.format("'%s'", v)).collect(joining(","))));
+    if (cmdValue != null) {
+      useConfiguration(
+          cmdValue.stream()
+              .map(v -> String.format("--//test:my_flag=%s", v))
+              .collect(toImmutableList())
+              .toArray(new String[0]));
+    }
+
+    ConfiguredTarget buildSetting = getConfiguredTarget("//test:my_flag");
+
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
+            "BuildSettingInfo");
+    StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(Set.class);
+    assertThat(buildSettingInfo.getValue("value")).isEqualTo(ImmutableSet.copyOf(expectedValue));
+
+    BuildSettingProvider buildSettingProvider =
+        buildSetting.getProvider(BuildSettingProvider.class);
+    assertThat(buildSettingProvider.getDefaultValue()).isInstanceOf(Set.class);
+    assertThat(buildSettingProvider.getDefaultValue()).isEqualTo(ImmutableSet.copyOf(defaultValue));
+    assertThat(buildSettingProvider.getType()).isEqualTo(Types.STRING_SET);
   }
 }

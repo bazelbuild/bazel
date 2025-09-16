@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SequencedSet;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -199,13 +200,20 @@ public class StarlarkOptionsParser {
             e);
       }
       if (buildSetting.allowsMultiple() || buildSetting.isRepeatableFlag()) {
-        List<Object> newValue;
-        if (buildSettingWithTargetAndValue.containsKey(loadedFlag)) {
+        Collection<Object> newValue;
+        boolean hasLoadedFlag = buildSettingWithTargetAndValue.containsKey(loadedFlag);
+        if (buildSetting.getType().equals(Types.STRING_SET)) {
           newValue =
-              new ArrayList<>(
-                  (Collection<?>) buildSettingWithTargetAndValue.get(loadedFlag).getSecond());
+              hasLoadedFlag
+                  ? new LinkedHashSet<>(
+                      (Collection<?>) buildSettingWithTargetAndValue.get(loadedFlag).getSecond())
+                  : new LinkedHashSet<>();
         } else {
-          newValue = new ArrayList<>();
+          newValue =
+              hasLoadedFlag
+                  ? new ArrayList<>(
+                      (Collection<?>) buildSettingWithTargetAndValue.get(loadedFlag).getSecond())
+                  : new ArrayList<>();
         }
         newValue.add(value);
         value = newValue;
@@ -437,12 +445,13 @@ public class StarlarkOptionsParser {
       String starlarkOptionString = "--" + starlarkOptionName + "=";
       if (checkIfParsedOptionAllowsMultiple(starlarkOptionName)) {
         Preconditions.checkState(
-            starlarkOption.getValue() instanceof List,
-            "Found a starlark option value that isn't a list for an allow multiple option.");
-        for (Object singleValue : (List) starlarkOptionValue) {
+            starlarkOption.getValue() instanceof List || starlarkOption.getValue() instanceof Set,
+            "Found a starlark option value that isn't a list or set for an allow multiple option.");
+        for (Object singleValue : (Collection) starlarkOptionValue) {
           result.add(starlarkOptionString + singleValue);
         }
-      } else if (getParsedOptionType(starlarkOptionName).equals(Types.STRING_LIST)) {
+      } else if (getParsedOptionType(starlarkOptionName).equals(Types.STRING_LIST)
+          || getParsedOptionType(starlarkOptionName).equals(Types.STRING_SET)) {
         result.add(
             starlarkOptionString + String.join(",", ((Iterable<String>) starlarkOptionValue)));
       } else {

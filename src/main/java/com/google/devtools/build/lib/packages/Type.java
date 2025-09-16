@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -39,6 +40,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSet;
 
 /**
  * Root of Type symbol hierarchy for values in the build language.
@@ -613,25 +615,22 @@ public abstract class Type<T> {
     }
   }
 
-  /** A type for lists of a given element type */
-  public static class ListType<ElemT> extends Type<List<ElemT>> {
+  /** A parent class for collection types (ListType, SetType). */
+  private abstract static class CollectionType<T extends Iterable<ElemT>, ElemT> extends Type<T> {
 
-    private final Type<ElemT> elemType;
+    final Type<ElemT> elemType;
 
-    private final List<ElemT> empty = ImmutableList.of();
+    private final T empty;
 
-    public static <ELEM> ListType<ELEM> create(Type<ELEM> elemType) {
-      return new ListType<>(elemType);
-    }
-
-    private ListType(Type<ElemT> elemType) {
+    private CollectionType(Type<ElemT> elemType, T empty) {
       this.elemType = elemType;
+      this.empty = empty;
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public final List<ElemT> cast(Object value) {
-      return (List<ElemT>) value;
+    public final T cast(Object value) {
+      return (T) value;
     }
 
     @Override
@@ -645,8 +644,62 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> getDefaultValue() {
+    public T getDefaultValue() {
       return empty;
+    }
+
+    /**
+     * A collection is representable as a tag set as the contents of itself expressed as Strings. So
+     * a {@code Iterable<String>} is effectively converted to a {@code Set<String>}.
+     */
+    @Override
+    public Set<String> toTagSet(Object items, String name) {
+      if (items == null) {
+        String msg = "Illegal tag conversion from null on Attribute" + name + ".";
+        throw new IllegalStateException(msg);
+      }
+      Set<String> tags = new LinkedHashSet<>();
+      @SuppressWarnings("unchecked")
+      Iterable<ElemT> itemsAsListofElem = (Iterable<ElemT>) items;
+      for (ElemT element : itemsAsListofElem) {
+        tags.add(element.toString());
+      }
+      return tags;
+    }
+
+    /**
+     * Provides a {@link #toString()} description of the context of the value in a collection being
+     * converted. This is preferred over a raw string to avoid uselessly constructing strings which
+     * are never used. This class is mutable (the index is updated).
+     */
+    static class ConversionContext {
+      private final Object what;
+      private int index = 0;
+
+      ConversionContext(Object what) {
+        this.what = what;
+      }
+
+      void update(int index) {
+        this.index = index;
+      }
+
+      @Override
+      public String toString() {
+        return "element " + index + " of " + what;
+      }
+    }
+  }
+
+  /** A type for lists of a given element type */
+  public static class ListType<ElemT> extends CollectionType<List<ElemT>, ElemT> {
+
+    public static <E> ListType<E> create(Type<E> elemType) {
+      return new ListType<>(elemType);
+    }
+
+    private ListType(Type<ElemT> elemType) {
+      super(elemType, ImmutableList.of());
     }
 
     @Override
@@ -688,7 +741,7 @@ public abstract class Type<T> {
 
       int index = 0;
       List<ElemT> result = new ArrayList<>(Iterables.size(iterable));
-      ListConversionContext conversionContext = new ListConversionContext(what);
+      ConversionContext conversionContext = new ConversionContext(what);
       for (Object elem : iterable) {
         conversionContext.update(index);
         ElemT converted = elemType.convert(elem, conversionContext, labelConverter);
@@ -725,47 +778,83 @@ public abstract class Type<T> {
       }
       return builder.build();
     }
+  }
 
-    /**
-     * A list is representable as a tag set as the contents of itself expressed as Strings. So a
-     * {@code List<String>} is effectively converted to a {@code Set<String>}.
-     */
-    @Override
-    public Set<String> toTagSet(Object items, String name) {
-      if (items == null) {
-        String msg = "Illegal tag conversion from null on Attribute" + name + ".";
-        throw new IllegalStateException(msg);
-      }
-      Set<String> tags = new LinkedHashSet<>();
-      @SuppressWarnings("unchecked")
-      List<ElemT> itemsAsListofElem = (List<ElemT>) items;
-      for (ElemT element : itemsAsListofElem) {
-        tags.add(element.toString());
-      }
-      return tags;
+  /** A type for sets of a given element type */
+  public static class SetType<ElemT> extends CollectionType<Set<ElemT>, ElemT> {
+
+    public static <E> SetType<E> create(Type<E> elemType) {
+      return new SetType<>(elemType);
     }
 
-    /**
-     * Provides a {@link #toString()} description of the context of the value in a list being
-     * converted. This is preferred over a raw string to avoid uselessly constructing strings which
-     * are never used. This class is mutable (the index is updated).
-     */
-    private static class ListConversionContext {
-      private final Object what;
-      private int index = 0;
+    private SetType(Type<ElemT> elemType) {
+      super(elemType, ImmutableSet.of());
+    }
 
-      ListConversionContext(Object what) {
-        this.what = what;
+    @Override
+    public final void visitLabels(
+        LabelVisitor visitor, Set<ElemT> value, @Nullable Attribute context) {
+      if (elemType.getLabelClass() == LabelClass.NONE) {
+        return;
       }
 
-      void update(int index) {
-        this.index = index;
+      for (ElemT elem : value) {
+        elemType.visitLabels(visitor, elem, context);
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "set(" + elemType + ")";
+    }
+
+    @Override
+    public Set<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
+      if (!(x instanceof Set)) {
+        throw new ConversionException(this, x, what);
       }
 
-      @Override
-      public String toString() {
-        return "element " + index + " of " + what;
+      Set<?> set = (Set<?>) x;
+
+      int index = 0;
+      Set<ElemT> result = Sets.newLinkedHashSetWithExpectedSize(set.size());
+      ConversionContext conversionContext = new ConversionContext(what);
+      for (Object elem : set) {
+        conversionContext.update(index);
+        ElemT converted = elemType.convert(elem, conversionContext, labelConverter);
+        if (converted != null) {
+          result.add(converted);
+        } else {
+          // shouldn't happen but it does, rarely
+          String message =
+              "Converting a set with a null element: "
+                  + "element "
+                  + index
+                  + " of "
+                  + what
+                  + " in "
+                  + labelConverter;
+          LoggingUtil.logToRemote(Level.WARNING, message, new ConversionException(message));
+        }
+        ++index;
       }
+      return result;
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return StarlarkSet.immutableCopyOf(convert(x, what, labelConverter));
+    }
+
+    @Override
+    public Set<ElemT> concat(Iterable<Set<ElemT>> elements) {
+      ImmutableSet.Builder<ElemT> builder = ImmutableSet.builder();
+      for (Set<ElemT> set : elements) {
+        builder.addAll(set);
+      }
+      return builder.build();
     }
   }
 }

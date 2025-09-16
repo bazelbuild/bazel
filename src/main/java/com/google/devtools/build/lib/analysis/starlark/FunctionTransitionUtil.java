@@ -494,6 +494,16 @@ public final class FunctionTransitionUtil {
                 "Invalid value type for option '%s': want label, got %s",
                 optionKey, Starlark.type(optionValue));
           }
+        } else if (oldValue instanceof Set) {
+          // If this is a set-typed build setting, for backwards compatibility, if the provided
+          // value is a List, we need to convert it to a Set.
+          if (optionValue instanceof List<?>) {
+            optionValue = ImmutableSet.copyOf((List<?>) optionValue);
+          } else if (!(optionValue instanceof Set)) {
+            throw ValidationException.format(
+                "Invalid value type for option '%s': want set, got %s",
+                optionKey, Starlark.type(optionValue));
+          }
         }
         if (!Objects.equals(oldValue, optionValue)) {
           changedStarlarkOptions.put(optionLabel, optionValue);

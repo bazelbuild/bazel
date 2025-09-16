@@ -1145,6 +1145,109 @@ EOF
   assert_contains "//$pkg:rules.bzl%None" output
 }
 
+function test_string_set_starlark_build_option() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+cat > tools/allowlists/function_transition_allowlist/BUILD <<EOF
+package_group(
+    name = "function_transition_allowlist",
+    packages = [
+        "//...",
+    ],
+)
+EOF
+
+  cat > "$pkg/rules.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _set_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+set_flag = rule(
+    implementation = _set_flag_impl,
+    build_setting = config.string_set(flag = True),
+)
+
+def _dep_transition_impl(settings, attr):
+    return {
+        "//$pkg:my_flag": ["b", "a", "b"],
+    }
+
+_dep_transition = transition(
+    implementation = _dep_transition_impl,
+    inputs = [],
+    outputs = [
+        "//$pkg:my_flag",
+    ],
+)
+
+def _root_rule_impl(ctx):
+    return []
+
+root_rule = rule(
+    _root_rule_impl,
+    attrs = {
+        "deps": attr.label_list(cfg = _dep_transition),
+    },
+)
+EOF
+
+  add_rules_python "MODULE.bazel"
+  cat > $pkg/BUILD <<'EOF'
+load(":rules.bzl", "set_flag", "root_rule")
+load("@rules_python//python:py_library.bzl", "py_library")
+
+exports_files(["rules.bzl"])
+
+set_flag(
+    name = "my_flag",
+    build_setting_default = set(["c"]),
+)
+
+py_library(
+    name = "bar",
+    srcs = ["pylib.py"],
+)
+
+root_rule(
+    name = "foo",
+    deps = ["bar"],
+)
+EOF
+
+  cat > $pkg/expr.star <<EOF
+def format(target):
+  bo = build_options(target)
+  print(bo)
+  if bo == None:
+    return str(target.label) + '%None'
+  my_flag = str(bo['//$pkg:my_flag'] if '//$pkg:my_flag' in bo else None)
+  return str(target.label) + '%' + my_flag
+EOF
+
+  bazel cquery "//$pkg:bar" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:bar%None" output
+
+  bazel cquery "//$pkg:bar" --output=starlark --//$pkg:my_flag=c,d \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:bar%set(\\[\"c\", \"d\"])" output
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:foo%None" output
+
+  bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:foo%None" output
+  assert_contains "//$pkg:bar%set(\\[\"b\", \"a\"])" output
+
+  bazel cquery "//$pkg:rules.bzl" --output=starlark \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:rules.bzl%None" output
+}
+
 function test_starlark_build_options_invalid_arg() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg

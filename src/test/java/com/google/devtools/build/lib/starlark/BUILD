@@ -233,6 +233,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -296,6 +297,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/buildinfo_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:build_setting_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_exec_group_collection",

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_SET;
 
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
@@ -53,6 +54,14 @@ public class StarlarkConfig implements StarlarkConfigApi {
       throw Starlark.errorf("'repeatable' can only be set for a setting with 'flag = True'");
     }
     return BuildSetting.create(flag, STRING_LIST, false, repeatable);
+  }
+
+  @Override
+  public BuildSetting stringSetSetting(Boolean flag, Boolean repeatable) throws EvalException {
+    if (repeatable && !flag) {
+      throw Starlark.errorf("'repeatable' can only be set for a setting with 'flag = True'");
+    }
+    return BuildSetting.create(flag, STRING_SET, false, repeatable);
   }
 
   @Override
