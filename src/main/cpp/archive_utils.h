@@ -15,6 +15,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_ARCHIVE_UTILS_H_
 #define BAZEL_SRC_MAIN_CPP_ARCHIVE_UTILS_H_
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
