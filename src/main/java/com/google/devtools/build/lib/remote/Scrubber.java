@@ -116,6 +116,8 @@ public final class Scrubber {
    */
   public static final class SpawnScrubber {
 
+    public static final SpawnScrubber NOOP = new SpawnScrubber(Config.Rule.getDefaultInstance());
+
     private final Pattern mnemonicPattern;
     private final Pattern labelPattern;
     private final Pattern kindPattern;
