@@ -14,6 +14,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_LOGGING_H_
 #define BAZEL_SRC_MAIN_CPP_LOGGING_H_
 
+#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <string>
