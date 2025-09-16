@@ -315,7 +315,8 @@ public class RemoteExecutionService {
     }
 
     return command
-        .setWorkingDirectory(remotePathResolver.getWorkingDirectory().getPathString())
+        .setWorkingDirectory(
+            internalToUnicode(remotePathResolver.getWorkingDirectory().getPathString()))
         .build();
   }
 
