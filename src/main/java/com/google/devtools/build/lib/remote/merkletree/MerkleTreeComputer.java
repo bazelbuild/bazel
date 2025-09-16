@@ -23,7 +23,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -114,7 +113,7 @@ public final class MerkleTreeComputer {
   // * While the inputs of a spawn naturally form a map of paths to contents, this map doesn't have
   //   to be materialized in memory. Instead, it suffices to maintain a list of inputs that is
   //   sorted by lazily computed paths. This drastically reduces peak memory usage.
-  // * When visiting the inputs of a spawn in lexicographical order, once a directory is left once,
+  // * When visiting the inputs of a spawn in hierarchical order, once a directory is left once,
   //   it will never be entered again. At that point, the proto describing it can be built and
   //   digested and intermediate structures are no longer needed.
 
@@ -174,7 +173,7 @@ public final class MerkleTreeComputer {
   public sealed interface MerkleTree {
     Digest rootDigest();
 
-    /** The total number of files in this tree, including all subtrees. */
+    /** The total number of regular files and symlinks in this tree, including all subtrees. */
     long inputFiles();
 
     /**
@@ -333,7 +332,7 @@ public final class MerkleTreeComputer {
     var outputDirectories =
         spawn.getOutputFiles().stream()
             .filter(output -> output instanceof Artifact artifact && artifact.isTreeArtifact())
-            .map(outputDir -> new InputDirectory(outputDir.getExecPath()))
+            .map(outputDir -> new EmptyInputDirectory(outputDir.getExecPath()))
             .collect(toImmutableList());
     // Reduce peak memory usage by avoiding the allocation of intermediate arrays and TreeMaps, as
     // well as the prolonged retention of mapped paths.
@@ -410,7 +409,7 @@ public final class MerkleTreeComputer {
     // BlobPolicy.KEEP_ALL always results in a MerkleTree.WithBlobs.
     return (MerkleTree.Uploadable)
         build(
-            Collections2.transform(
+            Lists.transform(
                 ImmutableList.sortedCopyOf(
                     Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
                 e -> entry(e.getKey(), ActionInputHelper.fromPath(e.getValue().asFragment()))),
@@ -623,7 +622,7 @@ public final class MerkleTreeComputer {
           inputFiles++;
           inputBytes += digest.getSizeBytes();
         }
-        case InputDirectory ignored ->
+        case EmptyInputDirectory ignored ->
             currentDirectory.addDirectoriesBuilder().setName(name).setDigest(emptyDigest);
         case null -> {
           // This is a sentinel value for an empty file.
@@ -660,7 +659,7 @@ public final class MerkleTreeComputer {
     ArrayList<CompletableFuture<?>> subTreeFutures = new ArrayList<>();
     for (var entry : sortedInputs) {
       var future =
-          cacheSubTree(
+          maybeCacheSubtree(
               entry.getValue(),
               entry.getKey(),
               isToolInput,
@@ -677,8 +676,8 @@ public final class MerkleTreeComputer {
   }
 
   @Nullable
-  private CompletableFuture<?> cacheSubTree(
-      ActionInput input,
+  private CompletableFuture<?> maybeCacheSubtree(
+      @Nullable ActionInput input,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
@@ -687,37 +686,35 @@ public final class MerkleTreeComputer {
       @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException {
-    if (!(input instanceof Artifact artifact)) {
-      return null;
-    }
-    if (artifact.isTreeArtifact()) {
-      return computeForTreeArtifactIfAbsent(
-          metadataProvider.getTreeMetadata(artifact),
-          mappedExecPath,
-          isToolInput,
-          metadataProvider,
-          artifactPathResolver,
-          remoteActionExecutionContext,
-          remotePathResolver,
-          blobPolicy);
-    }
-    if (artifact.isRunfilesTree()) {
-      return computeForRunfilesTreeIfAbsent(
-          metadataProvider.getRunfilesMetadata(artifact),
-          mappedExecPath,
-          isToolInput,
-          metadataProvider,
-          artifactPathResolver,
-          remoteActionExecutionContext,
-          remotePathResolver,
-          blobPolicy);
-    }
-    if (artifact.isSourceArtifact()) {
-      var metadata =
-          checkNotNull(
-              metadataProvider.getInputMetadata(artifact), "missing metadata: %s", artifact);
-      if (metadata.getType() == FileStateType.DIRECTORY) {
-        return computeIfAbsent(
+    return switch (input) {
+      case Artifact artifact when artifact.isTreeArtifact() ->
+          computeForTreeArtifactIfAbsent(
+              metadataProvider.getTreeMetadata(artifact),
+              mappedExecPath,
+              isToolInput,
+              metadataProvider,
+              artifactPathResolver,
+              remoteActionExecutionContext,
+              remotePathResolver,
+              blobPolicy);
+      case Artifact artifact when artifact.isRunfilesTree() ->
+          computeForRunfilesTreeIfAbsent(
+              metadataProvider.getRunfilesMetadata(artifact),
+              mappedExecPath,
+              isToolInput,
+              metadataProvider,
+              artifactPathResolver,
+              remoteActionExecutionContext,
+              remotePathResolver,
+              blobPolicy);
+      case Artifact artifact when artifact.isSourceArtifact() -> {
+        var metadata =
+            checkNotNull(
+                metadataProvider.getInputMetadata(artifact), "missing metadata: %s", artifact);
+        if (metadata.getType() != FileStateType.DIRECTORY) {
+          yield null;
+        }
+        yield computeIfAbsent(
             metadata,
             () -> explodeDirectory(artifactPathResolver.toPath(artifact)).entrySet(),
             isToolInput.test(mappedExecPath),
@@ -727,8 +724,8 @@ public final class MerkleTreeComputer {
             remotePathResolver,
             blobPolicy);
       }
-    }
-    return null;
+      case null, default -> null;
+    };
   }
 
   private CompletableFuture<MerkleTree.RootOnly> computeForRunfilesTreeIfAbsent(
@@ -788,7 +785,7 @@ public final class MerkleTreeComputer {
     return computeIfAbsent(
         treeArtifactValue.getMetadata(),
         () ->
-            Collections2.transform(
+            Lists.transform(
                 ImmutableList.sortedCopyOf(
                     comparing(
                         Artifact.TreeFileArtifact::getParentRelativePath, HIERARCHICAL_COMPARATOR),
@@ -1014,10 +1011,10 @@ public final class MerkleTreeComputer {
     return null;
   }
 
-  private static class InputDirectory extends ActionInputHelper.BasicActionInput {
+  private static class EmptyInputDirectory extends ActionInputHelper.BasicActionInput {
     private final PathFragment execPath;
 
-    InputDirectory(PathFragment execPath) {
+    EmptyInputDirectory(PathFragment execPath) {
       this.execPath = execPath;
     }
 
@@ -1044,7 +1041,6 @@ public final class MerkleTreeComputer {
     public void unwrapAndThrow() throws IOException, InterruptedException {
       Throwables.throwIfInstanceOf(getCause(), IOException.class);
       Throwables.throwIfInstanceOf(getCause(), InterruptedException.class);
-      Throwables.throwIfUnchecked(getCause());
       throw new IllegalStateException(getCause());
     }
 
