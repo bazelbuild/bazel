@@ -170,28 +170,30 @@ public final class SpawnInputExpander {
             /* keepEmptyTreeArtifacts= */ true,
             /* keepRunfilesTrees= */ true);
     for (ActionInput input : inputs) {
-      if (input instanceof TreeFileArtifact) {
-        addMapping(
-            inputMap,
-            pathMapper
-                .map(((TreeFileArtifact) input).getParent().getExecPath())
-                .getRelative(((TreeFileArtifact) input).getParentRelativePath()),
-            input,
-            baseDirectory);
-      } else if (isRunfilesTreeArtifact(input)) {
-        RunfilesTree runfilesTree =
-            inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
-        addSingleRunfilesTreeToInputs(
-            runfilesTree, inputMap, inputMetadataProvider, pathMapper, baseDirectory);
-      } else if (input instanceof Artifact fileset && fileset.isFileset()) {
-        addFilesetManifest(
-            fileset.getExecPath(),
-            fileset,
-            inputMetadataProvider.getFileset(fileset),
-            inputMap,
-            baseDirectory);
-      } else {
-        addMapping(inputMap, pathMapper.map(input.getExecPath()), input, baseDirectory);
+      switch (input) {
+        case TreeFileArtifact treeFileArtifact ->
+            addMapping(
+                inputMap,
+                pathMapper
+                    .map(treeFileArtifact.getParent().getExecPath())
+                    .getRelative(treeFileArtifact.getParentRelativePath()),
+                input,
+                baseDirectory);
+        case Artifact runfilesTreeArtifact when runfilesTreeArtifact.isRunfilesTree() ->
+            addSingleRunfilesTreeToInputs(
+                inputMetadataProvider.getRunfilesMetadata(runfilesTreeArtifact).getRunfilesTree(),
+                inputMap,
+                inputMetadataProvider,
+                pathMapper,
+                baseDirectory);
+        case Artifact fileset when fileset.isFileset() ->
+            addFilesetManifest(
+                fileset.getExecPath(),
+                fileset,
+                inputMetadataProvider.getFileset(fileset),
+                inputMap,
+                baseDirectory);
+        default -> addMapping(inputMap, pathMapper.map(input.getExecPath()), input, baseDirectory);
       }
     }
   }
@@ -235,9 +237,5 @@ public final class SpawnInputExpander {
         .map(executable)
         .replaceName(runfilesDirName)
         .getRelative(execPath.relativeTo(runfilesDir));
-  }
-
-  private static boolean isRunfilesTreeArtifact(ActionInput input) {
-    return input instanceof Artifact && ((Artifact) input).isRunfilesTree();
   }
 }
