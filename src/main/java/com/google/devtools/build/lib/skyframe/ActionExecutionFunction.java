@@ -281,9 +281,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     CheckInputResults checkedInputs = null;
-    NestedSet<Artifact> allInputs =
-        state.allInputs.getAllInputs(
-            skyframeActionExecutor.actionFileSystemType().supportsInputDiscovery());
+    NestedSet<Artifact> allInputs = state.allInputs.getAllInputs();
 
     if (!state.actionInputCollectedEventSent) {
       env.getListener()
@@ -550,67 +548,38 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     checkState(action.discoversInputs(), action);
-    PackageRootResolverWithEnvironment resolver = new PackageRootResolverWithEnvironment(env);
     List<Artifact> actionCacheInputs =
-        skyframeActionExecutor.getActionCachedInputs(action, resolver);
+        skyframeActionExecutor.getActionCachedInputs(
+            action, new PackageRootResolverWithEnvironment(env));
     if (actionCacheInputs == null) {
       checkState(env.valuesMissing(), action);
       return null;
     }
-    return new AllInputs(
-        allKnownInputs,
-        actionCacheInputs,
-        action.getAllowedDerivedInputs(),
-        resolver.packageLookupsRequested);
+    return new AllInputs(allKnownInputs, actionCacheInputs);
   }
 
   static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
-    @Nullable final NestedSet<Artifact> allowedDerivedInputs;
     @Nullable final List<Artifact> actionCacheInputs;
-    @Nullable final List<ContainingPackageLookupValue.Key> packageLookupsRequested;
 
     AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = null;
-      this.allowedDerivedInputs = null;
-      this.packageLookupsRequested = null;
     }
 
-    AllInputs(
-        NestedSet<Artifact> defaultInputs,
-        List<Artifact> actionCacheInputs,
-        NestedSet<Artifact> allowedDerivedInputs,
-        List<ContainingPackageLookupValue.Key> packageLookupsRequested) {
+    AllInputs(NestedSet<Artifact> defaultInputs, List<Artifact> actionCacheInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
-      this.allowedDerivedInputs = checkNotNull(allowedDerivedInputs);
       this.actionCacheInputs = checkNotNull(actionCacheInputs);
-      this.packageLookupsRequested = packageLookupsRequested;
     }
 
-    /**
-     * Compute the inputs to request from Skyframe.
-     *
-     * @param prune If true, only return default inputs and any inputs from action cache checker.
-     *     Otherwise, return default inputs and all possible derived inputs of the action. Bazel's
-     *     {@link com.google.devtools.build.lib.remote.RemoteActionFileSystem} requires the metadata
-     *     from all derived inputs to know if they are remote or not during input discovery.
-     */
-    NestedSet<Artifact> getAllInputs(boolean prune) {
+    /** Compute the inputs to request from Skyframe. */
+    NestedSet<Artifact> getAllInputs() {
       NestedSetBuilder<Artifact> builder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
       builder.addTransitive(defaultInputs);
-
-      if (actionCacheInputs == null) {
-        return builder.build();
-      }
-
-      if (prune) {
+      if (actionCacheInputs != null) {
         // actionCacheInputs is never a NestedSet.
         builder.addAll(actionCacheInputs);
-      } else {
-        builder.addTransitive(allowedDerivedInputs);
       }
-
       return builder.build();
     }
   }
@@ -620,7 +589,8 @@ public final class ActionExecutionFunction implements SkyFunction {
    * because it uses SkyFunction.Environment for evaluation of ContainingPackageLookupValue.
    */
   private static class PackageRootResolverWithEnvironment implements PackageRootResolver {
-    final List<ContainingPackageLookupValue.Key> packageLookupsRequested = new ArrayList<>();
+    private final List<ContainingPackageLookupValue.Key> packageLookupsRequested =
+        new ArrayList<>();
     private final Environment env;
 
     private PackageRootResolverWithEnvironment(Environment env) {
@@ -844,11 +814,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
       checkState(!env.valuesMissing(), action);
       skyframeActionExecutor.updateActionCache(
-          action,
-          inputMetadataProvider,
-          outputMetadataStore,
-          state.token,
-          clientEnv);
+          action, inputMetadataProvider, outputMetadataStore, state.token, clientEnv);
     }
   }
 

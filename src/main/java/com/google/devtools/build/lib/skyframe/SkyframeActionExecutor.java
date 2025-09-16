@@ -933,7 +933,8 @@ public final class SkyframeActionExecutor {
             actionFileSystem,
             discoveredModulesPruner,
             syscallCache,
-            threadStateReceiverFactory.apply(actionLookupData));
+            threadStateReceiverFactory.apply(actionLookupData),
+            outputService.actionFileSystemType().supportsInputDiscovery());
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
           action, actionFileSystem, THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS);

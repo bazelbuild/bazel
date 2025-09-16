@@ -881,6 +881,11 @@ class IncludeParser {
               getFileType(),
               isOutputFile);
     } else {
+      if (isOutputFile && !actionExecutionContext.fileSystemSupportsInputDiscovery()) {
+        // Ensure that the file's metadata is available, which possibly requires a Skyframe restart.
+        var unused =
+            actionExecutionContext.getInputMetadataProvider().getInputMetadataChecked(file);
+      }
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
         inclusions =

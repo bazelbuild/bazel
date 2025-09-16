@@ -238,6 +238,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final DiscoveredModulesPruner discoveredModulesPruner;
   private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
+  private final boolean fileSystemSupportsInputDiscovery;
 
   private ActionExecutionContext(
       Executor executor,
@@ -254,7 +255,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
-      ThreadStateReceiver threadStateReceiverForMetrics) {
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean fileSystemSupportsInputDiscovery) {
     this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -273,6 +275,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         executor == null ? null : executor.getExecRoot());
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscallCache = syscallCache;
+    this.fileSystemSupportsInputDiscovery = fileSystemSupportsInputDiscovery;
   }
 
   public ActionExecutionContext(
@@ -305,7 +308,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        /* fileSystemSupportsInputDiscovery= */ false);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -322,7 +326,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscalls,
-      ThreadStateReceiver threadStateReceiverForMetrics) {
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean fileSystemSupportsInputDiscovery) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
@@ -338,7 +343,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscalls,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -369,6 +375,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable
   public FileSystem getActionFileSystem() {
     return actionFileSystem;
+  }
+
+  public boolean fileSystemSupportsInputDiscovery() {
+    return fileSystemSupportsInputDiscovery;
   }
 
   public boolean isRewindingEnabled() {
@@ -546,7 +556,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   /**
@@ -599,7 +610,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   /**
