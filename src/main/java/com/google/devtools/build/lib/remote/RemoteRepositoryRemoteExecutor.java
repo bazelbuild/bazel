@@ -144,7 +144,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     Action action =
         buildAction(
             commandHash,
-            merkleTree.rootDigest(),
+            merkleTree.digest(),
             platform,
             timeout,
             acceptCached,
