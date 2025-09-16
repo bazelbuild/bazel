@@ -746,7 +746,7 @@ public class RemoteExecutionServiceTest {
             });
 
     assertThat(digestUtil.compute(rootDirectory)).isEqualTo(expectedDigest);
-    assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().rootDigest())
+    assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().digest())
         .isEqualTo(expectedDigest);
   }
 
@@ -2680,7 +2680,7 @@ public class RemoteExecutionServiceTest {
 
     var remoteAction1 = service.buildRemoteAction(spawn, context);
     var merkleTree = (MerkleTree.Uploadable) remoteAction1.getMerkleTree();
-    assertThat(Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest())))
+    assertThat(Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.digest())))
         .isEqualTo(rootDirectory);
     assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(1);
     assertThat(remoteAction1.getAction().getPlatform().getProperties(0).getName())
@@ -2736,7 +2736,7 @@ public class RemoteExecutionServiceTest {
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
     var merkleTree = (MerkleTree.Uploadable) remoteAction.getMerkleTree();
-    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
+    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.digest()));
     var actualRootDir =
         Directory.parseFrom(
             (byte[]) merkleTree.blobs().get(rootProto.getDirectories(0).getDigest()));
@@ -2802,7 +2802,7 @@ public class RemoteExecutionServiceTest {
 
     // Check that the Merkle tree nodes are mapped correctly, including the output directory.
     var merkleTree = (MerkleTree.Uploadable) remoteAction.getMerkleTree();
-    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
+    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.digest()));
     var outputsDirectory =
         Directory.parseFrom(
             (byte[]) merkleTree.blobs().get(rootProto.getDirectories(0).getDigest()));

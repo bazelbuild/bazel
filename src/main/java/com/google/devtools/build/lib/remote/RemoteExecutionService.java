@@ -547,7 +547,7 @@ public class RemoteExecutionService {
       Action action =
           Utils.buildAction(
               commandHash,
-              merkleTree.rootDigest(),
+              merkleTree.digest(),
               platform,
               context.getTimeout(),
               Spawns.mayBeCachedRemotely(spawn),

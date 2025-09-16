@@ -170,8 +170,17 @@ public final class MerkleTreeComputer {
             ImmutableMap.of(emptyDigest, emptyBlob));
   }
 
+  /**
+   * A representation of the inputs to a remotely executed action represented as a Merkle tree.
+   *
+   * <p>Every tree has a digest, which is the digest of the tree's root directory. The subtrees and
+   * the blobs they contain may have been discarded or never computed in the first place, for
+   * example, because they have already been uploaded to the remote cache or because the tree is
+   * being built only to check for a remote cache hit.
+   */
   public sealed interface MerkleTree {
-    Digest rootDigest();
+    /** The digest of the tree's root directory. */
+    Digest digest();
 
     /** The total number of regular files and symlinks in this tree, including all subtrees. */
     long inputFiles();
@@ -199,29 +208,27 @@ public final class MerkleTreeComputer {
        * A {@link MerkleTree} that retains no blobs since all of them have recently been uploaded to
        * the remote cache.
        */
-      record BlobsUploaded(Digest rootDigest, long inputFiles, long inputBytes)
-          implements RootOnly {}
+      record BlobsUploaded(Digest digest, long inputFiles, long inputBytes) implements RootOnly {}
 
       /**
        * A {@link MerkleTree} that retains no blobs since they were discarded during the computation
        * (e.g., because they aren't needed for a remote cache check).
        */
-      record BlobsDiscarded(Digest rootDigest, long inputFiles, long inputBytes)
-          implements RootOnly {}
+      record BlobsDiscarded(Digest digest, long inputFiles, long inputBytes) implements RootOnly {}
     }
 
     /** A {@link MerkleTree} that retains all blobs that still need to be uploaded. */
     final class Uploadable implements MerkleTree {
       private final RootOnly.BlobsUploaded root;
-      private final ImmutableMap<Digest, Object> blobs;
+      private final ImmutableMap<Digest, /* byte[] | Path | VirtualActionInput */ Object> blobs;
 
       private Uploadable(RootOnly.BlobsUploaded root, ImmutableMap<Digest, Object> blobs) {
         this.root = root;
         this.blobs = blobs;
       }
 
-      public Digest rootDigest() {
-        return root().rootDigest();
+      public Digest digest() {
+        return root().digest();
       }
 
       public long inputFiles() {
@@ -246,6 +253,10 @@ public final class MerkleTreeComputer {
         return root;
       }
 
+      /**
+       * Returns a future that tracks the upload of the blob with the given digest, or {@link
+       * Optional#empty()} if there is no blob with the given digest.
+       */
       public Optional<ListenableFuture<Void>> upload(
           MerkleTreeUploader uploader,
           RemoteActionExecutionContext context,
@@ -263,6 +274,7 @@ public final class MerkleTreeComputer {
     }
   }
 
+  /** The basic cache operations needed to upload a {@link MerkleTree} and its associated blobs. */
   public interface MerkleTreeUploader {
     ListenableFuture<Void> upload(RemoteActionExecutionContext context, Digest digest, byte[] data);
 
@@ -275,6 +287,13 @@ public final class MerkleTreeComputer {
     ListenableFuture<Void> upload(
         RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput);
 
+    /**
+     * Ensures that all inputs as well as metadata protos in the given Merkle tree are present in
+     * the remote cache by querying for and uploading missing blobs.
+     *
+     * @param force if true, all blobs in the tree are uploaded even if they have already been
+     *     uploaded before.
+     */
     void ensureInputsPresent(
         RemoteActionExecutionContext context,
         MerkleTree.Uploadable merkleTree,
@@ -320,7 +339,11 @@ public final class MerkleTreeComputer {
       RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException, InterruptedException, LostInputsExecException {
+    // The scrubber is a per-invocation setting and invocations do not overlap, so it can be tracked
+    // in a static variable.
     if (!Objects.equals(scrubber, lastScrubber)) {
+      // The in-flight cache does not persist across a single invocation anyway and thus doesn't
+      // have to be cleared.
       persistentToolSubTreeCache.invalidateAll();
       persistentNonToolSubTreeCache.invalidateAll();
       lastScrubber = scrubber;
@@ -533,10 +556,7 @@ public final class MerkleTreeComputer {
                       remoteActionExecutionContext,
                       remotePathResolver,
                       blobPolicy));
-          currentDirectory
-              .addDirectoriesBuilder()
-              .setName(name)
-              .setDigest(subTreeRoot.rootDigest());
+          currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTreeRoot.digest());
           inputFiles += subTreeRoot.inputFiles();
           inputBytes += subTreeRoot.inputBytes();
         }
@@ -552,10 +572,7 @@ public final class MerkleTreeComputer {
                       remoteActionExecutionContext,
                       remotePathResolver,
                       blobPolicy));
-          currentDirectory
-              .addDirectoriesBuilder()
-              .setName(name)
-              .setDigest(subTreeRoot.rootDigest());
+          currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTreeRoot.digest());
           inputFiles += subTreeRoot.inputFiles();
           inputBytes += subTreeRoot.inputBytes();
         }
@@ -591,10 +608,7 @@ public final class MerkleTreeComputer {
                         remoteActionExecutionContext,
                         remotePathResolver,
                         blobPolicy));
-            currentDirectory
-                .addDirectoriesBuilder()
-                .setName(name)
-                .setDigest(subTreeRoot.rootDigest());
+            currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTreeRoot.digest());
             inputFiles += subTreeRoot.inputFiles();
             inputBytes += subTreeRoot.inputBytes();
             // The source directory subsumes all children paths, which may be staged separately as
@@ -757,6 +771,7 @@ public final class MerkleTreeComputer {
         () ->
             ImmutableList.sortedCopyOf(
                 Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR),
+                // Values in this entry set may be null, which represents an empty runfile.
                 runfilesArtifactValue.getRunfilesTree().getMapping().entrySet()),
         isTool,
         metadataProvider,
