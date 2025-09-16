@@ -43,8 +43,6 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
 
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> RULES_JAVA_PROVIDER =
       new RulesJavaProvider();
-  public static final StarlarkProviderWrapper<JavaRuntimeInfo> WORKSPACE_PROVIDER =
-      new WorkspaceProvider();
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> PROVIDER = new Provider();
 
   // Helper methods to access an instance of JavaRuntimeInfo.
@@ -99,8 +97,6 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
       return PROVIDER.wrap(info);
     } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
       return RULES_JAVA_PROVIDER.wrap(info);
-    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
-      return WORKSPACE_PROVIDER.wrap(info);
     } else {
       throw new RuleErrorException("expected JavaRuntimeInfo, got: " + key);
     }
@@ -135,14 +131,6 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   private static class RulesJavaProvider extends Provider {
     private RulesJavaProvider() {
       super(keyForBuild(Label.parseCanonicalUnchecked("//java/common/rules:java_runtime.bzl")));
-    }
-  }
-
-  private static class WorkspaceProvider extends Provider {
-    private WorkspaceProvider() {
-      super(
-          keyForBuild(
-              Label.parseCanonicalUnchecked("@@rules_java//java/common/rules:java_runtime.bzl")));
     }
   }
 

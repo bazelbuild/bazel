@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
-import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
 import net.starlark.java.eval.Starlark;
 
@@ -40,8 +38,6 @@ public class JavaRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationFragment(JavaConfiguration.class);
 
-    builder.addRuleDefinition(new JavaToolchainBaseRule());
-    builder.addRuleDefinition(new JavaRuntimeBaseRule());
     builder.addRuleDefinition(
         new BaseRuleClasses.EmptyRule("java_binary", coreBzlLabel("java_binary")) {});
     builder.addRuleDefinition(

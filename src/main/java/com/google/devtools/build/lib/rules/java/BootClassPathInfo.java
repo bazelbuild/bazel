@@ -13,35 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
-import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Optional;
-import net.starlark.java.eval.Starlark;
 
 /** Information about the system APIs for a Java compilation. */
 @Immutable
 public class BootClassPathInfo extends StarlarkInfoWrapper {
-
-  /** Provider singleton constant. */
-  public static final StarlarkProviderWrapper<BootClassPathInfo> PROVIDER = new Provider();
-  public static final StarlarkProviderWrapper<BootClassPathInfo> RULES_JAVA_PROVIDER =
-      new RulesJavaProvider();
-  public static final StarlarkProviderWrapper<BootClassPathInfo> WORKSPACE_PROVIDER =
-      new WorkspaceProvider();
 
   private static final BootClassPathInfo EMPTY =
       new BootClassPathInfo(null) {
@@ -80,16 +65,7 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
   }
 
   public static BootClassPathInfo wrap(Info info) throws RuleErrorException {
-    com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
-    if (key.equals(PROVIDER.getKey())) {
-      return PROVIDER.wrap(info);
-    } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
-      return RULES_JAVA_PROVIDER.wrap(info);
-    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
-      return WORKSPACE_PROVIDER.wrap(info);
-    } else {
-      throw new RuleErrorException("expected BootClassPathInfo, got: " + key);
-    }
+    return new BootClassPathInfo((StructImpl) info);
   }
 
   /** The jar files containing classes for system APIs, i.e. a Java <= 8 bootclasspath. */
@@ -121,45 +97,5 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
         && auxiliary().isEmpty()
         && systemInputs().isEmpty()
         && systemPath().isEmpty();
-  }
-
-  private static class RulesJavaProvider extends Provider {
-    private RulesJavaProvider() {
-      super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:boot_class_path_info.bzl")));
-    }
-  }
-
-  private static class WorkspaceProvider extends Provider {
-    private WorkspaceProvider() {
-      super(
-          keyForBuild(
-              Label.parseCanonicalUnchecked(
-                  "@@rules_java//java/private:boot_class_path_info.bzl")));
-    }
-  }
-
-  private static class Provider extends StarlarkProviderWrapper<BootClassPathInfo> {
-    private Provider() {
-      this(
-          keyForBuild(
-              Label.parseCanonicalUnchecked(
-                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
-                      + "java/private:boot_class_path_info.bzl")));
-    }
-
-    private Provider(BzlLoadValue.Key key) {
-      super(key, "BootClassPathInfo");
-    }
-
-    @Override
-    public BootClassPathInfo wrap(Info value) throws RuleErrorException {
-      if (value instanceof StarlarkInfoWithSchema
-          && value.getProvider().getKey().equals(getKey())) {
-        return new BootClassPathInfo((StarlarkInfo) value);
-      } else {
-        throw new RuleErrorException(
-            "got value of type '" + Starlark.type(value) + "', want 'BootClassPathInfo'");
-      }
-    }
   }
 }
