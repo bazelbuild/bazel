@@ -1630,8 +1630,8 @@ public class BuildTool {
     }
 
     @Override
-    public void recordSerializationException(SerializationException e) {
-      listener.recordSerializationException(e);
+    public void recordSerializationException(SerializationException e, SkyKey key) {
+      listener.recordSerializationException(e, key);
     }
 
     @Override

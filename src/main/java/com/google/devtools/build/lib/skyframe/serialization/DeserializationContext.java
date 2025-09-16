@@ -171,7 +171,7 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
     return registry.maybeGetConstantByTag(tag);
   }
 
-  abstract Object getMemoizedBackReference(int memoIndex);
+  abstract Object getMemoizedBackReference(int memoIndex) throws SerializationException;
 
   /**
    * Returns the result value.

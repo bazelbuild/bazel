@@ -77,7 +77,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
-  void recordSerializationException(SerializationException e);
+  void recordSerializationException(SerializationException e, SkyKey key);
 
   void setTopLevelConfigChecksum(String checksum);
 
@@ -152,7 +152,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public void recordSerializationException(SerializationException e) {
+    public void recordSerializationException(SerializationException e, SkyKey key) {
       throw new UnsupportedOperationException();
     }
 

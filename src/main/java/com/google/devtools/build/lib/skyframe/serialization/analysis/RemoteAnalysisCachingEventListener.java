@@ -132,15 +132,8 @@ public class RemoteAnalysisCachingEventListener {
             .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
             .incrementAndGet();
       }
-      case NoCachedData unusedNoCachedData -> {
-        if (!cacheMisses.add(key)) {
-          return;
-        }
-        missesBySkyFunctionName
-            .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
-            .incrementAndGet();
-      }
-      case Restart unusedRestart -> {}
+      case NoCachedData.NO_CACHED_DATA -> recordCacheMiss(key);
+      case Restart.RESTART -> {}
     }
   }
 
@@ -155,8 +148,9 @@ public class RemoteAnalysisCachingEventListener {
   }
 
   /** Records a {@link SerializationException} encountered during SkyValue retrievals. */
-  public void recordSerializationException(SerializationException e) {
+  public void recordSerializationException(SerializationException e, SkyKey key) {
     serializationExceptions.add(e);
+    recordCacheMiss(key);
   }
 
   /**
@@ -182,4 +176,12 @@ public class RemoteAnalysisCachingEventListener {
     return clientId;
   }
 
+  private void recordCacheMiss(SkyKey key) {
+    if (!cacheMisses.add(key)) {
+      return;
+    }
+    missesBySkyFunctionName
+        .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
+        .incrementAndGet();
+  }
 }

@@ -75,8 +75,10 @@ public final class SkyValueRetrieverUtils {
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
       analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
     } catch (SerializationException e) {
+      // TODO: b/445242928 - also log this in BEP
+      //
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
-      analysisCachingDeps.recordSerializationException(e);
+      analysisCachingDeps.recordSerializationException(e, key);
       exception = e;
       retrievalResult = NO_CACHED_DATA;
     } catch (RuntimeException | InterruptedException e) {
