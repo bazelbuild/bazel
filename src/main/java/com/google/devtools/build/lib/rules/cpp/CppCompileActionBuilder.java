@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -132,6 +131,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.additionalOutputs = other.additionalOutputs;
   }
 
+  @CanIgnoreReturnValue
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
     Preconditions.checkState(
         this.sourceFile == null,
@@ -141,6 +141,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     return setSourceFileUnchecked(sourceFile);
   }
 
+  @CanIgnoreReturnValue
   public CppCompileActionBuilder setSourceFile(Artifact.TreeFileArtifact sourceFile) {
     Preconditions.checkState(
         !(this.sourceFile instanceof Artifact.TreeFileArtifact),
@@ -168,10 +169,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   public CcCompilationContext getCcCompilationContext() {
     return ccCompilationContext;
-  }
-
-  public NestedSet<Artifact> getMandatoryInputs() {
-    return mandatoryInputsBuilder.build();
   }
 
   public String getActionName() {
@@ -208,26 +205,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     }
     // CcCompilationHelper ensures CppCompileAction only gets instantiated for supported file types.
     throw new IllegalStateException();
-  }
-
-  /**
-   * Builds the Action as configured and performs some validations on the action. Uses {@link
-   * RuleContext#throwWithRuleError(String)} to report errors. Prefer this method over {@link
-   * CppCompileActionBuilder#buildOrThrowIllegalStateException()} whenever possible (meaning
-   * whenever you have access to {@link RuleContext}).
-   *
-   * <p>This method may be called multiple times to create multiple compile actions (usually after
-   * calling some setters to modify the generated action).
-   */
-  CppCompileAction buildOrThrowRuleError(RuleErrorConsumer ruleErrorConsumer)
-      throws RuleErrorException {
-    try {
-      return buildAndVerify();
-    } catch (UnconfiguredActionConfigException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
-    } catch (EvalException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
-    }
   }
 
   /**
@@ -459,16 +436,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     return CppFileTypes.headerDiscoveryRequired(sourceFile) && !useHeaderModules(sourceFile);
   }
 
-  public boolean dotdFilesEnabled() {
-    return cppSemantics.needsDotdInputPruning(configuration)
-        && !shouldParseShowIncludes()
-        && !featureConfiguration.isEnabled(CppRuleClasses.NO_DOTD_FILE);
-  }
-
-  public boolean serializedDiagnosticsFilesEnabled() {
-    return featureConfiguration.isEnabled(CppRuleClasses.SERIALIZED_DIAGNOSTICS_FILE);
-  }
-
   @CanIgnoreReturnValue
   public CppCompileActionBuilder setOutputs(
       Artifact outputFile, Artifact dotdFile, Artifact diagnosticsFile) {
@@ -492,18 +459,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   public CppCompileActionBuilder setLtoIndexingFile(Artifact ltoIndexingFile) {
     this.ltoIndexingFile = ltoIndexingFile;
     return this;
-  }
-
-  public Artifact getOutputFile() {
-    return outputFile;
-  }
-
-  public Artifact getDotdFile() {
-    return this.dotdFile;
-  }
-
-  public Artifact getDiagnosticsFile() {
-    return this.diagnosticsFile;
   }
 
   @CanIgnoreReturnValue
@@ -567,10 +522,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   public CppCompileActionBuilder setCacheKeyInputs(NestedSet<Artifact> cacheKeyInputs) {
     this.cacheKeyInputs = cacheKeyInputs;
     return this;
-  }
-
-  public PathFragment getRealOutputFilePath() {
-    return outputFile.getExecPath();
   }
 
   ActionEnvironment getActionEnvironment() {
