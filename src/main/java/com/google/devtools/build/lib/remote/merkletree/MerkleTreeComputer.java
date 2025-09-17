@@ -808,7 +808,8 @@ public final class MerkleTreeComputer {
     var fullPath =
         mappedExecPath.getChild("_main").getRelative(artifactAtCanonicalLocation.getRunfilesPath());
     boolean isTool = isToolInput.test(fullPath);
-    // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key.
+    // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key -
+    // use isTool instead.
     return computeIfAbsent(
         runfilesArtifactValue.getMetadata(),
         () ->
@@ -839,7 +840,8 @@ public final class MerkleTreeComputer {
             && isToolInput.test(
                 mappedExecPath.getRelative(
                     treeArtifactValue.getChildren().first().getParentRelativePath()));
-    // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key.
+    // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key -
+    // use isTool instead.
     return computeIfAbsent(
         treeArtifactValue.getMetadata(),
         () ->
