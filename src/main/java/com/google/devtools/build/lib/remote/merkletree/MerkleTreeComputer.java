@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.AbstractCollection;
@@ -331,6 +333,17 @@ public final class MerkleTreeComputer {
     KEEP_AND_REUPLOAD,
   }
 
+  /**
+   * The key type for the cache used to deduplicate ongoing computations and possibly uploading of
+   * sub-Merkle trees.
+   *
+   * @param metadata the metadata of the aggregate {@link ActionInput} that forms the subtree
+   * @param isTool whether the subtree consists of tool inputs
+   * @param uploadBlobs whether the blobs in this tree will be uploaded
+   */
+  private record InFlightCacheKey(
+      FileArtifactValue metadata, boolean isTool, boolean uploadBlobs) {}
+
   public MerkleTree buildForSpawn(
       Spawn spawn,
       Set<PathFragment> toolInputs,
@@ -361,24 +374,15 @@ public final class MerkleTreeComputer {
             .filter(output -> output instanceof Artifact artifact && artifact.isTreeArtifact())
             .map(outputDir -> new EmptyInputDirectory(outputDir.getExecPath()))
             .collect(toImmutableList());
-    // Reduce peak memory usage by avoiding the allocation of intermediate arrays and TreeMaps, as
-    // well as the prolonged retention of mapped paths.
+    // Reduce peak memory usage by avoiding the allocation of intermediate arrays and sorted map, as
+    // well as the prolonged retention of mapped paths. All of these can be reconstructed on-the-fly
+    // while iterating over the inputs, only the sorted order has to be retained.
     var allInputs =
         ImmutableList.sortedCopyOf(
             comparing(
                 input -> getOutputPath(input, remotePathResolver, spawn.getPathMapper()),
                 HIERARCHICAL_COMPARATOR),
-            new AbstractCollection<ActionInput>() {
-              @Override
-              public Iterator<ActionInput> iterator() {
-                return Iterables.concat(spawnInputs, outputDirectories).iterator();
-              }
-
-              @Override
-              public int size() {
-                return spawnInputs.size() + outputDirectories.size();
-              }
-            });
+            concat(spawnInputs, outputDirectories));
     var metadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, "subtree", spawn.getResourceOwner());
@@ -423,27 +427,62 @@ public final class MerkleTreeComputer {
         .getRelative(pathMapper.map(input.getExecPath()));
   }
 
+  /** An {@link ActionInput} backed by an absolute {@link Path}. */
+  private static class ActionInputWithPath extends ActionInputHelper.BasicActionInput {
+    final Path path;
+
+    ActionInputWithPath(Path path) {
+      this.path = path;
+    }
+
+    @Override
+    public String getExecPathString() {
+      return path.getPathString();
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return path.asFragment();
+    }
+  }
+
+  private static final ArtifactPathResolver actionInputWithPathResolver =
+      new ArtifactPathResolver() {
+        @Override
+        public Path toPath(ActionInput actionInput) {
+          return ((ActionInputWithPath) actionInput).path;
+        }
+
+        @Override
+        public Path convertPath(Path path) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Root transformRoot(Root root) {
+          throw new UnsupportedOperationException();
+        }
+      };
+
+  /**
+   * Builds a Merkle tree for a set of files and their logical paths.
+   *
+   * <p>The only use outside testing is by repository rules. Use {@link #buildForSpawn} for
+   * everything else.
+   */
   public MerkleTree.Uploadable buildForFiles(Map<PathFragment, Path> inputs)
       throws IOException, InterruptedException {
-    ArtifactPathResolver absolutePathResolver;
-    if (inputs.isEmpty()) {
-      absolutePathResolver = ArtifactPathResolver.IDENTITY;
-    } else {
-      Path firstPath = inputs.entrySet().iterator().next().getValue();
-      Path absoluteRoot = firstPath.getFileSystem().getPath(firstPath.asFragment().getDriveStr());
-      absolutePathResolver = ArtifactPathResolver.forExecRoot(absoluteRoot);
-    }
-    // BlobPolicy.KEEP_ALL always results in a MerkleTree.WithBlobs.
+    // BlobPolicy.KEEP_AND_REUPLOAD always results in a MerkleTree.Uploadable.
     return (MerkleTree.Uploadable)
         build(
             Lists.transform(
                 ImmutableList.sortedCopyOf(
                     Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
-                e -> entry(e.getKey(), ActionInputHelper.fromPath(e.getValue().asFragment()))),
+                e -> entry(e.getKey(), new ActionInputWithPath(e.getValue()))),
             alwaysFalse(),
             /* spawnScrubber= */ null,
             StaticInputMetadataProvider.empty(),
-            absolutePathResolver,
+            actionInputWithPathResolver,
             /* remoteActionExecutionContext= */ null,
             /* remotePathResolver= */ null,
             BlobPolicy.KEEP_AND_REUPLOAD);
@@ -864,7 +903,7 @@ public final class MerkleTreeComputer {
               if (blobPolicy == BlobPolicy.DISCARD) {
                 var inFlightComputation =
                     inFlightSubTreeCache.getIfPresent(
-                        new InFlightCacheKey(metadata, isTool, /* blobsUploaded= */ true));
+                        new InFlightCacheKey(metadata, isTool, /* uploadBlobs= */ true));
                 if (inFlightComputation != null) {
                   return inFlightComputation;
                 }
@@ -947,8 +986,6 @@ public final class MerkleTreeComputer {
     }
   }
 
-  record InFlightCacheKey(FileArtifactValue metadata, boolean isTool, boolean blobsUploaded) {}
-
   private static void addFile(
       Directory.Builder directory,
       String name,
@@ -1028,6 +1065,33 @@ public final class MerkleTreeComputer {
       }
     }
     return null;
+  }
+
+  /**
+   * Returns an immutable view of the concatenation of two collections.
+   *
+   * <p>Use this over the unsized {@link Iterators#concat} to avoid intermediate allocations of
+   * ArrayLists in methods such as {@link ImmutableList#sortedCopyOf}.
+   */
+  private static <T> Collection<T> concat(
+      Collection<? extends T> first, Collection<? extends T> second) {
+    if (first.isEmpty()) {
+      return (Collection<T>) second;
+    }
+    if (second.isEmpty()) {
+      return (Collection<T>) first;
+    }
+    return new AbstractCollection<>() {
+      @Override
+      public Iterator<T> iterator() {
+        return Iterators.concat(first.iterator(), second.iterator());
+      }
+
+      @Override
+      public int size() {
+        return first.size() + second.size();
+      }
+    };
   }
 
   private static class EmptyInputDirectory extends ActionInputHelper.BasicActionInput {
