@@ -344,6 +344,23 @@ public final class MerkleTreeComputer {
   private record InFlightCacheKey(
       FileArtifactValue metadata, boolean isTool, boolean uploadBlobs) {}
 
+  /**
+   * Builds a Merkle tree for the inputs of a {@link Spawn}.
+   *
+   * @param toolInputs the set of paths of inputs that are considered tools. Note that these paths
+   *     are not exec paths, but those returned as keys by {@link
+   *     com.google.devtools.build.lib.exec.SpawnInputExpander#getInputMapping}, i.e., they have
+   *     already been subject to path mapping and runfiles tree as well as tree artifact expansion.
+   *     Callers have to ensure that paths within an aggregate artifact are either all tools or all
+   *     non-tools.
+   * @param scrubber the invocation-global scrubber, or null if no scrubbing should be performed
+   * @param blobPolicy used to decide which blobs should be retained in the returned Merkle tree. If
+   *     {@code KEEP_AND_REUPLOAD} is used, all blobs in the tree are retained and the resulting
+   *     Merkle tree will be a {@link MerkleTree.Uploadable}.
+   * @throws LostInputsExecException if inputs to this spawn that are remote-only have been
+   *     discovered to be missing from the remote cache. Action or build rewinding may be able to
+   *     recover from this.
+   */
   public MerkleTree buildForSpawn(
       Spawn spawn,
       Set<PathFragment> toolInputs,
