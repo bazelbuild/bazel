@@ -249,9 +249,9 @@ char **read_filelist(char *filename) {
   }
 
   if (file_stat.total_size == 0) {
-    char **result = static_cast<char **>(malloc(sizeof(char *)));
-    result[0] = NULL;
-    return result;
+    char **filelist = static_cast<char **>(malloc(sizeof(char *)));
+    filelist[0] = NULL;
+    return filelist;
   }
 
   char *data = static_cast<char *>(malloc(file_stat.total_size));
