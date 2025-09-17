@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,7 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
@@ -48,7 +49,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
@@ -73,6 +73,7 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class LtoBackendAction extends SpawnAction {
   private static final String GUID = "72ce1eca-4625-4e24-a0d8-bb91bb8b0e0e";
+  private static final String MNEMONIC = "CcLtoBackendCompile";
 
   private final NestedSet<Artifact> mandatoryInputs;
   private final BitcodeFiles bitcodeFiles;
@@ -80,16 +81,14 @@ public final class LtoBackendAction extends SpawnAction {
   private boolean inputsDiscovered = false;
 
   public LtoBackendAction(
+      ActionOwner owner,
       NestedSet<Artifact> inputs,
       @Nullable BitcodeFiles allBitcodeFiles,
       @Nullable Artifact importsFile,
       ImmutableSet<Artifact> outputs,
-      ActionOwner owner,
       CommandLines argv,
       ActionEnvironment env,
-      Map<String, String> executionInfo,
-      CharSequence progressMessage,
-      String mnemonic) {
+      ImmutableMap<String, String> executionInfo) {
     super(
         owner,
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -98,9 +97,9 @@ public final class LtoBackendAction extends SpawnAction {
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
         env,
-        ImmutableMap.copyOf(executionInfo),
-        progressMessage,
-        mnemonic,
+        executionInfo,
+        "LTO Backend Compile %{output}",
+        MNEMONIC,
         OutputPathsMode.OFF);
     mandatoryInputs = inputs;
     Preconditions.checkState(
@@ -120,8 +119,6 @@ public final class LtoBackendAction extends SpawnAction {
       CommandLines commandLines,
       ActionEnvironment environment,
       ImmutableSortedMap<String, String> sortedExecutionInfo,
-      CharSequence progressMessage,
-      String mnemonic,
       @Nullable BitcodeFiles bitcodeFiles,
       Artifact imports) {
     super(
@@ -133,8 +130,8 @@ public final class LtoBackendAction extends SpawnAction {
         commandLines,
         environment,
         sortedExecutionInfo,
-        progressMessage,
-        mnemonic,
+        "LTO Backend Compile %{output}",
+        MNEMONIC,
         OutputPathsMode.OFF);
     this.mandatoryInputs = mandatoryInputs;
     this.bitcodeFiles = bitcodeFiles;
@@ -303,52 +300,43 @@ public final class LtoBackendAction extends SpawnAction {
     fp.addStringMap(getExecutionInfo());
   }
 
-  /** Builder class to construct {@link LtoBackendAction} instances. */
-  public static class Builder extends SpawnAction.Builder {
-    private BitcodeFiles bitcodeFiles;
-    private Artifact imports;
+  @VisibleForTesting
+  static LtoBackendAction create(
+      ActionOwner actionOwner,
+      BuildConfigurationValue configuration,
+      NestedSet<Artifact> inputs,
+      @Nullable BitcodeFiles allBitcodeFiles,
+      @Nullable Artifact importsFile,
+      ImmutableSet<Artifact> outputs,
+      CommandLines argv,
+      ActionEnvironment env) {
+    return new LtoBackendAction(
+        actionOwner,
+        inputs,
+        allBitcodeFiles,
+        importsFile,
+        outputs,
+        argv,
+        env,
+        configuration.modifiedExecutionInfo(ImmutableMap.of(), MNEMONIC));
+  }
 
-    public Builder() {
-      super();
-    }
-
-    public Builder(Builder other) {
-      super(other);
-      bitcodeFiles = other.bitcodeFiles;
-      imports = other.imports;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addImportsInfo(BitcodeFiles allBitcodeFiles, Artifact importsFile) {
-      this.bitcodeFiles = allBitcodeFiles;
-      this.imports = importsFile;
-      return this;
-    }
-
-    @Override
-    protected SpawnAction createSpawnAction(
-        ActionOwner owner,
-        NestedSet<Artifact> tools,
-        NestedSet<Artifact> inputsAndTools,
-        ImmutableSet<Artifact> outputs,
-        ResourceSetOrBuilder resourceSetOrBuilder,
-        CommandLines commandLines,
-        ActionEnvironment env,
-        @Nullable BuildConfigurationValue configuration,
-        ImmutableMap<String, String> executionInfo,
-        CharSequence progressMessage,
-        String mnemonic) {
-      return new LtoBackendAction(
-          inputsAndTools,
-          bitcodeFiles,
-          imports,
-          outputs,
-          owner,
-          commandLines,
-          env,
-          executionInfo,
-          progressMessage,
-          mnemonic);
-    }
+  public static LtoBackendAction create(
+      ActionConstructionContext context,
+      NestedSet<Artifact> inputs,
+      @Nullable BitcodeFiles allBitcodeFiles,
+      @Nullable Artifact importsFile,
+      ImmutableSet<Artifact> outputs,
+      CommandLines argv,
+      ActionEnvironment env) {
+    return new LtoBackendAction(
+        context.getActionOwner(),
+        inputs,
+        allBitcodeFiles,
+        importsFile,
+        outputs,
+        argv,
+        env,
+        context.getConfiguration().modifiedExecutionInfo(ImmutableMap.of(), MNEMONIC));
   }
 }

@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyComputer;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -49,8 +51,12 @@ import javax.annotation.Nullable;
  */
 public final class LtoBackendActionTemplate extends ActionKeyComputer
     implements ActionTemplate<LtoBackendAction> {
-  private final LtoBackendAction.Builder ltoBackendActionbuilder;
+
   private final CcToolchainVariables buildVariables;
+
+  private final NestedSet<Artifact> additionalInputs;
+
+  private final ActionEnvironment env;
 
   // An input tree artifact containing the full bitcode. It is never null.
   private final SpecialArtifact fullBitcodeTreeArtifact;
@@ -86,9 +92,8 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
    * @param objectFileTreeArtifact the TreeArtifact that contains .pic.o files.
    * @param dwoFileTreeArtifact the TreeArtifact that contains .dwo files.
    * @param featureConfiguration the feature configuration.
-   * @param ltoBackendActionbuilder An almost completely configured {@link LtoBackendAction.Builder}
-   *     without the input and output files set. It is used as a template to instantiate expanded
-   *     {@link LtoBackendAction}s.
+   * @param additionalInputs additional inputs
+   * @param env action environment
    * @param buildVariables the building variables.
    * @param usePic whether to use PIC or not.
    * @param actionOwner the owner of this {@link ActionTemplate}.
@@ -99,12 +104,14 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
       SpecialArtifact objectFileTreeArtifact,
       SpecialArtifact dwoFileTreeArtifact,
       FeatureConfiguration featureConfiguration,
-      LtoBackendAction.Builder ltoBackendActionbuilder,
+      NestedSet<Artifact> additionalInputs,
+      ActionEnvironment env,
       CcToolchainVariables buildVariables,
       boolean usePic,
       BitcodeFiles bitcodeFiles,
       ActionOwner actionOwner) {
-    this.ltoBackendActionbuilder = ltoBackendActionbuilder;
+    this.additionalInputs = additionalInputs;
+    this.env = env;
     this.buildVariables = buildVariables;
     this.indexAndImportsTreeArtifact = indexAndImportsTreeArtifact;
     this.fullBitcodeTreeArtifact = fullBitcodeTreeArtifact;
@@ -118,7 +125,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
     NestedSetBuilder<Artifact> mandatoryInputsBuilder =
         NestedSetBuilder.<Artifact>compileOrder()
             .add(fullBitcodeTreeArtifact)
-            .addTransitive(ltoBackendActionbuilder.getInputsAndTools());
+            .addTransitive(additionalInputs);
     if (indexAndImportsTreeArtifact != null) {
       mandatoryInputsBuilder.add(indexAndImportsTreeArtifact);
     }
@@ -197,22 +204,24 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
           generateOutputObjArtifact(fullBitcodeRelativePath, artifactOwner);
       TreeFileArtifact dwoFileArtifact =
           generateDwoArtifact(fullBitcodeRelativePath, artifactOwner);
-      LtoBackendAction.Builder builderCopy = new LtoBackendAction.Builder(ltoBackendActionbuilder);
 
-      LtoBackendArtifacts.addArtifactsLtoBackendAction(
-          builderCopy,
-          buildVariables,
-          featureConfiguration,
-          /* index= */ null,
-          /* imports= */ null,
-          inputTreeFileArtifact,
-          objTreeFileArtifact,
-          bitcodeFiles,
-          dwoFileArtifact,
-          usePic,
-          /* bitcodeFilePath= */ null,
-          /* isDummyAction= */ false);
-      expandedActions.add((LtoBackendAction) builderCopy.buildForActionTemplate(actionOwner));
+      LtoBackendAction action =
+          LtoBackendArtifacts.createLtoBackendAction(
+              (ActionConstructionContext) getOwner(),
+              additionalInputs,
+              env,
+              buildVariables,
+              featureConfiguration,
+              /* index= */ null,
+              /* imports= */ null,
+              inputTreeFileArtifact,
+              objTreeFileArtifact,
+              bitcodeFiles,
+              dwoFileArtifact,
+              usePic,
+              /* bitcodeFilePath= */ null,
+              /* isDummyAction= */ false);
+      expandedActions.add(action);
     }
 
     return expandedActions.build();
@@ -291,22 +300,23 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
       TreeFileArtifact dwoFileArtifact =
           generateDwoArtifact(fullBitcodeRelativePath, artifactOwner);
 
-      LtoBackendAction.Builder builderCopy = new LtoBackendAction.Builder(ltoBackendActionbuilder);
-
-      LtoBackendArtifacts.addArtifactsLtoBackendAction(
-          builderCopy,
-          buildVariables,
-          featureConfiguration,
-          thinLtoFile,
-          importFile,
-          fullBitcodeTreeArtifact,
-          objTreeFileArtifact,
-          bitcodeFiles,
-          dwoFileArtifact,
-          usePic,
-          fullBitcodePath.toString(),
-          /* isDummyAction= */ false);
-      expandedActions.add((LtoBackendAction) builderCopy.buildForActionTemplate(actionOwner));
+      LtoBackendAction action =
+          LtoBackendArtifacts.createLtoBackendAction(
+              (ActionConstructionContext) getOwner(),
+              additionalInputs,
+              env,
+              buildVariables,
+              featureConfiguration,
+              thinLtoFile,
+              importFile,
+              fullBitcodeTreeArtifact,
+              objTreeFileArtifact,
+              bitcodeFiles,
+              dwoFileArtifact,
+              usePic,
+              fullBitcodePath.toString(),
+              /* isDummyAction= */ false);
+      expandedActions.add(action);
     }
 
     return expandedActions.build();
@@ -329,11 +339,12 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
    * reusing functionality from LtoBackendAction.
    */
   private LtoBackendAction getDummyAction() {
-    LtoBackendAction.Builder builderCopy = new LtoBackendAction.Builder(ltoBackendActionbuilder);
     // This is a dummy action that would not work, because the bitcode file path is a directory
     // rather than a file.
-    LtoBackendArtifacts.addArtifactsLtoBackendAction(
-        builderCopy,
+    return LtoBackendArtifacts.createLtoBackendAction(
+        (ActionConstructionContext) getOwner(),
+        additionalInputs,
+        env,
         buildVariables,
         featureConfiguration,
         indexAndImportsTreeArtifact,
@@ -345,8 +356,6 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
         usePic,
         null,
         /* isDummyAction= */ true);
-
-    return (LtoBackendAction) builderCopy.buildForActionTemplate(actionOwner);
   }
 
   /**

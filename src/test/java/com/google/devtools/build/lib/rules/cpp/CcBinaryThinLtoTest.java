@@ -2178,7 +2178,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch(expectedBuildTypeFlag);
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
-        .contains("cc_profile.txt");
+        .containsAtLeast("cc_profile.txt", "ld_profile.txt");
   }
 
   private void testLLVMCachePrefetchBackendOption(String extraOption) throws Exception {
