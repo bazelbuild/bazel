@@ -673,6 +673,23 @@ public final class MerkleTreeComputer {
             // The source directory subsumes all children paths, which may be staged separately as
             // individual files or subdirectories. We rely on the inputs being sorted such that a
             // path is directly succeeded by all its children.
+            // Note that this has subtle implications for the distinction between tool/non-tool
+            // inputs:
+            // - If a directory is added as a tool, then all files in it will be considered as tools
+            //   by the worker logic and are included in the combined worker hash. This applies even
+            //   if a file in that directory is also added as a non-tool input and thus skipping
+            //   over that file here is correct.
+            // - If a directory is added as a non-tool and a file in it is added as a tool, then
+            //   the file (but not the rest of the directory) will be considered as a tool and
+            //   included in the combined worker hash by the worker logic. However, since the file
+            //   is skipped over in the current method, its FileNode is not marked as a tool. Since
+            //   the worker hash still tracks the file, this doesn't cause staleness issues.
+            //   However, if the RE backend relies on the bazel_tool_input NodeProperty, it may
+            //   attempt to replace the file while the worker is still running, which can cause
+            //   issues.
+            //   TODO: Improve test coverage for remote persistent workers to catch these edge cases
+            //    and either fix them or prevent an action from having a directory as well as a file
+            //    in it as separate inputs.
             lastSourceDirPath = path;
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
