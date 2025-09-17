@@ -21,7 +21,6 @@ import build.bazel.remote.execution.v2.NodeProperty;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -68,6 +67,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -137,18 +137,12 @@ public final class MerkleTreeComputer {
       Executors.newThreadPerTaskExecutor(
           Thread.ofVirtual().name("merkle-tree-upload-", 0).factory());
 
-  // We only ever expect a single scrubber to be used during a single invocation, so the outer
-  // caches effectively have at most one reachable entry at a time.
-  private static final LoadingCache<SpawnScrubber, Cache<FileArtifactValue, MerkleTree.RootOnly>>
-      persistentToolSubTreeCache =
-          Caffeine.newBuilder()
-              .weakKeys()
-              .build(spawnScrubber -> Caffeine.newBuilder().weakKeys().build());
-  private static final LoadingCache<SpawnScrubber, Cache<FileArtifactValue, MerkleTree.RootOnly>>
-      persistentNonToolSubTreeCache =
-          Caffeine.newBuilder()
-              .weakKeys()
-              .build(spawnScrubber -> Caffeine.newBuilder().weakKeys().build());
+  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentToolSubTreeCache =
+      Caffeine.newBuilder().weakKeys().build();
+  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentNonToolSubTreeCache =
+      Caffeine.newBuilder().weakKeys().build();
+
+  @Nullable private static volatile Scrubber lastScrubber;
 
   private final DigestUtil digestUtil;
   @Nullable private final MerkleTreeUploader remoteExecutionCache;
@@ -345,6 +339,15 @@ public final class MerkleTreeComputer {
       RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException, InterruptedException, LostInputsExecException {
+    // The scrubber is a per-invocation setting and invocations do not overlap, so it can be tracked
+    // in a static variable.
+    if (!Objects.equals(scrubber, lastScrubber)) {
+      // The in-flight cache does not persist across a single invocation anyway and thus doesn't
+      // have to be cleared.
+      persistentToolSubTreeCache.invalidateAll();
+      persistentNonToolSubTreeCache.invalidateAll();
+      lastScrubber = scrubber;
+    }
     var spawnInputs = spawn.getInputFiles().toList();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
@@ -460,7 +463,6 @@ public final class MerkleTreeComputer {
         cacheSubTrees(
             sortedInputs,
             isToolInput,
-            spawnScrubber,
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
@@ -548,7 +550,6 @@ public final class MerkleTreeComputer {
                   computeForTreeArtifactIfAbsent(
                       metadataProvider.getTreeMetadata(treeArtifact),
                       path,
-                      spawnScrubber,
                       isToolInput,
                       metadataProvider,
                       artifactPathResolver,
@@ -565,7 +566,6 @@ public final class MerkleTreeComputer {
                   computeForRunfilesTreeIfAbsent(
                       metadataProvider.getRunfilesMetadata(runfilesArtifact),
                       path,
-                      spawnScrubber,
                       isToolInput,
                       metadataProvider,
                       artifactPathResolver,
@@ -602,7 +602,6 @@ public final class MerkleTreeComputer {
                         () ->
                             explodeDirectory(artifactPathResolver.toPath(fileOrSourceDirectory))
                                 .entrySet(),
-                        spawnScrubber,
                         isToolInput.test(path),
                         metadataProvider,
                         artifactPathResolver,
@@ -665,7 +664,6 @@ public final class MerkleTreeComputer {
   private CompletableFuture<?> cacheSubTrees(
       Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> sortedInputs,
       Predicate<PathFragment> isToolInput,
-      @Nullable SpawnScrubber spawnScrubber,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       RemoteActionExecutionContext remoteActionExecutionContext,
@@ -678,7 +676,6 @@ public final class MerkleTreeComputer {
           maybeCacheSubtree(
               entry.getValue(),
               entry.getKey(),
-              spawnScrubber,
               isToolInput,
               metadataProvider,
               artifactPathResolver,
@@ -696,7 +693,6 @@ public final class MerkleTreeComputer {
   private CompletableFuture<?> maybeCacheSubtree(
       @Nullable ActionInput input,
       PathFragment mappedExecPath,
-      @Nullable SpawnScrubber spawnScrubber,
       Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
@@ -709,7 +705,6 @@ public final class MerkleTreeComputer {
           computeForTreeArtifactIfAbsent(
               metadataProvider.getTreeMetadata(artifact),
               mappedExecPath,
-              spawnScrubber,
               isToolInput,
               metadataProvider,
               artifactPathResolver,
@@ -720,7 +715,6 @@ public final class MerkleTreeComputer {
           computeForRunfilesTreeIfAbsent(
               metadataProvider.getRunfilesMetadata(artifact),
               mappedExecPath,
-              spawnScrubber,
               isToolInput,
               metadataProvider,
               artifactPathResolver,
@@ -737,7 +731,6 @@ public final class MerkleTreeComputer {
         yield computeIfAbsent(
             metadata,
             () -> explodeDirectory(artifactPathResolver.toPath(artifact)).entrySet(),
-            spawnScrubber,
             isToolInput.test(mappedExecPath),
             metadataProvider,
             artifactPathResolver,
@@ -752,7 +745,6 @@ public final class MerkleTreeComputer {
   private CompletableFuture<MerkleTree.RootOnly> computeForRunfilesTreeIfAbsent(
       RunfilesArtifactValue runfilesArtifactValue,
       PathFragment mappedExecPath,
-      @Nullable SpawnScrubber spawnScrubber,
       Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
@@ -781,7 +773,6 @@ public final class MerkleTreeComputer {
                 Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR),
                 // Values in this entry set may be null, which represents an empty runfile.
                 runfilesArtifactValue.getRunfilesTree().getMapping().entrySet()),
-        spawnScrubber,
         isTool,
         metadataProvider,
         artifactPathResolver,
@@ -793,7 +784,6 @@ public final class MerkleTreeComputer {
   private CompletableFuture<MerkleTree.RootOnly> computeForTreeArtifactIfAbsent(
       TreeArtifactValue treeArtifactValue,
       PathFragment mappedExecPath,
-      @Nullable SpawnScrubber spawnScrubber,
       Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
@@ -816,7 +806,6 @@ public final class MerkleTreeComputer {
                         Artifact.TreeFileArtifact::getParentRelativePath, HIERARCHICAL_COMPARATOR),
                     treeArtifactValue.getChildren()),
                 child -> entry(child.getParentRelativePath(), child)),
-        spawnScrubber,
         isTool,
         metadataProvider,
         artifactPathResolver,
@@ -833,19 +822,13 @@ public final class MerkleTreeComputer {
   private CompletableFuture<MerkleTree.RootOnly> computeIfAbsent(
       FileArtifactValue metadata,
       SortedInputsSupplier sortedInputsSupplier,
-      @Nullable SpawnScrubber spawnScrubber,
       boolean isTool,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
       @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
-    // Cache keys can't be null.
-    var nonNullScrubber = spawnScrubber != null ? spawnScrubber : SpawnScrubber.NOOP;
-    var persistentCache =
-        isTool
-            ? persistentToolSubTreeCache.get(nonNullScrubber)
-            : persistentNonToolSubTreeCache.get(nonNullScrubber);
+    var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
       persistentCache.invalidate(metadata);
     } else {
