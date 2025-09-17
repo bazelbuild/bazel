@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
-import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -815,16 +814,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsAtLeast("-DFROM_SHARED=bar,bar,bar", "-DFROM_CXXOPTS=bar,bar,bar")
         .inOrder();
     assertThat(cppCompileAction.getArguments()).doesNotContain("-DFROM_CONLYOPTS=bar,bar,bar");
-  }
-
-  @Test
-  public void testBothModuleNameAndModuleMapGivesError() throws Exception {
-    checkError(
-        "x",
-        "x",
-        BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED,
-        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
-        "objc_library( name = 'x', module_name = 'x', module_map = 'x.modulemap' )");
   }
 
   @Test
@@ -2421,23 +2410,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     CppCompileAction compileA = (CppCompileAction) compileAction("//x:foo", "foo.o");
     assertThat(compileA.getGrepIncludes()).isNotNull();
-  }
-
-  @Test
-  public void testModuleMapFileAccessed() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@rules_cc//cc:objc_library.bzl", "objc_library")
-        objc_library(
-            name = "foo",
-            srcs = ["foo.mm"],
-            enable_modules = True,
-            module_map = "foo.modulemap",
-        )
-        """);
-
-    getConfiguredTarget("//x:foo");
   }
 
   @Test
