@@ -124,12 +124,12 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
 
   @Nullable
   @Override
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     ActionInput input = inputArtifactData.getInput(execPath);
     if (input != null) {
       return input;
     }
-    FilesetOutputSymlink filesetLink = filesetMapping.get().get(execPath);
+    FilesetOutputSymlink filesetLink = filesetMapping.get().get(execPath.getPathString());
     if (filesetLink != null) {
       return filesetLink.target();
     }

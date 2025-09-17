@@ -981,7 +981,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public ActionInput getInput(String execPath) {
+    public ActionInput getInput(PathFragment execPath) {
       throw new UnsupportedOperationException();
     }
 

@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -82,7 +83,7 @@ public class BulkTransferException extends IOException {
    * Returns a {@link LostArtifacts} instance that is non-empty if and only if all suppressed
    * exceptions are caused by cache misses.
    */
-  public LostArtifacts getLostArtifacts(Function<String, ActionInput> actionInputResolver) {
+  public LostArtifacts getLostArtifacts(Function<PathFragment, ActionInput> actionInputResolver) {
     if (!allCausedByCacheNotFoundException(this)) {
       return LostArtifacts.EMPTY;
     }
@@ -93,7 +94,7 @@ public class BulkTransferException extends IOException {
       var missingDigest = e.getMissingDigest();
       var execPath = e.getExecPath();
       checkNotNull(execPath, "exec path not known for action input with digest %s", missingDigest);
-      var actionInput = actionInputResolver.apply(execPath.getPathString());
+      var actionInput = actionInputResolver.apply(execPath);
       checkNotNull(
           actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);

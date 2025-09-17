@@ -346,15 +346,14 @@ public final class ActionInputMap implements InputMetadataProvider {
 
   @Nullable
   @Override
-  public ActionInput getInput(String execPathString) {
-    int index = getIndex(execPathString);
+  public ActionInput getInput(PathFragment execPath) {
+    int index = getIndex(execPath.getPathString());
     if (index != -1) {
       return (ActionInput) keys[index];
     }
 
     // Search ancestor paths since execPathString may point to a TreeFileArtifact within one of the
     // tree artifacts.
-    PathFragment execPath = PathFragment.create(execPathString);
     TreeArtifactValue tree = treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
     if (tree == null) {
       return null;

@@ -105,7 +105,7 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     throw new UnsupportedOperationException();
   }
 

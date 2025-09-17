@@ -50,7 +50,7 @@ public class SingleBuildFileCache implements InputMetadataProvider {
   // If we can't get the digest, we store the exception. This avoids extra file IO for files
   // that are allowed to be missing, as we first check a likely non-existent content file
   // first.  Further we won't need to unwrap the exception in getDigest().
-  private final Cache<String, ActionInputMetadata> pathToMetadata =
+  private final Cache<PathFragment, ActionInputMetadata> pathToMetadata =
       Caffeine.newBuilder()
           // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
           // unlikely that this default will adversely affect memory in most cases.
@@ -84,7 +84,7 @@ public class SingleBuildFileCache implements InputMetadataProvider {
 
     return pathToMetadata
         .get(
-            input.getExecPathString(),
+            input.getExecPath(),
             execPath -> {
               Path path = ActionInputHelper.toInputPath(input, execRoot);
               FileArtifactValue metadata;
@@ -143,7 +143,7 @@ public class SingleBuildFileCache implements InputMetadataProvider {
 
   @Override
   @Nullable
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     ActionInputMetadata metadata = pathToMetadata.getIfPresent(execPath);
     if (metadata == null) {
       return null;

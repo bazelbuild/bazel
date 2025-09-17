@@ -605,8 +605,7 @@ public final class ActionRewindStrategy {
     // processed last to ensure that any lost input owning tree artifacts and filesets are already
     // in lostInputsAndOwners.
     for (RunfilesTree runfilesTree : inputArtifactData.getRunfilesTrees()) {
-      Artifact runfilesArtifact =
-          (Artifact) inputArtifactData.getInput(runfilesTree.getExecPath().getPathString());
+      Artifact runfilesArtifact = (Artifact) inputArtifactData.getInput(runfilesTree.getExecPath());
       checkState(runfilesArtifact.isRunfilesTree(), runfilesArtifact);
 
       RunfilesArtifactValue runfilesValue = inputArtifactData.getRunfilesMetadata(runfilesArtifact);

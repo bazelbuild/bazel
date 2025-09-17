@@ -173,7 +173,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
-    public ActionInput getInput(String execPath) {
+    public ActionInput getInput(PathFragment execPath) {
       return wrapped.getInput(execPath);
     }
 

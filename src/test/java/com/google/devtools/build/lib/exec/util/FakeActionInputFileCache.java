@@ -129,8 +129,7 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
 
   @Override
   @Nullable
-  public ActionInput getInput(String execPathString) {
-    PathFragment execPath = PathFragment.create(execPathString);
+  public ActionInput getInput(PathFragment execPath) {
     for (ActionInput i : inputs.keySet()) {
       if (i.getExecPath().equals(execPath)) {
         return i;

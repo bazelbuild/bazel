@@ -111,7 +111,7 @@ public interface InputMetadataProvider {
 
   /** Looks up an input from its exec path. */
   @Nullable
-  ActionInput getInput(String execPath);
+  ActionInput getInput(PathFragment execPath);
 
   /**
    * Expands tree artifacts in a sequence of {@link ActionInput}s.

@@ -99,7 +99,7 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
   }
 
   @Override
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     ActionInput input = primary.getInput(execPath);
     return input != null ? input : secondary.getInput(execPath);
   }
