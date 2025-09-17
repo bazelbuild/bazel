@@ -374,10 +374,9 @@ public final class MerkleTreeComputer {
     if (!Objects.equals(scrubber, lastScrubber)) {
       synchronized (MerkleTreeComputer.class) {
         if (!Objects.equals(scrubber, lastScrubber)) {
-          // The in-flight cache does not persist across a single invocation anyway and thus doesn't
-          // have to be cleared.
           persistentToolSubTreeCache.invalidateAll();
           persistentNonToolSubTreeCache.invalidateAll();
+          inFlightSubTreeCache.synchronous().invalidateAll();
           lastScrubber = scrubber;
         }
       }
@@ -908,7 +907,7 @@ public final class MerkleTreeComputer {
     return inFlightSubTreeCache
         .get(
             inFlightCacheKey,
-            (key, buildExecutor) -> {
+            (key, unusedExecutor) -> {
               // There is a window in which a concurrent call may have removed the in-flight cache
               // entry while this one had already passed the check above. Recheck the persistent
               // cache to avoid unnecessary work.
