@@ -71,6 +71,7 @@ abstract class ModuleBase {
   /** The module extensions used in this module. */
   public abstract ImmutableList<ModuleExtensionUsage> getExtensionUsages();
 
-  /** The flag aliases for this module. */
+  /** The flag aliases for this module. This is a list of String of the following format
+   * $NATIVE_FLAG=$STARLARK_LABEL*/
   public abstract ImmutableList<String> getFlagAliases();
 }
