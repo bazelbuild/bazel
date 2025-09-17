@@ -705,7 +705,7 @@ public final class MerkleTreeComputer {
         }
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
-          // arise from exploded source directories or tests.
+          // arise from exploded source directories, repository rules or tests.
           Path inputPath = artifactPathResolver.toPath(input);
           var digest = digestUtil.compute(inputPath);
           addFile(currentDirectory, name, digest, nodeProperties);
