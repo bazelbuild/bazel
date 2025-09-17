@@ -673,9 +673,7 @@ public final class MerkleTreeComputer {
             // The source directory subsumes all children paths, which may be staged separately as
             // individual files or subdirectories. We rely on the inputs being sorted such that a
             // path is directly succeeded by all its children.
-            if (lastSourceDirPath == null || !path.startsWith(lastSourceDirPath)) {
-              lastSourceDirPath = path;
-            }
+            lastSourceDirPath = path;
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
