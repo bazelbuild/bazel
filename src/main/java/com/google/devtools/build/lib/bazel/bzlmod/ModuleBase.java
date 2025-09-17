@@ -70,4 +70,7 @@ abstract class ModuleBase {
 
   /** The module extensions used in this module. */
   public abstract ImmutableList<ModuleExtensionUsage> getExtensionUsages();
+
+  /** The flag aliases for this module. */
+  public abstract ImmutableList<String> getFlagAliases();
 }

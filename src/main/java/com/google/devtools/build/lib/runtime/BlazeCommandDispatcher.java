@@ -87,6 +87,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -635,7 +636,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             Profiler.instance().profile(ProfilerTask.BZLMOD, "compute main repo mapping")) {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
-          optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
+          Map<String, String> flagAlias = env.getSkyframeExecutor().getFlagAlias(reporter);
+          optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).withAliases(flagAlias).build();
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";

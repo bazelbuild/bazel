@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -3237,6 +3238,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       traverseException = (Exception) traverseException.getCause();
     }
     return detailedExitCode;
+  }
+
+  public Map<String,String> getFlagAlias(ExtendedEventHandler eventHandler) throws InterruptedException {
+    EvaluationResult<BazelDepGraphValue> evalResult =
+        evaluate(
+            ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
+    ImmutableList<String> flagAliases = evalResult.get(BazelDepGraphValue.KEY).getDepGraph().get(
+        ModuleKey.ROOT).getFlagAliases();
+    Map<String, String> aliasesMap = new HashMap<>();
+
+    if (flagAliases == null) {
+      return aliasesMap;
+    }
+
+    for (String alias : flagAliases) {
+      String[] split = alias.split("=");
+      aliasesMap.put(split[0], split[1]);
+    }
+    return aliasesMap;
   }
 
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)

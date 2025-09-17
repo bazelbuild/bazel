@@ -62,6 +62,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
             .setExtensionUsages(ImmutableList.of())
             .setExecutionPlatformsToRegister(ImmutableList.of())
             .setToolchainsToRegister(ImmutableList.of())
+            .setFlagAliases(ImmutableList.of())
             .build();
 
     ImmutableMap<ModuleKey, Module> emptyDepGraph = ImmutableMap.of(ModuleKey.ROOT, root);

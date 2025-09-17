@@ -385,6 +385,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:memory_pressure_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:flogger",

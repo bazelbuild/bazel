@@ -98,6 +98,8 @@ public abstract class Module extends ModuleBase {
 
     abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
 
+    public abstract Builder setFlagAliases(ImmutableList<String> value);
+
     @CanIgnoreReturnValue
     public Builder addDep(String depRepoName, ModuleKey depKey) {
       depsBuilder().put(depRepoName, depKey);

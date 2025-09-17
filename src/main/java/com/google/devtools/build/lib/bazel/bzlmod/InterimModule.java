@@ -160,6 +160,14 @@ public abstract class InterimModule extends ModuleBase {
 
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
 
+    abstract ImmutableList.Builder<String> flagAliasesBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addFlagAlias(String nativeName, String starlarkLabel) {
+      flagAliasesBuilder().add(String.format("%s=%s", nativeName, starlarkLabel));
+      return this;
+    }
+
     @CanIgnoreReturnValue
     public final Builder addBazelCompatibilityValues(Iterable<String> values) {
       bazelCompatibilityBuilder().addAll(values);
@@ -243,6 +251,7 @@ public abstract class InterimModule extends ModuleBase {
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
         .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
         .setExtensionUsages(interim.getExtensionUsages())
+        .setFlagAliases(interim.getFlagAliases())
         .build();
   }
 

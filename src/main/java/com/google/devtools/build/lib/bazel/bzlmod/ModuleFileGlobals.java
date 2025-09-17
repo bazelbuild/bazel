@@ -1170,4 +1170,25 @@ public class ModuleFileGlobals {
     validateModuleName(moduleName);
     context.addOverride(moduleName, new NonRegistryOverride(LocalPathRepoSpecs.create(path)));
   }
+
+  @StarlarkMethod(
+      name = "flag_alias",
+      doc = "maps a command line flag to a Starlark label.",
+      parameters = {
+          @Param(
+              name = "native_name",
+              doc = "The name of the native flag.",
+              positional = true),
+          @Param(
+              name = "starlark_label",
+              doc = "The label of the Starlark flag to alias to.",
+              positional = true),
+      },
+      useStarlarkThread = true)
+  public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
+      throws EvalException {
+    ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "flag_alias()");
+    context.setNonModuleCalled();
+    context.getModuleBuilder().addFlagAlias(nativeName, starlarkLabel);
+  }
 }
