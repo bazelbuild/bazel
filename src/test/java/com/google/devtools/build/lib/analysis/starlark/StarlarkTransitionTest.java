@@ -28,17 +28,18 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Test of common logic between Starlark-defined transitions. Rule-transition- or
  * attr-transition-specific logic should be tested in {@link StarlarkRuleTransitionProviderTest} and
  * {@link StarlarkAttrTransitionProviderTest}.
  */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class StarlarkTransitionTest extends BuildViewTestCase {
 
   /** Extra options for this test. */
@@ -59,6 +60,13 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "default")
     public String disallowedOption;
+
+    @Option(
+        name = "existing_flag",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "native_default_value")
+    public String existingFlag;
   }
 
   /** Test fragment. */
@@ -536,5 +544,254 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:t1");
     assertContainsEvent("Option 'disallowed_option' is not allowed in transitions OUTPUTS");
+  }
+
+  private void writeTestDefForFlagAlias(String nativeFlagName, boolean defaultValue)
+      throws Exception {
+    writeAllowlistFile(scratch);
+    String value =
+        defaultValue
+            ? "'foo_starlark_default_value'"
+            : String.format(
+                "'transitioned ' + settings['//command_line_option:%s']", nativeFlagName);
+
+    scratch.file(
+        "test/defs.bzl",
+        String.format(
+            """
+            def _setting_impl(ctx):
+                return []
+
+            my_flag = rule(
+                implementation = _setting_impl,
+                build_setting = config.string(flag = True),
+            )
+
+            def _transition_impl(settings, attr):
+                return {
+                    "//command_line_option:%s": %s,
+                }
+
+            my_transition = transition(
+                implementation = _transition_impl,
+                inputs = ["//command_line_option:%s"],
+                outputs = ["//command_line_option:%s"],
+            )
+
+            def _impl(ctx):
+                return []
+
+            my_rule = rule(
+                implementation = _impl,
+                cfg = my_transition,
+            )
+            """,
+            nativeFlagName, value, nativeFlagName, nativeFlagName));
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule", "my_flag")
+
+        my_rule(name = "t1")
+
+        my_flag(
+            name = "foo_starlark",
+            build_setting_default = "foo_starlark_default_value",
+        )
+
+        my_flag(
+            name = "bar_starlark",
+            build_setting_default = "bar_starlark_default_value",
+        )
+        """);
+  }
+
+  @Test
+  public void testStarlarkFlagWithAliasInTransition(
+      @TestParameter({"existing_flag", "new_alias"}) String nativeFlagName) throws Exception {
+    writeTestDefForFlagAlias(nativeFlagName, /* defaultValue= */ false);
+
+    useConfiguration(
+        String.format("--flag_alias=%s=//test:foo_starlark", nativeFlagName),
+        String.format("--%s=cmd_flag_value", nativeFlagName));
+    var fooOptions = getConfiguration(getConfiguredTarget("//test:t1")).getOptions();
+    assertThat(fooOptions.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:foo_starlark"), "transitioned cmd_flag_value");
+    if (nativeFlagName.equals("existing_flag")) {
+      // The native flag value should not change.
+      assertThat(fooOptions.get(DummyTestOptions.class).existingFlag)
+          .isEqualTo("native_default_value");
+    }
+
+    // Modify the flag alias to point to //test:bar_starlark and make sure the transition updates
+    // the new flag value.
+    useConfiguration(
+        String.format("--flag_alias=%s=//test:bar_starlark", nativeFlagName),
+        String.format("--%s=cmd_flag_value", nativeFlagName));
+    var barOptions = getConfiguration(getConfiguredTarget("//test:t1")).getOptions();
+    assertThat(barOptions.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:bar_starlark"), "transitioned cmd_flag_value");
+    if (nativeFlagName.equals("existing_flag")) {
+      // The native flag value should not change.
+      assertThat(barOptions.get(DummyTestOptions.class).existingFlag)
+          .isEqualTo("native_default_value");
+    }
+  }
+
+  @Test
+  public void testDefaultStarlarkFlagValue_passedToAlias(
+      @TestParameter({"existing_flag", "new_alias"}) String nativeFlagName) throws Exception {
+    writeTestDefForFlagAlias(nativeFlagName, /* defaultValue= */ false);
+
+    useConfiguration(String.format("--flag_alias=%s=//test:foo_starlark", nativeFlagName));
+    var fooOptions = getConfiguration(getConfiguredTarget("//test:t1")).getOptions();
+    assertThat(fooOptions.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:foo_starlark"),
+            "transitioned foo_starlark_default_value");
+
+    // Modify the flag alias to point to //test:bar_starlark and make sure the transition sees and
+    // transitions the new flag value.
+    useConfiguration(String.format("--flag_alias=%s=//test:bar_starlark", nativeFlagName));
+    var barOptions = getConfiguration(getConfiguredTarget("//test:t1")).getOptions();
+    assertThat(barOptions.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:bar_starlark"),
+            "transitioned bar_starlark_default_value");
+  }
+
+  @Test
+  public void testWritingDefaultValueToStarlarkFlag_removedFromBuildOptions(
+      @TestParameter({"existing_flag", "new_alias"}) String nativeFlagName) throws Exception {
+    writeTestDefForFlagAlias(nativeFlagName, /* defaultValue= */ true);
+    useConfiguration(String.format("--flag_alias=%s=//test:foo_starlark", nativeFlagName));
+
+    var options = getConfiguration(getConfiguredTarget("//test:t1")).getOptions();
+
+    assertThat(options.getStarlarkOptions()).isEmpty();
+  }
+
+  @Test
+  public void testStarlarkFlagAndAliasInInputs_haveSameValue(
+      @TestParameter({"existing_flag", "new_alias"}) String nativeFlagName) throws Exception {
+    writeAllowlistFile(scratch);
+    scratch.file(
+        "test/defs.bzl",
+        String.format(
+            """
+            def _setting_impl(ctx):
+                return []
+
+            my_flag = rule(
+                implementation = _setting_impl,
+                build_setting = config.string(flag = True),
+            )
+
+            def _transition_impl(settings, attr):
+                if settings["//test:foo_starlark"] != settings["//command_line_option:%s"]:
+                    fail("Starlark flag '@@//test:foo_starlark' and its alias '//command_line_option:%s' have different values: '{}' and '{}'".format(
+                        settings["//test:foo_starlark"],
+                        settings["//command_line_option:%s"],
+                    ))
+                return {}
+
+            my_transition = transition(
+                implementation = _transition_impl,
+                inputs = ["//test:foo_starlark", "//command_line_option:%s"],
+                outputs = [],
+            )
+
+            def _impl(ctx):
+                return []
+
+            my_rule = rule(
+                implementation = _impl,
+                cfg = my_transition,
+            )
+            """,
+            nativeFlagName, nativeFlagName, nativeFlagName, nativeFlagName));
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule", "my_flag")
+
+        my_rule(name = "t1")
+
+        my_flag(
+            name = "foo_starlark",
+            build_setting_default = "starlark_default_value",
+        )
+        """);
+    useConfiguration(
+        String.format("--flag_alias=%s=//test:foo_starlark", nativeFlagName),
+        String.format("--%s=cmd_flag_value", nativeFlagName));
+
+    var unused = getConfiguredTarget("//test:t1");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void testTransitionWritesDifferentValueToFlagAndAlias_notAllowed(
+      @TestParameter({"existing_flag", "new_alias"}) String nativeFlagName) throws Exception {
+    writeAllowlistFile(scratch);
+    scratch.file(
+        "test/defs.bzl",
+        String.format(
+            """
+            def _setting_impl(ctx):
+                return []
+
+            my_flag = rule(
+                implementation = _setting_impl,
+                build_setting = config.string(flag = True),
+            )
+
+            def _transition_impl(settings, attr):
+                return {
+                    "//command_line_option:%s": "val_for_native",
+                    "//test:foo_starlark": "val_for_starlark",
+                }
+
+            my_transition = transition(
+                implementation = _transition_impl,
+                inputs = [],
+                outputs = ["//test:foo_starlark", "//command_line_option:%s"],
+            )
+
+            def _impl(ctx):
+                return []
+
+            my_rule = rule(
+                implementation = _impl,
+                cfg = my_transition,
+            )
+            """,
+            nativeFlagName, nativeFlagName));
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule", "my_flag")
+
+        my_rule(name = "t1")
+
+        my_flag(
+            name = "foo_starlark",
+            build_setting_default = "starlark_default_value",
+        )
+        """);
+    useConfiguration(
+        String.format("--flag_alias=%s=//test:foo_starlark", nativeFlagName),
+        String.format("--%s=cmd_flag_value", nativeFlagName));
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:t1");
+    assertContainsEvent(
+        String.format(
+            "Starlark flag '@@//test:foo_starlark' and its alias '//command_line_option:%s'"
+                + " have different values: 'val_for_starlark' and 'val_for_native'",
+            nativeFlagName));
   }
 }

@@ -493,11 +493,15 @@ java_library(
     srcs = ["StarlarkTransitionCache.java"],
     deps = [
         ":build_options",
+        ":core_options",
+        ":starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:caffeine",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
