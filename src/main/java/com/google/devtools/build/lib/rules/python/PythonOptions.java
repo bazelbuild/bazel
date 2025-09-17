@@ -88,18 +88,6 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatiblePy3IsDefault;
 
   @Option(
-      name = "incompatible_python_disable_py2",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, using Python 2 settings will cause an error. This includes "
-              + "python_version=PY2, srcs_version=PY2, and srcs_version=PY2ONLY. See "
-              + "https://github.com/bazelbuild/bazel/issues/15684 for more information.")
-  public boolean disablePy2;
-
-  @Option(
       name = "incompatible_py2_outputs_are_suffixed",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -136,38 +124,6 @@ public class PythonOptions extends FragmentOptions {
               + "`py_binary` and `py_test` targets (even if they don't explicitly specify a "
               + "version) so there is usually not much reason to supply this flag.")
   public PythonVersion pythonVersion;
-
-  /**
-   * Deprecated machinery for setting the Python version; will be removed soon.
-   *
-   * <p>Not in GraveyardOptions because we still want to prohibit users from select()ing on it.
-   */
-  @Option(
-      name = "force_python",
-      defaultValue = "null",
-      converter = TargetPythonVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "No-op, will be removed soon.")
-  public PythonVersion forcePython;
-
-  /**
-   * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
-   * PythonVersion} values do not represent distinct Python versions and are not allowed.
-   *
-   * <p>Null means to use the default ({@link #getDefaultPythonVersion}).
-   *
-   * <p>This option is only read by {@link #getExec}. It should not be read by other native code or
-   * by {@code select()}s in user code.
-   */
-  @Option(
-      name = "host_force_python",
-      defaultValue = "null",
-      converter = TargetPythonVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
-  public PythonVersion hostForcePython;
 
   @Option(
       name = "incompatible_default_to_explicit_init_py",

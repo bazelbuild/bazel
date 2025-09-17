@@ -430,14 +430,8 @@ bazel_fragments["ProtoConfiguration$Options"] = fragment(
 )
 
 def _python_options(settings):
-    if settings["//command_line_option:host_force_python"] != None:
-        host_py_version = settings["//command_line_option:host_force_python"]
-    elif settings["//command_line_option:incompatible_py3_is_default"]:
-        host_py_version = "py3"
-    else:
-        host_py_version = "py2"
     return {
-        "//command_line_option:python_version": host_py_version,
+        "//command_line_option:python_version": "py3",
     }
 
 bazel_fragments["PythonOptions"] = fragment(
@@ -446,11 +440,9 @@ bazel_fragments["PythonOptions"] = fragment(
     propagate = [
         "//command_line_option:build_python_zip",
         "//command_line_option:experimental_py_binaries_include_label",
-        "//command_line_option:host_force_python",
         "//command_line_option:incompatible_default_to_explicit_init_py",
         "//command_line_option:incompatible_py2_outputs_are_suffixed",
         "//command_line_option:incompatible_py3_is_default",
-        "//command_line_option:incompatible_python_disable_py2",
         "//command_line_option:incompatible_python_disallow_native_rules",
         "//command_line_option:python_native_rules_allowlist",
     ],

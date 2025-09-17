@@ -110,35 +110,6 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void getExec_appliesHostForcePython() throws Exception {
-    assumesDefaultIsPY2();
-
-    BuildOptions optsWithPythonVersionFlag =
-        parseBuildOptions(
-            /* starlarkOptions= */ ImmutableMap.of(),
-            "--python_version=PY2",
-            "--host_force_python=PY3");
-
-    BuildOptions optsWithPy3IsDefaultFlag =
-        parseBuildOptions(
-            /* starlarkOptions= */ ImmutableMap.of(),
-            "--incompatible_py3_is_default=true",
-            // It's more interesting to set the incompatible flag true and force exec to PY2, than
-            // it is to set the flag false and force exec to PY3.
-            "--host_force_python=PY2");
-
-    PythonOptions execOptsWithPythonVersionFlag =
-        AnalysisTestUtil.execOptions(optsWithPythonVersionFlag, skyframeExecutor, reporter)
-            .get(PythonOptions.class);
-    PythonOptions execOptsWithPy3IsDefaultFlag =
-        AnalysisTestUtil.execOptions(optsWithPy3IsDefaultFlag, skyframeExecutor, reporter)
-            .get(PythonOptions.class);
-
-    assertThat(execOptsWithPythonVersionFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(execOptsWithPy3IsDefaultFlag.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-  }
-
-  @Test
   public void getExec_py3IsDefaultFlagChangesExec() throws Exception {
     assumesDefaultIsPY2();
     BuildOptions options =

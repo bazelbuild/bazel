@@ -53,7 +53,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   private final boolean includeLabelInLinkstamp;
 
   private final boolean defaultToExplicitInitPy;
-  private final boolean disablePy2;
   @Nullable private final Label nativeRulesAllowlist;
   private final boolean disallowNativeRules;
 
@@ -66,7 +65,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.buildPythonZip = pythonOptions.buildPythonZip;
     this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
-    this.disablePy2 = pythonOptions.disablePy2;
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
     this.disallowNativeRules = pythonOptions.disallowNativeRules;
     this.includeLabelInLinkstamp = pythonOptions.includeLabelInPyBinariesLinkstamp;
@@ -179,9 +177,9 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   @StarlarkMethod(
       name = "disable_py2",
       structField = true,
-      doc = "The value of the --incompatible_python_disable_py2 flag.")
+      doc = "No-op: PY2 is no longer supported.")
   public boolean getDisablePy2() {
-    return disablePy2;
+    return true;
   }
 
   @StarlarkMethod(
