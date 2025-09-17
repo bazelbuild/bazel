@@ -248,6 +248,12 @@ char **read_filelist(char *filename) {
     return NULL;
   }
 
+  if (file_stat.total_size == 0) {
+    char **result = static_cast<char **>(malloc(sizeof(char *)));
+    result[0] = NULL;
+    return result;
+  }
+
   char *data = static_cast<char *>(malloc(file_stat.total_size));
   if (!read_file(filename, data, file_stat.total_size)) {
     return NULL;
