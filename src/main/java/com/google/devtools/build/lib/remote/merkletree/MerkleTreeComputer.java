@@ -342,11 +342,15 @@ public final class MerkleTreeComputer {
     // The scrubber is a per-invocation setting and invocations do not overlap, so it can be tracked
     // in a static variable.
     if (!Objects.equals(scrubber, lastScrubber)) {
-      // The in-flight cache does not persist across a single invocation anyway and thus doesn't
-      // have to be cleared.
-      persistentToolSubTreeCache.invalidateAll();
-      persistentNonToolSubTreeCache.invalidateAll();
-      lastScrubber = scrubber;
+      synchronized (MerkleTreeComputer.class) {
+        if (!Objects.equals(scrubber, lastScrubber)) {
+          // The in-flight cache does not persist across a single invocation anyway and thus doesn't
+          // have to be cleared.
+          persistentToolSubTreeCache.invalidateAll();
+          persistentNonToolSubTreeCache.invalidateAll();
+          lastScrubber = scrubber;
+        }
+      }
     }
     var spawnInputs = spawn.getInputFiles().toList();
     // Add output directories to inputs so that they are created as empty directories by the
