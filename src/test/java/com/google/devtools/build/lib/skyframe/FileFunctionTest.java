@@ -1275,6 +1275,20 @@ public class FileFunctionTest {
   }
 
   @Test
+  public void testInfiniteSymlinkExpansion_sortOrder() throws Exception {
+    // This test case contains paths that sort differently as strings vs. as sequences of path
+    // segments.
+    symlink("a/b", "b-c");
+    symlink("a/b-c", "b/c");
+    SkyKey key = FileValue.key(RootedPath.toRootedPath(pkgRoot, pkgRoot.relativize(path("a/b-c"))));
+    EvaluationResult<FileValue> result =
+        makeEvaluator().evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .isInstanceOf(FileSymlinkInfiniteExpansionException.class);
+  }
+
+  @Test
   public void testInfiniteSymlinkExpansion_symlinkToReferrerToAncestor_levelsOfDirectorySymlinks()
       throws Exception {
     symlink("dir1/a", "../dir2");
