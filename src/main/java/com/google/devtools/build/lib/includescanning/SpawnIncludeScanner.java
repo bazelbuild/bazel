@@ -27,11 +27,11 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -368,9 +368,6 @@ public class SpawnIncludeScanner {
       GrepIncludesFileType fileType)
       throws ExecException, InterruptedException {
     ActionInput output = ActionInputHelper.fromPath(outputExecPath);
-    NestedSet<? extends ActionInput> inputs =
-        NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input);
-    ImmutableSet<ActionInput> outputs = ImmutableSet.of(output);
     ImmutableList<String> command =
         ImmutableList.of(
             grepIncludes.getExecPathString(),
@@ -382,8 +379,7 @@ public class SpawnIncludeScanner {
     execInfoBuilder.putAll(resourceOwner.getExecutionInfo());
     if (inMemoryOutput) {
       execInfoBuilder.put(
-          ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-          outputExecPath.getPathString());
+          ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS, outputExecPath.getPathString());
       // grep-includes writes output file to disk. If in-memory output is requested, no-local should
       // also be added, otherwise, grep-includes could be executed locally resulting output be
       // written to local disk.
@@ -392,14 +388,8 @@ public class SpawnIncludeScanner {
     execInfoBuilder.put(ExecutionRequirements.DO_NOT_REPORT, "");
 
     Spawn spawn =
-        new SimpleSpawn(
-            resourceOwner,
-            command,
-            ImmutableMap.of(),
-            execInfoBuilder.buildOrThrow(),
-            inputs,
-            outputs,
-            LOCAL_RESOURCES);
+        new GrepIncludesSpawn(
+            command, execInfoBuilder.buildOrThrow(), resourceOwner, grepIncludes, input, output);
 
     actionExecutionContext.maybeReportSubcommand(spawn, /* spawnRunner= */ null);
 
@@ -431,6 +421,47 @@ public class SpawnIncludeScanner {
       synchronized (toContext) {
         FileOutErr.dump(fromContext.getFileOutErr(), toContext.getFileOutErr());
       }
+    }
+  }
+
+  private static final class GrepIncludesSpawn extends BaseSpawn {
+    private final NestedSet<Artifact> inputs;
+    private final ImmutableSet<ActionInput> outputs;
+
+    GrepIncludesSpawn(
+        ImmutableList<String> arguments,
+        ImmutableMap<String, String> executionInfo,
+        ActionExecutionMetadata action,
+        Artifact grepIncludes,
+        Artifact input,
+        ActionInput output) {
+      super(
+          arguments, /* environment= */ ImmutableMap.of(), executionInfo, action, LOCAL_RESOURCES);
+      this.inputs = NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input);
+      this.outputs = ImmutableSet.of(output);
+    }
+
+    @Override
+    public NestedSet<Artifact> getInputFiles() {
+      return inputs;
+    }
+
+    @Override
+    public ImmutableSet<ActionInput> getOutputFiles() {
+      return outputs;
+    }
+
+    @Override
+    public NestedSet<Artifact> getToolFiles() {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
+    @Override
+    public ImmutableList<ActionInput> getOutputEdgesForExecutionGraph() {
+      // The output of GrepIncludesSpawn is read by the include scanner itself and is not an input
+      // to any other spawn. Hiding it from the execution graph can save a considerable amount of
+      // memory, see b/445300504.
+      return ImmutableList.of();
     }
   }
 }
