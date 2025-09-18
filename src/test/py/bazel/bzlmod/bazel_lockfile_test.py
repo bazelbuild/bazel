@@ -2765,6 +2765,51 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('label: @@+my_ext2+bar//:bar\n', stderr)
 
+  def testUnicode(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+        'use_repo(lockfile_ext, "hello")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')\\nprint(\'Unicode test: {}\')".format(ctx.attr.str))',
+        '',
+        'repo_rule = repository_rule(',
+        '    implementation=impl,',
+        '    attrs = {',
+        '        "str": attr.string(),',
+        '    },',
+        ')',
+        '',
+        'def _module_ext_impl(ctx):',
+        '    print("Hello from the other side!")',
+        '    repo_rule(name="hello", str="äöüÄÖÜß🌱")',
+        '',
+        'lockfile_ext = module_extension(',
+        '    implementation=_module_ext_impl,',
+        ')',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+    self.assertIn('Unicode test: äöüÄÖÜß🌱', ''.join(stderr))
+
+    with open(self.Path('MODULE.bazel.lock'), 'r', encoding='utf-8') as f:
+      lockfile = f.read()
+      self.assertIn('äöüÄÖÜß🌱', lockfile)
+
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertNotIn('Hello from the other side!', ''.join(stderr))
+    self.assertIn('Unicode test: äöüÄÖÜß🌱', ''.join(stderr))
+
 
 if __name__ == '__main__':
   absltest.main()
