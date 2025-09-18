@@ -1173,7 +1173,11 @@ public class ModuleFileGlobals {
 
   @StarlarkMethod(
       name = "flag_alias",
-      doc = "maps a command line flag to a Starlark label.",
+      doc =
+        """
+          Maps a command-line flag --foo to a Starlark flag --@repo//defs:foo. Bazel translates all
+          instances of $ bazel build //target --foo to $ bazel build //target --@repo//defs:foo.
+        """,
       parameters = {
           @Param(
               name = "native_name",
