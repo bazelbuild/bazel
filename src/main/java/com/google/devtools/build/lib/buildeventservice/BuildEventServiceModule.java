@@ -782,8 +782,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             .buildRequestId(buildRequestId)
             .invocationId(invocationId)
             .projectId(besOptions.instanceName)
-            .commandName(cmdEnv.getCommandName())
-            .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
+            .keywords(
+                getBesKeywords(
+                    cmdEnv.getCommandName(),
+                    besOptions,
+                    cmdEnv.getRuntime().getStartupOptionsProvider()))
             .checkPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
             .attemptNumber(cmdEnv.getAttemptNumber())
             .build();
@@ -946,23 +949,16 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     this.buildEventOutputStreamFactory = factory;
   }
 
-  protected ImmutableSet<String> getBesKeywords(
-      OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
-    List<String> userKeywords = besOptions.besKeywords;
-    List<String> systemKeywords = besOptions.besSystemKeywords;
-    ImmutableSet.Builder<String> keywords =
-        ImmutableSet.builderWithExpectedSize(userKeywords.size() + systemKeywords.size());
-    for (String userKeyword : userKeywords) {
-      keywords.add("user_keyword=" + userKeyword);
-    }
-    keywords.addAll(systemKeywords);
-    return keywords.build();
-  }
+  /** Returns the set of keywords to be sent to the Build Event Service. */
+  protected abstract ImmutableSet<String> getBesKeywords(
+      String commandName,
+      OptionsT besOptions,
+      @Nullable OptionsParsingResult startupOptionsProvider);
 
-  /** A prefix used when printing the invocation ID in the command line */
+  /** Returns the prefix used when printing the invocation ID in the command line. */
   protected abstract String getInvocationIdPrefix();
 
-  /** A prefix used when printing the build request ID in the command line */
+  /** Returns theprefix used when printing the build request ID in the command line. */
   protected abstract String getBuildRequestIdPrefix();
 
   // TODO(b/115961387): This method shouldn't exist. It only does because some tests are relying on

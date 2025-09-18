@@ -114,14 +114,13 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   private static final String BUILD_REQUEST_ID = "feedbeef-dead-4321-beef-deaddeaddead";
   private static final String BUILD_INVOCATION_ID = "feedbeef-dead-4444-beef-deaddeaddead";
   private static final String COMMAND_NAME = "test";
-  private static final String ADDITIONAL_KEYWORD = "user_keyword=foo";
+  private static final ImmutableSet<String> KEYWORDS = ImmutableSet.of("foo=bar", "spam=eggs");
   private static final Timestamp COMMAND_START_TIME = Timestamps.fromMillis(500L);
   private static final BuildEventServiceProtoUtil BES_PROTO_UTIL =
       new BuildEventServiceProtoUtil.Builder()
           .buildRequestId(BUILD_REQUEST_ID)
           .invocationId(BUILD_INVOCATION_ID)
-          .commandName(COMMAND_NAME)
-          .keywords(ImmutableSet.of(ADDITIONAL_KEYWORD))
+          .keywords(KEYWORDS)
           .attemptNumber(1)
           .build();
 

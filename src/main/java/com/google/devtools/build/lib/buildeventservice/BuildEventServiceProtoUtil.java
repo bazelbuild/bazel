@@ -37,7 +37,6 @@ import com.google.devtools.build.v1.StreamId.BuildComponent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Utility class with convenience methods for building a {@link BuildEventServiceTransport}. */
@@ -46,8 +45,7 @@ public final class BuildEventServiceProtoUtil {
   private final String buildRequestId;
   private final String buildInvocationId;
   private final String projectId;
-  private final String commandName;
-  private final Set<String> additionalKeywords;
+  private final ImmutableSet<String> keywords;
   private final boolean checkPrecedingLifecycleEvents;
   private final int attemptNumber;
 
@@ -55,8 +53,7 @@ public final class BuildEventServiceProtoUtil {
       String buildRequestId,
       String buildInvocationId,
       @Nullable String projectId,
-      String commandName,
-      Set<String> additionalKeywords,
+      ImmutableSet<String> keywords,
       boolean checkPrecedingLifecycleEvents,
       int attemptNumber) {
     checkArgument(attemptNumber >= 1);
@@ -64,8 +61,7 @@ public final class BuildEventServiceProtoUtil {
     this.buildRequestId = buildRequestId;
     this.buildInvocationId = buildInvocationId;
     this.projectId = projectId;
-    this.commandName = commandName;
-    this.additionalKeywords = ImmutableSet.copyOf(additionalKeywords);
+    this.keywords = keywords;
     this.checkPrecedingLifecycleEvents = checkPrecedingLifecycleEvents;
     this.attemptNumber = attemptNumber;
   }
@@ -150,8 +146,9 @@ public final class BuildEventServiceProtoUtil {
                     .setEvent(besEvent.setEventTime(timestamp))
                     .setStreamId(streamId(besEvent.getEventCase())));
     if (sequenceNumber == 1) {
-      builder.addAllNotificationKeywords(getKeywords());
-      builder.setCheckPrecedingLifecycleEventsPresent(checkPrecedingLifecycleEvents);
+      builder
+          .addAllNotificationKeywords(keywords)
+          .setCheckPrecedingLifecycleEventsPresent(checkPrecedingLifecycleEvents);
     }
     if (projectId != null) {
       builder.setProjectId(projectId);
@@ -174,7 +171,7 @@ public final class BuildEventServiceProtoUtil {
     }
     switch (lifecycleEvent.getEventCase()) {
       case BUILD_ENQUEUED, INVOCATION_ATTEMPT_STARTED, BUILD_FINISHED ->
-          builder.addAllNotificationKeywords(getKeywords());
+          builder.addAllNotificationKeywords(keywords);
       default -> {}
     }
     return builder;
@@ -198,21 +195,11 @@ public final class BuildEventServiceProtoUtil {
     return streamId.build();
   }
 
-  /** Keywords used by BES subscribers to filter notifications */
-  private ImmutableSet<String> getKeywords() {
-    return ImmutableSet.<String>builder()
-        .add("command_name=" + commandName)
-        .add("protocol_name=BEP")
-        .addAll(additionalKeywords)
-        .build();
-  }
-
   /** A builder for {@link BuildEventServiceProtoUtil}. */
   public static class Builder {
     private String invocationId;
     private String buildRequestId;
-    private String commandName;
-    private Set<String> keywords;
+    private ImmutableSet<String> keywords;
     @Nullable private String projectId;
     private boolean checkPrecedingLifecycleEvents;
     private int attemptNumber;
@@ -236,13 +223,7 @@ public final class BuildEventServiceProtoUtil {
     }
 
     @CanIgnoreReturnValue
-    public Builder commandName(String value) {
-      this.commandName = value;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder keywords(Set<String> value) {
+    public Builder keywords(ImmutableSet<String> value) {
       this.keywords = value;
       return this;
     }
@@ -264,7 +245,6 @@ public final class BuildEventServiceProtoUtil {
           checkNotNull(buildRequestId),
           checkNotNull(invocationId),
           projectId,
-          checkNotNull(commandName),
           checkNotNull(keywords),
           checkPrecedingLifecycleEvents,
           attemptNumber);

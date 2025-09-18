@@ -674,9 +674,14 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     besOptions.besKeywords = ImmutableList.of("keyword0", "keyword1", "keyword0");
     besOptions.besSystemKeywords = ImmutableList.of("sys_keyword0", "sys_keyword1", "sys_keyword0");
 
-    assertThat(besModule.getBesKeywords(besOptions, null))
+    assertThat(besModule.getBesKeywords("build", besOptions, null))
         .containsExactly(
-            "user_keyword=keyword0", "user_keyword=keyword1", "sys_keyword0", "sys_keyword1");
+            "protocol_name=BEP",
+            "command_name=build",
+            "user_keyword=keyword0",
+            "user_keyword=keyword1",
+            "sys_keyword0",
+            "sys_keyword1");
   }
 
   @Test

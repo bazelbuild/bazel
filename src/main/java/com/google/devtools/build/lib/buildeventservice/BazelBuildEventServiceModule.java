@@ -33,12 +33,14 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceG
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.stub.MetadataUtils;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -89,6 +91,24 @@ public class BazelBuildEventServiceModule
   @Override
   protected Class<BuildEventServiceOptions> optionsClass() {
     return BuildEventServiceOptions.class;
+  }
+
+  @Override
+  protected ImmutableSet<String> getBesKeywords(
+      String commandName,
+      BuildEventServiceOptions besOptions,
+      @Nullable OptionsParsingResult startupOptionsProvider) {
+    List<String> userKeywords = besOptions.besKeywords;
+    List<String> systemKeywords = besOptions.besSystemKeywords;
+    ImmutableSet.Builder<String> builder =
+        ImmutableSet.<String>builder()
+            .add("protocol_name=BEP")
+            .add("command_name=" + commandName)
+            .addAll(systemKeywords);
+    for (String userKeyword : userKeywords) {
+      builder.add("user_keyword=" + userKeyword);
+    }
+    return builder.build();
   }
 
   @Override
