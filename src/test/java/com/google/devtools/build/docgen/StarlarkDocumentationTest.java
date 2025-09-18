@@ -111,6 +111,7 @@ public class StarlarkDocumentationTest {
 
   /** MockClassD */
   @StarlarkBuiltin(name = "MockClassD", category = DocCategory.BUILTIN, doc = "MockClassD")
+  @SuppressWarnings("unused") // test code
   private static class MockClassD implements StarlarkValue {
     @StarlarkMethod(
         name = "test",
@@ -137,6 +138,7 @@ public class StarlarkDocumentationTest {
 
   /** MockClassF */
   @StarlarkBuiltin(name = "MockClassF", category = DocCategory.BUILTIN, doc = "MockClassF")
+  @SuppressWarnings("unused") // test code
   private static class MockClassF implements StarlarkValue {
     @StarlarkMethod(
         name = "test",
@@ -155,6 +157,7 @@ public class StarlarkDocumentationTest {
 
   /** MockClassG */
   @StarlarkBuiltin(name = "MockClassG", category = DocCategory.BUILTIN, doc = "MockClassG")
+  @SuppressWarnings("unused") // test code
   private static class MockClassG implements StarlarkValue {
     @StarlarkMethod(
         name = "test",
@@ -173,6 +176,7 @@ public class StarlarkDocumentationTest {
 
   /** MockClassH */
   @StarlarkBuiltin(name = "MockClassH", category = DocCategory.BUILTIN, doc = "MockClassH")
+  @SuppressWarnings("unused") // test code
   private static class MockClassH implements StarlarkValue {
     @StarlarkMethod(
         name = "test",
@@ -192,6 +196,7 @@ public class StarlarkDocumentationTest {
 
   /** MockClassI */
   @StarlarkBuiltin(name = "MockClassI", category = DocCategory.BUILTIN, doc = "MockClassI")
+  @SuppressWarnings("unused") // test code
   private static class MockClassI implements StarlarkValue {
     @StarlarkMethod(
         name = "test",
@@ -387,7 +392,7 @@ public class StarlarkDocumentationTest {
     assertThat(methodDoc.getSignature())
         .isEqualTo(
             "<a class=\"anchor\" href=\"../core/int.html\">int</a> "
-                + "MockClassF.test(a, b, *, c, d=1, *myArgs)");
+                + "MockClassF.test(a, b, *myArgs, c, d=1)");
     assertThat(methodDoc.getParams()).hasSize(5);
   }
 
@@ -419,7 +424,7 @@ public class StarlarkDocumentationTest {
     assertThat(methodDoc.getSignature())
         .isEqualTo(
             "<a class=\"anchor\" href=\"../core/int.html\">int</a> "
-                + "MockClassH.test(a, b, *, c, d=1, *myArgs, **myKwargs)");
+                + "MockClassH.test(a, b, *myArgs, c, d=1, **myKwargs)");
     assertThat(methodDoc.getParams()).hasSize(6);
   }
 
@@ -435,7 +440,7 @@ public class StarlarkDocumentationTest {
     assertThat(methodDoc.getSignature())
         .isEqualTo(
             "<a class=\"anchor\" href=\"../core/int.html\">int</a> "
-                + "MockClassI.test(a, b, *, c, d=1, *myArgs)");
+                + "MockClassI.test(a, b, *myArgs, c, d=1)");
     assertThat(methodDoc.getParams()).hasSize(5);
   }
 
@@ -456,7 +461,7 @@ public class StarlarkDocumentationTest {
         assertThat(methodDoc.getSignature())
             .isEqualTo(
                 "<a class=\"anchor\" href=\"../core/int.html\">int</a> "
-                    + "MockGlobalCallable(a, b, *, c, d=1, *myArgs, **myKwargs)");
+                    + "MockGlobalCallable(a, b, *myArgs, c, d=1, **myKwargs)");
         foundGlobalLibrary = true;
         break;
       }

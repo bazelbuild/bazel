@@ -14,7 +14,11 @@
 
 package com.google.devtools.build.docgen.starlark;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Documentation for a method or struct field of a Java class annotated with {@link
@@ -79,7 +83,43 @@ public abstract class MemberDoc extends StarlarkDoc {
    * For a callable value, returns the string representation of the parameters, for example {@code
    * "arg1, arg2=None, **kwargs"}; or an empty string otherwise.
    */
-  protected abstract String getParameterString();
+  protected String getParameterString() {
+    ImmutableList<? extends ParamDoc> params = getParams();
+    int nparams = params.size();
+    @Nullable ParamDoc kwargs = null;
+    if (nparams > 0 && params.get(nparams - 1).getKind().equals(ParamDoc.Kind.KWARGS)) {
+      kwargs = params.get(nparams - 1);
+      nparams--;
+    }
+    @Nullable ParamDoc varargs = null;
+    if (nparams > 0 && params.get(nparams - 1).getKind().equals(ParamDoc.Kind.VARARGS)) {
+      varargs = params.get(nparams - 1);
+      nparams--;
+    }
+
+    List<String> argList = new ArrayList<>(params.size());
+    int numKeywordOnly = 0;
+    for (int i = 0; i < nparams; i++) {
+      ParamDoc param = params.get(i);
+      if (param.getKind().equals(ParamDoc.Kind.KEYWORD_ONLY)) {
+        numKeywordOnly = nparams - i;
+        break;
+      }
+      argList.add(formatParameter(param));
+    }
+    if (varargs != null) {
+      argList.add("*" + varargs.getName());
+    } else if (numKeywordOnly > 0) {
+      argList.add("*");
+    }
+    for (int i = nparams - numKeywordOnly; i < nparams; i++) {
+      argList.add(formatParameter(params.get(i)));
+    }
+    if (kwargs != null) {
+      argList.add("**" + kwargs.getName());
+    }
+    return Joiner.on(", ").join(argList);
+  }
 
   /**
    * For a callable value, returns the string representing the method signature of the Starlark
@@ -88,4 +128,12 @@ public abstract class MemberDoc extends StarlarkDoc {
    * the type's documentation, if available) and name.
    */
   public abstract String getSignature();
+
+  private String formatParameter(ParamDoc param) {
+    if (!param.getDefaultValue().isEmpty()) {
+      return String.format("%s=%s", param.getName(), param.getDefaultValue());
+    } else {
+      return param.getName();
+    }
+  }
 }

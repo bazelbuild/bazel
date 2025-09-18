@@ -13,11 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.starlark;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -68,39 +65,18 @@ public abstract class AnnotStarlarkMethodDoc extends MemberDoc {
     return params;
   }
 
-  @Override
-  protected String getParameterString() {
-    List<String> argList = new ArrayList<>();
-
-    boolean named = false;
-    for (int i = getStartIndexForParams(); i < annotation.parameters().length; i++) {
-      Param param = annotation.parameters()[i];
-      if (!param.documented()) {
-        continue;
-      }
-      if (param.named() && !param.positional() && !named) {
-        named = true;
-        if (!argList.isEmpty()) {
-          argList.add("*");
-        }
-      }
-      argList.add(formatParameter(param));
-    }
-    if (!annotation.extraPositionals().name().isEmpty()) {
-      argList.add("*" + annotation.extraPositionals().name());
-    }
-    if (!annotation.extraKeywords().name().isEmpty()) {
-      argList.add("**" + annotation.extraKeywords().name());
-    }
-    return Joiner.on(", ").join(argList);
-  }
-
   private ImmutableList<AnnotParamDoc> determineParams() {
     ImmutableList.Builder<AnnotParamDoc> paramsBuilder = ImmutableList.builder();
     for (int i = getStartIndexForParams(); i < annotation.parameters().length; i++) {
       Param param = annotation.parameters()[i];
       if (param.documented()) {
-        paramsBuilder.add(new AnnotParamDoc(this, param, expander, ParamDoc.Kind.NORMAL, i));
+        ParamDoc.Kind kind = ParamDoc.Kind.ORDINARY;
+        if (!param.named()) {
+          kind = ParamDoc.Kind.POSITIONAL_ONLY;
+        } else if (!param.positional()) {
+          kind = ParamDoc.Kind.KEYWORD_ONLY;
+        }
+        paramsBuilder.add(new AnnotParamDoc(this, param, expander, kind, i));
       }
     }
     if (!annotation.extraPositionals().name().isEmpty()) {
@@ -109,7 +85,7 @@ public abstract class AnnotStarlarkMethodDoc extends MemberDoc {
               this,
               annotation.extraPositionals(),
               expander,
-              ParamDoc.Kind.EXTRA_POSITIONALS,
+              ParamDoc.Kind.VARARGS,
               /* paramIndex= */ -1));
     }
     if (!annotation.extraKeywords().name().isEmpty()) {
@@ -118,7 +94,7 @@ public abstract class AnnotStarlarkMethodDoc extends MemberDoc {
               this,
               annotation.extraKeywords(),
               expander,
-              ParamDoc.Kind.EXTRA_KEYWORDS,
+              ParamDoc.Kind.KWARGS,
               /* paramIndex= */ -1));
     }
     return paramsBuilder.build();
@@ -129,16 +105,6 @@ public abstract class AnnotStarlarkMethodDoc extends MemberDoc {
 
     return String.format(
         "%s %s%s", getTypeAnchor(javaMethod.getReturnType()), fullyQualifiedMethodName, args);
-  }
-
-  private String formatParameter(Param param) {
-    String defaultValue = param.defaultValue();
-    String name = param.name();
-    if (defaultValue == null || !defaultValue.isEmpty()) {
-      return String.format("%s=%s", name, defaultValue == null ? "&hellip;" : defaultValue);
-    } else {
-      return name;
-    }
   }
 
   /**

@@ -255,16 +255,12 @@ public class ApiExporter {
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());
         param.setDefaultValue(par.getDefaultValue());
-        switch (par.getKind()) {
-          case NORMAL -> {}
-          case EXTRA_POSITIONALS -> {
-            param.setName("*" + par.getName());
-            param.setIsStarArg(true);
-          }
-          case EXTRA_KEYWORDS -> {
-            param.setName("**" + par.getName());
-            param.setIsStarStarArg(true);
-          }
+        if (par.getKind().equals(ParamDoc.Kind.VARARGS)) {
+          param.setName("*" + par.getName());
+          param.setIsStarArg(true);
+        } else if (par.getKind().equals(ParamDoc.Kind.KWARGS)) {
+          param.setName("**" + par.getName());
+          param.setIsStarStarArg(true);
         }
         callable.addParam(param);
       }

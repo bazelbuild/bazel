@@ -42,7 +42,7 @@ public final class AnnotParamDoc extends ParamDoc {
     StringBuilder sb = new StringBuilder();
     if (param.allowedTypes().length == 0) {
       // There is no `allowedTypes` field; we need to figure it out from the Java type.
-      if (kind == Kind.NORMAL) {
+      if (kind == Kind.ORDINARY || kind == Kind.POSITIONAL_ONLY || kind == Kind.KEYWORD_ONLY) {
         // Only deal with normal args for now; unclear what we could do for varargs.
         Class<?> type = method.getMethod().getParameterTypes()[paramIndex];
         if (type != Object.class) {

@@ -13,16 +13,43 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.starlark;
 
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole;
+
 /** Documentation for a function parameter. */
 public abstract class ParamDoc extends StarlarkDoc {
-  /** Represents the param kind, whether it's a normal param or *arg or **kwargs. */
+  /**
+   * Represents the param kind, e.g. whether it's an ordinary parameter, keyword-only, *args,
+   * **kwargs, etc.
+   */
+  // Keep in sync with FunctionParamRole in stardoc_output.proto.
   public static enum Kind {
-    NORMAL,
-    // TODO: https://github.com/bazelbuild/stardoc/issues/225 - NORMAL needs to be split into
-    //   NORMAL and KEYWORD_ONLY, since EXTRA_KEYWORDS (or a `*` separator) go before keyword-only
-    //   params, not necessarily immediately before kwargs.
-    EXTRA_POSITIONALS,
-    EXTRA_KEYWORDS,
+    /** An ordinary parameter which may be used as a positional or by keyword. */
+    ORDINARY,
+    /**
+     * A positional-only parameter; such parameters cannot be defined in pure Starlark code, but
+     * exist in some natively-defined functions.
+     */
+    POSITIONAL_ONLY,
+    /**
+     * A keyword-only parameter, i.e. a non-vararg/kwarg parameter that follows `*` or `*args` in
+     * the function's declaration.
+     */
+    KEYWORD_ONLY,
+    /** Residual varargs, typically `*args` in the function's declaration. */
+    VARARGS,
+    /** Residual keyword arguments, typically `**kwargs` in the function's declaration. */
+    KWARGS;
+
+    public static Kind fromProto(FunctionParamRole role) {
+      return switch (role) {
+        case PARAM_ROLE_ORDINARY -> ORDINARY;
+        case PARAM_ROLE_POSITIONAL_ONLY -> POSITIONAL_ONLY;
+        case PARAM_ROLE_KEYWORD_ONLY -> KEYWORD_ONLY;
+        case PARAM_ROLE_VARARGS -> VARARGS;
+        case PARAM_ROLE_KWARGS -> KWARGS;
+        default -> throw new IllegalArgumentException("Unknown param role: " + role);
+      };
+    }
   }
 
   protected final Kind kind;
