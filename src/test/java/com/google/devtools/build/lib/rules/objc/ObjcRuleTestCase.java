@@ -69,8 +69,6 @@ import org.junit.Before;
  * simply call a check... method) across several rule types.
  */
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
-  protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
-
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
       DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
@@ -123,8 +121,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         return ImmutableList.copyOf(ObjcConfiguration.DBG_COPTS);
       case OPT:
         return ObjcConfiguration.OPT_COPTS;
-      case FASTBUILD:
-        return FASTBUILD_COPTS;
     }
     throw new AssertionError();
   }
