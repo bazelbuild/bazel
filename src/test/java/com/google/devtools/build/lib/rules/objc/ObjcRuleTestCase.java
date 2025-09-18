@@ -117,14 +117,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     throw new AssertionError();
   }
 
-  protected static ImmutableList<String> compilationModeCopts(CompilationMode mode) {
+  protected static ImmutableList<String> legacyCompilationModeCopts(CompilationMode mode) {
     switch (mode) {
       case DBG:
         return ImmutableList.copyOf(ObjcConfiguration.DBG_COPTS);
       case OPT:
         return ObjcConfiguration.OPT_COPTS;
-      case FASTBUILD:
-        return FASTBUILD_COPTS;
     }
     throw new AssertionError();
   }
@@ -890,13 +888,18 @@ cc_toolchain_forwarder = rule(
     return rootedPaths.build();
   }
 
-  protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode)
+  protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode, boolean includeLegacyFlags)
       throws Exception {
     ImmutableList.Builder<String> allExpectedCoptsBuilder =
         ImmutableList.<String>builder()
-            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
-            .addAll(compilationModeCopts(mode));
+            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+
+    if (includeLegacyFlags) {
+      allExpectedCoptsBuilder.addAll(legacyCompilationModeCopts(mode));
+    }
+
     useConfiguration(
+        "--incompatible_avoid_hardcoded_objc_compilation_flags=" + !includeLegacyFlags,
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--apple_platform_type=ios",
         "--compilation_mode=" + compilationModeFlag(mode));
@@ -913,8 +916,7 @@ cc_toolchain_forwarder = rule(
   protected void checkClangCoptsForDebugModeWithoutGlib(RuleType ruleType) throws Exception {
     ImmutableList.Builder<String> allExpectedCoptsBuilder =
         ImmutableList.<String>builder()
-            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
-            .addAll(ObjcConfiguration.DBG_COPTS);
+            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
 
     useConfiguration(
         "--platforms=" + MockObjcSupport.IOS_X86_64,
