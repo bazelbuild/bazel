@@ -194,6 +194,20 @@ java_test(
 )
 
 java_test(
+    name = "FlagSetIntegrationTest",
+    srcs = ["FlagSetIntegrationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
     name = "FragmentRegistryTest",
     srcs = ["FragmentRegistryTest.java"],
     deps = [

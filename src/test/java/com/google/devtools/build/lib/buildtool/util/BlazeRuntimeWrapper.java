@@ -364,6 +364,7 @@ public class BlazeRuntimeWrapper {
     if (ignoreUserOptions) {
       optionserParserBuilder.ignoreUserOptions();
     }
+    optionserParserBuilder.skipStarlarkOptionPrefixes();
     return optionserParserBuilder.build();
   }
 

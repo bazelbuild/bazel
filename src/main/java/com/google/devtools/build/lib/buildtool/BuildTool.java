@@ -173,6 +173,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -349,8 +350,11 @@ public class BuildTool {
                 .build();
         Preconditions.checkState(
             starlarkOptionsParser.parseGivenArgs(
-                projectEvaluationResult.buildOptions().stream()
-                    .filter(o -> STARLARK_SKIPPED_PREFIXES.stream().anyMatch(o::startsWith))
+                Stream.concat(
+                        projectEvaluationResult.buildOptions().stream()
+                            .filter(
+                                o -> STARLARK_SKIPPED_PREFIXES.stream().anyMatch(o::startsWith)),
+                        optionsParser.getSkippedArgs().stream())
                     .collect(toImmutableList())));
 
         env.getEventBus()
