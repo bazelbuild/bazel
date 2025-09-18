@@ -20,20 +20,9 @@ import net.starlark.java.annot.ParamType;
  * A class containing the documentation for a parameter of a {@link
  * net.starlark.java.annot.StarlarkMethod}-annotated Java method callable from Starlark.
  */
-public final class AnnotParamDoc extends StarlarkDoc {
-  /** Repesents the param kind, whether it's a normal param or *arg or **kwargs. */
-  public static enum Kind {
-    NORMAL,
-    // TODO: https://github.com/bazelbuild/stardoc/issues/225 - NORMAL needs to be split into
-    //   NORMAL and KEYWORD_ONLY, since EXTRA_KEYWORDS (or a `*` separator) go before keyword-only
-    //   params, not necessarily immediately before kwargs.
-    EXTRA_POSITIONALS,
-    EXTRA_KEYWORDS,
-  }
-
+public final class AnnotParamDoc extends ParamDoc {
   private final AnnotStarlarkMethodDoc method;
   private final Param param;
-  private final Kind kind;
   private final int paramIndex;
 
   public AnnotParamDoc(
@@ -42,22 +31,13 @@ public final class AnnotParamDoc extends StarlarkDoc {
       StarlarkDocExpander expander,
       Kind kind,
       int paramIndex) {
-    super(expander);
+    super(expander, kind);
     this.method = method;
     this.param = param;
-    this.kind = kind;
     this.paramIndex = paramIndex;
   }
 
-  /**
-   * Returns the string representing the type of this parameter with the link to the documentation
-   * for the type if available.
-   *
-   * <p>If the parameter type is Object, then returns the empty string. If the parameter type is not
-   * a generic, then this method returns a string representing the type name with a link to the
-   * documentation for the type if available. If the parameter type is a generic, then this method
-   * returns a string "CONTAINER of TYPE" (with HTML link markup).
-   */
+  @Override
   public String getType() {
     StringBuilder sb = new StringBuilder();
     if (param.allowedTypes().length == 0) {
@@ -86,10 +66,6 @@ public final class AnnotParamDoc extends StarlarkDoc {
     return sb.toString();
   }
 
-  public Kind getKind() {
-    return kind;
-  }
-
   public AnnotStarlarkMethodDoc getMethod() {
     return method;
   }
@@ -99,6 +75,7 @@ public final class AnnotParamDoc extends StarlarkDoc {
     return param.name();
   }
 
+  @Override
   public String getDefaultValue() {
     return param.defaultValue();
   }

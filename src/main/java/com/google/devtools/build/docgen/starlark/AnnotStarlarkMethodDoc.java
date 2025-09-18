@@ -26,7 +26,7 @@ import net.starlark.java.annot.StarlarkMethod;
  * An abstract class containing documentation for a {@link StarlarkMethod}-annotated Java method
  * callable from Starlark.
  */
-public abstract class AnnotStarlarkMethodDoc extends StarlarkDoc {
+public abstract class AnnotStarlarkMethodDoc extends MemberDoc {
   protected final Method javaMethod;
   protected final StarlarkMethod annotation;
   protected final ImmutableList<AnnotParamDoc> params;
@@ -39,16 +39,12 @@ public abstract class AnnotStarlarkMethodDoc extends StarlarkDoc {
     this.params = determineParams();
   }
 
-  /** Returns whether the Starlark method is documented. */
+  @Override
   public final boolean documented() {
     return annotation.documented();
   }
 
-  /**
-   * Returns a string containing additional documentation about the method's return value.
-   *
-   * <p>Returns an empty string by default.
-   */
+  @Override
   public final String getReturnTypeExtraMessage() {
     if (annotation.allowReturnNones()) {
       return " May return <code>None</code>.\n";
@@ -61,35 +57,19 @@ public abstract class AnnotStarlarkMethodDoc extends StarlarkDoc {
     return javaMethod;
   }
 
-  /** Returns a string containing a name for the method's return type. */
-  public abstract String getReturnType();
-
-  /**
-   * Returns whether a method can be called as a function.
-   *
-   * <p>E.g. ctx.label is not callable.
-   */
+  @Override
   public final boolean isCallable() {
     return !annotation.structField();
   }
 
-  /**
-   * Returns a string containing the method's name. GetName() returns the complete signature in case
-   * of overloaded methods. This is used to extract only the name of the method.
-   *
-   * <p>E.g. ctx.new_file is overloaded. In this case getName() returns "new_file(filename)", while
-   * getShortName() returns only "new_file".
-   */
-  public String getShortName() {
-    return getName();
-  }
-
   /** Returns a list containing the documentation for each of the method's parameters. */
+  @Override
   public final ImmutableList<AnnotParamDoc> getParams() {
     return params;
   }
 
-  private String getParameterString() {
+  @Override
+  protected String getParameterString() {
     List<String> argList = new ArrayList<>();
 
     boolean named = false;
@@ -120,7 +100,7 @@ public abstract class AnnotStarlarkMethodDoc extends StarlarkDoc {
     for (int i = getStartIndexForParams(); i < annotation.parameters().length; i++) {
       Param param = annotation.parameters()[i];
       if (param.documented()) {
-        paramsBuilder.add(new AnnotParamDoc(this, param, expander, AnnotParamDoc.Kind.NORMAL, i));
+        paramsBuilder.add(new AnnotParamDoc(this, param, expander, ParamDoc.Kind.NORMAL, i));
       }
     }
     if (!annotation.extraPositionals().name().isEmpty()) {
@@ -129,7 +109,7 @@ public abstract class AnnotStarlarkMethodDoc extends StarlarkDoc {
               this,
               annotation.extraPositionals(),
               expander,
-              AnnotParamDoc.Kind.EXTRA_POSITIONALS,
+              ParamDoc.Kind.EXTRA_POSITIONALS,
               /* paramIndex= */ -1));
     }
     if (!annotation.extraKeywords().name().isEmpty()) {
@@ -138,17 +118,11 @@ public abstract class AnnotStarlarkMethodDoc extends StarlarkDoc {
               this,
               annotation.extraKeywords(),
               expander,
-              AnnotParamDoc.Kind.EXTRA_KEYWORDS,
+              ParamDoc.Kind.EXTRA_KEYWORDS,
               /* paramIndex= */ -1));
     }
     return paramsBuilder.build();
   }
-
-  /**
-   * Returns a string representing the method signature of the Starlark method, which contains HTML
-   * links to the documentation of parameter types if available.
-   */
-  public abstract String getSignature();
 
   protected String getSignature(String fullyQualifiedMethodName) {
     String args = isCallable() ? "(" + getParameterString() + ")" : "";

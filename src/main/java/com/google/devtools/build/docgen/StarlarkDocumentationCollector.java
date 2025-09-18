@@ -213,7 +213,7 @@ final class StarlarkDocumentationCollector {
           javaMethod = selfCall;
         }
       }
-      builtinDoc.addMethod(
+      builtinDoc.addMember(
           new AnnotStarlarkOrdinaryMethodDoc(
               builtinDoc.getName(), javaMethod, starlarkMethod, expander));
     }
@@ -246,7 +246,7 @@ final class StarlarkDocumentationCollector {
         // Only add non-constructor global library methods. Constructors are added later.
         // TODO(wyv): add a redirect instead
         if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
-          page.addMethod(
+          page.addMember(
               new AnnotStarlarkOrdinaryMethodDoc("", entry.getKey(), entry.getValue(), expander));
         }
       }

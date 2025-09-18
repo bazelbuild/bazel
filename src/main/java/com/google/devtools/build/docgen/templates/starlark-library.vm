@@ -13,10 +13,10 @@
 
 ${page.documentation}
 
-#if (!$page.methods.isEmpty())
+#if (!$page.members.isEmpty())
 <h2>Members</h2>
 <ul>
-#foreach ($method in $page.methods)
+#foreach ($method in $page.members)
   #if ($method.documented())
   <li>
     <a href="#${method.name}">${method.name}</a>
@@ -26,7 +26,7 @@ ${page.documentation}
 </ul>
 #end
 
-#foreach ($method in $page.methods)
+#foreach ($method in $page.members)
   #if ($method.documented())
     <h2 id="${method.name}">${method.name}</h2>
     #if (!$method.signature.isEmpty())

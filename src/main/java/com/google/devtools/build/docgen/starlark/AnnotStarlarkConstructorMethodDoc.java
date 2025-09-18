@@ -35,6 +35,11 @@ public final class AnnotStarlarkConstructorMethodDoc extends AnnotStarlarkMethod
   }
 
   @Override
+  public boolean isConstructor() {
+    return true;
+  }
+
+  @Override
   public String getName() {
     return fullyQualifiedName;
   }
