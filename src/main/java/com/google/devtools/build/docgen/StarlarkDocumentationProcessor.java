@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
@@ -23,8 +25,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
 import net.starlark.java.annot.StarlarkBuiltin;
 
 /** A class to assemble documentation for Starlark. */
@@ -33,21 +33,13 @@ public final class StarlarkDocumentationProcessor {
   private StarlarkDocumentationProcessor() {}
 
   /** Generates the Starlark documentation to the given output directory. */
-  public static void generateDocumentation(String outputDir, String... args)
+  public static void generateDocumentation(String outputDir, StarlarkDocumentationOptions options)
       throws IOException, ClassPathException {
-    Map<String, String> options = parseOptions(args);
-
-    String docsRoot = options.get("--starlark_docs_root");
-    if (docsRoot != null) {
-      DocgenConsts.starlarkDocsRoot = docsRoot;
+    if (options.starlarkDocsRoot != null) {
+      DocgenConsts.starlarkDocsRoot = options.starlarkDocsRoot;
     }
 
-    String linkMapPath = options.get("--link_map_path");
-    if (linkMapPath == null) {
-      throw new IllegalArgumentException("Required option '--link_map_path' is missing.");
-    }
-
-    DocLinkMap linkMap = DocLinkMap.createFromFile(linkMapPath);
+    DocLinkMap linkMap = DocLinkMap.createFromFile(checkNotNull(options.linkMapPath));
     StarlarkDocExpander expander =
         new StarlarkDocExpander(new RuleLinkExpander(/* singlePage= */ false, linkMap));
 
@@ -63,7 +55,7 @@ public final class StarlarkDocumentationProcessor {
     }
 
     writeOverviewPage(outputDir, allPages);
-    if (shouldCreateToc(options)) {
+    if (options.createToc) {
       writeTableOfContents(outputDir, allPages);
     }
   }
@@ -109,25 +101,6 @@ public final class StarlarkDocumentationProcessor {
     Page page = TemplateEngine.newPage(DocgenConsts.STARLARK_TOC_TEMPLATE);
     page.add("allPages", allPages);
     page.write(starlarkDocPath);
-  }
-
-  private static Map<String, String> parseOptions(String... args) {
-    Map<String, String> options = new HashMap<>();
-    for (String arg : args) {
-      if (arg.startsWith("--")) {
-        String[] parts = arg.split("=", 2);
-        options.put(parts[0], parts.length > 1 ? parts[1] : null);
-      }
-    }
-    return options;
-  }
-
-  private static boolean shouldCreateToc(Map<String, String> options) {
-    String arg = options.get("--create_toc");
-    if (arg == null) {
-      return false;
-    }
-    return Boolean.parseBoolean(arg) || arg.equals("1");
   }
 
   /**

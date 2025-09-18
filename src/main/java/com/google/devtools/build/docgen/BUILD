@@ -61,7 +61,10 @@ java_binary(
     name = "skydoc_bin",
     srcs = ["StarlarkDocumentationGenerator.java"],
     main_class = "com.google.devtools.build.docgen.StarlarkDocumentationGenerator",
-    deps = [":docgen_javalib"],
+    deps = [
+        ":docgen_javalib",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
 )
 
 java_binary(
