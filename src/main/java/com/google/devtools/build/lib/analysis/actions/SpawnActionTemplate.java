@@ -108,7 +108,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
 
   @Override
   public ImmutableList<SpawnAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
     ImmutableList.Builder<SpawnAction> expandedActions =
         ImmutableList.builderWithExpectedSize(inputTreeFileArtifacts.size());
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
@@ -164,15 +164,15 @@ public final class SpawnActionTemplate extends ActionKeyComputer
   }
 
   /**
-   * Returns the input TreeArtifact.
+   * Returns the input TreeArtifact(s).
    *
-   * <p>This method is called by Skyframe to expand the input TreeArtifact into child
+   * <p>This method is called by Skyframe to expand the input TreeArtifact(s) into child
    * TreeFileArtifacts. Skyframe then expands this SpawnActionTemplate with the TreeFileArtifacts
    * through {@link #generateActionsForInputArtifacts}.
    */
   @Override
-  public SpecialArtifact getInputTreeArtifact() {
-    return inputTreeArtifact;
+  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+    return ImmutableList.of(inputTreeArtifact);
   }
 
   @Override

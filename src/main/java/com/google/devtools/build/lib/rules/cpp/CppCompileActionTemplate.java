@@ -117,7 +117,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
 
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
       throws ActionExecutionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
@@ -298,8 +298,8 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public SpecialArtifact getInputTreeArtifact() {
-    return sourceTreeArtifact;
+  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+    return ImmutableList.of(sourceTreeArtifact);
   }
 
   @Override

@@ -178,7 +178,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
    */
   @Override
   public ImmutableList<LtoBackendAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
       throws ActionExecutionException {
     if (indexAndImportsTreeArtifact != null) {
       return generateActionsForLtoArtifacts(inputTreeFileArtifacts, artifactOwner);
@@ -192,7 +192,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
    * indexAndImportsTreeArtifact, instead we only use the fullBitcodeTreeArtifact files.
    */
   private ImmutableList<LtoBackendAction> generateActionsForNonLtoArtifacts(
-      ImmutableSet<TreeFileArtifact> fullBitcodeTreeFileArtifacts, ActionLookupKey artifactOwner) {
+      ImmutableList<TreeFileArtifact> fullBitcodeTreeFileArtifacts, ActionLookupKey artifactOwner) {
 
     ImmutableList.Builder<LtoBackendAction> expandedActions =
         ImmutableList.builderWithExpectedSize(fullBitcodeTreeFileArtifacts.size());
@@ -237,7 +237,7 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
    * on the whole tree artifact that contains the full bitcode file.
    */
   private ImmutableList<LtoBackendAction> generateActionsForLtoArtifacts(
-      ImmutableSet<TreeFileArtifact> indexAndImportsTreeFileArtifacts,
+      ImmutableList<TreeFileArtifact> indexAndImportsTreeFileArtifacts,
       ActionLookupKey artifactOwner)
       throws ActionExecutionException {
     ImmutableList.Builder<LtoBackendAction> expandedActions = new ImmutableList.Builder<>();
@@ -358,16 +358,9 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
         /* isDummyAction= */ true);
   }
 
-  /**
-   * Returns the input tree artifact.
-   *
-   * <p>If indexAndImportsTreeArtifact is null then we are using a shared nonlto backend, and
-   * therefore we should only use the full bitcode files, instead of getting the files from
-   * indexAndImportsTreeArtifact.
-   */
   @Override
-  public SpecialArtifact getInputTreeArtifact() {
-    return firstNonNull(indexAndImportsTreeArtifact, fullBitcodeTreeArtifact);
+  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+    return ImmutableList.of(firstNonNull(indexAndImportsTreeArtifact, fullBitcodeTreeArtifact));
   }
 
   @Override

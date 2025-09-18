@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -113,7 +113,7 @@ public final class StarlarkActionTemplate extends ActionKeyComputer
 
   @Override
   public ImmutableList<StarlarkAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
       throws ActionExecutionException, InterruptedException {
     StarlarkActionTemplateContext actionTemplateContext =
         new StarlarkActionTemplateContext(
@@ -161,8 +161,8 @@ public final class StarlarkActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public SpecialArtifact getInputTreeArtifact() {
-    return inputTreeArtifact;
+  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+    return ImmutableList.of(inputTreeArtifact);
   }
 
   @Override
@@ -177,7 +177,7 @@ public final class StarlarkActionTemplate extends ActionKeyComputer
 
   @Override
   public String prettyPrint() {
-    return getMnemonic() + " for directory: " + getInputTreeArtifact().prettyPrint();
+    return getMnemonic() + " for directory: " + getPrimaryInput().prettyPrint();
   }
 
   @Override
@@ -279,7 +279,7 @@ public final class StarlarkActionTemplate extends ActionKeyComputer
     private Dict<String, Object> kwargs = Dict.<String, Object>empty();
 
     public Builder(SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
-      Preconditions.checkState(
+      checkState(
           inputTreeArtifact.isTreeArtifact() && outputTreeArtifact.isTreeArtifact(),
           "Either %s or %s is not a TreeArtifact",
           inputTreeArtifact,
@@ -404,7 +404,7 @@ public final class StarlarkActionTemplate extends ActionKeyComputer
 
     @Override
     public void checkMutable(String attrName) {
-      Preconditions.checkNotNull(ruleContext);
+      checkNotNull(ruleContext);
     }
 
     @Override

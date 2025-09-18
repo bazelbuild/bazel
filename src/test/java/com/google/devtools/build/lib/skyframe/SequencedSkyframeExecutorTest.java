@@ -1366,13 +1366,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private static final class DummyActionTemplate implements ActionTemplate<DummyAction> {
-    private final SpecialArtifact inputArtifact;
+    private final ImmutableList<SpecialArtifact> inputArtifacts;
     private final SpecialArtifact outputArtifact;
     private final ActionOwner actionOwner;
 
     private DummyActionTemplate(
         SpecialArtifact inputArtifact, SpecialArtifact outputArtifact, ActionOwner actionOwner) {
-      this.inputArtifact = inputArtifact;
+      this.inputArtifacts = ImmutableList.of(inputArtifact);
       this.outputArtifact = outputArtifact;
       this.actionOwner = actionOwner;
     }
@@ -1384,7 +1384,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-        ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+        ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
       return inputTreeFileArtifacts.stream()
           .map(
               input -> {
@@ -1400,14 +1400,16 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     public String getKey(
         ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       Fingerprint fp = new Fingerprint();
-      fp.addPath(inputArtifact.getPath());
+      for (SpecialArtifact inputArtifact : inputArtifacts) {
+        fp.addPath(inputArtifact.getPath());
+      }
       fp.addPath(outputArtifact.getPath());
       return fp.hexDigestAndReset();
     }
 
     @Override
-    public SpecialArtifact getInputTreeArtifact() {
-      return inputArtifact;
+    public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+      return inputArtifacts;
     }
 
     @Override
@@ -1442,7 +1444,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public NestedSet<Artifact> getInputs() {
-      return NestedSetBuilder.create(Order.STABLE_ORDER, inputArtifact);
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, inputArtifacts);
     }
 
     @Override

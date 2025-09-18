@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -198,7 +197,7 @@ public class SpawnActionTemplateTest {
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
 
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     List<SpawnAction> expandedActions =
@@ -241,7 +240,7 @@ public class SpawnActionTemplateTest {
             .addCommonInputs(ImmutableList.of(commonInput))
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
@@ -261,7 +260,7 @@ public class SpawnActionTemplateTest {
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
 
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     List<SpawnAction> expandedActions =
@@ -285,7 +284,7 @@ public class SpawnActionTemplateTest {
   public void testExpandedAction_executionInfoAndEnvironment() {
     SpawnActionTemplate actionTemplate = createSimpleSpawnActionTemplate();
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     List<SpawnAction> expandedActions =
@@ -305,7 +304,7 @@ public class SpawnActionTemplateTest {
   public void testExpandedAction_illegalOutputPath() throws Exception {
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     SpawnActionTemplate.Builder builder = builder(inputTreeArtifact, outputTreeArtifact)
@@ -400,9 +399,9 @@ public class SpawnActionTemplateTest {
         .build();
   }
 
-  private static ImmutableSet<TreeFileArtifact> createInputTreeFileArtifacts(
+  private static ImmutableList<TreeFileArtifact> createInputTreeFileArtifacts(
       SpecialArtifact inputTreeArtifact) {
-    return ImmutableSet.of(
+    return ImmutableList.of(
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child0"),
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child1"),
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child2"));

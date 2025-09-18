@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.Event;
@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,20 +75,28 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
-    TreeArtifactValue treeArtifactValue =
-        (TreeArtifactValue) env.getValue(actionTemplate.getInputTreeArtifact());
+    SkyframeLookupResult result =
+        env.getValuesAndExceptions(actionTemplate.getInputTreeArtifacts());
 
     // Input TreeArtifact is not ready yet.
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
+      ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
+      for (SpecialArtifact inputTreeArtifact : actionTemplate.getInputTreeArtifacts()) {
+        TreeArtifactValue treeArtifactValue =
+            (TreeArtifactValue)
+                result.getOrThrow(inputTreeArtifact, ActionExecutionException.class);
+        inputTreeFileArtifacts.addAll(treeArtifactValue.getChildren());
+      }
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
-      actions = generateAndValidateActionsFromTemplate(actionTemplate, inputTreeFileArtifacts, key);
+      actions =
+          generateAndValidateActionsFromTemplate(
+              actionTemplate, inputTreeFileArtifacts.build(), key);
     } catch (ActionExecutionException e) {
       env.getListener()
           .handle(
@@ -129,7 +138,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
 
   private static ImmutableList<ActionAnalysisMetadata> generateAndValidateActionsFromTemplate(
       ActionTemplate<?> actionTemplate,
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ActionTemplateExpansionKey key)
       throws ActionExecutionException, InterruptedException {
     Set<Artifact> outputs = actionTemplate.getOutputs();
