@@ -179,12 +179,13 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 createModuleKey("dep", "1.0"),
                 buildModule("dep", "1.0")
                     .addDep("rules_java", createModuleKey("rules_java", ""))
+                    .setFlagAliases(ImmutableList.of())
                     .build())
             .put(createModuleKey("dep", "2.0"), buildModule("dep", "2.0").build())
             .put(createModuleKey("rules_cc", "1.0"), buildModule("rules_cc", "1.0").build())
             .put(
                 createModuleKey("rules_java", ""),
-                buildModule("rules_java", "1.0").setKey(createModuleKey("rules_java", "")).build())
+                buildModule("rules_java", "1.0").setKey(createModuleKey("rules_java", "")).setFlagAliases(ImmutableList.of()).build())
             .buildOrThrow();
 
     resolutionFunctionMock.setDepGraph(depGraph);
@@ -258,6 +259,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 createModuleExtensionUsage("//:defs.bzl", "myext", "oneext", "myext"))
             .addExtensionUsage(
                 createModuleExtensionUsage("//incredible:conflict.bzl", "myext", "twoext", "myext"))
+            .setFlagAliases(ImmutableList.of())
             .build();
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.of(
