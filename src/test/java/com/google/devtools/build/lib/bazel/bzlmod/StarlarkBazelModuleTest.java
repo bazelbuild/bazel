@@ -139,7 +139,7 @@ public class StarlarkBazelModuleTest {
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
     ModuleKey fooKey = createModuleKey("foo", "");
-    Module module = buildModule("foo", "1.0").setKey(fooKey).build();
+    Module module = buildModule("foo", "1.0").setKey(fooKey).setFlagAliases(ImmutableList.of()).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =
