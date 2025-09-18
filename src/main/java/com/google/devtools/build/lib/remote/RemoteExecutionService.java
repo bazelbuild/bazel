@@ -488,7 +488,12 @@ public class RemoteExecutionService {
   @VisibleForTesting
   RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
+    return buildRemoteAction(
+        spawn,
+        context,
+        remoteOptions.remoteDiscardMerkleTrees
+            ? MerkleTreeComputer.BlobPolicy.DISCARD
+            : MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
@@ -513,9 +518,7 @@ public class RemoteExecutionService {
                 scrubber,
                 context,
                 remotePathResolver,
-                remoteOptions.remoteDiscardMerkleTrees
-                    ? MerkleTreeComputer.BlobPolicy.DISCARD
-                    : blobPolicy);
+                blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
       } catch (RemoteExecutionCapabilitiesException e) {
