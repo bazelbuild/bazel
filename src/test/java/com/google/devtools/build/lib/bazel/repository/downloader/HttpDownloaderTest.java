@@ -75,14 +75,14 @@ public class HttpDownloaderTest {
 
   @Rule public final Timeout timeout = new Timeout(30, SECONDS);
 
+  private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
   private final DownloadCache downloadCache = mock(DownloadCache.class);
   // Scale timeouts down to make test fast.
   private final HttpDownloader httpDownloader = new HttpDownloader(0, Duration.ZERO, 8, .1f);
   private final DownloadManager downloadManager =
-      new DownloadManager(downloadCache, httpDownloader, httpDownloader);
+      new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
-  private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
   private final JavaIoFileSystem fs;
 
   public HttpDownloaderTest() {
@@ -652,7 +652,7 @@ public class HttpDownloaderTest {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -691,7 +691,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -736,7 +736,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -784,7 +784,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -829,7 +829,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(downloadCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -897,7 +897,6 @@ public class HttpDownloaderTest {
               canonicalId,
               type,
               output,
-              eventHandler,
               clientEnv,
               context,
               downloadPhaser);

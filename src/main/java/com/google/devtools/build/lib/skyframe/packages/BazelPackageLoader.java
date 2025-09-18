@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
@@ -130,7 +131,12 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       RepositoryCache repositoryCache = new RepositoryCache();
       HttpDownloader httpDownloader = new HttpDownloader();
       DownloadManager downloadManager =
-          new DownloadManager(repositoryCache.getDownloadCache(), httpDownloader, httpDownloader);
+          new DownloadManager(
+              repositoryCache.getDownloadCache(),
+              httpDownloader,
+              httpDownloader,
+              // Only used in tests, so it's okay to miss download progress events.
+              ExtendedEventHandler.NOOP);
       RegistryFactoryImpl registryFactory =
           new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
 
