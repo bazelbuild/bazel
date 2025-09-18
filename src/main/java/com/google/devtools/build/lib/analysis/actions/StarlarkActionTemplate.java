@@ -166,11 +166,6 @@ public final class StarlarkActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public SpecialArtifact getOutputTreeArtifact() {
-    return outputTreeArtifact;
-  }
-
-  @Override
   public ImmutableSet<Artifact> getOutputs() {
     return ImmutableSet.copyOf(allOutputs);
   }

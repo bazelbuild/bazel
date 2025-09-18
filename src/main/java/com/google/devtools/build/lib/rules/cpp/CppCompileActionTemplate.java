@@ -303,11 +303,6 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public SpecialArtifact getOutputTreeArtifact() {
-    return outputTreeArtifact;
-  }
-
-  @Override
   public ActionOwner getOwner() {
     return actionOwner;
   }

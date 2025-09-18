@@ -176,8 +176,8 @@ public final class SpawnActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public SpecialArtifact getOutputTreeArtifact() {
-    return outputTreeArtifact;
+  public ImmutableSet<Artifact> getOutputs() {
+    return ImmutableSet.of(outputTreeArtifact);
   }
 
   @Override

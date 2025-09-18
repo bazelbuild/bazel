@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -92,26 +91,14 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
         .collect(toImmutableListMultimap(TreeFileArtifact::getParent, x -> x));
   }
 
-  /** Returns the output TreeArtifact. */
-  SpecialArtifact getOutputTreeArtifact();
-
   @Override
   default SpecialArtifact getPrimaryInput() {
     return getInputTreeArtifacts().get(0);
   }
 
-  /**
-   * By default, returns just {@link #getOutputTreeArtifact}, but may be overridden with additional
-   * tree artifacts.
-   */
   @Override
-  default ImmutableSet<Artifact> getOutputs() {
-    return ImmutableSet.of(getOutputTreeArtifact());
-  }
-
-  @Override
-  default SpecialArtifact getPrimaryOutput() {
-    return getOutputTreeArtifact();
+  default Artifact getPrimaryOutput() {
+    return getOutputs().iterator().next();
   }
 
   @Override

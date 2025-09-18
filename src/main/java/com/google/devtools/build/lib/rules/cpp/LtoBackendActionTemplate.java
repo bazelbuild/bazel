@@ -364,11 +364,6 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public SpecialArtifact getOutputTreeArtifact() {
-    return objectFileTreeArtifact;
-  }
-
-  @Override
   public ActionOwner getOwner() {
     return actionOwner;
   }

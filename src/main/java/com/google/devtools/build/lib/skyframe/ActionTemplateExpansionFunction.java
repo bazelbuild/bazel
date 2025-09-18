@@ -39,10 +39,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -141,7 +141,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ActionTemplateExpansionKey key)
       throws ActionExecutionException, InterruptedException {
-    Set<Artifact> outputs = actionTemplate.getOutputs();
+    Collection<Artifact> outputs = actionTemplate.getOutputs();
     for (Artifact output : outputs) {
       Preconditions.checkState(
           output.isTreeArtifact(),

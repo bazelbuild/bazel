@@ -1413,8 +1413,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public SpecialArtifact getOutputTreeArtifact() {
-      return outputArtifact;
+    public ImmutableSet<Artifact> getOutputs() {
+      return ImmutableSet.of(outputArtifact);
     }
 
     @Override
