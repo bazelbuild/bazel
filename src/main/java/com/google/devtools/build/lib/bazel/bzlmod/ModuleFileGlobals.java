@@ -1180,8 +1180,8 @@ public class ModuleFileGlobals {
         """,
       parameters = {
           @Param(
-              name = "native_name",
-              doc = "The name of the native flag.",
+              name = "name",
+              doc = "The name of the flag.",
               positional = true),
           @Param(
               name = "starlark_label",
