@@ -181,8 +181,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     .addDep("rules_java", createModuleKey("rules_java", ""))
                     .setFlagAliases(ImmutableList.of())
                     .build())
-            .put(createModuleKey("dep", "2.0"), buildModule("dep", "2.0").build())
-            .put(createModuleKey("rules_cc", "1.0"), buildModule("rules_cc", "1.0").build())
+            .put(createModuleKey("dep", "2.0"), buildModule("dep", "2.0").setFlagAliases(ImmutableList.of()).build())
+            .put(createModuleKey("rules_cc", "1.0"), buildModule("rules_cc", "1.0").setFlagAliases(ImmutableList.of()).build())
             .put(
                 createModuleKey("rules_java", ""),
                 buildModule("rules_java", "1.0").setKey(createModuleKey("rules_java", "")).setFlagAliases(ImmutableList.of()).build())
@@ -268,9 +268,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             depKey,
             dep,
             rjeKey,
-            buildModule("rules_jvm_external", "1.0").setKey(rjeKey).build(),
+            buildModule("rules_jvm_external", "1.0").setKey(rjeKey).setFlagAliases(ImmutableList.of()).build(),
             rpyKey,
-            buildModule("rules_python", "2.0").setKey(rpyKey).build());
+            buildModule("rules_python", "2.0").setKey(rpyKey).setFlagAliases(ImmutableList.of()).build());
 
     ModuleExtensionId maven =
         ModuleExtensionId.create(
