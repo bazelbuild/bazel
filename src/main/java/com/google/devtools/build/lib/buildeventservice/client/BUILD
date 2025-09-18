@@ -20,6 +20,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventservice;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.v1.BuildEvent;
 import com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished;
@@ -46,16 +47,19 @@ public class BuildEventServiceProtoUtilTest {
 
   private static final String BUILD_REQUEST_ID = "feedbeef-dead-4321-beef-deaddeaddead";
   private static final String BUILD_INVOCATION_ID = "feedbeef-dead-4444-beef-deaddeaddead";
+  private static final int ATTEMPT_NUMBER = 1;
   private static final String PROJECT_ID = "my_project";
   private static final ImmutableSet<String> KEYWORDS = ImmutableSet.of("foo=bar", "spam=eggs");
   private static final BuildEventServiceProtoUtil BES_PROTO_UTIL =
-      new BuildEventServiceProtoUtil.Builder()
-          .buildRequestId(BUILD_REQUEST_ID)
-          .invocationId(BUILD_INVOCATION_ID)
-          .projectId(PROJECT_ID)
-          .keywords(KEYWORDS)
-          .attemptNumber(1)
-          .build();
+      new BuildEventServiceProtoUtil(
+          CommandContext.builder()
+              .setBuildId(BUILD_REQUEST_ID)
+              .setInvocationId(BUILD_INVOCATION_ID)
+              .setAttemptNumber(ATTEMPT_NUMBER)
+              .setKeywords(KEYWORDS)
+              .setProjectId(PROJECT_ID)
+              .setCheckPrecedingLifecycleEvents(false)
+              .build());
   private final ManualClock clock = new ManualClock();
 
   @Test
@@ -109,13 +113,15 @@ public class BuildEventServiceProtoUtilTest {
   @Test
   public void invocationAttemptStarted_attemptNumber() {
     var besProtoUtil =
-        new BuildEventServiceProtoUtil.Builder()
-            .buildRequestId(BUILD_REQUEST_ID)
-            .invocationId(BUILD_INVOCATION_ID)
-            .projectId(PROJECT_ID)
-            .keywords(KEYWORDS)
-            .attemptNumber(2)
-            .build();
+        new BuildEventServiceProtoUtil(
+            CommandContext.builder()
+                .setBuildId(BUILD_REQUEST_ID)
+                .setInvocationId(BUILD_INVOCATION_ID)
+                .setAttemptNumber(2)
+                .setKeywords(KEYWORDS)
+                .setProjectId(PROJECT_ID)
+                .setCheckPrecedingLifecycleEvents(false)
+                .build());
     Timestamp expected = Timestamps.fromMillis(clock.advanceMillis(100));
     assertThat(besProtoUtil.invocationStarted(expected))
         .isEqualTo(
@@ -264,13 +270,15 @@ public class BuildEventServiceProtoUtilTest {
   public void testStreamEventsWithCheckPrecedingLifecycleEventsEnabled() {
     Any anything = Any.getDefaultInstance();
     BuildEventServiceProtoUtil besProtoUtil =
-        new BuildEventServiceProtoUtil.Builder()
-            .buildRequestId(BUILD_REQUEST_ID)
-            .invocationId(BUILD_INVOCATION_ID)
-            .checkPrecedingLifecycleEvents(true)
-            .keywords(KEYWORDS)
-            .attemptNumber(1)
-            .build();
+        new BuildEventServiceProtoUtil(
+            CommandContext.builder()
+                .setBuildId(BUILD_REQUEST_ID)
+                .setInvocationId(BUILD_INVOCATION_ID)
+                .setAttemptNumber(1)
+                .setKeywords(KEYWORDS)
+                .setProjectId(PROJECT_ID)
+                .setCheckPrecedingLifecycleEvents(true)
+                .build());
     assertThat(
             besProtoUtil
                 .bazelEvent(1, Timestamps.fromMillis(100), anything)

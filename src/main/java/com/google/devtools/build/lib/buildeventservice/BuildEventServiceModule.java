@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -778,18 +779,19 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     BuildEventServiceProtoUtil besProtoUtil =
-        new BuildEventServiceProtoUtil.Builder()
-            .buildRequestId(buildRequestId)
-            .invocationId(invocationId)
-            .projectId(besOptions.instanceName)
-            .keywords(
-                getBesKeywords(
-                    cmdEnv.getCommandName(),
-                    besOptions,
-                    cmdEnv.getRuntime().getStartupOptionsProvider()))
-            .checkPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
-            .attemptNumber(cmdEnv.getAttemptNumber())
-            .build();
+        new BuildEventServiceProtoUtil(
+            CommandContext.builder()
+                .setBuildId(buildRequestId)
+                .setInvocationId(invocationId)
+                .setAttemptNumber(cmdEnv.getAttemptNumber())
+                .setKeywords(
+                    getBesKeywords(
+                        cmdEnv.getCommandName(),
+                        besOptions,
+                        cmdEnv.getRuntime().getStartupOptionsProvider()))
+                .setProjectId(besOptions.instanceName)
+                .setCheckPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
+                .build());
 
     return new BuildEventServiceTransport.Builder()
         .localFileUploader(uploaderSupplier.get())

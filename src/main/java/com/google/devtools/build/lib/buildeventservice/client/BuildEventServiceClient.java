@@ -14,15 +14,60 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.auto.value.AutoBuilder;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.Status;
 import io.grpc.StatusException;
+import javax.annotation.Nullable;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
 public interface BuildEventServiceClient {
+
+  /** Context for a build command. */
+  public record CommandContext(
+      String buildId,
+      String invocationId,
+      int attemptNumber,
+      ImmutableSet<String> keywords,
+      @Nullable String projectId,
+      boolean checkPrecedingLifecycleEvents) {
+    public CommandContext {
+      checkNotNull(buildId);
+      checkNotNull(invocationId);
+      checkArgument(attemptNumber >= 1);
+      checkNotNull(keywords);
+    }
+
+    public static Builder builder() {
+      return new AutoBuilder_BuildEventServiceClient_CommandContext_Builder();
+    }
+
+    /** Builder for {@link CommandContext}. */
+    @AutoBuilder
+    public abstract static class Builder {
+      public abstract Builder setBuildId(String buildId);
+
+      public abstract Builder setInvocationId(String invocationId);
+
+      public abstract Builder setAttemptNumber(int attemptNumber);
+
+      public abstract Builder setKeywords(ImmutableSet<String> keywords);
+
+      public abstract Builder setProjectId(@Nullable String projectId);
+
+      public abstract Builder setCheckPrecedingLifecycleEvents(
+          boolean checkPrecedingLifecycleEvents);
+
+      public abstract CommandContext build();
+    }
+  }
 
   /** Callback for ACKed build events. */
   @FunctionalInterface

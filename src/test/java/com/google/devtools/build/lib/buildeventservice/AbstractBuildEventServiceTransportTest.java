@@ -36,6 +36,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -117,12 +118,15 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   private static final ImmutableSet<String> KEYWORDS = ImmutableSet.of("foo=bar", "spam=eggs");
   private static final Timestamp COMMAND_START_TIME = Timestamps.fromMillis(500L);
   private static final BuildEventServiceProtoUtil BES_PROTO_UTIL =
-      new BuildEventServiceProtoUtil.Builder()
-          .buildRequestId(BUILD_REQUEST_ID)
-          .invocationId(BUILD_INVOCATION_ID)
-          .keywords(KEYWORDS)
-          .attemptNumber(1)
-          .build();
+      new BuildEventServiceProtoUtil(
+          CommandContext.builder()
+              .setBuildId(BUILD_REQUEST_ID)
+              .setInvocationId(BUILD_INVOCATION_ID)
+              .setAttemptNumber(1)
+              .setKeywords(KEYWORDS)
+              .setProjectId(null)
+              .setCheckPrecedingLifecycleEvents(false)
+              .build());
 
   private final ArtifactGroupNamer artifactGroupNamer = mock(ArtifactGroupNamer.class);
   private final BuildRequest buildRequest = mock(BuildRequest.class);
