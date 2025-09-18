@@ -22,12 +22,12 @@ import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
-import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkBuiltinDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkOrdinaryMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
 import com.google.devtools.build.docgen.starlark.StarlarkGlobalsDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkJavaMethodDoc;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.lang.reflect.Method;
@@ -133,7 +133,8 @@ final class StarlarkDocumentationCollector {
     StarlarkDocPage existingPage = pagesInCategory.get(starlarkBuiltin.name());
     if (existingPage == null) {
       pagesInCategory.put(
-          starlarkBuiltin.name(), new StarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
+          starlarkBuiltin.name(),
+          new AnnotStarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
       return;
     }
 
@@ -143,16 +144,17 @@ final class StarlarkDocumentationCollector {
     // (This is useful if one class is the "common" one with stable methods, and its subclass is
     // an experimental class that also supports all stable methods.)
     Preconditions.checkState(
-        existingPage instanceof StarlarkBuiltinDoc,
+        existingPage instanceof AnnotStarlarkBuiltinDoc,
         "the same name %s is assigned to both a global method environment and a builtin type",
         starlarkBuiltin.name());
-    Class<?> clazz = ((StarlarkBuiltinDoc) existingPage).getClassObject();
+    Class<?> clazz = ((AnnotStarlarkBuiltinDoc) existingPage).getClassObject();
     validateCompatibleBuiltins(clazz, builtinClass);
 
     if (clazz.isAssignableFrom(builtinClass)) {
       // The new builtin is a subclass of the old builtin, so use the subclass.
       pagesInCategory.put(
-          starlarkBuiltin.name(), new StarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
+          starlarkBuiltin.name(),
+          new AnnotStarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
     }
   }
 
@@ -184,8 +186,9 @@ final class StarlarkDocumentationCollector {
     if (starlarkBuiltin == null || !starlarkBuiltin.documented()) {
       return;
     }
-    StarlarkBuiltinDoc builtinDoc =
-        (StarlarkBuiltinDoc) pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
+    AnnotStarlarkBuiltinDoc builtinDoc =
+        (AnnotStarlarkBuiltinDoc)
+            pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
 
     if (builtinClass != builtinDoc.getClassObject()) {
       return;
@@ -211,7 +214,8 @@ final class StarlarkDocumentationCollector {
         }
       }
       builtinDoc.addMethod(
-          new StarlarkJavaMethodDoc(builtinDoc.getName(), javaMethod, starlarkMethod, expander));
+          new AnnotStarlarkOrdinaryMethodDoc(
+              builtinDoc.getName(), javaMethod, starlarkMethod, expander));
     }
   }
 
@@ -242,7 +246,8 @@ final class StarlarkDocumentationCollector {
         // Only add non-constructor global library methods. Constructors are added later.
         // TODO(wyv): add a redirect instead
         if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
-          page.addMethod(new StarlarkJavaMethodDoc("", entry.getKey(), entry.getValue(), expander));
+          page.addMethod(
+              new AnnotStarlarkOrdinaryMethodDoc("", entry.getKey(), entry.getValue(), expander));
         }
       }
     }
@@ -267,7 +272,8 @@ final class StarlarkDocumentationCollector {
         Preconditions.checkNotNull(method.getAnnotation(StarlarkMethod.class));
     StarlarkDocPage doc = pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
     doc.setConstructor(
-        new StarlarkConstructorMethodDoc(starlarkBuiltin.name(), method, methodAnnot, expander));
+        new AnnotStarlarkConstructorMethodDoc(
+            starlarkBuiltin.name(), method, methodAnnot, expander));
   }
 
   /**

@@ -19,12 +19,13 @@ import net.starlark.java.eval.Starlark;
 
 /**
  * A class representing a Java method callable from Starlark which constructs a type of Starlark
- * object. Such a method is annotated with {@link StarlarkConstructor}, and has special handling.
+ * object. Such a method is annotated with {@link StarlarkMethod#selfCall} or {@link
+ * com.google.devtools.build.docgen.annot.StarlarkConstructor}, and has special handling.
  */
-public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
+public final class AnnotStarlarkConstructorMethodDoc extends AnnotStarlarkMethodDoc {
   private final String fullyQualifiedName;
 
-  public StarlarkConstructorMethodDoc(
+  public AnnotStarlarkConstructorMethodDoc(
       String fullyQualifiedName,
       Method javaMethod,
       StarlarkMethod annotation,
@@ -56,7 +57,7 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   @Override
   public String toString() {
     return String.format(
-        "StarlarkConstructorMethodDoc{fullyQualifiedName=%s method=%s callable=%s}",
+        "AnnotStarlarkConstructorMethodDoc{fullyQualifiedName=%s method=%s callable=%s}",
         fullyQualifiedName, javaMethod, formatCallable());
   }
 

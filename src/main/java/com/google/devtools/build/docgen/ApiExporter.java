@@ -22,11 +22,11 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Type;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
-import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.AnnotParamDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
-import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -59,9 +59,9 @@ public class ApiExporter {
     Type.Builder type = Type.newBuilder();
     type.setName(docPage.getName());
     type.setDoc(docPage.getDocumentation());
-    for (StarlarkMethodDoc meth : docPage.getJavaMethods()) {
+    for (AnnotStarlarkMethodDoc meth : docPage.getJavaMethods()) {
       // Constructors are exported as global symbols.
-      if (!(meth instanceof StarlarkConstructorMethodDoc)) {
+      if (!(meth instanceof AnnotStarlarkConstructorMethodDoc)) {
         Value.Builder value = collectMethodInfo(meth);
         if (type.getName().equals("native")) {
           // Methods from the native package are available as top level functions in BUILD files.
@@ -89,8 +89,8 @@ public class ApiExporter {
   private static void appendGlobals(
       Builtins.Builder builtins,
       Map<String, Object> globals,
-      Map<String, StarlarkMethodDoc> globalToDoc,
-      Map<String, StarlarkConstructorMethodDoc> typeNameToConstructor,
+      Map<String, AnnotStarlarkMethodDoc> globalToDoc,
+      Map<String, AnnotStarlarkConstructorMethodDoc> typeNameToConstructor,
       ApiContext context) {
     for (Entry<String, Object> entry : globals.entrySet()) {
       String name = entry.getKey();
@@ -101,7 +101,7 @@ public class ApiExporter {
 
       Value.Builder value = Value.newBuilder();
       if (obj instanceof StarlarkCallable) {
-        StarlarkMethodDoc meth = globalToDoc.get(name);
+        AnnotStarlarkMethodDoc meth = globalToDoc.get(name);
         if (meth != null) {
           value = collectMethodInfo(meth);
         } else {
@@ -117,7 +117,8 @@ public class ApiExporter {
             StarlarkMethod annotation = StarlarkAnnotations.getStarlarkMethod(selfCallMethod);
             value = valueFromAnnotation(annotation);
             // For constructors, we can also set the return type.
-            StarlarkConstructorMethodDoc constructor = typeNameToConstructor.get(entry.getKey());
+            AnnotStarlarkConstructorMethodDoc constructor =
+                typeNameToConstructor.get(entry.getKey());
             if (constructor != null && value.hasCallable()) {
               value.getCallableBuilder().setReturnType(constructor.getReturnType());
             }
@@ -241,13 +242,13 @@ public class ApiExporter {
     return value;
   }
 
-  private static Value.Builder collectMethodInfo(StarlarkMethodDoc meth) {
+  private static Value.Builder collectMethodInfo(AnnotStarlarkMethodDoc meth) {
     Value.Builder field = Value.newBuilder();
     field.setName(meth.getShortName());
     field.setDoc(meth.getDocumentation());
     if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
-      for (StarlarkParamDoc par : meth.getParams()) {
+      for (AnnotParamDoc par : meth.getParams()) {
         Param.Builder param = newParam(par.getName(), par.getDefaultValue().isEmpty());
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());
@@ -351,9 +352,9 @@ public class ApiExporter {
       Builtins.Builder builtins = Builtins.newBuilder();
 
       ImmutableList<StarlarkDocPage> globalPages = allDocPages.get(Category.GLOBAL_FUNCTION);
-      Map<String, StarlarkMethodDoc> globalToDoc = new HashMap<>();
+      Map<String, AnnotStarlarkMethodDoc> globalToDoc = new HashMap<>();
       for (StarlarkDocPage globalPage : globalPages) {
-        for (StarlarkMethodDoc meth : globalPage.getJavaMethods()) {
+        for (AnnotStarlarkMethodDoc meth : globalPage.getJavaMethods()) {
           globalToDoc.put(meth.getShortName(), meth);
         }
       }
@@ -363,7 +364,7 @@ public class ApiExporter {
               .filter(e -> !e.getKey().equals(Category.GLOBAL_FUNCTION))
               .flatMap(e -> e.getValue().stream())
               .iterator();
-      Map<String, StarlarkConstructorMethodDoc> typeNameToConstructor = new HashMap<>();
+      Map<String, AnnotStarlarkConstructorMethodDoc> typeNameToConstructor = new HashMap<>();
       while (typesIterator.hasNext()) {
         StarlarkDocPage typeDocPage = typesIterator.next();
         appendTypes(builtins, typeDocPage, symbols.getNativeRules());

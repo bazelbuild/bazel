@@ -16,14 +16,14 @@ package com.google.devtools.build.docgen.starlark;
 
 import net.starlark.java.annot.StarlarkBuiltin;
 
-/** A documentation page for a Starlark builtin type. */
-public final class StarlarkBuiltinDoc extends StarlarkDocPage {
+/** A documentation page for a Starlark builtin type implemented in Java. */
+public final class AnnotStarlarkBuiltinDoc extends StarlarkDocPage {
   private static final String SOURCE_ROOT = "src/main/java";
 
   private final StarlarkBuiltin starlarkBuiltin;
   private final Class<?> classObject;
 
-  public StarlarkBuiltinDoc(
+  public AnnotStarlarkBuiltinDoc(
       StarlarkBuiltin starlarkBuiltin, Class<?> classObject, StarlarkDocExpander expander) {
     super(expander);
     this.starlarkBuiltin = starlarkBuiltin;

@@ -21,14 +21,17 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 
-/** A class representing a Java method callable from Starlark with annotation. */
-public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
+/**
+ * Documentation for an ordinary, non-constructor {@link StarlarkMethod}-annotated Java method
+ * callable from Starlark.
+ */
+public final class AnnotStarlarkOrdinaryMethodDoc extends AnnotStarlarkMethodDoc {
   private final String moduleName;
   private final String name;
 
   private boolean isOverloaded;
 
-  public StarlarkJavaMethodDoc(
+  public AnnotStarlarkOrdinaryMethodDoc(
       String moduleName,
       Method javaMethod,
       StarlarkMethod annotation,

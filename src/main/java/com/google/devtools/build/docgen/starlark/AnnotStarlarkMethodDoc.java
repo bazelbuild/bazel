@@ -22,13 +22,17 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
-/** An abstract class containing documentation for a Starlark method. */
-public abstract class StarlarkMethodDoc extends StarlarkDoc {
+/**
+ * An abstract class containing documentation for a {@link StarlarkMethod}-annotated Java method
+ * callable from Starlark.
+ */
+public abstract class AnnotStarlarkMethodDoc extends StarlarkDoc {
   protected final Method javaMethod;
   protected final StarlarkMethod annotation;
-  protected final ImmutableList<StarlarkParamDoc> params;
+  protected final ImmutableList<AnnotParamDoc> params;
 
-  public StarlarkMethodDoc(Method method, StarlarkMethod annotation, StarlarkDocExpander expander) {
+  public AnnotStarlarkMethodDoc(
+      Method method, StarlarkMethod annotation, StarlarkDocExpander expander) {
     super(expander);
     this.javaMethod = method;
     this.annotation = annotation;
@@ -81,7 +85,7 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   }
 
   /** Returns a list containing the documentation for each of the method's parameters. */
-  public final ImmutableList<StarlarkParamDoc> getParams() {
+  public final ImmutableList<AnnotParamDoc> getParams() {
     return params;
   }
 
@@ -111,31 +115,30 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
     return Joiner.on(", ").join(argList);
   }
 
-  private ImmutableList<StarlarkParamDoc> determineParams() {
-    ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
+  private ImmutableList<AnnotParamDoc> determineParams() {
+    ImmutableList.Builder<AnnotParamDoc> paramsBuilder = ImmutableList.builder();
     for (int i = getStartIndexForParams(); i < annotation.parameters().length; i++) {
       Param param = annotation.parameters()[i];
       if (param.documented()) {
-        paramsBuilder.add(
-            new StarlarkParamDoc(this, param, expander, StarlarkParamDoc.Kind.NORMAL, i));
+        paramsBuilder.add(new AnnotParamDoc(this, param, expander, AnnotParamDoc.Kind.NORMAL, i));
       }
     }
     if (!annotation.extraPositionals().name().isEmpty()) {
       paramsBuilder.add(
-          new StarlarkParamDoc(
+          new AnnotParamDoc(
               this,
               annotation.extraPositionals(),
               expander,
-              StarlarkParamDoc.Kind.EXTRA_POSITIONALS,
+              AnnotParamDoc.Kind.EXTRA_POSITIONALS,
               /* paramIndex= */ -1));
     }
     if (!annotation.extraKeywords().name().isEmpty()) {
       paramsBuilder.add(
-          new StarlarkParamDoc(
+          new AnnotParamDoc(
               this,
               annotation.extraKeywords(),
               expander,
-              StarlarkParamDoc.Kind.EXTRA_KEYWORDS,
+              AnnotParamDoc.Kind.EXTRA_KEYWORDS,
               /* paramIndex= */ -1));
     }
     return paramsBuilder.build();

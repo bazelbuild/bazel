@@ -16,8 +16,11 @@ package com.google.devtools.build.docgen.starlark;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 
-/** A class containing the documentation for a Starlark method parameter. */
-public final class StarlarkParamDoc extends StarlarkDoc {
+/**
+ * A class containing the documentation for a parameter of a {@link
+ * net.starlark.java.annot.StarlarkMethod}-annotated Java method callable from Starlark.
+ */
+public final class AnnotParamDoc extends StarlarkDoc {
   /** Repesents the param kind, whether it's a normal param or *arg or **kwargs. */
   public static enum Kind {
     NORMAL,
@@ -28,13 +31,13 @@ public final class StarlarkParamDoc extends StarlarkDoc {
     EXTRA_KEYWORDS,
   }
 
-  private final StarlarkMethodDoc method;
+  private final AnnotStarlarkMethodDoc method;
   private final Param param;
   private final Kind kind;
   private final int paramIndex;
 
-  public StarlarkParamDoc(
-      StarlarkMethodDoc method,
+  public AnnotParamDoc(
+      AnnotStarlarkMethodDoc method,
       Param param,
       StarlarkDocExpander expander,
       Kind kind,
@@ -87,11 +90,12 @@ public final class StarlarkParamDoc extends StarlarkDoc {
     return kind;
   }
 
-  public StarlarkMethodDoc getMethod() {
+  public AnnotStarlarkMethodDoc getMethod() {
     return method;
   }
 
-  @Override public String getName() {
+  @Override
+  public String getName() {
     return param.name();
   }
 

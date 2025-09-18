@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
  * A typical Starlark documentation page, containing a bunch of field/method documentation entries.
  */
 public abstract class StarlarkDocPage extends StarlarkDoc {
-  private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
-  private final TreeMap<String, StarlarkMethodDoc> methodMap;
-  @Nullable private StarlarkConstructorMethodDoc javaConstructor;
+  private final Multimap<String, AnnotStarlarkOrdinaryMethodDoc> javaMethods;
+  private final TreeMap<String, AnnotStarlarkMethodDoc> methodMap;
+  @Nullable private AnnotStarlarkConstructorMethodDoc javaConstructor;
 
   protected StarlarkDocPage(StarlarkDocExpander expander) {
     super(expander);
@@ -43,7 +43,7 @@ public abstract class StarlarkDocPage extends StarlarkDoc {
 
   public abstract String getTitle();
 
-  public void setConstructor(StarlarkConstructorMethodDoc method) {
+  public void setConstructor(AnnotStarlarkConstructorMethodDoc method) {
     Preconditions.checkState(
         javaConstructor == null,
         "Constructor method doc already set for %s:\n  existing: %s\n  attempted: %s",
@@ -53,13 +53,13 @@ public abstract class StarlarkDocPage extends StarlarkDoc {
     javaConstructor = method;
   }
 
-  public void addMethod(StarlarkJavaMethodDoc method) {
+  public void addMethod(AnnotStarlarkOrdinaryMethodDoc method) {
     if (!method.documented()) {
       return;
     }
 
     String shortName = method.getName();
-    Collection<StarlarkJavaMethodDoc> overloads = javaMethods.get(shortName);
+    Collection<AnnotStarlarkOrdinaryMethodDoc> overloads = javaMethods.get(shortName);
     if (!overloads.isEmpty()) {
       method.setOverloaded(true);
       // Overload information only needs to be updated if we're discovering the first overload
@@ -72,7 +72,7 @@ public abstract class StarlarkDocPage extends StarlarkDoc {
 
     // If the method is overloaded, getName() now returns a longer,
     // unique name including the names of the parameters.
-    StarlarkMethodDoc prev = methodMap.put(method.getName(), method);
+    AnnotStarlarkMethodDoc prev = methodMap.put(method.getName(), method);
     if (prev != null && !prev.getMethod().equals(method.getMethod())) {
       throw new IllegalStateException(
           String.format(
@@ -81,9 +81,9 @@ public abstract class StarlarkDocPage extends StarlarkDoc {
     }
   }
 
-  public Collection<StarlarkMethodDoc> getJavaMethods() {
-    ImmutableSortedSet.Builder<StarlarkMethodDoc> methods =
-        new ImmutableSortedSet.Builder<>(Comparator.comparing(StarlarkMethodDoc::getName));
+  public Collection<AnnotStarlarkMethodDoc> getJavaMethods() {
+    ImmutableSortedSet.Builder<AnnotStarlarkMethodDoc> methods =
+        new ImmutableSortedSet.Builder<>(Comparator.comparing(AnnotStarlarkMethodDoc::getName));
 
     if (javaConstructor != null) {
       methods.add(javaConstructor);
@@ -92,8 +92,8 @@ public abstract class StarlarkDocPage extends StarlarkDoc {
     return methods.build();
   }
 
-  public ImmutableCollection<? extends StarlarkMethodDoc> getMethods() {
-    ImmutableList.Builder<StarlarkMethodDoc> methods = ImmutableList.builder();
+  public ImmutableCollection<? extends AnnotStarlarkMethodDoc> getMethods() {
+    ImmutableList.Builder<AnnotStarlarkMethodDoc> methods = ImmutableList.builder();
     if (javaConstructor != null) {
       methods.add(javaConstructor);
     }
@@ -101,7 +101,7 @@ public abstract class StarlarkDocPage extends StarlarkDoc {
   }
 
   @Nullable
-  public StarlarkConstructorMethodDoc getConstructor() {
+  public AnnotStarlarkConstructorMethodDoc getConstructor() {
     return javaConstructor;
   }
 
