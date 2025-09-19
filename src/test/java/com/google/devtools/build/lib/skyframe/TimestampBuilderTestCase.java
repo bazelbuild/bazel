@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.A
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -187,7 +188,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   }
 
   protected BuilderWithResult createBuilder(ActionCache actionCache) throws Exception {
-    return createBuilder(actionCache, 1, /*keepGoing=*/ false);
+    return createBuilder(actionCache, 1, /* keepGoing= */ false);
   }
 
   /** Create a ParallelBuilder with a DatabaseDependencyChecker using the specified ActionCache. */
@@ -218,7 +219,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         ExternalFilesHelper.createForTesting(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            directories);
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
     differencer = new SequencedRecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =

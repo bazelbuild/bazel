@@ -287,8 +287,14 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     public final PackageLoader build() {
       validate();
+      // In Bazel, this is only used for testing purposes, so we don't need to set the correct
+      // repo contents cache path.
       externalFilesHelper =
-          ExternalFilesHelper.create(pkgLocatorRef, externalFileAction, directories);
+          ExternalFilesHelper.create(
+              pkgLocatorRef,
+              externalFileAction,
+              directories,
+              /* repoContentsCachePath= */ () -> null);
       return buildImpl();
     }
 

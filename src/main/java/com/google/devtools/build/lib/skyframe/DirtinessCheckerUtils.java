@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.vfs.FileStateKey.FILE_STATE;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
@@ -30,9 +31,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.EnumSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
@@ -139,36 +138,29 @@ public class DirtinessCheckerUtils {
         throws IOException {
       var rootedPath = (RootedPath) skyKey.argument();
       var fileType = externalFilesHelper.getAndNoteFileType(rootedPath);
-      boolean cacheable = isCacheableType(fileType);
+      boolean cacheable = !fileType.mayBeModifiedByBazel();
       SkyValue newValue =
           checker.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
       if (Objects.equal(newValue, oldValue)) {
         return SkyValueDirtinessChecker.DirtyResult.notDirty();
       }
-      if (cacheable) {
-        return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
-      }
-      if (fileType == FileType.EXTERNAL_REPO) {
-        var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
+      if (fileType.mayBelongToExternalRepository()) {
+        var repositoryName = externalFilesHelper.getRepositoryName(rootedPath);
         if (repositoryName != null) {
-          dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
+          // Prefer a higher-level path as it is usually the cause of invalidation of its children,
+          // e.g., when a repository directory is deleted.
+          dirtyExternalRepos.merge(
+              repositoryName,
+              rootedPath,
+              (previousPath, newPath) ->
+                  previousPath.asPath().startsWith(newPath.asPath()) ? newPath : previousPath);
         }
       }
-      // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
-      // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
-      // parsed. Similarly, output files might change during execution.
-      return SkyValueDirtinessChecker.DirtyResult.dirty();
+      return cacheable ? DirtyResult.dirtyWithNewValue(newValue) : DirtyResult.dirty();
     }
 
-    Map<RepositoryName, RootedPath> getDirtyExternalRepos() {
-      return Collections.unmodifiableMap(dirtyExternalRepos);
-    }
-
-    private static boolean isCacheableType(FileType fileType) {
-      return switch (fileType) {
-        case INTERNAL, EXTERNAL_OTHER, BUNDLED -> true;
-        case EXTERNAL_REPO, OUTPUT -> false;
-      };
+    ImmutableMap<RepositoryName, RootedPath> getDirtyExternalRepos() {
+      return ImmutableMap.copyOf(dirtyExternalRepos);
     }
   }
 
