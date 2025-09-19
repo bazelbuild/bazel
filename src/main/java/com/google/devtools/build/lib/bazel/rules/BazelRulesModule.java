@@ -41,6 +41,14 @@ public final class BazelRulesModule extends BlazeModule {
   public static class BuildGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "python_top",
+        converter = LabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public Label pythonTop;
+
+    @Option(
         name = "incompatible_use_python_toolchains",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

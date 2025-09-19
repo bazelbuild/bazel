@@ -44,18 +44,6 @@ public class BazelPythonConfiguration extends Fragment {
   /** Bazel-specific Python configuration options. */
   public static final class Options extends FragmentOptions {
     @Option(
-        name = "python_top",
-        converter = LabelConverter.class,
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "The label of a py_runtime representing the Python interpreter invoked to run Python "
-                + "targets on the target platform. Deprecated; disabled by "
-                + "--incompatible_use_python_toolchains.")
-    public Label pythonTop;
-
-    @Option(
         name = "python_path",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -92,27 +80,11 @@ public class BazelPythonConfiguration extends Fragment {
     }
   }
 
-  @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    Options opts = buildOptions.get(Options.class);
-      // Forbid deprecated flags.
-      if (opts.pythonTop != null) {
-      reporter.handle(
-          Event.error(
-              "`--python_top` is disabled by `--incompatible_use_python_toolchains`. Instead of "
-                  + "configuring the Python runtime directly, register a Python toolchain. See "
-                  + "https://github.com/bazelbuild/bazel/issues/7899. You can temporarily revert "
-                  + "to the legacy flag-based way of specifying toolchains by setting "
-                  + "`--incompatible_use_python_toolchains=false`."));
-      // TODO(#7901): Also prohibit --python_path here.
-    }
-  }
-
   @StarlarkConfigurationField(
       name = "python_top",
-      doc = "The value of the --python_top flag; may be None if not specified")
+      doc = "Deprecated. Always returns None. Use toolchain resolution instead."
   public Label getPythonTop() {
-    return options.pythonTop;
+    return null;
   }
 
   @StarlarkMethod(
