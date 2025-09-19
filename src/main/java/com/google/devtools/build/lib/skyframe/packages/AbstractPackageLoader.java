@@ -293,7 +293,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       // repo contents cache path.
       externalFilesHelper =
           ExternalFilesHelper.create(
-              pkgLocatorRef, externalFileAction, directories, /* repoContentsCachePath= */ null);
+              pkgLocatorRef,
+              externalFileAction,
+              directories,
+              /* repoContentsCachePath= */ () -> null);
       return buildImpl();
     }
 
