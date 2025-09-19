@@ -75,7 +75,8 @@ public final class DirtinessCheckerUtilsTest {
       ExternalFilesHelper.createForTesting(
           pkgLocator,
           ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-          directories);
+          directories,
+          /* repoContentsCachePath= */ () -> null);
 
   @Test
   public void missingDiffChecker_matchesInsideRoot() {

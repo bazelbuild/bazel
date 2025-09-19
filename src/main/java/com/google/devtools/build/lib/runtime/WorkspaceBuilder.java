@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SingleFileSystemSyscallCache;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -62,6 +63,7 @@ public final class WorkspaceBuilder {
   private SyscallCache syscallCache;
 
   private boolean allowExternalRepositories = true;
+  private Supplier<Path> repoContentsCachePathSupplier = () -> null;
   @Nullable private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier = null;
 
   @Nullable
@@ -123,6 +125,7 @@ public final class WorkspaceBuilder {
             skyFunctions.buildOrThrow(),
             singleFsSyscallCache,
             allowExternalRepositories,
+            repoContentsCachePathSupplier,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
                 : skyKeyStateReceiver,
@@ -220,6 +223,13 @@ public final class WorkspaceBuilder {
   @CanIgnoreReturnValue
   public WorkspaceBuilder allowExternalRepositories(boolean allowExternalRepositories) {
     this.allowExternalRepositories = allowExternalRepositories;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public WorkspaceBuilder setRepoContentsCachePathSupplier(
+      Supplier<Path> repoContentsCachePathSupplier) {
+    this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
     return this;
   }
 

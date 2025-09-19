@@ -133,7 +133,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         ExternalFilesHelper.createForTesting(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            directories);
+            directories,
+            /* repoContentsCachePath= */ () -> null);
     differencer = new SequencedRecordingDifferencer();
 
     ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
