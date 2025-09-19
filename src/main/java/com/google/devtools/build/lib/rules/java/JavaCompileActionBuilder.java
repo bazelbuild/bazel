@@ -136,7 +136,8 @@ public final class JavaCompileActionBuilder {
   private final JavaToolchainProvider toolchain;
   private final String execGroup;
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
-  private Artifact coverageArtifact;
+  @Nullable private Artifact coverageArtifact;
+  @Nullable private Artifact baselineCoverageFile;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
   private ImmutableList<Artifact> sourceJars = ImmutableList.of();
   private StrictDepsMode strictJavaDeps = StrictDepsMode.ERROR;
@@ -269,7 +270,12 @@ public final class JavaCompileActionBuilder {
   private ImmutableSet<Artifact> allOutputs() {
     ImmutableSet.Builder<Artifact> result =
         ImmutableSet.<Artifact>builder().add(outputs.output()).addAll(additionalOutputs);
-    Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
+    Stream.of(
+            outputs.depsProto(),
+            outputs.nativeHeader(),
+            genSourceOutput,
+            manifestOutput,
+            baselineCoverageFile)
         .filter(Objects::nonNull)
         .forEachOrdered(result::add);
     return result.build();
@@ -326,6 +332,13 @@ public final class JavaCompileActionBuilder {
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
+      if (baselineCoverageFile != null) {
+        result.addExecPath(baselineCoverageFile);
+      }
+    } else {
+      Preconditions.checkState(
+          baselineCoverageFile == null,
+          "baselineCoverageFile should be null if coverageArtifact is null");
     }
     return result.build();
   }
@@ -450,8 +463,14 @@ public final class JavaCompileActionBuilder {
   }
 
   @CanIgnoreReturnValue
-  public JavaCompileActionBuilder setCoverageArtifact(Artifact coverageArtifact) {
+  public JavaCompileActionBuilder setCoverageArtifact(@Nullable Artifact coverageArtifact) {
     this.coverageArtifact = coverageArtifact;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaCompileActionBuilder setBaselineCoverageFile(@Nullable Artifact baselineCoverageFile) {
+    this.baselineCoverageFile = baselineCoverageFile;
     return this;
   }
 
