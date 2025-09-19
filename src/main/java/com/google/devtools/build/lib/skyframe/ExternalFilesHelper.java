@@ -332,7 +332,7 @@ public class ExternalFilesHelper {
    */
   private void addExternalFilesDependencies(RootedPath rootedPath, Environment env)
       throws InterruptedException {
-    var repositoryName = getExternalRepoName(rootedPath);
+    var repositoryName = getRepositoryName(rootedPath);
     if (repositoryName != null) {
       env.getValue(RepositoryDirectoryValue.key(repositoryName));
     }
@@ -343,7 +343,7 @@ public class ExternalFilesHelper {
    * it is in or null if the path is not in a valid external repository.
    */
   @Nullable
-  RepositoryName getExternalRepoName(RootedPath rootedPath) {
+  RepositoryName getRepositoryName(RootedPath rootedPath) {
     String repoName;
     if (rootedPath.asPath().startsWith(getExternalDirectory())) {
       PathFragment repositoryPath = rootedPath.asPath().relativeTo(getExternalDirectory());

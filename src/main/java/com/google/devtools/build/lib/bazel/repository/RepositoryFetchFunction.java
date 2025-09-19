@@ -279,7 +279,10 @@ public final class RepositoryFetchFunction implements SkyFunction {
           try {
             cachedRepoDir =
                 repoContentsCache.moveToCache(
-                    repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
+                    repoRoot,
+                    repositoryName,
+                    digestWriter.markerPath,
+                    digestWriter.predeclaredInputHash);
           } catch (IOException e) {
             throw new RepositoryFunctionException(
                 new IOException(

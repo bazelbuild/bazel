@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.util.FileSystemLock;
@@ -167,11 +168,15 @@ public final class RepoContentsCache {
    * @return the repo dir in the contents cache.
    */
   public Path moveToCache(
-      Path fetchedRepoDir, Path fetchedRepoMarkerFile, String predeclaredInputHash)
+      Path fetchedRepoDir,
+      RepositoryName repoName,
+      Path fetchedRepoMarkerFile,
+      String predeclaredInputHash)
       throws IOException, InterruptedException {
     Preconditions.checkState(path != null);
 
-    Path entryDir = path.getRelative(predeclaredInputHash);
+    // Keep in sync with ExternalFilesHelper#getRepositoryName
+    Path entryDir = path.getRelative(repoName.getName() + '-' + predeclaredInputHash);
     // The entry name needs to be unique across Bazel instances so that the repo cache supports
     // concurrent operations for the same repo definition. It also has to be unique over time even
     // when the repo contents cache directory is deleted since otherwise the following can happen:

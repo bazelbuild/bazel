@@ -145,16 +145,16 @@ public class DirtinessCheckerUtils {
       if (Objects.equal(newValue, oldValue)) {
         return SkyValueDirtinessChecker.DirtyResult.notDirty();
       }
-      if (cacheable) {
-        return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
-      }
       if (fileType == FileType.EXTERNAL_REPO
           || fileType == FileType.REPO_CONTENTS_CACHE_MUTABLE
           || fileType == FileType.REPO_CONTENTS_CACHE_IMMUTABLE) {
-        var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
+        var repositoryName = externalFilesHelper.getRepositoryName(rootedPath);
         if (repositoryName != null) {
           dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
         }
+      }
+      if (cacheable) {
+        return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
       }
       // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
       // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
