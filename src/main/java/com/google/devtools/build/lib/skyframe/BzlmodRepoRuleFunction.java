@@ -96,7 +96,12 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     // Step 1: Look for repositories defined by non-registry overrides.
     Optional<RepoSpec> repoSpec = checkRepoFromNonRegistryOverrides(root, repositoryName);
     if (repoSpec.isPresent()) {
-      return createRuleFromSpec(repoSpec.get(), repositoryName, starlarkSemantics, env);
+      return createRuleFromSpec(
+          repoSpec.get(),
+          repositoryName,
+          /* originalName= */ null,
+          starlarkSemantics,
+          env);
     }
 
     // BazelDepGraphValue is affected by repos found in Step 1, therefore it should NOT
@@ -110,7 +115,12 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     // Step 2: Look for repositories derived from Bazel Modules.
     repoSpec = checkRepoFromBazelModules(bazelDepGraphValue, repositoryName);
     if (repoSpec.isPresent()) {
-      return createRuleFromSpec(repoSpec.get(), repositoryName, starlarkSemantics, env);
+      return createRuleFromSpec(
+          repoSpec.get(),
+          repositoryName,
+          /* originalName= */ null,
+          starlarkSemantics,
+          env);
     }
 
     // Step 3: look for the repo from module extension evaluation results.
@@ -139,7 +149,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
     RepoSpec extRepoSpec = extensionValue.getGeneratedRepoSpecs().get(internalRepo);
-    return createRuleFromSpec(extRepoSpec, repositoryName, starlarkSemantics, env);
+    return createRuleFromSpec(extRepoSpec, repositoryName, internalRepo, starlarkSemantics, env);
   }
 
   private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
@@ -165,6 +175,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
   private BzlmodRepoRuleValue createRuleFromSpec(
       RepoSpec repoSpec,
       RepositoryName repositoryName,
+      @Nullable String originalName,
       StarlarkSemantics starlarkSemantics,
       Environment env)
       throws BzlmodRepoRuleFunctionException, InterruptedException {
@@ -186,11 +197,13 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       ruleClass = getStarlarkRuleClass(repoSpec, loadedModules);
     }
 
-    var attributes =
+    var attributesBuilder =
         ImmutableMap.<String, Object>builder()
             .putAll(repoSpec.attributes().attributes())
-            .put("name", repositoryName.getName())
-            .buildOrThrow();
+            .put("name", repositoryName.getName());
+    if (originalName != null) {
+      attributesBuilder.put("$original_name", originalName);
+    }
     try {
       Rule rule =
           BzlmodRepoRuleCreator.createRule(
@@ -203,7 +216,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
                   StarlarkThread.callStackEntry(
                       "BzlmodRepoRuleFunction.createRuleFromSpec", Location.BUILTIN)),
               ruleClass,
-              attributes);
+              attributesBuilder.buildOrThrow());
       return new BzlmodRepoRuleValue(rule.getPackage(), rule.getName());
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);

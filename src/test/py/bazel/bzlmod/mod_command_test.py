@@ -414,13 +414,13 @@ class ModCommandTest(test_base.TestBase):
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
     # lines after 'Rule data_repo defined at (most recent call last):'
-    stdout.pop(32)
-    stdout.pop(42)
-    self.assertRegex(stdout.pop(47), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(47), r'^  integrity = ".*",$')
+    stdout.pop(33)
+    stdout.pop(44)
+    self.assertRegex(stdout.pop(49), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(49), r'^  integrity = ".*",$')
     # lines after '# Rule http_archive defined at (most recent call last):'
     stdout.pop(13)
-    stdout.pop(55)
+    stdout.pop(57)
     self.assertListEqual(
         stdout,
         [
@@ -454,30 +454,32 @@ class ModCommandTest(test_base.TestBase):
             '# <builtin>',
             'data_repo(',
             '  name = "ext~~ext~repo3",',
+            '  _original_name = "repo3",',
             '  data = "requested repo",',
             ')',
             '# Rule ext~~ext~repo3 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(32)
+            # pop(33)
             '',
             '## @my_repo4:',
             '# <builtin>',
             'data_repo(',
             '  name = "ext~~ext~repo4",',
+            '  _original_name = "repo4",',
             '  data = "requested repo",',
             ')',
             '# Rule ext~~ext~repo4 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(42)
+            # pop(44)
             '',
             '## bar@2.0:',
             '# <builtin>',
             'http_archive(',
             '  name = "bar~",',
-            # pop(47) -- urls=[...]
-            # pop(47) -- integrity=...
+            # pop(49) -- urls=[...]
+            # pop(49) -- integrity=...
             '  strip_prefix = "",',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
@@ -487,7 +489,7 @@ class ModCommandTest(test_base.TestBase):
             '# Rule bar~ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
-            # pop(55)
+            # pop(57)
             '',
         ],
         'wrong output in the show query for module and extension-generated'
