@@ -272,9 +272,10 @@ public class ExternalFilesHelper {
         return FileType.OUTPUT;
       }
     }
-    if (rootedPath.asPath().startsWith(repoContentsCachePathSupplier.get())) {
+    var repoContentsCachePath = repoContentsCachePathSupplier.get();
+    if (repoContentsCachePath != null && rootedPath.asPath().startsWith(repoContentsCachePath)) {
       if (rootedPath.asPath().asFragment().segmentCount()
-          <= repoContentsCachePathSupplier.get().asFragment().segmentCount() + 1) {
+          <= repoContentsCachePath.asFragment().segmentCount() + 1) {
         return FileType.REPO_CONTENTS_CACHE_MUTABLE;
       } else {
         return FileType.REPO_CONTENTS_CACHE_IMMUTABLE;
