@@ -290,16 +290,16 @@ public final class RepositoryFetchFunction implements SkyFunction {
           }
           // Don't forget to register a FileValue on the cache repo dir, so that we know to refetch
           // if the cache entry gets GC'd from under us.
-          if (env.getValue(
-                  FileValue.key(
-                      RootedPath.toRootedPath(
-                          Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
-              == null) {
-            // After returning here and upon the next entry into the compute() method, the repo
-            // contents cache will be checked again and now has a hit. The return below won't be
-            // reached in that case.
-            return null;
-          }
+//          if (env.getValue(
+//                  FileValue.key(
+//                      RootedPath.toRootedPath(
+//                          Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
+//              == null) {
+//            // After returning here and upon the next entry into the compute() method, the repo
+//            // contents cache will be checked again and now has a hit. The return below won't be
+//            // reached in that case.
+//            return null;
+//          }
         }
         return new RepositoryDirectoryValue.Success(
             Root.fromPath(repoRoot), excludeRepoFromVendoring);

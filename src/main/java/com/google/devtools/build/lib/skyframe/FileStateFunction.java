@@ -62,7 +62,7 @@ public class FileStateFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      if (fileType == FileType.EXTERNAL_REPO) {
+      if (fileType == FileType.EXTERNAL_REPO || fileType == FileType.REPO_CONTENTS_CACHE_MUTABLE) {
         // do not use syscallCache as files under repositories get generated during the build
         return FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, tsgm.get());
       }

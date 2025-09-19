@@ -166,6 +166,10 @@ public class ExternalFilesHelper {
      */
     EXTERNAL_REPO,
 
+    REPO_CONTENTS_CACHE_MUTABLE,
+
+    REPO_CONTENTS_CACHE_IMMUTABLE,
+
     /**
      * None of the above. We encounter these paths when outputs, source files or external repos
      * symlink to files outside aforementioned Bazel-managed directories. For example, C compilation
@@ -268,6 +272,14 @@ public class ExternalFilesHelper {
         return FileType.OUTPUT;
       }
     }
+    if (rootedPath.asPath().startsWith(repoContentsCachePathSupplier.get())) {
+      if (rootedPath.asPath().asFragment().segmentCount()
+          <= repoContentsCachePathSupplier.get().asFragment().segmentCount() + 1) {
+        return FileType.REPO_CONTENTS_CACHE_MUTABLE;
+      } else {
+        return FileType.REPO_CONTENTS_CACHE_IMMUTABLE;
+      }
+    }
     return FileType.EXTERNAL_OTHER;
   }
 
@@ -332,14 +344,32 @@ public class ExternalFilesHelper {
    */
   @Nullable
   RepositoryName getExternalRepoName(RootedPath rootedPath) {
-    PathFragment repositoryPath = rootedPath.asPath().relativeTo(getExternalDirectory());
-    if (repositoryPath.isEmpty()) {
-      // We are the top of the repository path (<outputBase>/external), not in an actual external
-      // repository path.
-      return null;
+    String repoName;
+    if (rootedPath.asPath().startsWith(getExternalDirectory())) {
+      PathFragment repositoryPath = rootedPath.asPath().relativeTo(getExternalDirectory());
+      if (repositoryPath.isEmpty()) {
+        // We are the top of the repository path (<outputBase>/external), not in an actual external
+        // repository path.
+        return null;
+      }
+      repoName = repositoryPath.getSegment(0);
+    } else {
+      PathFragment repoCachePath =
+          rootedPath.asPath().relativeTo(repoContentsCachePathSupplier.get());
+      if (repoCachePath.isEmpty()) {
+        // We are the top of the repo contents cache.
+        return null;
+      }
+      var firstSegment = repoCachePath.getSegment(0);
+      var lastDash = firstSegment.lastIndexOf('-');
+      if (lastDash <= 0) {
+        // The directory of a repository with an invalid name isn't referenced.
+        return null;
+      }
+      repoName = firstSegment.substring(0, lastDash);
     }
     try {
-      return RepositoryName.create(repositoryPath.getSegment(0));
+      return RepositoryName.create(repoName);
     } catch (LabelSyntaxException ignored) {
       // The directory of a repository with an invalid name can never exist.
       return null;

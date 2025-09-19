@@ -148,7 +148,9 @@ public class DirtinessCheckerUtils {
       if (cacheable) {
         return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
       }
-      if (fileType == FileType.EXTERNAL_REPO) {
+      if (fileType == FileType.EXTERNAL_REPO
+          || fileType == FileType.REPO_CONTENTS_CACHE_MUTABLE
+          || fileType == FileType.REPO_CONTENTS_CACHE_IMMUTABLE) {
         var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
         if (repositoryName != null) {
           dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
@@ -166,8 +168,8 @@ public class DirtinessCheckerUtils {
 
     private static boolean isCacheableType(FileType fileType) {
       return switch (fileType) {
-        case INTERNAL, EXTERNAL_OTHER, BUNDLED -> true;
-        case EXTERNAL_REPO, OUTPUT -> false;
+        case INTERNAL, EXTERNAL_OTHER, BUNDLED, REPO_CONTENTS_CACHE_IMMUTABLE -> true;
+        case EXTERNAL_REPO, OUTPUT, REPO_CONTENTS_CACHE_MUTABLE -> false;
       };
     }
   }
