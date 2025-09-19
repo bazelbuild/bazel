@@ -42,11 +42,10 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Option(
         name = "python_top",
-        converter = LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "Deprecated. No-op.")
-    public Label pythonTop;
+    public String pythonTop;
 
     @Option(
         name = "incompatible_use_python_toolchains",
