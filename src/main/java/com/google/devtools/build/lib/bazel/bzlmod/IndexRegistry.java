@@ -151,7 +151,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException, NotFoundException {
     Optional<byte[]> maybeContent = Optional.empty();
     try {
-      maybeContent = Optional.of(doGrabFile(downloadManager, url, eventHandler, useChecksum));
+      maybeContent = Optional.of(doGrabFile(downloadManager, url, useChecksum));
       return maybeContent.get();
     } finally {
       // We intentionally don't check knownFileHashesMode here: The checksums of module files are
@@ -163,11 +163,7 @@ public class IndexRegistry implements Registry {
     }
   }
 
-  private byte[] doGrabFile(
-      DownloadManager downloadManager,
-      String rawUrl,
-      ExtendedEventHandler eventHandler,
-      boolean useChecksum)
+  private byte[] doGrabFile(DownloadManager downloadManager, String rawUrl, boolean useChecksum)
       throws IOException, InterruptedException, NotFoundException {
     Optional<Checksum> checksum;
     if (knownFileHashesMode != KnownFileHashesMode.IGNORE && useChecksum) {
@@ -236,7 +232,7 @@ public class IndexRegistry implements Registry {
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + rawUrl)) {
-      return downloadManager.downloadAndReadOneUrlForBzlmod(url, eventHandler, clientEnv, checksum);
+      return downloadManager.downloadAndReadOneUrlForBzlmod(url, clientEnv, checksum);
     } catch (FileNotFoundException e) {
       throw new NotFoundException(String.format("%s: not found", rawUrl));
     } catch (IOException e) {
