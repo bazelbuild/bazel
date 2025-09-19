@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auth.Credentials;
@@ -120,8 +121,8 @@ public class BazelBuildEventServiceModule
     BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
-      Preconditions.checkState(config == null);
-      Preconditions.checkState(client == null);
+      checkState(config == null, "config should be null");
+      checkState(client == null, "client should be null");
 
       Credentials credentials =
           GoogleAuthUtils.newCredentials(
@@ -170,7 +171,7 @@ public class BazelBuildEventServiceModule
   @VisibleForTesting
   protected ManagedChannel newGrpcChannel(BackendConfig config) throws IOException {
     return GoogleAuthUtils.newChannel(
-        /*executor=*/ null,
+        /* executor= */ null,
         config.besBackend(),
         config.besProxy(),
         config.authAndTLSOptions(),

@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
-import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
-import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -31,7 +28,11 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.LifecycleEvent;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamContext;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamEvent;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
@@ -52,16 +53,11 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Sleeper;
-import com.google.devtools.build.v1.BuildStatus.Result;
-import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
-import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.Any;
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusException;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
@@ -104,13 +100,13 @@ public final class BuildEventServiceUploader implements Runnable {
     /** Tells the event loop to send a build event. */
     record SendRegularBuildEvent(
         long sequenceNumber,
-        Timestamp creationTime,
+        Instant creationTime,
         BuildEvent event,
         ListenableFuture<PathConverter> localFileUploadProgress)
         implements SendBuildEvent {}
 
     /** Tells the event loop that this is the last event of the stream. */
-    record SendLastBuildEvent(long sequenceNumber, Timestamp creationTime)
+    record SendLastBuildEvent(long sequenceNumber, Instant creationTime)
         implements SendBuildEvent {}
   }
 
@@ -118,8 +114,8 @@ public final class BuildEventServiceUploader implements Runnable {
 
   private final BuildEventServiceClient besClient;
   private final BuildEventArtifactUploader buildEventUploader;
-  private final BuildEventServiceProtoUtil besProtoUtil;
   private final BuildEventProtocolOptions buildEventProtocolOptions;
+  private final CommandContext commandContext;
   private final boolean publishLifecycleEvents;
   private final Sleeper sleeper;
   private final Clock clock;
@@ -127,12 +123,12 @@ public final class BuildEventServiceUploader implements Runnable {
   private final EventBus eventBus;
   // `commandStartTime` is an instant in time determined by the build tool's native launcher and
   // matches `BuildStartingEvent.getRequest().getStartTime()`.
-  private final Timestamp commandStartTime;
+  private final Instant commandStartTime;
   // `eventStreamStartTime` is an instant *after* `commandStartTime` indicating when the
   // BuildEventServiceUploader was initialized to begin reporting build events. This instant should
   // be *before* the event_time for any BuildEvents uploaded after they are received via
   // `#enqueueEvent(BuildEvent)`.
-  private final Timestamp eventStreamStartTime;
+  private final Instant eventStreamStartTime;
   private boolean startedClose = false;
 
   private final ScheduledExecutorService timeoutExecutor =
@@ -158,7 +154,7 @@ public final class BuildEventServiceUploader implements Runnable {
   private final Object lock = new Object();
 
   @GuardedBy("lock")
-  private Result buildStatus = UNKNOWN_STATUS;
+  private InvocationStatus invocationStatus = InvocationStatus.UNKNOWN;
 
   private final SettableFuture<Void> closeFuture = SettableFuture.create();
   private final SettableFuture<Void> halfCloseFuture = SettableFuture.create();
@@ -179,25 +175,25 @@ public final class BuildEventServiceUploader implements Runnable {
   private BuildEventServiceUploader(
       BuildEventServiceClient besClient,
       BuildEventArtifactUploader localFileUploader,
-      BuildEventServiceProtoUtil besProtoUtil,
       BuildEventProtocolOptions buildEventProtocolOptions,
       boolean publishLifecycleEvents,
       Sleeper sleeper,
       Clock clock,
       ArtifactGroupNamer namer,
       EventBus eventBus,
-      Timestamp commandStartTime) {
+      CommandContext commandContext,
+      Instant commandStartTime) {
     this.besClient = besClient;
     this.buildEventUploader = localFileUploader;
-    this.besProtoUtil = besProtoUtil;
     this.buildEventProtocolOptions = buildEventProtocolOptions;
     this.publishLifecycleEvents = publishLifecycleEvents;
     this.sleeper = sleeper;
     this.clock = clock;
     this.namer = namer;
     this.eventBus = eventBus;
+    this.commandContext = commandContext;
     this.commandStartTime = commandStartTime;
-    this.eventStreamStartTime = currentTime();
+    this.eventStreamStartTime = clock.now();
     // Ensure the half-close future is closed once the upload is complete. This is usually a no-op,
     // but makes sure we half-close in case of error / interrupt.
     closeFuture.addListener(
@@ -227,13 +223,13 @@ public final class BuildEventServiceUploader implements Runnable {
       if (event instanceof BuildCompletingEvent buildCompletingEvent) {
         ExitCode exitCode = buildCompletingEvent.getExitCode();
         if (exitCode != null && exitCode.getNumericExitCode() == 0) {
-          buildStatus = COMMAND_SUCCEEDED;
+          invocationStatus = InvocationStatus.SUCCEEDED;
         } else {
-          buildStatus = COMMAND_FAILED;
+          invocationStatus = InvocationStatus.FAILED;
         }
       } else if (event instanceof AbortedEvent && event.getEventId().hasBuildFinished()) {
         // An AbortedEvent with a build finished ID means we are crashing.
-        buildStatus = COMMAND_FAILED;
+        invocationStatus = InvocationStatus.FAILED;
       }
       ensureUploadThreadStarted();
 
@@ -242,10 +238,7 @@ public final class BuildEventServiceUploader implements Runnable {
       //  number when we take the item off the queue.
       commandQueue.addLast(
           new Command.SendRegularBuildEvent(
-              nextSeqNum.getAndIncrement(),
-              Timestamps.fromMillis(clock.currentTimeMillis()),
-              event,
-              localFileUploadFuture));
+              nextSeqNum.getAndIncrement(), clock.now(), event, localFileUploadFuture));
     }
   }
 
@@ -272,7 +265,7 @@ public final class BuildEventServiceUploader implements Runnable {
       //  always used under lock. It would be cleaner and more performant to update the sequence
       //  number when we take the item off the queue.
       commandQueue.addLast(
-          new Command.SendLastBuildEvent(nextSeqNum.getAndIncrement(), currentTime()));
+          new Command.SendLastBuildEvent(nextSeqNum.getAndIncrement(), clock.now()));
     }
 
     final SettableFuture<Void> finalCloseFuture = closeFuture;
@@ -328,20 +321,24 @@ public final class BuildEventServiceUploader implements Runnable {
   public void run() {
     try {
       if (publishLifecycleEvents) {
-        publishLifecycleEvent(besProtoUtil.buildEnqueued(commandStartTime));
-        publishLifecycleEvent(besProtoUtil.invocationStarted(eventStreamStartTime));
+        publishLifecycleEvent(new LifecycleEvent.BuildEnqueued(commandContext, commandStartTime));
+        publishLifecycleEvent(
+            new LifecycleEvent.InvocationStarted(commandContext, eventStreamStartTime));
       }
 
       try {
         publishBuildEvents();
       } finally {
         if (publishLifecycleEvents) {
-          Result buildStatus;
+          InvocationStatus invocationStatus;
           synchronized (lock) {
-            buildStatus = this.buildStatus;
+            invocationStatus = this.invocationStatus;
           }
-          publishLifecycleEvent(besProtoUtil.invocationFinished(currentTime(), buildStatus));
-          publishLifecycleEvent(besProtoUtil.buildFinished(currentTime(), buildStatus));
+          Instant now = clock.now();
+          publishLifecycleEvent(
+              new LifecycleEvent.InvocationFinished(commandContext, now, invocationStatus));
+          publishLifecycleEvent(
+              new LifecycleEvent.BuildFinished(commandContext, now, invocationStatus));
         }
       }
       eventBus.post(BuildEventServiceAvailabilityEvent.ofSuccess());
@@ -455,9 +452,7 @@ public final class BuildEventServiceUploader implements Runnable {
             logger.atInfo().log(
                 "Starting publishBuildEvents: commandQueue=%d", commandQueue.size());
             streamContext =
-                besClient.openStream(
-                    (ack) ->
-                        commandQueue.addLast(new Command.AckReceived(ack.getSequenceNumber())));
+                besClient.openStream((ack) -> commandQueue.addLast(new Command.AckReceived(ack)));
             addStreamStatusListener(
                 streamContext.getStatus(),
                 (status) -> commandQueue.addLast(new Command.StreamComplete(status)));
@@ -471,22 +466,25 @@ public final class BuildEventServiceUploader implements Runnable {
             BuildEventStreamProtos.BuildEvent serializedRegularBuildEvent =
                 createSerializedRegularBuildEvent(pathConverter, sendRegularBuildEventCmd);
 
-            PublishBuildToolEventStreamRequest request =
-                besProtoUtil.bazelEvent(
-                    sendRegularBuildEventCmd.sequenceNumber(),
+            var bazelEvent =
+                new StreamEvent.BazelEvent(
+                    commandContext,
                     sendRegularBuildEventCmd.creationTime(),
-                    Any.pack(serializedRegularBuildEvent));
+                    sendRegularBuildEventCmd.sequenceNumber(),
+                    serializedRegularBuildEvent.toByteString());
 
-            streamContext.sendOverStream(request);
+            streamContext.sendOverStream(bazelEvent);
           }
           case Command.SendLastBuildEvent sendLastBuildEventCmd -> {
             // Invariant: the commandQueue may contain commands of any type
             ackQueue.addLast(sendLastBuildEventCmd);
             lastEventSent = true;
-            PublishBuildToolEventStreamRequest request =
-                besProtoUtil.streamFinished(
-                    sendLastBuildEventCmd.sequenceNumber(), sendLastBuildEventCmd.creationTime());
-            streamContext.sendOverStream(request);
+            var streamFinishedEvent =
+                new StreamEvent.StreamFinished(
+                    commandContext,
+                    sendLastBuildEventCmd.creationTime(),
+                    sendLastBuildEventCmd.sequenceNumber());
+            streamContext.sendOverStream(streamFinishedEvent);
             streamContext.halfCloseStream();
             halfCloseFuture.set(null);
             logger.atInfo().log("BES uploader is half-closed");
@@ -632,14 +630,14 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
-  /** Sends a {@link PublishLifecycleEventRequest} to the BES backend. */
-  private void publishLifecycleEvent(PublishLifecycleEventRequest request)
+  /** Sends a {@link LifecycleEvent} to the BES backend. */
+  private void publishLifecycleEvent(LifecycleEvent lifecycleEvent)
       throws DetailedStatusException, InterruptedException {
     int retryAttempt = 0;
     StatusException cause = null;
     while (retryAttempt <= this.buildEventProtocolOptions.besUploadMaxRetries) {
       try {
-        besClient.publish(request);
+        besClient.publish(lifecycleEvent);
         return;
       } catch (StatusException e) {
         if (!shouldRetryStatus(e.getStatus()) || shouldStartNewInvocation(e.getStatus())) {
@@ -691,10 +689,6 @@ public final class BuildEventServiceUploader implements Runnable {
       Throwables.throwIfUnchecked(e.getCause());
       throw new LocalFileUploadException(e.getCause());
     }
-  }
-
-  private Timestamp currentTime() {
-    return Timestamps.fromMillis(clock.currentTimeMillis());
   }
 
   private static Status lastEventNotSentStatus() {
@@ -758,14 +752,14 @@ public final class BuildEventServiceUploader implements Runnable {
   static class Builder {
     private BuildEventServiceClient besClient;
     private BuildEventArtifactUploader localFileUploader;
-    private BuildEventServiceProtoUtil besProtoUtil;
     private BuildEventProtocolOptions bepOptions;
     private boolean publishLifecycleEvents;
     private Sleeper sleeper;
     private Clock clock;
     private ArtifactGroupNamer artifactGroupNamer;
     private EventBus eventBus;
-    private Timestamp commandStartTime;
+    private CommandContext commandContext;
+    private Instant commandStartTime;
 
     @CanIgnoreReturnValue
     Builder besClient(BuildEventServiceClient value) {
@@ -776,12 +770,6 @@ public final class BuildEventServiceUploader implements Runnable {
     @CanIgnoreReturnValue
     Builder localFileUploader(BuildEventArtifactUploader value) {
       this.localFileUploader = value;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    Builder besProtoUtil(BuildEventServiceProtoUtil value) {
-      this.besProtoUtil = value;
       return this;
     }
 
@@ -822,7 +810,13 @@ public final class BuildEventServiceUploader implements Runnable {
     }
 
     @CanIgnoreReturnValue
-    public Builder commandStartTime(Timestamp value) {
+    Builder commandContext(CommandContext value) {
+      this.commandContext = value;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder commandStartTime(Instant value) {
       this.commandStartTime = value;
       return this;
     }
@@ -831,13 +825,13 @@ public final class BuildEventServiceUploader implements Runnable {
       return new BuildEventServiceUploader(
           checkNotNull(besClient),
           checkNotNull(localFileUploader),
-          checkNotNull(besProtoUtil),
           checkNotNull(bepOptions),
           publishLifecycleEvents,
           checkNotNull(sleeper),
           checkNotNull(clock),
           checkNotNull(artifactGroupNamer),
           checkNotNull(eventBus),
+          checkNotNull(commandContext),
           checkNotNull(commandStartTime));
     }
   }

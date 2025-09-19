@@ -47,7 +47,6 @@ java_library(
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
         "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
         "@googleapis//google/devtools/build/v1:build_java_proto",
     ],
 )
@@ -61,7 +60,6 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
@@ -69,7 +67,6 @@ java_test(
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
         "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
         "@googleapis//google/devtools/build/v1:build_java_grpc",
         "@googleapis//google/devtools/build/v1:build_java_proto",
     ],

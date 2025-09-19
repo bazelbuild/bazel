@@ -21,6 +21,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -30,8 +31,8 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.Timestamp;
 import java.time.Duration;
+import java.time.Instant;
 import javax.annotation.Nullable;
 
 /** A {@link BuildEventTransport} that streams {@link BuildEvent}s to BuildEventService. */
@@ -44,14 +45,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       BuildEventServiceClient besClient,
       BuildEventArtifactUploader localFileUploader,
       BuildEventProtocolOptions bepOptions,
-      BuildEventServiceProtoUtil besProtoUtil,
       Clock clock,
       boolean publishLifecycleEvents,
       ArtifactGroupNamer artifactGroupNamer,
       EventBus eventBus,
       Duration closeTimeout,
       Sleeper sleeper,
-      Timestamp commandStartTime,
+      CommandContext commandContext,
+      Instant commandStartTime,
       BesUploadMode besUploadMode) {
     this.besTimeout = closeTimeout;
     this.besUploader =
@@ -59,12 +60,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             .besClient(besClient)
             .localFileUploader(localFileUploader)
             .bepOptions(bepOptions)
-            .besProtoUtil(besProtoUtil)
             .clock(clock)
             .publishLifecycleEvents(publishLifecycleEvents)
             .sleeper(sleeper)
             .artifactGroupNamer(artifactGroupNamer)
             .eventBus(eventBus)
+            .commandContext(commandContext)
             .commandStartTime(commandStartTime)
             .build();
     this.besUploadMode = besUploadMode;
@@ -118,10 +119,10 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     private BuildEventProtocolOptions bepOptions;
     private Clock clock;
     private ArtifactGroupNamer artifactGroupNamer;
-    private BuildEventServiceProtoUtil besProtoUtil;
     private EventBus eventBus;
     @Nullable private Sleeper sleeper;
-    private Timestamp commandStartTime;
+    private CommandContext commandContext;
+    private Instant commandStartTime;
 
     @CanIgnoreReturnValue
     public Builder besClient(BuildEventServiceClient value) {
@@ -132,12 +133,6 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     @CanIgnoreReturnValue
     public Builder localFileUploader(BuildEventArtifactUploader value) {
       this.localFileUploader = value;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder besProtoUtil(BuildEventServiceProtoUtil value) {
-      this.besProtoUtil = value;
       return this;
     }
 
@@ -179,7 +174,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     @CanIgnoreReturnValue
-    public Builder commandStartTime(Timestamp value) {
+    public Builder commandContext(CommandContext value) {
+      this.commandContext = value;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder commandStartTime(Instant value) {
       this.commandStartTime = value;
       return this;
     }
@@ -190,13 +191,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           checkNotNull(besClient),
           checkNotNull(localFileUploader),
           checkNotNull(bepOptions),
-          checkNotNull(besProtoUtil),
           checkNotNull(clock),
           besOptions.besLifecycleEvents,
           checkNotNull(artifactGroupNamer),
           checkNotNull(eventBus),
           (besOptions.besTimeout != null) ? besOptions.besTimeout : Duration.ZERO,
           sleeper != null ? sleeper : new JavaSleeper(),
+          checkNotNull(commandContext),
           checkNotNull(commandStartTime),
           besOptions.besUploadMode);
     }

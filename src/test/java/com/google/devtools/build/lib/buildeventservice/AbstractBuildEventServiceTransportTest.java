@@ -17,9 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.v1.BuildEvent.EventCase.BAZEL_EVENT;
 import static com.google.devtools.build.v1.BuildEvent.EventCase.BUILD_ENQUEUED;
 import static com.google.devtools.build.v1.BuildEvent.EventCase.INVOCATION_ATTEMPT_STARTED;
-import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
-import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
-import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -37,6 +34,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceProtoUtil;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -69,19 +68,18 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.v1.BuildStatus.Result;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.Any;
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
+import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -116,17 +114,16 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
   private static final String BUILD_INVOCATION_ID = "feedbeef-dead-4444-beef-deaddeaddead";
   private static final String COMMAND_NAME = "test";
   private static final ImmutableSet<String> KEYWORDS = ImmutableSet.of("foo=bar", "spam=eggs");
-  private static final Timestamp COMMAND_START_TIME = Timestamps.fromMillis(500L);
-  private static final BuildEventServiceProtoUtil BES_PROTO_UTIL =
-      new BuildEventServiceProtoUtil(
-          CommandContext.builder()
-              .setBuildId(BUILD_REQUEST_ID)
-              .setInvocationId(BUILD_INVOCATION_ID)
-              .setAttemptNumber(1)
-              .setKeywords(KEYWORDS)
-              .setProjectId(null)
-              .setCheckPrecedingLifecycleEvents(false)
-              .build());
+  private static final Instant COMMAND_START_TIME = Instant.ofEpochMilli(500L);
+  private static final CommandContext COMMAND_CONTEXT =
+      CommandContext.builder()
+          .setBuildId(BUILD_REQUEST_ID)
+          .setInvocationId(BUILD_INVOCATION_ID)
+          .setAttemptNumber(1)
+          .setKeywords(KEYWORDS)
+          .setProjectId(null)
+          .setCheckPrecedingLifecycleEvents(false)
+          .build();
 
   private final ArtifactGroupNamer artifactGroupNamer = mock(ArtifactGroupNamer.class);
   private final BuildRequest buildRequest = mock(BuildRequest.class);
@@ -166,59 +163,78 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testPublishLifecyleEvents_commandSucceeded() throws Exception {
-    testPublishLifecycleEvents(COMMAND_SUCCEEDED, success);
+    testPublishLifecycleEvents(InvocationStatus.SUCCEEDED, success);
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testPublishLifecycleEvents_commandFailed() throws Exception {
-    testPublishLifecycleEvents(COMMAND_FAILED, failed);
+    testPublishLifecycleEvents(InvocationStatus.FAILED, failed);
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testPublishLifecycleEvents_statusUnknown() throws Exception {
-    testPublishLifecycleEvents(UNKNOWN_STATUS, progress);
+    testPublishLifecycleEvents(InvocationStatus.UNKNOWN, progress);
   }
 
-  private void testPublishLifecycleEvents(Result expectedResult, BuildEvent lastEvent)
+  private void testPublishLifecycleEvents(InvocationStatus expectedStatus, BuildEvent lastEvent)
       throws Exception {
-    Timestamp invocationStartedTimestamp = Timestamps.fromMillis(clock.advanceMillis(750L));
+    clock.advanceMillis(750L);
+    Instant invocationStartedTimestamp = clock.now();
     BuildEventServiceTransport transport =
         newBuildEventServiceTransport(/*publishLifecycleEvents=*/ true);
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(250L));
+    clock.advanceMillis(250L);
+    Instant timestamp = clock.now();
     transport.sendBuildEvent(started);
     transport.sendBuildEvent(progress);
     transport.sendBuildEvent(lastEvent);
     transport.close().get();
 
     // build lifecycle events
-    assertThat(fakeBesServer.getLifecycleEvents(BES_PROTO_UTIL.streamId(BUILD_ENQUEUED)))
+    assertThat(
+            fakeBesServer.getLifecycleEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BUILD_ENQUEUED)))
         .containsExactly(
-            BES_PROTO_UTIL.buildEnqueued(COMMAND_START_TIME),
-            BES_PROTO_UTIL.buildFinished(timestamp, expectedResult));
+            BuildEventServiceProtoUtil.buildEnqueued(COMMAND_CONTEXT, COMMAND_START_TIME),
+            BuildEventServiceProtoUtil.buildFinished(COMMAND_CONTEXT, timestamp, expectedStatus));
 
     // invocation lifecycle events
     assertThat(
-            fakeBesServer.getLifecycleEvents(BES_PROTO_UTIL.streamId(INVOCATION_ATTEMPT_STARTED)))
+            fakeBesServer.getLifecycleEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, INVOCATION_ATTEMPT_STARTED)))
         .containsExactly(
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp),
-            BES_PROTO_UTIL.invocationFinished(timestamp, expectedResult));
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp),
+            BuildEventServiceProtoUtil.invocationFinished(
+                COMMAND_CONTEXT, timestamp, expectedStatus));
 
     // bazel stream events
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .containsExactly(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                3, timestamp, Any.pack(lastEvent.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(4, timestamp))
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                2,
+                progress.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                3,
+                lastEvent.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
         .inOrder();
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void disablingLifecycleEventsWorks() throws Exception {
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
+    clock.advanceMillis(1000L);
+    Instant timestamp = clock.now();
     BuildEventServiceTransport transport =
         newBuildEventServiceTransport(/*publishLifecycleEvents=*/ false);
     transport.sendBuildEvent(started);
@@ -227,45 +243,26 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     transport.close().get();
 
     // bazel stream events
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .containsExactly(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                3, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(4, timestamp))
-        .inOrder();
-  }
-
-  @Test(timeout = TIMEOUT_MILLIS)
-  public void timestampsShouldBeImmutable() throws Exception {
-    Timestamp timestamp0 = Timestamps.fromMillis(clock.advanceMillis(1000L));
-    BuildEventServiceTransport transport =
-        newBuildEventServiceTransport(/*publishLifecycleEvents=*/ false);
-    transport.sendBuildEvent(started);
-    Timestamp timestamp1 = Timestamps.fromMillis(clock.advanceMillis(1000L));
-    transport.sendBuildEvent(progress);
-    Timestamp timestamp2 = Timestamps.fromMillis(clock.advanceMillis(1000L));
-    transport.sendBuildEvent(success);
-    Timestamp timestamp3 = Timestamps.fromMillis(clock.advanceMillis(1000L));
-    ListenableFuture<Void> uploadFinished = transport.close();
-
-    clock.advanceMillis(1000L);
-
-    uploadFinished.get();
-
-    // bazel stream events
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
-        .containsExactly(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp0, Any.pack(started.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp1, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                3, timestamp2, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(4, timestamp3))
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                2,
+                progress.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                3,
+                success.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
         .inOrder();
   }
 
@@ -279,7 +276,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     List<BuildEvent> toSend = Arrays.asList(started, progress, success);
     for (int i = 0; i < toSend.size(); i++) {
       transport.sendBuildEvent(toSend.get(i));
-      while (fakeBesServer.getSuccessfulStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)).size()
+      while (fakeBesServer
+              .getSuccessfulStreamEvents(
+                  BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT))
+              .size()
           != i + 1) {
         Thread.sleep(10);
       }
@@ -290,10 +290,13 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testAcksInBatchMode() throws Exception {
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
+    clock.advanceMillis(1000L);
+    Instant timestamp = clock.now();
     // Send the first ACK only after the last event has been received.
     fakeBesServer.setSendResponsesOnRequestPredicate(
-        (req) -> Objects.equals(req, BES_PROTO_UTIL.streamFinished(4, timestamp)));
+        (req) ->
+            Objects.equals(
+                req, BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4)));
     BuildEventServiceTransport transport =
         newBuildEventServiceTransport(/*publishLifecycleEvents=*/ false);
     transport.sendBuildEvent(started);
@@ -304,10 +307,13 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void retriesForLastEventShouldWork() throws Exception {
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
+    clock.advanceMillis(1000L);
+    Instant timestamp = clock.now();
     // Send UNAVAILABLE on streamFinished event
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
-        (req) -> Objects.equals(req, BES_PROTO_UTIL.streamFinished(4, timestamp)),
+        (req) ->
+            Objects.equals(
+                req, BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4)),
         Status.UNAVAILABLE);
 
     BuildEventServiceTransport transport =
@@ -323,26 +329,42 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
         .isEqualTo(Status.UNAVAILABLE.getCode());
 
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .containsAtLeast(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                3, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(4, timestamp),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                2,
+                progress.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                3,
+                success.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4),
             // Verify retry on streamFinished message
-            BES_PROTO_UTIL.streamFinished(4, timestamp))
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
         .inOrder();
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void retriesForInvocationStartedEventShouldWork() throws Exception {
-    Timestamp invocationStartedTimestamp = Timestamps.fromMillis(clock.advanceMillis(750L));
+    clock.advanceMillis(750L);
+    Instant invocationStartedTimestamp = clock.now();
     // Respond with UNAVAILABLE to invocation started lifecycle event
     fakeBesServer.setLifecycleEventPredicateAndResponseStatus(
-        (req) -> Objects.equals(req, BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp)),
+        (req) ->
+            Objects.equals(
+                req,
+                BuildEventServiceProtoUtil.invocationStarted(
+                    COMMAND_CONTEXT, invocationStartedTimestamp)),
         Status.UNAVAILABLE);
 
     BuildEventServiceTransport transport =
@@ -356,27 +378,41 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
         .isEqualTo(Status.UNAVAILABLE.getCode());
 
     // should not proceed as lifecycle event failed
-    assertThat(fakeBesServer.getLifecycleEvents(BES_PROTO_UTIL.streamId(BUILD_ENQUEUED)))
-        .containsExactly(BES_PROTO_UTIL.buildEnqueued(COMMAND_START_TIME));
+    assertThat(
+            fakeBesServer.getLifecycleEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BUILD_ENQUEUED)))
+        .containsExactly(
+            BuildEventServiceProtoUtil.buildEnqueued(COMMAND_CONTEXT, COMMAND_START_TIME));
 
     // should retry only the rpc that failed
     assertThat(
-            fakeBesServer.getLifecycleEvents(BES_PROTO_UTIL.streamId(INVOCATION_ATTEMPT_STARTED)))
+            fakeBesServer.getLifecycleEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, INVOCATION_ATTEMPT_STARTED)))
         .containsExactly(
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp),
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp),
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp),
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp),
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp));
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp),
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp),
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp),
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp),
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testRetriesForBuildEvents_oneEventFailsAlways() throws Exception {
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
+    clock.advanceMillis(1000L);
+    Instant timestamp = clock.now();
 
-    Any expectedPackedEvent = Any.pack(progress.asStreamProto(buildEventContext));
+    ByteString expectedPayload = progress.asStreamProto(buildEventContext).toByteString();
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
-        (req) -> Objects.equals(req, BES_PROTO_UTIL.bazelEvent(2, timestamp, expectedPackedEvent)),
+        (req) ->
+            Objects.equals(
+                req,
+                BuildEventServiceProtoUtil.bazelEvent(
+                    COMMAND_CONTEXT, timestamp, 2, expectedPayload)),
         Status.CANCELLED);
 
     BuildEventServiceTransport transport =
@@ -392,28 +428,31 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
         .isEqualTo(Status.CANCELLED.getCode());
 
-    assertThat(fakeBesServer.getSuccessfulStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getSuccessfulStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .contains(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))));
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()));
 
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .containsAtLeast(
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))));
+            BuildEventServiceProtoUtil.bazelEvent(COMMAND_CONTEXT, timestamp, 2, expectedPayload),
+            BuildEventServiceProtoUtil.bazelEvent(COMMAND_CONTEXT, timestamp, 2, expectedPayload),
+            BuildEventServiceProtoUtil.bazelEvent(COMMAND_CONTEXT, timestamp, 2, expectedPayload),
+            BuildEventServiceProtoUtil.bazelEvent(COMMAND_CONTEXT, timestamp, 2, expectedPayload),
+            BuildEventServiceProtoUtil.bazelEvent(COMMAND_CONTEXT, timestamp, 2, expectedPayload));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testRetriesForBuildEvents_everyEventFailsOnce() throws Exception {
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
+    clock.advanceMillis(1000L);
+    Instant timestamp = clock.now();
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
         everyEventFailsOnce(), Status.UNAVAILABLE);
 
@@ -423,26 +462,48 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     transport.sendBuildEvent(success);
     transport.close().get();
 
-    assertThat(fakeBesServer.getSuccessfulStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getSuccessfulStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .containsAtLeast(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(3, timestamp));
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                2,
+                success.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3));
 
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .containsAtLeast(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(3, timestamp),
-            BES_PROTO_UTIL.streamFinished(3, timestamp));
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                2,
+                success.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                2,
+                success.asStreamProto(buildEventContext).toByteString()),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3),
+            BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3));
   }
 
   /** Tests that a successfully transmitted build event resets the retry counter. */
@@ -469,7 +530,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     transport.close().get();
 
     Set<Long> successfulSequenceNumbers =
-        fakeBesServer.getSuccessfulStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)).stream()
+        fakeBesServer
+            .getSuccessfulStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT))
+            .stream()
             .map((e) -> e.getOrderedBuildEvent().getSequenceNumber())
             .collect(Collectors.toSet());
 
@@ -495,7 +559,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
   private void testPermanentErrorsCauseBlazeExit(
       Status status, ExitCode exitCode, BuildProgress.Code buildProgressCode) throws Exception {
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
+    clock.advanceMillis(1000L);
+    Instant timestamp = clock.now();
     fakeBesServer.setStreamEventPredicateAndResponseStatus((req) -> true, status);
 
     BuildEventServiceTransport transport =
@@ -509,12 +574,19 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
         .isEqualTo(status.getCode());
 
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .contains(
-            BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))));
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT,
+                timestamp,
+                1,
+                started.asStreamProto(buildEventContext).toByteString()));
 
-    assertThat(fakeBesServer.getSuccessfulStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
+    assertThat(
+            fakeBesServer.getSuccessfulStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
         .isEmpty();
   }
 
@@ -534,43 +606,59 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
         .isEqualTo(Status.FAILED_PRECONDITION.getCode());
 
-    assertThat(fakeBesServer.getLifecycleEvents(BES_PROTO_UTIL.streamId(BUILD_ENQUEUED)))
-        .containsExactly(BES_PROTO_UTIL.buildEnqueued(COMMAND_START_TIME));
+    assertThat(
+            fakeBesServer.getLifecycleEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BUILD_ENQUEUED)))
+        .containsExactly(
+            BuildEventServiceProtoUtil.buildEnqueued(COMMAND_CONTEXT, COMMAND_START_TIME));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void lifecycleEventsAreRetried() throws Exception {
-    Timestamp invocationStartedTimestamp = Timestamps.fromMillis(clock.advanceMillis(750L));
+    clock.advanceMillis(750L);
+    Instant invocationStartedTimestamp = clock.now();
     fakeBesServer.setLifecycleEventPredicateAndResponseStatus(
         everyEventFailsOnce(), Status.UNAVAILABLE);
 
     BuildEventServiceTransport transport =
         newBuildEventServiceTransport(/*publishLifecycleEvents=*/ true);
-    Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(250L));
+    clock.advanceMillis(250L);
+    Instant timestamp = clock.now();
     transport.close().get();
 
     // all  build lifecycle events
-    assertThat(fakeBesServer.getLifecycleEvents(BES_PROTO_UTIL.streamId(BUILD_ENQUEUED)))
+    assertThat(
+            fakeBesServer.getLifecycleEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BUILD_ENQUEUED)))
         .containsExactly(
-            BES_PROTO_UTIL.buildEnqueued(COMMAND_START_TIME),
-            BES_PROTO_UTIL.buildEnqueued(COMMAND_START_TIME),
-            BES_PROTO_UTIL.buildFinished(timestamp, UNKNOWN_STATUS),
-            BES_PROTO_UTIL.buildFinished(timestamp, UNKNOWN_STATUS))
+            BuildEventServiceProtoUtil.buildEnqueued(COMMAND_CONTEXT, COMMAND_START_TIME),
+            BuildEventServiceProtoUtil.buildEnqueued(COMMAND_CONTEXT, COMMAND_START_TIME),
+            BuildEventServiceProtoUtil.buildFinished(
+                COMMAND_CONTEXT, timestamp, InvocationStatus.UNKNOWN),
+            BuildEventServiceProtoUtil.buildFinished(
+                COMMAND_CONTEXT, timestamp, InvocationStatus.UNKNOWN))
         .inOrder();
 
     // all invocation lifecycle events
     assertThat(
-            fakeBesServer.getLifecycleEvents(BES_PROTO_UTIL.streamId(INVOCATION_ATTEMPT_STARTED)))
+            fakeBesServer.getLifecycleEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, INVOCATION_ATTEMPT_STARTED)))
         .containsExactly(
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp),
-            BES_PROTO_UTIL.invocationStarted(invocationStartedTimestamp),
-            BES_PROTO_UTIL.invocationFinished(timestamp, UNKNOWN_STATUS),
-            BES_PROTO_UTIL.invocationFinished(timestamp, UNKNOWN_STATUS))
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp),
+            BuildEventServiceProtoUtil.invocationStarted(
+                COMMAND_CONTEXT, invocationStartedTimestamp),
+            BuildEventServiceProtoUtil.invocationFinished(
+                COMMAND_CONTEXT, timestamp, InvocationStatus.UNKNOWN),
+            BuildEventServiceProtoUtil.invocationFinished(
+                COMMAND_CONTEXT, timestamp, InvocationStatus.UNKNOWN))
         .inOrder();
 
     // All event stream.
-    assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
-        .containsExactly(BES_PROTO_UTIL.streamFinished(1, timestamp));
+    assertThat(
+            fakeBesServer.getStreamEvents(
+                BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT)))
+        .containsExactly(BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 1));
   }
 
   /**
@@ -652,7 +740,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                         file2, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null))));
 
     List<PublishBuildToolEventStreamRequest> events =
-        fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT));
+        fakeBesServer.getStreamEvents(
+            BuildEventServiceProtoUtil.streamId(COMMAND_CONTEXT, BAZEL_EVENT));
 
     Any anyEvent = events.get(2).getOrderedBuildEvent().getEvent().getBazelEvent();
     BuildEventStreamProtos.BuildEvent buildEvent =
@@ -874,8 +963,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
         .localFileUploader(
             artifactUploader != null ? artifactUploader : new LocalFilesArtifactUploader())
         .bepOptions(Options.getDefaults(BuildEventProtocolOptions.class))
-        .besProtoUtil(BES_PROTO_UTIL)
         .clock(clock)
+        .commandContext(COMMAND_CONTEXT)
         .commandStartTime(COMMAND_START_TIME)
         .build();
   }

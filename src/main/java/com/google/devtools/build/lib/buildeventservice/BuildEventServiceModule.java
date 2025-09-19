@@ -81,11 +81,11 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.util.JsonFormat.TypeRegistry;
-import com.google.protobuf.util.Timestamps;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.List;
@@ -778,31 +778,30 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return null;
     }
 
-    BuildEventServiceProtoUtil besProtoUtil =
-        new BuildEventServiceProtoUtil(
-            CommandContext.builder()
-                .setBuildId(buildRequestId)
-                .setInvocationId(invocationId)
-                .setAttemptNumber(cmdEnv.getAttemptNumber())
-                .setKeywords(
-                    getBesKeywords(
-                        cmdEnv.getCommandName(),
-                        besOptions,
-                        cmdEnv.getRuntime().getStartupOptionsProvider()))
-                .setProjectId(besOptions.instanceName)
-                .setCheckPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
-                .build());
+    CommandContext commandContext =
+        CommandContext.builder()
+            .setBuildId(buildRequestId)
+            .setInvocationId(invocationId)
+            .setAttemptNumber(cmdEnv.getAttemptNumber())
+            .setKeywords(
+                getBesKeywords(
+                    cmdEnv.getCommandName(),
+                    besOptions,
+                    cmdEnv.getRuntime().getStartupOptionsProvider()))
+            .setProjectId(besOptions.instanceName)
+            .setCheckPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
+            .build();
 
     return new BuildEventServiceTransport.Builder()
         .localFileUploader(uploaderSupplier.get())
         .besClient(besClient)
         .besOptions(besOptions)
-        .besProtoUtil(besProtoUtil)
         .artifactGroupNamer(artifactGroupNamer)
         .bepOptions(bepOptions)
         .clock(cmdEnv.getRuntime().getClock())
         .eventBus(cmdEnv.getEventBus())
-        .commandStartTime(Timestamps.fromMillis(cmdEnv.getCommandStartTime()))
+        .commandContext(commandContext)
+        .commandStartTime(Instant.ofEpochMilli(cmdEnv.getCommandStartTime()))
         .build();
   }
 
