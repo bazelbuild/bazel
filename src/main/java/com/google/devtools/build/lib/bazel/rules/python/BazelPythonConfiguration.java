@@ -82,7 +82,7 @@ public class BazelPythonConfiguration extends Fragment {
 
   @StarlarkConfigurationField(
       name = "python_top",
-      doc = "Deprecated. Always returns None. Use toolchain resolution instead."
+      doc = "Deprecated. Always returns None. Use toolchain resolution instead.")
   public Label getPythonTop() {
     return null;
   }
