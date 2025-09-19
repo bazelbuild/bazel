@@ -171,6 +171,44 @@ public final class ConfiguredTargetFactory {
     return null;
   }
 
+  @Nullable
+  private static TransitiveInfoCollection findTransitiveVisibilityPrerequisite(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
+    for (ConfiguredTargetAndData prerequisite :
+        prerequisiteMap.get(DependencyKind.TRANSITIVE_VISIBILITY_DEPENDENCY)) {
+      // Just return the first one.
+      if (prerequisite.getTargetLabel().equals(label) && prerequisite.getConfiguration() == null) {
+        return prerequisite.getConfiguredTarget();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private PackageSpecificationProvider getTransitiveVisibilityForCurrentPackage(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      EventHandler reporter,
+      Target target) {
+
+    Label tvLabel = target.getPackageDeclarations().getPackageArgs().transitiveVisibility();
+    TransitiveInfoCollection prerequisite =
+        findTransitiveVisibilityPrerequisite(prerequisiteMap, tvLabel);
+    if (prerequisite == null) {
+      return null;
+    }
+    PackageSpecificationProvider provider =
+        prerequisite.getProvider(PackageSpecificationProvider.class);
+    if (provider == null) {
+      reporter.handle(
+          Event.error(
+              target.getLocation(),
+              String.format(
+                  "Label '%s' in transitive_visibility does not refer to a package group",
+                  tvLabel)));
+    }
+    return provider;
+  }
+
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
    *
@@ -231,9 +269,14 @@ public final class ConfiguredTargetFactory {
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageGroupContents> visibility =
         convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target);
-    Label transitiveVisibility =
-        config != null && config.enforceTransitiveVisibility()
-            ? getTransitiveVisibility(target)
+    // For InputFiles, we're not gating on --experimental_enforce_transitive_visibility because they
+    // have no config, so we can't check whether --experimental_enforce_transitive_visibility is
+    // set. Some unnecessary memory cost here, but no enforcement because we'll also check for the
+    // flag where the provider is read.
+    PackageSpecificationProvider transitiveVisibility =
+        (config != null && config.enforceTransitiveVisibility()) || target instanceof InputFile
+            ? getTransitiveVisibilityForCurrentPackage(
+                prerequisiteMap, analysisEnvironment.getEventHandler(), target)
             : null;
     if (target instanceof OutputFile outputFile) {
       TargetContext targetContext =
@@ -277,10 +320,7 @@ public final class ConfiguredTargetFactory {
               config,
               prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility,
-              getTransitiveVisibility(target)); // For InputFiles, we're not gating on
-      // --experimental_enforce_transitive_visibility because they have no config, so we can't check
-      // whether --experimental_enforce_transitive_visibility is set. Some unnecessary memory cost
-      // here, but no enforcement because we'll also check for the flag where the provider is read.
+              transitiveVisibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
@@ -311,11 +351,6 @@ public final class ConfiguredTargetFactory {
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }
-  }
-
-  @Nullable
-  private Label getTransitiveVisibility(Target target) {
-    return target.getPackageDeclarations().getPackageArgs().transitiveVisibility();
   }
 
   /**
@@ -355,7 +390,9 @@ public final class ConfiguredTargetFactory {
             .setMaterializerTargets(materializerTargets)
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
-            .setTransitiveVisibility(getTransitiveVisibility(rule))
+            .setTransitiveVisibilityImposedByThisPackage(
+                getTransitiveVisibilityForCurrentPackage(
+                    prerequisiteMap, env.getEventHandler(), rule))
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(

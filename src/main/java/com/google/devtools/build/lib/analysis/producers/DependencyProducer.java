@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.TRANSITIVE_VISIBILITY_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.getExecutionPlatformLabel;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
@@ -145,6 +146,10 @@ final class DependencyProducer
     if (kind == VISIBILITY_DEPENDENCY
         || (attribute != null && attribute.getName().equals("visibility"))) {
       // This is always a null transition because visibility targets are not configurable.
+      return computePrerequisites(
+          AttributeConfiguration.ofVisibility(), /* executionPlatformLabel= */ null);
+    }
+    if (kind == TRANSITIVE_VISIBILITY_DEPENDENCY) {
       return computePrerequisites(
           AttributeConfiguration.ofVisibility(), /* executionPlatformLabel= */ null);
     }

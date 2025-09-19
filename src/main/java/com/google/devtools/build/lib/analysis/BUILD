@@ -77,6 +77,7 @@ java_library(
         "TargetCompleteEvent.java",
         "TargetContext.java",
         "TopLevelArtifactHelper.java",
+        "TransitiveVisibilityProvider.java",
         "Util.java",
         "WindowsBatchCommandConstructor.java",
         "WindowsPowershellCommandConstructor.java",
@@ -204,7 +205,6 @@ java_library(
         ":transitive_info_provider_map",
         ":transitive_info_provider_map_builder",
         ":transitive_info_provider_map_impl",
-        ":transitive_visibility_provider",
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib:runtime/build_event_streamer_utils",
@@ -1167,17 +1167,6 @@ java_library(
     deps = [
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "transitive_visibility_provider",
-    srcs = ["TransitiveVisibilityProvider.java"],
-    deps = [
-        ":transitive_info_provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

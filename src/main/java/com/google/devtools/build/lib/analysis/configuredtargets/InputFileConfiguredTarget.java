@@ -19,9 +19,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveVisibilityProvider;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
@@ -44,13 +44,13 @@ import net.starlark.java.eval.Printer;
 public final class InputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final boolean isCreatedInSymbolicMacro;
-  private final Label transitiveVisibility;
+  private final PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
 
   public InputFileConfiguredTarget(TargetContext targetContext, SourceArtifact artifact) {
     this(
         targetContext.getAnalysisEnvironment().getOwner(),
         targetContext.getVisibility(),
-        targetContext.getTransitiveVisibility(),
+        targetContext.getTransitiveVisibilityImposedByThisPackage(),
         artifact,
         targetContext.getTarget().isCreatedInSymbolicMacro());
     checkArgument(targetContext.getTarget() instanceof InputFile, targetContext.getTarget());
@@ -62,12 +62,12 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   InputFileConfiguredTarget(
       ActionLookupKey lookupKey,
       NestedSet<PackageGroupContents> visibility,
-      @Nullable Label transitiveVisibility,
+      @Nullable PackageSpecificationProvider transitiveVisibilityImposedByThisPackage,
       SourceArtifact artifact,
       boolean isCreatedInSymbolicMacro) {
     super(lookupKey, visibility, artifact);
     this.isCreatedInSymbolicMacro = isCreatedInSymbolicMacro;
-    this.transitiveVisibility = transitiveVisibility;
+    this.transitiveVisibilityImposedByThisPackage = transitiveVisibilityImposedByThisPackage;
   }
 
   @Override
@@ -83,9 +83,11 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   @Nullable
   @Override
   protected TransitiveVisibilityProvider createTransitiveVisibilityProvider() {
-    return transitiveVisibility == null
+    // The inputFile has no deps, so the transitive visibility is only imposed by its package.
+    return transitiveVisibilityImposedByThisPackage == null
         ? null
-        : TransitiveVisibilityProvider.create(ImmutableSet.of(transitiveVisibility));
+        : new TransitiveVisibilityProvider(
+            ImmutableSet.of(transitiveVisibilityImposedByThisPackage));
   }
 
   @Override

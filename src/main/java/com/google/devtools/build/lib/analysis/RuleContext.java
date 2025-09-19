@@ -220,7 +220,7 @@ public class RuleContext extends TargetContext
         builder.configuration,
         getDirectPrerequisites(builder.prerequisiteMap),
         builder.visibility,
-        builder.transitiveVisibility);
+        builder.transitiveVisibilityImposedByThisPackage);
     this.rule = builder.target.getAssociatedRule();
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.ruleClassProvider = builder.ruleClassProvider;
@@ -1459,7 +1459,7 @@ public class RuleContext extends TargetContext
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
-    @Nullable private Label transitiveVisibility;
+    @Nullable private PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
         baseTargetToolchainContexts;
@@ -1642,8 +1642,9 @@ public class RuleContext extends TargetContext
     }
 
     @CanIgnoreReturnValue
-    public Builder setTransitiveVisibility(@Nullable Label transitiveVisibility) {
-      this.transitiveVisibility = transitiveVisibility;
+    public Builder setTransitiveVisibilityImposedByThisPackage(
+        @Nullable PackageSpecificationProvider transitiveVisibility) {
+      this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
       return this;
     }
 

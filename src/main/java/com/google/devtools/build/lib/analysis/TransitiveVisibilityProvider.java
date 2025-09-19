@@ -14,30 +14,35 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 
 /**
- * Provides the transitive visibility labels that a target belongs to. If a target belongs to a
+ * Provides the transitive visibility groups that a target belongs to. If a target belongs to a
  * transitive visibility group, it may only be depended on by other targets that also belong to the
  * same group.
  */
-public interface TransitiveVisibilityProvider extends TransitiveInfoProvider {
-  /** Returns the set of transitive visibility labels for the target. */
-  @Nullable
-  ImmutableSet<Label> getTransitiveVisibility();
+public class TransitiveVisibilityProvider implements TransitiveInfoProvider {
+  @Nullable private final ImmutableSet<PackageSpecificationProvider> transitiveVisibility;
 
   /**
    * Creates a new {@link TransitiveVisibilityProvider} from a set of transitive visibility labels.
    */
-  static TransitiveVisibilityProvider create(ImmutableSet<Label> transitiveVisibility) {
-    return new TransitiveVisibilityProvider() {
-      @Override
-      @Nullable
-      public ImmutableSet<Label> getTransitiveVisibility() {
-        return transitiveVisibility;
-      }
-    };
+  public TransitiveVisibilityProvider(
+      ImmutableSet<PackageSpecificationProvider> transitiveVisibility) {
+    // We should only try to create a provider if there is a non-empty transitive visibility.
+    checkNotNull(transitiveVisibility);
+    checkArgument(!transitiveVisibility.isEmpty());
+
+    this.transitiveVisibility = transitiveVisibility;
+  }
+
+  /** Returns the set of transitive visibility groups for the target. */
+  @Nullable
+  ImmutableSet<PackageSpecificationProvider> getTransitiveVisibility() {
+    return transitiveVisibility;
   }
 }
