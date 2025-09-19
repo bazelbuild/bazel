@@ -295,6 +295,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
                       RootedPath.toRootedPath(
                           Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
               == null) {
+            // After returning here and upon the next entry into the compute() method, the repo
+            // contents cache will be checked again and now has a hit. The return below won't be
+            // reached in that case.
             return null;
           }
         }

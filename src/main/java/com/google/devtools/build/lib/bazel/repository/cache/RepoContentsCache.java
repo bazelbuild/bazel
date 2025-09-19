@@ -190,6 +190,10 @@ public final class RepoContentsCache {
     cacheRepoDir.getParentDirectory().createDirectoryAndParents();
     // Move the fetched marker file to a temp location, so that if following operations fail, both
     // the fetched repo and the cache locations are considered out-of-date.
+    // It is important for correctness that we do *not* keep the marker file around at its original
+    // location, even after successfully moving the repo into the cache: If the cache is deleted,
+    // then a different repo could have been fetched into the target directory of the symlink
+    // created below.
     Path temporaryMarker = ensureTrashDir().getChild(UUID.randomUUID().toString());
     FileSystemUtils.moveFile(fetchedRepoMarkerFile, temporaryMarker);
     // Now perform the move, and afterwards, restore the marker file.
