@@ -42,6 +42,7 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Option(
         name = "python_top",
+        defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "Deprecated. No-op.")
