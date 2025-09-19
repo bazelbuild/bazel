@@ -162,6 +162,12 @@ public final class BzlmodTestUtil {
     }
 
     @CanIgnoreReturnValue
+    public InterimModuleBuilder addFlagAlias(String nativeFlag, String starlarkFlag) {
+      this.builder.addFlagAlias(nativeFlag, starlarkFlag);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public InterimModuleBuilder addExtensionUsage(ModuleExtensionUsage value) {
       this.builder.addExtensionUsage(value);
       return this;
