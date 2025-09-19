@@ -160,11 +160,11 @@ public abstract class InterimModule extends ModuleBase {
 
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
 
-    abstract ImmutableList.Builder<String> flagAliasesBuilder();
+    abstract ImmutableMap.Builder<String, String> flagAliasesBuilder();
 
     @CanIgnoreReturnValue
     public final Builder addFlagAlias(String nativeName, String starlarkLabel) {
-      flagAliasesBuilder().add(String.format("%s=%s", nativeName, starlarkLabel));
+      flagAliasesBuilder().put(nativeName, starlarkLabel);
       return this;
     }
 

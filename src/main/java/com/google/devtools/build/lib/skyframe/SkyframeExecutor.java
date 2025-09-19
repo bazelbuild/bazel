@@ -3244,17 +3244,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    ImmutableList<String> flagAliases = evalResult.get(BazelDepGraphValue.KEY).getDepGraph().get(
-        ModuleKey.ROOT).getFlagAliases();
-    Map<String, String> aliasesMap = new HashMap<>();
+    ImmutableMap<String, String> flagAliases = evalResult.get(BazelDepGraphValue.KEY).getDepGraph().get(ModuleKey.ROOT).getFlagAliases();
+    LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
+
 
     if (flagAliases == null) {
       return aliasesMap;
     }
 
-    for (String alias : flagAliases) {
-      String[] split = alias.split("=");
-      aliasesMap.put(split[0], split[1]);
+    for (String flag : flagAliases.keySet()) {
+      aliasesMap.put(flag, flagAliases.get(flag));
     }
     return aliasesMap;
   }
