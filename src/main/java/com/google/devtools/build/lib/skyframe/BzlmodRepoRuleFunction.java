@@ -100,7 +100,6 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
           repoSpec.get(),
           repositoryName,
           /* originalName= */ null,
-          basicMainRepoMapping,
           starlarkSemantics,
           env);
     }
@@ -120,7 +119,6 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
           repoSpec.get(),
           repositoryName,
           /* originalName= */ null,
-          basicMainRepoMapping,
           starlarkSemantics,
           env);
     }
@@ -178,7 +176,6 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       RepoSpec repoSpec,
       RepositoryName repositoryName,
       @Nullable String originalName,
-      RepositoryMapping basicMainRepoMapping,
       StarlarkSemantics starlarkSemantics,
       Environment env)
       throws BzlmodRepoRuleFunctionException, InterruptedException {

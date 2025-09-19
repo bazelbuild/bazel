@@ -367,7 +367,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("foo:fu bar:ba");
     assertThat(result.get(skyKey).getModule().getGlobal("names"))
-        .isEqualTo("foo:+ext+foo bar:+ext+bar");
+        .isEqualTo("foo:_main~ext~foo bar:_main~ext~bar");
     assertThat(result.get(skyKey).getModule().getGlobal("original_names"))
         .isEqualTo("foo:foo bar:bar");
   }
@@ -2941,10 +2941,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(modulesRoot.getRelative("foo~v1.0/BUILD").getPathString());
     scratch.file(
         modulesRoot.getRelative("foo~v1.0/data.bzl").getPathString(),
-        "load('@data//:data.bzl',repo_data='data')",
+        "load('@data2//:data.bzl',repo_data='data')",
         "data=repo_data");
     scratch.file(
-        modulesRoot.getRelative("foo+1.0/names.bzl").getPathString(),
+        modulesRoot.getRelative("foo~v1.0/names.bzl").getPathString(),
         "load('@data2//:names.bzl',repo_names='names')",
         "names=repo_names");
     scratch.file(
@@ -2971,7 +2971,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("get up at 6am. go to bed at 11pm.");
     assertThat(result.get(skyKey).getModule().getGlobal("names"))
-        .isEqualTo("+_repo_rules+data1 foo++_repo_rules+data2");
+        .isEqualTo("_main~_repo_rules~data1 foo~~_repo_rules~data2");
     assertThat(result.get(skyKey).getModule().getGlobal("original_names")).isEqualTo("data1 data2");
   }
 
