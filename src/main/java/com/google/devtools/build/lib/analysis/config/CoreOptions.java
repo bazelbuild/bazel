@@ -86,15 +86,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public String sclConfig;
 
   @Option(
-      name = "incompatible_merge_genfiles_directory",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, the genfiles directory is folded into the bin directory.")
-  public boolean mergeGenfilesDirectory;
-
-  @Option(
       name = "experimental_exec_config",
       defaultValue = "@_builtins//:common/builtin_exec_platforms.bzl%bazel_exec_transition",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
