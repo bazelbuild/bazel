@@ -147,6 +147,37 @@ function tear_down() {
   rm -fr $TEST_TMPDIR/classes
 }
 
+
+function verify_code() {
+  local classpath="$1"
+  local class="$2"
+  local count="$3"
+
+  local expected=(
+    'Code:$'
+    'new.*class java/lang/UnsupportedOperationException$'
+    'dup$'
+    'invokespecial.*java/lang/UnsupportedOperationException\."<init>":()V$'
+    'athrow$'
+    '^\}*$'
+  )
+
+  lines=()
+  while IFS= read -r line; do
+      [ "$line" = "--" ] || lines+=("$line")
+  done < <($JAVAP -c -private -classpath $classpath $class | grep -A "$(( ${#expected[@]} - 1 ))" Code: || true)
+
+  check_eq "${#lines[@]}" "$(( $count * ${#expected[@]} ))" "Unexpected code length"
+
+  for i in $(seq $count); do
+      for j in $(seq 0 $(( ${#expected[@]} - 1 )) ); do
+          line="${lines[$(( ${#expected[@]} * (i - 1) + j ))]}"
+          count=$(echo "${line}" | grep -c "${expected[${j}]}" || true)
+          check_eq 1 $count "Unexpected code in interface jar: '$line'"
+      done
+  done
+}
+
 #### Tests
 function test_output_bigger_than_input() {
   # Tests that ijar does not crash when output ijar is bigger than the input jar
@@ -222,8 +253,7 @@ function test_ijar_output() {
   # Check that no code is found:
   lines=$($JAVAP -c -private -classpath $A_JAR A | grep -c Code: || true)
   check_eq 5 $lines "Input jar should have 5 method bodies!"
-  lines=$($JAVAP -c -private -classpath $A_INTERFACE_JAR A | grep -c Code: || true)
-  check_eq 0 $lines "Interface jar should have no method bodies!"
+  verify_code $A_INTERFACE_JAR A 3
 
   # Check that constants from code are no longer present:
   $JAVAP -c -private -classpath $A_JAR A | grep -sq foofoofoofoo ||
@@ -385,8 +415,8 @@ function test_invokedynamic() {
   $IJAR $INVOKEDYNAMIC_JAR $INVOKEDYNAMIC_IJAR || fail "ijar failed"
   lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_JAR ClassWithLambda | grep -c Code: || true)
   check_eq 4 $lines "Input jar should have 4 method bodies!"
-  lines=$($JAVAP -c -private -classpath $INVOKEDYNAMIC_IJAR ClassWithLambda | grep -c Code: || true)
-  check_eq 0 $lines "Interface jar should have no method bodies!"
+
+  verify_code $INVOKEDYNAMIC_IJAR ClassWithLambda 3
 }
 
 function test_object_class() {
@@ -547,8 +577,7 @@ function test_method_parameters_attribute() {
 function test_dynamic_constant() {
   $IJAR $DYNAMICCONSTANT_JAR $DYNAMICCONSTANT_IJAR || fail "ijar failed"
 
-  lines=$($JAVAP -c -private -classpath $DYNAMICCONSTANT_IJAR dynamicconstant.Test | grep -c Code: || true)
-  check_eq 0 $lines "Interface jar should have no method bodies!"
+  verify_code $DYNAMICCONSTANT_IJAR dynamicconstant.Test 2
 }
 
 function test_nestmates_attribute() {
