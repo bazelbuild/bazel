@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Comparator.comparingLong;
 
 import com.google.common.base.Preconditions;
@@ -121,18 +122,29 @@ public final class RepoContentsCache {
     Preconditions.checkState(path != null);
     Path entryDir = path.getRelative(predeclaredInputHash);
     try {
+      // Prefer more recently used cache entries over older ones. They're more likely to be
+      // up-to-date; plus, if a repo is force-fetched, we want to use the new repo instead of always
+      // being stuck with the old one. Since the inputs file is touched on use, we can just sort by
+      // mtime. This is slightly more complex than in runGc below as the files may be touched
+      // concurrently and we need to ensure that the equality relation is consistent.
+      var mtimes =
+          entryDir.getDirectoryEntries().stream()
+              .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
+              .collect(
+                  toImmutableMap(
+                      path -> path,
+                      path -> {
+                        try {
+                          return path.getLastModifiedTime();
+                        } catch (IOException e) {
+                          // If we can't read the mtime from the entry, it's broken and treated as
+                          // outdated.
+                          return 0L;
+                        }
+                      }));
       return entryDir.getDirectoryEntries().stream()
           .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-          // Prefer newer cache entries over older ones. They're more likely to be up-to-date; plus,
-          // if a repo is force-fetched, we want to use the new repo instead of always being stuck
-          // with the old one.
-          // To "prefer newer cache entries", we sort the entry file names by length DESC and then
-          // lexicographically DESC. This approximates sorting by converting to int and then DESC,
-          // but is defensive against non-numerically named entries.
-          .sorted(
-              Comparator.comparing((Path path) -> path.getBaseName().length())
-                  .thenComparing(Path::getBaseName)
-                  .reversed())
+          .sorted(Comparator.comparingLong(path -> mtimes.getOrDefault(path, 0L)).reversed())
           .map(CandidateRepo::fromRecordedInputsFile)
           .collect(toImmutableList());
     } catch (IOException e) {
@@ -194,7 +206,7 @@ public final class RepoContentsCache {
     return cacheRepoDir;
   }
 
-  public void acquireSharedLock() throws IOException {
+  public void acquireSharedLock() throws IOException, InterruptedException {
     Preconditions.checkState(path != null);
     Preconditions.checkState(sharedLock == null, "this process already has the shared lock");
     sharedLock = FileSystemLock.get(path.getRelative(LOCK_PATH), LockMode.SHARED);
