@@ -139,36 +139,23 @@ public class DirtinessCheckerUtils {
         throws IOException {
       var rootedPath = (RootedPath) skyKey.argument();
       var fileType = externalFilesHelper.getAndNoteFileType(rootedPath);
-      boolean cacheable = isCacheableType(fileType);
+      boolean cacheable = !fileType.mayBeModifiedByBazel();
       SkyValue newValue =
           checker.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
       if (Objects.equal(newValue, oldValue)) {
         return SkyValueDirtinessChecker.DirtyResult.notDirty();
       }
-      if (cacheable) {
-        return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
-      }
-      if (fileType == FileType.EXTERNAL_REPO) {
-        var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
+      if (fileType.mayBelongToExternalRepository()) {
+        var repositoryName = externalFilesHelper.getRepositoryName(rootedPath);
         if (repositoryName != null) {
           dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
         }
       }
-      // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
-      // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
-      // parsed. Similarly, output files might change during execution.
-      return SkyValueDirtinessChecker.DirtyResult.dirty();
+      return cacheable ? DirtyResult.dirtyWithNewValue(newValue) : DirtyResult.dirty();
     }
 
     Map<RepositoryName, RootedPath> getDirtyExternalRepos() {
       return Collections.unmodifiableMap(dirtyExternalRepos);
-    }
-
-    private static boolean isCacheableType(FileType fileType) {
-      return switch (fileType) {
-        case INTERNAL, EXTERNAL_OTHER, BUNDLED -> true;
-        case EXTERNAL_REPO, OUTPUT -> false;
-      };
     }
   }
 
