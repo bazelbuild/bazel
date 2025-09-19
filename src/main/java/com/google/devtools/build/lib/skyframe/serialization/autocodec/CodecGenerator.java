@@ -38,14 +38,14 @@ abstract class CodecGenerator {
 
   /** Creates the codec by delegating lower level implementation methods. */
   final TypeSpec defineCodec(
-      TypeElement encodedType, AutoCodec annotation, ExecutableElement instantiator)
+      TypeElement encodedType, AutoCodecAnnotation annotation, ExecutableElement instantiator)
       throws SerializationProcessingException {
     ImmutableList<FieldGenerator> fieldGenerators = getFieldGenerators(encodedType);
 
     TypeSpec.Builder classBuilder = initializeCodecClassBuilder(encodedType, env);
     TypeName encodedTypeName = getErasure(encodedType, env);
     performAdditionalCodecInitialization(
-        classBuilder, encodedTypeName, instantiator, fieldGenerators);
+        classBuilder, encodedType, instantiator, annotation, fieldGenerators);
 
     MethodSpec.Builder constructor = initializeConstructor(encodedType, fieldGenerators);
     MethodSpec.Builder serialize = initializeSerializeMethodBuilder(encodedType, annotation, env);
@@ -79,8 +79,9 @@ abstract class CodecGenerator {
    */
   abstract void performAdditionalCodecInitialization(
       TypeSpec.Builder classBuilder,
-      TypeName encodedTypeName,
+      TypeElement encodedType,
       ExecutableElement instantiator,
+      AutoCodecAnnotation annotation,
       List<? extends FieldGenerator> fieldGenerators);
 
   abstract void generateConstructorPreamble(

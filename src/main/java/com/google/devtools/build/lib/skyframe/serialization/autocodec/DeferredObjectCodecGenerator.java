@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Typ
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -34,9 +35,12 @@ import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
+import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
@@ -56,6 +60,12 @@ import javax.lang.model.util.Elements;
 
 /** Generates general purpose {@link AutoCodec} codecs using {@link DeferredObjectCodec}. */
 final class DeferredObjectCodecGenerator extends CodecGenerator {
+  /**
+   * If {@link AutoCodec#deserializedInterface()} is non-empty, this is the name of the class
+   * generated for deserialized objects. Note that this is a static nested class inside the
+   * generated codec class.
+   */
+  private static final String DESERIALIZED_CLASS_NAME = "Deserialized";
 
   /** Parameters of the constructor annotated by the codec, used to define the serialized fields. */
   private final List<? extends VariableElement> parameters;
@@ -88,13 +98,22 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
   @Override
   void performAdditionalCodecInitialization(
       TypeSpec.Builder classBuilder,
-      TypeName encodedTypeName,
+      TypeElement encodedType,
       ExecutableElement instantiator,
+      AutoCodecAnnotation annotation,
       List<? extends FieldGenerator> fieldGenerators) {
+    TypeName encodedTypeName = getErasure(encodedType, env);
     classBuilder
         .superclass(
             ParameterizedTypeName.get(ClassName.get(DeferredObjectCodec.class), encodedTypeName))
-        .addType(defineBuilder(encodedTypeName, fieldGenerators, instantiator));
+        .addType(defineBuilder(encodedTypeName, annotation, fieldGenerators, instantiator));
+    if (annotation.deserializedInterface().isPresent()) {
+      classBuilder
+          .addType(
+              defineDeserializedClass(
+                  encodedType, annotation.deserializedInterface().get(), instantiator))
+          .addMethod(defineAdditionalEncodedClassesMethod(encodedTypeName));
+    }
   }
 
   @Override
@@ -158,6 +177,7 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
   /** Defines a suitable {@link DeferredObjectCodec.DeferredValue} instance. */
   private TypeSpec defineBuilder(
       TypeName encodedTypeName,
+      AutoCodecAnnotation annotation,
       List<? extends FieldGenerator> fieldGenerators,
       ExecutableElement instantiator) {
     TypeSpec.Builder classBuilder =
@@ -211,7 +231,9 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
         fieldGenerators.stream()
             .map(generator -> generator.getParameterName().toString())
             .collect(joining(", "));
-    if (instantiator.getKind().equals(ElementKind.CONSTRUCTOR)) {
+    if (annotation.deserializedInterface().isPresent()) {
+      callMethod.addStatement("return new $L($L)", DESERIALIZED_CLASS_NAME, parameters);
+    } else if (instantiator.getKind().equals(ElementKind.CONSTRUCTOR)) {
       callMethod.addStatement("return new $T($L)", encodedTypeName, parameters);
     } else { // a factory method otherwise
       callMethod.addStatement(
@@ -302,5 +324,40 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
     }
     return findRelationWithGenerics(parameterType, method.getReturnType(), env)
         != Relation.UNRELATED_TO;
+  }
+
+  private static TypeSpec defineDeserializedClass(
+      TypeElement encodedType, TypeMirror deserializedInterface, ExecutableElement instantiator) {
+    MethodSpec constructor =
+        MethodSpec.constructorBuilder()
+            .addParameters(instantiator.getParameters().stream().map(ParameterSpec::get).toList())
+            .addStatement(
+                instantiator.getParameters().stream()
+                    .map(VariableElement::getSimpleName)
+                    .collect(joining(", ", "super(", ")")))
+            .build();
+    return TypeSpec.classBuilder(DESERIALIZED_CLASS_NAME)
+        .addModifiers(Modifier.STATIC)
+        .addTypeVariables(
+            encodedType.getTypeParameters().stream().map(TypeVariableName::get).toList())
+        .superclass(TypeName.get(encodedType.asType()))
+        .addSuperinterface(TypeName.get(deserializedInterface))
+        .addMethod(constructor)
+        .build();
+  }
+
+  private MethodSpec defineAdditionalEncodedClassesMethod(TypeName encodedTypeName) {
+    return MethodSpec.methodBuilder("additionalEncodedClasses")
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
+        .returns(
+            // The following is a really long way to write `ImmutableSet<Class<? extends T>>`
+            // where T is `encodedTypeName`.
+            ParameterizedTypeName.get(
+                ClassName.get(ImmutableSet.class),
+                ParameterizedTypeName.get(
+                    ClassName.get(Class.class), WildcardTypeName.subtypeOf(encodedTypeName))))
+        .addStatement("return $T.of($L.class)", ImmutableSet.class, DESERIALIZED_CLASS_NAME)
+        .build();
   }
 }

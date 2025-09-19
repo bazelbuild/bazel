@@ -13,17 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getGeneratedName;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getTypeMirror;
-import static java.util.Arrays.stream;
 
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
@@ -32,12 +27,10 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
-import java.util.List;
 import javax.annotation.processing.Generated;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeMirror;
 
 /** Methods that initialize generated type and method builders. */
@@ -67,7 +60,7 @@ class Initializers {
 
   /** Initializes the {@link ObjectCodec#serialize} method. */
   static MethodSpec.Builder initializeSerializeMethodBuilder(
-      TypeElement encodedType, AutoCodec annotation, ProcessingEnvironment env) {
+      TypeElement encodedType, AutoCodecAnnotation annotation, ProcessingEnvironment env) {
     MethodSpec.Builder builder =
         MethodSpec.methodBuilder("serialize")
             .addModifiers(Modifier.PUBLIC)
@@ -85,32 +78,10 @@ class Initializers {
     if (annotation.checkClassExplicitlyAllowed()) {
       builder.addStatement("context.checkClassExplicitlyAllowed(getEncodedClass(), obj)");
     }
-    List<? extends TypeMirror> explicitlyAllowedClasses;
-    try {
-      explicitlyAllowedClasses =
-          stream(annotation.explicitlyAllowClass())
-              .map(clazz -> getTypeMirror(clazz, env))
-              .collect(toImmutableList());
-    } catch (MirroredTypesException e) {
-      explicitlyAllowedClasses = e.getTypeMirrors();
-    }
-    for (TypeMirror explicitlyAllowedClass : explicitlyAllowedClasses) {
+    for (TypeMirror explicitlyAllowedClass : annotation.explicitlyAllowClass()) {
       builder.addStatement("context.addExplicitlyAllowedClass($T.class)", explicitlyAllowedClass);
     }
     return builder;
-  }
-
-  /** Initializes the {@link ObjectCodec#deserialize} method. */
-  static MethodSpec.Builder initializeDeserializeMethodBuilder(
-      TypeElement encodedType, ProcessingEnvironment env) {
-    return MethodSpec.methodBuilder("deserialize")
-        .addModifiers(Modifier.PUBLIC)
-        .returns(getErasure(encodedType, env))
-        .addAnnotation(Override.class)
-        .addException(SerializationException.class)
-        .addException(IOException.class)
-        .addParameter(DeserializationContext.class, "context")
-        .addParameter(CodedInputStream.class, "codedIn");
   }
 
   /** Defines the link {@link ObjectCodec#getEncodedClass} method. */

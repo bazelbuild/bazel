@@ -67,9 +67,11 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
   @Override
   void performAdditionalCodecInitialization(
       TypeSpec.Builder classBuilder,
-      TypeName encodedTypeName,
+      TypeElement encodedType,
       ExecutableElement internMethod,
+      AutoCodecAnnotation annotation,
       List<? extends FieldGenerator> unusedFieldGenerators) {
+    TypeName encodedTypeName = getErasure(encodedType, env);
     classBuilder.superclass(
         ParameterizedTypeName.get(ClassName.get(InterningObjectCodec.class), encodedTypeName));
 

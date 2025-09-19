@@ -94,9 +94,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   private void processInternal(RoundEnvironment roundEnv) throws SerializationProcessingException {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodec.class)) {
-      AutoCodec annotation = element.getAnnotation(AutoCodec.class);
+      var annotation = AutoCodecAnnotation.of(element.getAnnotation(AutoCodec.class), env);
       TypeElement encodedType = (TypeElement) element;
       ResolvedInstantiator instantiator = determineInstantiator(encodedType);
+      if (annotation.deserializedInterface().isPresent()) {
+        performChecksForDeserializedInterface(encodedType, instantiator);
+      }
       TypeSpec codecClass =
           switch (instantiator.kind()) {
             case CONSTRUCTOR, FACTORY_METHOD ->
@@ -113,14 +116,14 @@ public class AutoCodecProcessor extends AbstractProcessor {
   }
 
   private TypeSpec defineClassWithInstantiator(
-      TypeElement encodedType, ExecutableElement instantiator, AutoCodec annotation)
+      TypeElement encodedType, ExecutableElement instantiator, AutoCodecAnnotation annotation)
       throws SerializationProcessingException {
     return new DeferredObjectCodecGenerator(env, instantiator.getParameters())
         .defineCodec(encodedType, annotation, instantiator);
   }
 
   private TypeSpec defineClassWithInterner(
-      TypeElement encodedType, ExecutableElement interner, AutoCodec annotation)
+      TypeElement encodedType, ExecutableElement interner, AutoCodecAnnotation annotation)
       throws SerializationProcessingException {
     return new InterningObjectCodecGenerator(env).defineCodec(encodedType, annotation, interner);
   }
@@ -284,5 +287,28 @@ public class AutoCodecProcessor extends AbstractProcessor {
   /** Emits a note to BUILD log during annotation processing for debugging. */
   private void note(String note) {
     env.getMessager().printMessage(Diagnostic.Kind.NOTE, note);
+  }
+
+  private static void performChecksForDeserializedInterface(
+      TypeElement encodedType, ResolvedInstantiator instantiator)
+      throws SerializationProcessingException {
+    if (instantiator.kind() != CONSTRUCTOR) {
+      throw new SerializationProcessingException(
+          encodedType,
+          "An @AutoCodec-annotated class with deserializedInterface set must have a constructor"
+              + " as its Instantiator");
+    }
+    if (encodedType.getModifiers().contains(Modifier.FINAL)) {
+      throw new SerializationProcessingException(
+          encodedType,
+          "An @AutoCodec-annotated class with deserializedInterface set must not be final");
+    }
+    if (encodedType.getNestingKind().isNested()
+        && !encodedType.getModifiers().contains(Modifier.STATIC)) {
+      throw new SerializationProcessingException(
+          encodedType,
+          "An @AutoCodec-annotated class with deserializedInterface set must not be a non-static"
+              + " nested class");
+    }
   }
 }

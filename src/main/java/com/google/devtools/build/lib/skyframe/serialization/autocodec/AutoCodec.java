@@ -82,4 +82,16 @@ public @interface AutoCodec {
    * com.google.devtools.build.lib.skyframe.serialization.SerializationContext#addExplicitlyAllowedClass}.
    */
   Class<?>[] explicitlyAllowClass() default {};
+
+  /**
+   * An interface that the deserialized object must implement. If this is set, the deserialized
+   * object will be of a different class than the originally serialized object (that is, the class
+   * tagged by this annotation). This special class will be a subclass of the original and implement
+   * the given interface.
+   *
+   * <p>If this is set, the annotated class <em>must</em> have a constructor as its {@link
+   * Instantiator}, <em>must not</em> be final, and <em>must not</em> be a non-static nested class.
+   * (In other words, it must be trivially subclassable.)
+   */
+  Class<?> deserializedInterface() default void.class;
 }
