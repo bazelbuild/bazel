@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.util.function.Supplier;
 
 /** A factory that creates instances of SkyframeExecutor. */
 public interface SkyframeExecutorFactory {
@@ -50,6 +52,7 @@ public interface SkyframeExecutorFactory {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
       boolean allowExternalRepositories,
+      Supplier<Path> repoContentsCachePathSupplier,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter)
       throws AbruptExitException;

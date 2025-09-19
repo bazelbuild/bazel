@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Common utilities for dealing with paths outside the package roots. */
@@ -49,6 +50,7 @@ public class ExternalFilesHelper {
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
+  private final Supplier<Path> repoContentsCachePathSupplier;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
   private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
@@ -66,31 +68,40 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier,
       int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
+    this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return TestType.isInTest()
-        ? createForTesting(pkgLocator, externalFileAction, directories)
+        ? createForTesting(pkgLocator, externalFileAction, directories, repoContentsCachePath)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /* maxNumExternalFilesToLog= */ 100);
+            pkgLocator,
+            externalFileAction,
+            directories,
+            repoContentsCachePath,
+            /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
+        repoContentsCachePath,
         // These log lines are mostly spam during unit and integration tests.
         /* maxNumExternalFilesToLog= */ 0);
   }
@@ -207,7 +218,11 @@ public class ExternalFilesHelper {
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
     return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
+        pkgLocator,
+        externalFileAction,
+        directories,
+        repoContentsCachePathSupplier,
+        maxNumExternalFilesToLog);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
