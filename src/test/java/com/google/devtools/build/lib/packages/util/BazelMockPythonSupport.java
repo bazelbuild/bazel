@@ -133,13 +133,6 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
   }
 
   @Override
-  public String createPythonTopEntryPoint(MockToolsConfig config, String pyRuntimeLabel)
-      throws IOException {
-    // Under BazelPythonSemantics, we can simply set --python_top to be the py_runtime target.
-    return pyRuntimeLabel;
-  }
-
-  @Override
   public Runfiles.EmptyFilesSupplier getEmptyRunfilesSupplier() {
     return BazelPyBuiltins.GET_INIT_PY_FILES;
   }

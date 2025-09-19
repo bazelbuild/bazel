@@ -41,14 +41,4 @@ public class BazelPythonConfigurationTest extends ConfigurationTestCase {
         () -> create("--python_path=pajama"));
     assertThat(expected).hasMessageThat().contains("python_path must be an absolute path");
   }
-
-  @Test
-  public void legacyFlagsDeprecatedByPythonToolchains() throws Exception {
-    checkError(
-        "`--python_top` is disabled by `--incompatible_use_python_toolchains`",
-        "--python_top=//mypkg:my_py_runtime");
-    // TODO(#7901): Also test that --python_path is disallowed (once implemented). Currently we
-    // still need it to communicate the location of python.exe on Windows from the client to the
-    // server.
-  }
 }
