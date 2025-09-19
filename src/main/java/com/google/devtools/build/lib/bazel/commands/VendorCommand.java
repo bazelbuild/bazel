@@ -383,7 +383,7 @@ public final class VendorCommand implements BlazeCommand {
           vendorManager.vendorRegistryUrl(
               url,
               downloadManager.downloadAndReadOneUrlForBzlmod(
-                  url, env.getReporter(), clientEnvironmentSupplier.get(), checksum));
+                  url, clientEnvironmentSupplier.get(), checksum));
         } catch (IOException e) {
           throw new IOException(
               String.format(

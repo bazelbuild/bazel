@@ -23,6 +23,7 @@ import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -339,6 +340,15 @@ public interface SkyFunction {
      * events again after it is restarted. Note that if using {@link #getState} to prune work, the
      * function may need to store events in the {@link SkyKeyComputeState} so that they can be
      * replayed on a subsequent invocation.
+     *
+     * <p>The event handler returned by this method:
+     *
+     * <ul>
+     *   <li>is safe for concurrent use by multiple threads if all submitted events return <code>
+     *       false</code> for {@link Event#storeForReplay()} or only a single thread is used to
+     *       submit events that return {@code true}
+     *   <li>must not be used after {@link SkyFunction#compute} returns
+     * </ul>
      */
     ExtendedEventHandler getListener();
 

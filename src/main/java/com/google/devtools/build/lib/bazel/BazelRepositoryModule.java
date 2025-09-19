@@ -266,7 +266,8 @@ public class BazelRepositoryModule extends BlazeModule {
         new DownloadManager(
             repositoryCache.getDownloadCache(),
             env.getDownloaderDelegate(),
-            env.getHttpDownloader());
+            env.getHttpDownloader(),
+            env.getReporter());
     this.repositoryFetchFunction.setDownloadManager(downloadManager);
     this.moduleFileFunction.setDownloadManager(downloadManager);
     this.repoSpecFunction.setDownloadManager(downloadManager);
