@@ -46,14 +46,11 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \
-      --features=external_include_paths --host_features=external_include_paths \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_runtime_version=${JAVA_VERSION} \
       --java_language_version=${JAVA_VERSION} \
       --tool_java_runtime_version=${JAVA_VERSION} \
       --tool_java_language_version=${JAVA_VERSION} \
-      --cxxopt=-std=c++17 \
-      --host_cxxopt=-std=c++17 \
       --define=protobuf_allow_msvc=true \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
