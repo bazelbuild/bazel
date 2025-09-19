@@ -112,9 +112,9 @@ java_binary(
 )
 default_java_toolchain(
     name = "java_toolchain",
-    source_version = "17",
-    target_version = "17",
-    java_runtime = "@rules_java//toolchains:remotejdk_17",
+    source_version = "21",
+    target_version = "21",
+    java_runtime = "@rules_java//toolchains:remotejdk_21",
 )
 EOF
 
@@ -130,12 +130,12 @@ EOF
 
   bazel build //pkg:Main \
     --extra_toolchains=//pkg:java_toolchain_definition \
-    --java_language_version=17 \
-    --java_runtime_version=remotejdk_21 \
+    --java_language_version=21 \
+    --java_runtime_version=remotejdk_25 \
     &>"${TEST_log}" && fail "Expected build to fail"
 
-  expect_log "error: \[BazelJavaConfiguration\] The Java 17 runtime used to run javac is not " \
-    "recent enough to compile for the Java 21 runtime in external/remotejdk21_[a-z0-9]*\. Either " \
+  expect_log "error: \[BazelJavaConfiguration\] The Java 21 runtime used to run javac is not " \
+    "recent enough to compile for the Java 25 runtime in external/remotejdk25_[a-z0-9]*\. Either " \
     "register a Java toolchain with a newer java_runtime or specify a lower " \
     "--java_runtime_version\."
 }
@@ -161,9 +161,9 @@ genrule(
 )
 default_java_toolchain(
     name = "java_toolchain",
-    source_version = "17",
-    target_version = "17",
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
+    source_version = "21",
+    target_version = "21",
+    java_runtime = "@rules_java//toolchains:remotejdk_21",
 )
 EOF
 
@@ -179,12 +179,12 @@ EOF
 
   bazel build //pkg:gen \
     --extra_toolchains=//pkg:java_toolchain_definition \
-    --tool_java_language_version=17 \
-    --tool_java_runtime_version=remotejdk_21 \
+    --tool_java_language_version=21 \
+    --tool_java_runtime_version=remotejdk_25 \
     &>"${TEST_log}" && fail "Expected build to fail"
 
-  expect_log "error: \[BazelJavaConfiguration\] The Java 17 runtime used to run javac is not " \
-    "recent enough to compile for the Java 21 runtime in external/remotejdk21_[a-z0-9]*\. Either " \
+  expect_log "error: \[BazelJavaConfiguration\] The Java 21 runtime used to run javac is not " \
+    "recent enough to compile for the Java 25 runtime in external/remotejdk25_[a-z0-9]*\. Either " \
     "register a Java toolchain with a newer java_runtime or specify a lower " \
     "--tool_java_runtime_version\."
 }
