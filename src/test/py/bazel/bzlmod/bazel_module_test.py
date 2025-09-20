@@ -1093,6 +1093,43 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@ext//:all'])
     self.assertIn('DATA: ' + unicode_str, '\n'.join(stderr))
 
+  def testStrictLabelCasingEnforcement(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'use_repo(ext, "MyRepo", "myrepo")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'def repo_rule_impl(ctx):',
+            '  ctx.file("BUILD", "filegroup(name=\\"lib\\")")',
+            'repo_rule = repository_rule(implementation = repo_rule_impl)',
+            'def ext_impl(module_ctx):',
+            '  repo_rule(name = "MyRepo")',
+            '  repo_rule(name = "myrepo")',
+            'ext = module_extension(implementation = ext_impl)',
+        ],
+    )
+
+    # Test that with strict label casing enabled, the extension fails
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--incompatible_enforce_strict_label_casing', '@MyRepo//:lib'],
+        allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    stderr_text = '\n'.join(stderr)
+    self.assertIn(
+        "produced two repos 'MyRepo' and 'myrepo' that only differ in case",
+        stderr_text,
+    )
+
+    # Test that without the flag, it works (default behavior)
+    self.RunBazel(['build', '--noincompatible_enforce_strict_label_casing', '@MyRepo//:lib'])
+
 
 if __name__ == '__main__':
   absltest.main()

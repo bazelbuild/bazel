@@ -405,6 +405,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
   final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
       new AtomicReference<>(ImmutableSet.of());
+  final AtomicReference<Boolean> enforceStrictLabelCasing = new AtomicReference<>();
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   final AtomicReference<TimestampGranularityMonitor> tsgm = new AtomicReference<>();
   private final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
@@ -788,7 +789,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
-            deletedPackages, crossRepositoryLabelViolationStrategy, buildFilesByPriority));
+            deletedPackages,
+            crossRepositoryLabelViolationStrategy,
+            buildFilesByPriority,
+            enforceStrictLabelCasing));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.PROJECT, new ProjectFunction());
     map.put(SkyFunctions.PROJECT_FILES_LOOKUP, new ProjectFilesLookupFunction());
@@ -1660,6 +1664,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Sets the packages that should be treated as deleted and ignored. */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public abstract void setDeletedPackages(Iterable<PackageIdentifier> pkgs);
+
+  /**
+   * Sets whether the casing of labels (and thus packages) should be checked against the filesystem.
+   */
+  abstract void setEnforceStrictLabelCasing(boolean enforceStrictLabelCasing);
 
   /**
    * Prepares the evaluator for loading.
@@ -3037,6 +3046,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try (SilentCloseable c = Profiler.instance().profile("setDeletedPackages")) {
       setDeletedPackages(packageOptions.getDeletedPackages());
     }
+    setEnforceStrictLabelCasing(
+        options.getOptions(BuildLanguageOptions.class).enforceStrictLabelCasing);
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();

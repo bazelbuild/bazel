@@ -49,7 +49,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   private static final LinkOption[] NO_LINK_OPTION = new LinkOption[0];
   // This isn't generally safe; we rely on the file system APIs not modifying the array.
   private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
-      new LinkOption[] { LinkOption.NOFOLLOW_LINKS };
+      new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final Clock clock;
 
@@ -526,5 +526,17 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
+  }
+
+  @Override
+  protected PathFragment canonicalizeCase(PathFragment path) throws IOException {
+    var canonical =
+        PathFragment.create(
+            StringEncoding.platformToInternal(
+                getNioPath(path).toRealPath(NOFOLLOW_LINKS_OPTION).toString()));
+    if (canonical.segmentCount() != path.segmentCount()) {
+      throw new IOException("Unexpected case canonicalization: " + path + " -> " + canonical);
+    }
+    return canonical;
   }
 }
