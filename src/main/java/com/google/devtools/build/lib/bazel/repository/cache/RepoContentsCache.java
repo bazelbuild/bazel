@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Comparator.comparingLong;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.util.FileSystemLock;
@@ -31,7 +33,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -122,18 +123,29 @@ public final class RepoContentsCache {
     Preconditions.checkState(path != null);
     Path entryDir = path.getRelative(predeclaredInputHash);
     try {
+      // Prefer more recently used cache entries over older ones. They're more likely to be
+      // up-to-date; plus, if a repo is force-fetched, we want to use the new repo instead of always
+      // being stuck with the old one. Since the inputs file is touched on use, we can just sort by
+      // mtime. This is slightly more complex than in runGc below as the files may be touched
+      // concurrently and we need to ensure that the equality relation is consistent.
+      var mtimes =
+          entryDir.getDirectoryEntries().stream()
+              .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
+              .collect(
+                  toImmutableMap(
+                      path -> path,
+                      path -> {
+                        try {
+                          return path.getLastModifiedTime();
+                        } catch (IOException e) {
+                          // If we can't read the mtime from the entry, it's broken and treated as
+                          // outdated.
+                          return 0L;
+                        }
+                      }));
       return entryDir.getDirectoryEntries().stream()
           .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-          // Prefer newer cache entries over older ones. They're more likely to be up-to-date; plus,
-          // if a repo is force-fetched, we want to use the new repo instead of always being stuck
-          // with the old one.
-          // To "prefer newer cache entries", we sort the entry file names by length DESC and then
-          // lexicographically DESC. This approximates sorting by converting to int and then DESC,
-          // but is defensive against non-numerically named entries.
-          .sorted(
-              Comparator.comparing((Path path) -> path.getBaseName().length())
-                  .thenComparing(Path::getBaseName)
-                  .reversed())
+          .sorted(Comparator.comparingLong(path -> mtimes.getOrDefault(path, 0L)).reversed())
           .map(CandidateRepo::fromRecordedInputsFile)
           .collect(toImmutableList());
     } catch (IOException e) {
@@ -156,19 +168,37 @@ public final class RepoContentsCache {
    * @return the repo dir in the contents cache.
    */
   public Path moveToCache(
-      Path fetchedRepoDir, Path fetchedRepoMarkerFile, String predeclaredInputHash)
+      Path fetchedRepoDir,
+      RepositoryName repoName,
+      Path fetchedRepoMarkerFile,
+      String predeclaredInputHash)
       throws IOException, InterruptedException {
     Preconditions.checkState(path != null);
 
-    Path entryDir = path.getRelative(predeclaredInputHash);
-    String counter = getNextCounterInDir(entryDir);
-    Path cacheRecordedInputsFile = entryDir.getChild(counter + RECORDED_INPUTS_SUFFIX);
-    Path cacheRepoDir = entryDir.getChild(counter);
+    // Keep in sync with ExternalFilesHelper#getRepositoryName
+    Path entryDir = path.getRelative(repoName.getName() + '-' + predeclaredInputHash);
+    // The entry name needs to be unique across Bazel instances so that the repo cache supports
+    // concurrent operations for the same repo definition. It also has to be unique over time even
+    // when the repo contents cache directory is deleted since otherwise the following can happen:
+    // - Repo foo is fetched and moved into the repo contents cache under <cache>/<hash>/<name>.
+    // - The entire <cache> directory is deleted while the Bazel server is still alive.
+    // - On the next invocation, Skyframe FS diffing notices that <cache>/<hash>/<name> is missing
+    //   and marks it as non-existent.
+    // - Repo foo is refetched and moved into the repo contents cache under <cache>/<hash>/<name>.
+    // - FileStateFunction for that path incorrectly reuses the information that this path doesn't
+    //   exist.
+    String uniqueEntryName = UUID.randomUUID().toString();
+    Path cacheRecordedInputsFile = entryDir.getChild(uniqueEntryName + RECORDED_INPUTS_SUFFIX);
+    Path cacheRepoDir = entryDir.getChild(uniqueEntryName);
 
     cacheRepoDir.deleteTree();
     cacheRepoDir.getParentDirectory().createDirectoryAndParents();
     // Move the fetched marker file to a temp location, so that if following operations fail, both
     // the fetched repo and the cache locations are considered out-of-date.
+    // It is important for correctness that we do *not* keep the marker file around at its original
+    // location, even after successfully moving the repo into the cache: If the cache is deleted,
+    // then a different repo could have been fetched into the target directory of the symlink
+    // created below.
     Path temporaryMarker = ensureTrashDir().getChild(UUID.randomUUID().toString());
     FileSystemUtils.moveFile(fetchedRepoMarkerFile, temporaryMarker);
     // Now perform the move, and afterwards, restore the marker file.
@@ -183,27 +213,6 @@ public final class RepoContentsCache {
     fetchedRepoDir.deleteTree();
     FileSystemUtils.ensureSymbolicLink(fetchedRepoDir, cacheRepoDir);
     return cacheRepoDir;
-  }
-
-  private static String getNextCounterInDir(Path entryDir)
-      throws IOException, InterruptedException {
-    Path counterFile = entryDir.getRelative("counter");
-    // This use of FileSystemLock.get is safe since the predeclared input hash is part of entryDir's
-    // path and in particular includes the canonical repository name. This ensures that the same
-    // lock file will not be acquired concurrently by multiple threads, which isn't supported.
-    try (var lock = FileSystemLock.get(entryDir.getRelative("lock"), LockMode.EXCLUSIVE)) {
-      int c = 0;
-      if (counterFile.exists()) {
-        try {
-          c = Integer.parseInt(FileSystemUtils.readContent(counterFile, StandardCharsets.UTF_8));
-        } catch (NumberFormatException e) {
-          // ignored
-        }
-      }
-      String counter = Integer.toString(c + 1);
-      FileSystemUtils.writeContent(counterFile, StandardCharsets.UTF_8, counter);
-      return counter;
-    }
   }
 
   public void acquireSharedLock() throws IOException, InterruptedException {

@@ -697,6 +697,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       @Nullable RecordingDifferencer recordingDiffer,
       boolean allowExternalRepositories,
+      Supplier<Path> repoContentsCachePathSupplier,
       boolean globUnderSingleDep,
       Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
     // Strictly speaking, these arguments are not required for initialization, but all current
@@ -742,7 +743,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
-        ExternalFilesHelper.create(pkgLocator, externalFileAction, directories);
+        ExternalFilesHelper.create(
+            pkgLocator, externalFileAction, directories, repoContentsCachePathSupplier);
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
@@ -3799,7 +3801,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<Root> diffPackageRootsUnderWhichToCheck =
           getDiffPackageRootsUnderWhichToCheck(pathEntriesWithoutDiffInformation);
 
-      EnumSet<FileType> fileTypesToCheck = EnumSet.noneOf(FileType.class);
+      EnumSet<FileType> fileTypesToCheck = EnumSet.of(FileType.REPO_CONTENTS_CACHE_MUTABLE);
       Iterable<SkyValueDirtinessChecker> dirtinessCheckers = ImmutableList.of();
 
       if (!diffPackageRootsUnderWhichToCheck.isEmpty()) {
@@ -3810,7 +3812,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                     new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)));
       }
       if (checkExternalRepositoryFiles) {
-        fileTypesToCheck = EnumSet.of(FileType.EXTERNAL_REPO);
+        fileTypesToCheck =
+            EnumSet.of(FileType.EXTERNAL_REPO, FileType.REPO_CONTENTS_CACHE_IMMUTABLE);
       }
       if (checkExternalOtherFiles
           && (externalFilesKnowledge.tooManyExternalOtherFilesSeen
@@ -3821,12 +3824,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (checkOutputFiles) {
         fileTypesToCheck.add(FileType.OUTPUT);
       }
+      ExternalDirtinessChecker externalDirtinessChecker = null;
       if (!fileTypesToCheck.isEmpty()) {
+        externalDirtinessChecker =
+            new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck);
         dirtinessCheckers =
-            Iterables.concat(
-                dirtinessCheckers,
-                ImmutableList.of(
-                    new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck)));
+            Iterables.concat(dirtinessCheckers, ImmutableList.of(externalDirtinessChecker));
       }
       checkArgument(!Iterables.isEmpty(dirtinessCheckers));
 
@@ -3839,6 +3842,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             fsvc.getDirtyKeys(
                 memoizingEvaluator.getValues(),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
+      }
+      if (externalDirtinessChecker != null) {
+        recordingDiffer.invalidate(
+            externalFilesHelper.getExtraKeysToInvalidate(
+                externalDirtinessChecker.getDirtyExternalRepos(), eventHandler));
       }
       handleChangedFiles(
           diffPackageRootsUnderWhichToCheck,

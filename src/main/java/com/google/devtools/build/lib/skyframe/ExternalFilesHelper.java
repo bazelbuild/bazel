@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -23,19 +24,24 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
@@ -44,6 +50,7 @@ public class ExternalFilesHelper {
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
+  private final Supplier<Path> repoContentsCachePathSupplier;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
   private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
@@ -61,35 +68,43 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier,
       int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
+    this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return TestType.isInTest()
-        ? createForTesting(pkgLocator, externalFileAction, directories)
+        ? createForTesting(pkgLocator, externalFileAction, directories, repoContentsCachePath)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /*maxNumExternalFilesToLog=*/ 100);
+            pkgLocator,
+            externalFileAction,
+            directories,
+            repoContentsCachePath,
+            /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePath) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
+        repoContentsCachePath,
         // These log lines are mostly spam during unit and integration tests.
-        /*maxNumExternalFilesToLog=*/ 0);
+        /* maxNumExternalFilesToLog= */ 0);
   }
-
 
   /**
    * The action to take when an external path is encountered. See {@link FileType} for the
@@ -151,6 +166,10 @@ public class ExternalFilesHelper {
      */
     EXTERNAL_REPO,
 
+    REPO_CONTENTS_CACHE_MUTABLE,
+
+    REPO_CONTENTS_CACHE_IMMUTABLE,
+
     /**
      * None of the above. We encounter these paths when outputs, source files or external repos
      * symlink to files outside aforementioned Bazel-managed directories. For example, C compilation
@@ -161,11 +180,10 @@ public class ExternalFilesHelper {
   }
 
   /**
-   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see
-   * {@link ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
+   * Thrown by {@link #maybeHandleExternalFile} when an applicable path is processed (see {@link
+   * ExternalFileAction#ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS}.
    */
-  static class NonexistentImmutableExternalFileException extends Exception {
-  }
+  static class NonexistentImmutableExternalFileException extends Exception {}
 
   static class ExternalFilesKnowledge {
     final boolean anyOutputFilesSeen;
@@ -204,14 +222,14 @@ public class ExternalFilesHelper {
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
     return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
+        pkgLocator,
+        externalFileAction,
+        directories,
+        repoContentsCachePathSupplier,
+        maxNumExternalFilesToLog);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
-    return getFileTypeAndRepository(rootedPath).getFirst();
-  }
-
-  private Pair<FileType, RepositoryName> getFileTypeAndRepository(RootedPath rootedPath) {
     FileType fileType = detectFileType(rootedPath);
     if (fileType == FileType.EXTERNAL_OTHER) {
       if (externalOtherFilesSeen.size() >= MAX_EXTERNAL_FILES_TO_TRACK) {
@@ -226,7 +244,7 @@ public class ExternalFilesHelper {
     if (FileType.OUTPUT == fileType) {
       anyOutputFilesSeen = true;
     }
-    return Pair.of(fileType, null);
+    return fileType;
   }
 
   /**
@@ -254,6 +272,15 @@ public class ExternalFilesHelper {
         return FileType.OUTPUT;
       }
     }
+    var repoContentsCachePath = repoContentsCachePathSupplier.get();
+    if (repoContentsCachePath != null && rootedPath.asPath().startsWith(repoContentsCachePath)) {
+      if (rootedPath.asPath().asFragment().segmentCount()
+          <= repoContentsCachePath.asFragment().segmentCount() + 1) {
+        return FileType.REPO_CONTENTS_CACHE_MUTABLE;
+      } else {
+        return FileType.REPO_CONTENTS_CACHE_IMMUTABLE;
+      }
+    }
     return FileType.EXTERNAL_OTHER;
   }
 
@@ -267,9 +294,7 @@ public class ExternalFilesHelper {
   @ThreadSafe
   FileType maybeHandleExternalFile(RootedPath rootedPath, SkyFunction.Environment env)
       throws NonexistentImmutableExternalFileException, IOException, InterruptedException {
-    Pair<FileType, RepositoryName> pair = getFileTypeAndRepository(rootedPath);
-
-    FileType fileType = Preconditions.checkNotNull(pair.getFirst());
+    FileType fileType = Preconditions.checkNotNull(getAndNoteFileType(rootedPath));
     switch (fileType) {
       case BUNDLED:
       case INTERNAL:
@@ -278,7 +303,7 @@ public class ExternalFilesHelper {
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
           logger.atInfo().log("Encountered an external path %s", rootedPath);
         }
-        // fall through
+      // fall through
       case OUTPUT:
         if (externalFileAction
             == ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS) {
@@ -289,7 +314,7 @@ public class ExternalFilesHelper {
         Preconditions.checkState(
             externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             externalFileAction);
-        addExternalFilesDependencies(rootedPath, directories, env);
+        addExternalFilesDependencies(rootedPath, env);
         break;
     }
     return fileType;
@@ -306,25 +331,75 @@ public class ExternalFilesHelper {
    * the first place is through symlinks outside the package roots, which we neither want to
    * encourage nor optimize for since it is not common. So the set of external files is small.
    */
-  private static void addExternalFilesDependencies(
-      RootedPath rootedPath, BlazeDirectories directories, Environment env)
+  private void addExternalFilesDependencies(RootedPath rootedPath, Environment env)
       throws InterruptedException {
-    Path externalRepoDir =
-        directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
-    if (repositoryPath.isEmpty()) {
-      // We are the top of the repository path (<outputBase>/external), not in an actual external
-      // repository path.
-      return;
+    var repositoryName = getRepositoryName(rootedPath);
+    if (repositoryName != null) {
+      env.getValue(RepositoryDirectoryValue.key(repositoryName));
     }
-    RepositoryName repositoryName;
+  }
+
+  /**
+   * For a file of type {@link FileType#EXTERNAL_REPO}, returns the name of the external repository
+   * it is in or null if the path is not in a valid external repository.
+   */
+  @Nullable
+  RepositoryName getRepositoryName(RootedPath rootedPath) {
+    String repoName;
+    if (rootedPath.asPath().startsWith(getExternalDirectory())) {
+      PathFragment repositoryPath = rootedPath.asPath().relativeTo(getExternalDirectory());
+      if (repositoryPath.isEmpty()) {
+        // We are the top of the repository path (<outputBase>/external), not in an actual external
+        // repository path.
+        return null;
+      }
+      repoName = repositoryPath.getSegment(0);
+    } else {
+      PathFragment repoCachePath =
+          rootedPath.asPath().relativeTo(repoContentsCachePathSupplier.get());
+      if (repoCachePath.isEmpty()) {
+        // We are the top of the repo contents cache.
+        return null;
+      }
+      var firstSegment = repoCachePath.getSegment(0);
+      var lastDash = firstSegment.lastIndexOf('-');
+      if (lastDash <= 0) {
+        // The directory of a repository with an invalid name isn't referenced.
+        return null;
+      }
+      repoName = firstSegment.substring(0, lastDash);
+    }
     try {
-      repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
+      return RepositoryName.create(repoName);
     } catch (LabelSyntaxException ignored) {
-      // The directory of a repository with an invalid name can never exist, so we don't need to
-      // add a dependency on it.
-      return;
+      // The directory of a repository with an invalid name can never exist.
+      return null;
     }
-    env.getValue(RepositoryDirectoryValue.key(repositoryName));
+  }
+
+  Iterable<SkyKey> getExtraKeysToInvalidate(
+      Map<RepositoryName, RootedPath> dirtyExternalRepos, ExtendedEventHandler eventHandler) {
+    dirtyExternalRepos.forEach(
+        (repoName, file) -> {
+          eventHandler.handle(
+              Event.warn(
+                  """
+              Repository '%s' will be fetched again since the file '%s' has been modified \
+              externally. External modifications can lead to incorrect builds."""
+                      .formatted(repoName, file.getRootRelativePath())));
+          // Delete the marker file so that invalidating the RepositoryDirectoryValue actually
+          // causes a re-fetch of the repository.
+          try {
+            getExternalDirectory().getRelative(repoName.getMarkerFileName()).delete();
+          } catch (IOException e) {
+            // Any failure to delete the file should also make it non-readable, so we still achieve
+            // our goal of forcing a re-fetch of the repository.
+          }
+        });
+    return Iterables.transform(dirtyExternalRepos.keySet(), RepositoryDirectoryValue::key);
+  }
+
+  private Path getExternalDirectory() {
+    return directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
   }
 }

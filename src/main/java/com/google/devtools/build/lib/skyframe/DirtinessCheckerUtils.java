@@ -20,6 +20,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
@@ -29,8 +30,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** Utilities for checking dirtiness of keys (mainly filesystem keys) in the graph. */
@@ -101,9 +105,11 @@ public class DirtinessCheckerUtils {
     private final EnumSet<FileType> fileTypesToCheck;
 
     private final UnionDirtinessChecker checker = createBasicFilesystemDirtinessChecker();
+    private final ConcurrentHashMap<RepositoryName, RootedPath> dirtyExternalRepos =
+        new ConcurrentHashMap<>();
 
-    ExternalDirtinessChecker(ExternalFilesHelper externalFilesHelper,
-        EnumSet<FileType> fileTypesToCheck) {
+    ExternalDirtinessChecker(
+        ExternalFilesHelper externalFilesHelper, EnumSet<FileType> fileTypesToCheck) {
       this.externalFilesHelper = externalFilesHelper;
       this.fileTypesToCheck = fileTypesToCheck;
     }
@@ -131,12 +137,21 @@ public class DirtinessCheckerUtils {
         SyscallCache syscallCache,
         @Nullable TimestampGranularityMonitor tsgm)
         throws IOException {
-      FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
+      var rootedPath = (RootedPath) skyKey.argument();
+      var fileType = externalFilesHelper.getAndNoteFileType(rootedPath);
       boolean cacheable = isCacheableType(fileType);
       SkyValue newValue =
           checker.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
       if (Objects.equal(newValue, oldValue)) {
         return SkyValueDirtinessChecker.DirtyResult.notDirty();
+      }
+      if (fileType == FileType.EXTERNAL_REPO
+          || fileType == FileType.REPO_CONTENTS_CACHE_MUTABLE
+          || fileType == FileType.REPO_CONTENTS_CACHE_IMMUTABLE) {
+        var repositoryName = externalFilesHelper.getRepositoryName(rootedPath);
+        if (repositoryName != null) {
+          dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
+        }
       }
       if (cacheable) {
         return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
@@ -147,17 +162,15 @@ public class DirtinessCheckerUtils {
       return SkyValueDirtinessChecker.DirtyResult.dirty();
     }
 
+    Map<RepositoryName, RootedPath> getDirtyExternalRepos() {
+      return Collections.unmodifiableMap(dirtyExternalRepos);
+    }
+
     private static boolean isCacheableType(FileType fileType) {
-      switch (fileType) {
-        case INTERNAL:
-        case EXTERNAL_OTHER:
-        case BUNDLED:
-          return true;
-        case EXTERNAL_REPO:
-        case OUTPUT:
-          return false;
-      }
-      throw new AssertionError("Unknown type " + fileType);
+      return switch (fileType) {
+        case INTERNAL, EXTERNAL_OTHER, BUNDLED, REPO_CONTENTS_CACHE_IMMUTABLE -> true;
+        case EXTERNAL_REPO, OUTPUT, REPO_CONTENTS_CACHE_MUTABLE -> false;
+      };
     }
   }
 

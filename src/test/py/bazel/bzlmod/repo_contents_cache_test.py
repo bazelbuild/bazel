@@ -16,6 +16,7 @@
 
 import os
 import tempfile
+import shutil
 import time
 
 from absl.testing import absltest
@@ -389,6 +390,50 @@ class RepoContentsCacheTest(test_base.TestBase):
     # not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_b)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testRepoContentsCacheDeleted(self):
+    repo_contents_cache = self.ScratchDir('repo_contents_cache')
+    workspace = self.ScratchDir('workspace')
+
+    self.ScratchFile(
+      'workspace/MODULE.bazel',
+      [
+        'repo = use_repo_rule("//:repo.bzl", "repo")',
+        'repo(name = "my_repo")',
+      ],
+    )
+    self.ScratchFile('workspace/BUILD.bazel')
+    self.ScratchFile(
+      'workspace/repo.bzl',
+      [
+        'def _repo_impl(rctx):',
+        '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+        '  print("JUST FETCHED")',
+        '  return rctx.repo_metadata(reproducible=True)',
+        'repo = repository_rule(_repo_impl)',
+      ],
+    )
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(
+      ['build', '@my_repo//:haha', '--repo_contents_cache=%s' % repo_contents_cache],
+      cwd=workspace,
+    )
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Second fetch: cached
+    _, _, stderr = self.RunBazel(
+      ['build', '@my_repo//:haha', '--repo_contents_cache=%s' % repo_contents_cache],
+      cwd=workspace,
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Delete the entire repo contents cache and fetch again: not cached
+    shutil.rmtree(repo_contents_cache)
+    _, _, stderr = self.RunBazel(
+      ['build', '@my_repo//:haha', '--repo_contents_cache=%s' % repo_contents_cache],
+      cwd=workspace,
+    )
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
 
