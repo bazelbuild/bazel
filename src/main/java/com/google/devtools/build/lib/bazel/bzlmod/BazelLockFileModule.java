@@ -39,7 +39,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 /**
@@ -116,25 +115,20 @@ public class BazelLockFileModule extends BlazeModule {
     // transitive closure of the current build. Since extensions are potentially costly to evaluate,
     // this is seen as an advantage. Full reproducibility can be ensured by running 'bazel shutdown'
     // first if needed.
-    int maxNumExtensions = depGraphValue.getExtensionUsagesTable().rowMap().size();
-    // Presize conservatively to avoid blocking for resizing.
-    Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
-        new ConcurrentHashMap<>(maxNumExtensions);
-    executor
-        .getEvaluator()
-        .getInMemoryGraph()
-        .parallelForEach(
-            entry -> {
-              if (entry.isDone()
-                  && entry.getKey() instanceof SingleExtensionValue.EvalKey key
-                  // entry.getValue() can be null if the extension evaluation failed.
-                  && entry.getValue() instanceof SingleExtensionValue value
-                  // The innate extensions are implemented in Java and don't benefit from a lockfile
-                  // entry.
-                  && !key.argument().isInnate()) {
-                newExtensionInfos.put(key.argument(), value.lockFileInfo().get());
-              }
-            });
+    var newExtensionInfos =
+        new HashMap<ModuleExtensionId, LockFileModuleExtension.WithFactors>(
+            depGraphValue.getExtensionUsagesTable().rowKeySet().size());
+    var doneValues = evaluator.getDoneValues();
+    for (var extensionId : depGraphValue.getExtensionUsagesTable().rowKeySet()) {
+      if (extensionId.isInnate()) {
+        // The innate extensions are implemented in Java and don't benefit from a lockfile entry.
+        continue;
+      }
+      var value = (SingleExtensionValue) doneValues.get(SingleExtensionValue.evalKey(extensionId));
+      if (value != null) {
+        newExtensionInfos.put(extensionId, value.lockFileInfo().get());
+      }
+    }
 
     Thread updateLockfile =
         Thread.startVirtualThread(
