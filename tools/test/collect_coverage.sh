@@ -102,7 +102,7 @@ if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
   export GCOV_PREFIX_STRIP=3
 fi
 export GCOV_PREFIX="${COVERAGE_DIR}"
-export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
+export LLVM_PROFILE_FILE="${COVERAGE_DIR}/${BAZEL_LLVM_PROFILE_FILE:-%h-%p-%m.profraw}"
 if [[ -n "$LLVM_PROFILE_CONTINUOUS_MODE" ]]; then
   # %c enables continuous mode but expands out to nothing, so the position
   # within LLVM_PROFILE_FILE does not matter.
