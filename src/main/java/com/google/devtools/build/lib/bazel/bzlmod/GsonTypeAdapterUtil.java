@@ -20,6 +20,8 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SORTED_MAP;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -54,6 +56,21 @@ import javax.annotation.Nullable;
  */
 public final class GsonTypeAdapterUtil {
 
+  // This is needed because Bazel uses a custom String encoding internally, see StringEncoding for
+  // details.
+  public static final TypeAdapter<String> STRING_ADAPTER =
+      new TypeAdapter<>() {
+        @Override
+        public void write(JsonWriter jsonWriter, String s) throws IOException {
+          jsonWriter.value(internalToUnicode(s));
+        }
+
+        @Override
+        public String read(JsonReader jsonReader) throws IOException {
+          return unicodeToInternal(jsonReader.nextString());
+        }
+      };
+
   public static final TypeAdapter<Version> VERSION_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
@@ -64,7 +81,7 @@ public final class GsonTypeAdapterUtil {
         @Override
         public Version read(JsonReader jsonReader) throws IOException {
           Version version;
-          String versionString = jsonReader.nextString();
+          String versionString = unicodeToInternal(jsonReader.nextString());
           try {
             version = Version.parse(versionString);
           } catch (ParseException e) {
@@ -79,12 +96,12 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, ModuleKey moduleKey) throws IOException {
-          jsonWriter.value(moduleKey.toString());
+          jsonWriter.value(internalToUnicode(moduleKey.toString()));
         }
 
         @Override
         public ModuleKey read(JsonReader jsonReader) throws IOException {
-          String jsonString = jsonReader.nextString();
+          String jsonString = unicodeToInternal(jsonReader.nextString());
           try {
             return ModuleKey.fromString(jsonString);
           } catch (ParseException e) {
@@ -99,12 +116,12 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, Label label) throws IOException {
-          jsonWriter.value(label.getUnambiguousCanonicalForm());
+          jsonWriter.value(internalToUnicode(label.getUnambiguousCanonicalForm()));
         }
 
         @Override
         public Label read(JsonReader jsonReader) throws IOException {
-          return Label.parseCanonicalUnchecked(jsonReader.nextString());
+          return Label.parseCanonicalUnchecked(unicodeToInternal(jsonReader.nextString()));
         }
       };
 
@@ -112,12 +129,12 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, RepoRuleId repoRuleId) throws IOException {
-          jsonWriter.value(repoRuleId.toString());
+          jsonWriter.value(internalToUnicode(repoRuleId.toString()));
         }
 
         @Override
         public RepoRuleId read(JsonReader jsonReader) throws IOException {
-          String s = jsonReader.nextString();
+          String s = unicodeToInternal(jsonReader.nextString());
           int percent = s.indexOf('%');
           if (percent == -1) {
             return new RepoRuleId(null, s);
@@ -127,6 +144,7 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
+  // Repository names are always ASCII and thus don't require special encoding handling.
   public static final TypeAdapter<RepositoryName> REPOSITORY_NAME_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
@@ -146,12 +164,16 @@ public final class GsonTypeAdapterUtil {
         public void write(JsonWriter jsonWriter, ModuleExtensionId moduleExtId) throws IOException {
           String isolationKeyPart = moduleExtId.isolationKey().map(key -> "%" + key).orElse("");
           jsonWriter.value(
-              moduleExtId.bzlFileLabel() + "%" + moduleExtId.extensionName() + isolationKeyPart);
+              internalToUnicode(
+                  moduleExtId.bzlFileLabel()
+                      + "%"
+                      + moduleExtId.extensionName()
+                      + isolationKeyPart));
         }
 
         @Override
         public ModuleExtensionId read(JsonReader jsonReader) throws IOException {
-          String jsonString = jsonReader.nextString();
+          String jsonString = unicodeToInternal(jsonReader.nextString());
           var extIdParts = Splitter.on('%').splitToList(jsonString);
           Optional<ModuleExtensionId.IsolationKey> isolationKey;
           if (extIdParts.size() > 2) {
@@ -188,12 +210,12 @@ public final class GsonTypeAdapterUtil {
             @Override
             public void write(JsonWriter jsonWriter, ModuleExtensionEvalFactors extFactors)
                 throws IOException {
-              jsonWriter.value(extFactors.toString());
+              jsonWriter.value(internalToUnicode(extFactors.toString()));
             }
 
             @Override
             public ModuleExtensionEvalFactors read(JsonReader jsonReader) throws IOException {
-              return ModuleExtensionEvalFactors.parse(jsonReader.nextString());
+              return ModuleExtensionEvalFactors.parse(unicodeToInternal(jsonReader.nextString()));
             }
           };
 
@@ -202,12 +224,12 @@ public final class GsonTypeAdapterUtil {
         @Override
         public void write(JsonWriter jsonWriter, ModuleExtensionId.IsolationKey isolationKey)
             throws IOException {
-          jsonWriter.value(isolationKey.toString());
+          jsonWriter.value(internalToUnicode(isolationKey.toString()));
         }
 
         @Override
         public ModuleExtensionId.IsolationKey read(JsonReader jsonReader) throws IOException {
-          String jsonString = jsonReader.nextString();
+          String jsonString = unicodeToInternal(jsonReader.nextString());
           try {
             return ModuleExtensionId.IsolationKey.fromString(jsonString);
           } catch (ParseException e) {
@@ -361,13 +383,13 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, RepoRecordedInput.File value) throws IOException {
-          jsonWriter.value(value.toStringInternal());
+          jsonWriter.value(internalToUnicode(value.toStringInternal()));
         }
 
         @Override
         public RepoRecordedInput.File read(JsonReader jsonReader) throws IOException {
           return (RepoRecordedInput.File)
-              RepoRecordedInput.File.PARSER.parse(jsonReader.nextString());
+              RepoRecordedInput.File.PARSER.parse(unicodeToInternal(jsonReader.nextString()));
         }
       };
 
@@ -377,13 +399,14 @@ public final class GsonTypeAdapterUtil {
             @Override
             public void write(JsonWriter jsonWriter, RepoRecordedInput.Dirents value)
                 throws IOException {
-              jsonWriter.value(value.toStringInternal());
+              jsonWriter.value(internalToUnicode(value.toStringInternal()));
             }
 
             @Override
             public RepoRecordedInput.Dirents read(JsonReader jsonReader) throws IOException {
               return (RepoRecordedInput.Dirents)
-                  RepoRecordedInput.Dirents.PARSER.parse(jsonReader.nextString());
+                  RepoRecordedInput.Dirents.PARSER.parse(
+                      unicodeToInternal(jsonReader.nextString()));
             }
           };
 
@@ -393,13 +416,13 @@ public final class GsonTypeAdapterUtil {
             @Override
             public void write(JsonWriter jsonWriter, RepoRecordedInput.EnvVar value)
                 throws IOException {
-              jsonWriter.value(value.toStringInternal());
+              jsonWriter.value(internalToUnicode(value.toStringInternal()));
             }
 
             @Override
             public RepoRecordedInput.EnvVar read(JsonReader jsonReader) throws IOException {
               return (RepoRecordedInput.EnvVar)
-                  RepoRecordedInput.EnvVar.PARSER.parse(jsonReader.nextString());
+                  RepoRecordedInput.EnvVar.PARSER.parse(unicodeToInternal(jsonReader.nextString()));
             }
           };
 
@@ -426,6 +449,7 @@ public final class GsonTypeAdapterUtil {
       return typeAdapter;
     }
 
+    // Checksums are always ASCII and thus don't require special encoding handling.
     private static class OptionalChecksumTypeAdapter extends TypeAdapter<Optional<Checksum>> {
       // This value must not be a valid checksum string.
       private static final String NOT_FOUND_MARKER = "not found";
@@ -475,6 +499,7 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
         .registerTypeAdapterFactory(IMMUTABLE_TABLE)
+        .registerTypeAdapter(String.class, STRING_ADAPTER)
         .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRuleId.class, REPO_RULE_ID_TYPE_ADAPTER)
         .registerTypeAdapter(RepositoryName.class, REPOSITORY_NAME_TYPE_ADAPTER)
