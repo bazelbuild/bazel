@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -255,8 +256,8 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return true;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return OS.getCurrent() == OS.DARWIN;
   }
 
   @Override
@@ -427,7 +428,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   public void deleteTreesBelow(PathFragment dir) throws IOException {
-    if (isDirectory(dir, /*followSymlinks=*/ false)) {
+    if (isDirectory(dir, /* followSymlinks= */ false)) {
       long startTime = Profiler.nanoTimeMaybe();
       var comp = Blocker.begin();
       try {

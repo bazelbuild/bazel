@@ -455,8 +455,8 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return OS.getCurrent() != OS.WINDOWS;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return false;
   }
 
   @Override

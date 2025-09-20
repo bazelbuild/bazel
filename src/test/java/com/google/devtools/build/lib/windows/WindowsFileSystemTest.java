@@ -15,14 +15,17 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -34,9 +37,12 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.file.Files;
+import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
@@ -477,5 +483,45 @@ public class WindowsFileSystemTest {
   private static void assertNotWritable(Path path) throws Exception {
     assertThat(path.isWritable()).isFalse();
     assertThat(path.stat().getPermissions()).isEqualTo(0555);
+  }
+
+  @Test
+  public void testTypeViaReaddirCache(
+      @TestParameter({
+            "BUILD", "Å", "K", "Ａ", "ａ", "０", " 𝐀", "𝐴", "𝒜", "Ⅳ", "Ⓑ", "ẞ", "ß", "Ä", "İ", "ı"
+          })
+          String entry)
+      throws Exception {
+    var normalizedEntry =
+        Normalizer.normalize(entry, Normalizer.Form.NFC)
+            .toUpperCase(Locale.ROOT)
+            .toLowerCase(Locale.ROOT);
+    validateGetTypeConsistency(scratchRoot, entry, normalizedEntry);
+    validateGetTypeConsistency(scratchRoot, normalizedEntry, entry);
+  }
+
+  private void validateGetTypeConsistency(Path baseDir, String entryToCreate, String entryToCheck)
+      throws IOException {
+    baseDir.createDirectoryAndParents();
+    var dir = baseDir.createTempDirectory("readdir_cache-");
+    var pathToCreate = dir.getChild(StringEncoding.unicodeToInternal(entryToCreate));
+    FileSystemUtils.createEmptyFile(pathToCreate);
+
+    var syscallCache = DefaultSyscallCache.newBuilder().build();
+    // Prime the cache by reading the parent directory.
+    syscallCache.readdir(dir);
+    assertWithMessage("expecting entry %s to exist", entryToCreate)
+        .that(syscallCache.getType(pathToCreate, Symlinks.FOLLOW))
+        .isNotNull();
+
+    var pathToCheck = dir.getChild(StringEncoding.unicodeToInternal(entryToCheck));
+    var existsWithCache = syscallCache.getType(pathToCheck, Symlinks.FOLLOW) != null;
+    var existsWithoutCache = pathToCheck.statIfFound() != null;
+    assertWithMessage("created : %s", entryToCreate)
+        .withMessage("checking: %s", entryToCheck)
+        .withMessage("with cache: %s", existsWithCache)
+        .withMessage("w/o cache : %s", existsWithoutCache)
+        .that(existsWithCache)
+        .isEqualTo(existsWithoutCache);
   }
 }
