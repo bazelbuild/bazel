@@ -213,6 +213,13 @@ function test_zipper_permissions() {
   fi
 }
 
+function test_zipper_empty_file_list() {
+  local -r LOCAL_TEST_DIR="${TEST_TMPDIR}/${FUNCNAME[0]}"
+  mkdir -p ${LOCAL_TEST_DIR}/files
+  touch ${LOCAL_TEST_DIR}/empty_file_list.txt
+  ${ZIPPER} cC ${LOCAL_TEST_DIR}/output.zip @${LOCAL_TEST_DIR}/empty_file_list.txt
+}
+
 function test_unzipper_zip64_archive() {
   local -r test_dir="${TEST_TMPDIR}/${FUNCNAME[0]}"
   mkdir -p "${test_dir}"
