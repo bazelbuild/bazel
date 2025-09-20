@@ -45,20 +45,9 @@ public class CcRules implements RuleSet {
     builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
 
-    builder.addRuleDefinition(new EmptyRule("cc_toolchain") {});
     builder.addRuleDefinition(new EmptyRule("cc_toolchain_suite") {});
     builder.addRuleDefinition(new CcToolchainAliasRule());
     builder.addRuleDefinition(new CcLibcTopAlias());
-    builder.addRuleDefinition(new EmptyRule("cc_binary") {});
-    builder.addRuleDefinition(new EmptyRule("cc_shared_library") {});
-    builder.addRuleDefinition(new EmptyRule("cc_static_library") {});
-    builder.addRuleDefinition(new EmptyRule("cc_test") {});
-    builder.addRuleDefinition(new EmptyRule("cc_library") {});
-    builder.addRuleDefinition(new EmptyRule("cc_import") {});
-    builder.addRuleDefinition(new EmptyRule("fdo_profile") {});
-    builder.addRuleDefinition(new EmptyRule("fdo_prefetch_hints") {});
-    builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
-    builder.addRuleDefinition(new EmptyRule("propeller_optimize") {});
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
     builder.addStarlarkBootstrap(new CcBootstrap(bazelCcModule));
   }
