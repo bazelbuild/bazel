@@ -17,6 +17,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RamResourceConverter;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -117,6 +120,31 @@ public class ExecutionOptions extends OptionsBase {
               + " --strategy_regexp=Compiling=sandboxed will run 'Compiling //foo/bar/baz' with "
               + "the 'local' strategy, but reversing the order would run it with 'sandboxed'. ")
   public List<Map.Entry<RegexFilter, List<String>>> strategyByRegexp;
+
+  @Option(
+      name = "allowed_strategies_by_exec_platform",
+      allowMultiple = true,
+      converter = LabelToStringListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          """
+          Filters spawn strategies by the execution platform without affecting order.
+          For example:
+          ```
+          common --spawn_strategy=remote,sandboxed,worker,local
+          common --strategy=Genrule=local
+          common --allowed_strategies_by_exec_platform=@platforms//host:host=local,sandboxed,worker
+          common --allowed_strategies_by_exec_platform=//:linux_amd64=remote
+          ```
+          With the above options;
+          - Actions configured for the host platform will be given `remote,sandboxed,worker`.
+          - Actions configured for the `//:linux_amd64` platform will be given `remote`.
+          - Actions configured for the `//:linux_amd64` platform with mnemonic `Genrule` will be
+            given no strategies and fail to spawn.
+          """)
+  public List<Map.Entry<Label, List<String>>> allowedStrategiesByExecPlatform;
 
   @Option(
       name = "materialize_param_files",
@@ -639,6 +667,18 @@ public class ExecutionOptions extends OptionsBase {
     public ShowSubcommandsConverter() {
       super(
           ShowSubcommands.class, "subcommand option", ShowSubcommands.TRUE, ShowSubcommands.FALSE);
+    }
+  }
+
+  private static class LabelToStringListConverter extends AssignmentToListOfValuesConverter<Label, String> {
+
+    public LabelToStringListConverter() {
+        super(new LabelConverter(), new Converters.StringConverter(), AllowEmptyKeys.NO);
+    }
+
+    @Override
+    public String getTypeDescription() {
+        return "a '<Label>=value[,value]' assignment";
     }
   }
 }
