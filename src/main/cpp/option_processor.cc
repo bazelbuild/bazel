@@ -41,11 +41,6 @@
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/exit_code.h"
 
-// On OSX, there apparently is no header that defines this.
-#ifndef environ
-extern char **environ;
-#endif
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -531,7 +526,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
 
   parsed_blazercs_ = GetBlazercOptions(cwd, rc_file_ptrs);
   blazerc_and_env_command_args_ = GetBlazercAndEnvCommandArgs(
-      cwd, parsed_blazercs_, blaze::internal::GetProcessedEnv());
+      cwd, parsed_blazercs_, blaze::GetProcessedEnv());
   return blaze_exit_code::SUCCESS;
 }
 
