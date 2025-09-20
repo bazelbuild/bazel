@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  * up-to-date), the recorded inputs file has its mtime updated. Cached repos whose recorded inputs
  * file is older than {@code --repo_contents_cache_gc_max_age} are garbage collected.
  */
-public final class RepoContentsCache {
+public final class LocalRepoContentsCache {
   public static final String RECORDED_INPUTS_SUFFIX = ".recorded_inputs";
 
   /**
