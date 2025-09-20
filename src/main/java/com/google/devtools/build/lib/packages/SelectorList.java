@@ -279,8 +279,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     public Object select(Dict<?, ?> dict, String noMatchError, StarlarkThread thread)
         throws EvalException {
       // If this is not null, string keys in the dict will be resolved to Labels eagerly using the
-      // given context. This is unnecessary for BUILD files and packageContext will remain null in
-      // this case.
+      // given context.
       LabelConverter labelConverter = null;
       if (thread
           .getSemantics()
