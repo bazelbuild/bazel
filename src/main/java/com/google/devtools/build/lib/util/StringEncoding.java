@@ -148,13 +148,6 @@ public final class StringEncoding {
   private static final boolean SUN_JNU_ENCODING_IS_ISO_8859_1 =
       Charset.forName(System.getProperty("sun.jnu.encoding")).equals(ISO_8859_1);
 
-  /**
-   * This only exists for RemoteWorker, which uses JavaIoFileSystem with Unicode strings and thus
-   * shouldn't be subject to any reencoding.
-   */
-  private static final boolean BAZEL_UNICODE_STRINGS =
-      Boolean.getBoolean("bazel.internal.UnicodeStrings");
-
   private static boolean needsReencodeForPlatform(String s) {
     if (SUN_JNU_ENCODING_IS_ISO_8859_1 && OS.getCurrent() == OS.LINUX) {
       // In this case, platform strings encode raw bytes and are thus identical to internal strings.
@@ -165,7 +158,7 @@ public final class StringEncoding {
   }
 
   private static boolean needsReencodeForUnicode(String s) {
-    if (BAZEL_UNICODE_STRINGS) {
+    if (StringUnsafe.BAZEL_UNICODE_STRINGS) {
       return false;
     }
     return !StringUnsafe.isAscii(s);
