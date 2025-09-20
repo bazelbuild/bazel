@@ -57,7 +57,7 @@ public final class GraphBackedRecursivePackageProviderTest extends BuildViewTest
 
   @Test
   public void getBuildFile_eagerMacroExpansion() throws Exception {
-    scratch.file("pkg1/BUILD", "cc_library(name = 'foo')");
+    scratch.file("pkg1/BUILD", "java_library(name = 'foo')");
 
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo("pkg1");
     GraphBackedRecursivePackageProvider packageProvider =
@@ -72,7 +72,7 @@ public final class GraphBackedRecursivePackageProviderTest extends BuildViewTest
   public void getBuildFile_lazyMacroExpansion(@TestParameter boolean graphContainsFullPackage)
       throws Exception {
     setPackageOptions("--experimental_lazy_macro_expansion_packages=*");
-    scratch.file("pkg1/BUILD", "cc_library(name = 'foo')");
+    scratch.file("pkg1/BUILD", "java_library(name = 'foo')");
 
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo("pkg1");
     PackagePieceIdentifier.ForBuildFile packagePieceId =

@@ -115,8 +115,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -135,8 +137,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/inner_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
         inner_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -229,8 +233,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -249,6 +255,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "unrelated")
         """);
     getSkyframeExecutor()
@@ -268,11 +275,13 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
             # exceed max_computation_steps
             for i in range(1000):
                 pass
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
 
         my_macro = macro(implementation = _impl)
         """);
@@ -302,8 +311,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -323,8 +334,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -344,8 +357,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
             fail("fail fail fail")
         my_macro = macro(implementation = _impl)
         """);
@@ -362,12 +377,12 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     assertThat(((Rule) forMacro.getTarget("foo")).containsErrors()).isTrue();
     assertContainsEvent(
         """
-        ERROR /workspace/pkg/my_macro.bzl:3:9: Traceback (most recent call last):
+        ERROR /workspace/pkg/my_macro.bzl:5:9: Traceback (most recent call last):
         \tFile "/workspace/pkg/BUILD", line 2, column 9, in <toplevel>
         \t\tmy_macro(name = "foo")
-        \tFile "/workspace/pkg/my_macro.bzl", line 4, column 1, in my_macro
+        \tFile "/workspace/pkg/my_macro.bzl", line 6, column 1, in my_macro
         \t\tmy_macro = macro(implementation = _impl)
-        \tFile "/workspace/pkg/my_macro.bzl", line 3, column 9, in _impl
+        \tFile "/workspace/pkg/my_macro.bzl", line 5, column 9, in _impl
         \t\tfail("fail fail fail")
         Error in fail: fail fail fail\
         """);
@@ -391,19 +406,22 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/other_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _other_inner_macro_impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
         other_inner_macro = macro(implementation = _other_inner_macro_impl)
 
         def _other_macro_impl(name, visibility):
             other_inner_macro(name = name + "_c_inner", visibility = visibility)
-            native.cc_library(name = name + "_b", visibility = visibility)
+            cc_library(name = name + "_b", visibility = visibility)
             other_inner_macro(name = name + "_a_inner", visibility = visibility)
         other_macro = macro(implementation = _other_macro_impl)
         """);
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":my_finalizer.bzl", "my_finalizer")
         load(":other_macro.bzl", "other_macro")
         my_finalizer(name = "finalize")
@@ -432,6 +450,8 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/my_finalizer.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         # Dummy rule used to save native.existing_rules() keys in a string list attribute.
         _existing_rules_saver = rule(
             implementation = lambda ctx: [],
@@ -439,7 +459,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         )
 
         def _impl(name, visibility):
-            native.cc_library(name = name + "_dummy_rule")
+            cc_library(name = name + "_dummy_rule")
             _existing_rules_saver(name = name, existing_rules = list(native.existing_rules()))
         my_finalizer = macro(implementation = _impl, finalizer = True)
         """);
@@ -476,8 +496,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/fail_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            cc_library(name = name, visibility = visibility)
             fail("fail fail fail")
 
         fail_macro = macro(implementation = _impl)
@@ -485,6 +507,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":fail_macro.bzl", "fail_macro")
         load(":my_finalizer.bzl", "my_finalizer")
         my_finalizer(name = "finalize")
@@ -504,11 +527,11 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     assertContainsEventsInOrder(
         """
         Traceback (most recent call last):
-        \tFile "/workspace/pkg/BUILD", line 5, column 11, in <toplevel>
+        \tFile "/workspace/pkg/BUILD", line 6, column 11, in <toplevel>
         \t\tfail_macro(name = "failing_macro")
-        \tFile "/workspace/pkg/fail_macro.bzl", line 5, column 1, in fail_macro
+        \tFile "/workspace/pkg/fail_macro.bzl", line 7, column 1, in fail_macro
         \t\tfail_macro = macro(implementation = _impl)
-        \tFile "/workspace/pkg/fail_macro.bzl", line 3, column 9, in _impl
+        \tFile "/workspace/pkg/fail_macro.bzl", line 5, column 9, in _impl
         \t\tfail("fail fail fail")
         Error in fail: fail fail fail\
         """,
@@ -529,8 +552,10 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/name_conflict_macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, suffix, visibility):
-            native.cc_library(name = name + suffix, visibility = visibility)
+            cc_library(name = name + suffix, visibility = visibility)
 
         name_conflict_macro = macro(
             implementation = _impl,
@@ -540,6 +565,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":my_finalizer.bzl", "my_finalizer")
         load(":name_conflict_macro.bzl", "name_conflict_macro")
         my_finalizer(name = "finalize")
@@ -561,13 +587,13 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     assertContainsEventsInOrder(
         """
         Traceback (most recent call last):
-        \tFile "/workspace/pkg/BUILD", line 5, column 20, in <toplevel>
+        \tFile "/workspace/pkg/BUILD", line 6, column 20, in <toplevel>
         \t\tname_conflict_macro(name = "top", suffix = "_level_rule")
-        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 4, column 1, in name_conflict_macro
+        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 6, column 1, in name_conflict_macro
         \t\tname_conflict_macro = macro(
-        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 2, column 22, in _impl
-        \t\tnative.cc_library(name = name + suffix, visibility = visibility)
-        Error: cc_library rule 'top_level_rule' conflicts with existing cc_library rule, defined at /workspace/pkg/BUILD:4:11\
+        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 4, column 15, in _impl
+        \t\tcc_library(name = name + suffix, visibility = visibility)
+        Error: cc_library rule 'top_level_rule' conflicts with existing cc_library rule, defined at /workspace/pkg/BUILD:5:11\
         """,
         "cannot compute package piece for finalizer macro //pkg:finalize defined by"
             + " //pkg:my_finalizer.bzl%my_finalizer");

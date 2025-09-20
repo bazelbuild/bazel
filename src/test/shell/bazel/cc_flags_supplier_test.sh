@@ -57,6 +57,7 @@ function write_crosstool() {
 package(default_visibility = ["//visibility:public"])
 
 load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 cc_library(

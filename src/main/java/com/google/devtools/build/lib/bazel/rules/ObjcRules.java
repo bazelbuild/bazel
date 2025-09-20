@@ -39,8 +39,6 @@ public class ObjcRules implements RuleSet {
     // j2objc shouldn't be here!
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
 
-    builder.addRuleDefinition(new EmptyRule("objc_import") {});
-    builder.addRuleDefinition(new EmptyRule("objc_library") {});
     builder.addRuleDefinition(new EmptyRule("available_xcodes") {});
     builder.addRuleDefinition(new EmptyRule("xcode_config") {});
     builder.addRuleDefinition(new EmptyRule("xcode_config_alias") {});

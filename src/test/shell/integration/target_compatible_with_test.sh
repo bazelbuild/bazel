@@ -1088,6 +1088,7 @@ EOF
 # for https://github.com/bazelbuild/bazel/issues/12897.
 function test_incompatible_with_missing_toolchain() {
   set_up_custom_toolchain
+  add_rules_cc "MODULE.bazel"
   cat >> MODULE.bazel <<'EOF'
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'build_bazel_apple_support', path = 'build_bazel_apple_support')
@@ -1108,6 +1109,7 @@ load(
     "compiler_flag",
     "custom_binary",
 )
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
 
 objc_library(
     name = "objc",

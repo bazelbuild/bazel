@@ -278,7 +278,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testValidPackage(@TestParameter ComputationMode computationMode) throws Exception {
-    scratch.file("pkg/BUILD", "cc_library(name = 'foo')");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(name = 'foo')
+        """);
     preparePackageLoading(computationMode);
     Packageoid pkg = validPackageoidWithoutErrors("pkg");
     assertThat(pkg.getTargets()).containsKey("foo");
@@ -290,8 +295,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file(
         "pkg/macro.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def legacy(name, visibility = None, **kwargs):
-            native.cc_library(name = name, visibility = visibility, **kwargs)
+            cc_library(name = name, visibility = visibility, **kwargs)
 
         symbolic = macro(
             implementation = legacy,
@@ -354,7 +361,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.java_library(name = name, visibility = visibility)
             fail("fail fail fail")
         my_macro = macro(implementation = _impl)
         """);
@@ -400,8 +407,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         String.format(
             """
+            load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
             def _impl(name, visibility):
-                native.cc_library(name = name + "_bar")
+                cc_library(name = name + "_bar")
             my_macro = macro(implementation = _impl, finalizer = %s)
             """,
             inFinalizer ? "True" : "False"));
@@ -2121,10 +2130,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
       scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
           "tools/test_build_rules/test_prelude", //
-          "cc_library = 'FOO'");
+          "java_binary = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
-          "print(cc_library)");
+          "print(java_binary)");
 
       invalidatePackages();
 
@@ -2139,16 +2148,16 @@ public class PackageFunctionTest extends BuildViewTestCase {
           "tools/builtins_staging/exports.bzl",
           """
           exported_toplevels = {}
-          exported_rules = {"cc_library": "BAR"}
+          exported_rules = {"cc_toolchain_suite": "BAR"}
           exported_to_java = {}
           """);
       scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
           "tools/test_build_rules/test_prelude", //
-          "cc_library = 'FOO'");
+          "cc_toolchain_suite = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
-          "print(cc_library)");
+          "print(cc_toolchain_suite)");
 
       try {
         invalidatePackages();

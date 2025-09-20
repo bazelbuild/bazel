@@ -364,6 +364,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         genrule(
             name = "my_gen",
             srcs = ["x.in"],

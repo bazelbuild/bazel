@@ -803,8 +803,10 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         def _impl(name, visibility):
-            native.cc_binary(name = name + "_lib")
+            cc_binary(name = name + "_lib")
         my_macro = macro(implementation=_impl)
         def query():
             print("existing_rules() keys: %s" % native.existing_rules().keys())
@@ -828,8 +830,10 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         def _impl(name, visibility):
-            native.cc_binary(name = name + "_lib")
+            cc_binary(name = name + "_lib")
         my_macro = macro(implementation=_impl, finalizer=True)
         def query():
             print("existing_rules() keys: %s" % native.existing_rules().keys())
@@ -2042,18 +2046,21 @@ my_macro = macro(
     scratch.file(
         "pkg/inner_legacy_macro.bzl",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         def inner_legacy_macro(name, **kwargs):
-              native.cc_binary(name = name, **kwargs)
+              cc_binary(name = name, **kwargs)
         """);
     // my_macro is a symbolic macro that instantiates 2 cc_binary rules: one directly, and one
     // wrapped by cc_binary_legacy_macro.
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load(":inner_legacy_macro.bzl", "inner_legacy_macro")
 
         def _impl(name, visibility, **kwargs):
-            native.cc_binary(name = name + "_lib")
+            cc_binary(name = name + "_lib")
             inner_legacy_macro(name  = name + "_legacy_macro_lib")
 
         my_macro = macro(implementation = _impl)
@@ -2076,7 +2083,7 @@ my_macro = macro(
         .containsExactly(
             StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, foo.getBuildFileLocation()),
             StarlarkThread.callStackEntry(
-                "my_macro", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 7, 1)))
+                "my_macro", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 8, 1)))
         .inOrder();
 
     Rule fooLib = pkg.getRule("foo_lib");
@@ -2091,7 +2098,7 @@ my_macro = macro(
                 .addAll(foo.reconstructParentCallStack())
                 .add(
                     StarlarkThread.callStackEntry(
-                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 4, 21)))
+                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 5, 14)))
                 .build());
 
     Rule fooLegacyLib = pkg.getRule("foo_legacy_macro_lib");
@@ -2106,12 +2113,12 @@ my_macro = macro(
                 .addAll(foo.reconstructParentCallStack())
                 .add(
                     StarlarkThread.callStackEntry(
-                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 5, 23)))
+                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 6, 23)))
                 .add(
                     StarlarkThread.callStackEntry(
                         "inner_legacy_macro",
                         Location.fromFileLineColumn(
-                            "/workspace/pkg/inner_legacy_macro.bzl", 2, 23)))
+                            "/workspace/pkg/inner_legacy_macro.bzl", 4, 16)))
                 .build());
   }
 
@@ -2121,8 +2128,10 @@ my_macro = macro(
     scratch.file(
         "pkg/my_macro.bzl",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         def _impl(name, visibility, **kwargs):
-            native.cc_binary(name = name + "_bin")
+            cc_binary(name = name + "_bin")
 
         my_macro = macro(implementation = _impl)
         """);
@@ -2156,7 +2165,7 @@ my_macro = macro(
                 "legacy_nameless_wrapper",
                 Location.fromFileLineColumn("/workspace/pkg/legacy_nameless_wrapper.bzl", 4, 13)),
             StarlarkThread.callStackEntry(
-                "my_macro", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 4, 1)))
+                "my_macro", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 6, 1)))
         .inOrder();
 
     Rule fooBin = pkg.getRule("foo_bin");
@@ -2172,7 +2181,7 @@ my_macro = macro(
                 .addAll(foo.reconstructParentCallStack())
                 .add(
                     StarlarkThread.callStackEntry(
-                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 2, 21)))
+                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 4, 14)))
                 .build());
   }
 
@@ -2183,8 +2192,10 @@ my_macro = macro(
     scratch.file(
         "pkg/inner.bzl",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         def _inner_impl(name, visibility, **kwargs):
-            native.cc_binary(name = name, **kwargs)
+            cc_binary(name = name, **kwargs)
 
         inner_macro = macro(implementation = _inner_impl)
 
@@ -2239,9 +2250,9 @@ my_macro = macro(
                 "_outer_impl", Location.fromFileLineColumn("/workspace/pkg/outer.bzl", 4, 25)),
             StarlarkThread.callStackEntry(
                 "inner_legacy_wrapper",
-                Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 7, 16)),
+                Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 9, 16)),
             StarlarkThread.callStackEntry(
-                "inner_macro", Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 4, 1)))
+                "inner_macro", Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 6, 1)))
         .inOrder();
 
     Rule fooLib = pkg.getRule("foo_inner");
@@ -2258,7 +2269,7 @@ my_macro = macro(
                 .add(
                     StarlarkThread.callStackEntry(
                         "_inner_impl",
-                        Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 2, 21)))
+                        Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 4, 14)))
                 .build());
   }
 

@@ -421,8 +421,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility, target_suffix):
-            native.cc_library(name = name + "_" + target_suffix)
+            cc_library(name = name + "_" + target_suffix)
         my_macro = macro(
             implementation=_impl,
             attrs = {
@@ -3337,7 +3339,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         r = foo_rule(name = "foo")
 
         # Native rule should return None
-        c = cc_library(name = "cc")
+        c = java_library(name = "cc")
 
         foo_rule(
             name = "check",
@@ -4790,7 +4792,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
         my_binary = rule(
             implementation = _impl,
-            parent = native.cc_binary,
+            parent = native.java_binary,
         )
         """);
     scratch.file(

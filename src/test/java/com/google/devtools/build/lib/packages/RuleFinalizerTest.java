@@ -76,6 +76,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":foo.bzl", "my_finalizer")
         cc_library(name = "foo")
         my_finalizer(name = "abc", targets_of_interest = [":foo"])
@@ -113,6 +114,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":foo.bzl", "my_finalizer_outer")
         cc_library(name = "foo")
         my_finalizer_outer(name = "abc")
@@ -149,6 +151,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_finalizer")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "foo")
         my_finalizer(name = "abc")
         """);
@@ -199,6 +202,8 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         EXPECTED = [
             "top_level_lexically_before_finalizer",
             "macro_lexically_before_finalizer_inner_lib",
@@ -227,18 +232,18 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
             print("native.existing_rules and native.existing_rule are as expected")
 
         def _impl_macro(name, visibility):
-            native.cc_library(name = name + "_inner_lib")
+            cc_library(name = name + "_inner_lib")
 
         my_macro = macro(implementation = _impl_macro)
 
         def _impl_inner_finalizer(name, visibility):
-            native.cc_library(name = name + "_inner_lib")
+            cc_library(name = name + "_inner_lib")
             check_existing_rules()
 
         inner_finalizer = macro(implementation = _impl_inner_finalizer, finalizer = True)
 
         def _impl_finalizer(name, visibility):
-            native.cc_library(name = name + "_inner_lib")
+            cc_library(name = name + "_inner_lib")
             my_macro(name = name + "_inner_macro")
             inner_finalizer(name = name + "_inner_finalizer")
             check_existing_rules()
@@ -249,6 +254,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":foo.bzl", "my_finalizer", "my_macro")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "top_level_lexically_before_finalizer")
         my_macro(name = "macro_lexically_before_finalizer")
         my_finalizer(name = "finalizer")
@@ -268,9 +274,11 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/finalizers.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _impl(name, visibility):
             print("in my_finalizer")
-            native.cc_library(name = name + "_lib")
+            cc_library(name = name + "_lib")
 
         my_finalizer = macro(implementation = _impl, finalizer = True)
         """);
@@ -278,6 +286,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
         "pkg/BUILD",
         """
         load(":finalizers.bzl", "my_finalizer")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         my_finalizer(name = "finalize")
         cc_library(name = 1 // 0)  # causes EvalException
         """);
@@ -297,11 +306,13 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/finalizers.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         def _fail_impl(name, visibility):
             fail("fail fail fail")
 
         def _good_impl(name, visibility):
-            native.cc_library(name = name + "_lib")
+            cc_library(name = name + "_lib")
 
         fail_finalizer = macro(implementation = _fail_impl, finalizer = True)
         good_finalizer = macro(implementation = _good_impl, finalizer = True)
@@ -309,6 +320,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":finalizers.bzl", "fail_finalizer", "good_finalizer")
         good_finalizer(name = "good_finalizer")
         fail_finalizer(name = "bad_finalizer")

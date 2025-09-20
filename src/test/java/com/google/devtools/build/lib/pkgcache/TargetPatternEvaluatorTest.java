@@ -79,11 +79,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Before
   public final void createFiles() throws Exception {
-    // TODO(ulfjack): Also disable the implicit C++ outputs in Google's internal version.
-    boolean hasImplicitCcOutputs =
-        ruleClassProvider.getRuleClassMap().get("cc_library").getDefaultImplicitOutputsFunction()
-            != SafeImplicitOutputsFunction.NONE;
-
     scratch.file("BUILD", "filegroup(name = 'fg', srcs = glob(['*.cc']))");
     scratch.file("foo.cc");
 
@@ -150,10 +145,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
             "//foo:foo1.cc",
             "//foo:foo1.h",
             "//foo:BUILD",
-            "//foo:baz/bang");
-    if (hasImplicitCcOutputs) {
-      targetsInFoo.addAll(labels("//foo:libfoo1.a", "//foo:libfoo1.so"));
-    }
+            "//foo:baz/bang",
+            "//foo:libfoo1.a",
+            "//foo:libfoo1.so");
     targetsInFooBar =
         labels(
             "//foo/bar:bar1",
@@ -163,10 +157,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
             "//foo/bar:wiz/all",
             "//foo/bar:baz",
             "//foo/bar:baz/bang",
-            "//foo/bar:undeclared.h");
-    if (hasImplicitCcOutputs) {
-      targetsInFooBar.addAll(labels("//foo/bar:libbar1.lo", "//foo/bar:libbar2.a"));
-    }
+            "//foo/bar:undeclared.h",
+            "//foo/bar:libbar1.lo",
+            "//foo/bar:libbar2.a");
     targetsBeneathFoo = Sets.newHashSet();
     targetsBeneathFoo.addAll(targetsInFoo);
     targetsBeneathFoo.addAll(targetsInFooBar);
@@ -179,10 +172,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
             "//otherrules:BUILD",
             "//otherrules:suite/somefile",
             "//otherrules:wiz",
-            "//otherrules:suite1");
-    if (hasImplicitCcOutputs) {
-      targetsInOtherrules.addAll(labels("//otherrules:libwiz.a"));
-    }
+            "//otherrules:suite1",
+            "//otherrules:libwiz.a");
   }
 
   private void invalidate(String file) throws InterruptedException, AbruptExitException {
