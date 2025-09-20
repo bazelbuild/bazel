@@ -164,10 +164,10 @@ def _impl(ctx):
   args.add("--foo", file)
 
   # Use format if you prefer ["--foo=<file path>"] to ["--foo", <file path>]
-  args.add(format="--foo=%s", value=file)
+  args.add(file, format="--foo=%s")
 
   # Bad, makes a giant string of a whole depset
-  args.add(" ".join(["-I%s" % file.short_path for file in files])
+  args.add(" ".join(["-I%s" % file.short_path for file in files.to_list()])
 
   # Good, only stores a reference to the depset
   args.add_all(files, format_each="-I%s", map_each=_to_short_path)
