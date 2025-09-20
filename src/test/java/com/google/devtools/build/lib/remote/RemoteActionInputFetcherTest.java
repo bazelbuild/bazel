@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -79,7 +80,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         tempPathGenerator,
         DUMMY_REMOTE_OUTPUT_CHECKER,
         ActionOutputDirectoryHelper.createForTesting(),
-        OutputPermissions.READONLY);
+        OutputPermissions.READONLY,
+        new RunfilesTreeUpdater(execRoot, SyscallCache.NO_CACHE));
   }
 
   @Test
@@ -96,7 +98,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             tempPathGenerator,
             DUMMY_REMOTE_OUTPUT_CHECKER,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            new RunfilesTreeUpdater(execRoot, SyscallCache.NO_CACHE));
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
@@ -130,7 +133,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             tempPathGenerator,
             DUMMY_REMOTE_OUTPUT_CHECKER,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            new RunfilesTreeUpdater(execRoot, SyscallCache.NO_CACHE));
 
     // act
     wait(
