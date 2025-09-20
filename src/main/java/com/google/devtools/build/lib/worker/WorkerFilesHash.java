@@ -86,11 +86,9 @@ public class WorkerFilesHash {
             if (metadata == null) {
               throw new MissingInputException(localArtifact);
             }
-            if (metadata.getType().isFile()) {
-              workerFilesMap.put(
-                  spawn.getPathMapper().map(root.getRelative(mapping.getKey())),
-                  metadata.getDigest());
-            }
+            workerFilesMap.put(
+                spawn.getPathMapper().map(root.getRelative(mapping.getKey())),
+                metadata.getDigest());
           }
         }
 
@@ -101,9 +99,7 @@ public class WorkerFilesHash {
       if (metadata == null) {
         throw new MissingInputException(tool);
       }
-      workerFilesMap.put(
-          spawn.getPathMapper().map(tool.getExecPath()),
-          actionInputFileCache.getInputMetadata(tool).getDigest());
+      workerFilesMap.put(spawn.getPathMapper().map(tool.getExecPath()), metadata.getDigest());
     }
 
     return workerFilesMap;
