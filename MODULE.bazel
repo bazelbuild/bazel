@@ -156,6 +156,7 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
+        "com.dylibso.chicory:compiler:1.5.1",
         "com.dylibso.chicory:runtime:1.5.1",
         "com.dylibso.chicory:wasm:1.5.1",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
