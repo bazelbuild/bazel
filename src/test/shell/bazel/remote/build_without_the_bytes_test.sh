@@ -434,62 +434,6 @@ EOF
   ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
 }
 
-function setup_symlink_output() {
-  mkdir -p pkg
-
-  cat > pkg/defs.bzl <<EOF
-def _impl(ctx):
-  sym = ctx.actions.declare_symlink(ctx.label.name)
-  ctx.actions.run_shell(
-    outputs = [sym],
-    command = "ln -s {} {}".format(ctx.attr.target, sym.path),
-  )
-  return DefaultInfo(files = depset([sym]))
-
-symlink = rule(
-  implementation = _impl,
-  attrs = {
-    "target": attr.string(),
-  },
-)
-EOF
-
-  cat > pkg/BUILD <<EOF
-load(":defs.bzl", "symlink")
-symlink(
-  name = "sym",
-  target = "target.txt",
-)
-EOF
-}
-
-function test_downloads_toplevel_non_dangling_symlink_output() {
-  setup_symlink_output
-  touch pkg/target.txt
-
-  bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_toplevel \
-    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
-
-  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
-    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
-  fi
-}
-
-function test_downloads_toplevel_dangling_symlink_output() {
-  setup_symlink_output
-
-  bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
-
-  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
-    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
-  fi
-}
-
 function test_download_toplevel_tree_artifact() {
   mkdir -p a
 

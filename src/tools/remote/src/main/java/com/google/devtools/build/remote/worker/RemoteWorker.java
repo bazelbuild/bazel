@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerInitializer;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -112,9 +113,13 @@ public final class RemoteWorker {
       value = System.getProperty("bazel.DigestFunction", "SHA256");
       hashFunction = new DigestFunctionConverter().convert(value);
     } catch (OptionsParsingException e) {
-      throw new Error("The specified hash function '" + value + "' is not supported.", e);
+      throw new IllegalStateException(
+          "The specified hash function '" + value + "' is not supported.", e);
     }
-    return new JavaIoFileSystem(hashFunction);
+    // Don't use UnixFileSystem as it expects Latin1-encoded filenames (see StringEncoding.java).
+    return OS.getCurrent() == OS.WINDOWS
+        ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
+        : new JavaIoFileSystem(hashFunction);
   }
 
   /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */
