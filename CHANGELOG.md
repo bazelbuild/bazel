@@ -1,3 +1,133 @@
+## Release 9.0.0-pre.20250908.2 (2025-09-22)
+
+```
+Baseline: 06b2d43d58bf9bdd274eddc24486a5edce6632ec
+
+Cherry picks:
+
+   + 2b64ae49d190fa5e437656e1dd96f811fcc10a2b:
+     Automated rollback of commit
+     585e16c701a6eef9a0b96cce31cae56893f04278.
+   + db5e1b607d89add00669ae698bb3f589272325ed:
+     Automated rollback of commit
+     d96e067331680dd4dec9fb391ed148d90daafbf8.
+   + 081752428582c6fde18671600071a81b10b7c71a:
+     Fix windows build for Rolling Release
+     release-9.0.0-pre.20250908.2rc1 (#27036)
+```
+
+This release contains contributions from many people at Google, as well as Carmen Chui.
+
+## Release 9.0.0-pre.20250908.2 (2025-09-22)
+
+```
+Baseline: 06b2d43d58bf9bdd274eddc24486a5edce6632ec
+
+Cherry picks:
+
+   + 2b64ae49d190fa5e437656e1dd96f811fcc10a2b:
+     Automated rollback of commit
+     585e16c701a6eef9a0b96cce31cae56893f04278.
+   + db5e1b607d89add00669ae698bb3f589272325ed:
+     Automated rollback of commit
+     d96e067331680dd4dec9fb391ed148d90daafbf8.
+```
+
+Incompatible changes:
+
+  - range doesn't accept None as second argument
+  - Starlark string.split, string.rsplit don't accept None as argument
+
+New features:
+
+  - "blaze info install_md5" is now available to tell the logical
+    checksum of the Blaze server. This is mostly intended as a
+    debugging aid.
+
+Important changes:
+
+  - The contents of source directories are now tracked for
+    invalidation. Using `glob` or explicit lists of files to consume
+    source directories is still strongly preferred, but there may be
+    cases in which this isn't feasible (e.g. file names that aren't
+    valid labels).
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley.
+
+## Release 9.0.0-pre.20250831.1 (2025-09-12)
+
+```
+Baseline: d1c7409e60fdc72de3705994917dbc24785039f3
+
+Cherry picks:
+
+   + 76dae3af442a2a206a89237cb7c143e7cd524f89:
+     Fix windows build with Bazel@HEAD for Rolling Release
+     release-9.0.0-pre.20250831.1rc1 (#26947)
+```
+
+This release contains contributions from many people at Google, as well as Carmen Chui.
+
+## Release 8.4.1 (2025-09-11)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250831.1 (2025-09-11)
+
+```
+Baseline: d1c7409e60fdc72de3705994917dbc24785039f3
+
+Cherry picks:
+
+   + e3609b50f9855e98ff4695df01d4bbb24a65c4c2:
+     Release 9.0.0-pre.20250831.1 (2025-09-11)
+   + 79595651c77b3909bfbda0f59f985fccd91a2b61:
+     Release 9.0.0-pre.20250831.1 (2025-09-11)
+   + 0e65851030bc52b8fdc3338ff1b6f21f4b0178cf:
+     Release 9.0.0-pre.20250831.1 (2025-09-11)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 9.0.0-pre.20250831.1 (2025-09-10)
+
+```
+Baseline: d1c7409e60fdc72de3705994917dbc24785039f3
+
+Cherry picks:
+
+   + 08cd650a43574cb9c993fb80cc5f966b0b81fa93:
+     Fix windows build with Bazel@HEAD
+```
+
+Incompatible changes:
+
+  - `--incompatible_filegroup_runfiles_for_data` is now enabled by
+    default. See https://github.com/bazelbuild/bazel/issues/26330 for
+    details.
+  - Use `-I` instead of `-isystem` for `cc_library` / `cc_binary`
+    `includes` attr. To use `-isystem` for only external
+    repositories, you can pass `--features=external_include_paths
+    --host_features=external_include_paths`. To use `-isystem` for a
+    single `cc_library` / `cc_binary` `includes`, you can set
+    `features = ["system_include_paths"],` on the target
+
+Important changes:
+
+  - Added flag `--experimental_thread_dump_interval` to allow Bazel
+    dump threads periodically.
+  - Flip `--incompatible_target_cpu_from_platform` to enable setting
+    `TARGET_CPU` make variable based on the target platform.
+  - The new `--module_mirrors` flag accepts a comma-separated list of
+    mirrors to use for source URLs provided by modules obtained from
+    Bazel registries.
+
+This release contains contributions from many people at Google, as well as dependabot[bot], Dmitry Ryabkov, Ed Schouten, Fabian Meumertzheim, Keith Smiley, Markus Hofbauer, Philipp Stephani, PikachuHy.
+
 ## Release 8.4.0 (2025-09-04)
 
 ```
