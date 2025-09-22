@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -52,6 +51,14 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
   @Override
+  protected ImmutableList<String> getStartupOptions() {
+    // Some tests require the ability to create symlinks on Windows.
+    return OS.getCurrent() == OS.WINDOWS
+        ? ImmutableList.of("--windows_enable_symlinks")
+        : ImmutableList.of();
+  }
+
+  @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
 
@@ -60,6 +67,12 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--remote_download_minimal",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
+
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Force MSYS `ln -s` to create a (possibly dangling) native symlink or junction.
+      // The default behavior is to require the target path to exist and make a deep copy.
+      addOptions("--action_env=MSYS=winsymlinks:native");
+    }
   }
 
   @Override
@@ -232,9 +245,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void outputSymlinkHandledGracefully() throws Exception {
-    // Dangling symlink would require developer mode to be enabled in the CI environment.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
     write(
         "a/defs.bzl",
         """
@@ -245,6 +255,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                 outputs = [out],
                 command = "ln -s hello $1",
                 arguments = [out.path],
+                use_default_shell_env = True,
             )
             return DefaultInfo(files = depset([out]))
 
@@ -829,14 +840,16 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     setDownloadToplevel();
     write(
         "BUILD",
-        "genrule(",
-        "  name = 'gen',",
-        "  outs = ['foo', 'foo-link'],",
-        "  cmd = 'cd $(RULEDIR) && echo hello > foo && ln -s foo foo-link',",
-        // In Blaze, heuristic label expansion defaults to True and will cause `foo` to be expanded
-        // into `blaze-out/.../bin/foo` in the genrule command line.
-        "  heuristic_label_expansion = False,",
-        ")");
+        """
+        genrule(
+          name = 'gen',
+          outs = ['foo', 'foo-link'],
+          cmd = 'cd $(RULEDIR) && echo hello > foo && ln -s foo foo-link',
+          # In Blaze, heuristic label expansion defaults to True and will cause `foo` to be expanded
+          # into `blaze-out/.../bin/foo` in the genrule command line.
+          heuristic_label_expansion = False,
+        )
+        """);
 
     buildTarget("//:gen");
 
