@@ -50,18 +50,8 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
   @Override
   public void serialize(LeafSerializationContext context, String obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    byte coder = StringUnsafe.getCoder(obj);
-    byte[] value = StringUnsafe.getByteArray(obj);
-    // Optimize for the case that coder == 0, in which case we can just write the length here,
-    // potentially using just one byte. If coder != 0, we'll use 4 bytes, but that's vanishingly
-    // rare.
-    if (coder == 0) {
-      codedOut.writeInt32NoTag(value.length);
-    } else if (coder == 1) {
-      codedOut.writeInt32NoTag(-value.length);
-    } else {
-      throw new SerializationException("Unexpected coder value: " + coder + " for " + obj);
-    }
+    byte[] value = StringUnsafe.getInternalStringBytes(obj);
+    codedOut.writeInt32NoTag(value.length);
     codedOut.writeRawBytes(value);
   }
 
@@ -69,14 +59,10 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
   public String deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int length = codedIn.readInt32();
-    byte coder;
-    if (length >= 0) {
-      coder = 0;
-    } else {
-      coder = 1;
-      length = -length;
+    if (length < 0) {
+      throw new SerializationException("Unexpected negative length: " + length);
     }
     byte[] value = codedIn.readRawBytes(length);
-    return StringUnsafe.newInstance(value, coder);
+    return StringUnsafe.newInstance(value);
   }
 }

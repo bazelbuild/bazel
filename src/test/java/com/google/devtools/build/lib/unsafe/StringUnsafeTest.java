@@ -50,8 +50,7 @@ public final class StringUnsafeTest {
   @Test
   public void testNewInstance() throws Exception {
     String s = "hello";
-    assertThat(StringUnsafe.newInstance(StringUnsafe.getByteArray(s), StringUnsafe.getCoder(s)))
-        .isEqualTo("hello");
+    assertThat(StringUnsafe.newInstance(StringUnsafe.getByteArray(s))).isEqualTo("hello");
   }
 
   @Test

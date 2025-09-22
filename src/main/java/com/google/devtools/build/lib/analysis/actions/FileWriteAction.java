@@ -335,7 +335,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         throw new IllegalStateException(e);
       }
 
-      return StringUnsafe.newInstance(uncompressedBytes, StringUnsafe.LATIN1);
+      return StringUnsafe.newInstance(uncompressedBytes);
     }
 
     @Override
