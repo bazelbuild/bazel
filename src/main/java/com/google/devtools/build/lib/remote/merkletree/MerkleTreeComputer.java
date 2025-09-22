@@ -6,8 +6,8 @@ import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
-import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Comparator.comparing;
+import static java.util.Map.Entry.comparingByKey;
 import static java.util.Map.entry;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -395,9 +395,7 @@ public final class MerkleTreeComputer {
     // while iterating over the inputs, only the sorted order has to be retained.
     var allInputs =
         ImmutableList.sortedCopyOf(
-            comparing(
-                input -> getOutputPath(input, remotePathResolver, spawn.getPathMapper()),
-                HIERARCHICAL_COMPARATOR),
+            comparing(input -> getOutputPath(input, remotePathResolver, spawn.getPathMapper())),
             concat(spawnInputs, outputDirectories));
     var metadata =
         TracingMetadataUtils.buildMetadata(
@@ -492,8 +490,7 @@ public final class MerkleTreeComputer {
     return (MerkleTree.Uploadable)
         build(
             Lists.transform(
-                ImmutableList.sortedCopyOf(
-                    Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
+                ImmutableList.sortedCopyOf(comparingByKey(), inputs.entrySet()),
                 e -> entry(e.getKey(), new ActionInputWithPath(e.getValue()))),
             alwaysFalse(),
             /* spawnScrubber= */ null,
@@ -846,7 +843,7 @@ public final class MerkleTreeComputer {
         runfilesArtifactValue.getMetadata(),
         () ->
             ImmutableList.sortedCopyOf(
-                Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR),
+                comparingByKey(),
                 // Values in this entry set may be null, which represents an empty runfile.
                 runfilesArtifactValue.getRunfilesTree().getMapping().entrySet()),
         isTool,
@@ -879,8 +876,7 @@ public final class MerkleTreeComputer {
         () ->
             Lists.transform(
                 ImmutableList.sortedCopyOf(
-                    comparing(
-                        Artifact.TreeFileArtifact::getParentRelativePath, HIERARCHICAL_COMPARATOR),
+                    comparing(Artifact.TreeFileArtifact::getParentRelativePath),
                     treeArtifactValue.getChildren()),
                 child -> entry(child.getParentRelativePath(), child)),
         isTool,
@@ -1059,7 +1055,7 @@ public final class MerkleTreeComputer {
 
   private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(Path dirPath)
       throws IOException, InterruptedException {
-    var inputs = ImmutableSortedMap.<PathFragment, ActionInput>orderedBy(HIERARCHICAL_COMPARATOR);
+    var inputs = ImmutableSortedMap.<PathFragment, ActionInput>naturalOrder();
     explodeDirectory(PathFragment.EMPTY_FRAGMENT, dirPath, inputs);
     return inputs.buildOrThrow();
   }
