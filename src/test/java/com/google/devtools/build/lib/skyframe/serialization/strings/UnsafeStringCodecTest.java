@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.util.StringEncoding;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,7 +26,10 @@ public final class UnsafeStringCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester("usually precomputed and supports weird unicodes: （╯°□°）╯︵┻━┻ ", "")
+    new SerializationTester(
+            "pure ASCII -/=",
+            StringEncoding.unicodeToInternal(
+                "usually precomputed and supports weird unicodes: （╯°□°）╯︵┻━┻ "))
         .runTests();
   }
 }
