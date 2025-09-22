@@ -222,14 +222,24 @@ EOF
   bazel run //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
     || fail "Expected bazel run to succeed"
   expect_log "Running command line:"
-  expect_not_log "exec env"
+  if is_windows; then
+    expect_not_log "cd /d"
+  else
+    expect_not_log "exec env"
+  fi
 
   bazel run -s //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
     || fail "Expected bazel run -s to succeed"
   expect_log "Running command line:"
-  expect_log "exec env"
-  expect_log "BUILD_WORKING_DIRECTORY="
-  expect_log "CUSTOM_VAR=test_value"
+  if is_windows; then
+    expect_log "cd /d"
+    expect_log "SET BUILD_WORKSPACE_DIRECTORY="
+    expect_log "SET CUSTOM_VAR=test_value"
+  else
+    expect_log "exec env"
+    expect_log "BUILD_WORKING_DIRECTORY="
+    expect_log "CUSTOM_VAR=test_value"
+  fi
 }
 
 run_suite "run_under_tests"
