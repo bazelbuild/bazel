@@ -1,3 +1,39 @@
+## Release 9.0.0-pre.20250908.2 (2025-09-22)
+
+```
+Baseline: 06b2d43d58bf9bdd274eddc24486a5edce6632ec
+
+Cherry picks:
+
+   + 2b64ae49d190fa5e437656e1dd96f811fcc10a2b:
+     Automated rollback of commit
+     585e16c701a6eef9a0b96cce31cae56893f04278.
+   + db5e1b607d89add00669ae698bb3f589272325ed:
+     Automated rollback of commit
+     d96e067331680dd4dec9fb391ed148d90daafbf8.
+```
+
+Incompatible changes:
+
+  - range doesn't accept None as second argument
+  - Starlark string.split, string.rsplit don't accept None as argument
+
+New features:
+
+  - "blaze info install_md5" is now available to tell the logical
+    checksum of the Blaze server. This is mostly intended as a
+    debugging aid.
+
+Important changes:
+
+  - The contents of source directories are now tracked for
+    invalidation. Using `glob` or explicit lists of files to consume
+    source directories is still strongly preferred, but there may be
+    cases in which this isn't feasible (e.g. file names that aren't
+    valid labels).
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley.
+
 ## Release 9.0.0-pre.20250831.1 (2025-09-12)
 
 ```
