@@ -98,6 +98,7 @@ public final class FunctionTransitionUtil {
       BuildOptions fromOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
       boolean allowNonConfigurableFlagChanges,
+      boolean isExecTransition,
       StructImpl attrObject,
       EventHandler handler)
       throws InterruptedException {
@@ -105,8 +106,15 @@ public final class FunctionTransitionUtil {
       // TODO(waltl): Consider building this once and using it across different split transitions,
       // or reusing BuildOptionDetails.
       ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(fromOptions);
-      ImmutableMap<String, String> flagsAliases =
-          ImmutableMap.copyOf(fromOptions.get(CoreOptions.class).commandLineFlagAliases);
+      ImmutableMap<String, String> flagsAliases;
+      if (isExecTransition) {
+        // Ignore flag aliases for exec transitions. Starlark flags will provide their exec
+        // transition semantics in the flag definition.
+        flagsAliases = ImmutableMap.of();
+      } else {
+        flagsAliases =
+            ImmutableMap.copyOf(fromOptions.get(CoreOptions.class).commandLineFlagAliases);
+      }
 
       validateInputOptions(
           starlarkTransition.getInputs(),

@@ -84,6 +84,10 @@ public class StarlarkAttributeTransitionProvider
     return false;
   }
 
+  public boolean isExecTransitionProvider() {
+    return false;
+  }
+
   @Override
   public TransitionType transitionType() {
     return TransitionType.ATTRIBUTE;
@@ -145,12 +149,18 @@ public class StarlarkAttributeTransitionProvider
               buildOptions,
               starlarkDefinedConfigTransition,
               allowImmutableFlagChanges(),
+              isExecTransitionProvider(),
               attrObject,
               eventHandler);
       if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());
       }
       return res;
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return isExecTransitionProvider();
     }
 
     @Override
