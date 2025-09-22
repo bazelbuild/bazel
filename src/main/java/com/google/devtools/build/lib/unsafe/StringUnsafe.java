@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unsafe;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Ascii;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -34,6 +36,15 @@ public final class StringUnsafe {
   // Fields corresponding to the coder
   public static final byte LATIN1 = 0;
   public static final byte UTF16 = 1;
+
+  /**
+   * Whether strings have their natural Java representation and not the Bazel-specific encoding
+   * described in {@link com.google.devtools.build.lib.util.StringEncoding}.
+   *
+   * <p>This is only set to true by //src/tools/remote/worker (the remote executor test fake).
+   */
+  public static final boolean BAZEL_UNICODE_STRINGS =
+      Boolean.getBoolean("bazel.internal.UnicodeStrings");
 
   private static final MethodHandle CONSTRUCTOR;
   private static final MethodHandle HAS_NEGATIVES;
@@ -84,6 +95,9 @@ public final class StringUnsafe {
    * Ensure you do not mutate this byte array in any way.
    */
   public static byte[] getInternalStringBytes(String obj) {
+    if (BAZEL_UNICODE_STRINGS) {
+      return obj.getBytes(UTF_8);
+    }
     // This is both a performance optimization and a correctness check: internal strings must
     // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
     // that hasn't been converted to internal encoding.
