@@ -81,39 +81,39 @@ EOF
 }
 
 function test_build_with_query_deps() {
-  bazel build --query="//a:rule_a" >& "$TEST_log" || fail "Build with query failed"
+  bazel build --target_query="//a:rule_a" >& "$TEST_log" || fail "Build with query failed"
   expect_log "//a:rule_a"
   [ -f "bazel-bin/a/output_a.txt" ] || fail "Output a/output_a.txt was not built"
 }
 
 function test_build_with_query_multiple() {
-  bazel build --query="//a:rule_a + //b:rule_b" >& "$TEST_log" || fail "Build with query failed"
+  bazel build --target_query="//a:rule_a + //b:rule_b" >& "$TEST_log" || fail "Build with query failed"
   [ -f "bazel-bin/a/output_a.txt" ] || fail "Output a/output_a.txt was not built"
   [ -f "bazel-bin/b/output_b.txt" ] || fail "Output b/output_b.txt was not built"
 }
 
 function test_build_with_query_pattern() {
-  bazel build --query="//a:*" >& "$TEST_log" || fail "Build with pattern query failed"
+  bazel build --target_query="//a:*" >& "$TEST_log" || fail "Build with pattern query failed"
   [ -f "bazel-bin/a/output_a.txt" ] || fail "Output a/output_a.txt was not built"
 }
 
 function test_build_with_query_file() {
   echo '//b:rule_b' > query.txt
 
-  bazel build --query_file=query.txt >& "$TEST_log" || fail "Build with query_file failed"
+  bazel build --target_query_file=query.txt >& "$TEST_log" || fail "Build with query_file failed"
   expect_log "//b:rule_b"
   [ -f "bazel-bin/b/output_b.txt" ] || fail "Output b/output_b.txt was not built"
 }
 
 function test_build_with_empty_query_result() {
-  bazel build --query="//nonexistent:target" >& "$TEST_log" && fail "Should have failed with nonexistent target"
+  bazel build --target_query="//nonexistent:target" >& "$TEST_log" && fail "Should have failed with nonexistent target"
   expect_log "Error executing query"
 }
 
 function test_build_and_test_with_query() {
-  bazel test --query="tests(//c/...)" >& "$TEST_log" || fail "Should have succeeded"
+  bazel test --target_query="tests(//c/...)" >& "$TEST_log" || fail "Should have succeeded"
   expect_log "//c:test"
   [ -f "bazel-bin/c/x.out" ] || fail "Output c/x.out was not built"
 }
 
-run_suite "build --query tests"
+run_suite "build --target_query tests"

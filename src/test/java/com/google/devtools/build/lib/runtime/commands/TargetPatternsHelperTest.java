@@ -112,8 +112,8 @@ public class TargetPatternsHelperTest {
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
     String message =
-        "Only one of command-line target patterns, --target_pattern_file, --query, "
-            + "or --query_file may be specified";
+        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
+            + "or --target_query_file may be specified";
     assertThat(expected).hasMessageThat().isEqualTo(message);
     assertThat(expected.getFailureDetail())
         .isEqualTo(
@@ -143,15 +143,15 @@ public class TargetPatternsHelperTest {
 
   @Test
   public void testSpecifyMultipleOptionsThrows() throws OptionsParsingException {
-    options.parse("--target_pattern_file=patterns.txt", "--query=deps(//...)");
+    options.parse("--target_pattern_file=patterns.txt", "--target_query=deps(//...)");
 
     TargetPatternsHelperException expected =
         assertThrows(
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
     String message =
-        "Only one of command-line target patterns, --target_pattern_file, --query, "
-            + "or --query_file may be specified";
+        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
+            + "or --target_query_file may be specified";
     assertThat(expected).hasMessageThat().isEqualTo(message);
     assertThat(expected.getFailureDetail())
         .isEqualTo(
@@ -165,7 +165,7 @@ public class TargetPatternsHelperTest {
 
   @Test
   public void testSpecifyQueryAndPatternThrows() throws OptionsParsingException {
-    options.parse("--query=deps(//...)");
+    options.parse("--target_query=deps(//...)");
     options.setResidue(ImmutableList.of("//some:pattern"), ImmutableList.of());
 
     TargetPatternsHelperException expected =
@@ -173,14 +173,14 @@ public class TargetPatternsHelperTest {
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
     String message =
-        "Only one of command-line target patterns, --target_pattern_file, --query, "
-            + "or --query_file may be specified";
+        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
+            + "or --target_query_file may be specified";
     assertThat(expected).hasMessageThat().isEqualTo(message);
   }
 
   @Test
   public void testQueryFileWithNonExistingFileThrows() throws OptionsParsingException {
-    options.parse("--query_file=query.txt");
+    options.parse("--target_query_file=query.txt");
 
     TargetPatternsHelperException expected =
         assertThrows(
