@@ -79,6 +79,18 @@ public class BazelPythonConfiguration extends Fragment {
                 + "`import myreponame.mytoplevelpackage.package.module` is valid. The latter form "
                 + "is less likely to experience import name collisions.")
     public boolean experimentalPythonImportAllRepositories;
+
+    @Option(
+        name = "incompatible_remove_ctx_bazel_py_fragment",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "When true, Python build flags are defined with Python rules (in BUIILD files) and"
+                + " ctx.fragments.bazel_py is undefined. This is a migration flag to move all Python"
+                + " flags from core Bazel to Python rules.")
+    public boolean disablePyFragment;
   }
 
   private final Options options;
@@ -106,6 +118,10 @@ public class BazelPythonConfiguration extends Fragment {
                   + "`--incompatible_use_python_toolchains=false`."));
       // TODO(#7901): Also prohibit --python_path here.
     }
+  }
+
+  public boolean shouldInclude() {
+    return !options.disablePyFragment;
   }
 
   @StarlarkConfigurationField(

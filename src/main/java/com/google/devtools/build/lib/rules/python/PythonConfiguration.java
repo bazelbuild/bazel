@@ -55,6 +55,7 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   private final boolean defaultToExplicitInitPy;
   @Nullable private final Label nativeRulesAllowlist;
   private final boolean disallowNativeRules;
+  private final boolean disablePyFragment;
 
   public PythonConfiguration(BuildOptions buildOptions) {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
@@ -68,6 +69,12 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
     this.disallowNativeRules = pythonOptions.disallowNativeRules;
     this.includeLabelInLinkstamp = pythonOptions.includeLabelInPyBinariesLinkstamp;
+    this.disablePyFragment = pythonOptions.disablePyFragment;
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disablePyFragment;
   }
 
   @Override
