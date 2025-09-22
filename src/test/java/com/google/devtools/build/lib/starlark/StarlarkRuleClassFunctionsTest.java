@@ -2130,19 +2130,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """
         def _impl(ctx):
             input = {"file": ctx.file.src, "other": True}
-            output = {"file": ctx.file.src.path, "other": True}
+            output = {
+                "file": {
+                    "path": ctx.file.src.path,
+                    "short_path": ctx.file.src.short_path,
+                    "root": ctx.file.src.root.path,
+                },
+                "other": True
+            }
             encoded = json.encode(input)
             decoded = json.decode(encoded)
 
-            keys = sorted(decoded.keys())
-            if decoded.keys() != ["file", "other"]:
-                fail("JSON decode of File did not produce expected keys", keys)
-
-            if decoded["other"] != True:
-                fail("JSON decode of File did not produce expected values", decoded)
-
-            if decoded["file"] != ctx.file.src.path:
-                fail("JSON decode of File did not produce expected path", decoded)
+            if decoded != output:
+                fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(output, decoded))
 
             return []
 

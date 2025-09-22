@@ -68,7 +68,7 @@ public final class Json implements StarlarkValue {
 
   /** An interface for StarlarkValue subclasses to define their own JSON encoding. */
   public interface Encodable {
-    String encodeJSON(StarlarkSemantics semantics);
+    Object objectForEncoding(StarlarkSemantics semantics);
   }
 
   /**
@@ -126,6 +126,10 @@ public final class Json implements StarlarkValue {
     }
 
     private void encode(Object x) throws EvalException, InterruptedException {
+      if (x instanceof Encodable) {
+        x = ((Encodable) x).objectForEncoding(semantics);
+      }
+
       if (x == Starlark.NONE) {
         out.append("null");
         return;
@@ -146,13 +150,6 @@ public final class Json implements StarlarkValue {
           throw Starlark.errorf("cannot encode non-finite float %s", x);
         }
         out.append(x.toString()); // always contains a decimal point or exponent
-        return;
-      }
-
-      if (x instanceof Encodable) {
-        // Application-defined Starlark value types
-        // may define their own JSON encoding.
-        out.append(((Encodable) x).encodeJSON(semantics));
         return;
       }
 

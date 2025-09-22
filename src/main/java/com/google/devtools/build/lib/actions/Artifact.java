@@ -52,7 +52,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -707,8 +709,12 @@ public abstract sealed class Artifact
   }
 
   @Override
-  public String encodeJSON(StarlarkSemantics semantics) {
-    return "\"" + getExecPathStringForStarlark(semantics) + "\"";
+  public Object objectForEncoding(StarlarkSemantics semantics) {
+    Map<String, String> map = new LinkedHashMap<>();
+    map.put("path", getExecPathStringForStarlark(semantics));
+    map.put("root", getRootForStarlark(semantics).getExecPathString());
+    map.put("short_path", getRunfilesPathString());
+    return map;
   }
 
   /** Returns a string representing the complete artifact path information. */
