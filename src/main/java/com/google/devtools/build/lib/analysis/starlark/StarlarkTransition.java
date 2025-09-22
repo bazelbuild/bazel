@@ -53,6 +53,9 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return "Starlark transition:" + starlarkDefinedConfigTransition.getLocation();
   }
 
+  /** Returns true if the transition is an exec transition. */
+  public abstract boolean isExecTransition();
+
   // Get the inputs of the starlark transition as a list of canonicalized labels strings.
   private ImmutableSet<String> getInputs() {
     return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet();
@@ -313,6 +316,11 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   public static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
       StarlarkTransition transition, List<Entry<String, String>> flagsAliases, Settings settings) {
+    if (transition.isExecTransition()) {
+      // Ignore flag aliases for exec transitions. Starlark flags will provide their exec
+      // transition semantics in the flag definition.
+      flagsAliases = ImmutableList.of();
+    }
     ImmutableSet.Builder<Label> result = ImmutableSet.builder();
     switch (settings) {
       case INPUTS -> addLabelIfRelevant(result, flagsAliases, transition.getInputs());

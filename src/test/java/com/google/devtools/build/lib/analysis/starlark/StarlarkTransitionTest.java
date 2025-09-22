@@ -13,15 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
@@ -30,6 +37,8 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -793,5 +802,216 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             "Starlark flag '@@//test:foo_starlark' and its alias '//command_line_option:%s'"
                 + " have different values: 'val_for_starlark' and 'val_for_native'",
             nativeFlagName));
+  }
+
+  private void writeExecTransition(String nativeFlagName) throws Exception {
+    writeAllowlistFile(scratch);
+    scratch.file(
+        "test/defs.bzl",
+        String.format(
+            """
+            def _setting_impl(ctx):
+                return []
+
+            my_flag = rule(
+                implementation = _setting_impl,
+                build_setting = config.string(flag = True),
+            )
+
+            def _transition_impl(settings, attr):
+                return {
+                    "//command_line_option:%s": 'transitioned ' + settings['//command_line_option:%s'],
+                    "//command_line_option:is exec configuration": True,
+                }
+
+            my_transition = transition(
+                implementation = _transition_impl,
+                inputs = ["//command_line_option:%s"],
+                outputs = [
+                  "//command_line_option:%s",
+                  "//command_line_option:is exec configuration",
+                ],
+            )
+
+            def _impl(ctx):
+                return []
+
+            my_rule = rule(
+                implementation = _impl,
+                attrs = {'dep': attr.label(cfg = 'exec')},
+            )
+            """,
+            nativeFlagName, nativeFlagName, nativeFlagName, nativeFlagName));
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule", "my_flag")
+
+        my_rule(name = "t1", dep = ':t2')
+        my_rule(name = "t2")
+
+        my_flag(
+          name = "foo_starlark",
+          build_setting_default = "foo_starlark_default_value",
+        )
+        """);
+  }
+
+  @Test
+  public void testStarlarkFlagAliasNotUsedInExecTransition_existingNativeFlag_pass(
+      @TestParameter boolean isAlias, @TestParameter boolean starlarkFlagHasValue)
+      throws Exception {
+    writeExecTransition("existing_flag");
+    List<String> args = new ArrayList<>();
+    args.add("--experimental_exec_config=//test:defs.bzl%my_transition");
+    if (isAlias) {
+      args.add("--flag_alias=existing_flag=//test:foo_starlark");
+    }
+    if (starlarkFlagHasValue) {
+      args.add("--//test:foo_starlark=cmd_value");
+    }
+    useConfiguration(args.toArray(new String[0]));
+
+    getConfiguredTarget("//test:t1");
+
+    var baselineExecConfig = execConfig;
+    assertThat(baselineExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+        .isEqualTo("transitioned native_default_value");
+    if (starlarkFlagHasValue) {
+      assertThat(baselineExecConfig.getOptions().getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:foo_starlark"), "cmd_value");
+    } else {
+      assertThat(baselineExecConfig.getOptions().getStarlarkOptions()).isEmpty();
+    }
+
+    var t2ExecConfig =
+        getConfiguration(Iterables.getOnlyElement(getComputedConfiguredTarget("//test:t2")));
+    assertThat(t2ExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+        .isEqualTo("transitioned native_default_value");
+    if (starlarkFlagHasValue) {
+      assertThat(t2ExecConfig.getOptions().getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:foo_starlark"), "cmd_value");
+    } else {
+      assertThat(t2ExecConfig.getOptions().getStarlarkOptions()).isEmpty();
+    }
+  }
+
+  @Test
+  public void testStarlarkFlagAliasNotUsedInExecTransition_nonExistingNativeFlag_fail(
+      @TestParameter boolean isAlias, @TestParameter boolean starlarkFlagHasValue)
+      throws Exception {
+    writeExecTransition("new_flag");
+    List<String> args = new ArrayList<>();
+    args.add("--experimental_exec_config=//test:defs.bzl%my_transition");
+    if (isAlias) {
+      args.add("--flag_alias=new_flag=//test:foo_starlark");
+    }
+    if (starlarkFlagHasValue) {
+      args.add("--//test:foo_starlark=cmd_value");
+    }
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> useConfiguration(args.toArray(new String[0])));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "transition inputs [//command_line_option:new_flag] do not correspond to valid"
+                + " settings");
+  }
+
+  @Test
+  public void testTransitionUsesAliasesInExecAndNonExecTransitions() throws Exception {
+    writeAllowlistFile(scratch);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _setting_impl(ctx):
+            return []
+
+        my_flag = rule(
+            implementation = _setting_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        def _transition_impl(settings, attr):
+            return {
+                "//command_line_option:existing_flag": "transitioned " + settings["//command_line_option:existing_flag"],
+                "//test:foo_starlark": "transitioned " + settings["//test:foo_starlark"],
+                "//command_line_option:is exec configuration": True,
+            }
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:foo_starlark", "//command_line_option:existing_flag"],
+            outputs = ["//test:foo_starlark",
+                 "//command_line_option:existing_flag",
+                 "//command_line_option:is exec configuration"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                'exec_dep': attr.label(cfg = 'exec'),
+                'non_exec_dep': attr.label(cfg = my_transition),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule", "my_flag")
+
+        my_rule(name = "t1", exec_dep = ":t2", non_exec_dep = ":t3")
+        my_rule(name = "t2")
+        my_rule(name = "t3")
+
+        my_flag(
+            name = "foo_starlark",
+            build_setting_default = "starlark_default_value",
+        )
+        """);
+    useConfiguration(
+        "--flag_alias=existing_flag=//test:foo_starlark",
+        "--existing_flag=cmd_value",
+        "--experimental_exec_config=//test:defs.bzl%my_transition");
+
+    getConfiguredTarget("//test:t1");
+
+    var baselineExecConfig = execConfig;
+    assertThat(baselineExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+        .isEqualTo("transitioned native_default_value");
+    assertThat(baselineExecConfig.getOptions().getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:foo_starlark"), "transitioned cmd_value");
+
+    var t2ExecConfig =
+        getConfiguration(Iterables.getOnlyElement(getComputedConfiguredTarget("//test:t2")));
+    assertThat(t2ExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+        .isEqualTo("transitioned native_default_value");
+    assertThat(t2ExecConfig.getOptions().getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:foo_starlark"), "transitioned cmd_value");
+
+    var t3NonExecConfig =
+        getConfiguration(Iterables.getOnlyElement(getComputedConfiguredTarget("//test:t3")));
+    assertThat(t3NonExecConfig.getOptions().get(DummyTestOptions.class).existingFlag)
+        .isEqualTo("native_default_value");
+    assertThat(t3NonExecConfig.getOptions().getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:foo_starlark"), "transitioned cmd_value");
+  }
+
+  private ImmutableList<ConfiguredTarget> getComputedConfiguredTarget(String label)
+      throws Exception {
+    return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+        .filter(
+            e ->
+                e.getKey() instanceof ConfiguredTargetKey
+                    && ((ConfiguredTargetKey) e.getKey()).getLabel().toString().equals(label))
+        .map(e -> ((ConfiguredTargetValue) e.getValue()).getConfiguredTarget())
+        .collect(toImmutableList());
   }
 }
