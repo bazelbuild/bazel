@@ -170,7 +170,9 @@ public class SelectTest {
                 RepositoryName.MAIN),
             "other/pkg/def.bzl",
             /* loads= */ ImmutableList.of(),
-            /* bzlTransitiveDigest= */ new byte[0]);
+            /* bzlTransitiveDigest= */ new byte[0],
+            /* docCommentsMap= */ ImmutableMap.of(),
+            /* unusedDocCommentLines= */ ImmutableList.of());
     var semantics =
         StarlarkSemantics.builder()
             .setBool(
