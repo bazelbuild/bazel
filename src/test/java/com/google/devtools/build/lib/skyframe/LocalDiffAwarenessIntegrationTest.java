@@ -244,7 +244,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
             cmd = "echo $(SRCS) > $@",
         )
         """);
-    buildTargetWithRetryUntilSeesChange("//foo", "foo/new_dir/file1.txt");
+    buildTargetWithRetryUntilSeesChange("//foo", "foo/dir/file1.txt");
     assertContents("foo/new_dir/file1.txt foo/new_dir/file2.txt", "//foo");
 
     newDir.getChild("file2.txt").delete();
@@ -259,7 +259,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
             cmd = "echo $(SRCS) > $@",
         )
         """);
-    buildTargetWithRetryUntilSeesChange("//foo", "foo/dir/file1.txt");
+    buildTargetWithRetryUntilSeesChange("//foo", "foo/new_dir/file1.txt");
     assertContents("foo/dir/file1.txt", "//foo");
 
     write(
