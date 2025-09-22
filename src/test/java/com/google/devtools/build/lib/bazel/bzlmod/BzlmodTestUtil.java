@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -162,7 +163,7 @@ public final class BzlmodTestUtil {
     }
 
     @CanIgnoreReturnValue
-    public InterimModuleBuilder addFlagAlias(String nativeFlag, String starlarkFlag) {
+    public InterimModuleBuilder addFlagAlias(String nativeFlag, String starlarkFlag) throws LabelSyntaxException {
       this.builder.addFlagAlias(nativeFlag, starlarkFlag);
       return this;
     }

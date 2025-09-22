@@ -1190,7 +1190,7 @@ public class ModuleFileGlobals {
       },
       useStarlarkThread = true)
   public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, LabelSyntaxException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "flag_alias()");
     context.setNonModuleCalled();
     context.getModuleBuilder().addFlagAlias(nativeName, starlarkLabel);
