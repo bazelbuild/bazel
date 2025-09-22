@@ -206,12 +206,12 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
     Path newDir = dir.getParentDirectory().getChild("new_dir");
     dir.renameTo(newDir);
-    buildTarget("//foo");
+    buildTargetWithRetryUntilSeesChange("//foo", "foo/dir/file1.txt");
     assertContents("foo/new_dir/file1.txt foo/new_dir/file2.txt", "//foo");
 
     newDir.getChild("file2.txt").delete();
     newDir.renameTo(dir);
-    buildTarget("//foo");
+    buildTargetWithRetryUntilSeesChange("//foo", "foo/new_dir/file1.txt");
     assertContents("foo/dir/file1.txt", "//foo");
   }
 
