@@ -22,7 +22,6 @@ import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
@@ -455,8 +454,8 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return OS.getCurrent() != OS.WINDOWS;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return false;
   }
 
   @Override

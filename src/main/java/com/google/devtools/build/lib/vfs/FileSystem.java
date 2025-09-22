@@ -150,9 +150,14 @@ public abstract class FileSystem {
   public abstract boolean supportsHardLinksNatively(PathFragment path);
 
   /***
-   * Returns true if file path is case-sensitive on this file system. Default is true.
+   * Returns true if file paths that differ as raw byte strings may refer to the same file system
+   * entry because of case insensitivity or Unicode normalization.
+   *
+   * <p>Note that common file systems on Windows and macOS that are case-insensitive by default
+   * can be configured to be case-sensitive, possibly even on a per-directory basis. Since it is not
+   * feasible for Bazel to detect this, these file systems must still return true.
    */
-  public abstract boolean isFilePathCaseSensitive();
+  public abstract boolean mayBeCaseOrNormalizationInsensitive();
 
   /**
    * Returns the type of the file system path belongs to.
