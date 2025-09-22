@@ -65,7 +65,7 @@ public final class TargetPatternsHelper {
 
   /**
    * Reads a list of target patterns, either from the command-line residue, by reading newline
-   * delimited target patterns from the --target_pattern_file flag, or from --query/--query_file.
+   * delimited target patterns from the --target_pattern_file flag, or from --target_query/--target_query_file.
    * If multiple options are specified, throws {@link TargetPatternsHelperException}.
    *
    * @return A list of target patterns.
@@ -82,8 +82,8 @@ public final class TargetPatternsHelper {
     if (!buildRequestOptions.queryFile.isEmpty()) optionCount++;
     if (optionCount > 1) {
       throw new TargetPatternsHelperException(
-          "Only one of command-line target patterns, --target_pattern_file, --query, "
-              + "or --query_file may be specified",
+          "Only one of command-line target patterns, --target_pattern_file, --target_query, "
+              + "or --target_query_file may be specified",
           TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
     }
 

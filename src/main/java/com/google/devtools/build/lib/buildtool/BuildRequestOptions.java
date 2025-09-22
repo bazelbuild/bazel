@@ -367,7 +367,7 @@ public class BuildRequestOptions extends OptionsBase {
   public String targetPatternFile;
 
   @Option(
-      name = "query",
+      name = "target_query",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
@@ -378,7 +378,7 @@ public class BuildRequestOptions extends OptionsBase {
   public String query;
 
   @Option(
-      name = "query_file",
+      name = "target_query_file",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
