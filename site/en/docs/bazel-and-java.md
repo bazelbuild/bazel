@@ -168,11 +168,11 @@ custom_jdk = use_extension("@rules_java//java:extensions.bzl", "java_repository"
 
 custom_jdk.local(
   name = "additionaljdk",          # Can be used with --java_runtime_version=additionaljdk, --java_runtime_version=11 or --java_runtime_version=additionaljdk_11
-  version = 11,                    # Optional, if not set it is autodetected
+  version = "11",                  # Optional, if not set it is autodetected
   java_home = "/usr/lib/jdk-15/",  # Path to directory containing bin/java
 )
-use_repo(custom_jdk, "additionaljdk", "additionaljdk_toolchain_config_repo")
-register_toolchains("@additionaljdk_toolchain_config_repo//:all")
+use_repo(custom_jdk, "additionaljdk")
+register_toolchains("@additionaljdk//:all")
 ```
 
 Example configuration of remote JVM:
