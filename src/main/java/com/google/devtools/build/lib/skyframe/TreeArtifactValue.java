@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -67,6 +68,7 @@ import javax.annotation.Nullable;
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
  * {@link TreeFileArtifact}s.
  */
+@AutoCodec(deserializedInterface = DeserializedSkyValue.class)
 public class TreeArtifactValue implements HasDigest, SkyValue {
   private static final ForkJoinPool VISITOR_POOL =
       NamedForkJoinPool.newNamedPool(
@@ -300,7 +302,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
   }
 
-  private TreeArtifactValue(
+  @VisibleForSerialization
+  TreeArtifactValue(
       byte[] digest,
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
       long totalChildSize,

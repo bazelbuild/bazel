@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.errorprone.annotations.Keep;
@@ -47,7 +48,8 @@ import javax.annotation.Nullable;
  * ConfiguredTargetAndData}, containing everything needed by dependents of the {@link
  * ConfiguredTargetValue} in analysis.
  */
-public sealed class RemoteConfiguredTargetValue implements ConfiguredTargetValue {
+public sealed class RemoteConfiguredTargetValue
+    implements ConfiguredTargetValue, DeserializedSkyValue {
 
   @Nullable // Null after clearing.
   private ConfiguredTarget configuredTarget;
@@ -80,6 +82,7 @@ public sealed class RemoteConfiguredTargetValue implements ConfiguredTargetValue
     }
   }
 
+  @Override
   @Nullable // Null after clearing everything.
   public final TargetData getTargetData() {
     return targetData;

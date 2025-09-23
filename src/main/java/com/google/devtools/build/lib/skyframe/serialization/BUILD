@@ -95,6 +95,7 @@ java_library(
             "AbstractExportedStarlarkSymbolCodec.java",
             "CodecScanningConstants.java",
             "DependOnFutureShim.java",
+            "DeserializedSkyValue.java",
             "ErrorMessageHelper.java",
             "FrontierNodeVersion.java",
             "ModuleCodec.java",
@@ -145,6 +146,14 @@ java_library(
 java_library(
     name = "visible-for-serialization",
     srcs = ["VisibleForSerialization.java"],
+)
+
+java_library(
+    name = "deserialized-sky-value",
+    srcs = ["DeserializedSkyValue.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
 )
 
 java_library(
