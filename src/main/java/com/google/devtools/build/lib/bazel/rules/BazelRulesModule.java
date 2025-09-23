@@ -37,6 +37,11 @@ public final class BazelRulesModule extends BlazeModule {
   /**
    * This is where deprecated options used by both Bazel and Blaze but only needed for the build
    * command go to die.
+   *
+   * <p>To deprecate Bazel-only build command options, use {@link BazelBuildGraveyardOptions}.
+   *
+   * <p>To deprecate Bazel+Blaze options common to all commands, use {@link
+   * AllCommandGraveyardOptions}.
    */
   public static class BuildGraveyardOptions extends OptionsBase {
 
