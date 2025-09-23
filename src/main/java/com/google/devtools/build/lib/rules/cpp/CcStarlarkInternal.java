@@ -291,33 +291,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_cpp_source",
-      doc = "Creates a CppSource instance.",
-      parameters = {
-        @Param(
-            name = "source",
-            positional = false,
-            named = true,
-            doc = "The source file.",
-            allowedTypes = {@ParamType(type = Artifact.class)}),
-        @Param(
-            name = "label",
-            positional = false,
-            named = true,
-            doc = "The label of the source file.",
-            allowedTypes = {@ParamType(type = Label.class)}),
-        @Param(
-            name = "type",
-            positional = false,
-            named = true,
-            doc = "The type of the source file.",
-            allowedTypes = {@ParamType(type = String.class)})
-      })
-  public CppSource createCppSource(Artifact source, Label label, String type) {
-    return CppSource.create(source, label, CppSource.Type.valueOf(type));
-  }
-
-  @StarlarkMethod(
       name = "escape_label",
       documented = false,
       parameters = {
@@ -733,7 +706,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       CcToolchainVariables compileBuildVariables,
       CppSemantics semantics,
-      CppSource source,
+      Artifact source,
       Sequence<?> additionalCompilationInputs,
       Sequence<?> additionalIncludeScanningRoots,
       boolean usePic,
@@ -771,7 +744,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             coptsFilter,
             featureConfigurationForStarlark,
             semantics,
-            source.getSource(),
+            source,
             additionalCompilationInputs,
             additionalIncludeScanningRoots,
             outputFiles,
@@ -784,7 +757,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     FeatureConfiguration featureConfiguration =
         featureConfigurationForStarlark.getFeatureConfiguration();
-    SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
+    SpecialArtifact sourceArtifact = (SpecialArtifact) source;
     builder.setVariables(compileBuildVariables);
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
 

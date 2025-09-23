@@ -43,6 +43,23 @@ load(":common/paths.bzl", "paths")
 cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
 
+def _cpp_source_init(*, label, source, type):
+    valid_types = set([CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER, CPP_SOURCE_TYPE_CLIF_INPUT_PROTO])
+    if type not in valid_types:
+        fail("invalid type of cpp source, got:", type, "expected one of:", valid_types)
+    return {
+        "file": source,
+        "label": label,
+        "type": type,
+    }
+
+# buildifier: disable=unused-variable
+_CppSourceInfo, __new_cpp_source_info = provider(
+    "A source file that is an input to a c++ compilation.",
+    fields = ["file", "label", "type"],
+    init = _cpp_source_init,
+)
+
 SOURCE_CATEGORY_CC = set(
     extensions.CC_SOURCE +
     extensions.CC_HEADER +
@@ -381,7 +398,7 @@ def _add_suitable_headers_to_compilation_unit_sources(
         is_header = "." + header.extension in extensions.CC_HEADER or cc_internal.is_tree_artifact(header)
         is_textual_include = "." + header.extension in extensions.CC_TEXTUAL_INCLUDE
         if is_header and not is_textual_include:
-            compilation_unit_sources[header] = cc_internal.create_cpp_source(
+            compilation_unit_sources[header] = _CppSourceInfo(
                 label = label,
                 source = header,
                 type = CPP_SOURCE_TYPE_HEADER,
@@ -400,7 +417,7 @@ def _add_suitable_srcs_to_compilation_unit_sources(
         # precompiled files which should be forbidden in srcs of cc_library|binary and instead be
         # migrated to cc_import rules.
         if "." + source.extension in source_category or cc_internal.is_tree_artifact(source):
-            compilation_unit_sources[source] = cc_internal.create_cpp_source(
+            compilation_unit_sources[source] = _CppSourceInfo(
                 label = label,
                 source = source,
                 type = CPP_SOURCE_TYPE_CLIF_INPUT_PROTO if "." + source.extension in extensions.CLIF_INPUT_PROTO else CPP_SOURCE_TYPE_SOURCE,
