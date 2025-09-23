@@ -3240,7 +3240,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return detailedExitCode;
   }
 
-  public Map<String,String> getFlagAlias(ExtendedEventHandler eventHandler) throws InterruptedException {
+  public Map<String,String> getFlagAliases(ExtendedEventHandler eventHandler) throws InterruptedException {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);

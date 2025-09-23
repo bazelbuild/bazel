@@ -637,7 +637,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
           optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping)
-              .withAliases(env.getSkyframeExecutor().getFlagAlias(reporter)).build();
+              .withAliases(env.getSkyframeExecutor().getFlagAliases(reporter)).build();
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";

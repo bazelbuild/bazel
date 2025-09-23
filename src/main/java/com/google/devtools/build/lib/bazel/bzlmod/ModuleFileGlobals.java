@@ -1184,7 +1184,7 @@ public class ModuleFileGlobals {
               doc = "The name of the flag.",
               positional = true),
           @Param(
-              name = "starlark_label",
+              name = "starlark_flag",
               doc = "The label of the Starlark flag to alias to.",
               positional = true),
       },
