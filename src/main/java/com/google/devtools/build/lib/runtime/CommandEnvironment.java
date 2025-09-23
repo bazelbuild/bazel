@@ -390,9 +390,7 @@ public class CommandEnvironment {
     this.commandLinePathFactory =
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
 
-    this.remoteAnalysisCachingEventListener =
-        new RemoteAnalysisCachingEventListener(
-            workspace.getSkyframeExecutor().getRemoteAnalysisCachingState());
+    this.remoteAnalysisCachingEventListener = new RemoteAnalysisCachingEventListener();
     this.eventBus.register(remoteAnalysisCachingEventListener);
   }
 

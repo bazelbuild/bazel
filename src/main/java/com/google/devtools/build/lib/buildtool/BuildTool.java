@@ -552,13 +552,13 @@ public class BuildTool {
         if ((env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)
             && request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
           try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
-              dumpSkyframeStateAfterBuild(
-                  request.getOptions(BuildEventProtocolOptions.class),
-                  request.getBuildOptions().aqueryDumpAfterBuildFormat,
-                  request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-            } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
-              throw new PostExecutionDumpException(e);
-            } catch (InvalidAqueryOutputFormatException e) {
+            dumpSkyframeStateAfterBuild(
+                request.getOptions(BuildEventProtocolOptions.class),
+                request.getBuildOptions().aqueryDumpAfterBuildFormat,
+                request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
+          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
+            throw new PostExecutionDumpException(e);
+          } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionDumpException(
                 "--skyframe_state must be used with "
                     + "--output=proto|streamed_proto|textproto|jsonproto.",
@@ -1040,7 +1040,6 @@ public class BuildTool {
         reportRemoteAnalysisCachingStats();
         env.getSkyframeExecutor()
             .syncRemoteAnalysisCachingState(
-                env.getRemoteAnalysisCachingEventListener().getCacheHits(),
                 env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
                 env.getRemoteAnalysisCachingEventListener().getClientId());
       }
@@ -1659,12 +1658,12 @@ public class BuildTool {
         if (mode == RemoteAnalysisCacheMode.DOWNLOAD) {
           if (skycacheMetadataParams.getUseFakeStampData()) {
             if (skycacheMetadataParams.getTargets().isEmpty()) {
-                eventHandler.handle(
-                    Event.warn(
-                        "Skycache: Not querying Skycache metadata because invocation has no"
-                            + " targets"));
+              eventHandler.handle(
+                  Event.warn(
+                      "Skycache: Not querying Skycache metadata because invocation has no"
+                          + " targets"));
             } else {
-                tryReadSkycacheMetadata();
+              tryReadSkycacheMetadata();
             }
           } else {
             eventHandler.handle(
@@ -1715,12 +1714,14 @@ public class BuildTool {
 
     @Override
     public Set<SkyKey> lookupKeysToInvalidate(
-        RemoteAnalysisCachingServerState remoteAnalysisCachingState) throws InterruptedException {
+        ImmutableSet<SkyKey> keysToLookup,
+        RemoteAnalysisCachingServerState remoteAnalysisCachingState)
+        throws InterruptedException {
       AnalysisCacheInvalidator invalidator = getAnalysisCacheInvalidator();
       if (invalidator == null) {
         return ImmutableSet.of();
       }
-      return invalidator.lookupKeysToInvalidate(remoteAnalysisCachingState);
+      return invalidator.lookupKeysToInvalidate(keysToLookup, remoteAnalysisCachingState);
     }
 
     @Nullable

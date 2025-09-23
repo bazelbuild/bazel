@@ -72,10 +72,9 @@ public final class AnalysisCacheInvalidatorTest {
             mockEventHandler);
     assertThat(
             invalidator.lookupKeysToInvalidate(
+                ImmutableSet.of(),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion,
-                    ImmutableSet.of(),
-                    new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
         .isEmpty();
   }
 
@@ -101,10 +100,9 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
+                ImmutableSet.of(key),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion,
-                    ImmutableSet.of(key),
-                    new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
         .isEmpty();
   }
 
@@ -130,10 +128,9 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
+                ImmutableSet.of(key),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion,
-                    ImmutableSet.of(key),
-                    new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
         .containsExactly(key);
   }
 
@@ -166,10 +163,9 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
+                ImmutableSet.of(hitKey, missKey),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion,
-                    ImmutableSet.of(hitKey, missKey),
-                    new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
         .containsExactly(missKey);
   }
 
@@ -205,10 +201,9 @@ public final class AnalysisCacheInvalidatorTest {
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
+                ImmutableSet.of(key1, key2),
                 new RemoteAnalysisCachingServerState(
-                    previousVersion,
-                    ImmutableSet.of(key1, key2),
-                    new SnapshotClientId("for_testing", 2))))
+                    previousVersion, new SnapshotClientId("for_testing", 2))))
         .containsExactly(key1, key2);
 
     // No RPCs should be sent.
@@ -274,8 +269,8 @@ public final class AnalysisCacheInvalidatorTest {
 
     ImmutableSet<SkyKey> keysToInvalidate =
         invalidator.lookupKeysToInvalidate(
-            new RemoteAnalysisCachingServerState(
-                frontierNodeVersion, ImmutableSet.of(key), testCase.previousClientId));
+            ImmutableSet.of(key),
+            new RemoteAnalysisCachingServerState(frontierNodeVersion, testCase.previousClientId));
 
     if (testCase.expectedInvalidated) {
       assertThat(keysToInvalidate).containsExactly(key);

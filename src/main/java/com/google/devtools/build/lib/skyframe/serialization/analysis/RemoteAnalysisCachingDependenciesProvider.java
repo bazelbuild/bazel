@@ -52,7 +52,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
   boolean withinActiveDirectories(PackageIdentifier pkg);
 
-
   /**
    * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
    * SkyKey.
@@ -90,7 +89,9 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>May call the remote analysis cache to get the set of keys to invalidate.
    */
-  Set<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingServerState remoteAnalysisCachingState)
+  Set<SkyKey> lookupKeysToInvalidate(
+      ImmutableSet<SkyKey> keysToLookup,
+      RemoteAnalysisCachingServerState remoteAnalysisCachingState)
       throws InterruptedException;
 
   /** A stub dependencies provider for when analysis caching is disabled. */
@@ -163,6 +164,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public ImmutableSet<SkyKey> lookupKeysToInvalidate(
+        ImmutableSet<SkyKey> keysToLookup,
         RemoteAnalysisCachingServerState remoteAnalysisCachingState) {
       throw new UnsupportedOperationException();
     }

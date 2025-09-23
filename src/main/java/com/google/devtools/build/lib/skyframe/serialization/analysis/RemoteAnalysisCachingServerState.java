@@ -14,32 +14,16 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Objects;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * State to track the {@link SkyKey}s that were deserialized from the remote analysis cache through
- * the lifetime of the Bazel server (until clean/shutdown), that is, across multiple invocations.
- *
- * <p><code>deserializedKeys</code> must be thread-safe and mutable to support streaming mutations
- * during an invocation.
+ * State to track information pertinent to Skyframe nodes that were deserialized from the remote
+ * analysis cache through the lifetime of the Bazel server (until clean/shutdown), that is, across
+ * multiple invocations.
  */
-public final class RemoteAnalysisCachingServerState implements DeserializedKeysSink {
-
-  /**
-   * The set of deserialized keys in the Skyframe graph.
-   *
-   * <p>This is a mutable set to support streaming mutations during an invocation.
-   *
-   * <p>Care has to be taken to keep this in sync with the deserialized keys in the Skyframe graph
-   * during Skyframe evaluation.
-   */
-  private final Set<SkyKey> deserializedKeysInSkyframeGraph;
+public final class RemoteAnalysisCachingServerState {
 
   /** The {@link FrontierNodeVersion} */
   @Nullable private FrontierNodeVersion latestInvocationVersion;
@@ -47,20 +31,14 @@ public final class RemoteAnalysisCachingServerState implements DeserializedKeysS
   @Nullable private ClientId latestInvocationClientId;
 
   public RemoteAnalysisCachingServerState(
-      @Nullable FrontierNodeVersion version,
-      Set<SkyKey> deserializedKeys,
-      @Nullable ClientId clientId) {
+      @Nullable FrontierNodeVersion version, @Nullable ClientId clientId) {
     this.latestInvocationVersion = version;
-    this.deserializedKeysInSkyframeGraph = deserializedKeys;
     this.latestInvocationClientId = clientId;
   }
 
   /** Returns a {@link RemoteAnalysisCachingServerState} with empty/null fields. */
   public static RemoteAnalysisCachingServerState initializeEmpty() {
-    return new RemoteAnalysisCachingServerState(
-        /* version= */ null,
-        /* deserializedKeys= */ Sets.newConcurrentHashSet(),
-        /* clientId= */ null);
+    return new RemoteAnalysisCachingServerState(/* version= */ null, /* clientId= */ null);
   }
 
   /** Returns {@link FrontierNodeVersion} of the latest (previous) invocation, if any. */
@@ -77,22 +55,6 @@ public final class RemoteAnalysisCachingServerState implements DeserializedKeysS
    */
   public void setVersion(FrontierNodeVersion version) {
     this.latestInvocationVersion = version;
-  }
-
-  /** Returns an immutable copy of deserialized keys in the Skyframe graph. */
-  public ImmutableSet<SkyKey> deserializedKeys() {
-    return ImmutableSet.copyOf(deserializedKeysInSkyframeGraph);
-  }
-
-  /** Adds the given key to the set of deserialized keys. */
-  @Override
-  public void addDeserializedKey(SkyKey key) {
-    deserializedKeysInSkyframeGraph.add(key);
-  }
-
-  /** Removes the given key from the set of deserialized keys. */
-  public void removeDeserializedKey(SkyKey key) {
-    deserializedKeysInSkyframeGraph.remove(key);
   }
 
   /** Returns the {@link ClientId} of the latest (previous) invocation, if any. */
@@ -115,21 +77,18 @@ public final class RemoteAnalysisCachingServerState implements DeserializedKeysS
       return false;
     }
     return Objects.equals(latestInvocationVersion, that.latestInvocationVersion)
-        && Objects.equals(deserializedKeysInSkyframeGraph, that.deserializedKeysInSkyframeGraph)
         && Objects.equals(latestInvocationClientId, that.latestInvocationClientId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        latestInvocationVersion, deserializedKeysInSkyframeGraph, latestInvocationClientId);
+    return Objects.hash(latestInvocationVersion, latestInvocationClientId);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("version", latestInvocationVersion)
-        .add("deserializedKeys", deserializedKeysInSkyframeGraph)
         .add("clientId", latestInvocationClientId)
         .toString();
   }
