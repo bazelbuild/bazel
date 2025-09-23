@@ -363,18 +363,18 @@ A single interface library for linking the shared library.
             allow_files = [".o", ".nopic.o"],
         ),
         "system_provided": attr.bool(default = False, doc = """
-If 1, it indicates the shared library required at runtime is provided by the system. In
+If enabled, it indicates the shared library required at runtime is provided by the system. In
 this case, <code>interface_library</code> should be specified and
 <code>shared_library</code> should be empty."""),
         "alwayslink": attr.bool(default = False, doc = """
-If 1, any binary that depends (directly or indirectly) on this C++
+If enabled, any binary that depends (directly or indirectly) on this C++
 precompiled library will link in all the object files archived in the static library,
 even if some contain no symbols referenced by the binary.
 This is useful if your code isn't explicitly called by code in
 the binary, e.g., if your code registers to receive some callback
 provided by some service.
 
-<p>If alwayslink doesn't work with VS 2017 on Windows, that is due to a
+<p>If <code>alwayslink</code> doesn't work with VS 2017 on Windows, that is due to a
 <a href="https://github.com/bazelbuild/bazel/issues/3949">known issue</a>,
 please upgrade your VS 2017 to the latest version.</p>"""),
         "linkopts": attr.string_list(doc = """
