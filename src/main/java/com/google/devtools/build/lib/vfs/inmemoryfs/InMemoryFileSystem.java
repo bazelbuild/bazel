@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
@@ -127,6 +128,8 @@ public class InMemoryFileSystem extends AbstractFileSystem {
           throw new FileAccessException(m);
         case ENOENT:
           throw new FileNotFoundException(m);
+        case ELOOP:
+          throw new FileSymlinkLoopException(path);
         default:
           throw new IOException(m);
       }
