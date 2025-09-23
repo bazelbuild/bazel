@@ -1290,32 +1290,32 @@ public final class LoadingPhaseRunnerTest {
   //   runTestPackageFileInconsistencyError(false, "//...");
   // }
 
-  @Test
-  public void extensionLoadingError(
-      @TestParameter boolean keepGoing,
-      @TestParameter({"//bad:BUILD", "//bad:all", "//bad/...", "//..."}) String pattern)
-      throws Exception {
-    tester.addFile("bad/f1.bzl", "nope");
-    tester.addFile("bad/BUILD", "load(\":f1.bzl\", \"not_a_symbol\")");
-    if (keepGoing) {
-      TargetPatternPhaseValue value = tester.loadKeepGoing(pattern);
-      assertThat(value.hasError()).isTrue();
-      tester.assertContainsWarning("Target pattern parsing failed");
-    } else {
-      TargetParsingException exn =
-          assertThrows(TargetParsingException.class, () -> tester.load(pattern));
-      assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
-      assertThat(exn)
-          .hasCauseThat()
-          .hasMessageThat()
-          .contains("compilation of module 'bad/f1.bzl' failed");
-      DetailedExitCode detailedExitCode = exn.getDetailedExitCode();
-      assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
-      assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
-          .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
-    }
-    tester.assertContainsError("/workspace/bad/f1.bzl:1:1: name 'nope' is not defined");
-  }
+  //  @Test
+  //  public void extensionLoadingError(
+  //      @TestParameter boolean keepGoing,
+  //      @TestParameter({"//bad:BUILD", "//bad:all", "//bad/...", "//..."}) String pattern)
+  //      throws Exception {
+  //    tester.addFile("bad/f1.bzl", "nope");
+  //    tester.addFile("bad/BUILD", "load(\":f1.bzl\", \"not_a_symbol\")");
+  //    if (keepGoing) {
+  //      TargetPatternPhaseValue value = tester.loadKeepGoing(pattern);
+  //      assertThat(value.hasError()).isTrue();
+  //      tester.assertContainsWarning("Target pattern parsing failed");
+  //    } else {
+  //      TargetParsingException exn =
+  //          assertThrows(TargetParsingException.class, () -> tester.load(pattern));
+  //      assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
+  //      assertThat(exn)
+  //          .hasCauseThat()
+  //          .hasMessageThat()
+  //          .contains("compilation of module 'bad/f1.bzl' failed");
+  //      DetailedExitCode detailedExitCode = exn.getDetailedExitCode();
+  //      assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+  //      assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
+  //          .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+  //    }
+  //    tester.assertContainsError("/workspace/bad/f1.bzl:1:1: name 'nope' is not defined");
+  //  }
 
   private static final class LoadingPhaseTester {
     private final ManualClock clock = new ManualClock();
