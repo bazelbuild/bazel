@@ -539,7 +539,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .when(cacheClient)
         .findMissingDigests(any(), any());
 
-    return new CombinedCache(cacheClient, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+    return new CombinedCache(
+        cacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {

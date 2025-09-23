@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.remote.CombinedCache;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,12 +43,11 @@ class OnDiskBlobStoreCache extends CombinedCache {
   private static final ExecutorService executorService =
       MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
-  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
-      throws IOException {
+  public OnDiskBlobStoreCache(Path cacheDir, DigestUtil digestUtil) throws IOException {
     super(
         /* remoteCacheClient= */ null,
         new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
-        options,
+        /* symlinkTemplate= */ null,
         digestUtil);
   }
 
@@ -94,10 +92,6 @@ class OnDiskBlobStoreCache extends CombinedCache {
 
   public DigestUtil getDigestUtil() {
     return digestUtil;
-  }
-
-  public RemoteOptions getRemoteOptions() {
-    return options;
   }
 
   @Override

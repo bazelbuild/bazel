@@ -30,7 +30,6 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
@@ -283,11 +282,8 @@ public final class RemoteWorker {
   @SuppressWarnings("FutureReturnValueIgnored")
   public static void main(String[] args) throws Exception {
     OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(RemoteOptions.class, RemoteWorkerOptions.class)
-            .build();
+        OptionsParser.builder().optionsClasses(RemoteWorkerOptions.class).build();
     parser.parseAndExitUponError(args);
-    RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
     rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
@@ -326,7 +322,7 @@ public final class RemoteWorker {
     Path casPath =
         remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
     DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
-    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(remoteOptions, casPath, digestUtil);
+    OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(casPath, digestUtil);
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteWorker worker = new RemoteWorker(fs, remoteWorkerOptions, cache, sandboxPath, digestUtil);
