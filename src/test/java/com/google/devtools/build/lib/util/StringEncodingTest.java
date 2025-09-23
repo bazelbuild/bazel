@@ -137,8 +137,6 @@ public class StringEncodingTest {
     assume().that(canEncode(s, SUN_JNU_ENCODING)).isTrue();
 
     String internal = platformToInternal(s);
-    // In the internal encoding, raw bytes are encoded as Latin-1.
-    assertThat(StringUnsafe.getCoder(internal)).isEqualTo(StringUnsafe.LATIN1);
     String roundtripped = internalToPlatform(internal);
     if (StringUnsafe.isAscii(s)) {
       assertThat(roundtripped).isSameInstanceAs(s);
@@ -168,8 +166,6 @@ public class StringEncodingTest {
   public void testUnicodeToInternal_roundtrip(
       @TestParameter({"ascii", "äöüÄÖÜß", "🌱", "羅勒罗勒学名"}) String s) {
     String internal = unicodeToInternal(s);
-    // In the internal encoding, raw bytes are encoded as Latin-1.
-    assertThat(StringUnsafe.getCoder(internal)).isEqualTo(StringUnsafe.LATIN1);
     String roundtripped = internalToUnicode(internal);
     if (StringUnsafe.isAscii(s)) {
       assertThat(roundtripped).isSameInstanceAs(s);

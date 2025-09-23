@@ -28,14 +28,15 @@ import java.util.Arrays;
  *
  * <p>As of JDK9, a string is two fields: <code>byte coder</code>, and <code>byte[] value</code>.
  * The <code>coder</code> field has value 0 if the encoding is LATIN-1, and 2 if the encoding is
- * UTF-16 (the classic JDK8 encoding).
+ * UTF-16 (the classic JDK8 encoding). All strings retained by Bazel should use the LATIN-1 coder
+ * (see {@link com.google.devtools.build.lib.util.StringEncoding}).
  *
  * <p>The <code>value</code> field contains the actual bytes.
  */
 public final class StringUnsafe {
   // Fields corresponding to the coder
-  public static final byte LATIN1 = 0;
-  public static final byte UTF16 = 1;
+  static final byte LATIN1 = 0;
+  static final byte UTF16 = 1;
 
   /**
    * Whether strings have their natural Java representation and not the Bazel-specific encoding
@@ -73,7 +74,7 @@ public final class StringUnsafe {
   }
 
   /** Returns the coder used for this string. See {@link #LATIN1} and {@link #UTF16}. */
-  public static byte getCoder(String obj) {
+  static byte getCoder(String obj) {
     return (byte) CODE_HANDLE.get(obj);
   }
 
@@ -83,7 +84,7 @@ public final class StringUnsafe {
    * <p>Use of this is unsafe. The representation may change from one JDK version to the next.
    * Ensure you do not mutate this byte array in any way.
    */
-  public static byte[] getByteArray(String obj) {
+  static byte[] getByteArray(String obj) {
     return (byte[]) VALUE_HANDLE.get(obj);
   }
 
@@ -133,18 +134,17 @@ public final class StringUnsafe {
   }
 
   /**
-   * Constructs a new string from a byte array and coder.
+   * Constructs a new LATIN1-coded string from a byte array.
    *
    * <p>The new string shares the byte array instance, which must not be modified after calling this
    * method.
    */
-  public static String newInstance(byte[] bytes, byte coder) {
+  public static String newInstance(byte[] bytes) {
     try {
-      return (String) CONSTRUCTOR.invokeExact(bytes, coder);
+      return (String) CONSTRUCTOR.invokeExact(bytes, LATIN1);
     } catch (Throwable e) {
       // The constructor never throws, so this is not expected.
-      throw new IllegalStateException(
-          "Could not instantiate string: " + Arrays.toString(bytes) + ", " + coder, e);
+      throw new IllegalStateException("Could not instantiate string: " + Arrays.toString(bytes), e);
     }
   }
 

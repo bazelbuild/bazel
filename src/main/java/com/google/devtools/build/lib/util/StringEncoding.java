@@ -114,9 +114,7 @@ public final class StringEncoding {
    * <p>See the class documentation for more information on the different types of strings.
    */
   public static String platformToInternal(String s) {
-    return needsReencodeForPlatform(s)
-        ? StringUnsafe.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
-        : s;
+    return needsReencodeForPlatform(s) ? StringUnsafe.newInstance(s.getBytes(UTF_8)) : s;
   }
 
   /**
@@ -136,9 +134,7 @@ public final class StringEncoding {
    * <p>See the class documentation for more information on the different types of strings.
    */
   public static String unicodeToInternal(String s) {
-    return needsReencodeForUnicode(s)
-        ? StringUnsafe.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
-        : s;
+    return needsReencodeForUnicode(s) ? StringUnsafe.newInstance(s.getBytes(UTF_8)) : s;
   }
 
   /**
