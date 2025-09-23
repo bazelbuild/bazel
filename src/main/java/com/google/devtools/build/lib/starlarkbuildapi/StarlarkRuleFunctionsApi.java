@@ -791,7 +791,7 @@ declared.
       name = "aspect",
       doc =
           "Creates a new aspect. The result of this function must be stored in a global value."
-              + " Please see the <a href=\"https://bazel.build/rules/aspects\">introduction to"
+              + " Please see the <a href=\"https://bazel.build/extending/aspects\">introduction to"
               + " Aspects</a> for more details.",
       parameters = {
         @Param(
