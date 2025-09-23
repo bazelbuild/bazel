@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.Output
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -196,7 +197,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             return ImmutableList.of();
           }
 
@@ -229,7 +231,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             TreeFileArtifact outputWithWrongOwner =
                 TreeFileArtifact.createTemplateExpansionOutput(
@@ -257,7 +260,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             Artifact notTreeFileArtifact =
                 DerivedArtifact.create(
@@ -287,7 +291,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             TreeFileArtifact outputUnderWrongTree =
                 TreeFileArtifact.createTemplateExpansionOutput(
@@ -318,7 +323,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             return ImmutableList.of(
                 new DummyAction(
@@ -351,7 +357,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
             ImmutableListMultimap<SpecialArtifact, TreeFileArtifact> inputTreeArtifactsToChildren =
                 ActionTemplate.getInputTreeArtifactsToChildren(inputTreeFileArtifacts);

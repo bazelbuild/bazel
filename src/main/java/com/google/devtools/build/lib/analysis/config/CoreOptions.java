@@ -816,6 +816,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "supported.")
   public boolean allowUnresolvedSymlinks;
 
+  @Option(
+      name = "experimental_allow_map_directory",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.NON_CONFIGURABLE},
+      help =
+          "If enabled, Bazel allows the use of ctx.actions.map_directory(). This allows for the"
+              + " creation of actions based on the files in a directory through a user defined"
+              + " Starlark function and a <code>template_ctx</code> that supports basic action"
+              + " generation APIs.")
+  public boolean allowMapDirectory;
+
   /** Values for --experimental_output_paths. */
   public enum OutputPathsMode implements StarlarkValue {
     /** Use the production output path model. */

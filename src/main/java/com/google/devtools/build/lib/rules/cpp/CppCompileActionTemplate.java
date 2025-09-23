@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -117,7 +118,9 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
 
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
-      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler)
       throws ActionExecutionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 

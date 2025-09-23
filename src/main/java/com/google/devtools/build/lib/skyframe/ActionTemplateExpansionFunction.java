@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -96,7 +97,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       // of the ActionTemplate.
       actions =
           generateAndValidateActionsFromTemplate(
-              actionTemplate, inputTreeFileArtifacts.build(), key);
+              actionTemplate, inputTreeFileArtifacts.build(), key, env.getListener());
     } catch (ActionExecutionException e) {
       env.getListener()
           .handle(
@@ -105,6 +106,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
                   actionTemplate.describe() + " failed: " + e.getMessage()));
       throw new ActionTemplateExpansionFunctionException(
           new AlreadyReportedActionExecutionException(e));
+    } catch (ActionConflictException e) {
+      e.reportTo(env.getListener());
+      throw new ActionTemplateExpansionFunctionException(e);
     }
     try {
       checkActionAndArtifactConflicts(actions, key);
@@ -139,8 +143,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   private static ImmutableList<ActionAnalysisMetadata> generateAndValidateActionsFromTemplate(
       ActionTemplate<?> actionTemplate,
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-      ActionTemplateExpansionKey key)
-      throws ActionExecutionException, InterruptedException {
+      ActionTemplateExpansionKey key,
+      EventHandler eventHandler)
+      throws ActionConflictException, ActionExecutionException, InterruptedException {
     Collection<Artifact> outputs = actionTemplate.getOutputs();
     for (Artifact output : outputs) {
       Preconditions.checkState(
@@ -150,7 +155,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           output);
     }
     ImmutableList<? extends Action> actions =
-        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key);
+        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key, eventHandler);
     for (Action action : actions) {
       for (Artifact output : action.getOutputs()) {
         Preconditions.checkState(

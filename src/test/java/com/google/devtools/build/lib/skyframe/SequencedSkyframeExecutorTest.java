@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -1384,7 +1385,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-        ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+        ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+        ActionLookupKey artifactOwner,
+        EventHandler eventHandler) {
       return inputTreeFileArtifacts.stream()
           .map(
               input -> {

@@ -57,6 +57,14 @@ public sealed class ActionConflictException extends AbstractSaneAnalysisExceptio
         /* isPrefixConflict= */ false);
   }
 
+  public static ActionConflictException create(
+      Artifact artifact,
+      ActionAnalysisMetadata attemptedAction,
+      String message,
+      boolean isPrefixConflict) {
+    return new ActionConflictException(artifact, attemptedAction, message, isPrefixConflict);
+  }
+
   /**
    * Exception to indicate that one {@link Action} has an output artifact whose path is a prefix of
    * an output of another action. Since the first path cannot be both a directory and a file, this

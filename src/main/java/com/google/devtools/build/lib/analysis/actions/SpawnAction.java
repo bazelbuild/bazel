@@ -592,6 +592,39 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
   }
 
+  public static ActionEnvironment createActionEnvironment(
+      BuildConfigurationValue configuration,
+      boolean useDefaultShellEnvironment,
+      ImmutableMap<String, String> environment) {
+    ActionEnvironment env;
+    if (useDefaultShellEnvironment && !environment.isEmpty()) {
+      // Inherited variables override fixed variables in ActionEnvironment. Since we want the
+      // fixed part of the action-provided environment to override the inherited part of the
+      // user-provided environment, we have to explicitly filter the inherited part.
+      var userFilteredInheritedEnv =
+          Sets.difference(
+                  configuration.getActionEnvironment().getInheritedEnv(), environment.keySet())
+              .immutableCopy();
+      // Do not create a new ActionEnvironment in the common case where no vars have been filtered
+      // out.
+      if (userFilteredInheritedEnv.size()
+          == configuration.getActionEnvironment().getInheritedEnv().size()) {
+        env = configuration.getActionEnvironment();
+      } else {
+        env =
+            ActionEnvironment.create(
+                configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
+      }
+      env = env.withAdditionalFixedVariables(environment);
+    } else if (useDefaultShellEnvironment) {
+      // This produces the same result as the previous case, but without the overhead.
+      env = configuration.getActionEnvironment();
+    } else {
+      env = ActionEnvironment.create(environment);
+    }
+    return env;
+  }
+
   /**
    * Builder class to construct {@link SpawnAction} instances.
    */
@@ -602,6 +635,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final List<Artifact> outputs = new ArrayList<>();
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
+    @Nullable private ActionEnvironment actionEnvironment = null;
+    @Nullable private OutputPathsMode outputPathsMode = null;
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
@@ -623,6 +658,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.outputs.addAll(other.outputs);
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
       this.environment = other.environment;
+      this.actionEnvironment = other.actionEnvironment;
+      this.outputPathsMode = other.outputPathsMode;
       this.executionInfo = other.executionInfo;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
       this.executableArg = other.executableArg;
@@ -664,37 +701,36 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         result.addCommandLine(pair);
       }
       CommandLines commandLines = result.build();
-      ActionEnvironment env;
-      if (useDefaultShellEnvironment && !environment.isEmpty()) {
-        // Inherited variables override fixed variables in ActionEnvironment. Since we want the
-        // fixed part of the action-provided environment to override the inherited part of the
-        // user-provided environment, we have to explicitly filter the inherited part.
-        var userFilteredInheritedEnv =
-            ImmutableSet.copyOf(
-                Sets.difference(
-                    configuration.getActionEnvironment().getInheritedEnv(), environment.keySet()));
-        // Do not create a new ActionEnvironment in the common case where no vars have been filtered
-        // out.
-        if (userFilteredInheritedEnv.size()
-            == configuration.getActionEnvironment().getInheritedEnv().size()) {
-          env = configuration.getActionEnvironment();
-        } else {
-          env =
-              ActionEnvironment.create(
-                  configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
-        }
-        env = env.withAdditionalFixedVariables(environment);
-      } else if (useDefaultShellEnvironment) {
-        // This produces the same result as the previous case, but without the overhead.
-        env = configuration.getActionEnvironment();
-      } else {
-        env = ActionEnvironment.create(environment);
-      }
+      ActionEnvironment env =
+          createActionEnvironment(configuration, useDefaultShellEnvironment, environment);
       return buildSpawnAction(owner, commandLines, configuration, env);
     }
 
     @CheckReturnValue
     public SpawnAction buildForActionTemplate(ActionOwner owner) {
+      return buildSpawnAction(
+          owner, buildCommandLines(), null, ActionEnvironment.create(environment));
+    }
+
+    @CheckReturnValue
+    public SpawnAction buildForStarlarkActionTemplate(ActionOwner owner) {
+      NestedSet<Artifact> tools = toolsBuilder.build();
+      NestedSet<Artifact> inputs = inputsBuilder.addTransitive(tools).build();
+      return new SpawnAction(
+          owner,
+          tools,
+          inputs,
+          outputs,
+          resourceSetOrBuilder,
+          buildCommandLines(),
+          checkNotNull(actionEnvironment),
+          executionInfo,
+          progressMessage,
+          mnemonic,
+          checkNotNull(outputPathsMode));
+    }
+
+    private CommandLines buildCommandLines() {
       CommandLines.Builder result = CommandLines.builder();
       if (executableArg != null) {
         result.addSingleArgument(executableArg);
@@ -704,7 +740,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       for (CommandLineAndParamFileInfo pair : commandLines) {
         result.addCommandLine(pair.commandLine);
       }
-      return buildSpawnAction(owner, result.build(), null, ActionEnvironment.create(environment));
+      return result.build();
     }
 
     /**
@@ -876,6 +912,30 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setEnvironment(Map<String, String> environment) {
       this.environment = envInterner.intern(ImmutableMap.copyOf(environment));
       this.useDefaultShellEnvironment = false;
+      return this;
+    }
+
+    /**
+     * Sets the action environment, for when we want to already have created an ActionEnvironment
+     * before .build() is called. This is used for Starlark action templates
+     * .buildForStarlarkActionTemplate(), where we do not have access to the configuration upon
+     * action creation time which is required to create the ActionEnvironment.
+     */
+    @CanIgnoreReturnValue
+    public Builder setActionEnvironment(ActionEnvironment actionEnvironment) {
+      this.actionEnvironment = actionEnvironment;
+      return this;
+    }
+
+    /**
+     * Sets the output paths mode, for when we want to already have it before .build() is called.
+     * This is used for Starlark action templates .buildForStarlarkActionTemplate(), where we do not
+     * have access to the configuration upon action creation time which is required to create the
+     * ActionEnvironment.
+     */
+    @CanIgnoreReturnValue
+    public Builder setOutputPathsMode(OutputPathsMode outputPathsMode) {
+      this.outputPathsMode = outputPathsMode;
       return this;
     }
 

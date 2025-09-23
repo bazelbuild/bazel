@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -113,7 +114,9 @@ public final class StarlarkActionTemplate extends ActionKeyComputer
 
   @Override
   public ImmutableList<StarlarkAction> generateActionsForInputArtifacts(
-      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler)
       throws ActionExecutionException, InterruptedException {
     StarlarkActionTemplateContext actionTemplateContext =
         new StarlarkActionTemplateContext(

@@ -798,6 +798,10 @@ public class BuildConfigurationValue
     return options.allowUnresolvedSymlinks;
   }
 
+  public boolean allowMapDirectory() {
+    return options.allowMapDirectory;
+  }
+
   /** Returns compilation mode. */
   public CompilationMode getCompilationMode() {
     return options.compilationMode;

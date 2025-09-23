@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -108,7 +109,9 @@ public final class SpawnActionTemplate extends ActionKeyComputer
 
   @Override
   public ImmutableList<SpawnAction> generateActionsForInputArtifacts(
-      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler) {
     ImmutableList.Builder<SpawnAction> expandedActions =
         ImmutableList.builderWithExpectedSize(inputTreeFileArtifacts.size());
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {

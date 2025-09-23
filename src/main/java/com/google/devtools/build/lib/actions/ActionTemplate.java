@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.events.EventHandler;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkValue;
@@ -72,11 +73,14 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    *     TreeArtifact} the tree file artifact is from.
    * @param artifactOwner the {@link ArtifactOwner} of the generated output {@link
    *     TreeFileArtifact}s
+   * @param eventHandler the {@link EventHandler} to report events to.
    * @return a list of expanded {@link Action}s to execute
    */
   ImmutableList<T> generateActionsForInputArtifacts(
-      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
-      throws ActionExecutionException, InterruptedException;
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler)
+      throws ActionConflictException, ActionExecutionException, InterruptedException;
 
   /** Returns the input TreeArtifacts. */
   ImmutableList<SpecialArtifact> getInputTreeArtifacts();

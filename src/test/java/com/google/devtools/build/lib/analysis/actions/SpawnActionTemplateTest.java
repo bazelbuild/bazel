@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -202,7 +203,9 @@ public class SpawnActionTemplateTest {
 
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     assertThat(expandedActions).hasSize(3);
 
@@ -244,7 +247,9 @@ public class SpawnActionTemplateTest {
         createInputTreeFileArtifacts(inputTreeArtifact);
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     for (int i = 0; i < expandedActions.size(); ++i) {
       assertThat(expandedActions.get(i).getInputs().toList())
@@ -265,7 +270,9 @@ public class SpawnActionTemplateTest {
 
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     assertThat(expandedActions).hasSize(3);
 
@@ -289,7 +296,9 @@ public class SpawnActionTemplateTest {
 
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     assertThat(expandedActions).hasSize(3);
 
@@ -327,7 +336,9 @@ public class SpawnActionTemplateTest {
         IllegalArgumentException.class,
         () ->
             actionTemplate.generateActionsForInputArtifacts(
-                inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER));
+                inputTreeFileArtifacts,
+                ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+                NullEventHandler.INSTANCE));
 
     mapper = new OutputPathMapper() {
       @Override
@@ -344,7 +355,9 @@ public class SpawnActionTemplateTest {
         IllegalArgumentException.class,
         () ->
             actionTemplate2.generateActionsForInputArtifacts(
-                inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER));
+                inputTreeFileArtifacts,
+                ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+                NullEventHandler.INSTANCE));
   }
 
   private SpawnActionTemplate.Builder builder(

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -245,7 +246,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
-              ActionLookupKey artifactOwner) {
+              ActionLookupKey artifactOwner,
+              EventHandler eventHandler) {
             ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
             for (SpecialArtifact outputTree : ImmutableSet.of(outputTree1, outputTree2)) {
               TreeFileArtifact output =
