@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
 
@@ -36,14 +37,13 @@ import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerInitializer;
@@ -115,10 +115,9 @@ public final class RemoteWorker {
       throw new IllegalStateException(
           "The specified hash function '" + value + "' is not supported.", e);
     }
-    // Don't use UnixFileSystem as it expects Latin1-encoded filenames (see StringEncoding.java).
     return OS.getCurrent() == OS.WINDOWS
         ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
-        : new JavaIoFileSystem(hashFunction);
+        : new UnixFileSystem(hashFunction, /* hashAttributeName= */ "");
   }
 
   /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */
@@ -245,10 +244,12 @@ public final class RemoteWorker {
   private SslContextBuilder getSslContextBuilder(RemoteWorkerOptions workerOptions) {
     SslContextBuilder sslContextBuilder =
         SslContextBuilder.forServer(
-            new File(workerOptions.tlsCertificate), new File(workerOptions.tlsPrivateKey));
+            new File(internalToPlatform(workerOptions.tlsCertificate.getPathString())),
+            new File(internalToPlatform(workerOptions.tlsPrivateKey.getPathString())));
     if (workerOptions.tlsCaCertificate != null) {
       sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
-      sslContextBuilder.trustManager(new File(workerOptions.tlsCaCertificate));
+      sslContextBuilder.trustManager(
+          new File(internalToPlatform(workerOptions.tlsCaCertificate.getPathString())));
     }
     return GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
   }
@@ -311,16 +312,15 @@ public final class RemoteWorker {
       sandboxPath = prepareSandboxRunner(fs, remoteWorkerOptions);
     }
 
-    if (remoteWorkerOptions.casPath == null
-        || (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
-            || !fs.getPath(remoteWorkerOptions.casPath).exists())) {
-      logger.atSevere().log("--cas_path must be specified and refer to an exiting absolute path");
+    if (remoteWorkerOptions.casPath == null || !remoteWorkerOptions.casPath.isAbsolute()) {
+      logger.atSevere().log("--cas_path must be set to an absolute path");
       System.exit(1);
       return;
     }
 
-    Path casPath =
-        remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
+    Path casPath = fs.getPath(remoteWorkerOptions.casPath);
+    casPath.createDirectoryAndParents();
+
     DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
     OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(casPath, digestUtil);
     ListeningScheduledExecutorService retryService =
@@ -371,8 +371,9 @@ public final class RemoteWorker {
       System.exit(1);
     }
 
-    if (remoteWorkerOptions.workPath == null) {
-      logger.atSevere().log("Sandboxing requested, but --work_path was not specified");
+    if (remoteWorkerOptions.workPath == null || !remoteWorkerOptions.workPath.isAbsolute()) {
+      logger.atSevere().log(
+          "Sandboxing requested, but --work_path was not set to an absolute path");
       System.exit(1);
     }
 

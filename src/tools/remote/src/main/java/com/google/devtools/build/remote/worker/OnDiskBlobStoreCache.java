@@ -15,6 +15,7 @@ package com.google.devtools.build.remote.worker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -72,21 +73,22 @@ class OnDiskBlobStoreCache extends CombinedCache {
     rootLocation.createDirectoryAndParents();
     Directory directory = Directory.parseFrom(getFromFuture(downloadBlob(context, rootDigest)));
     for (FileNode file : directory.getFilesList()) {
-      Path dst = rootLocation.getRelative(file.getName());
+      Path dst = rootLocation.getRelative(unicodeToInternal(file.getName()));
       getFromFuture(downloadFile(context, dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
     }
     for (SymlinkNode symlink : directory.getSymlinksList()) {
-      Path dst = rootLocation.getRelative(symlink.getName());
+      Path dst = rootLocation.getRelative(unicodeToInternal(symlink.getName()));
       // TODO(fmeum): The following line is not generally correct: The remote execution API allows
       //  for non-normalized symlink targets, but the normalization applied by PathFragment.create
       //  does not take directory symlinks into account. However, Bazel's file system API does not
       //  currently offer a way to specify a raw String as a symlink target.
       // https://github.com/bazelbuild/bazel/issues/14224
-      dst.createSymbolicLink(PathFragment.create(symlink.getTarget()));
+      dst.createSymbolicLink(PathFragment.create(unicodeToInternal(symlink.getTarget())));
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
-      downloadTree(context, child.getDigest(), rootLocation.getRelative(child.getName()));
+      downloadTree(
+          context, child.getDigest(), rootLocation.getRelative(unicodeToInternal(child.getName())));
     }
   }
 

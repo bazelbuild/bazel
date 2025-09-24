@@ -158,9 +158,6 @@ public final class StringEncoding {
   }
 
   private static boolean needsReencodeForUnicode(String s) {
-    if (StringUnsafe.BAZEL_UNICODE_STRINGS) {
-      return false;
-    }
     return !StringUnsafe.isAscii(s);
   }
 

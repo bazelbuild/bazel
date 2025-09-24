@@ -14,8 +14,12 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.ResourceConverter;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -26,6 +30,18 @@ import java.util.List;
 /** Options for remote worker. */
 public class RemoteWorkerOptions extends OptionsBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final class PathFragmentConverter extends Converter.Contextless<PathFragment> {
+    @Override
+    public PathFragment convert(String value) {
+      return PathFragment.create(unicodeToInternal(value));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path";
+    }
+  }
 
   @Option(
       name = "listen_port",
@@ -39,22 +55,24 @@ public class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "work_path",
       defaultValue = "null",
+      converter = PathFragmentConverter.class,
       category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A directory for the build worker to do work.")
-  public String workPath;
+  public PathFragment workPath;
 
   @Option(
       name = "cas_path",
       defaultValue = "null",
+      converter = PathFragmentConverter.class,
       category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A directory for the build worker to store it's files in. If left unset, and if no "
               + "other store is set, the worker falls back to an in-memory store.")
-  public String casPath;
+  public PathFragment casPath;
 
   @Option(
       name = "debug",
@@ -79,11 +97,12 @@ public class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "pid_file",
       defaultValue = "null",
+      converter = PathFragmentConverter.class,
       category = "build_worker",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "File for writing the process id for this worker when it is fully started.")
-  public String pidFile;
+  public PathFragment pidFile;
 
   @Option(
       name = "sandboxing",
@@ -98,21 +117,23 @@ public class RemoteWorkerOptions extends OptionsBase {
       name = "sandboxing_writable_path",
       defaultValue = "null",
       category = "build_worker",
+      converter = PathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help = "When using sandboxing, allow running actions to write to this path.")
-  public List<String> sandboxingWritablePaths;
+  public List<PathFragment> sandboxingWritablePaths;
 
   @Option(
       name = "sandboxing_tmpfs_dir",
       defaultValue = "null",
       category = "build_worker",
+      converter = PathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help = "When using sandboxing, mount an empty tmpfs onto this path for each running action.")
-  public List<String> sandboxingTmpfsDirs;
+  public List<PathFragment> sandboxingTmpfsDirs;
 
   @Option(
       name = "sandboxing_block_network",
@@ -155,28 +176,31 @@ public class RemoteWorkerOptions extends OptionsBase {
   @Option(
       name = "tls_certificate",
       defaultValue = "null",
+      converter = PathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specify the TLS server certificate to use.")
-  public String tlsCertificate;
+  public PathFragment tlsCertificate;
 
   @Option(
       name = "tls_private_key",
       defaultValue = "null",
+      converter = PathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specify the TLS private key to be used.")
-  public String tlsPrivateKey;
+  public PathFragment tlsPrivateKey;
 
   @Option(
       name = "tls_ca_certificate",
       defaultValue = "null",
+      converter = PathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify a CA certificate to use for authenticating clients; setting this implicitly "
               + "requires client authentication (aka mTLS).")
-  public String tlsCaCertificate;
+  public PathFragment tlsCaCertificate;
 
   @Option(
       name = "expected_authorization_token",
