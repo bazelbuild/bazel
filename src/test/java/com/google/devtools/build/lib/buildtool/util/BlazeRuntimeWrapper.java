@@ -371,7 +371,9 @@ public class BlazeRuntimeWrapper {
   public void executeCustomCommand() throws Exception {
     checkNotNull(command, "No command created, try calling newCommand()");
     checkState(
-        env.getCommand().buildPhase() == NONE || env.getCommandName().equals("run"),
+        env.getCommand().buildPhase() == NONE
+            || env.getCommandName().equals("run")
+            || env.getCommandName().equals("javahotswap"),
         "%s is a build command, did you mean to call executeBuild()?",
         env.getCommandName());
 
@@ -386,7 +388,7 @@ public class BlazeRuntimeWrapper {
       try {
         Crash crash = null;
         try {
-          if (env.getCommandName().equals("run")) {
+          if (env.getCommandName().equals("run") || env.getCommandName().equals("javahotswap")) {
             try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
               env.syncPackageLoading(optionsParser);
             }
