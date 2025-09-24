@@ -402,8 +402,7 @@ public final class RemoteWorker {
     Command cmd =
         new Command(
             LinuxSandboxCommandLineBuilder.commandLineBuilder(sandboxPath)
-                .buildForCommand(ImmutableList.of("true"))
-                .toArray(new String[0]),
+                .buildForCommand(ImmutableList.of("true")),
             ImmutableMap.of(),
             sandboxPath.getParentDirectory().getPathFile(),
             System.getenv());

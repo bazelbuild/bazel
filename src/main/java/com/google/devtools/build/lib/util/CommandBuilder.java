@@ -24,7 +24,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -129,24 +128,24 @@ public final class CommandBuilder {
     return argv.size() >= 2 && SHELLS.contains(argv.get(0)) && "-c".equals(argv.get(1));
   }
 
-  private String[] transformArgvForLinux() {
+  private ImmutableList<String> transformArgvForLinux() {
     // If command line already starts with "/bin/sh -c", ignore useShell attribute.
     if (useShell && !argvStartsWithSh()) {
       // c.g.io.base.shell.Shell.shellify() actually concatenates argv into the space-separated
       // string here. Not sure why, but we will do the same.
-      return new String[] {"/bin/sh", "-c", Joiner.on(' ').join(argv)};
+      return ImmutableList.of("/bin/sh", "-c", Joiner.on(' ').join(argv));
     }
-    return argv.toArray(new String[argv.size()]);
+    return ImmutableList.copyOf(argv);
   }
 
-  private String[] transformArgvForWindows() {
+  private ImmutableList<String> transformArgvForWindows() {
     List<String> modifiedArgv;
     // Heuristic: replace "/bin/sh -c" with something more appropriate for Windows.
     if (argvStartsWithSh()) {
       useShell = true;
-      modifiedArgv = Lists.newArrayList(argv.subList(2, argv.size()));
+      modifiedArgv = new ArrayList<>(argv.subList(2, argv.size()));
     } else {
-      modifiedArgv = Lists.newArrayList(argv);
+      modifiedArgv = new ArrayList<>(argv);
     }
 
     if (!modifiedArgv.isEmpty()) {
@@ -171,11 +170,10 @@ public final class CommandBuilder {
       // /V:ON - enable delayed variable expansion
       // /D - ignore AutoRun registry entries.
       // /C - execute command. This must be the last option before the command itself.
-      return new String[] {
-        "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C", Joiner.on(' ').join(modifiedArgv)
-      };
+      return ImmutableList.of(
+          "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C", Joiner.on(' ').join(modifiedArgv));
     } else {
-      return modifiedArgv.toArray(new String[argv.size()]);
+      return ImmutableList.copyOf(modifiedArgv);
     }
   }
 

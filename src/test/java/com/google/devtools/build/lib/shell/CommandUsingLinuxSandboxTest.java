@@ -59,7 +59,7 @@ public final class CommandUsingLinuxSandboxTest {
   public void testCommand_echo() throws Exception {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "colorless green ideas");
 
-    Command command = new Command(commandArguments.toArray(new String[0]), System.getenv());
+    Command command = new Command(commandArguments, System.getenv());
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.terminationStatus().success()).isTrue();
@@ -79,7 +79,7 @@ public final class CommandUsingLinuxSandboxTest {
         LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath())
             .buildForCommand(commandArguments);
 
-    Command command = new Command(fullCommandLine.toArray(new String[0]), System.getenv());
+    Command command = new Command(fullCommandLine, System.getenv());
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.terminationStatus().success()).isTrue();

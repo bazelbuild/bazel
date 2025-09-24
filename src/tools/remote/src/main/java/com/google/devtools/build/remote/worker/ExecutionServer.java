@@ -499,7 +499,7 @@ final class ExecutionServer extends ExecutionImplBase {
   private static long getUid() throws InterruptedException {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
-            new String[] {"id", "-u"},
+            ImmutableList.of("id", "-u"),
             /* environmentVariables= */ null,
             /* workingDirectory= */ null,
             uidTimeout,
@@ -610,7 +610,7 @@ final class ExecutionServer extends ExecutionImplBase {
       newCommandLineElements.addAll(arguments);
 
       return new com.google.devtools.build.lib.shell.Command(
-          newCommandLineElements.toArray(new String[0]),
+          newCommandLineElements,
           null,
           new File(internalToPlatform(workingDirectory.getPathString())),
           System.getenv());
@@ -632,14 +632,14 @@ final class ExecutionServer extends ExecutionImplBase {
       newCommandLineElements.add("--");
       newCommandLineElements.addAll(arguments);
       return new com.google.devtools.build.lib.shell.Command(
-          newCommandLineElements.toArray(new String[0]),
+          newCommandLineElements,
           environmentVariables,
           new File(internalToPlatform(workingDirectory.getPathString())),
           System.getenv());
     } else {
       // Just run the command.
       return new com.google.devtools.build.lib.shell.Command(
-          arguments.toArray(new String[] {}),
+          arguments,
           environmentVariables,
           new File(internalToPlatform(workingDirectory.getPathString())),
           System.getenv());

@@ -107,8 +107,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
 
-    Command cmd =
-        new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd, cmdEnv.getClientEnv());
+    Command cmd = new Command(linuxSandboxArgv, env, cwd, cmdEnv.getClientEnv());
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {

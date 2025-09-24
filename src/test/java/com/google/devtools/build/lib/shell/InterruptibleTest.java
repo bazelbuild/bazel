@@ -79,7 +79,7 @@ public class InterruptibleTest {
         script,
         ImmutableList.of(
             "echo start", "sleep 20", "touch " + dirString + "endfile", "echo end >&2"));
-    this.command = new Command(new String[] {script.toString()}, System.getenv());
+    this.command = new Command(ImmutableList.of(script.toString()), System.getenv());
 
     interrupter.start();
   }

@@ -206,12 +206,8 @@ final class StarlarkExecutionResult implements StarlarkValue {
         delegator.addSink(OutErr.create(System.err, System.err));
       }
       try {
-        String[] argsArray = new String[args.size()];
-        for (int i = 0; i < args.size(); i++) {
-          argsArray[i] = args.get(i);
-        }
         Command command =
-            new Command(argsArray, envBuilder, directory, Duration.ofMillis(timeout), clientEnv);
+            new Command(args, envBuilder, directory, Duration.ofMillis(timeout), clientEnv);
         CommandResult result =
             command.execute(delegator.getOutputStream(), delegator.getErrorStream());
         return new StarlarkExecutionResult(
