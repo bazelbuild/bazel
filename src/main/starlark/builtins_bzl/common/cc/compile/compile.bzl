@@ -43,10 +43,11 @@ load(":common/paths.bzl", "paths")
 cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
 
+_VALID_CPP_SOURCE_TYPES = set([CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER, CPP_SOURCE_TYPE_CLIF_INPUT_PROTO])
+
 def _cpp_source_init(*, label, source, type):
-    valid_types = set([CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER, CPP_SOURCE_TYPE_CLIF_INPUT_PROTO])
-    if type not in valid_types:
-        fail("invalid type of cpp source, got:", type, "expected one of:", valid_types)
+    if type not in _VALID_CPP_SOURCE_TYPES:
+        fail("invalid type of cpp source, got:", type, "expected one of:", _VALID_CPP_SOURCE_TYPES)
     return {
         "file": source,
         "label": label,
