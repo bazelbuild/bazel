@@ -104,7 +104,7 @@ public class PlatformInfoApiTest extends PlatformTestCase {
         // Something like "Invalid dependency :lib does not provide ConstraintValueInfo"
         "errors encountered while analyzing target",
         """
-        cc_library(name = "lib")
+        filegroup(name = "lib")
 
         platform(
             name = "my_platform",

@@ -1092,6 +1092,7 @@ function test_incompatible_with_missing_toolchain() {
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'build_bazel_apple_support', path = 'build_bazel_apple_support')
 EOF
+  add_rules_cc "MODULE.bazel"
   mkdir -p build_bazel_apple_support/platforms
   touch build_bazel_apple_support/REPO.bazel
   cat > build_bazel_apple_support/platforms/BUILD <<'EOF'
@@ -1103,6 +1104,7 @@ platform(
 EOF
 
   cat >> target_skipping/BUILD <<'EOF'
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
 load(
     "//target_skipping/custom_tools:toolchain.bzl",
     "compiler_flag",

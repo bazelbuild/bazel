@@ -203,7 +203,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file(
         "pkg1/BUILD",
         "load('//test_defs:foo_library.bzl', 'foo_library')",
-        "cc_library(name = 'foo') # a BUILD file");
+        "foo_library(name = 'foo') # a BUILD file");
   }
 
   // Check that a substring is present in an error message.
@@ -240,7 +240,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file(
         "invalidpackagename:42/BUILD",
         "load('//test_defs:foo_library.bzl', 'foo_library')",
-        "cc_library(name = 'foo') # a BUILD file");
+        "foo_library(name = 'foo') # a BUILD file");
     checkGetPackageFails(
         "invalidpackagename:42",
         "no such package 'invalidpackagename:42': Invalid package name 'invalidpackagename:42'");
@@ -397,12 +397,12 @@ public class PackageLoadingTest extends FoundationTestCase {
         scratch.file(
             "pkg/BUILD",
             "load('//test_defs:foo_library.bzl', 'foo_library')",
-            "cc_library(name = 'foo')");
+            "foo_library(name = 'foo')");
     Path buildFile2 =
         scratch.file(
             "/otherroot/pkg/BUILD",
             "load('//test_defs:foo_library.bzl', 'foo_library')",
-            "cc_library(name = 'bar')");
+            "foo_library(name = 'bar')");
     setOptions("--package_path=/workspace:/otherroot");
 
     Package oldPkg = getPackage("pkg");

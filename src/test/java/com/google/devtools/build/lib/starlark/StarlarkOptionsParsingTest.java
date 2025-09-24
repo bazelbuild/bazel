@@ -372,7 +372,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
             tools = [":tool"],
         )
 
-        cc_library(name = "tool-dep")
+        filegroup(name = "tool-dep")
         """);
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:x.in"));

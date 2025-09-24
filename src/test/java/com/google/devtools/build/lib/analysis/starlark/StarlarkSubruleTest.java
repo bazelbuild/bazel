@@ -182,6 +182,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "subrule_testing/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//subrule_testing/%s:myrule.bzl", "my_rule")
 
         my_rule(name = "foo")

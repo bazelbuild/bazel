@@ -278,7 +278,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testValidPackage(@TestParameter ComputationMode computationMode) throws Exception {
-    scratch.file("pkg/BUILD", "cc_library(name = 'foo')");
+    scratch.file("pkg/BUILD", "filegroup(name = 'foo')");
     preparePackageLoading(computationMode);
     Packageoid pkg = validPackageoidWithoutErrors("pkg");
     assertThat(pkg.getTargets()).containsKey("foo");
@@ -291,7 +291,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "pkg/macro.bzl",
         """
         def legacy(name, visibility = None, **kwargs):
-            native.cc_library(name = name, visibility = visibility, **kwargs)
+            native.filegroup(name = name, visibility = visibility, **kwargs)
 
         symbolic = macro(
             implementation = legacy,
@@ -354,7 +354,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
             fail("fail fail fail")
         my_macro = macro(implementation = _impl)
         """);
@@ -401,7 +401,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         String.format(
             """
             def _impl(name, visibility):
-                native.cc_library(name = name + "_bar")
+                native.filegroup(name = name + "_bar")
             my_macro = macro(implementation = _impl, finalizer = %s)
             """,
             inFinalizer ? "True" : "False"));
@@ -418,7 +418,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = (Package) validPackageoid("pkg");
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
-        "cc_library rule 'foo_bar' conflicts with existing genrule rule, defined at"
+        "filegroup rule 'foo_bar' conflicts with existing genrule rule, defined at"
             + " /workspace/pkg/BUILD:2:8");
   }
 

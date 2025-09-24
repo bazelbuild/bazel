@@ -70,7 +70,7 @@ function test_query_buildfiles_with_load() {
 
     mkdir -p $pkg/x || fail "mkdir $pkg/x failed"
     echo "load('//$pkg/y:rules.bzl', 'a')" >$pkg/x/BUILD
-    echo "cc_library(name='x')"   >>$pkg/x/BUILD
+    echo "filegroup(name='x')"   >>$pkg/x/BUILD
     mkdir -p $pkg/y || fail "mkdir $pkg/y failed"
     touch $pkg/y/BUILD
     echo "a=1" >$pkg/y/rules.bzl
