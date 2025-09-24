@@ -42,15 +42,10 @@ public final class CppLinkstampCompileHelper {
       NestedSet<Artifact> nonCodeInputs,
       NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
-      Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
-      boolean codeCoverageEnabled,
-      String fdoBuildStamp,
       FeatureConfiguration featureConfiguration,
-      boolean needsPic,
-      String labelReplacement,
-      String outputReplacement,
-      CppSemantics semantics)
+      CppSemantics semantics,
+      CcToolchainVariables compileBuildVariables)
       throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
@@ -59,20 +54,7 @@ public final class CppLinkstampCompileHelper {
                 linkActionConstruction.getConfig(),
                 semantics)
             .addMandatoryInputs(compilationInputs)
-            .setVariables(
-                getVariables(
-                    sourceFile,
-                    outputFile,
-                    labelReplacement,
-                    outputReplacement,
-                    additionalLinkstampDefines,
-                    buildInfoHeaderArtifacts,
-                    featureConfiguration,
-                    ccToolchainProvider,
-                    needsPic,
-                    fdoBuildStamp,
-                    codeCoverageEnabled,
-                    semantics))
+            .setVariables(compileBuildVariables)
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
             .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
@@ -128,7 +110,7 @@ public final class CppLinkstampCompileHelper {
                 .replaceAll(outputPathPattern, outputReplacement));
   }
 
-  private static CcToolchainVariables getVariables(
+  static CcToolchainVariables getVariables(
       Artifact sourceFile,
       Artifact outputFile,
       String labelReplacement,
