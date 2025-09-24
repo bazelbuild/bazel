@@ -1192,6 +1192,7 @@ public class ModuleFileGlobals {
   public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
       throws EvalException, LabelSyntaxException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "flag_alias()");
+    // TODO: add input validation for stalark flag label
     context.setNonModuleCalled();
     context.getModuleBuilder().addFlagAlias(nativeName, starlarkLabel);
   }
