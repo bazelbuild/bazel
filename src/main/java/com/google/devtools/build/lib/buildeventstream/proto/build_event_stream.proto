@@ -559,6 +559,8 @@ message NamedSetOfFiles {
 message ActionExecuted {
   reserved 10;
 
+  repeated string spawn_keys = 16;
+
   bool success = 1;
 
   // The mnemonic of the action that was executed

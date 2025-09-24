@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -1880,6 +1881,12 @@ public final class SkyframeActionExecutor {
         findSpawnResultsInActionResultAndException(actionResult, exception);
     Instant firstStartTime = Instant.MAX;
     Instant lastEndTime = Instant.MIN;
+    ImmutableList<String> spawnKeys = spawnResults
+        .stream()
+        .map(sr -> sr.getDigest())
+        .filter(sr -> sr != null)
+        .map(sr -> sr.getHash())
+        .collect(toImmutableList());
     for (SpawnResult spawnResult : spawnResults) {
       // Not all SpawnResults have a start time, and some use Instant.MIN/MAX instead of null.
       @Nullable Instant startTime = spawnResult.getStartTime();
@@ -1893,6 +1900,7 @@ public final class SkyframeActionExecutor {
         new ActionExecutedEvent(
             action.getPrimaryOutput().getExecPath(),
             action,
+            spawnKeys,
             exception,
             primaryOutputPath,
             action.getPrimaryOutput(),

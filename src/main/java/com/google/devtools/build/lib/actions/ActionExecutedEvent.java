@@ -53,6 +53,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   private final Path stdout;
   private final Path stderr;
   private final ErrorTiming timing;
+  private final ImmutableList<String> spawnKeys;
 
   /** Timestamp of the action starting; if no timestamp is available will be {@code null}. */
   @Nullable private final Instant startTime;
@@ -63,6 +64,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   public ActionExecutedEvent(
       PathFragment actionId,
       Action action,
+      ImmutableList<String> spawnKeys,
       @Nullable ActionExecutionException exception,
       Path primaryOutput,
       Artifact outputArtifact,
@@ -72,6 +74,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       ErrorTiming timing,
       @Nullable Instant startTime,
       @Nullable Instant endTime) {
+    this.spawnKeys = spawnKeys;
     this.actionId = actionId;
     this.action = action;
     this.exception = exception;
@@ -178,7 +181,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
         BuildEventStreamProtos.ActionExecuted.newBuilder()
             .setSuccess(getException() == null)
-            .setType(action.getMnemonic());
+            .setType(action.getMnemonic())
+            .addAllSpawnKeys(spawnKeys);
     if (startTime != null) {
       actionBuilder.setStartTime(timestampProto(startTime));
       if (endTime != null) {
