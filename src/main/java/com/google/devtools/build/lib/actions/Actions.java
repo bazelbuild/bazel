@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -285,6 +286,9 @@ public final class Actions {
     }
   }
 
+  private static final Comparator<Artifact> EXEC_PATH_PREFIX_COMPARATOR =
+      comparing(Artifact::getExecPath, PathFragment.HIERARCHICAL_COMPARATOR);
+
   /**
    * Check whether two artifacts are a runfiles tree - runfiles output manifest pair.
    *
@@ -323,7 +327,7 @@ public final class Actions {
     }
 
     Artifact[] artifactArray = artifacts.toArray(new Artifact[0]);
-    Arrays.parallelSort(artifactArray, comparing(Artifact::getExecPath));
+    Arrays.parallelSort(artifactArray, EXEC_PATH_PREFIX_COMPARATOR);
 
     // Keep deterministic ordering of bad actions.
     Map<ActionAnalysisMetadata, ActionConflictException> badActions = new LinkedHashMap<>();

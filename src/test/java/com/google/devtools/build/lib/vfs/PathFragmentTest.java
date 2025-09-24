@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 import static org.junit.Assert.assertThrows;
 
@@ -585,6 +586,64 @@ public final class PathFragmentTest {
     // Now test that compareTo does what we expect.  The exact ordering here doesn't matter much.
     Collections.shuffle(paths);
     Collections.sort(paths);
+    List<PathFragment> expectedOrder =
+        toPaths(
+            ImmutableList.of(
+                "",
+                "/",
+                "/foo",
+                "Foo/bar",
+                "foo",
+                "foo.bar",
+                "foo/Bar",
+                "foo/bar",
+                "foo/bar.baz",
+                "foo/bar/baz",
+                "foo/barfile"));
+    assertThat(paths).isEqualTo(expectedOrder);
+  }
+
+  @Test
+  public void testHierarchicalComparator() {
+    List<String> pathStrs =
+        ImmutableList.of(
+            "",
+            "/",
+            "foo",
+            "/foo",
+            "foo/bar",
+            "foo.bar",
+            "foo/bar.baz",
+            "foo/bar/baz",
+            "foo/barfile",
+            "foo/Bar",
+            "Foo/bar");
+    List<PathFragment> paths = toPaths(pathStrs);
+    // First test that compareTo is self-consistent.
+    for (PathFragment x : paths) {
+      for (PathFragment y : paths) {
+        for (PathFragment z : paths) {
+          // Anti-symmetry
+          assertThat(-1 * Integer.signum(HIERARCHICAL_COMPARATOR.compare(y, x)))
+              .isEqualTo(Integer.signum(HIERARCHICAL_COMPARATOR.compare(x, y)));
+          // Transitivity
+          if (HIERARCHICAL_COMPARATOR.compare(x, y) > 0
+              && HIERARCHICAL_COMPARATOR.compare(y, z) > 0) {
+            assertThat(HIERARCHICAL_COMPARATOR.compare(x, z)).isGreaterThan(0);
+          }
+          // "Substitutability"
+          if (HIERARCHICAL_COMPARATOR.compare(x, y) == 0) {
+            assertThat(Integer.signum(HIERARCHICAL_COMPARATOR.compare(y, z)))
+                .isEqualTo(Integer.signum(HIERARCHICAL_COMPARATOR.compare(x, z)));
+          }
+          // Consistency with equals
+          assertThat(x.equals(y)).isEqualTo(HIERARCHICAL_COMPARATOR.compare(x, y) == 0);
+        }
+      }
+    }
+    // Now test that compareTo does what we expect.  The exact ordering here doesn't matter much.
+    Collections.shuffle(paths);
+    paths.sort(HIERARCHICAL_COMPARATOR);
     List<PathFragment> expectedOrder =
         toPaths(
             ImmutableList.of(
