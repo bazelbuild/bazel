@@ -94,6 +94,12 @@ def embedded_jdk_repositories():
         url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_ppc64le_linux_hotspot_21.0.5_11.tar.gz",
     )
     http_file(
+        name = "openjdk_linux_riscv64_vanilla",
+        integrity = "sha256-Lxs+QB423oAzmN+5gYhh+fFMqK59tlDqCUarBI/v47k=",
+        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_riscv64_linux_hotspot_21.0.5_11.tar.gz",
+    )
+    http_file(
         name = "openjdk_macos_x86_64_vanilla",
         integrity = "sha256-zXTl63OMkUWdS45eEOrJGK4qBdIan8fKXcLaZOZbzr0=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
