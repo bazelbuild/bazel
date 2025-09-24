@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A {@link SpawnLogContext} implementation that produces a log in expanded format. */
@@ -148,7 +149,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
   public void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
-      SortedMap<PathFragment, ActionInput> inputMap,
+      Supplier<SortedMap<PathFragment, ActionInput>> inputMap,
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
@@ -170,7 +171,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
               .collect(toImmutableList());
 
       try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/inputs")) {
-        for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+        for (Map.Entry<PathFragment, ActionInput> e : inputMap.get().entrySet()) {
           PathFragment displayPath = e.getKey();
           ActionInput input = e.getValue();
 
