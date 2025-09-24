@@ -58,7 +58,7 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # compatible JDKs.
 # Native access is required for the JNI library.
 # Compact object headers reduce retained and peak memory usage.
-JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UnlockExperimentalVMOptions -XX:+UseCompactObjectHeaders'
+JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
   mkdir "tmp.$$"
