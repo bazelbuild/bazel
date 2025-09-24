@@ -1,0 +1,29 @@
+commit b448d5aa1773405550db2777eb788b43f90c2f44
+Author: Yun Peng <pcloudy@google.com>
+Date:   Tue Sep 23 15:58:11 2025 +0000
+
+    Add load statements for JavaInfo
+
+diff --git a/internal/native_image/common.bzl b/internal/native_image/common.bzl
+index dc6e3f7..c9a66bd 100644
+--- a/internal/native_image/common.bzl
++++ b/internal/native_image/common.bzl
+@@ -1,5 +1,6 @@
+ "Defines common properties shared by modern and legacy Native Image rules."
+ 
++load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+ load(
+     "//internal/native_image:builder.bzl",
+     _assemble_native_build_options = "assemble_native_build_options",
+diff --git a/internal/native_image/rules.bzl b/internal/native_image/rules.bzl
+index fb3c772..2b79234 100644
+--- a/internal/native_image/rules.bzl
++++ b/internal/native_image/rules.bzl
+@@ -4,6 +4,7 @@ load(
+     "@build_bazel_apple_support//lib:apple_support.bzl",
+     "apple_support",
+ )
++load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+ load(
+     "//internal/native_image:common.bzl",
+     _BAZEL_CPP_TOOLCHAIN_TYPE = "BAZEL_CPP_TOOLCHAIN_TYPE",
