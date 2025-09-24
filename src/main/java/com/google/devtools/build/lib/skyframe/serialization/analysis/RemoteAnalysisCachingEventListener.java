@@ -42,6 +42,12 @@ import javax.annotation.Nullable;
 @ThreadSafety.ThreadSafe
 public class RemoteAnalysisCachingEventListener {
 
+  private final DeserializedKeysSink deserializedKeysSink;
+
+  public RemoteAnalysisCachingEventListener(DeserializedKeysSink deserializedKeysSink) {
+    this.deserializedKeysSink = deserializedKeysSink;
+  }
+
   /**
    * An event for when a Skyframe node has been serialized, but its associated write futures (i.e.
    * RPC latency) may not be done yet.
@@ -121,6 +127,7 @@ public class RemoteAnalysisCachingEventListener {
         if (!cacheHits.add(key)) {
           return;
         }
+        deserializedKeysSink.addDeserializedKey(key);
         hitsBySkyFunctionName
             .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
             .incrementAndGet();

@@ -78,9 +78,8 @@ public final class AnalysisCacheInvalidator {
    * @param keysToLookup The set of SkyKeys to check.
    * @return The subset of keysToLookup that got a cache miss should be invalidated locally.
    */
-  public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-      ImmutableSet<SkyKey> keysToLookup, RemoteAnalysisCachingServerState serverState) {
-    if (keysToLookup.isEmpty()) {
+  public ImmutableSet<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingServerState serverState) {
+    if (serverState.deserializedKeys().isEmpty()) {
       logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
       return ImmutableSet.of();
     }
@@ -93,7 +92,7 @@ public final class AnalysisCacheInvalidator {
           "Skycache: Version changed during invalidation check. Previous version: %s, current"
               + " version: %s.",
           previousVersion, currentVersion);
-      return keysToLookup; // everything must be invalidated
+      return serverState.deserializedKeys(); // everything must be invalidated
     }
 
     if (Objects.equals(currentClientId, serverState.clientId())) {
@@ -107,7 +106,7 @@ public final class AnalysisCacheInvalidator {
     ImmutableList<ListenableFuture<Optional<SkyKey>>> futures;
     try (SilentCloseable unused = Profiler.instance().profile("submitInvalidationLookups")) {
       futures =
-          keysToLookup.parallelStream()
+          serverState.deserializedKeys().parallelStream()
               .map(this::submitInvalidationLookup)
               .collect(toImmutableList());
     }

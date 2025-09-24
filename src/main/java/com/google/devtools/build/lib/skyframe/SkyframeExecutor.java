@@ -20,7 +20,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
@@ -231,7 +230,6 @@ import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
@@ -584,7 +582,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * invocation.
    */
   public void syncRemoteAnalysisCachingState(
-      FrontierNodeVersion currentInvocationVersion, ClientId currentInvocationClientId) {
+      Set<SkyKey> currentInvocationCacheHits,
+      FrontierNodeVersion currentInvocationVersion,
+      ClientId currentInvocationClientId) {
+    // TODO: b/441389667 - it should be possible to verify the consistency between
+    // `currentInvocationCacheHits` and `remoteAnalysisCachingState.deserializedKeys()`. However,
+    // when prior cache hit nodes are subsequently rewound, they are only deleted from
+    // `remoteAnalysisCachingState.deserializedKeys()` leading to inconsistency. It might be
+    // possible to also delete rewound keys from `currentInvocationCacheHits` to preserve
+    // consistency.
     remoteAnalysisCachingState.setVersion(currentInvocationVersion);
     remoteAnalysisCachingState.setClientId(currentInvocationClientId);
   }
@@ -599,14 +605,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     if (!isRemoteAnalysisCachingEnabled()) {
       return;
     }
-    ImmutableSet<SkyKey> keysToLookup =
-        getEvaluator().getDoneValues().entrySet().stream()
-            .filter(e -> e.getValue() instanceof DeserializedSkyValue)
-            .map(Entry::getKey)
-            .collect(toImmutableSet());
     Set<SkyKey> keysToInvalidate =
         remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
-            keysToLookup, remoteAnalysisCachingState);
+            remoteAnalysisCachingState);
 
     // Log a sample of the invalidated SkyKeys to the INFO log.
     if (keysToInvalidate.isEmpty()) {
@@ -3347,6 +3348,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     public void deleted(SkyKey skyKey) {
       if (ignoreInvalidations) {
         return;
+      }
+      if (isRemoteAnalysisCachingEnabled() && remoteAnalysisCachingState != null) {
+        remoteAnalysisCachingState.removeDeserializedKey(skyKey);
       }
       skyframeBuildView.getProgressReceiver().deleted(skyKey);
     }
