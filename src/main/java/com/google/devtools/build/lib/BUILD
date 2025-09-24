@@ -183,7 +183,6 @@ java_library(
     name = "loading-phase-threads-option",
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
@@ -198,7 +197,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
@@ -289,7 +287,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -510,6 +507,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_server_state",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",

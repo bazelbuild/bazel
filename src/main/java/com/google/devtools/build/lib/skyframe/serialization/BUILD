@@ -103,6 +103,7 @@ java_library(
             "SerializationConstants.java",
             "SerializationModule.java",
             "VisibleForSerialization.java",
+            "WriteStatuses.java",
         ],
     ),
     add_opens = [
@@ -113,9 +114,11 @@ java_library(
         ":constants",
         ":depend_on_future_shim",
         ":frontier_node_version",
+        ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
@@ -125,7 +128,6 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:fastutil",
         "//third_party:flogger",
-        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/pprof:profile_java_proto",
@@ -169,6 +171,7 @@ java_library(
         ":serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],
@@ -184,5 +187,15 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "write_statuses",
+    srcs = ["WriteStatuses.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
     ],
 )

@@ -432,6 +432,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:error_message_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
