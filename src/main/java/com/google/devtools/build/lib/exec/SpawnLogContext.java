@@ -77,7 +77,7 @@ public abstract class SpawnLogContext implements ActionContext {
       throws IOException, InterruptedException, ExecException;
 
   @VisibleForTesting
-  public void logSpawn(
+  void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
       SortedMap<PathFragment, ActionInput> inputMap,

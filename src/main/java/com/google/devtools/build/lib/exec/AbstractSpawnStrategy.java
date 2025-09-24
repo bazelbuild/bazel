@@ -187,7 +187,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getInputMetadataProvider(),
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
+            () ->
+                context.getInputMapping(
+                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
             actionExecutionContext.getActionFileSystem() != null
                 ? actionExecutionContext.getActionFileSystem()
                 : actionExecutionContext.getExecRoot().getFileSystem(),
