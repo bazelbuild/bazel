@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.collect.ImmutableMap;
@@ -53,7 +56,10 @@ public final class PlatformUtils {
     Platform.Builder builder = Platform.newBuilder();
     for (Map.Entry<String, String> keyValue : executionProperties.entrySet()) {
       Property property =
-          Property.newBuilder().setName(keyValue.getKey()).setValue(keyValue.getValue()).build();
+          Property.newBuilder()
+              .setName(internalToUnicode(keyValue.getKey()))
+              .setValue(internalToUnicode(keyValue.getValue()))
+              .build();
       builder.addProperties(property);
     }
 
@@ -101,7 +107,9 @@ public final class PlatformUtils {
         // Try and get the platform info from the execution properties.
         try {
           TextFormat.getParser()
-              .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
+              .merge(
+                  internalToUnicode(spawn.getExecutionPlatform().remoteExecutionProperties()),
+                  platformBuilder);
         } catch (ParseException e) {
           String message =
               String.format(
@@ -112,7 +120,8 @@ public final class PlatformUtils {
         }
 
         for (Property property : platformBuilder.getPropertiesList()) {
-          properties.put(property.getName(), property.getValue());
+          properties.put(
+              unicodeToInternal(property.getName()), unicodeToInternal(property.getValue()));
         }
       } else {
         properties.putAll(spawn.getExecutionPlatform().execProperties());
@@ -135,7 +144,10 @@ public final class PlatformUtils {
 
     Platform.Builder platformBuilder = Platform.newBuilder();
     for (Map.Entry<String, String> entry : properties.entrySet()) {
-      platformBuilder.addPropertiesBuilder().setName(entry.getKey()).setValue(entry.getValue());
+      platformBuilder
+          .addPropertiesBuilder()
+          .setName(internalToUnicode(entry.getKey()))
+          .setValue(internalToUnicode(entry.getValue()));
     }
     sortPlatformProperties(platformBuilder);
     return platformBuilder.build();

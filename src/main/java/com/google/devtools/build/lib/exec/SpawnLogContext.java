@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -99,8 +101,8 @@ public abstract class SpawnLogContext implements ActionContext {
     for (Map.Entry<String, String> entry : ImmutableSortedMap.copyOf(environment).entrySet()) {
       builder.add(
           EnvironmentVariable.newBuilder()
-              .setName(entry.getKey())
-              .setValue(entry.getValue())
+              .setName(internalToUnicode(entry.getKey()))
+              .setValue(internalToUnicode(entry.getValue()))
               .build());
     }
     return builder.build();

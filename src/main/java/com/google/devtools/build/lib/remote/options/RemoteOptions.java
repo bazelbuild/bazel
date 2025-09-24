@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
@@ -843,7 +846,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       final Platform platform;
       try {
         Platform.Builder builder = Platform.newBuilder();
-        TextFormat.getParser().merge(remoteDefaultPlatformProperties, builder);
+        TextFormat.getParser().merge(internalToUnicode(remoteDefaultPlatformProperties), builder);
         platform = builder.build();
       } catch (ParseException e) {
         String message =
@@ -855,7 +858,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
       ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
       for (Property property : platform.getPropertiesList()) {
-        builder.put(property.getName(), property.getValue());
+        builder.put(unicodeToInternal(property.getName()), unicodeToInternal(property.getValue()));
       }
       return builder.buildOrThrow();
     }
