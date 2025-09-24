@@ -205,8 +205,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "bazel_dep(name='ddd',version='3.0',repo_name=None)",
         "register_toolchains('//my:toolchain', '//my:toolchain2')",
         "register_execution_platforms('//my:platform', '//my:platform2')",
-        "flag_alias('native_flag1', '--//my:starlark_label1')",
-        "flag_alias('native_flag2', '--//my:starlark_label2')",
+        "flag_alias('native_flag1', '//my:starlark_label1')",
+        "flag_alias('native_flag2', '//my:starlark_label2')",
         "single_version_override(module_name='ddd',version='18')",
         "local_path_override(module_name='eee',path='somewhere/else')",
         "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
@@ -230,8 +230,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
-                .addFlagAlias("native_flag1", "--//my:starlark_label1")
-                .addFlagAlias("native_flag2", "--//my:starlark_label2")
+                .addFlagAlias("native_flag1", "//my:starlark_label1")
+                .addFlagAlias("native_flag2", "//my:starlark_label2")
                 .addNodepDep(createModuleKey("ddd", "3.0"))
                 .build());
     assertThat(rootModuleFileValue.overrides())
