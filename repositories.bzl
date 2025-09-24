@@ -31,7 +31,6 @@ DIST_ARCHIVE_REPOS = [
     "bazel_skylib+",
     "blake3+",
     "c-ares+",
-    "chicory+",
     "envoy_api+",
     "googleapis+",
     "googleapis-grpc-java+",

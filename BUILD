@@ -96,7 +96,6 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
-        "//third_party/chicory:dist_jars",
         "//third_party/googleapis:dist_jars",
         "//third_party/grpc-java:grpc_jars",
         "@async_profiler//file",

@@ -16,7 +16,6 @@ module(
 bazel_dep(name = "abseil-cpp", version = "20250512.1")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
-bazel_dep(name = "chicory", version = "1.1.0")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
@@ -102,12 +101,6 @@ single_version_override(
 )
 
 single_version_override(
-    module_name = "chicory",
-    patch_strip = 1,
-    patches = ["//third_party:chicory.patch"],
-)
-
-single_version_override(
     module_name = "googleapis",
     patch_strip = 1,
     patches = ["//third_party:googleapis.patch"],
@@ -163,6 +156,9 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
+        "com.dylibso.chicory:compiler:1.5.1",
+        "com.dylibso.chicory:runtime:1.5.1",
+        "com.dylibso.chicory:wasm:1.5.1",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",

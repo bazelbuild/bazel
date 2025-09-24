@@ -20,10 +20,12 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_EXEC;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_LOAD;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.dylibso.chicory.compiler.MachineFactoryCompiler;
 import com.dylibso.chicory.runtime.ByteArrayMemory;
 import com.dylibso.chicory.runtime.ExportFunction;
 import com.dylibso.chicory.runtime.Instance;
 import com.dylibso.chicory.wasm.ChicoryException;
+import com.dylibso.chicory.wasm.Parser;
 import com.dylibso.chicory.wasm.WasmModule;
 import com.dylibso.chicory.wasm.types.MemoryLimits;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +54,7 @@ final class StarlarkWasmModule implements StarlarkValue {
   private final StarlarkPath path;
   private final Object origPath;
   private final WasmModule wasmModule;
+  private Instance instance;
   private final String allocFnName;
   private final boolean hasInitializeFn;
 
@@ -63,7 +66,7 @@ final class StarlarkWasmModule implements StarlarkValue {
     try (SilentCloseable c1 = prof.profile(WASM_LOAD, () -> "load " + path.toString())) {
       try (SilentCloseable c2 = prof.profile(WASM_LOAD, "parse")) {
         try {
-          wasmModule = com.dylibso.chicory.wasm.Parser.parse(moduleContent);
+          wasmModule = Parser.parse(moduleContent);
         } catch (ChicoryException e) {
           throw new EvalException(e);
         }
@@ -71,9 +74,9 @@ final class StarlarkWasmModule implements StarlarkValue {
       validateModule(wasmModule, allocFnName);
     }
 
+    this.wasmModule = wasmModule;
     this.path = path;
     this.origPath = origPath;
-    this.wasmModule = wasmModule;
     this.allocFnName = allocFnName;
     this.hasInitializeFn = hasInitializeFn(wasmModule);
   }
@@ -143,38 +146,42 @@ final class StarlarkWasmModule implements StarlarkValue {
 
   private StarlarkWasmExecutionResult run(String execFnName, byte[] input, MemoryLimits memLimits)
       throws EvalException, InterruptedException {
-    Instance instance;
     Profiler prof = Profiler.instance();
-    try {
-      instance =
-          Instance.builder(wasmModule)
-              .withMemoryLimits(memLimits)
-              // Disable calling `_start()`, which is the entry point for WASI-style
-              // command modules.
-              .withStart(false)
-              // Chicory documentation recommends ByteArrayMemory for OpenJDK
-              // https://chicory.dev/docs/advanced/memory
-              .withMemoryFactory(ByteArrayMemory::new)
-              .build();
-      // If `_initialize()` is present then call it to perform early setup.
-      //
-      // Note: The WebAssembly spec describes a "start function", named in a
-      // "start section", that is to be called as part of module initialization.
-      // Actual implementations such as LLVM have instead used the start function
-      // as the equivalent of a native binary's entry point, and expect (or emit)
-      // a function named `_initialize` to be used for early initialization.
-      //
-      // For additional context, see:
-      // - https://bugs.llvm.org/show_bug.cgi?id=37198
-      // - https://reviews.llvm.org/D40559
-      // - https://github.com/WebAssembly/design/issues/1160
-      if (hasInitializeFn) {
-        try (SilentCloseable c = prof.profile(WASM_EXEC, "initialize")) {
-          instance.export("_initialize").apply();
+    if (instance == null) {
+      try {
+        try (SilentCloseable c = prof.profile(WASM_EXEC, "compile_wasm")) {
+          instance =
+              Instance.builder(wasmModule)
+                  .withMachineFactory(MachineFactoryCompiler::compile)
+                  .withMemoryLimits(memLimits)
+                  // Disable calling `_start()`, which is the entry point for WASI-style
+                  // command modules.
+                  .withStart(false)
+                  // Chicory documentation recommends ByteArrayMemory for OpenJDK
+                  // https://chicory.dev/docs/advanced/memory
+                  .withMemoryFactory(ByteArrayMemory::new)
+                  .build();
         }
+        // If `_initialize()` is present then call it to perform early setup.
+        //
+        // Note: The WebAssembly spec describes a "start function", named in a
+        // "start section", that is to be called as part of module initialization.
+        // Actual implementations such as LLVM have instead used the start function
+        // as the equivalent of a native binary's entry point, and expect (or emit)
+        // a function named `_initialize` to be used for early initialization.
+        //
+        // For additional context, see:
+        // - https://bugs.llvm.org/show_bug.cgi?id=37198
+        // - https://reviews.llvm.org/D40559
+        // - https://github.com/WebAssembly/design/issues/1160
+        if (hasInitializeFn) {
+          try (SilentCloseable c = prof.profile(WASM_EXEC, "initialize")) {
+            instance.export("_initialize").apply();
+          }
+        }
+      } catch (ChicoryException e) {
+        throw new EvalException(e);
       }
-    } catch (ChicoryException e) {
-      throw new EvalException(e);
     }
 
     var memory = instance.memory();
