@@ -17,7 +17,7 @@ load(
     ":common/cc/cc_helper_internal.bzl",
     "CPP_SOURCE_TYPE_HEADER",
     "CPP_SOURCE_TYPE_SOURCE",
-    "artifact_category",
+    artifact_category = "artifact_category_names",
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "dotd_files_enabled", "serialized_diagnostics_file_enabled")
 load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables")

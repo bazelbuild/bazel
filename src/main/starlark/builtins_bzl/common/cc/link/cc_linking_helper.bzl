@@ -17,10 +17,10 @@ A module to create C/C++ link actions in a consistent way.
 
 load(
     ":common/cc/cc_helper_internal.bzl",
-    "artifact_category",
     "wrap_with_check_private_api",
     _use_pic_for_binaries = "use_pic_for_binaries",
     _use_pic_for_dynamic_libs = "use_pic_for_dynamic_libs",
+    artifact_category = "artifact_category_names",
 )
 load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS")
 load(":common/cc/link/cpp_link_action.bzl", "link_action")

@@ -14,7 +14,7 @@
 """Types of ELF files that can be created by the linker (.a, .so, .lo, executable)."""
 
 load(":common/cc/action_names.bzl", "ACTION_NAMES")
-load(":common/cc/cc_helper_internal.bzl", "artifact_category")
+load(":common/cc/cc_helper_internal.bzl", artifact_category = "artifact_category_names")
 
 USE_LINKER = "linker"
 USE_ARCHIVER = "archiver"

@@ -22,9 +22,9 @@ load(
     "CPP_SOURCE_TYPE_CLIF_INPUT_PROTO",
     "CPP_SOURCE_TYPE_HEADER",
     "CPP_SOURCE_TYPE_SOURCE",
-    "artifact_category",
     "extensions",
     "should_create_per_object_debug_info",
+    artifact_category = "artifact_category_names",
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper", "dotd_files_enabled", "serialized_diagnostics_file_enabled")
 load(":common/cc/compile/cc_compilation_outputs.bzl", "create_compilation_outputs_internal")

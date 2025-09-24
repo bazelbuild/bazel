@@ -13,7 +13,7 @@
 # limitations under the License.
 """Functions that create C++ link action."""
 
-load(":common/cc/cc_helper_internal.bzl", "artifact_category")
+load(":common/cc/cc_helper_internal.bzl", artifact_category = "artifact_category_names")
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
 load(":common/cc/link/link_build_variables.bzl", "setup_linking_variables")
 load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")

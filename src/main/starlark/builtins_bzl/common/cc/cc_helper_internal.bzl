@@ -150,32 +150,53 @@ extensions = struct(
     LTO_INDEXING_OBJECT_FILE = _LTO_INDEXING_OBJECT_FILE,
 )
 
-artifact_category = struct(
-    STATIC_LIBRARY = "STATIC_LIBRARY",
-    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
-    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
-    EXECUTABLE = "EXECUTABLE",
-    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
-    PIC_FILE = "PIC_FILE",
-    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
-    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
-    OBJECT_FILE = "OBJECT_FILE",
-    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
-    CPP_MODULE = "CPP_MODULE",
-    CPP_MODULE_GCM = "CPP_MODULE_GCM",
-    CPP_MODULE_IFC = "CPP_MODULE_IFC",
-    CPP_MODULES_INFO = "CPP_MODULES_INFO",
-    CPP_MODULES_DDI = "CPP_MODULES_DDI",
-    CPP_MODULES_MODMAP = "CPP_MODULES_MODMAP",
-    CPP_MODULES_MODMAP_INPUT = "CPP_MODULES_MODMAP_INPUT",
-    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
-    PROCESSED_HEADER = "PROCESSED_HEADER",
-    GENERATED_HEADER = "GENERATED_HEADER",
-    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
-    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
-    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
-    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
+def _artifact_category_info_init(name, default_prefix, *extensions):
+    return {
+        "name": name,
+        "default_prefix": default_prefix,
+        "default_extension": extensions[0],
+        "allowed_extensions": extensions,
+    }
+
+# buildifier: disable=unused-variable
+_ArtifactCategoryInfo, _unused_new_aci = provider(
+    """A category of artifacts that are candidate input/output to an action, for
+     which the toolchain can select a single artifact.""",
+    fields = ["name", "default_prefix", "default_extension", "allowed_extensions"],
+    init = _artifact_category_info_init,
 )
+
+# TODO: b/433485282 - remove duplicated extensions lists with above constants
+_artifact_categories = [
+    _ArtifactCategoryInfo("STATIC_LIBRARY", "lib", ".a", ".lib"),
+    _ArtifactCategoryInfo("ALWAYSLINK_STATIC_LIBRARY", "lib", ".lo", ".lo.lib"),
+    _ArtifactCategoryInfo("DYNAMIC_LIBRARY", "lib", ".so", ".dylib", ".dll", ".wasm"),
+    _ArtifactCategoryInfo("EXECUTABLE", "", "", ".exe", ".wasm"),
+    _ArtifactCategoryInfo("INTERFACE_LIBRARY", "lib", ".ifso", ".tbd", ".if.lib", ".lib"),
+    _ArtifactCategoryInfo("PIC_FILE", "", ".pic"),
+    _ArtifactCategoryInfo("INCLUDED_FILE_LIST", "", ".d"),
+    _ArtifactCategoryInfo("SERIALIZED_DIAGNOSTICS_FILE", "", ".dia"),
+    _ArtifactCategoryInfo("OBJECT_FILE", "", ".o", ".obj"),
+    _ArtifactCategoryInfo("PIC_OBJECT_FILE", "", ".pic.o"),
+    _ArtifactCategoryInfo("CPP_MODULE", "", ".pcm"),
+    _ArtifactCategoryInfo("CPP_MODULE_GCM", "", ".gcm"),
+    _ArtifactCategoryInfo("CPP_MODULE_IFC", "", ".ifc"),
+    _ArtifactCategoryInfo("CPP_MODULES_INFO", "", ".CXXModules.json"),
+    _ArtifactCategoryInfo("CPP_MODULES_DDI", "", ".ddi"),
+    _ArtifactCategoryInfo("CPP_MODULES_MODMAP", "", ".modmap"),
+    _ArtifactCategoryInfo("CPP_MODULES_MODMAP_INPUT", "", ".modmap.input"),
+    _ArtifactCategoryInfo("GENERATED_ASSEMBLY", "", ".s", ".asm"),
+    _ArtifactCategoryInfo("PROCESSED_HEADER", "", ".processed"),
+    _ArtifactCategoryInfo("GENERATED_HEADER", "", ".h"),
+    _ArtifactCategoryInfo("PREPROCESSED_C_SOURCE", "", ".i"),
+    _ArtifactCategoryInfo("PREPROCESSED_CPP_SOURCE", "", ".ii"),
+    _ArtifactCategoryInfo("COVERAGE_DATA_FILE", "", ".gcno"),
+    # A matched-clif protobuf. Typically in binary format, but could be text
+    # depending on the options passed to the clif_matcher.
+    _ArtifactCategoryInfo("CLIF_OUTPUT_PROTO", "", ".opb"),
+]
+
+artifact_category_names = struct(**{ac.name: ac.name for ac in _artifact_categories})
 
 output_subdirectories = struct(
     OBJS = "_objs",
