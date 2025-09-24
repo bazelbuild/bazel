@@ -45,8 +45,9 @@ public class SymbolFamilies {
       SourceUrlMapper urlMapper,
       String provider,
       List<String> inputJavaDirs,
-      List<String> inputStardocProtos,
-      String denyList)
+      List<String> buildEncyclopediaStardocProtos,
+      String ruleDenyList,
+      List<String> apiStardocProtos)
       throws NoSuchMethodException,
           ClassPathException,
           InvocationTargetException,
@@ -62,11 +63,13 @@ public class SymbolFamilies {
                 urlMapper,
                 configuredRuleClassProvider,
                 inputJavaDirs,
-                inputStardocProtos,
-                denyList));
+                buildEncyclopediaStardocProtos,
+                ruleDenyList));
     this.globals = Starlark.UNIVERSE;
     this.bzlGlobals = collectBzlGlobals(configuredRuleClassProvider);
-    this.allDocPages = StarlarkDocumentationCollector.getAllDocPages(expander);
+    this.allDocPages =
+        StarlarkDocumentationCollector.getAllDocPages(
+            expander, ImmutableList.copyOf(apiStardocProtos));
   }
 
   /*
@@ -122,12 +125,12 @@ public class SymbolFamilies {
       SourceUrlMapper urlMapper,
       ConfiguredRuleClassProvider provider,
       List<String> inputJavaDirs,
-      List<String> inputStardocProtos,
+      List<String> buildEncyclopediaStardocProtos,
       String denyList)
       throws BuildEncyclopediaDocException, IOException {
     ProtoFileBuildEncyclopediaProcessor processor =
         new ProtoFileBuildEncyclopediaProcessor(linkExpander, urlMapper, provider);
-    processor.generateDocumentation(inputJavaDirs, inputStardocProtos, "", denyList);
+    processor.generateDocumentation(inputJavaDirs, buildEncyclopediaStardocProtos, "", denyList);
     return processor.getNativeRules();
   }
 

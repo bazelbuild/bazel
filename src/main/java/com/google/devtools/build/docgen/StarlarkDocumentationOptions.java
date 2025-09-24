@@ -16,10 +16,9 @@ package com.google.devtools.build.docgen;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 
 /** Command line options for the Starlark docgen. */
-public class StarlarkDocumentationOptions extends OptionsBase {
+public class StarlarkDocumentationOptions extends CommonOptions {
   @Option(
       name = "starlark_docs_root",
       defaultValue = "null",
@@ -29,31 +28,4 @@ public class StarlarkDocumentationOptions extends OptionsBase {
           "Root URL of narrative Starlark documentation, for example rules.md; replaces"
               + " $STARLARK_DOCS_ROOT expansion variable in docs.")
   public String starlarkDocsRoot;
-
-  @Option(
-      name = "link_map_path",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Path to a JSON file that specifies link mappings (page name to URL and input"
-              + " file/label to source code repository URL). Must be specified.")
-  public String linkMapPath;
-
-  @Option(
-      name = "create_toc",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to output a table of contents.")
-  public boolean createToc;
-
-  @Option(
-      name = "help",
-      abbrev = 'h',
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Prints the help string.")
-  public boolean help;
 }

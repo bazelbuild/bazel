@@ -197,7 +197,7 @@ public final class BazelEvaluationTestCase {
         BazelModuleContext.create(
             BazelModuleKey.createFakeModuleKeyForTesting(label),
             RepositoryMapping.EMPTY,
-            "test/label.bzl",
+            this.label.toString(),
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0],
             docCommentsMap,

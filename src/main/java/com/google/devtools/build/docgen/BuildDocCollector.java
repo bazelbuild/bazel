@@ -108,9 +108,9 @@ public class BuildDocCollector {
    * on the mode set for the {@link RuleLinkExpander} that was passed to the constructor.
    *
    * @param inputJavaDirs list of directories to scan for documentation in Java source code
-   * @param inputStardocProtos list of file paths of stardoc_output.ModuleInfo binary proto files
-   *     generated from Build Encyclopedia entry point .bzl files; documentation from these protos
-   *     takes precedence over documentation from {@code inputJavaDirs}
+   * @param buildEncyclopediaStardocProtos list of file paths of stardoc_output.ModuleInfo binary
+   *     proto files generated from Build Encyclopedia entry point .bzl files; documentation from
+   *     these protos takes precedence over documentation from {@code inputJavaDirs}
    * @param denyList specify an optional denylist file that list some rules that should not be
    *     listed in the output.
    * @throws BuildEncyclopediaDocException
@@ -118,7 +118,7 @@ public class BuildDocCollector {
    * @return Map of rule class to rule documentation.
    */
   public Map<String, RuleDocumentation> collect(
-      List<String> inputJavaDirs, List<String> inputStardocProtos, String denyList)
+      List<String> inputJavaDirs, List<String> buildEncyclopediaStardocProtos, String denyList)
       throws BuildEncyclopediaDocException, IOException {
     // Read the denyList file
     Set<String> denylistedRules = readDenyList(denyList);
@@ -155,7 +155,7 @@ public class BuildDocCollector {
     }
     processJavaSourceRuleAttributeDocs(ruleDocEntries.values(), attributeDocEntries);
 
-    for (String stardocProtoPath : inputStardocProtos) {
+    for (String stardocProtoPath : buildEncyclopediaStardocProtos) {
       logger.atFine().log("Processing input file: %s", stardocProtoPath);
       int numRulesCollected =
           collectModuleInfoDocs(

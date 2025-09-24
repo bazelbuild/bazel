@@ -72,15 +72,15 @@ public abstract class BuildEncyclopediaProcessor {
    * the Build Encyclopedia into outputDir.
    *
    * @param inputJavaDirs list of directories to scan for documentation in Java source code
-   * @param inputStardocProtos list of file paths of stardoc_output.ModuleInfo binary proto files
-   *     generated from Build Encyclopedia entry point .bzl files; documentation from these protos
-   *     takes precedence over documentation from {@code inputJavaDirs}
+   * @param buildEncyclopediaStardocProtos list of file paths of stardoc_output.ModuleInfo binary
+   *     proto files generated from Build Encyclopedia entry point .bzl files; documentation from
+   *     these protos takes precedence over documentation from {@code inputJavaDirs}
    * @param outputRootDir output directory where to write the build encyclopedia
    * @param denyList optional path to a file listing rules to not document
    */
   public abstract void generateDocumentation(
       List<String> inputJavaDirs,
-      List<String> inputStardocProtos,
+      List<String> buildEncyclopediaStardocProtos,
       String outputDir,
       String denyList)
       throws BuildEncyclopediaDocException, IOException;

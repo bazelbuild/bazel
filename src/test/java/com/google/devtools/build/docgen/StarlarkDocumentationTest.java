@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,12 +27,20 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.AnnotStarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.MemberDoc;
+import com.google.devtools.build.docgen.starlark.ParamDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
+import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -40,10 +49,15 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -72,7 +86,7 @@ public class StarlarkDocumentationTest {
   private void checkStarlarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
       throws Exception {
     ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allPages =
-        StarlarkDocumentationCollector.getAllDocPages(expander);
+        StarlarkDocumentationCollector.getAllDocPages(expander, ImmutableList.of());
     ImmutableSet<String> documentedItems =
         Stream.concat(
                 allPages.get(Category.GLOBAL_FUNCTION).stream()
@@ -447,7 +461,7 @@ public class StarlarkDocumentationTest {
   @Test
   public void testStarlarkGlobalLibraryCallable() throws Exception {
     StarlarkDocPage topLevel =
-        StarlarkDocumentationCollector.getAllDocPages(expander)
+        StarlarkDocumentationCollector.getAllDocPages(expander, ImmutableList.of())
             .get(Category.GLOBAL_FUNCTION)
             .stream()
             .filter(p -> p.getTitle().equals(Environment.BZL.getTitle()))
@@ -537,7 +551,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testDocumentModuleSubclass() {
+  public void testDocumentModuleSubclass() throws Exception {
     ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects =
         collect(
             PointsToCommonNameOneWithSubclass.class,
@@ -554,7 +568,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testDocumentSelfcallConstructor() {
+  public void testDocumentSelfcallConstructor() throws Exception {
     ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects =
         collect(MockClassA.class, MockClassWithSelfCallConstructor.class);
     ImmutableList<MemberDoc> methods =
@@ -570,8 +584,249 @@ public class StarlarkDocumentationTest {
     assertThat(methodNames).containsExactly("MockClassA", "get");
   }
 
-  private ImmutableMap<Category, ImmutableList<StarlarkDocPage>> collect(Class<?>... classObjects) {
+  @Test
+  public void testStardocProtoStructBasicFunctionality() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//pkg:test.bzl",
+            """
+            def _bar(a, *args, b = 42, **kwargs):
+                '''Blah blah blah'''
+                pass
+            #: Foo module.
+            foo = struct(bar = _bar)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    assertThat(objects.get(Category.TOP_LEVEL_MODULE)).hasSize(1);
+    StarlarkDocPage moduleDoc = objects.get(Category.TOP_LEVEL_MODULE).getFirst();
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("Foo module.");
+    assertThat(moduleDoc.getLoadStatement()).isEqualTo("load(\"//pkg:test.bzl\", \"foo\")");
+    assertThat(moduleDoc.getSourceFile()).isEqualTo("pkg/test.bzl");
+    assertThat(moduleDoc.getConstructor()).isNull();
+    assertThat(moduleDoc.getMembers()).hasSize(1);
+    MemberDoc methodDoc = moduleDoc.getMembers().getFirst();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("Blah blah blah");
+    assertThat(methodDoc.getSignature()).isEqualTo("unknown foo.bar(a, *args, b=42, **kwargs)");
+  }
+
+  // TODO(arostovtsev): parse type names from argument docstrings.
+  @Test
+  public void testStardocProtoFunctionParamDocs() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//pkg:test.bzl",
+            """
+            def _func(name, *extra_names, answer=42, vals=[], **kwargs):
+                '''Blah blah blah
+
+                Args:
+                  name: Entity name.
+                  *extra_names: Extra names.
+                  answer: Expected answer.
+                  vals: List of values.
+                '''
+                pass
+            #: Foo module.
+            foo = struct(func = _func)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    StarlarkDocPage moduleDoc = objects.get(Category.TOP_LEVEL_MODULE).getFirst();
+    // Note that getParams returns parameters in calling convention order, with the varargs
+    // parameter in the position immediately before kwargs. (Same as in Stardoc proto output, and in
+    // AnnotStarlarkMethodDoc::getParams.)
+    assertThat(moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getName))
+        .containsExactly("name", "answer", "vals", "extra_names", "kwargs")
+        .inOrder();
+    assertThat(moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getKind))
+        .containsExactly(
+            ParamDoc.Kind.ORDINARY,
+            ParamDoc.Kind.KEYWORD_ONLY,
+            ParamDoc.Kind.KEYWORD_ONLY,
+            ParamDoc.Kind.VARARGS,
+            ParamDoc.Kind.KWARGS)
+        .inOrder();
+    assertThat(
+            moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getDocumentation))
+        .containsExactly("Entity name.", "Expected answer.", "List of values.", "Extra names.", "")
+        .inOrder();
+    assertThat(moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getType))
+        .containsExactly("", "", "", "", "")
+        .inOrder();
+    assertThat(
+            moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getDefaultValue))
+        .containsExactly("", "42", "[]", "", "")
+        .inOrder();
+  }
+
+  @Test
+  public void testStardocProtoStructMembersSorted() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//:test.bzl",
+            """
+            #: Foo module.
+            foo = struct(c = lambda x: x, a = lambda x: x, b = lambda x: x)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    assertThat(objects.get(Category.TOP_LEVEL_MODULE)).hasSize(1);
+    StarlarkDocPage moduleDoc = objects.get(Category.TOP_LEVEL_MODULE).getFirst();
+    assertThat(moduleDoc.getMembers().stream().map(MemberDoc::getName))
+        .containsExactly("a", "b", "c")
+        .inOrder();
+  }
+
+  @Test
+  public void testStardocProtoMultipleStructsInOneFile() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//:test.bzl",
+            """
+            #: Foo module.
+            foo = struct(bar = lambda x: x)
+            #: Baz module.
+            baz = struct(qux = lambda x: x)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    assertThat(objects.get(Category.TOP_LEVEL_MODULE).stream().map(StarlarkDocPage::getName))
+        .containsExactly("foo", "baz");
+    assertThat(
+            objects.get(Category.TOP_LEVEL_MODULE).stream().map(StarlarkDocPage::getDocumentation))
+        .containsExactly("Foo module.", "Baz module.");
+  }
+
+  @Test
+  public void testStardocProtoMultipleFiles() throws Exception {
+    ModuleInfo fooModuleInfo =
+        getModuleInfo(
+            "//:foo.bzl",
+            """
+            #: Foo module.
+            foo = struct(bar = lambda x: x)
+            """);
+    ModuleInfo bazModuleInfo =
+        getModuleInfo(
+            "//:baz.bzl",
+            """
+            #: Bar module.
+            baz = struct(qux = lambda x: x)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects =
+        collect(fooModuleInfo, bazModuleInfo);
+    assertThat(objects.get(Category.TOP_LEVEL_MODULE).stream().map(StarlarkDocPage::getName))
+        .containsExactly("foo", "baz");
+    assertThat(objects.get(Category.TOP_LEVEL_MODULE).stream().map(StarlarkDocPage::getSourceFile))
+        .containsExactly("foo.bzl", "baz.bzl");
+  }
+
+  // TODO(arostovtsev): parse field types from provider docstrings.
+  @Test
+  public void testStardocProtoProviderBasicFunctionality() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//pkg:my_info.bzl",
+            """
+            MyInfo = provider(doc = "My info.", fields = ["a", "b"])
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    assertThat(objects.get(Category.PROVIDER)).hasSize(1);
+    StarlarkDocPage providerDoc = objects.get(Category.PROVIDER).getFirst();
+    assertThat(providerDoc.getDocumentation()).isEqualTo("My info.");
+    assertThat(providerDoc.getLoadStatement()).isEqualTo("load(\"//pkg:my_info.bzl\", \"MyInfo\")");
+    assertThat(providerDoc.getSourceFile()).isEqualTo("pkg/my_info.bzl");
+    assertThat(providerDoc.getConstructor()).isNull();
+    assertThat(providerDoc.getMembers()).hasSize(2);
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::getName))
+        .containsExactly("a", "b")
+        .inOrder();
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::isCallable))
+        .containsExactly(false, false)
+        .inOrder();
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::getReturnType))
+        .containsExactly("unknown", "unknown")
+        .inOrder();
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::getDocumentation))
+        .containsExactly("", "")
+        .inOrder();
+  }
+
+  // TODO(arostovtsev): parse field types from provider docstrings.
+  @Test
+  public void testStardocProtoProviderFieldDocs() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//pkg:my_info.bzl",
+            """
+            MyInfo = provider(doc = "My info.", fields = {"b": "Field B.", "a": "Field A."})
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    assertThat(objects.get(Category.PROVIDER)).hasSize(1);
+    StarlarkDocPage providerDoc = objects.get(Category.PROVIDER).getFirst();
+    assertThat(providerDoc.getMembers()).hasSize(2);
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::getName))
+        .containsExactly("a", "b") // sorted!
+        .inOrder();
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::getReturnType))
+        .containsExactly("unknown", "unknown")
+        .inOrder();
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::getDocumentation))
+        .containsExactly("Field A.", "Field B.")
+        .inOrder();
+  }
+
+  @Test
+  public void testStardocProtoProviderInit() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//pkg:my_info.bzl",
+            """
+            def _init_my_info(a, b=1, **kwargs):
+                '''Initializes a MyInfo instance.'''
+                return {"a": a + b}
+            MyInfo, _new_my_info = provider(doc = "My info.", fields = ["a"], init = _init_my_info)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    assertThat(objects.get(Category.PROVIDER)).hasSize(1);
+    StarlarkDocPage providerDoc = objects.get(Category.PROVIDER).getFirst();
+    assertThat(providerDoc.getMembers().stream().map(MemberDoc::getName))
+        .containsExactly("MyInfo", "a")
+        .inOrder();
+    MemberDoc constructor = providerDoc.getConstructor();
+    assertThat(constructor.getName()).isEqualTo("MyInfo");
+    assertThat(constructor.getDocumentation()).isEqualTo("Initializes a MyInfo instance.");
+    assertThat(constructor.getSignature()).isEqualTo("unknown MyInfo(a, b=1, **kwargs)");
+    assertThat(constructor.getParams().stream().map(ParamDoc::getName))
+        .containsExactly("a", "b", "kwargs")
+        .inOrder();
+  }
+
+  private ImmutableMap<Category, ImmutableList<StarlarkDocPage>> collect(Class<?>... classObjects)
+      throws IOException {
     return StarlarkDocumentationCollector.collectDocPages(
-        ImmutableList.copyOf(classObjects), expander);
+        expander, ImmutableList.copyOf(classObjects), ImmutableList.of());
+  }
+
+  private ImmutableMap<Category, ImmutableList<StarlarkDocPage>> collect(
+      ModuleInfo... apiStardocProtos) throws IOException {
+    return StarlarkDocumentationCollector.collectDocPages(
+        expander, ImmutableList.of(), ImmutableList.copyOf(apiStardocProtos));
+  }
+
+  /**
+   * Parses and evaluates a .bzl file, extracts documentation from it into a Stardoc proto, and
+   * writes the binary proto data to a new scratch file.
+   */
+  private ModuleInfo getModuleInfo(String bzlLabelString, String... lines) throws Exception {
+    BazelEvaluationTestCase ev = new BazelEvaluationTestCase(bzlLabelString);
+    Module moduleForCompilation = ev.newModule();
+    Label bzlLabel = Label.parseCanonical(bzlLabelString);
+    ev.setThreadOwner(keyForBuild(bzlLabel));
+    ParserInput input = ParserInput.fromLines(lines);
+    StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
+    Program program = Program.compileFile(file, moduleForCompilation);
+    Module moduleForEvaluation = ev.newModule(program);
+    BzlLoadFunction.execAndExport(
+        program, bzlLabel, ev.getEventHandler(), moduleForEvaluation, ev.getStarlarkThread());
+    ModuleInfoExtractor extractor = new ModuleInfoExtractor(name -> true, LabelRenderer.DEFAULT);
+    return extractor.extractFrom(moduleForEvaluation);
   }
 }

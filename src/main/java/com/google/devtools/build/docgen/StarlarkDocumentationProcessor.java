@@ -44,7 +44,8 @@ public final class StarlarkDocumentationProcessor {
         new StarlarkDocExpander(new RuleLinkExpander(/* singlePage= */ false, linkMap));
 
     ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allPages =
-        StarlarkDocumentationCollector.getAllDocPages(expander);
+        StarlarkDocumentationCollector.getAllDocPages(
+            expander, ImmutableList.copyOf(options.apiStardocProtos));
 
     for (var categoryAndPages : allPages.entrySet()) {
       writeCategoryPage(
