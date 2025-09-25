@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -42,12 +40,7 @@ import net.starlark.java.eval.StarlarkValue;
 @RequiresOptions(options = {PythonOptions.class})
 public class PythonConfiguration extends Fragment implements StarlarkValue {
 
-  private final PythonVersion version;
-  private final PythonVersion defaultVersion;
   private final TriState buildPythonZip;
-
-  // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
-  private final boolean py2OutputsAreSuffixed;
 
   /* Whether to include the build label in unstamped builds. */
   private final boolean includeLabelInLinkstamp;
@@ -59,12 +52,8 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   public PythonConfiguration(BuildOptions buildOptions) {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
-    PythonVersion pythonVersion = pythonOptions.getPythonVersion();
 
-    this.version = pythonVersion;
-    this.defaultVersion = pythonOptions.getDefaultPythonVersion();
     this.buildPythonZip = pythonOptions.buildPythonZip;
-    this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
     this.disallowNativeRules = pythonOptions.disallowNativeRules;
@@ -82,63 +71,12 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     return true; // immutable and Starlark-hashable
   }
 
-  /**
-   * Returns the Python version to use.
-   *
-   * <p>Specified using either the {@code --python_version} flag and {@code python_version} rule
-   * attribute (new API), or the {@code default_python_version} rule attribute (old API).
-   */
-  public PythonVersion getPythonVersion() {
-    return version;
-  }
-
-  /**
-   * Returns the default Python version to use on targets that omit their {@code python_version}
-   * attribute.
-   *
-   * <p>Specified using {@code --incompatible_py3_is_default}. Long-term, the default will simply be
-   * hardcoded as {@code PY3}.
-   *
-   * <p>This information is stored on the configuration for the benefit of callers in rule analysis.
-   * However, transitions have access to the option fragment instead of the configuration fragment,
-   * and should rely on {@link PythonOptions#getDefaultPythonVersion} instead.
-   */
-  public PythonVersion getDefaultPythonVersion() {
-    return defaultVersion;
-  }
-
   @StarlarkMethod(
       name = "default_python_version",
       structField = true,
-      doc = "The default python version from --incompatible_py3_is_default")
+      doc = "No-op: PY3 is the default Python version.")
   public String getDefaultPythonVersionForStarlark() {
-    return defaultVersion.name();
-  }
-
-  @Override
-  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
-      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
-    Preconditions.checkState(version.isTargetValue());
-    // The only possible Python target version values are PY2 and PY3. Historically, PY3 targets got
-    // a "-py3" suffix and PY2 targets got the empty suffix, so that the bazel-bin symlink pointed
-    // to Python 2 targets. When --incompatible_py2_outputs_are_suffixed is enabled, this is
-    // reversed: PY2 targets get "-py2" and PY3 targets get the empty suffix.
-    Verify.verify(
-        PythonVersion.TARGET_VALUES.size() == 2, // If there is only 1, we don't need this method.
-        "Detected a change in PythonVersion.TARGET_VALUES so that there are no longer two Python "
-            + "versions. Please check that PythonConfiguration#getOutputDirectoryName() is still "
-            + "needed and is still able to avoid output directory clashes, then update this "
-            + "canary message.");
-    ctx.markAsExplicitInOutputPathFor("python_version");
-    if (py2OutputsAreSuffixed) {
-      if (version == PythonVersion.PY2) {
-        ctx.addToMnemonic("py2");
-      }
-    } else {
-      if (version == PythonVersion.PY3) {
-        ctx.addToMnemonic("py3");
-      }
-    }
+    return PythonVersion.PY3.name();
   }
 
   /** Returns whether to build the executable zip file for Python binaries. */

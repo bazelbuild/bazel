@@ -543,6 +543,30 @@ public final class BazelRulesModule extends BlazeModule {
     public String hostForcePython;
 
     @Option(
+        name = "incompatible_py3_is_default",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatiblePy3IsDefault;
+
+    @Option(
+        name = "incompatible_py2_outputs_are_suffixed",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatiblePy2OutputsAreSuffixed;
+
+    @Option(
+        name = "python_version",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String pythonVersion;
+
+    @Option(
         name = "incompatible_remove_old_python_version_api",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

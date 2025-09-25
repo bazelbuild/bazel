@@ -430,11 +430,6 @@ bazel_fragments["ProtoConfiguration$Options"] = fragment(
     ],
 )
 
-def _python_options(settings):
-    return {
-        "//command_line_option:python_version": "py3",
-    }
-
 bazel_fragments["PythonOptions"] = fragment(
     # Could move these toolchain configuring flags to toolchain definitions?
     # And not make them flags. Must each one toggle independently of the others?
@@ -442,16 +437,10 @@ bazel_fragments["PythonOptions"] = fragment(
         "//command_line_option:build_python_zip",
         "//command_line_option:experimental_py_binaries_include_label",
         "//command_line_option:incompatible_default_to_explicit_init_py",
-        "//command_line_option:incompatible_py2_outputs_are_suffixed",
-        "//command_line_option:incompatible_py3_is_default",
         "//command_line_option:incompatible_python_disallow_native_rules",
         "//command_line_option:python_native_rules_allowlist",
         "//command_line_option:incompatible_remove_ctx_py_fragment",
     ],
-    outputs = [
-        "//command_line_option:python_version",
-    ],
-    func = _python_options,
 )
 
 bazel_fragments["ShellConfiguration$Options"] = fragment(

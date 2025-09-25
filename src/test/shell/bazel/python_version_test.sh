@@ -334,41 +334,10 @@ EOF
   expect_log "I am lib!"
 }
 
-# Tests that targets appear under the expected roots.
-function test_output_roots() {
-  # It's hard to get build output paths reliably, so we'll just check the output
-  # of bazel info.
-
-  # Legacy behavior, PY3 case.
-  bazel info bazel-bin \
-      --incompatible_py2_outputs_are_suffixed=false --python_version=PY3 \
-      &> $TEST_log || fail "bazel info failed"
-  expect_log "bazel-out/.*-py3.*/bin"
-
-  # New behavior, PY3 case.
-  bazel info bazel-bin \
-      --incompatible_py2_outputs_are_suffixed=true --python_version=PY3 \
-      &> $TEST_log || fail "bazel info failed"
-  expect_log "bazel-out/.*/bin"
-  expect_not_log "bazel-out/.*-py3.*/bin"
-}
-
 # Tests that bazel-bin points to where targets get built by default (or at least
-# not to a directory with a -py2 or -py3 suffix), provided that
-# --incompatible_py3_is_default and --incompatible_py2_outputs_are_suffixed are
-# flipped together.
+# not to a directory with a -py2 or -py3 suffix).
 function test_default_output_root_is_bazel_bin() {
   bazel info bazel-bin \
-      --incompatible_py3_is_default=false \
-      --incompatible_py2_outputs_are_suffixed=false \
-      &> $TEST_log || fail "bazel info failed"
-  expect_log "bazel-out/.*/bin"
-  expect_not_log "bazel-out/.*-py2.*/bin"
-  expect_not_log "bazel-out/.*-py3.*/bin"
-
-  bazel info bazel-bin \
-      --incompatible_py3_is_default=true \
-      --incompatible_py2_outputs_are_suffixed=true \
       &> $TEST_log || fail "bazel info failed"
   expect_log "bazel-out/.*/bin"
   expect_not_log "bazel-out/.*-py2.*/bin"

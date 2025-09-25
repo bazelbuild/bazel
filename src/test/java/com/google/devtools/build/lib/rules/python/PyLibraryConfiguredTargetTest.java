@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -47,9 +46,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   }
 
   @Test
-  public void versionIs3IfSetByFlag() throws Exception {
-    assumesDefaultIsPY2();
-    useConfiguration("--python_version=PY3");
+  public void versionPy3ByDefault() throws Exception {
     scratch.file(
         "pkg/BUILD", //
         getPyLoad("py_library"),

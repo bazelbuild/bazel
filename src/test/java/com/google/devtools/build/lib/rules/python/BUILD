@@ -25,7 +25,6 @@ test_suite(
         ":PythonConfigurationTest",
         ":PythonStarlarkApiTest",
         ":PythonToolchainTest",
-        ":PythonVersionSelectTest",
         ":PythonVersionTest",
     ],
 )
@@ -58,8 +57,6 @@ java_test(
     name = "PythonConfigurationTest",
     srcs = ["PythonConfigurationTest.java"],
     deps = [
-        ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/common/options",
@@ -160,20 +157,6 @@ java_test(
     srcs = ["PythonVersionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "PythonVersionSelectTest",
-    srcs = ["PythonVersionSelectTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
         "//third_party:truth",
     ],
