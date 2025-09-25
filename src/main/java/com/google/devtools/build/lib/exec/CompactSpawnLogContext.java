@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,6 +46,7 @@ import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -196,10 +199,10 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             ExecLogEntry.newBuilder()
                 .setInvocation(
                     ExecLogEntry.Invocation.newBuilder()
-                        .setHashFunctionName(digestHashFunction.toString())
-                        .setWorkspaceRunfilesDirectory(workspaceName)
+                        .setHashFunctionName(internalToUnicode(digestHashFunction.toString()))
+                        .setWorkspaceRunfilesDirectory(internalToUnicode(workspaceName))
                         .setSiblingRepositoryLayout(siblingRepositoryLayout)
-                        .setId(invocationId.toString())));
+                        .setId(internalToUnicode(invocationId.toString()))));
   }
 
   @Override
@@ -220,7 +223,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
-      builder.addAllArgs(spawn.getArguments());
+      builder.addAllArgs(Lists.transform(spawn.getArguments(), StringEncoding::internalToUnicode));
       builder.addAllEnvVars(getEnvironmentVariables(spawn));
       Platform platform = getPlatform(spawn, remoteOptions);
       if (platform != null) {
@@ -231,9 +234,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       builder.setToolSetId(logTools(spawn, inputMetadataProvider, fileSystem));
 
       if (spawn.getTargetLabel() != null) {
-        builder.setTargetLabel(spawn.getTargetLabel().getCanonicalForm());
+        builder.setTargetLabel(internalToUnicode(spawn.getTargetLabel().getCanonicalForm()));
       }
-      builder.setMnemonic(spawn.getMnemonic());
+      builder.setMnemonic(internalToUnicode(spawn.getMnemonic()));
 
       for (ActionInput output : spawn.getOutputFiles()) {
         Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
@@ -250,15 +253,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
               .addOutputsBuilder()
               .setOutputId(logUnresolvedSymlink(output, path, /* inputMetadataProvider= */ null));
         } else {
-          builder.addOutputsBuilder().setInvalidOutputPath(output.getExecPathString());
+          builder
+              .addOutputsBuilder()
+              .setInvalidOutputPath(internalToUnicode(output.getExecPathString()));
         }
       }
 
       builder.setExitCode(result.exitCode());
       if (result.status() != SpawnResult.Status.SUCCESS) {
-        builder.setStatus(result.status().toString());
+        builder.setStatus(internalToUnicode(result.status().toString()));
       }
-      builder.setRunner(result.getRunnerName());
+      builder.setRunner(internalToUnicode(result.getRunnerName()));
       builder.setCacheHit(result.isCacheHit());
       builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
       builder.setCacheable(Spawns.mayBeCached(spawn));
@@ -286,14 +291,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         // treated just like source files.
         return;
       }
-      builder.setInputPath(input.getExecPathString());
-      builder.setOutputPath(action.getPrimaryOutput().getExecPathString());
+      builder.setInputPath(internalToUnicode(input.getExecPathString()));
+      builder.setOutputPath(internalToUnicode(action.getPrimaryOutput().getExecPathString()));
 
       Label label = action.getOwner().getLabel();
       if (label != null) {
-        builder.setTargetLabel(label.getCanonicalForm());
+        builder.setTargetLabel(internalToUnicode(label.getCanonicalForm()));
       }
-      builder.setMnemonic(action.getMnemonic());
+      builder.setMnemonic(internalToUnicode(action.getMnemonic()));
 
       logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
     }
@@ -431,7 +436,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
           for (SymlinkEntry input : symlinks.getLeaves()) {
             builder.putDirectEntries(
-                input.getPathString(),
+                internalToUnicode(input.getPathString()),
                 logInput(input.getArtifact(), inputMetadataProvider, fileSystem));
           }
 
@@ -477,7 +482,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         () -> {
           ExecLogEntry.File.Builder builder = ExecLogEntry.File.newBuilder();
 
-          builder.setPath(input.getExecPathString());
+          builder.setPath(internalToUnicode(input.getExecPathString()));
 
           Digest digest =
               computeDigest(
@@ -515,7 +520,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             ExecLogEntry.newBuilder()
                 .setDirectory(
                     ExecLogEntry.Directory.newBuilder()
-                        .setPath(input.getExecPathString())
+                        .setPath(internalToUnicode(input.getExecPathString()))
                         .addAllFiles(expandDirectory(root, inputMetadataProvider))));
   }
 
@@ -544,7 +549,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
-                  .setPath(runfilesTree.getExecPath().getPathString());
+                  .setPath(internalToUnicode(runfilesTree.getExecPath().getPathString()));
 
           builder.setInputSetId(
               logInputSet(
@@ -609,7 +614,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
           ExecLogEntry.File file =
               ExecLogEntry.File.newBuilder()
-                  .setPath(child.relativeTo(root).getPathString())
+                  .setPath(internalToUnicode(child.relativeTo(root).getPathString()))
                   .setDigest(digest)
                   .build();
 
@@ -654,8 +659,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           return ExecLogEntry.newBuilder()
               .setUnresolvedSymlink(
                   ExecLogEntry.UnresolvedSymlink.newBuilder()
-                      .setPath(input.getExecPathString())
-                      .setTargetPath(targetPath));
+                      .setPath(internalToUnicode(input.getExecPathString()))
+                      .setTargetPath(internalToUnicode(targetPath)));
         });
   }
 
