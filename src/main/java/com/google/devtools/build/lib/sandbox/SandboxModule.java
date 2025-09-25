@@ -275,7 +275,9 @@ public final class SandboxModule extends BlazeModule {
         cmdEnv.getOptions().getOptions(LocalExecutionOptions.class).getLocalSigkillGraceSeconds();
 
     boolean processWrapperSupported = ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv);
-    boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
+    boolean linuxSandboxSupported =
+        LinuxSandboxedSpawnRunner.isSupported(cmdEnv)
+            != LinuxSandboxedSpawnRunner.SupportLevel.NOT_SUPPORTED;
     boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
 
     ExecutionOptions executionOptions =
