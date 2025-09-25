@@ -359,7 +359,7 @@ public final class AspectKeyCreator {
       return getBaseConfiguredTargetKey().getConfigurationKey();
     }
 
-    ImmutableList<AspectClass> getTopLevelAspectsClasses() {
+    public ImmutableList<AspectClass> getTopLevelAspectsClasses() {
       return topLevelAspectsClasses;
     }
 
