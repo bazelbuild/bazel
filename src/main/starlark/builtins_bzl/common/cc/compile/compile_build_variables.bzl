@@ -91,6 +91,7 @@ def create_compile_variables(
         source_file = None,
         output_file = None,
         user_compile_flags = None,
+        includes = None,
         include_directories = None,
         quote_include_directories = None,
         system_include_directories = None,
@@ -118,6 +119,7 @@ def create_compile_variables(
             here over appending it to the end of the command line generated from
             cc_common.get_memory_inefficient_command_line, as then it's in the power of
             the toolchain author to properly specify and position compiler flags.
+        includes: paths to headers that should be included using -include
         user_compile_flags: List of additional compilation flags (copts).
         include_directories: Depset of include directories.
         quote_include_directories: Depset of quote include directories.
@@ -154,6 +156,7 @@ def create_compile_variables(
         is_using_memprof = getattr(fdo_context, "memprof_profile_artifact", None) != None,
         fdo_build_stamp = _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration),
         variables_extension = variables_extension,
+        includes = includes or [],
         include_dirs = include_directories or depset(),
         quote_include_dirs = quote_include_directories or depset(),
         system_include_dirs = system_include_directories or depset(),
@@ -531,3 +534,105 @@ def _should_pass_propeller_profiles(
     # Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
     return (not feature_configuration.is_enabled("thin_lto") or
             feature_configuration.is_enabled("propeller_optimize_thinlto_compile_actions"))
+
+def get_linkstamp_compile_variables(
+        source_file,
+        output_file,
+        label_replacement,
+        output_replacement,
+        additional_linkstamp_defines,
+        build_info_header_artifacts,
+        feature_configuration,
+        cc_toolchain,
+        needs_pic):
+    """Returns variables for linkstamp compilation.
+
+    Args:
+        source_file: The linkstamp source file to be compiled.
+        output_file: The output object file.
+        label_replacement: String to replace ${LABEL} in linkstamp defines.
+        output_replacement: String to replace ${OUTPUT_PATH} in linkstamp defines.
+        additional_linkstamp_defines: A list of additional defines for linkstamp compilation.
+        build_info_header_artifacts: A list of build info header artifacts.
+        feature_configuration: The feature configuration.
+        cc_toolchain: The C++ toolchain provider.
+        needs_pic: Whether PIC compilation is needed.
+
+    Returns:
+        CcToolchainVariables for linkstamp compilation.
+    """
+
+    if not cc_common_internal.action_is_enabled(
+        feature_configuration = feature_configuration,
+        action_name = "linkstamp-compile",
+    ):
+        fail("Action 'linkstamp-compile' is not configured.")
+    fdo_build_stamp = _get_fdo_build_stamp(
+        cc_toolchain._cpp_configuration,
+        cc_toolchain._fdo_context,
+        feature_configuration,
+    )
+    code_coverage_enabled = feature_configuration.is_enabled("coverage")
+    copts = get_copts(
+        language = "c++",  # The only language that receives special treatment is "objc".
+        cpp_configuration = cc_toolchain._cpp_configuration,
+        source_file = source_file,
+        conlyopts = [],
+        copts = [],
+        cxxopts = [],
+        label = None,
+    )
+    defines = _compute_all_linkstamp_defines(
+        label_replacement = label_replacement,
+        output_replacement = output_replacement,
+        additional_linkstamp_defines = additional_linkstamp_defines,
+        cc_toolchain = cc_toolchain,
+        fdo_build_stamp = fdo_build_stamp,
+        code_coverage_enabled = code_coverage_enabled,
+    )
+    return create_compile_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        source_file = source_file,
+        output_file = output_file,
+        use_pic = needs_pic,
+        preprocessor_defines = depset(defines),
+        includes = [a.path for a in build_info_header_artifacts],
+        include_directories = depset(["."]),
+        user_compile_flags = copts,
+    )
+
+def _compute_all_linkstamp_defines(
+        label_replacement,
+        output_replacement,
+        additional_linkstamp_defines,
+        cc_toolchain,
+        fdo_build_stamp,
+        code_coverage_enabled):
+    """Computes defines for linkstamp compilation."""
+    defines = [
+        'GPLATFORM="' + cc_toolchain.toolchain_id + '"',
+        "BUILD_COVERAGE_ENABLED=" + ("1" if code_coverage_enabled else "0"),
+        # G3_TARGET_NAME is a C string literal that normally contain the label of the target
+        # being linked.  However, they are set differently when using shared native deps. In
+        # that case, a single .so file is shared by multiple targets, and its contents cannot
+        # depend on which target(s) were specified on the command line.  So in that case we
+        # have to use the (obscure) name of the .so file instead, or more precisely the path of
+        # the .so file relative to the workspace root.
+        'G3_TARGET_NAME="${LABEL}"',
+        # G3_BUILD_TARGET is a C string literal containing the output of this
+        # link.  (An undocumented and untested invariant is that G3_BUILD_TARGET is the
+        # location of the executable, either absolutely, or relative to the directory part of
+        # BUILD_INFO.)
+        'G3_BUILD_TARGET="${OUTPUT_PATH}"',
+    ]
+    if additional_linkstamp_defines:
+        defines.extend(additional_linkstamp_defines)
+
+    if fdo_build_stamp:
+        defines.append('BUILD_FDO_TYPE="' + fdo_build_stamp + '"')
+
+    return [
+        define.replace("${LABEL}", label_replacement).replace("${OUTPUT_PATH}", output_replacement)
+        for define in defines
+    ]

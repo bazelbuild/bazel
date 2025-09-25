@@ -21,6 +21,7 @@ load(
     "should_create_per_object_debug_info",
     _artifact_category = "artifact_category_names",
     _extensions = "extensions",
+    _is_stamping_enabled = "is_stamping_enabled",
     _package_source_root = "package_source_root",
     _repository_exec_path = "repository_exec_path",
 )
@@ -1103,14 +1104,6 @@ def _linker_scripts(ctx):
             if f.extension in cpp_file_types.LINKER_SCRIPT:
                 result.append(f)
     return result
-
-def _is_stamping_enabled(ctx):
-    if ctx.configuration.is_tool_configuration():
-        return 0
-    stamp = 0
-    if hasattr(ctx.attr, "stamp"):
-        stamp = ctx.attr.stamp
-    return stamp
 
 def _has_target_constraints(ctx, constraints):
     # Constraints is a label_list.

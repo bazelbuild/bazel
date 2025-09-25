@@ -276,6 +276,26 @@ def repository_exec_path(repository, sibling_repository_layout):
         repository = repository[1:]
     return paths.get_relative(prefix, repository)
 
+def is_stamping_enabled(ctx):
+    """Returns whether to encode build information into the binary.
+
+    Args:
+        ctx: The rule context.
+
+    Returns:
+    (int): 1: Always stamp the build information into the binary, even in [--nostamp][stamp] builds.
+        This setting should be avoided, since it potentially kills remote caching for the binary and
+        any downstream actions that depend on it.
+        0: Always replace build information by constant values. This gives good build result caching.
+        -1: Embedding of build information is controlled by the [--[no]stamp][stamp] flag.
+    """
+    if ctx.configuration.is_tool_configuration():
+        return 0
+    stamp = 0
+    if hasattr(ctx.attr, "stamp"):
+        stamp = ctx.attr.stamp
+    return stamp
+
 # LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)
 
 def is_shared_library(file):
