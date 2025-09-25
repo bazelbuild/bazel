@@ -770,7 +770,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (val instanceof BuildType.SelectorList) {
       List<Object> selectors = new ArrayList<>();
       for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>) val).getSelectors()) {
-        Dict.Builder<Object, Object> m = Dict.builder();
+        var m = ImmutableMap.builderWithExpectedSize(selector.getNumEntries());
         selector.forEach(
             (rawKey, rawValue) -> {
               Object key = starlarkifyValue(mu, rawKey, pkg);
@@ -785,7 +785,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
                 m.put(key, mapVal);
               }
             });
-        Dict<?, ?> selectorDict = m.build(mu);
+        var selectorDict = m.buildKeepingLast();
         if (!selectorDict.isEmpty()) {
           selectors.add(new SelectorValue(selectorDict, selector.getNoMatchError()));
         }
