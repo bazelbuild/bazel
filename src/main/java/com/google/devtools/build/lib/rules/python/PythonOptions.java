@@ -174,6 +174,18 @@ public class PythonOptions extends FragmentOptions {
   // Helper field to store hostForcePython in exec configuration
   private PythonVersion defaultPythonVersion = null;
 
+  @Option(
+      name = "incompatible_remove_ctx_py_fragment",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Python build flags are defined with Python rules (in BUIILD files) and"
+              + " ctx.fragments.py is undefined. This is a migration flag to move all Python flags "
+              + " from core Bazel to Python rules.")
+  public boolean disablePyFragment;
+
   /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets that do not specify
    * a version should be built for.

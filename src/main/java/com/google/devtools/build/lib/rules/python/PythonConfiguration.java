@@ -55,6 +55,7 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   private final boolean defaultToExplicitInitPy;
   @Nullable private final Label nativeRulesAllowlist;
   private final boolean disallowNativeRules;
+  private final boolean disablePyFragment;
 
   public PythonConfiguration(BuildOptions buildOptions) {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
@@ -68,6 +69,12 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
     this.disallowNativeRules = pythonOptions.disallowNativeRules;
     this.includeLabelInLinkstamp = pythonOptions.includeLabelInPyBinariesLinkstamp;
+    this.disablePyFragment = pythonOptions.disablePyFragment;
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disablePyFragment;
   }
 
   @Override
@@ -140,14 +147,11 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
       structField = true,
       doc = "The effective value of --build_python_zip")
   public boolean buildPythonZip() {
-    switch (buildPythonZip) {
-      case YES:
-        return true;
-      case NO:
-        return false;
-      default:
-        return OS.getCurrent() == OS.WINDOWS;
-    }
+    return switch (buildPythonZip) {
+      case YES -> true;
+      case NO -> false;
+      default -> OS.getCurrent() == OS.WINDOWS;
+    };
   }
 
   /**

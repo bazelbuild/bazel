@@ -195,6 +195,7 @@ bazel_fragments["BazelPythonConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:python_path",
         "//command_line_option:experimental_python_import_all_repositories",
+        "//command_line_option:incompatible_remove_ctx_bazel_py_fragment",
     ],
 )
 
@@ -445,6 +446,7 @@ bazel_fragments["PythonOptions"] = fragment(
         "//command_line_option:incompatible_py3_is_default",
         "//command_line_option:incompatible_python_disallow_native_rules",
         "//command_line_option:python_native_rules_allowlist",
+        "//command_line_option:incompatible_remove_ctx_py_fragment",
     ],
     outputs = [
         "//command_line_option:python_version",
