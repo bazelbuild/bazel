@@ -3171,6 +3171,7 @@ java_library(
     name = "tree_artifact_value",
     srcs = [
         "TreeArtifactValue.java",
+        "TreeArtifactValueCodec.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
@@ -3191,6 +3192,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 

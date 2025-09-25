@@ -68,7 +68,10 @@ import javax.annotation.Nullable;
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
  * {@link TreeFileArtifact}s.
  */
-@AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+@AutoCodec(
+    deserializedInterface = DeserializedSkyValue.class,
+    // Do not auto-register; see TreeArtifactValueCodec
+    autoRegister = false)
 public class TreeArtifactValue implements HasDigest, SkyValue {
   private static final ForkJoinPool VISITOR_POOL =
       NamedForkJoinPool.newNamedPool(
@@ -81,9 +84,9 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    */
   @SerializationConstant @VisibleForSerialization
   static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
-      (input1, input2) -> input1.getExecPath().compareTo(input2.getExecPath());
+      Comparator.comparing(ActionInput::getExecPath);
 
-  private static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
+  static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
       childDataBuilder().buildOrThrow();
 
   private static ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>
@@ -186,10 +189,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
   }
 
-  @SuppressWarnings("WeakerAccess") // Serialization constant.
-  @SerializationConstant
-  @VisibleForSerialization
-  static final TreeArtifactValue EMPTY =
+  // Note that this is not marked as a @SerializationConstant because we need the deserialized value
+  // to implement DeserializedSkyValue. As a result, the deserialized value must be of a different
+  // class. We make this work by using a custom codec (see TreeArtifactValueCodec).
+  private static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
           MetadataDigestUtils.fromMetadata(ImmutableMap.of()),
           EMPTY_MAP,
@@ -483,19 +486,19 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * Called for every directory entry encountered during tree traversal, in a nondeterministic
      * order.
      *
-     * <p>Regular files and directories are reported as {@link Dirent.Type.FILE} or {@link
-     * Dirent.Type.DIRECTORY}, respectively. Directories are traversed recursively.
+     * <p>Regular files and directories are reported as {@link Dirent.Type#FILE} or {@link
+     * Dirent.Type#DIRECTORY}, respectively. Directories are traversed recursively.
      *
      * <p>Symlinks that resolve to an existing file or directory are followed and reported as the
      * regular files or directories they point to, recursively for directories. Symlinks that fail
      * to resolve to an existing path cause an {@link IOException} to be immediately thrown without
-     * invoking the visitor. Thus, the visitor is never called with a {@link Dirent.Type.SYMLINK}
+     * invoking the visitor. Thus, the visitor is never called with a {@link Dirent.Type#SYMLINK}
      * type.
      *
      * <p>Special files or files whose type could not be determined, regardless of whether they are
      * encountered directly or indirectly through symlinks, cause an {@link IOException} to be
      * immediately thrown without invoking the visitor. Thus, the visitor is never called with a
-     * {@link Dirent.Type.UNKNOWN} type.
+     * {@link Dirent.Type#UNKNOWN} type.
      *
      * <p>The {@code parentRelativePath} argument is always set to the apparent path relative to the
      * tree directory root, without resolving any intervening symlinks. The {@code traversedSymlink}
