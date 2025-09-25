@@ -78,7 +78,7 @@ public final class SymbolGenerator<T> {
   }
 
   public synchronized Symbol<T> generate() {
-    return LocalSymbol.create(owner, index++);
+    return new LocalSymbol<>(owner, index++);
   }
 
   T getOwner() {
@@ -104,17 +104,56 @@ public final class SymbolGenerator<T> {
     public abstract boolean isGlobal();
   }
 
-  @AutoValue
-  abstract static class LocalSymbol<T> extends Symbol<T> {
-    private static <T> LocalSymbol<T> create(T owner, int index) {
-      return new AutoValue_SymbolGenerator_LocalSymbol<>(owner, index);
+  static final class LocalSymbol<T> extends Symbol<T> {
+    private final T owner;
+    private final int index;
+
+    private int lazyHashCode;
+
+    private LocalSymbol(T owner, int index) {
+      if (owner == null) {
+        throw new NullPointerException("Null owner");
+      }
+      this.owner = owner;
+      this.index = index;
     }
 
-    abstract int getIndex();
+    @Override
+    public T getOwner() {
+      return owner;
+    }
 
     @Override
     public final boolean isGlobal() {
       return false;
+    }
+
+    @Override
+    public String toString() {
+      return "LocalSymbol{" + "owner=" + owner + ", " + "index=" + index + "}";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (!(o instanceof SymbolGenerator.LocalSymbol<?> that)) {
+        return false;
+      }
+      return this.owner.equals(that.owner) && this.index == that.index;
+    }
+
+    @Override
+    public int hashCode() {
+      if (lazyHashCode == 0) {
+        int hashCode = 1000003;
+        hashCode ^= owner.hashCode();
+        hashCode *= 1000003;
+        hashCode ^= index;
+        this.lazyHashCode = hashCode;
+      }
+      return lazyHashCode;
     }
   }
 
