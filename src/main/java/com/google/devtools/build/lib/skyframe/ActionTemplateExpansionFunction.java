@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -76,8 +78,21 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
 
-    SkyframeLookupResult result =
-        env.getValuesAndExceptions(actionTemplate.getInputTreeArtifacts());
+    ImmutableList.Builder<SkyKey> inputKeys =
+        ImmutableList.<SkyKey>builder().addAll(actionTemplate.getInputTreeArtifacts());
+
+    // Following b/143205147, we unwrap the top layer of the NestedSet and evaluate the first layer
+    // of the NestedSet as direct Artifact(s) and transitive NestedSet(s).
+    if (!actionTemplate.getInputs().isEmpty()) {
+      for (Artifact leaf : actionTemplate.getInputs().getLeaves()) {
+        inputKeys.add(Artifact.key(leaf));
+      }
+      for (NestedSet<Artifact> nonLeaf : actionTemplate.getInputs().getNonLeaves()) {
+        inputKeys.add(ArtifactNestedSetKey.create(nonLeaf));
+      }
+    }
+
+    SkyframeLookupResult result = env.getValuesAndExceptions(inputKeys.build());
 
     // Input TreeArtifact is not ready yet.
     if (env.valuesMissing()) {
