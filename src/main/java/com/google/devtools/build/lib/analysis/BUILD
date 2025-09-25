@@ -86,7 +86,6 @@ java_library(
         "actions/ShellCommand.java",
         "actions/SpawnAction.java",
         "actions/StarlarkAction.java",
-        "actions/StarlarkActionTemplate.java",
         "actions/StarlarkMapActionTemplate.java",
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
