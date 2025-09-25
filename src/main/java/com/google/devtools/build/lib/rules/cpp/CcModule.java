@@ -525,7 +525,7 @@ public abstract class CcModule
   }
 
   @StarlarkMethod(
-      name = "register_linkstamp_compile_action",
+      name = "register_linkstamp_compile_action_internal",
       documented = false,
       useStarlarkThread = true,
       parameters = {
@@ -567,12 +567,10 @@ public abstract class CcModule
             named = true,
             defaultValue = "None"),
         @Param(
-            name = "additional_linkstamp_defines",
+            name = "compile_build_variables",
             positional = false,
             named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-            defaultValue = "unbound"),
+            documented = false),
       })
   public void registerLinkstampCompileAction(
       StarlarkActionFactory starlarkActionFactoryApi,
@@ -586,17 +584,16 @@ public abstract class CcModule
       String outputReplacement,
       boolean needsPic,
       Object stampingObject,
-      Object additionalLinkstampDefinesUnchecked,
+      CcToolchainVariables compileBuildVariables,
       StarlarkThread thread)
       throws EvalException, InterruptedException, TypeException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
     boolean stamping =
-        stampingObject instanceof Boolean
-            ? (Boolean) stampingObject
+        stampingObject instanceof Boolean b
+            ? b
             : AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration());
     CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
-    CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
     if (AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())) {
       // Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
       // See b/326620485 for more details.
@@ -607,8 +604,6 @@ public abstract class CcModule
               .getVolatileWorkspaceStatusArtifact();
     }
     CppSemantics semantics = getSemantics();
-    ImmutableList<String> additionalLinkstampDefines =
-        asStringImmutableList(additionalLinkstampDefinesUnchecked);
     ImmutableList<Artifact> buildInfoHeaderArtifacts =
         stamping
             ? ccToolchain
@@ -619,23 +614,6 @@ public abstract class CcModule
                 .getCcBuildInfoTranslator()
                 .getOutputGroup("redacted_build_info_files")
                 .toList();
-    CcToolchainVariables compileBuildVariables =
-        CppLinkstampCompileHelper.getVariables(
-            sourceFile,
-            outputFile,
-            labelReplacement,
-            outputReplacement,
-            additionalLinkstampDefines,
-            buildInfoHeaderArtifacts,
-            featureConfigurationForStarlark.getFeatureConfiguration(),
-            ccToolchain,
-            needsPic,
-            CppHelper.getFdoBuildStamp(
-                cppConfiguration,
-                ccToolchain.getFdoContext(),
-                featureConfigurationForStarlark.getFeatureConfiguration()),
-            ruleContext.getConfiguration().isCodeCoverageEnabled(),
-            semantics);
     starlarkActionFactoryApi.registerAction(
         CppLinkstampCompileHelper.createLinkstampCompileAction(
             CppLinkActionBuilder.newActionConstruction(ruleContext),
@@ -649,6 +627,104 @@ public abstract class CcModule
             featureConfigurationForStarlark.getFeatureConfiguration(),
             semantics,
             compileBuildVariables));
+  }
+
+  @StarlarkMethod(
+      name = "get_linkstamp_compile_variables",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "actions",
+            positional = false,
+            named = true,
+            doc = "<code>actions</code> object."),
+        @Param(
+            name = "cc_toolchain",
+            doc = "<code>CcToolchainInfo</code> provider to be used.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "feature_configuration",
+            doc = "<code>feature_configuration</code> to be queried.",
+            positional = false,
+            named = true),
+        @Param(name = "source_file", documented = false, positional = false, named = true),
+        @Param(name = "output_file", documented = false, positional = false, named = true),
+        @Param(name = "label_replacement", documented = false, positional = false, named = true),
+        @Param(name = "output_replacement", documented = false, positional = false, named = true),
+        @Param(
+            name = "needs_pic",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "stamping",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
+            name = "additional_linkstamp_defines",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class)
+            },
+            defaultValue = "None"),
+      })
+  public CcToolchainVariables getLinkstampCompileVariables(
+      StarlarkActionFactory starlarkActionFactoryApi,
+      Info ccToolchainInfo,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      Artifact sourceFile,
+      Artifact outputFile,
+      String labelReplacement,
+      String outputReplacement,
+      boolean needsPic,
+      Object stampingObject,
+      Object additionalLinkstampDefinesUnchecked,
+      StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
+    RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
+    boolean stamping =
+        stampingObject instanceof Boolean b
+            ? b
+            : AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration());
+    CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
+    CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
+    ImmutableList<String> additionalLinkstampDefines =
+        asStringImmutableList(additionalLinkstampDefinesUnchecked);
+    ImmutableList<Artifact> buildInfoHeaderArtifacts =
+        stamping
+            ? ccToolchain
+                .getCcBuildInfoTranslator()
+                .getOutputGroup("non_redacted_build_info_files")
+                .toList()
+            : ccToolchain
+                .getCcBuildInfoTranslator()
+                .getOutputGroup("redacted_build_info_files")
+                .toList();
+    return CppLinkstampCompileHelper.getVariables(
+        sourceFile,
+        outputFile,
+        labelReplacement,
+        outputReplacement,
+        additionalLinkstampDefines,
+        buildInfoHeaderArtifacts,
+        featureConfigurationForStarlark.getFeatureConfiguration(),
+        ccToolchain,
+        needsPic,
+        CppHelper.getFdoBuildStamp(
+            cppConfiguration,
+            ccToolchain.getFdoContext(),
+            featureConfigurationForStarlark.getFeatureConfiguration()),
+        ruleContext.getConfiguration().isCodeCoverageEnabled(),
+        getSemantics());
   }
 
   @StarlarkMethod(

@@ -13,6 +13,7 @@
 # limitations under the License.
 """Common functions that create C++ link and LTO indexing action."""
 
+load(":common/cc/compile/linkstamp_compile.bzl", "register_linkstamp_compile_action")
 load(":common/cc/link/collect_solib_dirs.bzl", "collect_solib_dirs")
 load(":common/cc/link/create_libraries_to_link_values.bzl", "add_libraries_to_link", "add_object_files_to_link", "process_objects_for_lto")
 load(":common/cc/link/link_build_variables.bzl", "setup_common_linking_variables")
@@ -255,7 +256,7 @@ def finalize_link_action(
                      (is_dynamic_library(link_type) and feature_configuration.is_enabled("supports_pic")))
 
         for linkstamp, artifact in linkstamp_map.items():
-            cc_common_internal.register_linkstamp_compile_action(
+            register_linkstamp_compile_action(
                 actions = actions,
                 cc_toolchain = cc_toolchain,
                 feature_configuration = feature_configuration,

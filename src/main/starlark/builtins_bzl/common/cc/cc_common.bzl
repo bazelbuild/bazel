@@ -24,6 +24,7 @@ load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS", "create_compilation_outputs", "merge_compilation_outputs")
 load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/compile/compile_build_variables.bzl", "create_compile_variables")
+load(":common/cc/compile/linkstamp_compile.bzl", "register_linkstamp_compile_action")
 load(":common/cc/compile/lto_compilation_context.bzl", "create_lto_compilation_context")
 load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "create_extra_link_time_library")
 load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
@@ -460,7 +461,7 @@ def _register_linkstamp_compile_action(
         label_replacement,
         output_replacement):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.register_linkstamp_compile_action(
+    return register_linkstamp_compile_action(
         actions = actions,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
