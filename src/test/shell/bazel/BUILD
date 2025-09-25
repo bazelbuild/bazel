@@ -483,9 +483,6 @@ sh_test(
         ":test-deps",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
     ],
-    tags = [
-        "no_windows",
-    ],
 )
 
 sh_test(
@@ -493,9 +490,6 @@ sh_test(
     srcs = ["bazel_coverage_cc_test_llvm.sh"],
     args = ["released"],
     data = [":test-deps"],
-    tags = [
-        "no_windows",
-    ],
 )
 
 sh_test(
