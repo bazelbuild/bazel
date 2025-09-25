@@ -525,7 +525,7 @@ function test_cc_starlark_api_default_values() {
 
   setup_cc_starlark_api_test "${FUNCNAME[0]}"
 
-  bazel build --experimental_cc_skylark_api_enabled_packages=, --verbose_failures \
+  bazel build --verbose_failures \
     //"$pkg":e  &>"$TEST_log" || fail "Build failed"
 
   nm -u bazel-bin/"$pkg"/e  | grep alongernamethanusual && \
@@ -562,7 +562,7 @@ cc_bin(
 )
 EOF
 
-  bazel build --experimental_cc_skylark_api_enabled_packages=, --verbose_failures \
+  bazel build --verbose_failures \
     //"$pkg":g  &>"$TEST_log" || fail "Build failed"
 
   nm -u bazel-bin/"$pkg"/g  | grep alongernamethanusual || fail "alongernamethanusual is defined"
@@ -599,7 +599,7 @@ cc_bin(
 )
 EOF
 
-  bazel build --experimental_cc_skylark_api_enabled_packages=, --verbose_failures \
+  bazel build --verbose_failures \
     //"$pkg":g  &>"$TEST_log" || fail "Build failed"
 
   nm -D bazel-bin/"$pkg"/libg.so  | grep VERS_42.0 || fail "VERS_42.0 not in binary"
