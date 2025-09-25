@@ -29,12 +29,14 @@ import javax.lang.model.type.TypeMirror;
 record AutoCodecAnnotation(
     boolean checkClassExplicitlyAllowed,
     ImmutableList<? extends TypeMirror> explicitlyAllowClass,
-    Optional<TypeMirror> deserializedInterface) {
+    Optional<TypeMirror> deserializedInterface,
+    boolean autoRegister) {
   static AutoCodecAnnotation of(AutoCodec annotation, ProcessingEnvironment env) {
     return new AutoCodecAnnotation(
         annotation.checkClassExplicitlyAllowed(),
         getExplicitlyAllowClass(annotation, env),
-        getDeserializedInterface(annotation, env));
+        getDeserializedInterface(annotation, env),
+        annotation.autoRegister());
   }
 
   private static ImmutableList<? extends TypeMirror> getExplicitlyAllowClass(

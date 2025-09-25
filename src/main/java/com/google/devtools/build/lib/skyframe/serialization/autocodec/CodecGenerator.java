@@ -42,7 +42,7 @@ abstract class CodecGenerator {
       throws SerializationProcessingException {
     ImmutableList<FieldGenerator> fieldGenerators = getFieldGenerators(encodedType);
 
-    TypeSpec.Builder classBuilder = initializeCodecClassBuilder(encodedType, env);
+    TypeSpec.Builder classBuilder = initializeCodecClassBuilder(encodedType, annotation, env);
     TypeName encodedTypeName = getErasure(encodedType, env);
     performAdditionalCodecInitialization(
         classBuilder, encodedType, instantiator, annotation, fieldGenerators);

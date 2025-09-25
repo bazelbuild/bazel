@@ -44,7 +44,7 @@ class Initializers {
    * @param encodedType type being serialized
    */
   static TypeSpec.Builder initializeCodecClassBuilder(
-      TypeElement encodedType, ProcessingEnvironment env) {
+      TypeElement encodedType, AutoCodecAnnotation annotation, ProcessingEnvironment env) {
     return TypeSpec.classBuilder(getGeneratedName(encodedType, GENERATED_CLASS_NAME_SUFFIX))
         .addAnnotation(
             AnnotationSpec.builder(Generated.class)
@@ -55,7 +55,8 @@ class Initializers {
                 .addMember("value", "$S", "unchecked")
                 .addMember("value", "$S", "rawtypes")
                 .build())
-        .addMethod(defineGetEncodedClassMethod(encodedType, env));
+        .addMethod(defineGetEncodedClassMethod(encodedType, env))
+        .addMethod(defineAutoRegisterMethod(annotation));
   }
 
   /** Initializes the {@link ObjectCodec#serialize} method. */
@@ -93,6 +94,15 @@ class Initializers {
         .addAnnotation(Override.class)
         .returns(ParameterizedTypeName.get(ClassName.get(Class.class), returnType))
         .addStatement("return $T.class", returnType)
+        .build();
+  }
+
+  private static MethodSpec defineAutoRegisterMethod(AutoCodecAnnotation annotation) {
+    return MethodSpec.methodBuilder("autoRegister")
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
+        .returns(TypeName.BOOLEAN)
+        .addStatement("return $L", annotation.autoRegister())
         .build();
   }
 

@@ -94,4 +94,10 @@ public @interface AutoCodec {
    * (In other words, it must be trivially subclassable.)
    */
   Class<?> deserializedInterface() default void.class;
+
+  /**
+   * Whether or not the generated codec should be automatically registered. See {@link
+   * com.google.devtools.build.lib.skyframe.serialization.ObjectCodec#autoRegister()}.
+   */
+  boolean autoRegister() default true;
 }
