@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.Sta
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -504,9 +505,25 @@ public class CcStarlarkInternal implements StarlarkValue {
   public CcCompilationContext createCcCompilationContextWithExtraHeaderTokens(
       CcCompilationContext ccCompilationContext, Sequence<?> extraHeaderTokens)
       throws EvalException {
-    return CcCompilationContext.createWithExtraHeaderTokens(
-        ccCompilationContext,
+
+    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
+    headerTokens.addTransitive(ccCompilationContext.getHeaderTokens());
+    headerTokens.addAll(
         Sequence.cast(extraHeaderTokens, Artifact.class, "extra_header_tokens").getImmutableList());
+    return CcCompilationContext.create(
+        ccCompilationContext.getCommandLineCcCompilationContext(),
+        ccCompilationContext.getTransitiveCompilationPrerequisites(),
+        ccCompilationContext.getDeclaredIncludeSrcs(),
+        ccCompilationContext.getNonCodeInputs(),
+        ccCompilationContext.getHeaderInfo(),
+        ccCompilationContext.getTransitiveModules(false),
+        ccCompilationContext.getTransitiveModules(true),
+        ccCompilationContext.getDirectModuleMaps(),
+        ccCompilationContext.getExportingModuleMaps(),
+        ccCompilationContext.getCppModuleMap(),
+        ccCompilationContext.getPropagateModuleMapAsActionInput(),
+        ccCompilationContext.getVirtualToOriginalHeaders(),
+        headerTokens.build());
   }
 
   @StarlarkMethod(

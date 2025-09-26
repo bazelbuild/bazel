@@ -319,14 +319,16 @@ public abstract class CcModule
     if (compilationContexts.isEmpty() && nonExportedCompilationContexts.isEmpty()) {
       return CcCompilationContext.EMPTY;
     }
-    return CcCompilationContext.builder(thread.getNextIdentityToken())
-        .addDependentCcCompilationContexts(
-            Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts"),
-            Sequence.cast(
-                nonExportedCompilationContexts,
-                CcCompilationContext.class,
-                "non_exported_compilation_contexts"))
-        .build();
+
+    Sequence<CcCompilationContext> exportedDeps =
+        Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts");
+    Sequence<CcCompilationContext> deps =
+        Sequence.cast(
+            nonExportedCompilationContexts,
+            CcCompilationContext.class,
+            "non_exported_compilation_contexts");
+
+    return CcCompilationContext.createAndMerge(thread.getNextIdentityToken(), exportedDeps, deps);
   }
 
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)

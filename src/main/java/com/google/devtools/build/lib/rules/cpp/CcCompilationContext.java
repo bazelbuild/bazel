@@ -51,6 +51,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
@@ -62,7 +63,28 @@ import net.starlark.java.eval.Tuple;
 @Immutable
 public final class CcCompilationContext implements CcCompilationContextApi<Artifact, CppModuleMap> {
   /** An empty {@code CcCompilationContext}. */
-  public static final CcCompilationContext EMPTY = builder(SymbolGenerator.CONSTANT_SYMBOL).build();
+  public static final CcCompilationContext EMPTY =
+      create(
+          new CommandLineCcCompilationContext(
+              /* includeDirs= */ ImmutableList.of(),
+              /* quoteIncludeDirs= */ ImmutableList.of(),
+              /* systemIncludeDirs= */ ImmutableList.of(),
+              /* frameworkIncludeDirs= */ ImmutableList.of(),
+              /* externalIncludeDirs= */ ImmutableList.of(),
+              /* defines= */ ImmutableList.of(),
+              /* localDefines= */ ImmutableList.of()),
+          /* compilationPrerequisites= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* declaredIncludeSrcs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          HeaderInfo.EMPTY,
+          /* transitiveModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* transitivePicModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* directModuleMaps= */ ImmutableList.of(),
+          /* exportingModuleMaps= */ ImmutableList.of(),
+          /* cppModuleMap= */ null,
+          /* propagateModuleMapAsActionInput= */ true,
+          /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* headerTokens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
@@ -134,6 +156,156 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.virtualToOriginalHeaders = virtualToOriginalHeaders;
     this.transitiveHeaderCount = -1;
     this.headerTokens = headerTokens;
+  }
+
+  public static CcCompilationContext create(
+      CommandLineCcCompilationContext commandLineCcCompilationContext,
+      NestedSet<Artifact> compilationPrerequisites,
+      NestedSet<Artifact> declaredIncludeSrcs,
+      NestedSet<Artifact> nonCodeInputs,
+      HeaderInfo headerInfo,
+      NestedSet<Artifact> transitiveModules,
+      NestedSet<Artifact> transitivePicModules,
+      ImmutableList<Artifact> directModuleMaps,
+      ImmutableList<CppModuleMap> exportingModuleMaps,
+      CppModuleMap cppModuleMap,
+      boolean propagateModuleMapAsActionInput,
+      NestedSet<Tuple> virtualToOriginalHeaders,
+      NestedSet<Artifact> headerTokens) {
+    return new CcCompilationContext(
+        commandLineCcCompilationContext,
+        compilationPrerequisites,
+        declaredIncludeSrcs,
+        nonCodeInputs,
+        headerInfo,
+        transitiveModules,
+        transitivePicModules,
+        directModuleMaps,
+        exportingModuleMaps,
+        cppModuleMap,
+        propagateModuleMapAsActionInput,
+        virtualToOriginalHeaders,
+        headerTokens);
+  }
+
+  public static CcCompilationContext createAndMerge(
+      SymbolGenerator.Symbol<?> identityToken,
+      Sequence<CcCompilationContext> exportedDeps,
+      Sequence<CcCompilationContext> deps) {
+    // CommandLineCcCompilationContext fields
+    TransitiveSetHelper<PathFragment> includeDirs = new TransitiveSetHelper<>();
+    TransitiveSetHelper<PathFragment> quoteIncludeDirs = new TransitiveSetHelper<>();
+    TransitiveSetHelper<PathFragment> systemIncludeDirs = new TransitiveSetHelper<>();
+    TransitiveSetHelper<PathFragment> frameworkIncludeDirs = new TransitiveSetHelper<>();
+    TransitiveSetHelper<PathFragment> externalIncludeDirs = new TransitiveSetHelper<>();
+    TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
+
+    // CcCompilationContext fields
+    NestedSetBuilder<Artifact> compilationPrerequisites = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
+    Set<Artifact> directModuleMaps = new LinkedHashSet<>();
+    Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
+    NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
+
+    // Transitive part of HeaderInfo
+    ImmutableList.Builder<HeaderInfo> depHeaderInfos = ImmutableList.builder();
+    ImmutableList.Builder<HeaderInfo> mergedHeaderInfos = ImmutableList.builder();
+
+    // Merge the compilation contexts.
+    for (CcCompilationContext otherCcCompilationContext : Iterables.concat(exportedDeps, deps)) {
+      includeDirs.addTransitive(otherCcCompilationContext.getIncludeDirs());
+      quoteIncludeDirs.addTransitive(otherCcCompilationContext.getQuoteIncludeDirs());
+      systemIncludeDirs.addTransitive(otherCcCompilationContext.getSystemIncludeDirs());
+      frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
+      externalIncludeDirs.addTransitive(otherCcCompilationContext.getExternalIncludeDirs());
+      allDefines.addTransitive(otherCcCompilationContext.getDefines());
+
+      compilationPrerequisites.addTransitive(
+          otherCcCompilationContext.getTransitiveCompilationPrerequisites());
+      declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
+      nonCodeInputs.addTransitive(otherCcCompilationContext.getNonCodeInputs());
+
+      transitiveModules.addTransitive(otherCcCompilationContext.getTransitiveModules(false));
+      addIfNotNull(transitiveModules, otherCcCompilationContext.getHeaderInfo().getModule(false));
+      addIfNotNull(
+          transitiveModules, otherCcCompilationContext.getHeaderInfo().getSeparateModule(false));
+
+      transitivePicModules.addTransitive(otherCcCompilationContext.getTransitiveModules(true));
+      addIfNotNull(transitivePicModules, otherCcCompilationContext.getHeaderInfo().getModule(true));
+      addIfNotNull(
+          transitivePicModules, otherCcCompilationContext.getHeaderInfo().getSeparateModule(true));
+
+      // All module maps of direct dependencies are inputs to the current compile independently of
+      // the build type.
+      if (otherCcCompilationContext.getCppModuleMap() != null) {
+        directModuleMaps.add(otherCcCompilationContext.getCppModuleMap().getArtifact());
+      }
+      // Likewise, module maps re-exported from dependencies are inputs to the current compile.
+      for (CppModuleMap moduleMap : otherCcCompilationContext.getExportingModuleMaps()) {
+        directModuleMaps.add(moduleMap.getArtifact());
+      }
+
+      virtualToOriginalHeaders.addTransitive(
+          otherCcCompilationContext.getVirtualToOriginalHeaders());
+      headerTokens.addTransitive(otherCcCompilationContext.getHeaderTokens());
+
+      depHeaderInfos.add(otherCcCompilationContext.getHeaderInfo());
+    }
+
+    for (CcCompilationContext ccCompilationContext : exportedDeps) {
+      // For each of the exported contexts, re-export its own module map and all of the module
+      // maps that it exports.
+      CppModuleMap moduleMap = ccCompilationContext.getCppModuleMap();
+      if (moduleMap != null) {
+        exportingModuleMaps.add(moduleMap);
+      }
+      exportingModuleMaps.addAll(ccCompilationContext.getExportingModuleMaps());
+
+      // Merge the modular and textual headers from the compilation context so that they are also
+      // re-exported.
+      mergedHeaderInfos.add(ccCompilationContext.getHeaderInfo());
+    }
+
+    HeaderInfo headerInfo =
+        HeaderInfo.create(
+            identityToken,
+            /* headerModule= */ null,
+            /* picHeaderModule= */ null,
+            /* publicHeaders= */ ImmutableList.of(),
+            /* privateHeaders= */ ImmutableList.of(),
+            /* textualHeaders= */ ImmutableList.of(),
+            /* separateModuleHeaders= */ ImmutableList.of(),
+            /* separateModule= */ null,
+            /* separatePicModule= */ null,
+            depHeaderInfos.build(),
+            mergedHeaderInfos.build());
+    NestedSet<Artifact> constructedPrereq = compilationPrerequisites.build();
+
+    return new CcCompilationContext(
+        new CommandLineCcCompilationContext(
+            includeDirs.getMergedResult(),
+            quoteIncludeDirs.getMergedResult(),
+            systemIncludeDirs.getMergedResult(),
+            frameworkIncludeDirs.getMergedResult(),
+            externalIncludeDirs.getMergedResult(),
+            allDefines.getMergedResult(),
+            /* localDefines= */ ImmutableList.of()),
+        constructedPrereq,
+        declaredIncludeSrcs.build(),
+        nonCodeInputs.build(),
+        headerInfo,
+        transitiveModules.build(),
+        transitivePicModules.build(),
+        ImmutableList.copyOf(directModuleMaps),
+        ImmutableList.copyOf(exportingModuleMaps),
+        /* cppModuleMap= */ null,
+        /* propagateModuleMapAsActionInput= */ true,
+        virtualToOriginalHeaders.build(),
+        headerTokens.build());
   }
 
   @Override
@@ -283,6 +455,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return compilationPrerequisites;
   }
 
+  /** Returns the command line compilation context. */
+  public CommandLineCcCompilationContext getCommandLineCcCompilationContext() {
+    return commandLineCcCompilationContext;
+  }
+
   /**
    * Returns the immutable list of include directories to be added with "-I" (possibly empty but
    * never null). This includes the include dirs from the transitive deps closure of the target.
@@ -342,6 +519,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    */
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
     return declaredIncludeSrcs;
+  }
+
+  public NestedSet<Artifact> getNonCodeInputs() {
+    return nonCodeInputs;
   }
 
   /** Returns headers given as textual_hdrs in this target. */
@@ -645,34 +826,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return commandLineCcCompilationContext.localDefines;
   }
 
-  /**
-   * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
-   * with {@code extraHeaderTokens} added to the header tokens.
-   */
-  static CcCompilationContext createWithExtraHeaderTokens(
-      CcCompilationContext ccCompilationContext, Iterable<Artifact> extraHeaderTokens) {
-    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    headerTokens.addTransitive(ccCompilationContext.getHeaderTokens());
-    headerTokens.addAll(extraHeaderTokens);
-    return new CcCompilationContext(
-        ccCompilationContext.commandLineCcCompilationContext,
-        ccCompilationContext.compilationPrerequisites,
-        ccCompilationContext.declaredIncludeSrcs,
-        ccCompilationContext.nonCodeInputs,
-        ccCompilationContext.headerInfo,
-        ccCompilationContext.transitiveModules,
-        ccCompilationContext.transitivePicModules,
-        ccCompilationContext.directModuleMaps,
-        ccCompilationContext.exportingModuleMaps,
-        ccCompilationContext.cppModuleMap,
-        ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.virtualToOriginalHeaders,
-        headerTokens.build());
-  }
-
   /** Returns the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
+  }
+
+  /** Returns whether the C++ module map of the owner should be propagated as an action input. */
+  public boolean getPropagateModuleMapAsActionInput() {
+    return propagateModuleMapAsActionInput;
   }
 
   /** Returns the list of dependencies' C++ module maps re-exported by this compilation context. */
@@ -804,13 +965,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           otherCcCompilationContext.getVirtualToOriginalHeaders());
 
       headerTokens.addTransitive(otherCcCompilationContext.getHeaderTokens());
-    }
-
-    private static void addIfNotNull(
-        NestedSetBuilder<Artifact> builder, @Nullable Artifact artifact) {
-      if (artifact != null) {
-        builder.add(artifact);
-      }
     }
 
     /**
@@ -1111,37 +1265,44 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           virtualToOriginalHeaders.build(),
           headerTokens.build());
     }
+  }
 
-    /**
-     * This class helps create efficient flattened transitive sets across all transitive
-     * dependencies. For very sparsely populated items, this can be more efficient both in terms of
-     * CPU and in terms of memory than NestedSets. Merged transitive set will be returned as a flat
-     * list to be memory efficient. As a further optimization, if a single dependencies contains a
-     * superset of all other dependencies, its list is simply re-used.
-     */
-    private static class TransitiveSetHelper<E> {
-      private final Set<E> all = CompactHashSet.create();
-      private ImmutableList<E> largestTransitive = ImmutableList.of();
+  private static void addIfNotNull(
+      NestedSetBuilder<Artifact> builder, @Nullable Artifact artifact) {
+    if (artifact != null) {
+      builder.add(artifact);
+    }
+  }
 
-      public void add(E element) {
-        all.add(element);
+  /**
+   * This class helps create efficient flattened transitive sets across all transitive dependencies.
+   * For very sparsely populated items, this can be more efficient both in terms of CPU and in terms
+   * of memory than NestedSets. Merged transitive set will be returned as a flat list to be memory
+   * efficient. As a further optimization, if a single dependencies contains a superset of all other
+   * dependencies, its list is simply re-used.
+   */
+  private static class TransitiveSetHelper<E> {
+    private final Set<E> all = CompactHashSet.create();
+    private ImmutableList<E> largestTransitive = ImmutableList.of();
+
+    public void add(E element) {
+      all.add(element);
+    }
+
+    public void addAll(Iterable<E> elements) {
+      Iterables.addAll(all, elements);
+    }
+
+    public void addTransitive(ImmutableList<E> transitive) {
+      all.addAll(transitive);
+      if (transitive.size() > largestTransitive.size()) {
+        largestTransitive = transitive;
       }
+    }
 
-      public void addAll(Iterable<E> elements) {
-        Iterables.addAll(all, elements);
-      }
-
-      public void addTransitive(ImmutableList<E> transitive) {
-        all.addAll(transitive);
-        if (transitive.size() > largestTransitive.size()) {
-          largestTransitive = transitive;
-        }
-      }
-
-      public ImmutableList<E> getMergedResult() {
-        ImmutableList<E> allAsList = ImmutableList.copyOf(all);
-        return allAsList.equals(largestTransitive) ? largestTransitive : allAsList;
-      }
+    public ImmutableList<E> getMergedResult() {
+      ImmutableList<E> allAsList = ImmutableList.copyOf(all);
+      return allAsList.equals(largestTransitive) ? largestTransitive : allAsList;
     }
   }
 
@@ -1191,6 +1352,19 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
     final ImmutableList<HeaderInfo> deps;
 
+    public static final HeaderInfo EMPTY =
+        HeaderInfo.create(
+            SymbolGenerator.CONSTANT_SYMBOL,
+            /* headerModule= */ null,
+            /* picHeaderModule= */ null,
+            /* publicHeaders= */ ImmutableList.of(),
+            /* privateHeaders= */ ImmutableList.of(),
+            /* textualHeaders= */ ImmutableList.of(),
+            /* separateModuleHeaders= */ ImmutableList.of(),
+            /* separateModule= */ null,
+            /* separatePicModule= */ null,
+            /* deps= */ ImmutableList.of(),
+            /* mergedDeps= */ ImmutableList.of());
 
     /** Collection representing the memoized form of transitive information, set by flatten(). */
     private TransitiveHeaderCollection memo = null;
