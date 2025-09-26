@@ -107,6 +107,13 @@ public final class StarlarkDocExtractRule implements RuleDefinition {
         used from other repositories.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(StarlarkDocExtract.RENDER_MAIN_REPO_NAME, BOOLEAN).value(false))
+        /*<!-- #BLAZE_RULE(starlark_doc_extract).ATTRIBUTE(allow_unused_doc_comments) -->
+        If true, allow and silently ignore doc comments (comments starting with <code>#:</code>)
+        which are not attached to any global variable, or which are attached to a variable whose
+        value's documentation should be provided in a different way (for example, in a docstring for
+        a function, or via <code>rule(doc = ...)</code> for a rule).
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(StarlarkDocExtract.ALLOW_UNUSED_DOC_COMMENTS, BOOLEAN).value(false))
         /*<!-- #BLAZE_RULE(starlark_doc_extract).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.binaryproto</code> (the default output): A

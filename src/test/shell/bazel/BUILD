@@ -49,6 +49,7 @@ sh_library(
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
         "//src/test/shell:integration_test_setup.sh",
+        "//src/test/shell:platform_utils.sh",
         "//src/test/shell:testenv.sh",
         "//src/tools/singlejar",
         "//third_party:srcs",
@@ -603,6 +604,7 @@ sh_test(
     args = ["released"],
     data = [":test-deps"],
     tags = [
+        # TODO: Drop after the next coverage tools release.
         "no_windows",
     ],
 )
@@ -619,9 +621,6 @@ sh_test(
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
     ],
-    tags = [
-        "no_windows",
-    ],
 )
 
 sh_test(
@@ -636,7 +635,13 @@ sh_test(
 sh_test(
     name = "bazel_cc_code_coverage_test",
     srcs = ["bazel_cc_code_coverage_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//scripts:jq",
+    ],
+    env = {
+        "JQ_RLOCATIONPATH": "$(rlocationpath //scripts:jq)",
+    },
     tags = [
         # C++ coverage is not supported on macOS yet.
         "no_macos",

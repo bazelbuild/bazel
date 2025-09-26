@@ -35,6 +35,10 @@
 #define IO_REPARSE_TAG_PROJFS 0x9000001C
 #endif
 
+#ifndef IO_REPARSE_TAG_LX_SYMLINK
+#define IO_REPARSE_TAG_LX_SYMLINK 0xA000001D
+#endif
+
 namespace bazel {
 namespace windows {
 
@@ -592,8 +596,16 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
     return ReadSymlinkOrJunctionResult::kError;
   }
 
+  // TODO(tjgq): Make IsSymlinkOrJunction and ReadSymlinkOrJunction consistent.
+  // Currently, the former returns true for any reparse point type, but we don't
+  // handle all of them here (and it might be impossible to do so).
   switch (buf->ReparseTag) {
-    case IO_REPARSE_TAG_SYMLINK: {
+    // IO_REPARSE_TAG_SYMLINK is an NTFS symlink.
+    // IO_REPARSE_TAG_LX_SYMLINK is a WSL symlink.
+    // Although Bazel only creates the former, other tools may create the latter
+    // (notably, `ln -s` under MSYS2 in `winsymlinks:native` mode).
+    case IO_REPARSE_TAG_SYMLINK:
+    case IO_REPARSE_TAG_LX_SYMLINK: {
       wchar_t* p =
           (wchar_t*)(((uint8_t*)buf->SymbolicLinkReparseBuffer.PathBuffer) +
                      buf->SymbolicLinkReparseBuffer.SubstituteNameOffset);
@@ -601,6 +613,7 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
                                sizeof(WCHAR));
       return ReadSymlinkOrJunctionResult::kSuccess;
     }
+    // IO_REPARSE_TAG_MOUNT_POINT is a junction or volume mount point.
     case IO_REPARSE_TAG_MOUNT_POINT: {
       wchar_t* p =
           (wchar_t*)(((uint8_t*)buf->MountPointReparseBuffer.PathBuffer) +

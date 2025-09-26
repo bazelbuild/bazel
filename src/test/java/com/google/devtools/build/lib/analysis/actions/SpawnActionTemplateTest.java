@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -198,12 +198,14 @@ public class SpawnActionTemplateTest {
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
 
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     assertThat(expandedActions).hasSize(3);
 
@@ -241,11 +243,13 @@ public class SpawnActionTemplateTest {
             .addCommonInputs(ImmutableList.of(commonInput))
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     for (int i = 0; i < expandedActions.size(); ++i) {
       assertThat(expandedActions.get(i).getInputs().toList())
@@ -261,12 +265,14 @@ public class SpawnActionTemplateTest {
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
 
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     assertThat(expandedActions).hasSize(3);
 
@@ -285,12 +291,14 @@ public class SpawnActionTemplateTest {
   public void testExpandedAction_executionInfoAndEnvironment() {
     SpawnActionTemplate actionTemplate = createSimpleSpawnActionTemplate();
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     List<SpawnAction> expandedActions =
         actionTemplate.generateActionsForInputArtifacts(
-            inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+            inputTreeFileArtifacts,
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+            NullEventHandler.INSTANCE);
 
     assertThat(expandedActions).hasSize(3);
 
@@ -305,7 +313,7 @@ public class SpawnActionTemplateTest {
   public void testExpandedAction_illegalOutputPath() throws Exception {
     SpecialArtifact inputTreeArtifact = createInputTreeArtifact();
     SpecialArtifact outputTreeArtifact = createOutputTreeArtifact();
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts =
+    ImmutableList<TreeFileArtifact> inputTreeFileArtifacts =
         createInputTreeFileArtifacts(inputTreeArtifact);
 
     SpawnActionTemplate.Builder builder = builder(inputTreeArtifact, outputTreeArtifact)
@@ -328,7 +336,9 @@ public class SpawnActionTemplateTest {
         IllegalArgumentException.class,
         () ->
             actionTemplate.generateActionsForInputArtifacts(
-                inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER));
+                inputTreeFileArtifacts,
+                ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+                NullEventHandler.INSTANCE));
 
     mapper = new OutputPathMapper() {
       @Override
@@ -345,7 +355,9 @@ public class SpawnActionTemplateTest {
         IllegalArgumentException.class,
         () ->
             actionTemplate2.generateActionsForInputArtifacts(
-                inputTreeFileArtifacts, ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER));
+                inputTreeFileArtifacts,
+                ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+                NullEventHandler.INSTANCE));
   }
 
   private SpawnActionTemplate.Builder builder(
@@ -400,9 +412,9 @@ public class SpawnActionTemplateTest {
         .build();
   }
 
-  private static ImmutableSet<TreeFileArtifact> createInputTreeFileArtifacts(
+  private static ImmutableList<TreeFileArtifact> createInputTreeFileArtifacts(
       SpecialArtifact inputTreeArtifact) {
-    return ImmutableSet.of(
+    return ImmutableList.of(
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child0"),
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child1"),
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "children/child2"));

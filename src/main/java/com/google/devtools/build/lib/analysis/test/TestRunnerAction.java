@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -59,7 +60,6 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -115,10 +115,11 @@ public class TestRunnerAction extends AbstractAction
   private final Artifact runfilesTree;
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
-  private final Artifact collectCoverageScript;
+  private final FilesToRunProvider collectCoverageScript;
   private final BuildConfigurationValue configuration;
   private final TestConfiguration testConfiguration;
   private final Artifact testLog;
+  private final ActionInput testXml;
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
   private final PathFragment unusedRunfilesLogPath;
@@ -129,7 +130,6 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment undeclaredOutputsManifestPath;
   private final PathFragment undeclaredOutputsAnnotationsPath;
   private final PathFragment undeclaredOutputsAnnotationsPbPath;
-  private final PathFragment xmlOutputPath;
   @Nullable private final PathFragment testShard;
   private final PathFragment testExitSafe;
   private final PathFragment testStderr;
@@ -167,8 +167,7 @@ public class TestRunnerAction extends AbstractAction
   private final CancelConcurrentTests cancelConcurrentTests;
 
   private final boolean splitCoveragePostProcessing;
-  private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
-  @Nullable private final Artifact lcovMergerRunfilesTree;
+  private final NestedSet<Artifact> lcovMergerFilesToRun;
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
   private final PackageSpecificationProvider networkAllowlist;
@@ -197,8 +196,10 @@ public class TestRunnerAction extends AbstractAction
       Artifact runfilesTree,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
-      @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
+      @Nullable
+          FilesToRunProvider collectCoverageScript, // filesToRun must be in input, if not null
       Artifact testLog,
+      ActionInput testXml,
       Artifact cacheStatus,
       Artifact coverageArtifact,
       @Nullable Artifact coverageDirectory,
@@ -213,14 +214,19 @@ public class TestRunnerAction extends AbstractAction
       @Nullable PathFragment shExecutable,
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
-      NestedSetBuilder<Artifact> lcovMergerFilesToRun,
-      @Nullable Artifact lcovMergerRunfilesTree,
+      NestedSet<Artifact> lcovMergerFilesToRun,
       PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
         inputs,
         nonNullAsSet(
-            testLog, cacheStatus, coverageArtifact, coverageDirectory, undeclaredOutputsDir));
+            testLog,
+            // See TestActionBuilder.TEST_XML_IS_ACTION_OUTPUT for details.
+            testXml instanceof Artifact testXmlArtifact ? testXmlArtifact : null,
+            cacheStatus,
+            coverageArtifact,
+            coverageDirectory,
+            undeclaredOutputsDir));
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.runfilesTree = runfilesTree;
     this.testSetupScript = testSetupScript;
@@ -229,6 +235,7 @@ public class TestRunnerAction extends AbstractAction
     this.configuration = checkNotNull(configuration);
     this.testConfiguration = checkNotNull(configuration.getFragment(TestConfiguration.class));
     this.testLog = testLog;
+    this.testXml = testXml;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
     this.coverageDirectory = coverageDirectory;
@@ -247,7 +254,6 @@ public class TestRunnerAction extends AbstractAction
     this.testExitSafe = baseDir.getChild("test.exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1 ? baseDir.getChild("test.shard") : null;
-    this.xmlOutputPath = baseDir.getChild("test.xml");
     this.testWarningsPath = baseDir.getChild("test.warnings");
     this.unusedRunfilesLogPath = baseDir.getChild("test.unused_runfiles_log");
     this.testStderr = baseDir.getChild("test.err");
@@ -272,7 +278,6 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.lcovMergerRunfilesTree = lcovMergerRunfilesTree;
     this.networkAllowlist = networkAllowlist;
 
     // Mark all possible test outputs for deletion before test execution.
@@ -284,7 +289,6 @@ public class TestRunnerAction extends AbstractAction
     ImmutableSet.Builder<PathFragment> filesToDeleteBuilder =
         ImmutableSet.<PathFragment>builder()
             .add(
-                xmlOutputPath,
                 testWarningsPath,
                 unusedRunfilesLogPath,
                 testStderr,
@@ -294,6 +298,9 @@ public class TestRunnerAction extends AbstractAction
                 // instead.
                 baseDir.getChild("coverage.dat"),
                 baseDir.getChild("test.zip")); // Delete files fetched from remote execution.
+    if (!(testXml instanceof Artifact)) {
+      filesToDeleteBuilder.add(testXml.getExecPath());
+    }
     if (testShard != null) {
       filesToDeleteBuilder.add(testShard);
     }
@@ -331,11 +338,6 @@ public class TestRunnerAction extends AbstractAction
     return configuration.getActionEnvironment();
   }
 
-  @Nullable
-  public Artifact getLcovMergerRunfilesTree() {
-    return lcovMergerRunfilesTree;
-  }
-
   public BuildConfigurationValue getConfiguration() {
     return configuration;
   }
@@ -348,7 +350,7 @@ public class TestRunnerAction extends AbstractAction
     return splitCoveragePostProcessing;
   }
 
-  public NestedSetBuilder<Artifact> getLcovMergerFilesToRun() {
+  public NestedSet<Artifact> getLcovMergerFilesToRun() {
     return lcovMergerFilesToRun;
   }
 
@@ -367,7 +369,7 @@ public class TestRunnerAction extends AbstractAction
 
   public List<ActionInput> getSpawnOutputs() {
     final List<ActionInput> outputs = new ArrayList<>();
-    outputs.add(ActionInputHelper.fromPath(getXmlOutputPath()));
+    outputs.add(testXml);
     outputs.add(ActionInputHelper.fromPath(getExitSafeFile()));
     if (isSharded()) {
       outputs.add(ActionInputHelper.fromPath(getTestShard()));
@@ -774,7 +776,7 @@ public class TestRunnerAction extends AbstractAction
       env.put("TEST_TOTAL_SHARDS", Integer.toString(getExecutionSettings().getTotalShards()));
       env.put("TEST_SHARD_STATUS_FILE", getTestShard().getPathString());
     }
-    env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
+    env.put("XML_OUTPUT_FILE", testXml.getExecPathString());
 
     if (!configuration.runfilesEnabled()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
@@ -831,6 +833,10 @@ public class TestRunnerAction extends AbstractAction
 
   public Artifact getTestLog() {
     return testLog;
+  }
+
+  public ActionInput getTestXml() {
+    return testXml;
   }
 
   /** Returns all environment variables which must be set in order to run this test. */
@@ -905,11 +911,6 @@ public class TestRunnerAction extends AbstractAction
 
   public PathFragment getInfrastructureFailureFile() {
     return testInfrastructureFailure;
-  }
-
-  /** Returns path to the optionally created XML output file created by the test. */
-  public PathFragment getXmlOutputPath() {
-    return xmlOutputPath;
   }
 
   /** Returns coverage data artifact or null if code coverage was not requested. */
@@ -1080,7 +1081,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Nullable
-  public Artifact getCollectCoverageScript() {
+  public FilesToRunProvider getCollectCoverageScript() {
     return collectCoverageScript;
   }
 
@@ -1191,7 +1192,7 @@ public class TestRunnerAction extends AbstractAction
 
     /** Returns path to the optionally created XML output file created by the test. */
     public Path getXmlOutputPath() {
-      return getPath(xmlOutputPath);
+      return getPath(testXml.getExecPath());
     }
 
     public Path getCoverageDirectory() {

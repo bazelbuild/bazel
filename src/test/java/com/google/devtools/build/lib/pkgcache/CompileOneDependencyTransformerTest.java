@@ -17,13 +17,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,7 +41,7 @@ import org.junit.runners.JUnit4;
 
 /** A test for {@link CompileOneDependencyTransformer}. */
 @RunWith(JUnit4.class)
-public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase {
+public class CompileOneDependencyTransformerTest extends BuildViewTestCase {
 
   private static Set<Label> targetsToLabels(Iterable<Target> targets) {
     return AbstractTargetPatternEvaluatorTest.targetsToLabels(targets);
@@ -52,6 +54,11 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   public final void createTransformer() throws Exception {
     parser = skyframeExecutor.newTargetPatternPreloader();
     transformer = new CompileOneDependencyTransformer(getPackageManager());
+  }
+
+  @Before
+  public final void setupLangRules() throws Exception {
+    MockCcSupport.get().setup(new MockToolsConfig(rootDirectory));
   }
 
   private void writeSimpleExample() throws IOException {
@@ -74,6 +81,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":rule.bzl", "crule_without_srcs")
 
         cc_library(
@@ -92,6 +100,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "foo/bar/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "bar1",
             alwayslink = 1,
@@ -210,6 +219,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["foox.cc"],
@@ -233,6 +243,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -285,6 +296,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -325,6 +337,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "recursive/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -342,6 +355,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "recursivetoo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "x",
             srcs = [
@@ -368,6 +382,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo_lib",
             srcs = ["file.cc"],
@@ -381,6 +396,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "bar_lib",
             srcs = ["file.cc"],
@@ -404,6 +420,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     String srcs = "srcs = [ 'a.cc', 'a.c', 'a.h', 'a.py', 'a.txt' ])";
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl','cc_binary')",
         "genrule(name = 'gen_rule', cmd = '', outs = [ 'out' ], " + srcs,
         "cc_binary(name = 'cc_rule', " + srcs);
 
@@ -418,6 +435,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         genrule(
             name = "gen_rule",
             outs = ["out.cc"],
@@ -437,6 +455,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         genrule(
             name = "gen_rule",
             outs = ["out.cc"],
@@ -456,6 +475,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
             name = "headers",
             srcs = ["a.h"],
@@ -480,6 +500,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         config_setting(
             name = "a",
             values = {"define": "foo=a"},
@@ -512,6 +533,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         config_setting(
             name = "a",
             values = {"define": "foo=a"},
@@ -540,6 +562,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     // By default, we assume parse_headers is enabled (via --features + toolchain).
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("a/h.h")).containsExactlyElementsIn(labels("//a:h"));
@@ -547,6 +570,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     // parse_headers explicitly disabled on the header-only target, use its reverse dep.
     scratch.file(
         "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'], features = ['-parse_headers'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("b/h.h")).containsExactlyElementsIn(labels("//b:l"));
@@ -554,6 +578,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     // ... but if it has sources, the target itself is ok.
     scratch.file(
         "c/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'], srcs = ['h.cc'], features = ['-parse_headers'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("c/h.h")).containsExactlyElementsIn(labels("//c:h"));
@@ -562,6 +587,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "d/BUILD",
         "package(features = ['-parse_headers'])",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("d/h.h")).containsExactlyElementsIn(labels("//d:l"));
@@ -570,6 +596,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "e/BUILD",
         "package(features = ['-parse_headers'])",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'h', hdrs = ['h.h'], features = ['parse_headers'])",
         "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
     assertThat(parseListCompileOneDep("e/h.h")).containsExactlyElementsIn(labels("//e:h"));
@@ -577,7 +604,10 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
 
   @Test
   public void testFallBackToHeaderOnlyLibrary() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h"));
   }
 
@@ -586,6 +616,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         environment(name = "foo")
 
         environment(name = "baz")

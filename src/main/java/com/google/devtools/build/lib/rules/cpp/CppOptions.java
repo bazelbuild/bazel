@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
 import com.google.devtools.common.options.Converter;
@@ -82,10 +80,7 @@ public class CppOptions extends FragmentOptions {
     @Nullable
     @Override
     public Label convert(String input, Object conversionContext) throws OptionsParsingException {
-      if (input.equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
-        return Label.createUnvalidated(
-            PackageIdentifier.EMPTY_PACKAGE_ID, TARGET_LIBC_TOP_NOT_YET_SET);
-      } else if (input.equals("default")) {
+      if (input.equals("default")) {
         // This is needed for defining config_setting() values, the syntactic form
         // of which must be a String, to match absence of a --grte_top option.
         // "--grte_top=default" works on the command-line too,
@@ -693,42 +688,6 @@ public class CppOptions extends FragmentOptions {
               + "for the exec configuration.")
   public Label hostLibcTopLabel;
 
-  /** See {@link #targetLibcTopLabel} documentation. * */
-  private static final String TARGET_LIBC_TOP_NOT_YET_SET = "TARGET LIBC TOP NOT YET SET";
-
-  /**
-   * This is a fake option used to pass data from target configuration to the exec configuration.
-   * It's a horrible hack that will be removed once toolchain-transitions are implemented.
-   *
-   * <p>We want to make sure this stays bound to the top-level configuration (as opposed to a
-   * configuration that comes out of a transition). Otherwise we risk multiple exec configurations
-   * writing to the same path and creating C++ action conflicts (C++ actions can not be shared
-   * across configurations: see {@link ActionAnalysisMetadata#isShareable}).
-   *
-   * <p>To accomplish this, we initialize this to a special value that means "I haven't been set
-   * yet" and use {@link #getNormalized} to rewrite it to {@link #libcTopLabel} <b>only</b> from
-   * that default. Blaze always evaluates top-level configurations first, so they'll trigger this.
-   * But no followup transitions can.
-   *
-   * <p>It's not sufficient to use null for the default. That wouldn't handle the case of the
-   * top-level {@link #libcTopLabel} being null and {@link
-   * com.google.devtools.build.lib.rules.android.AndroidConfiguration.Options#androidLibcTopLabel}
-   * being non-null.
-   */
-  // TODO(b/129045294): Remove once toolchain-transitions are implemented.
-  @Option(
-      name = "target libcTop label",
-      defaultValue = TARGET_LIBC_TOP_NOT_YET_SET,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      converter = LibcTopLabelConverter.class,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public Label targetLibcTopLabel;
-
   @Option(
       name = "experimental_inmemory_dotd_files",
       defaultValue = "true",
@@ -1030,31 +989,4 @@ public class CppOptions extends FragmentOptions {
           "If enabled, will estimate precise resource usage for local execution of"
               + " CppCompileAction.")
   public boolean experimentalCppCompileResourcesEstimation;
-
-  @Option(
-      name = "experimental_starlark_compiling",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, a Starlark version of compiling is used.")
-  public boolean experimentalStarlarkCompiling;
-
-  /** See {@link #targetLibcTopLabel} documentation. * */
-  @Override
-  public FragmentOptions getNormalized() {
-    CppOptions newOptions = (CppOptions) this.clone();
-    boolean changed = false;
-    if (targetLibcTopLabel != null
-        && targetLibcTopLabel.getName().equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
-      newOptions.targetLibcTopLabel = libcTopLabel;
-      changed = true;
-    }
-    if (changed) {
-      return newOptions;
-    }
-    return this;
-  }
 }

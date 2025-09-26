@@ -447,7 +447,9 @@ public class RemoteSpawnCacheTest {
         remoteCacheClient = mock(RemoteCacheClient.class);
       }
       combinedCache =
-          spy(new CombinedCache(remoteCacheClient, diskCacheClient, remoteOptions, digestUtil));
+          spy(
+              new CombinedCache(
+                  remoteCacheClient, diskCacheClient, /* symlinkTemplate= */ null, digestUtil));
 
       var remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
       for (String requirement :
@@ -485,7 +487,10 @@ public class RemoteSpawnCacheTest {
     combinedCache =
         spy(
             new CombinedCache(
-                remoteCacheClient, /* diskCacheClient= */ null, remoteCacheOptions, digestUtil));
+                remoteCacheClient,
+                /* diskCacheClient= */ null,
+                /* symlinkTemplate= */ null,
+                digestUtil));
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteCacheOptions);
     for (String requirement :
         ImmutableList.of(
@@ -520,16 +525,16 @@ public class RemoteSpawnCacheTest {
     // remote cache, and that the results/artifacts are not uploaded to the remote cache.
     // The disk cache part of a combined cache is considered as a local cache hence spawns tagged
     // with NO_REMOTE can sill hit it.
-    RemoteOptions combinedCacheOptions = Options.getDefaults(RemoteOptions.class);
-    combinedCacheOptions.remoteCache = "https://somecache.com";
-    combinedCacheOptions.diskCache = PathFragment.create("/etc/something/cache/here");
-    RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(combinedCacheOptions);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteCache = "https://somecache.com";
+    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
     DiskCacheClient diskCacheClient = mock(DiskCacheClient.class);
     combinedCache =
         spy(
             new CombinedCache(
-                remoteCacheClient, diskCacheClient, combinedCacheOptions, digestUtil));
+                remoteCacheClient, diskCacheClient, /* symlinkTemplate= */ null, digestUtil));
 
     for (String requirement :
         ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {

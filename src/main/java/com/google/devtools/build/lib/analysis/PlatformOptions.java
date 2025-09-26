@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -37,7 +35,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Command-line options for platform-related configuration. */
@@ -158,22 +155,6 @@ public class PlatformOptions extends FragmentOptions {
               + "workspace root).")
   public PlatformMappingKey platformMappingKey;
 
-  @Option(
-      name = "experimental_add_exec_constraints_to_targets",
-      converter = RegexFilterToLabelListConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      allowMultiple = true,
-      help =
-          "List of comma-separated regular expressions, each optionally prefixed by - (negative"
-              + " expression), assigned (=) to a list of comma-separated constraint value targets."
-              + " If a target matches no negative expression and at least one positive expression"
-              + " its toolchain resolution will be performed as if it had declared the constraint"
-              + " values as execution constraints. Example: //demo,-test=@platforms//cpus:x86_64"
-              + " will add 'x86_64' to any target under //demo except for those whose name contains"
-              + " 'test'.")
-  public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   /**
    * Deduplicate the given list, keeping the last copy of any duplicates.
@@ -279,20 +260,4 @@ public class PlatformOptions extends FragmentOptions {
     }
   }
 
-  /** Converter of filter to label list valued flags. */
-  public static final class RegexFilterToLabelListConverter
-      extends Converters.AssignmentToListOfValuesConverter<RegexFilter, Label> {
-
-    public RegexFilterToLabelListConverter() {
-      super(
-          new RegexFilter.RegexFilterConverter(),
-          new CoreOptionConverters.LabelConverter(),
-          AllowEmptyKeys.NO);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a '<RegexFilter>=<label1>[,<label2>,...]' assignment";
-    }
-  }
 }

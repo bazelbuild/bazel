@@ -39,7 +39,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 /**
@@ -116,25 +115,20 @@ public class BazelLockFileModule extends BlazeModule {
     // transitive closure of the current build. Since extensions are potentially costly to evaluate,
     // this is seen as an advantage. Full reproducibility can be ensured by running 'bazel shutdown'
     // first if needed.
-    int maxNumExtensions = depGraphValue.getExtensionUsagesTable().rowMap().size();
-    // Presize conservatively to avoid blocking for resizing.
-    Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
-        new ConcurrentHashMap<>(maxNumExtensions);
-    executor
-        .getEvaluator()
-        .getInMemoryGraph()
-        .parallelForEach(
-            entry -> {
-              if (entry.isDone()
-                  && entry.getKey() instanceof SingleExtensionValue.EvalKey key
-                  // entry.getValue() can be null if the extension evaluation failed.
-                  && entry.getValue() instanceof SingleExtensionValue value
-                  // The innate extensions are implemented in Java and don't benefit from a lockfile
-                  // entry.
-                  && !key.argument().isInnate()) {
-                newExtensionInfos.put(key.argument(), value.lockFileInfo().get());
-              }
-            });
+    var newExtensionInfos =
+        new HashMap<ModuleExtensionId, LockFileModuleExtension.WithFactors>(
+            depGraphValue.getExtensionUsagesTable().rowKeySet().size());
+    var doneValues = evaluator.getDoneValues();
+    for (var extensionId : depGraphValue.getExtensionUsagesTable().rowKeySet()) {
+      if (extensionId.isInnate()) {
+        // The innate extensions are implemented in Java and don't benefit from a lockfile entry.
+        continue;
+      }
+      var value = (SingleExtensionValue) doneValues.get(SingleExtensionValue.evalKey(extensionId));
+      if (value != null) {
+        newExtensionInfos.put(extensionId, value.lockFileInfo().get());
+      }
+    }
 
     Thread updateLockfile =
         Thread.startVirtualThread(
@@ -146,13 +140,23 @@ public class BazelLockFileModule extends BlazeModule {
                       /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
                       /* reproducible= */ false);
 
+              // Bazel may track the hashes of files fetched from local registries for internal
+              // purposes, but those should never show up in the lockfile for two reasons:
+              // - they are not needed for reproducibility, as local registries are assumed to be
+              //   under the user's control, just like CLI flags;
+              // - they would contribute absolute paths and thus aren't portable.
+              var remoteRegistryFileHashes =
+                  ImmutableSortedMap.copyOf(
+                      Maps.filterKeys(
+                          moduleResolutionValue.getRegistryFileHashes(),
+                          url -> !url.startsWith("file:")));
+
               // Create an updated version of the lockfile, keeping only the extension results from
               // the old lockfile that are still up-to-date and adding the newly resolved
               // extension results, as long as any of them are not known to be reproducible.
               BazelLockFileValue newLockfile =
                   BazelLockFileValue.builder()
-                      .setRegistryFileHashes(
-                          ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
+                      .setRegistryFileHashes(remoteRegistryFileHashes)
                       .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
                       .setModuleExtensions(notReproducibleExtensionInfos)
                       .build();

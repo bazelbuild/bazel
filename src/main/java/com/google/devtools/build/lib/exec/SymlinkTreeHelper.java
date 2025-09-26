@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SnapshottingFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
@@ -50,29 +49,28 @@ public final class SymlinkTreeHelper {
   /**
    * Creates SymlinkTreeHelper instance. Can be used independently of SymlinkTreeAction.
    *
-   * @param inputManifest path to the input runfiles manifest
+   * @param inputManifest exec path to the input runfiles manifest
    * @param outputManifest path to the output runfiles manifest
-   * @param symlinkTreeRoot path to the root of the symlink tree
-   * @param filesetTree true if this is a fileset symlink tree, false if this is a runfiles symlink
-   *     tree.
+   * @param symlinkTreeRoot the root of the symlink tree to be created
    * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
   public SymlinkTreeHelper(
       Path inputManifest, Path outputManifest, Path symlinkTreeRoot, String workspaceName) {
-    this.inputManifest = ensureNonSnapshotting(inputManifest);
-    this.outputManifest = ensureNonSnapshotting(outputManifest);
-    this.symlinkTreeRoot = ensureNonSnapshotting(symlinkTreeRoot);
+    // Do not indirect paths through overlay filesystems (such as the action filesystem or a
+    // snapshotting filesystem), for a few reasons:
+    // (1) we always want to create the symlinks on disk, even if the overlay filesystem creates
+    //     them in memory (at the time of writing, no action filesystem implementations do so, but
+    //     this may change in the future).
+    // (2) current action filesystem implementations are not a true overlay filesystem, so errors
+    //     might occur in an incremental build when the parent directory of a symlink exists on disk
+    //     but not in memory (see https://github.com/bazelbuild/bazel/issues/24867).
+    // (3) Changes made to a file referenced by a symlink tree should be reflected in the symlink
+    //     tree without having to rebuild. Therefore, if a snapshotting file system is used, we must
+    //     use the underlying non-snapshotting file system instead to create the symlink tree.
+    this.inputManifest = inputManifest.forHostFileSystem();
+    this.outputManifest = outputManifest.forHostFileSystem();
+    this.symlinkTreeRoot = symlinkTreeRoot.forHostFileSystem();
     this.workspaceName = workspaceName;
-  }
-
-  private static Path ensureNonSnapshotting(Path path) {
-    // Changes made to a file referenced by a symlink tree should be reflected in the symlink tree
-    // without having to rebuild. Therefore, if a snapshotting file system is used, we must use the
-    // underlying non-snapshotting file system instead to create the symlink tree.
-    if (path.getFileSystem() instanceof SnapshottingFileSystem snapshottingFs) {
-      return snapshottingFs.getUnderlyingNonSnapshottingFileSystem().getPath(path.asFragment());
-    }
-    return path;
   }
 
   interface TargetPathFunction<T> {
@@ -86,9 +84,9 @@ public final class SymlinkTreeHelper {
   }
 
   /** Creates a symlink tree for a runfiles by making VFS calls. */
-  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinkMap) throws IOException {
+  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinks) throws IOException {
     createSymlinks(
-        symlinkMap,
+        symlinks,
         (artifact) ->
             artifact.isSymlink()
                 // Unresolved symlinks are created textually.
@@ -221,7 +219,7 @@ public final class SymlinkTreeHelper {
     }
 
     void syncTreeRecursively(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
-      FileStatus stat = at.statNullable(Symlinks.FOLLOW);
+      FileStatus stat = at.statIfFound(Symlinks.FOLLOW);
       if (stat == null) {
         at.createDirectoryAndParents();
       } else if (!stat.isDirectory()) {

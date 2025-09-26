@@ -81,7 +81,7 @@ class BazelFetchTest(test_base.TestBase):
 
   def testFetchAll(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     self.ScratchFile(
@@ -116,7 +116,7 @@ class BazelFetchTest(test_base.TestBase):
 
   def testFetchConfig(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     self.ScratchFile(
@@ -155,7 +155,7 @@ class BazelFetchTest(test_base.TestBase):
 
   def testFetchConfigForce(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     self.ScratchFile(
@@ -226,9 +226,9 @@ class BazelFetchTest(test_base.TestBase):
 
   def testFetchRepo(self):
     self.useMockBuiltinModules()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
-    ).createCcModule('ccc', '1.0')
+    ).createShModule('ccc', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -370,7 +370,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertNotIn('name is ', ''.join(stderr))
 
   def testFetchTarget(self):
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     self.ScratchFile(
@@ -379,26 +379,28 @@ class BazelFetchTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@bbb//:lib_bbb",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("Hello there!");',
-            '}',
+            'source $(rlocation aaa+/aaa.sh)',
+            'hello_aaa "Hello there!"',
         ],
+        executable=True,
     )
     self.RunBazel(['fetch', '//:main'])
     # If we can run the target with --nofetch, this means we successfully
@@ -407,7 +409,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('Hello there! => aaa@1.0', stdout)
 
   def testFetchWithTargetPatternFile(self):
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
     self.ScratchFile(
@@ -416,26 +418,28 @@ class BazelFetchTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@bbb//:lib_bbb",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("Hello there!");',
-            '}',
+            'source $(rlocation aaa+/aaa.sh)',
+            'hello_aaa "Hello there!"',
         ],
+        executable=True,
     )
     self.ScratchFile('targets.params', ['//:main'])
     self.RunBazel(['fetch', '--target_pattern_file=targets.params'])

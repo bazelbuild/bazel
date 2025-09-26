@@ -1454,6 +1454,7 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "aspect_hints/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//aspect_hints:hints.bzl", "hint")
         load("//aspect_hints:hints_counter.bzl", "count_hints")
 

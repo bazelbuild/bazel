@@ -422,7 +422,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility, target_suffix):
-            native.cc_library(name = name + "_" + target_suffix)
+            native.filegroup(name = name + "_" + target_suffix)
         my_macro = macro(
             implementation=_impl,
             attrs = {
@@ -1874,6 +1874,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "p/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         # -0x7fffffff + -0x7fffffff = 2
         s = select({"//conditions:default": -0x7fffffff})
 
@@ -3336,7 +3337,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         r = foo_rule(name = "foo")
 
         # Native rule should return None
-        c = cc_library(name = "cc")
+        c = filegroup(name = "cc")
 
         foo_rule(
             name = "check",
@@ -4766,6 +4767,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void extendRule_ccBinary() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     mockToolsConfig.overwrite(
         "tools/allowlists/extend_rule_allowlist/BUILD",
         """
@@ -6159,6 +6163,59 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly("parent_exec_group", "child_exec_group");
   }
 
+  @Test
+  public void extendRule_execGroups_overwritten() throws Exception {
+    registerDummyStarlarkFunction();
+    evalAndExport(
+        ev,
+        """
+        parent_test = rule(
+            implementation = impl,
+            test = True,
+            exec_groups = {
+                "parent_group": exec_group(
+                    exec_compatible_with=[':cv1'],
+                ),
+                "overridden_group": exec_group(
+                    exec_compatible_with=[':cv2'],
+                ),
+            },
+        )
+
+        my_test = rule(
+            implementation = impl,
+            parent = parent_test,
+            exec_groups = {
+                "test": exec_group(
+                    exec_compatible_with=[':cv3'],
+                ),
+                "child_group": exec_group(
+                    exec_compatible_with=[':cv4'],
+                ),
+                "overridden_group": exec_group(
+                    exec_compatible_with=[':cv5'],
+                ),
+            },
+        )
+        """);
+
+    RuleClass ruleClass = ((StarlarkRuleFunction) ev.lookup("my_test")).getRuleClass();
+    assertThat(ruleClass.getDeclaredExecGroups().keySet())
+        .containsExactly("test", "child_group", "overridden_group", "parent_group");
+    DeclaredExecGroup testExecGroup = ruleClass.getDeclaredExecGroups().get("test");
+    assertThat(testExecGroup).hasExecCompatibleWith("//test:cv3");
+
+    DeclaredExecGroup parentExecGroup = ruleClass.getDeclaredExecGroups().get("parent_group");
+    assertThat(parentExecGroup).hasExecCompatibleWith("//test:cv1");
+
+    DeclaredExecGroup childExecGroup = ruleClass.getDeclaredExecGroups().get("child_group");
+    assertThat(childExecGroup).hasExecCompatibleWith("//test:cv4");
+
+    DeclaredExecGroup overriddenExecGroup =
+        ruleClass.getDeclaredExecGroups().get("overridden_group");
+    assertThat(overriddenExecGroup).hasExecCompatibleWith("//test:cv5");
+  }
+
   private void scratchStarlarkTransition() throws IOException {
     if (!TestConstants.PRODUCT_NAME.equals("bazel")) {
       scratch.overwriteFile(
@@ -6695,7 +6752,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
             "lib/label.bzl",
             /* loads= */ ImmutableList.of(),
-            /* bzlTransitiveDigest= */ new byte[0]);
+            /* bzlTransitiveDigest= */ new byte[0],
+            /* docCommentsMap= */ ImmutableMap.of(),
+            /* unusedDocCommentLines= */ ImmutableList.of());
     Module module =
         Module.withPredeclaredAndData(
             StarlarkSemantics.DEFAULT,

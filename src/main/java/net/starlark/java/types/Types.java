@@ -20,6 +20,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -33,6 +34,10 @@ import javax.annotation.Nullable;
  * </code>
  */
 public final class Types {
+
+  // TODO(ilist@): constructed types should probably be interned. In some cases it might help
+  // to precompute and memoize StarlarkTypes.getSupertypes.
+
   // Internal type used as a guard for a missing type annotations (for now).
   public static final StarlarkType ANY = new Any();
 
@@ -46,7 +51,7 @@ public final class Types {
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
-      callable(ImmutableList.of(), ImmutableList.of(), 0, ImmutableSet.of(), null, null, ANY);
+      callable(ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
 
   private Types() {} // uninstantiable
 
@@ -63,7 +68,10 @@ public final class Types {
         .put("list", wrapTypeConstructor("list", Types::list))
         .put("dict", wrapTypeConstructor("dict", Types::dict))
         .put("set", wrapTypeConstructor("set", Types::set))
-        .put("tuple", wrapTupleConstructorProxy());
+        .put("tuple", wrapTupleConstructorProxy())
+        .put("Collection", wrapTypeConstructor("Collection", Types::collection))
+        .put("Sequence", wrapTypeConstructor("Sequence", Types::sequence))
+        .put("Mapping", wrapTypeConstructor("Mapping", Types::mapping));
     return env.buildOrThrow();
   }
 
@@ -192,6 +200,7 @@ public final class Types {
   public static CallableType callable(
       ImmutableList<String> parameterNames,
       ImmutableList<StarlarkType> parameterTypes,
+      int numPositionalOnlyParameters,
       int numPositionalParameters,
       ImmutableSet<String> mandatoryParams,
       @Nullable StarlarkType varargsType,
@@ -200,6 +209,7 @@ public final class Types {
     return new AutoValue_Types_GeneralCallableType(
         parameterNames,
         parameterTypes,
+        numPositionalOnlyParameters,
         numPositionalParameters,
         mandatoryParams,
         varargsType,
@@ -222,9 +232,9 @@ public final class Types {
    *
    * <ul>
    *   <li>Their types are stored consecutively in <code>parameterTypes</code>.
-   *   <li>The list <code>parameterNames</code> is shorter than <code>parameterTypes</code> by the
-   *       count of positional-only parameters. (If there are k positional-only params, the (k+i)th
-   *       param's name is stored in <code>parameterNames[i]</code>.)
+   *   <li>The list <code>parameterNames</code> matches <code>parameterTypes</code>. (Even
+   *       positional-only parameters have names.)
+   *   <li><code>numPositionalOnlyParameters</code> counts positional-only arguments.
    *   <li><code>numPositionalParameters</code> counts both positional-only and ordinary arguments.
    * </ul>
    *
@@ -238,6 +248,8 @@ public final class Types {
     public abstract ImmutableList<String> getParameterNames();
 
     public abstract ImmutableList<StarlarkType> getParameterTypes();
+
+    public abstract int getNumPositionalOnlyParameters();
 
     public abstract int getNumPositionalParameters();
 
@@ -269,21 +281,25 @@ public final class Types {
     public String toSignatureString() {
       ImmutableList.Builder<String> params = ImmutableList.builder();
 
-      // unnamed positional parameters
-      int typeIndex = 0;
-      for (; typeIndex < getParameterTypes().size() - getParameterNames().size(); typeIndex++) {
-        params.add(getParameterTypeByPos(typeIndex).toString());
+      // positional parameters
+      int i = 0;
+      for (; i < getNumPositionalOnlyParameters(); i++) {
+        String name = getParameterNames().get(i);
+        StarlarkType type = getParameterTypeByPos(i);
+        if (getMandatoryParameters().contains(name)) {
+          params.add(type.toString());
+        } else {
+          params.add("[" + type + "]");
+        }
       }
 
-      if (typeIndex > 0) { // if there were positional-only parameters, we need to separate them
+      if (i > 0) { // if there were positional-only parameters, we need to separate them
         params.add("/");
       }
 
-      // named positional parameters
-      int nameIndex = 0;
-      for (; typeIndex < getNumPositionalParameters(); typeIndex++, nameIndex++) {
-        String name = getParameterNames().get(nameIndex);
-        StarlarkType type = getParameterTypeByPos(typeIndex);
+      for (; i < getNumPositionalParameters(); i++) {
+        String name = getParameterNames().get(i);
+        StarlarkType type = getParameterTypeByPos(i);
         if (getMandatoryParameters().contains(name)) {
           params.add(name + ": " + type);
         } else {
@@ -293,14 +309,14 @@ public final class Types {
 
       if (getVarargsType() != null) {
         params.add("*args: " + getVarargsType());
-      } else if (typeIndex < getParameterTypes().size()) { // if there are going to be kwonly params
+      } else if (i < getParameterTypes().size()) { // if there are going to be kwonly params
         params.add("*");
       }
 
       // keyword parameters
-      for (; typeIndex < getParameterTypes().size(); typeIndex++, nameIndex++) {
-        String name = getParameterNames().get(nameIndex);
-        String type = getParameterTypeByPos(typeIndex).toString();
+      for (; i < getParameterTypes().size(); i++) {
+        String name = getParameterNames().get(i);
+        String type = getParameterTypeByPos(i).toString();
         if (getMandatoryParameters().contains(name)) {
           params.add(name + ": " + type);
         } else {
@@ -384,6 +400,11 @@ public final class Types {
     public abstract StarlarkType getElementType();
 
     @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(sequence(getElementType()), collection(getElementType()));
+    }
+
+    @Override
     public final String toString() {
       return "list[" + getElementType() + "]";
     }
@@ -401,6 +422,11 @@ public final class Types {
     public abstract StarlarkType getValueType();
 
     @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(collection(getKeyType()), mapping(getKeyType(), getValueType()));
+    }
+
+    @Override
     public final String toString() {
       return "dict[" + getKeyType() + ", " + getValueType() + "]";
     }
@@ -414,6 +440,11 @@ public final class Types {
   @AutoValue
   public abstract static class SetType extends StarlarkType {
     public abstract StarlarkType getElementType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(collection(getElementType()));
+    }
 
     @Override
     public final String toString() {
@@ -431,10 +462,71 @@ public final class Types {
     public abstract ImmutableList<StarlarkType> getElementTypes();
 
     @Override
+    public List<StarlarkType> getSupertypes() {
+      StarlarkType elementType = union(ImmutableSet.copyOf(getElementTypes()));
+      return ImmutableList.of(sequence(elementType), collection(elementType));
+    }
+
+    @Override
     public final String toString() {
       return "tuple["
           + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
           + "]";
+    }
+  }
+
+  /** Collection type */
+  public static CollectionType collection(StarlarkType elementType) {
+    return new AutoValue_Types_CollectionType(elementType);
+  }
+
+  /** Collection type */
+  @AutoValue
+  public abstract static class CollectionType extends StarlarkType {
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public final String toString() {
+      return "Collection[" + getElementType() + "]";
+    }
+  }
+
+  /** Sequence type */
+  public static SequenceType sequence(StarlarkType elementType) {
+    return new AutoValue_Types_SequenceType(elementType);
+  }
+
+  /** Sequence type */
+  @AutoValue
+  public abstract static class SequenceType extends StarlarkType {
+    public abstract StarlarkType getElementType();
+
+    @Override
+    public List<StarlarkType> getSupertypes() {
+      return ImmutableList.of(collection(getElementType()));
+    }
+
+    @Override
+    public final String toString() {
+      return "Sequence[" + getElementType() + "]";
+    }
+  }
+
+  /** Mapping type */
+  public static MappingType mapping(StarlarkType keyType, StarlarkType valueType) {
+    return new AutoValue_Types_MappingType(keyType, valueType);
+  }
+
+  /** Mapping type */
+  @AutoValue
+  public abstract static class MappingType extends StarlarkType {
+    public abstract StarlarkType getKeyType();
+
+    public abstract StarlarkType getValueType();
+
+    @Override
+    public final String toString() {
+      return "Mapping[" + getKeyType() + ", " + getValueType() + "]";
     }
   }
 

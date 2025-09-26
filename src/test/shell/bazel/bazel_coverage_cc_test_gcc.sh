@@ -911,6 +911,7 @@ function test_coverage_with_experimental_split_coverage_postprocessing_only() {
   fi
 
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "hello-test",
   srcs = ["hello-test.cc"],

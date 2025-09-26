@@ -82,6 +82,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/getrule/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test/starlark:rulestr.bzl", "rule_dict")
 
         cc_library(
@@ -153,10 +154,11 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/rulestr.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def test_rule(name, x):
             print(native.existing_rule(x))
             if native.existing_rule(x) == None:
-                native.cc_library(name = name)
+                cc_library(name = name)
         """);
     scratch.file(
         "test/BUILD",
@@ -177,18 +179,20 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/existing_rule.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def macro():
             s = select({"//foo": ["//bar"]})
             print("Passed: " + repr(s))
-            native.cc_library(name = "x", srcs = s)
+            cc_library(name = "x", srcs = s)
             print("Returned: " + repr(native.existing_rule("x")["srcs"]))
 
             # The value returned here should round-trip fine.
-            native.cc_library(name = "y", srcs = native.existing_rule("x")["srcs"])
+            cc_library(name = "y", srcs = native.existing_rule("x")["srcs"])
         """);
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:existing_rule.bzl", "macro")
 
         macro()
@@ -218,6 +222,8 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load("//test:existing_rule.bzl", "save_deps")
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
         cc_library(
             name = "a",
@@ -484,6 +490,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_as_dict")
 
         cc_library(
@@ -515,6 +522,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_as_updated_dict")
 
         cc_library(
@@ -543,6 +551,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_as_union")
 
         cc_library(
@@ -587,6 +596,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_kwargs_of_existing_rule")
 
         cc_library(

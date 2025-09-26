@@ -505,6 +505,23 @@ public class ModuleFileFunction implements SkyFunction {
             .putAll(moduleOverrides)
             .putAll(commandOverrides)
             .buildKeepingLast();
+    for (var entry : overrides.entrySet()) {
+      var moduleName = entry.getKey();
+      if (!(entry.getValue() instanceof SingleVersionOverride svo)
+          || !module.getDeps().containsKey(moduleName)) {
+        continue;
+      }
+      var depVersion = module.getDeps().get(moduleName).version();
+      if (!depVersion.isEmpty() && svo.version().compareTo(depVersion) < 0) {
+        throw errorf(
+            Code.BAD_MODULE,
+            "module '%s' is overridden to use version '%s', which is lower than the version '%s' "
+                + "requested by the root module",
+            moduleName,
+            svo.version(),
+            depVersion);
+      }
+    }
 
     // Check that overrides don't contain the root module itself.
     ModuleOverride rootOverride = overrides.get(module.getName());
@@ -646,10 +663,9 @@ public class ModuleFileFunction implements SkyFunction {
       }
       // This repo _definitely_ exists, since it has a non-registry override, which directly gets
       // "translated" into a repo spec. So we can cast `repoDir` to `Success`.
-      Path repoDirPath = ((Success) repoDir).getPath();
       RootedPath moduleFilePath =
           RootedPath.toRootedPath(
-              Root.fromPath(repoDirPath), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
+              ((Success) repoDir).root(), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
       if (env.getValue(FileValue.key(moduleFilePath)) == null) {
         return null;
       }

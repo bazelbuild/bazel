@@ -82,6 +82,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "my_rule")
 
         cc_toolchain_alias(name = "toolchain")
@@ -110,6 +111,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "toolchain/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         cc_toolchain(
@@ -180,7 +182,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
 
     assertThat(
             CcToolchainProvider.getToolPathString(
@@ -217,6 +219,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     // Crosstool with gcov-tool
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
@@ -251,7 +254,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:b"));
     assertThat(getMakeVariables(ccToolchainProvider)).doesNotContainKey("GCOVTOOL");
   }
 
@@ -260,6 +263,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     // Crosstool with gcov-tool
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
@@ -298,7 +302,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--host_platform=" + TestConstants.PLATFORM_LABEL);
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:b"));
     assertThat(getMakeVariables(ccToolchainProvider)).containsKey("GCOVTOOL");
   }
 
@@ -318,6 +322,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("strip", "strip"));
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
@@ -358,6 +364,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     CcToolchainConfig.Builder ccToolchainConfigBuilder = CcToolchainConfig.builder();
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name='empty')",
         "filegroup(name='my_files', srcs = ['file1', 'file2'])",
@@ -385,7 +393,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
 
-    CcToolchainProvider provider = getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
+    CcToolchainProvider provider = CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:b"));
 
     assertThat(artifactsToStrings(provider.getCoverageFiles()))
         .containsExactly("src a/file1", "src a/file2");
@@ -408,6 +416,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("strip", "strip"));
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
@@ -463,6 +473,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("strip", "strip"));
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
@@ -505,6 +517,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "toolchain")
 
         cc_library(
@@ -514,7 +528,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:toolchain").get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(getConfiguredTarget("//a:toolchain"));
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
 
@@ -528,6 +542,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         cc_toolchain_alias(name = "toolchain")
 
         cc_library(
@@ -545,6 +561,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   public void testConfigWithMissingToolDefs() throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
@@ -589,6 +606,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(name = "empty")
@@ -621,6 +639,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
@@ -670,6 +690,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
         "cc_binary(name = 'test', linkstatic = 0, srcs = [ 'test.cc' ],)",

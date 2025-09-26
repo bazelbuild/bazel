@@ -48,6 +48,6 @@ cc_toolchain_alias = rule(
     attrs = {
         "mandatory": attr.bool(default = True),
     },
-    toolchains = cc_helper.use_cpp_toolchain() +
+    toolchains = cc_helper.use_cpp_toolchain(mandatory = False) +
                  semantics.get_runtimes_toolchain(),
 )

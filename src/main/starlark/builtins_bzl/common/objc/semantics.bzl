@@ -44,4 +44,7 @@ semantics = struct(
     get_repo = _get_repo,
     get_licenses_attr = _get_licenses_attr,
     apple_crosstool_transition = None,
+    is_enable_modules_attr_allowed = True,
+    is_module_map_attr_allowed = True,
+    is_module_name_attr_allowed = True,
 )

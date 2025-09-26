@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Objects;
 import java.util.Set;

@@ -1,0 +1,4 @@
+--- /dev/null
++++ REPO.bazel
+@@ -0,0 +1 @@
++repo(features=["system_include_paths"])

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.TRANSITIVE_VISIBILITY_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 
 import com.google.auto.value.AutoOneOf;
@@ -106,6 +107,8 @@ public final class DependencyResolutionHelpers {
     if (target instanceof OutputFile) {
       Preconditions.checkNotNull(config);
       addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
+      addTransitiveVisibilityDepLabel(
+          target.getPackageDeclarations().getPackageArgs().transitiveVisibility(), outgoingLabels);
       Rule rule = ((OutputFile) target).getGeneratingRule();
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
       if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
@@ -113,11 +116,18 @@ public final class DependencyResolutionHelpers {
         resolveAttributes(getAspectAttributes(aspects), outgoingLabels, rule, attributeMap, config);
       }
       addToolchainDeps(toolchainContexts, outgoingLabels);
-    } else if (target instanceof InputFile || target instanceof EnvironmentGroup) {
+    } else if (target instanceof InputFile) {
+      addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
+      addTransitiveVisibilityDepLabel(
+          target.getPackageDeclarations().getPackageArgs().transitiveVisibility(), outgoingLabels);
+    } else if (target instanceof EnvironmentGroup) {
       addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
     } else if (target instanceof Rule rule) {
       fromRule = rule;
       attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions, config);
+      addTransitiveVisibilityDepLabel(
+          fromRule.getPackageDeclarations().getPackageArgs().transitiveVisibility(),
+          outgoingLabels);
       visitRule(
           node,
           aspects,
@@ -577,5 +587,12 @@ public final class DependencyResolutionHelpers {
   private static void addVisibilityDepLabels(
       Iterable<Label> labels, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
     outgoingLabels.putAll(VISIBILITY_DEPENDENCY, labels);
+  }
+
+  private static void addTransitiveVisibilityDepLabel(
+      Label label, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
+    if (label != null) {
+      outgoingLabels.put(TRANSITIVE_VISIBILITY_DEPENDENCY, label);
+    }
   }
 }

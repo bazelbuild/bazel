@@ -40,21 +40,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function set_up() {
   add_rules_java MODULE.bazel
 }
@@ -249,6 +234,15 @@ EOF
     //"$pkg":fail &> $TEST_log \
     && fail "expected failure"
   expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
+
+  # Confirm printed path is relative to the current working directory.
+  cd "$pkg"
+  bazel test --print_relative_test_log_paths=true \
+    --experimental_convenience_symlinks=log_only \
+    //"$pkg":fail &> $TEST_log \
+    && fail "expected failure"
+  # $pkg is just the test name, so we should only need to go up one directory.
+  expect_log "^  \.\./${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/pull/8322
@@ -309,7 +303,9 @@ function do_test_interrupt_streamed_output() {
   # progresse. This feature had been broken before (#7392) for subtle reasons
   # and there are no tests for it, so it might be broken again. Investigate and
   # enable this test.
-  [[ "$is_windows" == "true" ]] && return 0
+  if is_windows; then
+    return 0
+  fi
 
   local strategy="${1}"; shift
 
@@ -398,7 +394,9 @@ EOF
 }
 
 function test_sigint_not_graceful_by_default_local() {
-  [[ "$is_windows" == "true" ]] && return 0
+  if is_windows; then
+    return 0
+  fi
 
   do_sigint_test local '[]'
   expect_not_log 'Caught SIGTERM'
@@ -407,10 +405,12 @@ function test_sigint_not_graceful_by_default_local() {
 }
 
 function test_sigint_not_graceful_by_default_sandboxed() {
-  [[ "$is_windows" == "true" ]] && return 0
+if is_windows; then
+    return 0
+  fi
 
   do_sigint_test sandboxed '[]'
-  if [[ "$(uname -s)" == "Linux" ]]; then
+  if is_linux; then
     # TODO(jmmv): When using the linux-sandbox, interrupt termination is always
     # graceful. Should homogenize behavior with the process-wrapper.
     expect_log 'Caught SIGTERM'
@@ -422,9 +422,11 @@ function test_sigint_not_graceful_by_default_sandboxed() {
 }
 
 function do_test_sigint_with_graceful_termination() {
-  local strategy="${1}"; shift
+  if is_windows; then
+    return 0
+  fi
 
-  [[ "$is_windows" == "true" ]] && return 0
+  local strategy="${1}"; shift
 
   do_sigint_test "${strategy}" '["supports-graceful-termination"]'
   expect_log 'Caught SIGTERM'

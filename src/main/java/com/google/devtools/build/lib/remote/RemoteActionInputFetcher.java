@@ -14,23 +14,27 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /**
@@ -81,8 +85,8 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   protected ListenableFuture<Void> doDownloadFile(
       ActionExecutionMetadata action,
       Reporter reporter,
+      ActionInput input,
       Path tempPath,
-      PathFragment execPath,
       FileArtifactValue metadata,
       Priority priority,
       Reason reason)
@@ -101,15 +105,33 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
 
-    return combinedCache.downloadFile(
-        context,
-        execPath.getPathString(),
-        execPath,
-        tempPath,
-        digest,
-        new CombinedCache.DownloadProgressReporter(
-            progress -> progress.postTo(reporter, action),
-            execPath.toString(),
-            digest.getSizeBytes()));
+    // Treat other download error as CacheNotFoundException so that Bazel can
+    // correctly rewind the action/build.
+    // Intentionally, do not transform IOExceptions directly thrown by downloadFile rather than in
+    // the returned future, as those are likely to be caused by local FS issues.
+    return Futures.catchingAsync(
+        combinedCache.downloadFile(
+            context,
+            input.getExecPathString(),
+            input.getExecPath(),
+            tempPath,
+            digest,
+            new CombinedCache.DownloadProgressReporter(
+                progress -> progress.postTo(reporter, action),
+                input.getExecPathString(),
+                digest.getSizeBytes())),
+        IOException.class,
+        e ->
+            immediateFailedFuture(
+                switch (e) {
+                  case CacheNotFoundException cacheNotFoundException -> cacheNotFoundException;
+                  default -> {
+                    var cacheNotFoundException =
+                        new CacheNotFoundException(digest, input.getExecPath());
+                    cacheNotFoundException.addSuppressed(e);
+                    yield cacheNotFoundException;
+                  }
+                }),
+        directExecutor());
   }
 }

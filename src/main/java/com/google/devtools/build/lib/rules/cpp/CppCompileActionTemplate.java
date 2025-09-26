@@ -35,9 +35,10 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -102,9 +103,24 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
             .build();
   }
 
+  // LINT.IfChange(cc_and_objc_file_types)
+  private static final FileTypeSet CC_AND_OBJC_FILE_TYPES =
+      FileTypeSet.of(
+          CppFileTypes.CPP_SOURCE,
+          CppFileTypes.CPP_HEADER,
+          CppFileTypes.OBJC_SOURCE,
+          CppFileTypes.OBJCPP_SOURCE,
+          CppFileTypes.C_SOURCE,
+          CppFileTypes.ASSEMBLER,
+          CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:cc_and_objc_file_types)
+
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler)
       throws ActionExecutionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
@@ -115,10 +131,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
       boolean isTextualInclude =
           CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(inputTreeFileArtifact.getExecPath());
       boolean isSource =
-          SourceCategory.CC_AND_OBJC
-                  .getSourceTypes()
-                  .matches(inputTreeFileArtifact.getExecPathString())
-              && !isHeader;
+          CC_AND_OBJC_FILE_TYPES.matches(inputTreeFileArtifact.getExecPathString()) && !isHeader;
 
       if (isHeader) {
         privateHeadersBuilder.add(inputTreeFileArtifact);
@@ -193,10 +206,8 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
       throws CommandLineExpansionException, InterruptedException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(
-            sourceTreeArtifact,
             cppCompileActionBuilder.getCoptsFilter(),
             CppActionNames.CPP_COMPILE,
-            dotdTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
     try {
@@ -290,13 +301,8 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   }
 
   @Override
-  public SpecialArtifact getInputTreeArtifact() {
-    return sourceTreeArtifact;
-  }
-
-  @Override
-  public SpecialArtifact getOutputTreeArtifact() {
-    return outputTreeArtifact;
+  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+    return ImmutableList.of(sourceTreeArtifact);
   }
 
   @Override

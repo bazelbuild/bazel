@@ -412,6 +412,11 @@ public final class MockProtoSupport {
           "  proto = struct(starlark_proto_info = True),",
           "  cc = struct(protobuf_on_allowlist = True),",
           ")");
+      config.overwrite(
+          "third_party/protobuf/src/google/protobuf/compiler/BUILD.bazel",
+          """
+          genrule(name = "protoc", cmd = '', outs = ["protoc_minimal"], executable = True)
+          """);
     }
   }
 }

@@ -94,9 +94,8 @@ final class DigestMap {
   /**
    * Inserts a digest for the corresponding key, then immediately reads it into another fingerprint.
    *
-   * <p>This is equivalent to <code>
-   * digestMap.insertDigest(key, digest.digestAndReset(); digestMap.readDigest(key, readTo); </code>
-   * but it will be faster.
+   * <p>This is equivalent to {@code digestMap.insertDigest(key, digest.digestAndReset());
+   * digestMap.readDigest(key, readTo);} but it will be faster.
    *
    * @param key The key to insert.
    * @param digest The fingerprint to insert. This will reset the fingerprint instance.

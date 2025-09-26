@@ -183,7 +183,6 @@ java_test(
 
 java_test(
     name = "LocalDiffAwarenessIntegrationTest",
-    timeout = "short",
     srcs = ["LocalDiffAwarenessIntegrationTest.java"],
     # TODO(pcloudy): Even with --experimental_windows_watchfs, there's an extra
     #  getValues() on the second build in
@@ -196,7 +195,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -777,6 +775,7 @@ java_test(
         ":artifact_function_test_case",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/spawn_action_template",
@@ -788,12 +787,15 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -1189,7 +1191,7 @@ java_test(
     name = "PackageFunctionTest",
     timeout = "moderate",
     srcs = ["PackageFunctionTest.java"],
-    shard_count = 2,
+    shard_count = 6,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":testutil",
@@ -1302,7 +1304,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/spawn_action_template",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -1766,11 +1767,31 @@ java_test(
 )
 
 java_test(
+    name = "TreeArtifactValueCodecTest",
+    srcs = ["TreeArtifactValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:deserialized-sky-value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ActionExecutionInactivityWatchdogTest",
     timeout = "short",
     srcs = ["ActionExecutionInactivityWatchdogTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -2088,6 +2109,7 @@ java_test(
         "no-windows",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
@@ -2170,5 +2192,25 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "GraphBackedRecursivePackageProviderTest",
+    srcs = ["GraphBackedRecursivePackageProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:graph_backed_recursive_package_provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:recursive_pkg_value_root_package_extractor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

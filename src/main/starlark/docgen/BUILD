@@ -52,6 +52,11 @@ starlark_doc_extract(
     src = "objc.bzl",
     deps = [
         "@rules_cc//cc:core_rules",
+        # Workaround missing deps, can be removed once fixed in rules_cc
+        "@rules_cc//cc/common",
+        "@rules_cc//cc:find_cc_toolchain_bzl",
+        "@rules_cc//cc:action_names_bzl",
+        "@bazel_skylib//lib:paths",
     ],
 )
 

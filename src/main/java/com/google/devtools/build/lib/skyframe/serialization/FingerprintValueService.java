@@ -14,13 +14,18 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.hash.Hashing.murmur3_128;
+import static com.google.common.io.BaseEncoding.base16;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
@@ -50,6 +55,9 @@ public final class FingerprintValueService {
    */
   private final Fingerprinter fingerprinter;
 
+  @Nullable // When log writing is not turned on
+  private final RemoteAnalysisJsonLogWriter jsonLogWriter;
+
   private final PackedFingerprint fingerprintPlaceholder;
   private final int fingerprintLength;
 
@@ -72,18 +80,24 @@ public final class FingerprintValueService {
   private static FingerprintValueService createForTesting(
       FingerprintValueStore store, FingerprintValueCache.SyncMode mode) {
     return new FingerprintValueService(
-        newSingleThreadExecutor(), store, new FingerprintValueCache(mode), NONPROD_FINGERPRINTER);
+        newSingleThreadExecutor(),
+        store,
+        new FingerprintValueCache(mode),
+        NONPROD_FINGERPRINTER,
+        /* jsonLogWriter= */ null);
   }
 
   public FingerprintValueService(
       Executor executor,
       FingerprintValueStore store,
       FingerprintValueCache cache,
-      Fingerprinter fingerprinter) {
+      Fingerprinter fingerprinter,
+      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter) {
     this.executor = executor;
     this.store = store;
     this.cache = cache;
     this.fingerprinter = fingerprinter;
+    this.jsonLogWriter = jsonLogWriter;
 
     this.fingerprintPlaceholder = fingerprint(new byte[] {});
     this.fingerprintLength = fingerprintPlaceholder.toBytes().length;
@@ -91,7 +105,25 @@ public final class FingerprintValueService {
 
   /** Delegates to {@link FingerprintValueStore#put}. */
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-    return store.put(fingerprint, serializedBytes);
+    Instant before = Instant.now();
+    WriteStatus putStatus = store.put(fingerprint, serializedBytes);
+    if (jsonLogWriter == null) {
+      return putStatus;
+    }
+
+    return jsonLogWriter.logWrite(
+        putStatus,
+        e -> {
+          try (var entry = jsonLogWriter.startEntry("fvsPut")) {
+            entry.addField("start", before);
+            entry.addField("end", Instant.now());
+            entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
+            entry.addField("valueSize", serializedBytes.length);
+            if (e != null) {
+              entry.addField("exception", e.getMessage());
+            }
+          }
+        });
   }
 
   public FingerprintValueStore.Stats getStats() {
@@ -100,7 +132,24 @@ public final class FingerprintValueService {
 
   /** Delegates to {@link FingerprintValueStore#get}. */
   public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
-    return store.get(fingerprint);
+    Instant before = Instant.now();
+    ListenableFuture<byte[]> result = store.get(fingerprint);
+    if (jsonLogWriter != null) {
+      result =
+          Futures.transform(
+              result,
+              b -> {
+                try (var entry = jsonLogWriter.startEntry("fvsGet")) {
+                  entry.addField("start", before);
+                  entry.addField("end", Instant.now());
+                  entry.addField("key", base16().lowerCase().encode(fingerprint.toBytes()));
+                  entry.addField("responseSize", b.length);
+                }
+                return b;
+              },
+              directExecutor());
+    }
+    return result;
   }
 
   /** Delegates to {@link FingerprintValueCache#getOrClaimPutOperation}. */
@@ -151,5 +200,10 @@ public final class FingerprintValueService {
    */
   public Executor getExecutor() {
     return executor;
+  }
+
+  @VisibleForTesting
+  public FingerprintValueStore getStoreForTesting() {
+    return store;
   }
 }

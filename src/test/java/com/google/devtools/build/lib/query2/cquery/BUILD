@@ -155,11 +155,13 @@ java_test(
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

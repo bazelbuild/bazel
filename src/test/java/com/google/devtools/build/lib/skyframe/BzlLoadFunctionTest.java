@@ -1175,7 +1175,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
+    public synchronized InputStream getInputStream(PathFragment path) throws IOException {
       if (badPathForRead != null && badPathForRead.asFragment().equals(path)) {
         throw new IOException("bad");
       }

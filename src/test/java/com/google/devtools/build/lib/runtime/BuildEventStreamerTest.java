@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -291,7 +293,17 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
 
     @Override
     public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
-      return new ReportedArtifacts(artifacts, CompletionContext.FAILED_COMPLETION_CTX);
+      ActionInputMap importantInputMap = new ActionInputMap(0);
+      for (NestedSet<Artifact> artifactSet : artifacts) {
+        for (Artifact artifact : artifactSet.toList()) {
+          // This is good enough to make the tests pass because they don't care about the metadata.
+          importantInputMap.put(artifact, FileArtifactValue.MISSING_FILE_MARKER);
+        }
+      }
+      return new ReportedArtifacts(
+          artifacts,
+          new CompletionContext(
+              ArtifactPathResolver.IDENTITY, importantInputMap, /* expandFilesets= */ false));
     }
 
     @Override

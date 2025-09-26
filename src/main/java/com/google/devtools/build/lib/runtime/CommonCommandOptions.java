@@ -47,7 +47,7 @@ public class CommonCommandOptions extends OptionsBase {
   // value during options parsing based on its (string) name.
   @Option(
       name = "enable_platform_specific_config",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -154,6 +154,41 @@ public class CommonCommandOptions extends OptionsBase {
               + " --experimental_action_cache_gc_idle_delay and"
               + " --experimental_action_cache_gc_threshold flags.")
   public Duration actionCacheGcMaxAge;
+
+  @Option(
+      name = "experimental_enable_thread_dump",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Whether to enable thread dumps. If true, Bazel will dump the state of all threads"
+              + " (including virtual threads) to a file every --experimental_thread_dump_interval,"
+              + " or after action execution being inactive for"
+              + " --experimental_thread_dump_action_execution_inactivity_duration. The dumps will"
+              + " be written to the <output_base>/server/thread_dumps/ directory.")
+  public boolean enableThreadDump;
+
+  @Option(
+      name = "experimental_thread_dump_interval",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "How often to dump the threads periodically. If zero, no thread dumps are written"
+              + " periodically.")
+  public Duration threadDumpInterval;
+
+  @Option(
+      name = "experimental_thread_dump_action_execution_inactivity_duration",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "Dump the threads when action execution being inactive for this duration. If zero, no"
+              + " thread dumps are written for action execution being inactive.")
+  public Duration threadDumpActionExecutionInactivityDuration;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter extends Converter.Contextless<UUID> {
@@ -360,7 +395,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_collect_worker_data_in_profiler",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects worker's aggregated resource data.")

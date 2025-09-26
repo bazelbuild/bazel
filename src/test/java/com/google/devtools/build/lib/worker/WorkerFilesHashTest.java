@@ -201,7 +201,7 @@ public final class WorkerFilesHashTest {
 
       @Nullable
       @Override
-      public ActionInput getInput(String execPath) {
+      public ActionInput getInput(PathFragment execPath) {
         throw new UnsupportedOperationException();
       }
     };

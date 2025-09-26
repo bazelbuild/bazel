@@ -124,7 +124,7 @@ function test_genrule_cannot_write_to_other_path() {
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
-if [[ "$(uname -s)" != Linux ]]; then
+if ! is_linux; then
   echo "RemoteWorker claims to only support Linux at the moment" 1>&2
   exit 0
 fi

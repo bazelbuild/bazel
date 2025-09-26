@@ -423,6 +423,7 @@ message RemoteAnalysisCaching {
     PROJECT_FILE_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
     INCOMPATIBLE_OPTIONS = 3 [(metadata) = { exit_code: 2 }];
     INVALID_SERVER_ADDRESS = 4 [(metadata) = { exit_code: 2 }];
+    CANNOT_OPEN_LOG_FILE = 5 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

@@ -161,14 +161,11 @@ fi
   base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
-  case "${PLATFORM}" in
-    darwin)
-      ts="$(stat -f %m ${base_external_path}/male)"
-      ;;
-    *)
-      ts="$(stat -c %Y ${base_external_path}/male)"
-      ;;
-  esac
+  if is_darwin; then
+    ts="$(stat -f %m ${base_external_path}/male)"
+  else
+    ts="$(stat -c %Y ${base_external_path}/male)"
+  fi
   assert_equals "1078100502" "$ts"
 }
 
@@ -2586,6 +2583,8 @@ EOF
 
   touch $test_repo1/REPO.bazel
   cat > $test_repo1/a/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 
 java_library(
@@ -2939,11 +2938,13 @@ local_repository(
   path="other_repo",
 )
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p other_repo/external/java/a
   touch other_repo/REPO.bazel
 
   cat > other_repo/external/java/a/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name='a', srcs=['A.java'])
 EOF
 
@@ -2967,11 +2968,13 @@ local_repository(
   path="other_repo",
 )
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p other_repo/external/java/a
   touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name='a', srcs=['external/java/a/A.java'])
 EOF
 

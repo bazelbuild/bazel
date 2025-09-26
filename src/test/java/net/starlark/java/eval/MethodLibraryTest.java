@@ -129,7 +129,8 @@ public final class MethodLibraryTest {
             "Traceback (most recent call last):", //
             "\tFile \"\", line 1, column 4, in <toplevel>",
             "\t\tlen(1)",
-            "Error in len: int is not iterable"));
+            "Error in len: in call to len(), parameter 'x' got value of type 'int', want 'iterable"
+                + " or string'"));
 
     // in a function
     checkEvalErrorStack(
@@ -143,7 +144,8 @@ public final class MethodLibraryTest {
             "\t\tf()",
             "\tFile \"\", line 2, column 6, in f",
             "\t\tlen(1)",
-            "Error in len: int is not iterable"));
+            "Error in len: in call to len(), parameter 'x' got value of type 'int', want 'iterable"
+                + " or string'"));
   }
 
   @Test
@@ -635,7 +637,7 @@ public final class MethodLibraryTest {
 
   @Test
   public void testLenOnBadType() throws Exception {
-    ev.new Scenario().testIfErrorContains("int is not iterable", "len(1)");
+    ev.new Scenario().testIfErrorContains("want 'iterable or string'", "len(1)");
   }
 
   @Test

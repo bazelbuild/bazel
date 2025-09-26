@@ -45,12 +45,15 @@ import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRuleInput;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import com.google.protobuf.Parser;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -61,6 +64,7 @@ import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test for cquery's proto output format.
@@ -68,6 +72,7 @@ import org.junit.Test;
  * <p>TODO(blaze-configurability): refactor all cquery output format tests to consolidate duplicate
  * infrastructure.
  */
+@RunWith(TestParameterInjector.class)
 public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest {
 
   private CqueryOptions options;
@@ -331,6 +336,89 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         transitionRuleProto.getTarget().getRule().getConfiguredRuleInputList();
     assertThat(configuredRuleInputs)
         .containsAtLeast(patchedConfiguredRuleInput, depConfiguredRuleInput);
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // only use for tests
+  @TestParameters({
+    "{bepCpuFromPlatform: False, platformToCpuMap: '', platformName: 'cpu_val'}",
+    "{bepCpuFromPlatform: False, platformToCpuMap: 'new_cpu_name', platformName: 'cpu_val'}",
+    "{bepCpuFromPlatform: True, platformToCpuMap: '', platformName: 'x86_64'}",
+    "{bepCpuFromPlatform: True, platformToCpuMap: 'new_cpu_name', platformName: 'new_cpu_name'}",
+  })
+  public void testConfigurationCPU(
+      String bepCpuFromPlatform, String platformToCpuMap, String platformName) throws Exception {
+    options.transitions = Transitions.NONE;
+
+    List<String> args = new ArrayList<>();
+    args.add("--cpu=cpu_val");
+    args.add("--host_cpu=cpu_val");
+    args.add("--platforms=" + TestConstants.PLATFORM_LABEL);
+    args.add("--host_platform=" + TestConstants.PLATFORM_LABEL);
+    args.add("--incompatible_bep_cpu_from_platform=" + bepCpuFromPlatform);
+    if (!platformToCpuMap.isEmpty()) {
+      args.add(
+          "--experimental_override_platform_cpu_name="
+              + TestConstants.PLATFORM_LABEL
+              + "="
+              + platformToCpuMap);
+    }
+    getHelper().useConfiguration(args.toArray(new String[0]));
+
+    writeFile(
+        "test/defs.bzl",
+        """
+        def _my_rule_impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            attrs = {'dep': attr.label(cfg = "exec")},
+        )
+        """);
+    writeFile(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        my_rule(name = "my_rule", dep = ":dep")
+        my_rule(name = "dep")
+        """);
+
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getProtoOutput("deps(//test:my_rule)", AnalysisProtosV2.CqueryResult.parser());
+    List<Configuration> configurations = cqueryResult.getConfigurationsList();
+    List<AnalysisProtosV2.ConfiguredTarget> resultsList = cqueryResult.getResultsList();
+
+    AnalysisProtosV2.ConfiguredTarget myRuleProto =
+        getRuleProtoByName(resultsList, "//test:my_rule");
+    Configuration ruleConfiguration =
+        getConfigurationForId(configurations, myRuleProto.getConfigurationId());
+    assertThat(ruleConfiguration.getChecksum())
+        .isEqualTo(myRuleProto.getConfiguration().getChecksum());
+    assertThat(ruleConfiguration)
+        .ignoringFieldDescriptors(
+            Configuration.getDescriptor().findFieldByName("checksum"),
+            Configuration.getDescriptor().findFieldByName("mnemonic"),
+            Configuration.getDescriptor().findFieldByName("id"),
+            Configuration.getDescriptor().findFieldByName("fragments"),
+            Configuration.getDescriptor().findFieldByName("fragment_options"))
+        .isEqualTo(
+            Configuration.newBuilder().setPlatformName(platformName).setIsTool(false).build());
+
+    AnalysisProtosV2.ConfiguredTarget depRuleProto = getRuleProtoByName(resultsList, "//test:dep");
+    Configuration depConfiguration =
+        getConfigurationForId(configurations, depRuleProto.getConfigurationId());
+    assertThat(depConfiguration.getChecksum())
+        .isEqualTo(depRuleProto.getConfiguration().getChecksum());
+    assertThat(depConfiguration)
+        .ignoringFieldDescriptors(
+            Configuration.getDescriptor().findFieldByName("checksum"),
+            Configuration.getDescriptor().findFieldByName("mnemonic"),
+            Configuration.getDescriptor().findFieldByName("id"),
+            Configuration.getDescriptor().findFieldByName("fragments"),
+            Configuration.getDescriptor().findFieldByName("fragment_options"))
+        .isEqualTo(
+            Configuration.newBuilder().setPlatformName(platformName).setIsTool(true).build());
   }
 
   @Test

@@ -112,10 +112,10 @@ public class LcovPrinterTest {
   @Test
   public void testPrintBrdaLines() throws Exception {
     SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
-    sourceFile.addNewBranch(3, "0", "0", true, 1);
-    sourceFile.addNewBranch(3, "0", "1", true, 0);
-    sourceFile.addNewBranch(7, "0", "0", false, 0);
-    sourceFile.addNewBranch(7, "0", "1", false, 0);
+    sourceFile.addBranch(3, "0", "0", true, 1);
+    sourceFile.addBranch(3, "0", "1", true, 0);
+    sourceFile.addBranch(7, "0", "0", false, 0);
+    sourceFile.addBranch(7, "0", "1", false, 0);
     Coverage coverage = new Coverage();
     coverage.add(sourceFile);
 
@@ -144,10 +144,10 @@ public class LcovPrinterTest {
   public void testPrintBaLines() throws Exception {
     Coverage coverage = new Coverage();
     SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
-    sourceFile.addNewBranch(3, "0", "0", true, 1);
-    sourceFile.addNewBranch(3, "0", "1", true, 0);
-    sourceFile.addNewBranch(7, "0", "0", false, 0);
-    sourceFile.addNewBranch(7, "0", "1", false, 0);
+    sourceFile.addBranch(3, "0", "0", true, 1);
+    sourceFile.addBranch(3, "0", "1", true, 0);
+    sourceFile.addBranch(7, "0", "0", false, 0);
+    sourceFile.addBranch(7, "0", "1", false, 0);
     coverage.add(sourceFile);
 
     ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();

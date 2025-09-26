@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -28,6 +29,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -52,14 +54,15 @@ public class CommandTest {
   }
 
   @Test
+  @SuppressWarnings("JdkImmutableCollections") // ImmutableList is null-hostile
   public void testIllegalArgs() throws Exception {
     assertThrows(NullPointerException.class, () -> new Command(null, ImmutableMap.of()));
 
     assertThrows(
         NullPointerException.class,
-        () -> new Command(new String[] {"/bin/true", null}, ImmutableMap.of()).execute());
+        () -> new Command(List.of("/bin/true", null), ImmutableMap.of()).execute());
 
-    Command r = new Command(new String[] {"foo"}, ImmutableMap.of());
+    Command r = new Command(ImmutableList.of("foo"), ImmutableMap.of());
     assertThrows(
         NullPointerException.class,
         () -> r.executeAsync((InputStream) null, Command.KILL_SUBPROCESS_ON_INTERRUPT).get());
@@ -69,9 +72,9 @@ public class CommandTest {
   public void testGetters() {
     File workingDir = new File(".");
     Map<String, String> env = Collections.singletonMap("foo", "bar");
-    String[] commandArgs = new String[] {"command"};
-    Command command = new Command(commandArgs, env, workingDir, ImmutableMap.of());
-    assertThat(command.getArguments()).containsExactlyElementsIn(commandArgs);
+    ImmutableList<String> args = ImmutableList.of("command");
+    Command command = new Command(args, env, workingDir, ImmutableMap.of());
+    assertThat(command.getArguments()).containsExactlyElementsIn(args);
     for (String key : env.keySet()) {
       assertThat(command.getEnvironment()).containsEntry(key, env.get(key));
     }
@@ -82,7 +85,7 @@ public class CommandTest {
 
   @Test
   public void testSimpleCommand() throws Exception {
-    Command command = new Command(new String[] {"ls"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("ls"), ImmutableMap.of());
     CommandResult result = command.execute();
     assertThat(result.terminationStatus().success()).isTrue();
     assertThat(result.getStderr()).isEmpty();
@@ -91,7 +94,7 @@ public class CommandTest {
 
   @Test
   public void testArguments() throws Exception {
-    Command command = new Command(new String[] {"echo", "foo"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("echo", "foo"), ImmutableMap.of());
     checkSuccess(command.execute(), "foo\n");
   }
 
@@ -100,7 +103,7 @@ public class CommandTest {
     ImmutableMap<String, String> env = ImmutableMap.of("FOO", "abc", "BAR", "def");
     Command command =
         new Command(
-            new String[] {"/bin/sh", "-c", "echo $FOO $BAR"},
+            ImmutableList.of("/bin/sh", "-c", "echo $FOO $BAR"),
             env,
             null,
             ImmutableMap.of("FOO", "not abc", "BAR", "not def"));
@@ -111,7 +114,7 @@ public class CommandTest {
   public void testEmptyEnvironment() throws Exception {
     Command command =
         new Command(
-            new String[] {"/bin/sh", "-c", "echo $TZ"},
+            ImmutableList.of("/bin/sh", "-c", "echo $TZ"),
             ImmutableMap.of(),
             null,
             ImmutableMap.of("TZ", "not empty"));
@@ -122,7 +125,7 @@ public class CommandTest {
   public void testInheritedEnvironment() throws Exception {
     Command command =
         new Command(
-            new String[] {"/bin/sh", "-c", "echo $TZ"},
+            ImmutableList.of("/bin/sh", "-c", "echo $TZ"),
             null,
             null,
             ImmutableMap.of("TZ", "not empty"));
@@ -131,13 +134,13 @@ public class CommandTest {
 
   @Test
   public void testWorkingDir() throws Exception {
-    Command command = new Command(new String[] {"pwd"}, null, new File("/"), ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("pwd"), null, new File("/"), ImmutableMap.of());
     checkSuccess(command.execute(), "/\n");
   }
 
   @Test
   public void testStdin() throws Exception {
-    Command command = new Command(new String[] {"grep", "bar"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("grep", "bar"), ImmutableMap.of());
     InputStream in = new ByteArrayInputStream("foobarbaz".getBytes());
     checkSuccess(
         command.executeAsync(in, Command.KILL_SUBPROCESS_ON_INTERRUPT).get(), "foobarbaz\n");
@@ -146,7 +149,7 @@ public class CommandTest {
   @Test
   public void testRawCommand() throws Exception {
     Command command =
-        new Command(new String[] {"perl", "-e", "print 'a'x100000"}, ImmutableMap.of());
+        new Command(ImmutableList.of("perl", "-e", "print 'a'x100000"), ImmutableMap.of());
     CommandResult result = command.execute();
     assertThat(result.terminationStatus().success()).isTrue();
     assertThat(result.getStderr()).isEmpty();
@@ -155,7 +158,7 @@ public class CommandTest {
 
   @Test
   public void testRawCommandWithDir() throws Exception {
-    Command command = new Command(new String[] {"pwd"}, null, new File("/"), ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("pwd"), null, new File("/"), ImmutableMap.of());
     CommandResult result = command.execute();
     checkSuccess(result, "/\n");
   }
@@ -163,7 +166,7 @@ public class CommandTest {
   @Test
   public void testHugeOutput() throws Exception {
     Command command =
-        new Command(new String[] {"perl", "-e", "print 'a'x100000"}, ImmutableMap.of());
+        new Command(ImmutableList.of("perl", "-e", "print 'a'x100000"), ImmutableMap.of());
     CommandResult result = command.execute();
     assertThat(result.terminationStatus().success()).isTrue();
     assertThat(result.getStderr()).isEmpty();
@@ -172,7 +175,7 @@ public class CommandTest {
 
   @Test
   public void testNoStreamingInputForCat() throws Exception {
-    Command command = new Command(new String[] {"/bin/cat"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("/bin/cat"), ImmutableMap.of());
     ByteArrayInputStream emptyInput = new ByteArrayInputStream(new byte[0]);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
@@ -185,7 +188,7 @@ public class CommandTest {
 
   @Test
   public void testNoInputForCat() throws Exception {
-    Command command = new Command(new String[] {"/bin/cat"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("/bin/cat"), ImmutableMap.of());
     CommandResult result = command.execute();
     assertThat(result.terminationStatus().success()).isTrue();
     assertThat(new String(result.getStdout(), "UTF-8")).isEmpty();
@@ -195,7 +198,7 @@ public class CommandTest {
   @Test
   public void testProvidedOutputStreamCapturesHelloWorld() throws Exception {
     String helloWorld = "Hello, world.";
-    Command command = new Command(new String[] {"/bin/echo", helloWorld}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("/bin/echo", helloWorld), ImmutableMap.of());
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
     command.execute(stdOut, stdErr);
@@ -208,7 +211,7 @@ public class CommandTest {
     File tempFile = File.createTempFile("googlecron-test", "tmp");
     tempFile.delete();
     Command command =
-        new Command(new String[] {"touch", tempFile.getAbsolutePath()}, ImmutableMap.of());
+        new Command(ImmutableList.of("touch", tempFile.getAbsolutePath()), ImmutableMap.of());
     FutureCommandResult result = command.executeAsync();
     result.get();
     assertThat(tempFile.exists()).isTrue();
@@ -219,7 +222,7 @@ public class CommandTest {
   @Test
   public void testAsynchronousWithOutputStreams() throws Exception {
     String helloWorld = "Hello, world.";
-    Command command = new Command(new String[] {"/bin/echo", helloWorld}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("/bin/echo", helloWorld), ImmutableMap.of());
     ByteArrayInputStream emptyInput = new ByteArrayInputStream(new byte[0]);
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
@@ -235,7 +238,7 @@ public class CommandTest {
     // Sleep for 3 seconds, but timeout after 1 second.
     Command command =
         new Command(
-            new String[] {"sleep", "3"}, null, null, Duration.ofSeconds(1), ImmutableMap.of());
+            ImmutableList.of("sleep", "3"), null, null, Duration.ofSeconds(1), ImmutableMap.of());
     AbnormalTerminationException ate =
         assertThrows(AbnormalTerminationException.class, () -> command.execute());
     checkCommandElements(ate, "sleep", "3");
@@ -245,21 +248,21 @@ public class CommandTest {
   @Test
   public void testTimeoutDoesntFire() throws Exception {
     Command command =
-        new Command(new String[] {"cat"}, null, null, Duration.ofSeconds(2), ImmutableMap.of());
+        new Command(ImmutableList.of("cat"), null, null, Duration.ofSeconds(2), ImmutableMap.of());
     InputStream in = new ByteArrayInputStream(new byte[] {'H', 'i', '!'});
     command.executeAsync(in, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
   }
 
   @Test
   public void testCommandDoesNotExist() throws Exception {
-    Command command = new Command(new String[] {"thisisnotreal"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("thisisnotreal"), ImmutableMap.of());
     ExecFailedException e = assertThrows(ExecFailedException.class, () -> command.execute());
     checkCommandElements(e, "thisisnotreal");
   }
 
   @Test
   public void testNoSuchCommand() throws Exception {
-    final Command command = new Command(new String[] {"thisisnotreal"}, ImmutableMap.of());
+    final Command command = new Command(ImmutableList.of("thisisnotreal"), ImmutableMap.of());
     assertThrows(ExecFailedException.class, () -> command.execute());
   }
 
@@ -267,7 +270,7 @@ public class CommandTest {
   public void testExitCodes() throws Exception {
     // 0 => success
     {
-      String[] args = {"/bin/sh", "-c", "exit 0"};
+      ImmutableList<String> args = ImmutableList.of("/bin/sh", "-c", "exit 0");
       CommandResult result = new Command(args, ImmutableMap.of()).execute();
       TerminationStatus status = result.terminationStatus();
       assertThat(status.success()).isTrue();
@@ -278,7 +281,7 @@ public class CommandTest {
     // Every exit value in range [1-255] is reported as such (except [129-191],
     // which map to signals).
     for (int exit : new int[] {1, 2, 3, 127, 128, 192, 255}) {
-      String[] args = {"/bin/sh", "-c", "exit " + exit};
+      ImmutableList<String> args = ImmutableList.of("/bin/sh", "-c", "exit " + exit);
       BadExitStatusException e =
           assertThrows(
               "Should have exited with status " + exit,
@@ -296,7 +299,7 @@ public class CommandTest {
     // negative exit values are modulo 256:
     for (int exit : new int[] {-1, -2, -3}) {
       int expected = 256 + exit;
-      String[] args = {"/bin/bash", "-c", "exit " + exit};
+      ImmutableList<String> args = ImmutableList.of("/bin/bash", "-c", "exit " + exit);
       BadExitStatusException e =
           assertThrows(
               "Should have exited with status " + expected,
@@ -323,7 +326,7 @@ public class CommandTest {
               + "/"
               + TestConstants.JAVATESTS_ROOT
               + "/com/google/devtools/build/lib/shell/killmyself";
-      String[] args = {killmyself, "" + signal};
+      ImmutableList<String> args = ImmutableList.of(killmyself, "" + signal);
       AbnormalTerminationException e =
           assertThrows(
               "Expected signal " + signal,
@@ -357,7 +360,7 @@ public class CommandTest {
   @Test
   public void testOnlyReadsPartialInput() throws Exception {
     // -c == --bytes, but -c also works on Darwin.
-    Command command = new Command(new String[] {"head", "-c", "500"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("head", "-c", "500"), ImmutableMap.of());
     OutputStream out = new ByteArrayOutputStream();
     InputStream in =
         new InputStream() {
@@ -378,7 +381,7 @@ public class CommandTest {
     final Command command =
         new Command(
             // On darwin, /bin/sh does not support -n for the echo builtin.
-            new String[] {"/bin/bash", "-c", "echo -n Foo; sleep 0.1; echo Bar"},
+            ImmutableList.of("/bin/bash", "-c", "echo -n Foo; sleep 0.1; echo Bar"),
             ImmutableMap.of());
     // We run this command, passing in a special output stream that records when each flush()
     // occurs. We test that a flush occurs after writing "Foo" and that another flush occurs after
@@ -418,7 +421,7 @@ public class CommandTest {
             throw new IOException();
           }
         };
-    Command command = new Command(new String[] {"/bin/echo", "foo"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("/bin/echo", "foo"), ImmutableMap.of());
     AbnormalTerminationException e =
         assertThrows(AbnormalTerminationException.class, () -> command.execute(out, out));
     checkCommandElements(e, "/bin/echo", "foo");
@@ -434,7 +437,7 @@ public class CommandTest {
             throw new IOException();
           }
         };
-    Command command = new Command(new String[] {"cat", "/dev/thisisnotreal"}, ImmutableMap.of());
+    Command command = new Command(ImmutableList.of("cat", "/dev/thisisnotreal"), ImmutableMap.of());
     AbnormalTerminationException e =
         assertThrows(AbnormalTerminationException.class, () -> command.execute(out, out));
     checkCommandElements(e, "cat", "/dev/thisisnotreal");
@@ -469,7 +472,7 @@ public class CommandTest {
   public void testRelativePath() throws Exception {
     Command command =
         new Command(
-            new String[] {"relative/path/to/binary"},
+            ImmutableList.of("relative/path/to/binary"),
             ImmutableMap.of(),
             new File("/working/directory"),
             ImmutableMap.of());

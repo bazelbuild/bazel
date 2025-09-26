@@ -248,8 +248,14 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
   @Test
   public void testConfigurationErrorsAreToleratedWithKeepGoing() throws Exception {
     runtimeWrapper.addOptions("--experimental_builtins_injection_override=+cc_library");
-    write("a/BUILD", "cc_library(name='a', srcs=['missing.foo'])");
-    write("b/BUILD", "cc_library(name='b')");
+    write(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a', srcs=['missing.foo'])");
+    write(
+        "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='b')");
 
     /**
      * Regression coverage for bug 1191396: "blaze build -k exits zero if execution succeeds, even
@@ -267,8 +273,14 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
 
   @Test
   public void testKeepGoingAfterLoadingPhaseErrors() throws Exception {
-    write("a/BUILD", "cc_library(name='a')");
-    write("b/BUILD", "cc_library(name='b', deps = ['//missing:lib'])");
+    write(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a')");
+    write(
+        "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='b', deps = ['//missing:lib'])");
 
     assertBuildFailedExceptionFromBuilding(
         "command succeeded, but not all targets were analyzed", "//a", "//b"); //
@@ -280,10 +292,22 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
 
   @Test
   public void testKeepGoingAfterTargetParsingErrors() throws Exception {
-    write("a/BUILD", "cc_library(name='a', xyz)");
-    write("b/BUILD", "cc_library(name='b', xyz)");
-    write("b/b1/BUILD", "cc_library(name='b1')");
-    write("b/b2/BUILD", "cc_library(name='b2', xyz)");
+    write(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a', xyz)");
+    write(
+        "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='b', xyz)");
+    write(
+        "b/b1/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='b1')");
+    write(
+        "b/b2/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='b2', xyz)");
 
     assertBuildFailedExceptionFromBuilding(
         "command succeeded, but there were errors parsing the target pattern", "b/...", "//a");
@@ -298,6 +322,8 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             srcs = [
@@ -341,6 +367,7 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
     write(
         "analysiserror/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":failer.bzl", "failer")
 
         genrule(

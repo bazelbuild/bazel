@@ -121,6 +121,9 @@ public class BuildConfigurationValue
   private final BuildOptions buildOptions;
   private final CoreOptions options;
 
+  /** The cpu value based on the platform the configuration is built for. */
+  private final String platformCpu;
+
   /**
    * If non-empty, this is appended to output directories as ST-[transitionDirectoryNameFragment].
    * The value is a hash of BuildOptions that have been affected by a Starlark transition.
@@ -192,7 +195,7 @@ public class BuildConfigurationValue
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       boolean siblingRepositoryLayout,
-      String targetCpu,
+      String platformCpu,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -213,7 +216,7 @@ public class BuildConfigurationValue
         buildOptions,
         mnemonic,
         siblingRepositoryLayout,
-        targetCpu,
+        platformCpu,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -273,7 +276,7 @@ public class BuildConfigurationValue
       BuildOptions buildOptions,
       String mnemonic,
       boolean siblingRepositoryLayout,
-      String targetCpu,
+      String platformCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
       BlazeDirectories directories,
@@ -310,12 +313,14 @@ public class BuildConfigurationValue
         BuildOptionDetails.forOptions(
             buildOptions.getNativeOptions(), buildOptions.getStarlarkOptions());
 
+    this.platformCpu = platformCpu;
+
     // These should be documented in the build encyclopedia.
     // TODO(configurability-team): Deprecate TARGET_CPU in favor of platforms.
     globalMakeEnv =
         ImmutableMap.of(
             "TARGET_CPU",
-            targetCpu,
+            options.incompatibleTargetCpuFromPlatform ? platformCpu : options.cpu,
             "COMPILATION_MODE",
             options.compilationMode.toString(),
             "BINDIR",
@@ -656,8 +661,8 @@ public class BuildConfigurationValue
     return outputDirectories.getDirectories();
   }
 
-  public String targetCpu() {
-    return this.globalMakeEnv.get("TARGET_CPU");
+  public String platformCpu() {
+    return platformCpu;
   }
 
   /** Returns true if non-functional build stamps are enabled. */
@@ -753,6 +758,10 @@ public class BuildConfigurationValue
     return options.checkVisibility;
   }
 
+  public boolean enforceTransitiveVisibility() {
+    return options.enforceTransitiveVisibility;
+  }
+
   public boolean verboseVisibilityErrors() {
     return options.verboseVisibilityErrors;
   }
@@ -785,23 +794,12 @@ public class BuildConfigurationValue
     return options.actionListeners;
   }
 
-  /**
-   * <b>>Experimental feature:</b> if true, qualifying outputs use path prefixes based on their
-   * content instead of the traditional <code>blaze-out/$CPU-$COMPILATION_MODE</code>.
-   *
-   * <p>This promises both more intrinsic correctness (outputs with different contents can't write
-   * to the same path) and efficiency (outputs with the <i>same</i> contents share the same path and
-   * therefore permit better action caching). But it's highly experimental and should not be relied
-   * on in any serious way any time soon.
-   *
-   * <p>See <a href="https://github.com/bazelbuild/bazel/issues/6526">#6526</a> for details.
-   */
-  public boolean useContentBasedOutputPaths() {
-    return options.outputPathsMode == CoreOptions.OutputPathsMode.CONTENT;
-  }
-
   public boolean allowUnresolvedSymlinks() {
     return options.allowUnresolvedSymlinks;
+  }
+
+  public boolean allowMapDirectory() {
+    return options.allowMapDirectory;
   }
 
   /** Returns compilation mode. */
@@ -962,6 +960,10 @@ public class BuildConfigurationValue
   }
 
   private BuildConfigurationEvent createBuildEvent() {
+    String cpu = getCpu();
+    if (options.incompatibleBepCpuFromPlatform) {
+      cpu = platformCpu;
+    }
     BuildEventId eventId = getEventId();
     BuildEventStreamProtos.BuildEvent.Builder builder =
         BuildEventStreamProtos.BuildEvent.newBuilder();
@@ -970,9 +972,9 @@ public class BuildConfigurationValue
         .setConfiguration(
             BuildEventStreamProtos.Configuration.newBuilder()
                 .setMnemonic(getMnemonic())
-                .setPlatformName(getCpu())
+                .setPlatformName(cpu)
                 .putAllMakeVariable(getMakeEnvironment())
-                .setCpu(getCpu())
+                .setCpu(cpu)
                 .setIsTool(isToolConfiguration())
                 .build());
     return new BuildConfigurationEvent(eventId, builder.build());

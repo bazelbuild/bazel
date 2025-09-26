@@ -747,9 +747,7 @@ The set of toolchains to be used for a configured target is determined by
 *   The set of toolchain types that are required by the configured target (in
     `UnloadedToolchainContextKey)`
 *   The set of execution platform constraints of the configured target (the
-    `exec_compatible_with` attribute) and the configuration
-    (`--experimental_add_exec_constraints_to_targets`), in
-    `UnloadedToolchainContextKey`
+    `exec_compatible_with` attribute), in `UnloadedToolchainContextKey`
 
 Its result is an `UnloadedToolchainContext`, which is essentially a map from
 toolchain type (represented as a `ToolchainTypeInfo` instance) to the label of
@@ -922,11 +920,10 @@ built). Derived artifacts can themselves be multiple kinds:
     to do a rebuild just because the current time changed.
 
 There is no fundamental reason why source artifacts cannot be tree artifacts or
-unresolved symlink artifacts, it's just that we haven't implemented it yet (we
-should, though -- referencing a source directory in a `BUILD` file is one of the
-few known long-standing incorrectness issues with Bazel; we have an
-implementation that kind of works which is enabled by the
-`BAZEL_TRACK_SOURCE_DIRECTORIES=1` JVM property)
+unresolved symlink artifacts; it's just that we haven't implemented it yet. At
+the moment, source symlinks are always resolved, and while source directories
+are supported, their contents are entirely opaque to build rules and thus don't
+support the same kind of lazy command line expansion as tree artifacts do.
 
 Actions are best understood as a command that needs to be run, the environment
 it needs and the set of outputs it produces. The following things are the main

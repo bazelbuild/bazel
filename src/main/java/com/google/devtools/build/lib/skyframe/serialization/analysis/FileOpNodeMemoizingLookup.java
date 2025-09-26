@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
+import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -31,12 +33,12 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNod
 import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * Computes a mapping from {@link ActionLookupKey}s to {@link FileOpNodeOrFuture}s, representing the
@@ -109,7 +111,12 @@ final class FileOpNodeMemoizingLookup {
   }
 
   private void accumulateTransitiveFileSystemOperations(SkyKey key, FileOpNodeCollector collector) {
-    for (SkyKey dep : checkNotNull(graph.getIfPresent(key), key).getDirectDeps()) {
+    InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+    if (nodeEntry == null) {
+      collector.failWith(new MissingSkyframeEntryException(key));
+      return;
+    }
+    for (SkyKey dep : nodeEntry.getDirectDeps()) {
       switch (dep) {
         case FileOpNode immediateNode:
           collector.addNode(immediateNode);
@@ -123,7 +130,11 @@ final class FileOpNodeMemoizingLookup {
 
   private void addNodeForKey(SkyKey key, FileOpNodeCollector collector) {
     if (key instanceof ActionLookupKey actionLookupKey) {
-      var nodeEntry = checkNotNull(graph.getIfPresent(key), key);
+      InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+      if (nodeEntry == null) {
+        collector.failWith(new MissingSkyframeEntryException(key));
+        return;
+      }
       // If the corresponding value is an InputFileConfiguredTarget, it indicates an execution time
       // file dependency.
       if ((checkNotNull(nodeEntry.getValue(), actionLookupKey)
@@ -165,6 +176,10 @@ final class FileOpNodeMemoizingLookup {
     private final Set<FileOpNode> nodes = ConcurrentHashMap.newKeySet();
     private final HashSet<FileKey> sourceFiles = new HashSet<>();
 
+    private FileOpNodeCollector() {
+      super(directExecutor());
+    }
+
     @Override
     protected FileOpNodeOrEmpty getValue() {
       return AbstractNestedFileOpNodes.from(nodes, sourceFiles);
@@ -183,12 +198,15 @@ final class FileOpNodeMemoizingLookup {
       // There is a graph made of futures that parallels the Skyframe dependency graph. Therefore,
       // it's a bad idea to use directExecutor() here because the amount of work that the
       // the completion of the future unblocks can be quite large.
-      Futures.addCallback(
-          future, (FutureCallback<FileOpNodeOrEmpty>) this, ForkJoinPool.commonPool());
+      Futures.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this, commonPool());
     }
 
     private void notifyAllFuturesAdded() {
       decrement();
+    }
+
+    private void failWith(MissingSkyframeEntryException e) {
+      notifyException(e);
     }
 
     /**

@@ -189,7 +189,6 @@ java_library(
         ":skyfocus_state",
         ":skyframe_action_executor",
         ":skyframe_error_processor",
-        ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
         ":skyframe_input_metadata_provider",
         ":skyframe_stats",
@@ -326,7 +325,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages:globber_utils",
         "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages:starlark_exportable",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
@@ -336,7 +337,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
         "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/repository:external_package_helper",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
@@ -347,11 +347,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:rewindable_graph_inconsistency_receiver",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:options",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_server_state",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_function",
@@ -459,6 +460,7 @@ java_library(
     srcs = ["ActionExecutionInactivityWatchdog.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:guava",
     ],
 )
@@ -492,7 +494,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:cpp_interface",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:deserialized-sky-value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -598,6 +602,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
@@ -703,8 +709,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:depend_on_future_shim",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:deserialized-sky-value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )
 
@@ -1280,7 +1290,7 @@ java_library(
         ":bzl_load_value",
         ":project_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
@@ -1416,7 +1426,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -1462,9 +1471,13 @@ java_library(
 
 java_library(
     name = "dirents",
-    srcs = ["Dirents.java"],
+    srcs = [
+        "CompactSortedDirents.java",
+        "Dirents.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -1698,6 +1711,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
@@ -1707,6 +1721,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1991,6 +2006,8 @@ java_library(
     name = "default_syscall_cache",
     srcs = ["DefaultSyscallCache.java"],
     deps = [
+        ":dirents",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:caffeine",
@@ -2041,6 +2058,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -2612,12 +2630,6 @@ java_library(
 )
 
 java_library(
-    name = "skyframe_executor_repository_helpers_holder",
-    srcs = ["SkyframeExecutorRepositoryHelpersHolder.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker"],
-)
-
-java_library(
     name = "skyframe_incremental_build_monitor",
     srcs = ["SkyframeIncrementalBuildMonitor.java"],
     deps = [
@@ -3161,6 +3173,7 @@ java_library(
     name = "tree_artifact_value",
     srcs = [
         "TreeArtifactValue.java",
+        "TreeArtifactValueCodec.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
@@ -3169,6 +3182,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:has_digest",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:deserialized-sky-value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -3180,6 +3194,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -3258,6 +3273,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:deserialized-sky-value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:error_prone_annotations",

@@ -111,6 +111,7 @@ public class StarlarkTypesTest {
             Types.callable(
                     /* parameterNames= */ ImmutableList.of("a"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
+                    /* numPositionalOnlyParameters= */ 0,
                     /* numPositionalParameters= */ 1,
                     /* mandatoryParams= */ ImmutableSet.of("a"),
                     /* varargsType= */ null,
@@ -123,6 +124,7 @@ public class StarlarkTypesTest {
             Types.callable(
                     /* parameterNames= */ ImmutableList.of("a"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
+                    /* numPositionalOnlyParameters= */ 0,
                     /* numPositionalParameters= */ 0,
                     /* mandatoryParams= */ ImmutableSet.of("a"),
                     /* varargsType= */ null,
@@ -133,20 +135,22 @@ public class StarlarkTypesTest {
     // positional-only only
     assertThat(
             Types.callable(
-                    /* parameterNames= */ ImmutableList.of(),
+                    /* parameterNames= */ ImmutableList.of("x"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
+                    /* numPositionalOnlyParameters= */ 1,
                     /* numPositionalParameters= */ 0,
                     /* mandatoryParams= */ ImmutableSet.of(),
                     /* varargsType= */ null,
                     /* kwargsType= */ null,
                     Types.BOOL)
                 .toSignatureString())
-        .isEqualTo("(int, /) -> bool");
+        .isEqualTo("([int], /) -> bool");
     // no params
     assertThat(
             Types.callable(
                     /* parameterNames= */ ImmutableList.of(),
                     /* parameterTypes= */ ImmutableList.of(),
+                    /* numPositionalOnlyParameters= */ 0,
                     /* numPositionalParameters= */ 0,
                     /* mandatoryParams= */ ImmutableSet.of(),
                     /* varargsType= */ null,
@@ -157,11 +161,12 @@ public class StarlarkTypesTest {
     // all kinds of params
     assertThat(
             Types.callable(
-                    /* parameterNames= */ ImmutableList.of("a", "b", "c", "d"),
+                    /* parameterNames= */ ImmutableList.of("x", "a", "b", "c", "d"),
                     /* parameterTypes= */ ImmutableList.of(
                         Types.BOOL, Types.INT, Types.FLOAT, Types.NONE, Types.ANY),
+                    /* numPositionalOnlyParameters= */ 1,
                     /* numPositionalParameters= */ 3,
-                    /* mandatoryParams= */ ImmutableSet.of("a", "c"),
+                    /* mandatoryParams= */ ImmutableSet.of("a", "c", "x"),
                     /* varargsType= */ Types.INT,
                     /* kwargsType= */ Types.INT,
                     Types.BOOL)

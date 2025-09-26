@@ -25,8 +25,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
+import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -215,8 +218,8 @@ public class CompactPersistentActionCacheTest {
     assertFullSave();
 
     // Remove entries that discover inputs and flush the journal.
-    cache.removeIf(e -> e.discoversInputs());
-    assertIncrementalSave(cache);
+    cache.removeIf(Entry::discoversInputs);
+    assertFullSave();
 
     // Check that the entries that discover inputs are gone, and the rest are still there.
     for (int i = 0; i < 100; i++) {
@@ -292,7 +295,7 @@ public class CompactPersistentActionCacheTest {
 
     // Removing entries matching a predicate should not affect the timestamp of other entries.
     clock.advance(Duration.ofDays(100));
-    cache.removeIf(e -> e.discoversInputs());
+    cache.removeIf(Entry::discoversInputs);
 
     assertFullSave();
 
@@ -471,14 +474,14 @@ public class CompactPersistentActionCacheTest {
     assertThat(cache.size()).isEqualTo(301);
   }
 
-  private FileArtifactValue createLocalMetadata(Artifact artifact, String content)
+  private static FileArtifactValue createLocalMetadata(Artifact artifact, String content)
       throws IOException {
     artifact.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), content);
     return FileArtifactValue.createForTesting(artifact.getPath());
   }
 
-  private FileArtifactValue createRemoteMetadata(
+  private static FileArtifactValue createRemoteMetadata(
       Artifact artifact,
       String content,
       @Nullable Instant expirationTime,
@@ -501,16 +504,16 @@ public class CompactPersistentActionCacheTest {
     return metadata;
   }
 
-  private FileArtifactValue createRemoteMetadata(
+  private static FileArtifactValue createRemoteMetadata(
       Artifact artifact, String content, @Nullable PathFragment resolvedPath) {
     return createRemoteMetadata(artifact, content, /* expirationTime= */ null, resolvedPath);
   }
 
-  private FileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
+  private static FileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
     return createRemoteMetadata(artifact, content, /* resolvedPath= */ null);
   }
 
-  private TreeArtifactValue createTreeMetadata(
+  private static TreeArtifactValue createTreeMetadata(
       SpecialArtifact parent,
       ImmutableMap<String, FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue,
@@ -575,6 +578,20 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
+  public void putAndGet_savesProxyOutputs() throws Exception {
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    FileArtifactValue metadata =
+        new ProxyFileArtifactValue(createLocalMetadata(artifact, "content"), artifact.getPath());
+    var entry =
+        builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry);
+
+    entry = cache.get("key");
+
+    assertThat(entry.getProxyOutputs()).containsExactly(artifact.getExecPathString());
+  }
+
+  @Test
   public void putAndGet_ignoresLocalFileMetadata() throws IOException {
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata = createLocalMetadata(artifact, "content");
@@ -616,13 +633,11 @@ public class CompactPersistentActionCacheTest {
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
-            SerializableTreeArtifactValue.create(
+            new SerializableTreeArtifactValue(
                 ImmutableMap.of(
                     "file1",
                     createRemoteMetadata(
-                        Artifact.TreeFileArtifact.createTreeOutput(
-                            artifact, PathFragment.create("file1")),
-                        "content1")),
+                        TreeFileArtifact.createTreeOutput(artifact, "file1"), "content1")),
                 /* archivedFileValue= */ Optional.empty(),
                 /* resolvedPath= */ Optional.empty()));
   }
@@ -646,10 +661,10 @@ public class CompactPersistentActionCacheTest {
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
-            SerializableTreeArtifactValue.create(
-                ImmutableMap.of(),
-                Optional.of(createRemoteMetadata(artifact, "content")),
-                Optional.empty()));
+            new SerializableTreeArtifactValue(
+                /* childValues= */ ImmutableMap.of(),
+                /* archivedFileValue= */ Optional.of(createRemoteMetadata(artifact, "content")),
+                /* resolvedPath= */ Optional.empty()));
   }
 
   @Test
@@ -660,7 +675,7 @@ public class CompactPersistentActionCacheTest {
     TreeArtifactValue metadata =
         createTreeMetadata(
             artifact,
-            ImmutableMap.of(),
+            /* children= */ ImmutableMap.of(),
             Optional.of(
                 createLocalMetadata(
                     ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")),
@@ -671,7 +686,7 @@ public class CompactPersistentActionCacheTest {
 
     entry = cache.get("key");
 
-    assertThat(entry.getOutputTree(artifact)).isNull();
+    assertThat(entry.getOutputTree(artifact).archivedFileValue()).isEmpty();
   }
 
   @Test
@@ -695,8 +710,8 @@ public class CompactPersistentActionCacheTest {
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
-            SerializableTreeArtifactValue.create(
-                ImmutableMap.of(),
+            new SerializableTreeArtifactValue(
+                /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.empty(),
                 Optional.of(resolvedPath)));
   }
@@ -727,7 +742,7 @@ public class CompactPersistentActionCacheTest {
     putKey(key, cache, discoversInputs);
   }
 
-  private void putKey(String key, ActionCache actionCache, boolean discoversInputs) {
+  private static void putKey(String key, ActionCache actionCache, boolean discoversInputs) {
     var entry = builder(key, discoversInputs).build();
     actionCache.put(key, entry);
   }

@@ -46,7 +46,7 @@ def create_lto_backends(
         static_library_files.add(library_file)
         context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
         if context:
-            compiled.update(context.lto_bitcode_inputs().keys())
+            compiled.update(context.lto_bitcode_inputs.keys())
 
     all_bitcode = []
     # Since this link includes object files from another library, we know that library must be
@@ -65,7 +65,7 @@ def create_lto_backends(
                     all_bitcode.append(obj)
 
     for obj in object_file_inputs:
-        if obj in lto_compilation_context.lto_bitcode_inputs():
+        if obj in lto_compilation_context.lto_bitcode_inputs:
             all_bitcode.append(obj)
 
     if lto_output_root_prefix == lto_obj_root_prefix:
@@ -99,7 +99,6 @@ def create_lto_backends(
                     all_bitcode_files = all_bitcode_depset,
                     feature_configuration = feature_configuration,
                     cc_toolchain = cc_toolchain,
-                    fdo_context = cc_toolchain._fdo_context,  #TODO: remove
                     use_pic = use_pic,
                     should_create_per_object_debug_info = debug,
                     argv = backend_user_compile_flags,
@@ -111,9 +110,15 @@ def create_lto_backends(
                 lto_outputs.append(shared_lto_backends[obj])
 
     for obj in object_file_inputs:
-        if obj not in lto_compilation_context.lto_bitcode_inputs():
+        if obj not in lto_compilation_context.lto_bitcode_inputs:
             continue
         backend_user_compile_flags = _backend_user_compile_flags(cpp_config, obj, lto_compilation_context)
+        if not allow_lto_indexing:
+            # Depending on whether LTO indexing is allowed, generate an LTO backend
+            # that will be fed the results of the indexing step, or a dummy LTO backend
+            # that simply compiles the bitcode into native code without any index-based
+            # cross module optimization.
+            actions = cc_internal.wrap_link_actions(actions, None, True)
         lto_outputs.append(cc_common_internal.create_lto_backend_artifacts(
             actions = actions,
             lto_output_root_prefix = lto_output_root_prefix,
@@ -122,17 +127,15 @@ def create_lto_backends(
             all_bitcode_files = all_bitcode_depset if allow_lto_indexing else None,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
-            fdo_context = cc_toolchain._fdo_context,  #TODO: remove
             use_pic = use_pic,
             should_create_per_object_debug_info = debug,
-            create_shared_non_lto = not allow_lto_indexing,
             argv = backend_user_compile_flags,
         ))
     return lto_outputs
 
 def _backend_user_compile_flags(cpp_config, obj, context):
     argv = []
-    lto_bitcode_files = context.lto_bitcode_inputs()
+    lto_bitcode_files = context.lto_bitcode_inputs
     if obj in lto_bitcode_files:
         argv.extend(lto_bitcode_files[obj].copts)
     argv.extend(cpp_config.lto_backend_options)
@@ -161,22 +164,20 @@ def create_shared_non_lto_artifacts(
 
     shared_non_lto_backends = {}
     for obj in object_file_inputs:
-        if obj not in lto_compilation_context.lto_bitcode_inputs():
+        if obj not in lto_compilation_context.lto_bitcode_inputs:
             continue
 
         backend_user_compile_flags = _backend_user_compile_flags(cpp_config, obj, lto_compilation_context)
         shared_non_lto_backends[obj] = cc_common_internal.create_lto_backend_artifacts(
-            actions = actions,
+            actions = cc_internal.wrap_link_actions(actions, None, True),
             lto_output_root_prefix = lto_output_root_prefix,
             lto_obj_root_prefix = lto_obj_root_prefix,
             bitcode_file = obj,
             all_bitcode_files = None,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
-            fdo_context = cc_toolchain._fdo_context,  #TODO: remove
             use_pic = use_pic,
             should_create_per_object_debug_info = debug,
-            create_shared_non_lto = True,
             argv = backend_user_compile_flags,
         )
     return shared_non_lto_backends

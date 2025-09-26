@@ -37,6 +37,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             module_interfaces = ["foo.cppm"],
@@ -52,6 +53,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = 'bin',
             module_interfaces = ["foo.cppm"],
@@ -67,6 +69,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = 'test',
             module_interfaces = ["foo.cppm"],
@@ -82,6 +85,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             module_interfaces = ["foo.cppm"],
@@ -100,6 +104,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = 'bin',
             module_interfaces = ["foo.cppm"],
@@ -118,6 +123,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = 'test',
             module_interfaces = ["foo.cppm"],
@@ -136,6 +142,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             module_interfaces = ["foo.cppm"],
@@ -155,6 +162,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = 'bin',
             module_interfaces = ["foo.cppm"],
@@ -174,6 +182,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = 'test',
             module_interfaces = ["foo.cppm"],
@@ -193,6 +202,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(
           name = "a1",
           srcs = ["a.cppm"],
@@ -220,6 +230,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         filegroup(
           name = "a1",
           srcs = ["a.cppm"],
@@ -247,6 +258,7 @@ public class CppModulesConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         filegroup(
           name = "a1",
           srcs = ["a.cppm"],

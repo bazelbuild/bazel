@@ -362,6 +362,8 @@ public class BuildView {
     if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
       remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
           topLevelConfigurationTrimmedOfTestOptionsChecksum);
+      remoteAnalysisCachingDependenciesProvider.setTopLevelConfigMetadata(
+          getPatchedOptions(topLevelConfig.getOptions(), eventHandler));
     }
     skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
         remoteAnalysisCachingDependenciesProvider);
@@ -970,11 +972,14 @@ public class BuildView {
 
   public static String getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
       BuildOptions buildOptions, ExtendedEventHandler eventHandler) throws InterruptedException {
-    return TestTrimmingTransition.INSTANCE
-        .patch(
-            new BuildOptionsView(
-                buildOptions, TestTrimmingTransition.INSTANCE.requiresOptionFragments()),
-            eventHandler)
-        .checksum();
+    return getPatchedOptions(buildOptions, eventHandler).checksum();
+  }
+
+  private static BuildOptions getPatchedOptions(
+      BuildOptions buildOptions, ExtendedEventHandler eventHandler) throws InterruptedException {
+    return TestTrimmingTransition.INSTANCE.patch(
+        new BuildOptionsView(
+            buildOptions, TestTrimmingTransition.INSTANCE.requiresOptionFragments()),
+        eventHandler);
   }
 }

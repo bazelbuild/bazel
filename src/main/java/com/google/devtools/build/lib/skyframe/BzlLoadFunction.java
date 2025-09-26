@@ -886,7 +886,9 @@ public class BzlLoadFunction implements SkyFunction {
             repoMapping,
             prog.getFilename(),
             ImmutableList.copyOf(loadMap.values()),
-            transitiveDigest);
+            transitiveDigest,
+            prog.getDocCommentsMap(),
+            prog.getUnusedDocCommentLines());
 
     // Construct the initial Starlark module used for executing the program.
     // The set of keys in the predeclared environment matches the set of predeclareds used to

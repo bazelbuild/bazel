@@ -116,7 +116,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -136,7 +136,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/inner_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
         inner_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -230,7 +230,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -249,7 +249,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
-        cc_library(name = "unrelated")
+        filegroup(name = "unrelated")
         """);
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
@@ -272,7 +272,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
             # exceed max_computation_steps
             for i in range(1000):
                 pass
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
 
         my_macro = macro(implementation = _impl)
         """);
@@ -303,7 +303,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -324,7 +324,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -345,7 +345,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/my_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
             fail("fail fail fail")
         my_macro = macro(implementation = _impl)
         """);
@@ -392,12 +392,12 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/other_macro.bzl",
         """
         def _other_inner_macro_impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
         other_inner_macro = macro(implementation = _other_inner_macro_impl)
 
         def _other_macro_impl(name, visibility):
             other_inner_macro(name = name + "_c_inner", visibility = visibility)
-            native.cc_library(name = name + "_b", visibility = visibility)
+            native.filegroup(name = name + "_b", visibility = visibility)
             other_inner_macro(name = name + "_a_inner", visibility = visibility)
         other_macro = macro(implementation = _other_macro_impl)
         """);
@@ -408,8 +408,8 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         load(":other_macro.bzl", "other_macro")
         my_finalizer(name = "finalize")
         other_macro(name = "macro_declared")
-        cc_library(name = "a_top_level")
-        cc_library(name = "z_top_level")
+        filegroup(name = "a_top_level")
+        filegroup(name = "z_top_level")
         """);
     // getPackagePieceWithoutErrors("pkg", "finalize");
     PackagePiece.ForMacro finalizerPiece = getPackagePieceWithoutErrors("pkg", "finalize");
@@ -439,7 +439,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         )
 
         def _impl(name, visibility):
-            native.cc_library(name = name + "_dummy_rule")
+            native.filegroup(name = name + "_dummy_rule")
             _existing_rules_saver(name = name, existing_rules = list(native.existing_rules()))
         my_finalizer = macro(implementation = _impl, finalizer = True)
         """);
@@ -477,7 +477,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/fail_macro.bzl",
         """
         def _impl(name, visibility):
-            native.cc_library(name = name, visibility = visibility)
+            native.filegroup(name = name, visibility = visibility)
             fail("fail fail fail")
 
         fail_macro = macro(implementation = _impl)
@@ -488,7 +488,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         load(":fail_macro.bzl", "fail_macro")
         load(":my_finalizer.bzl", "my_finalizer")
         my_finalizer(name = "finalize")
-        cc_library(name = "top_level_rule")
+        filegroup(name = "top_level_rule")
         fail_macro(name = "failing_macro")
         """);
     reporter.removeHandler(failFastHandler);
@@ -530,7 +530,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         "pkg/name_conflict_macro.bzl",
         """
         def _impl(name, suffix, visibility):
-            native.cc_library(name = name + suffix, visibility = visibility)
+            native.filegroup(name = name + suffix, visibility = visibility)
 
         name_conflict_macro = macro(
             implementation = _impl,
@@ -543,7 +543,7 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         load(":my_finalizer.bzl", "my_finalizer")
         load(":name_conflict_macro.bzl", "name_conflict_macro")
         my_finalizer(name = "finalize")
-        cc_library(name = "top_level_rule")
+        filegroup(name = "top_level_rule")
         name_conflict_macro(name = "top", suffix = "_level_rule")
         """);
     reporter.removeHandler(failFastHandler);
@@ -553,8 +553,8 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
     assertThat(finalizerPiece.getFailureDetail().getMessage())
         .contains(
             "cannot compute package piece for finalizer macro //pkg:finalize defined by"
-                + " //pkg:my_finalizer.bzl%my_finalizer: cc_library rule 'top_level_rule' conflicts"
-                + " with existing cc_library rule");
+                + " //pkg:my_finalizer.bzl%my_finalizer: filegroup rule 'top_level_rule' conflicts"
+                + " with existing filegroup rule");
     // Note that individual non-finalizer package pieces are not in error - the conflict is in the
     // NonFinalizerPackagePiecesValue.
     getPackagePieceWithoutErrors("pkg", "top");
@@ -565,9 +565,9 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         \t\tname_conflict_macro(name = "top", suffix = "_level_rule")
         \tFile "/workspace/pkg/name_conflict_macro.bzl", line 4, column 1, in name_conflict_macro
         \t\tname_conflict_macro = macro(
-        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 2, column 22, in _impl
-        \t\tnative.cc_library(name = name + suffix, visibility = visibility)
-        Error: cc_library rule 'top_level_rule' conflicts with existing cc_library rule, defined at /workspace/pkg/BUILD:4:11\
+        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 2, column 21, in _impl
+        \t\tnative.filegroup(name = name + suffix, visibility = visibility)
+        Error: filegroup rule 'top_level_rule' conflicts with existing filegroup rule, defined at /workspace/pkg/BUILD:4:10\
         """,
         "cannot compute package piece for finalizer macro //pkg:finalize defined by"
             + " //pkg:my_finalizer.bzl%my_finalizer");

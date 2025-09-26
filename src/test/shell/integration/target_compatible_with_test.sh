@@ -43,21 +43,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function set_up() {
   add_platforms "MODULE.bazel"
   add_rules_shell "MODULE.bazel"
@@ -1107,6 +1092,7 @@ function test_incompatible_with_missing_toolchain() {
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'build_bazel_apple_support', path = 'build_bazel_apple_support')
 EOF
+  add_rules_cc "MODULE.bazel"
   mkdir -p build_bazel_apple_support/platforms
   touch build_bazel_apple_support/REPO.bazel
   cat > build_bazel_apple_support/platforms/BUILD <<'EOF'
@@ -1118,6 +1104,7 @@ platform(
 EOF
 
   cat >> target_skipping/BUILD <<'EOF'
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
 load(
     "//target_skipping/custom_tools:toolchain.bzl",
     "compiler_flag",
@@ -1258,7 +1245,7 @@ EOF
     --extra_execution_platforms= \
     //target_skipping:host_tool_message.txt &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
-  expect_log " ${PRODUCT_NAME}-bin/target_skipping/host_tool_message.txt$"
+  expect_log " \.\./${PRODUCT_NAME}-bin/target_skipping/host_tool_message.txt$"
   expect_log ' Build completed successfully, '
 
   # Make sure that the contents of the file are what we expect.
@@ -1347,7 +1334,7 @@ function test_query_no_tools() {
     'deps(//target_skipping:sh_foo1)' &> "${TEST_log}" \
     || fail "Bazel query failed unexpectedly."
 
-  if "$is_windows"; then
+  if is_windows; then
     sed -i 's/\r//g' "${TEST_log}"
   fi
 
@@ -1733,7 +1720,7 @@ EOF
     --host_platform=@//target_skipping:platform_foo2 \
     --platforms=@//target_skipping:platform_foo2 \
     //target_skipping:mytarget &> "${TEST_log}" || fail "Bazel failed unexpectedly."
-  expect_log " ${PRODUCT_NAME}-bin/target_skipping/mytarget.txt$"
+  expect_log " \.\./${PRODUCT_NAME}-bin/target_skipping/mytarget.txt$"
   expect_log 'Build completed successfully'
 }
 

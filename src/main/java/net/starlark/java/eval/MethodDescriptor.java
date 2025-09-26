@@ -14,7 +14,6 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.stream;
 
 import com.google.common.base.Preconditions;
@@ -27,6 +26,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
@@ -134,7 +134,7 @@ final class MethodDescriptor {
 
   private StarlarkType buildStarlarkType() {
     if (getAnnotation().structField()) {
-      StarlarkType returnType = TypeChecker.fromJava(getMethod().getReturnType());
+      StarlarkType returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -145,32 +145,27 @@ final class MethodDescriptor {
     ImmutableList.Builder<String> parameterNames = ImmutableList.builder();
     ImmutableList.Builder<StarlarkType> parameterTypes = ImmutableList.builder();
     ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
-    boolean positional = true;
+    boolean processingPositionalOnly = true;
+    boolean processingPositional = true;
+    int numPositionalOnlyParameters = parameters.length;
     int numOrdinaryParameters = parameters.length;
     for (int i = 0; i < parameters.length; i++) {
-      if (parameters[i].isPositional() != positional) { // the first keyword argument
-        positional = false;
+      if (parameters[i].isNamed() && processingPositionalOnly) {
+        processingPositionalOnly = false;
+        numPositionalOnlyParameters = i;
+      }
+      if (!parameters[i].isPositional() && processingPositional) { // the first keyword argument
+        processingPositional = false;
         numOrdinaryParameters = i;
       }
-      if (parameters[i].isNamed()) {
-        parameterNames.add(parameters[i].getName());
-      }
-
-      if (parameters[i].getAllowedClasses() == null
-          || parameters[i].getAllowedClasses().isEmpty()) {
-        // Use parameter's actual type
-        parameterTypes.add(TypeChecker.fromJava(method.getParameterTypes()[i]));
-      } else if (parameters[i].getAllowedClasses().size() == 1) {
-        // Use annotation
-        parameterTypes.add(TypeChecker.fromJava(parameters[i].getAllowedClasses().get(0)));
+      parameterNames.add(parameters[i].getName());
+      ParamType[] allowedTypes = annotation.parameters()[i].allowedTypes();
+      // User supplied type
+      if (allowedTypes.length > 0) {
+        parameterTypes.add(TypeChecker.fromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(
-            Types.union(
-                parameters[i].getAllowedClasses().stream()
-                    .map(TypeChecker::fromJava)
-                    .collect(toImmutableSet())));
+        parameterTypes.add(TypeChecker.fromJava(method.getGenericParameterTypes()[i]));
       }
-
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
       }
@@ -179,7 +174,7 @@ final class MethodDescriptor {
     if (getMethod().getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = TypeChecker.fromJava(getMethod().getReturnType());
+      returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -188,6 +183,7 @@ final class MethodDescriptor {
     return Types.callable(
         parameterNames.build(),
         parameterTypes.build(),
+        numPositionalOnlyParameters,
         numOrdinaryParameters,
         mandatoryParameters.build(),
         // TODO(ilist@): more precise type on args and kwargs

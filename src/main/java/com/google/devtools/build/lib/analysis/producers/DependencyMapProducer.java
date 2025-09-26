@@ -60,6 +60,9 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   public interface ResultSink extends TransitionCollector {
     void acceptDependencyMap(OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
 
+    void acceptMaterializerTargets(
+        OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
+
     void acceptDependencyMapError(DependencyError error);
 
     void acceptDependencyMapError(MissingEdgeError error);
@@ -89,6 +92,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
    * additional overhead of maps would consume significant resources.
    */
   private final ConfiguredTargetAndData[][] results;
+
+  private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
 
   private ImmutableMultimap<Aspect, String> computedAttributeAspects;
   private ImmutableMultimap<Aspect, Label> computedToolchainsAspects;
@@ -137,17 +142,32 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
 
   /** An exception thrown if a materializer cannot be evaluated. */
   public static class MaterializerException extends Exception {
-    public MaterializerException(
+
+    private MaterializerException(String message, Exception cause) {
+      super(message, cause);
+    }
+
+    /** This one says "on attribute" because attribute materializers are "on attributes". */
+    public static MaterializerException materializerAttributeException(
         Attribute attribute, Label label, String message, Exception cause) {
-      super(
+      return new MaterializerException(
           String.format(
-              "Error while evaluating materializer on attribute '%s' or rule '%s': %s",
+              "Error while evaluating materializer on attribute '%s' of target '%s': %s",
+              attribute.getPublicName(), label, message),
+          cause);
+    }
+
+    /** This one says "in attribute" because materializer targets are "in attributes". */
+    public static MaterializerException materializerRuleException(
+        Attribute attribute, Label label, String message, Exception cause) {
+      return new MaterializerException(
+          String.format(
+              "Error while evaluating materializer target in attribute '%s' of target '%s': %s",
               attribute.getPublicName(), label, message),
           cause);
     }
   }
 
-  @SuppressWarnings("rawtypes")
   @Nullable
   private ImmutableList<Label> getMaterializationResultMaybe(DependencyKind kind)
       throws InterruptedException {
@@ -160,14 +180,13 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     // By this point, we know the attribute is a materializingDefault. Compute the attributes
-    // available to
-    // it...
+    // available to it...
     ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attrs = createMaterializerMap();
     ImmutableMap<String, Object> prerequisitesForMaterializer =
         computePrerequisitesForMaterializer(parameters.associatedRule(), attrs);
 
     // ...then invoke the function,
-    MaterializingDefault materializingDefault = kind.getAttribute().getMaterializer();
+    MaterializingDefault<?, ?> materializingDefault = kind.getAttribute().getMaterializer();
     Object materializerResult;
     try {
       materializerResult =
@@ -180,7 +199,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
       parameters.eventHandler().handle(Event.error(parameters.location(), e.getMessageWithStack()));
       acceptDependencyError(
           DependencyError.of(
-              new MaterializerException(
+              MaterializerException.materializerAttributeException(
                   kind.getAttribute(), parameters.label(), e.getMessage(), e)));
       return null;
     }
@@ -237,6 +256,12 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     @Override
+    public void acceptMaterializerTarget(
+        DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+      DependencyMapProducer.this.acceptMaterializerTarget(dependencyKind, target);
+    }
+
+    @Override
     public void acceptDependencyError(DependencyError error) {
       DependencyMapProducer.this.acceptDependencyError(error);
     }
@@ -289,7 +314,13 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
             for (int i = 0; i < materializationResults.size(); i++) {
               tasks.enqueue(
                   new DependencyProducer(
-                      parameters, kind, materializationResults.get(i), aspects, sink, i));
+                      parameters,
+                      kind,
+                      materializationResults.get(i),
+                      aspects,
+                      sink,
+                      /* originatingMaterializerTarget= */ null,
+                      i));
             }
           }
         } else if (label != null) {
@@ -300,6 +331,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
                   label,
                   aspects,
                   (DependencyProducer.ResultSink) this,
+                  /* originatingMaterializerTarget= */ null,
                   currentIndex));
         }
       }
@@ -350,6 +382,17 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   @Override
   public void acceptDependencyValues(int index, ConfiguredTargetAndData[] values) {
     results[index] = values;
+  }
+
+  @Override
+  public void acceptMaterializerTarget(
+      DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+
+    // Lazily allocate since materializers should be relatively rare.
+    if (materializerTargets == null) {
+      materializerTargets = new OrderedSetMultimap<>();
+    }
+    materializerTargets.put(dependencyKind, target);
   }
 
   @Override
@@ -416,6 +459,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     sink.acceptDependencyMap(output);
+    sink.acceptMaterializerTargets(materializerTargets);
     return DONE;
   }
 

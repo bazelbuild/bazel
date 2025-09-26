@@ -37,7 +37,7 @@ def _are_action_listeners_enabled(*args, **kwargs):
     return _py_builtins.are_action_listeners_enabled(*args, **kwargs)
 
 def _cc_info_debug_context(cc_info, *args, **kwargs):
-    return cc_info.debug_context(*args, **kwargs)
+    return cc_info._debug_context
 
 def _cc_semantics_get_cc_runtimes(*args, **kwargs):
     return cc_semantics.get_cc_runtimes(*args, **kwargs)
@@ -61,10 +61,10 @@ def _compilation_outputs(cc_launcher_info):
     return cc_launcher_info.compilation_outputs()
 
 def _compilation_outputs_gcno_files(compilation_outputs, *args, **kwargs):
-    return compilation_outputs.gcno_files(*args, **kwargs)
+    return compilation_outputs._gcno_files
 
 def _compilation_outputs_pic_gcno_files(compilation_outputs, *args, **kwargs):
-    return compilation_outputs.pic_gcno_files(*args, **kwargs)
+    return compilation_outputs._pic_gcno_files
 
 def _compile(*args, **kwargs):
     return cc_common.compile(*args, **kwargs)

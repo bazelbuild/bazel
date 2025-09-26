@@ -17,6 +17,7 @@ The cc_common.link function.
 Used for C++ transitive linking.
 """
 
+load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS")
 load(":common/cc/link/cc_linking_helper.bzl", "create_cc_link_actions")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE")
 
@@ -43,7 +44,7 @@ def link(
         language = "c++",
         output_type = "executable",
         link_deps_statically = True,
-        compilation_outputs = cc_internal.empty_compilation_outputs(),
+        compilation_outputs = EMPTY_COMPILATION_OUTPUTS,
         linking_contexts = [],
         user_link_flags = [],
         stamp = 0,

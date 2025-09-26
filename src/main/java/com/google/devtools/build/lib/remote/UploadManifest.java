@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -213,7 +214,8 @@ public class UploadManifest {
    *
    * <p>For historical reasons, non-dangling absolute symlinks are uploaded as the file or directory
    * they point to. This is inconsistent with the treatment of non-dangling relative symlinks, which
-   * are uploaded as such, but fixing it would now require an incompatible change.
+   * are uploaded as such, but fixing it would now require an incompatible change. For the purposes
+   * of this check, a looping symlink is considered dangling.
    *
    * <p>All files are uploaded with the executable bit set, in accordance with input Merkle trees.
    * This does not affect correctness since we always set the output permissions to 0555 or 0755
@@ -243,7 +245,12 @@ public class UploadManifest {
       if (statNoFollow.isSymbolicLink()) {
         PathFragment target = file.readSymbolicLink();
         // Need to resolve the symbolic link to know what to add, file or directory.
-        FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
+        FileStatus statFollow = null;
+        try {
+          statFollow = file.statIfFound(Symlinks.FOLLOW);
+        } catch (FileSymlinkLoopException e) {
+          // Treat a looping symlink as a dangling symlink.
+        }
         if (statFollow == null) {
           // Symlink uploaded as a symlink. Report it as a file since we don't know any better.
           if (target.isAbsolute()) {
@@ -291,7 +298,7 @@ public class UploadManifest {
   private void addAction(RemoteCacheClient.ActionKey actionKey, Action action, Command command) {
     Preconditions.checkState(this.actionKey == null, "Already added an action");
     this.actionKey = actionKey;
-    digestToBlobs.put(actionKey.getDigest(), action.toByteString());
+    digestToBlobs.put(actionKey.digest(), action.toByteString());
     digestToBlobs.put(action.getCommandDigest(), command.toByteString());
   }
 
@@ -470,7 +477,12 @@ public class UploadManifest {
         }
         if (type == Dirent.Type.SYMLINK) {
           PathFragment target = path.readSymbolicLink();
-          FileStatus statFollow = path.statIfFound(Symlinks.FOLLOW);
+          FileStatus statFollow = null;
+          try {
+            statFollow = path.statIfFound(Symlinks.FOLLOW);
+          } catch (FileSymlinkLoopException e) {
+            // Treat a looping symlink as a dangling symlink.
+          }
           if (statFollow == null || !target.isAbsolute()) {
             // Symlink uploaded as a symlink.
             if (target.isAbsolute()) {
@@ -683,11 +695,11 @@ public class UploadManifest {
               .doOnSubscribe(
                   d ->
                       reportUploadStarted(
-                          reporter, action, Store.AC, ImmutableList.of(actionKey.getDigest())))
+                          reporter, action, Store.AC, ImmutableList.of(actionKey.digest())))
               .doFinally(
                   () ->
                       reportUploadFinished(
-                          reporter, action, Store.AC, ImmutableList.of(actionKey.getDigest())));
+                          reporter, action, Store.AC, ImmutableList.of(actionKey.digest())));
     }
 
     return Completable.concatArray(uploadOutputs, uploadActionResult).toSingleDefault(actionResult);

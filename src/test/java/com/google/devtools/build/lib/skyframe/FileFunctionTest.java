@@ -92,7 +92,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -181,17 +180,11 @@ public class FileFunctionTest {
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(
-                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-                    new LocalRepositoryLookupFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
-                        ImmutableMap::of,
-                        new AtomicBoolean(true),
-                        directories,
-                        new RepoContentsCache()))
+                        ImmutableMap::of, directories, new RepoContentsCache()))
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,
                     new SkyFunction() {
@@ -213,6 +206,7 @@ public class FileFunctionTest {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
@@ -534,7 +528,7 @@ public class FileFunctionTest {
         new CustomInMemoryFs(manualClock) {
           @Override
           @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-          protected byte[] getFastDigest(PathFragment path) {
+          public byte[] getFastDigest(PathFragment path) {
             return digest;
           }
         });
@@ -573,7 +567,7 @@ public class FileFunctionTest {
         new CustomInMemoryFs(manualClock) {
           @Override
           @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-          protected byte[] getFastDigest(PathFragment path) {
+          public byte[] getFastDigest(PathFragment path) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -875,7 +869,7 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          public byte[] getDigest(PathFragment path) throws IOException {
             digestCalls.incrementAndGet();
             return super.getDigest(path);
           }
@@ -957,7 +951,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected boolean isReadable(PathFragment path) throws IOException {
+          public boolean isReadable(PathFragment path) throws IOException {
             if (path.getBaseName().equals("unreadable")) {
               throw new IOException("isReadable failed");
             }
@@ -1793,7 +1787,7 @@ public class FileFunctionTest {
 
     @Override
     @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-    protected byte[] getFastDigest(PathFragment path) throws IOException {
+    public byte[] getFastDigest(PathFragment path) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }

@@ -1235,4 +1235,100 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(deps).containsAtLeast("//a:bin", "//a:c", "//a:a_yes");
     assertThat(deps).doesNotContain("//a:b_no");
   }
+
+  @Test
+  public void testMaterializerRuleQuery() throws Exception {
+    writeFile(
+        "defs.bzl",
+"""
+# Component ######################################
+
+ComponentInfo = provider(fields = ["output"])
+
+def _component_impl(ctx):
+   f = ctx.actions.declare_file(ctx.label.name + ".txt")
+   ctx.actions.write(f, ctx.label.name)
+   return ComponentInfo(output = f)
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+)
+
+# Component selector #############################
+
+def _component_selector_impl(ctx):
+    selected = []
+    # interleave these to make it more interesting
+    for cd in ctx.attr.all_components_dormant:
+        if "yes" in str(cd.label):
+            selected.append(cd)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components_dormant": attr.dormant_label_list(),
+    },
+)
+
+# Binary #########################################
+
+def _binary_impl(ctx):
+    return DefaultInfo()
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
+)
+""");
+
+    writeFile(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector", "binary")
+
+binary(
+    name = "bin",
+    deps = [
+        ":aaa",
+        ":component_selector",
+        ":zzz",
+    ],
+)
+
+component_selector(
+    name = "component_selector",
+    all_components_dormant = [":a_yes", ":b_yes", ":c_no", ":d_no"],
+)
+
+component(name = "aaa")
+component(name = "a_yes")
+component(name = "b_yes")
+component(name = "c_no")
+component(name = "d_no")
+component(name = "zzz")
+""");
+
+    ((PostAnalysisQueryHelper<CqueryNode>) helper).useConfiguration("--experimental_dormant_deps");
+    ImmutableList<String> directDeps = evalToListOfStrings("deps('//:bin', 1)");
+    // The direct deps should not contain the unanalyzed (i.e. non-selected) dormant deps.
+    // cquery should also include the materializer rule in the direct deps, even though it
+    // "disappears" from the perspective of the depending target, since changing the materializer
+    // rule (e.g. its implementation function) could change the depending target.
+    assertThat(directDeps).containsAtLeast("//:a_yes", "//:b_yes", "//:component_selector");
+    assertThat(directDeps).containsNoneOf("//:c_no", "//:d_no");
+
+    ImmutableList<String> allDeps = evalToListOfStrings("deps('//:bin')");
+    // All deps should still not contain the non-selected dormant deps.
+    assertThat(allDeps).containsAtLeast("//:a_yes", "//:b_yes", "//:component_selector");
+    assertThat(allDeps).containsNoneOf("//:c_no", "//:d_no");
+
+    // component_selector shouldn't have deps because they're all through a dormant_label_list.
+    ImmutableList<String> componentSelectorDeps =
+        evalToListOfStrings("deps('//:component_selector', 1)");
+    assertThat(componentSelectorDeps).containsNoneOf("//:a_yes", "//:b_yes", "//:c_no", "//:d_no");
+  }
 }

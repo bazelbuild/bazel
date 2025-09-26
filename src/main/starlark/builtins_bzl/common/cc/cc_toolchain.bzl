@@ -19,11 +19,11 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
 
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
-CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 
 def _files(ctx, attr_name):
     attr = getattr(ctx.attr, attr_name, None)
@@ -81,7 +81,6 @@ def _attributes(ctx):
         grep_includes = _single_file(ctx, "_grep_includes")
 
     latebound_libc = _latebound_libc(ctx, "libc_top", "_libc_top")
-    latebound_target_libc = _latebound_libc(ctx, "libc_top", "_target_libc_top")
 
     all_files = _files(ctx, "all_files")
     return struct(
@@ -115,9 +114,7 @@ def _attributes(ctx):
         coverage_files = _files(ctx, "coverage_files") or all_files,
         compiler_files_without_includes = _files(ctx, "compiler_files_without_includes"),
         libc = _files(ctx, latebound_libc),
-        target_libc = _files(ctx, latebound_target_libc),
         libc_top_label = _label(ctx, latebound_libc),
-        target_libc_top_label = _label(ctx, latebound_target_libc),
         if_so_builder = ctx.file._interface_library_builder,
         allowlist_for_layering_check = _package_specification_provider(ctx, "disabling_parse_headers_and_layering_check_allowed"),
         build_info_files = _provider(ctx.attr._build_info_translator, OutputGroupInfo),
@@ -334,9 +331,6 @@ The label of the rule providing <code>cc_toolchain_config_info</code>.""",
             default = configuration_field(fragment = "cpp", name = "zipper"),
             allow_single_file = True,
             cfg = "exec",
-        ),
-        "_target_libc_top": attr.label(
-            default = configuration_field(fragment = "cpp", name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN"),
         ),
         "_whitelist_disabling_parse_headers_and_layering_check_allowed": attr.label(
             default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:disabling_parse_headers_and_layering_check_allowed",

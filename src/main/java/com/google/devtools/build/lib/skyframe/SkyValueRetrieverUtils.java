@@ -13,20 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.io.BaseEncoding.base16;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData.NO_CACHED_DATA;
 
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.DefaultDependOnFutureShim;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.DefaultDependOnFutureShim;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.time.Instant;
 import java.util.function.Supplier;
 
 /**
@@ -54,9 +62,10 @@ public final class SkyValueRetrieverUtils {
       return NO_CACHED_DATA;
     }
 
-    RetrievalResult retrievalResult;
+    RetrievalResult retrievalResult = null;
+    Exception exception = null;
+    RetrievalContext state = env.getState(stateSupplier).getRetrievalContext();
     try {
-      SerializableSkyKeyComputeState state = env.getState(stateSupplier);
       retrievalResult =
           SkyValueRetriever.tryRetrieve(
               env,
@@ -67,12 +76,49 @@ public final class SkyValueRetrieverUtils {
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
+      analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
     } catch (SerializationException e) {
+      // TODO: b/445242928 - also log this in BEP
+      //
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
-      analysisCachingDeps.recordSerializationException(e);
-      return NO_CACHED_DATA;
+      analysisCachingDeps.recordSerializationException(e, key);
+      exception = e;
+      retrievalResult = NO_CACHED_DATA;
+    } catch (RuntimeException | InterruptedException e) {
+      exception = e;
+      throw e;
+    } finally {
+      if (retrievalResult == Restart.RESTART) {
+        state.addRestart();
+      } else if (analysisCachingDeps.getJsonLogWriter() != null && !state.isLogged()) {
+        RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getJsonLogWriter();
+        try (var entry = logWriter.startEntry("retrieve")) {
+          entry.addField("start", state.getStart());
+          entry.addField("end", Instant.now());
+          entry.addField("skyKey", key.toString());
+          entry.addField("cacheKey", base16().lowerCase().encode(state.getCacheKey().toBytes()));
+          entry.addField("restarts", state.getRestarts());
+          if (retrievalResult != null) {
+            entry.addField("result", retrievalResult.toString());
+          }
+          if (exception != null) {
+            entry.addField("exception", exception.getMessage());
+          }
+        }
+
+        state.setLogged();
+      }
     }
-    analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
+
+    if (retrievalResult instanceof RetrievedValue(SkyValue v)
+        && !(v instanceof DeserializedSkyValue)) {
+      throw new IllegalStateException(
+          "deserialized SkyValue of type "
+              + v.getClass().getCanonicalName()
+              + " does not implement DeserializedSkyValue. Try using"
+              + " @AutoCodec(deserializedInterface = DeserializedSkyValue.class)");
+    }
+
     return retrievalResult;
   }
 

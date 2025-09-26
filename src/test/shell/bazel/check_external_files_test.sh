@@ -42,17 +42,8 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function get_extrepourl() {
-  if $is_windows; then
+  if is_windows; then
     echo "file:///$(cygpath -m $1)"
   else
     echo "file://$1"

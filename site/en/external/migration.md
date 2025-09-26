@@ -76,7 +76,10 @@ The migration tool supports:
 
 *   Dependencies available in the Bazel Central Registry
 *   User-defined custom repository rules
-*   \[Upcoming\] Package manager dependencies
+*   Package manager dependencies
+    *   Maven ([rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external/blob/master/docs/bzlmod.md))
+    *   Go ([rules_go](https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/bzlmod.md))
+    *   \[Upcoming\] Python ([rules_python](https://github.com/bazelbuild/rules_python/blob/main/BZLMOD_SUPPORT.md))
 
 **Important Note**: The migration tool is a best-effort utility. Always
 double-check its recommendations for correctness.

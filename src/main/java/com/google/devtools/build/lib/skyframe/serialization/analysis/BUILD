@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -20,6 +20,7 @@ java_library(
         ":remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -33,10 +34,14 @@ java_library(
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_server_state",
+        ":remote_analysis_json_log_writer",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -53,7 +58,9 @@ java_library(
         ":file_op_node_map",
         ":invalidation_data_reference_or_future",
         ":long_version_getter_test_injection",
+        ":missing_skyframe_entry_exception",
         ":options",
+        ":remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -63,8 +70,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:error_message_helper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
@@ -84,6 +93,7 @@ java_library(
     name = "file_op_node_map",
     srcs = ["FileOpNodeMemoizingLookup.java"],
     deps = [
+        ":missing_skyframe_entry_exception",
         ":value_or_future_map",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -105,11 +115,13 @@ java_library(
         ":file_dependency_key_support",
         ":invalidation_data_reference_or_future",
         ":magic_bytes",
+        ":missing_skyframe_entry_exception",
         ":value_or_future_map",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -130,6 +142,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
@@ -202,6 +215,8 @@ java_library(
     srcs = ["RemoteAnalysisCachingOptions.java"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -245,6 +260,7 @@ java_library(
     name = "remote_analysis_cache_client",
     srcs = ["RemoteAnalysisCacheClient.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],
@@ -257,6 +273,7 @@ java_library(
         ":client_id",
         ":options",
         ":remote_analysis_cache_client",
+        ":remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//third_party:guava",
@@ -284,6 +301,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:flogger",
         "//third_party:guava",
@@ -305,9 +323,28 @@ java_library(
     deps = [
         ":client_id",
         ":deserialized_keys_sink",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "missing_skyframe_entry_exception",
+    srcs = ["MissingSkyframeEntryException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "remote_analysis_json_log_writer",
+    srcs = ["RemoteAnalysisJsonLogWriter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
+        "//third_party:flogger",
+        "//third_party:gson",
+        "//third_party:guava",
     ],
 )

@@ -67,6 +67,7 @@ public class ActionCacheChecker {
   private final ActionKeyContext actionKeyContext;
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
+  private final ProxyMetadataFactory proxyMetadataFactory;
   private final CacheConfig cacheConfig;
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
@@ -98,10 +99,12 @@ public class ActionCacheChecker {
       ArtifactResolver artifactResolver,
       ActionKeyContext actionKeyContext,
       Predicate<? super Action> executionFilter,
+      ProxyMetadataFactory proxyMetadataFactory,
       @Nullable CacheConfig cacheConfig) {
     this.executionFilter = executionFilter;
     this.actionKeyContext = actionKeyContext;
     this.artifactResolver = artifactResolver;
+    this.proxyMetadataFactory = proxyMetadataFactory;
     this.cacheConfig =
         cacheConfig != null
             ? cacheConfig
@@ -308,24 +311,17 @@ public class ActionCacheChecker {
    * will not be rerun if the cached metadata is still valid, unless the filesystem state needs to
    * be updated.
    */
-  private static class CachedOutputMetadata {
-    private final ImmutableMap<Artifact, FileArtifactValue> fileMetadata;
-    private final ImmutableMap<SpecialArtifact, TreeArtifactValue> treeMetadata;
+  private record CachedOutputMetadata(
+      ImmutableMap<Artifact, FileArtifactValue> fileMetadata,
+      ImmutableMap<SpecialArtifact, TreeArtifactValue> treeMetadata) {}
 
-    private CachedOutputMetadata(
-        ImmutableMap<Artifact, FileArtifactValue> fileMetadata,
-        ImmutableMap<SpecialArtifact, TreeArtifactValue> treeMetadata) {
-      this.fileMetadata = fileMetadata;
-      this.treeMetadata = treeMetadata;
-    }
-  }
-
-  private static CachedOutputMetadata loadCachedOutputMetadata(
+  private CachedOutputMetadata loadCachedOutputMetadata(
       Action action, ActionCache.Entry entry, OutputMetadataStore outputMetadataStore)
       throws InterruptedException {
     ImmutableMap.Builder<Artifact, FileArtifactValue> mergedFileMetadata = ImmutableMap.builder();
     ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata =
         ImmutableMap.builder();
+    ImmutableSet<String> proxyOutputs = ImmutableSet.copyOf(entry.getProxyOutputs());
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
@@ -377,7 +373,17 @@ public class ActionCacheChecker {
 
         mergedTreeMetadata.put(parent, merged.build());
       } else {
-        FileArtifactValue cachedMetadata = entry.getOutputFile(artifact);
+        FileArtifactValue cachedMetadata;
+        if (proxyOutputs.contains(artifact.getExecPathString())) {
+          try {
+            cachedMetadata = proxyMetadataFactory.createProxyMetadata(artifact);
+          } catch (IOException e) {
+            cachedMetadata = null;
+          }
+        } else {
+          cachedMetadata = entry.getOutputFile(artifact);
+        }
+
         if (cachedMetadata == null) {
           continue;
         }

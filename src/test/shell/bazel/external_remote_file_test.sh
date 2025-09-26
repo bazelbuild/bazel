@@ -41,21 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -74,7 +59,7 @@ EOF
 }
 
 function get_extrepourl() {
-  if $is_windows; then
+  if is_windows; then
     echo "file:///$(cygpath -m $1)"
   else
     echo "file://$1"
@@ -208,6 +193,8 @@ test_overlay_remote_file_without_integrity() {
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
+  archive_integrity="sha256-$(cat hello_world.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
+
   # Generate the remote files to overlay
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_binary")
@@ -227,6 +214,7 @@ http_archive(
   name="hello_world",
   strip_prefix="hello_world-0.1.2",
   urls=["${EXTREPOURL}/hello_world.zip"],
+  integrity="${archive_integrity}",
   remote_file_urls={
     "REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
     "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
@@ -235,7 +223,84 @@ http_archive(
 EOF
   add_rules_cc "MODULE.bazel"
 
-  bazel build @hello_world//:hello_world
+  bazel build @hello_world//:hello_world > "${TEST_log}" 2>&1
+  expect_log "canonical reproducible form can be obtained by modifying arguments \
+remote_file_integrity = {\"REPO\.bazel\": \"[^\"]*\", \"BUILD\.bazel\": \"[^\"]*\"}\$"
+
+  # Check that repo is not marked as reproducible and cached
+
+  bazel clean --expunge
+
+  # Modify the remote files to overlay
+  cat > ../BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "goodbye_world",
+    srcs = ["hello_world.c"],
+)
+EOF
+
+  bazel build @hello_world//:goodbye_world
+}
+
+test_overlay_remote_file_with_empty_integrity() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  archive_integrity="sha256-$(cat hello_world.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
+
+  # Generate the remote files to overlay
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "hello_world",
+    srcs = ["hello_world.c"],
+)
+EOF
+  touch REPO.bazel
+
+  mkdir main
+  cd main
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="hello_world",
+  strip_prefix="hello_world-0.1.2",
+  urls=["${EXTREPOURL}/hello_world.zip"],
+  integrity="${archive_integrity}",
+  remote_file_urls={
+    "REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
+    "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
+  },
+  remote_file_integrity={
+    "REPO.bazel": "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+    "BUILD.bazel": "",
+  },
+)
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  bazel build @hello_world//:hello_world > "${TEST_log}" 2>&1
+  expect_log "canonical reproducible form can be obtained by modifying arguments \
+remote_file_integrity = {\"REPO\.bazel\": \"[^\"]*\", \"BUILD\.bazel\": \"[^\"]*\"}\$"
+
+  # Check that repo is not marked as reproducible and cached
+
+  bazel clean --expunge
+
+  # Modify the remote files to overlay
+  cat > ../BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "goodbye_world",
+    srcs = ["hello_world.c"],
+)
+EOF
+
+  bazel build @hello_world//:goodbye_world
 }
 
 test_overlay_remote_file_disallow_relative_outside_repo() {

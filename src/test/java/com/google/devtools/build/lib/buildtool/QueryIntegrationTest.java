@@ -346,12 +346,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "donut/BUILD",
         """
         load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_test.bzl', 'foo_test')
         foo_binary(
             name = "thief",
             srcs = ["thief.sh"],
         )
 
-        cc_test(
+        foo_test(
             name = "shop",
             srcs = ["shop.cc"],
         )

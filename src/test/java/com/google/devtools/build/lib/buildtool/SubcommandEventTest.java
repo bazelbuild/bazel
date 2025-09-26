@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
@@ -75,7 +76,7 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
       }
     }
     assertThat(
-            new Command(new String[] {"/bin/sh", "-c", command}, System.getenv())
+            new Command(ImmutableList.of("/bin/sh", "-c", command), System.getenv())
                 .execute(new ByteArrayOutputStream(), new ByteArrayOutputStream())
                 .terminationStatus()
                 .success())

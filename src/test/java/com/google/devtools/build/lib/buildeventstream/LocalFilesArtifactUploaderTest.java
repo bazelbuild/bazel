@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.OutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -76,14 +75,11 @@ public class LocalFilesArtifactUploaderTest {
   @Test
   public void testUnknown_uploadedIfFile() throws Exception {
     Path file = fileSystem.getPath("/test");
-    // Must create file since LocalFileType.OUTPUT triggers a filesystem check.
-    try (OutputStream out = file.getOutputStream()) {
-      out.write(new byte[0]);
-    }
     ListenableFuture<PathConverter> future =
         artifactUploader.upload(
             ImmutableMap.of(
-                file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null)));
+                file,
+                new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(file)).isEqualTo("file:///test");
   }
@@ -91,12 +87,23 @@ public class LocalFilesArtifactUploaderTest {
   @Test
   public void testUnknown_notUploadedIfDirectory() throws Exception {
     Path dir = fileSystem.getPath("/test");
-    // Must create directory since LocalFileType.OUTPUT triggers a filesystem check.
-    dir.createDirectoryAndParents();
     ListenableFuture<PathConverter> future =
         artifactUploader.upload(
             ImmutableMap.of(
-                dir, new LocalFile(dir, LocalFileType.OUTPUT, /* artifactMetadata= */ null)));
+                dir,
+                new LocalFile(dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null)));
+    PathConverter pathConverter = future.get();
+    assertThat(pathConverter.apply(dir)).isNull();
+  }
+
+  @Test
+  public void testUnknown_notUploadedIfSymlink() throws Exception {
+    Path dir = fileSystem.getPath("/test");
+    ListenableFuture<PathConverter> future =
+        artifactUploader.upload(
+            ImmutableMap.of(
+                dir,
+                new LocalFile(dir, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(dir)).isNull();
   }

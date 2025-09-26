@@ -28,11 +28,10 @@ The available subcommands and their respective required arguments are:
 *   `deps <arg>...`: Displays the resolved direct dependencies of each of the
     specified modules, similarly to `graph`.
 
-*   `all_paths <arg>...`: Displays all existing paths from the root to the
-    specified `<arg>...`. If one or more modules are specified in `--from`,
-    these modules are shown directly under the root, and the graph contains
-    any existing path from the `--from` modules to the argument modules (see
-    [example](#mod-example4)).
+*   `all_paths <arg>...`: Displays all dependency paths from the --from modules
+    to the target modules. To simplify the output, only the first shortest path
+    is shown when multiple paths share the same suffix. For example, A -> B -> X
+    would be shown, but the longer A -> C -> B -> X would be omitted.
 
 *   `path <arg>...`: Has the same semantics as `all_paths`, but only display a
     single path from one of the `--from` modules to one of the argument modules.

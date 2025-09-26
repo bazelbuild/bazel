@@ -13,7 +13,7 @@
 # limitations under the License.
 """Functions that create C++ link action."""
 
-load(":common/cc/cc_helper_internal.bzl", "artifact_category")
+load(":common/cc/cc_helper_internal.bzl", artifact_category = "artifact_category_names")
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
 load(":common/cc/link/link_build_variables.bzl", "setup_linking_variables")
 load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")
@@ -152,7 +152,7 @@ def link_action(
     combined_object_artifacts = object_artifacts + linkstamp_object_artifacts
 
     output_library = None
-    lto_compilation_context = compilation_outputs.lto_compilation_context()
+    lto_compilation_context = compilation_outputs._lto_compilation_context
     if not link_type.executable:
         use_archiver = link_type.linker_or_archiver == USE_ARCHIVER
         output_library = struct(

@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,10 +43,9 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
   }
 
   @Override
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
+  protected boolean allowExternalRepositories() {
     // Transitive packages are only stored when external repositories are enabled.
-    return SkyframeExecutorRepositoryHelpersHolder.create(
-        new RepositoryDirectoryDirtinessChecker());
+    return true;
   }
 
   private void assertTransitiveClosureOfTargetContainsPackages(
@@ -104,7 +101,10 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
 
   @Test
   public void testTargetsWithConfiguration() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name = 'a', srcs = [ 'some.cpp' ])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', srcs = [ 'some.cpp' ])");
 
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a:a").getTargetsToBuild());
     BuildConfigurationValue config = getConfiguration(target);

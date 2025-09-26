@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
@@ -36,9 +35,6 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
 
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements CppSemantics {
@@ -144,20 +140,4 @@ public class BazelCppSemantics implements CppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
-
-  @Override
-  public void validateStarlarkCompileApiCall(
-      StarlarkActionFactory actionFactory,
-      StarlarkThread thread,
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots,
-      int stackDepth)
-      throws EvalException {
-    if (!additionalIncludeScanningRoots.isEmpty()) {
-      throw Starlark.errorf(
-          "The 'additional_include_scanning_roots' parameter doesn't do anything useful. This is"
-              + " only used internally for a mechanism we'd like to get rid of.");
-    }
-  }
 }

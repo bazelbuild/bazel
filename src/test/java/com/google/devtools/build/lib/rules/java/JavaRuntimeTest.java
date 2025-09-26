@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.Info;
@@ -200,7 +198,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
             + TestConstants.TOOLS_REPOSITORY
             + "//tools/jdk:runtime_toolchain_type',",
         ")");
-    useConfiguration("--javabase=//a:fg", "--extra_toolchains=//a:all");
+    useConfiguration("--extra_toolchains=//a:all");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:a");
     assertContainsEvent("does not provide ToolchainInfo");
@@ -250,110 +248,5 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         """);
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
     assertThat(getJavaRuntimeInfo(jvm).version()).isEqualTo(234);
-  }
-
-  @Test
-  public void disallowLegacyJavabaseFlag() {
-    InvalidConfigurationException e =
-        assertThrows(
-            InvalidConfigurationException.class,
-            () ->
-                useConfiguration(
-                    "--experimental_disallow_legacy_java_toolchain_flags",
-                    "--javabase=//no/such:label"));
-    assertThat(e).hasMessageThat().contains("--javabase=//no/such:label is no longer supported");
-  }
-
-  @Test
-  public void disallowLegacyHostJavabaseFlagbaseFlag() {
-    InvalidConfigurationException e =
-        assertThrows(
-            InvalidConfigurationException.class,
-            () ->
-                useConfiguration(
-                    "--experimental_disallow_legacy_java_toolchain_flags",
-                    "--host_javabase=//no/such:label"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("--host_javabase=//no/such:label is no longer supported");
-  }
-
-  @Test
-  public void disallowLegacyJavabaseFlag_unset() throws Exception {
-    scratch.file(
-        "a/defs.bzl",
-        """
-        def _ht(settings, attrs):
-            return {
-                "//command_line_option:javabase": "//tools/jdk:jdk",
-                "//command_line_option:host_javabase": "//tools/jdk:remote_jdk11",
-                "//command_line_option:java_toolchain": "//tools/jdk:remote_toolchain",
-                "//command_line_option:host_java_toolchain": "//tools/jdk:remote_toolchain",
-            }
-
-        ht = transition(
-            implementation = _ht,
-            inputs = [
-                "//command_line_option:javabase",
-                "//command_line_option:host_javabase",
-                "//command_line_option:java_toolchain",
-                "//command_line_option:host_java_toolchain",
-            ],
-            outputs = [
-                "//command_line_option:javabase",
-                "//command_line_option:host_javabase",
-                "//command_line_option:java_toolchain",
-                "//command_line_option:host_java_toolchain",
-            ],
-        )
-
-        def _r(ctx):
-            return [DefaultInfo(files = ctx.attr.d[0].files)]
-
-        r = rule(
-            attrs = {
-                "d": attr.label(
-                    cfg = ht,
-                    mandatory = True,
-                ),
-            },
-            implementation = _r,
-        )
-        """);
-    scratch.overwriteFile(
-        "tools/allowlists/function_transition_allowlist/BUILD",
-        """
-        package_group(
-            name = "function_transition_allowlist",
-            packages = ["//..."],
-        )
-
-        filegroup(
-            name = "srcs",
-            srcs = glob(["**"]),
-            visibility = ["//tools/allowlists:__pkg__"],
-        )
-        """);
-    scratch.file(
-        "a/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_binary")
-        load(":defs.bzl", "r")
-
-        java_binary(
-            name = "d",
-            main_class = "D",
-        )
-
-        r(
-            name = "t",
-            d = ":d",
-        )
-        """);
-
-    useConfiguration("--experimental_disallow_legacy_java_toolchain_flags");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:t");
-    assertContainsEvent("--javabase=//tools/jdk:jdk is no longer supported");
   }
 }

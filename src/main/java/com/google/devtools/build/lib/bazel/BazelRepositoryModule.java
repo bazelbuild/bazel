@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -97,7 +96,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -127,16 +125,18 @@ public class BazelRepositoryModule extends BlazeModule {
   // Default list of registries.
   public static final ImmutableSet<String> DEFAULT_REGISTRIES =
       ImmutableSet.of("https://bcr.bazel.build/");
+  public static final ImmutableSet<String> DEFAULT_MODULE_MIRRORS = ImmutableSet.of();
 
-  private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
+  private boolean fetchDisabled = false;
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
   private ImmutableMap<String, PathFragment> injections = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private FileSystem filesystem;
   private ImmutableSet<String> registries;
+  private ImmutableSet<String> moduleMirrors;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -204,17 +204,12 @@ public class BazelRepositoryModule extends BlazeModule {
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
     if ("bazel".equals(runtime.getProductName())) {
-      builder.setSkyframeExecutorRepositoryHelpersHolder(
-          SkyframeExecutorRepositoryHelpersHolder.create(
-              new RepositoryDirectoryDirtinessChecker()));
+      builder.allowExternalRepositories(true);
     }
 
     repositoryFetchFunction =
         new RepositoryFetchFunction(
-            clientEnvironmentSupplier,
-            isFetch,
-            directories,
-            repositoryCache.getRepoContentsCache());
+            clientEnvironmentSupplier, directories, repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
 
@@ -271,7 +266,8 @@ public class BazelRepositoryModule extends BlazeModule {
         new DownloadManager(
             repositoryCache.getDownloadCache(),
             env.getDownloaderDelegate(),
-            env.getHttpDownloader());
+            env.getHttpDownloader(),
+            env.getReporter());
     this.repositoryFetchFunction.setDownloadManager(downloadManager);
     this.moduleFileFunction.setDownloadManager(downloadManager);
     this.repoSpecFunction.setDownloadManager(downloadManager);
@@ -280,7 +276,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
-    isFetch.set(pkgOptions != null && pkgOptions.fetch);
+    fetchDisabled = pkgOptions != null && !pkgOptions.fetch;
 
     ProcessWrapper processWrapper = ProcessWrapper.fromCommandEnvironment(env);
     repositoryFetchFunction.setProcessWrapper(processWrapper);
@@ -394,20 +390,18 @@ public class BazelRepositoryModule extends BlazeModule {
             Profiler.instance()
                 .profile(ProfilerTask.REPO_CACHE_GC_WAIT, "waiting to acquire repo cache lock")) {
           repositoryCache.getRepoContentsCache().acquireSharedLock();
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
           throw new AbruptExitException(
               detailedExitCode(
                   "could not acquire lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE),
               e);
         }
-        if (!repoOptions.repoContentsCacheGcMaxAge.isZero()) {
-          env.addIdleTask(
-              repositoryCache
-                  .getRepoContentsCache()
-                  .createGcIdleTask(
-                      repoOptions.repoContentsCacheGcMaxAge,
-                      repoOptions.repoContentsCacheGcIdleDelay));
-        }
+        env.addIdleTask(
+            repositoryCache
+                .getRepoContentsCache()
+                .createGcIdleTask(
+                    repoOptions.repoContentsCacheGcMaxAge,
+                    repoOptions.repoContentsCacheGcIdleDelay));
       }
 
       try {
@@ -584,9 +578,14 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
-        registries = normalizeRegistries(repoOptions.registries);
+        registries = normalizeBaseUrls(repoOptions.registries);
       } else {
         registries = DEFAULT_REGISTRIES;
+      }
+      if (repoOptions.moduleMirrors != null && !repoOptions.moduleMirrors.isEmpty()) {
+        moduleMirrors = normalizeBaseUrls(repoOptions.moduleMirrors);
+      } else {
+        moduleMirrors = DEFAULT_MODULE_MIRRORS;
       }
 
       RepositoryRemoteExecutorFactory remoteExecutorFactory =
@@ -615,10 +614,10 @@ public class BazelRepositoryModule extends BlazeModule {
     }
   }
 
-  private static ImmutableSet<String> normalizeRegistries(List<String> registries) {
-    // Ensure that registries aren't duplicated even after `/modules/...` paths are appended to
+  private static ImmutableSet<String> normalizeBaseUrls(List<String> baseUrls) {
+    // Ensure that base URLs aren't duplicated even after /-delimited segments are appended to
     // them.
-    return registries.stream()
+    return baseUrls.stream()
         .map(url -> CharMatcher.is('/').trimTrailingFrom(url))
         .collect(toImmutableSet());
   }
@@ -676,6 +675,7 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(RepositoryMappingFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
+        PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, fetchDisabled),
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.
         PrecomputedValue.injected(
@@ -684,6 +684,7 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE,
             RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
+        PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, moduleMirrors),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),

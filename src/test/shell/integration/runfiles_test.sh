@@ -44,27 +44,14 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/integration/runfiles_test_utils.sh")" \
   || { echo "runfiles_test_utils.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-# We disable Python toolchains in EXTRA_BUILD_FLAGS because it throws off the
-# counts and manifest checks in test_foo_runfiles.
-# TODO(#8169): Update this test and remove the toolchain opt-out.
-if "$is_windows"; then
+if is_windows; then
   export EXT=".exe"
   export EXTRA_STARTUP_FLAGS="--windows_enable_symlinks"
-  export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false \
---enable_runfiles --build_python_zip=0"
+  export EXTRA_BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
 else
   export EXT=""
   export EXTRA_STARTUP_FLAGS=""
-  export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false"
+  export EXTRA_BUILD_FLAGS=""
 fi
 
 #### SETUP #############################################################
@@ -227,14 +214,25 @@ EOF
 "
   expected="$expected$(get_python_runtime_runfiles)"
 
+  # Some files are Google-specific and don't exist in the upstream Bazel.
+  if [[ "$PRODUCT_NAME" == "blaze" ]]; then
+    expected="${expected}
+./test_foo_runfiles/_private_py.lazy_imports_info.json file
+"
+  fi
+
   # For shell binary and python binary, we build both `bin` and `bin.exe`,
   # but on Linux we only build `bin`.
-  if "$is_windows"; then
+  if is_windows; then
     expected="${expected}
 ./test_foo_runfiles/py.exe file
 ./test_foo_runfiles/foo.exe file
 "
   fi
+
+  # Remove Python toolchain runfiles for more focused testing.
+  export MANIFEST_NO_TOOLCHAIN=$(mktemp)
+  cat ../MANIFEST | grep -v rules_python | grep -v '^__init__.py' > "$MANIFEST_NO_TOOLCHAIN"
 
   # Sort and delete empty lines. This makes it easier to append to the
   # expected string and not have to worry about stray newlines from shell
@@ -246,7 +244,7 @@ EOF
   # The manifest only records files and symlinks, not real directories
   expected="$expected$(get_repo_mapping_manifest_file)"
   expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
-  actual_manifest_size=$(wc -l < ../MANIFEST)
+  actual_manifest_size=$(cat "$MANIFEST_NO_TOOLCHAIN" | wc -l)
   assert_equals $expected_manifest_size $actual_manifest_size
 
   # that accounts for everything
@@ -257,7 +255,7 @@ EOF
     if [[ -z "$target" ]]; then
       echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
     else
-      if "$is_windows"; then
+      if is_windows; then
         echo "$i $(cygpath -m $target)" >> ${TEST_TMPDIR}/MANIFEST2
       else
         echo "$i $target" >> ${TEST_TMPDIR}/MANIFEST2
@@ -269,13 +267,13 @@ EOF
   if [[ "$PRODUCT_NAME" == "bazel" ]]; then
     repo_mapping="_repo_mapping"
     repo_mapping_target="$(readlink "$repo_mapping")"
-    if "$is_windows"; then
+    if is_windows; then
       repo_mapping_target="$(cygpath -m $repo_mapping_target)"
     fi
     echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
   fi
 
-  sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
+  sort "$MANIFEST_NO_TOOLCHAIN" > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
 
@@ -326,7 +324,7 @@ EOF
   cd ../..
   # For shell binary, we build both `bin` and `bin.exe`, but on Linux we only build `bin`
   # That's why we have one more symlink on Windows.
-  if "$is_windows"; then
+  if is_windows; then
     assert_equals  4 $(find ${WORKSPACE_NAME} -type l | wc -l)
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
@@ -355,7 +353,7 @@ EOF
     if [[ -z "$target" ]]; then
       echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
     else
-      if "$is_windows"; then
+      if is_windows; then
         echo "$i $(cygpath -m $target)" >> ${TEST_TMPDIR}/MANIFEST2
       else
         echo "$i $target" >> ${TEST_TMPDIR}/MANIFEST2
@@ -367,7 +365,7 @@ EOF
   if [[ "$PRODUCT_NAME" == "bazel" ]]; then
     repo_mapping="_repo_mapping"
     repo_mapping_target="$(readlink "$repo_mapping")"
-    if "$is_windows"; then
+    if is_windows; then
       repo_mapping_target="$(cygpath -m $repo_mapping_target)"
     fi
     echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
@@ -380,6 +378,7 @@ EOF
 
 # regression test for b/237547165
 function test_fail_on_runfiles_tree_in_transitive_runfiles_for_executable() {
+  add_rules_cc MODULE.bazel
   local exit_code
 
   cat > rule.bzl <<EOF
@@ -396,6 +395,7 @@ bad_runfiles = rule(
 )
 EOF
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":rule.bzl", "bad_runfiles");
 cc_binary(
     name = "thing",
@@ -416,11 +416,11 @@ EOF
 function test_manifest_action_reruns_on_output_base_change() {
   add_rules_shell "MODULE.bazel"
   CURRENT_DIRECTORY=$(pwd)
-  if $is_windows; then
+  if is_windows; then
     CURRENT_DIRECTORY=$(cygpath -m "${CURRENT_DIRECTORY}")
   fi
 
-  if $is_windows; then
+  if is_windows; then
     MANIFEST_PATH=bazel-bin/hello_world.exe.runfiles_manifest
   else
     MANIFEST_PATH=bazel-bin/hello_world.runfiles_manifest
@@ -496,7 +496,7 @@ EOF
 }
 
 function test_rebuilt_when_mapping_changes {
-  if "$is_windows"; then
+  if is_windows; then
     # Can't do 'ln -s' on Windows
     return
   fi
@@ -558,7 +558,7 @@ function test_special_chars_in_runfiles_source_paths() {
   add_rules_shell "MODULE.bazel"
 
   mkdir -p pkg
-  if "$is_windows"; then
+  if is_windows; then
     cat > pkg/constants.bzl <<'EOF'
 NAME = "pkg/a b .txt"
 EOF
@@ -594,7 +594,7 @@ sh_test(
     data = [":spaces"],
 )
 EOF
-  if "$is_windows"; then
+  if is_windows; then
     cat > pkg/foo.sh <<'EOF'
 #!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
@@ -620,7 +620,7 @@ EOF
 function test_special_chars_in_runfiles_target_paths() {
   add_rules_shell "MODULE.bazel"
   mkdir -p pkg
-  if "$is_windows"; then
+  if is_windows; then
     cat > pkg/constants.bzl <<'EOF'
 NAME = "pkg/a b .txt"
 EOF
@@ -672,7 +672,7 @@ EOF
 function test_special_chars_in_runfiles_source_and_target_paths() {
   add_rules_shell "MODULE.bazel"
   mkdir -p pkg
-  if "$is_windows"; then
+  if is_windows; then
     cat > pkg/constants.bzl <<'EOF'
 NAME = "a b .txt"
 EOF
@@ -703,7 +703,7 @@ sh_test(
     data = [":spaces"],
 )
 EOF
-  if "$is_windows"; then
+  if is_windows; then
     cat > pkg/foo.sh <<'EOF'
 #!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then

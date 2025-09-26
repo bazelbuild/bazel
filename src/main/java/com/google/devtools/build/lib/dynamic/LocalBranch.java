@@ -123,8 +123,7 @@ class LocalBranch extends Branch {
 
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, LOCAL)) {
-      if (strategy.canExec(spawn, actionExecutionContext)
-          || strategy.canExecWithLegacyFallback(spawn, actionExecutionContext)) {
+      if (strategy.canExec(spawn, actionExecutionContext)) {
         ImmutableList<SpawnResult> results =
             strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
         if (results == null) {

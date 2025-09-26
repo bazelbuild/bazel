@@ -65,7 +65,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_filegroup_runfiles_for_data",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -142,11 +142,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean excludeDefinesFromExecConfig;
 
   @Option(
-      name = "experimental_exclude_starlark_flags_from_exec_config",
+      name = "incompatible_exclude_starlark_flags_from_exec_config",
+      oldName = "experimental_exclude_starlark_flags_from_exec_config",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, don't propagate starlark flags to the exec transition at default; only"
               + " propagate starlark flags specified in `--experimental_propagate_custom_flag`.")
@@ -196,13 +197,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Each entry should be of the form label=value where label refers to a platform and values"
               + " is the desired shortname to override the platform's CPU name in $(TARGET_CPU)"
               + " make variable and output path. Only used when"
-              + " --experimental_platform_in_output_dir or --incompatible_target_cpu_from_platform"
-              + " is true. Has highest naming priority.")
+              + " --experimental_platform_in_output_dir, --incompatible_target_cpu_from_platform or"
+              + " --incompatible_bep_cpu_from_platform is true. Has highest naming priority.")
   public List<Map.Entry<Label, String>> overridePlatformCpuName;
 
   @Option(
       name = "incompatible_target_cpu_from_platform",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -210,6 +211,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "If specified, the value of the cpu constraint (@platforms//cpu:cpu) of"
               + " the target platform is used to set the $(TARGET_CPU) make variable.")
   public boolean incompatibleTargetCpuFromPlatform;
+
+  @Option(
+      name = "incompatible_bep_cpu_from_platform",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If specified, the value of the cpu constraint (@platforms//cpu:cpu) of"
+              + " the target platform is used to set the Configuration.cpu and"
+              + " Configuration.platform_name fields in the BEP.")
+  public boolean incompatibleBepCpuFromPlatform;
 
   @Option(
       name = "define",
@@ -587,21 +600,32 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " '//package:target --options'.")
   public RunUnder runUnder;
 
-  // TODO: b/248763226 - Mark this and --verbose_visibility_errors as nonconfigurable. Requires
-  // something like https://github.com/bazelbuild/bazel/issues/25984.
   @Option(
       name = "check_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public boolean checkVisibility;
+
+  @Option(
+      name = "experimental_enforce_transitive_visibility",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, enable package()s to set the transitive_visibility attribute to restrict which"
+              + " packages may depend on them.")
+  public boolean enforceTransitiveVisibility;
 
   @Option(
       name = "verbose_visibility_errors",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If enabled, visibility errors include additional diagnostic information.")
   public boolean verboseVisibilityErrors;
 
@@ -792,20 +816,26 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "supported.")
   public boolean allowUnresolvedSymlinks;
 
+  @Option(
+      name = "experimental_allow_map_directory",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.NON_CONFIGURABLE},
+      help =
+          "If enabled, Bazel allows the use of ctx.actions.map_directory(). This allows for the"
+              + " creation of actions based on the files in a directory through a user defined"
+              + " Starlark function and a <code>template_ctx</code> that supports basic action"
+              + " generation APIs.")
+  public boolean allowMapDirectory;
+
   /** Values for --experimental_output_paths. */
   public enum OutputPathsMode implements StarlarkValue {
     /** Use the production output path model. */
     OFF,
-    /**
-     * Use <a href="https://github.com/bazelbuild/bazel/issues/6526#issuecomment-488103473">
-     * content-based paths</a>.
-     *
-     * <p>Rule implementations also have to individually opt into this. So this setting doesn't mean
-     * all outputs follow this. Non-opted-in outputs continue to use the production model.
-     *
-     * <p>Follow the above link for latest details on exact scope.
-     */
-    CONTENT,
     /**
      * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
      * registered to support this feature.
@@ -931,16 +961,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public IncludeConfigFragmentsEnum includeRequiredConfigFragmentsProvider;
 
   @Option(
-      name = "experimental_inprocess_symlink_creation",
-      defaultValue = "true",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help = "No-op.")
-  public boolean inProcessSymlinkCreation;
-
-  @Option(
       name = "experimental_remotable_source_manifests",
       defaultValue = "false",
       converter = BooleanConverter.class,
@@ -957,6 +977,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help =
           "Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form"
               + " \"<key>=<value>\" as an argument.")

@@ -499,12 +499,6 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     }
 
     @Override
-    public Target getBuildFileTarget(Target originalTarget) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
-      return originalTarget.getPackage().getBuildFile();
-    }
-
-    @Override
     public void visitLoads(
         Target originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
         throws QueryException, InterruptedException {

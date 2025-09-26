@@ -120,6 +120,7 @@ public class TestConstants {
 
   /* Prefix for loads from rules_cc */
   public static final String RULES_CC = "@rules_cc//cc";
+  public static final String MOCK_CC_SUPPORT_CLASS = "com.google.devtools.build.lib.packages.util.BazelMockCcSupport";
 
   /**
    * The repo/package rules_python is rooted at. If empty, builtin rules are used.

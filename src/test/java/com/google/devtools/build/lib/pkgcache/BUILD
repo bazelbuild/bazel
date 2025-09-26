@@ -38,6 +38,7 @@ java_test(
     ],
     deps = [
         ":AbstractTargetPatternEvaluatorTest",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -47,6 +48,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -86,6 +88,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
@@ -195,6 +198,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

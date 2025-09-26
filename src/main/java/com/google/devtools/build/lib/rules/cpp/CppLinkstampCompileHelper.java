@@ -14,20 +14,11 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.regex.Pattern;
 import net.starlark.java.eval.EvalException;
 
 /** Handles creation of CppCompileAction used to compile linkstamp sources. */
@@ -42,15 +33,10 @@ public final class CppLinkstampCompileHelper {
       NestedSet<Artifact> nonCodeInputs,
       NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
-      Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
-      boolean codeCoverageEnabled,
-      String fdoBuildStamp,
       FeatureConfiguration featureConfiguration,
-      boolean needsPic,
-      String labelReplacement,
-      String outputReplacement,
-      CppSemantics semantics)
+      CppSemantics semantics,
+      CcToolchainVariables compileBuildVariables)
       throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
@@ -59,20 +45,7 @@ public final class CppLinkstampCompileHelper {
                 linkActionConstruction.getConfig(),
                 semantics)
             .addMandatoryInputs(compilationInputs)
-            .setVariables(
-                getVariables(
-                    sourceFile,
-                    outputFile,
-                    labelReplacement,
-                    outputReplacement,
-                    additionalLinkstampDefines,
-                    buildInfoHeaderArtifacts,
-                    featureConfiguration,
-                    ccToolchainProvider,
-                    needsPic,
-                    fdoBuildStamp,
-                    codeCoverageEnabled,
-                    semantics))
+            .setVariables(compileBuildVariables)
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
             .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
@@ -86,101 +59,6 @@ public final class CppLinkstampCompileHelper {
     semantics.finalizeCompileActionBuilder(
         linkActionConstruction.getConfig(), featureConfiguration, builder);
     return builder.buildOrThrowIllegalStateException();
-  }
-
-  private static Iterable<String> computeAllLinkstampDefines(
-      String labelReplacement,
-      String outputReplacement,
-      Iterable<String> additionalLinkstampDefines,
-      CcToolchainProvider ccToolchainProvider,
-      String fdoBuildStamp,
-      boolean codeCoverageEnabled)
-      throws EvalException {
-    String labelPattern = Pattern.quote("${LABEL}");
-    String outputPathPattern = Pattern.quote("${OUTPUT_PATH}");
-    ImmutableList.Builder<String> defines =
-        ImmutableList.<String>builder()
-            .add("GPLATFORM=\"" + ccToolchainProvider.getToolchainIdentifier() + "\"")
-            .add("BUILD_COVERAGE_ENABLED=" + (codeCoverageEnabled ? "1" : "0"))
-            // G3_TARGET_NAME is a C string literal that normally contain the label of the target
-            // being linked.  However, they are set differently when using shared native deps. In
-            // that case, a single .so file is shared by multiple targets, and its contents cannot
-            // depend on which target(s) were specified on the command line.  So in that case we
-            // have to use the (obscure) name of the .so file instead, or more precisely the path of
-            // the .so file relative to the workspace root.
-            .add("G3_TARGET_NAME=\"${LABEL}\"")
-            // G3_BUILD_TARGET is a C string literal containing the output of this
-            // link.  (An undocumented and untested invariant is that G3_BUILD_TARGET is the
-            // location of the executable, either absolutely, or relative to the directory part of
-            // BUILD_INFO.)
-            .add("G3_BUILD_TARGET=\"${OUTPUT_PATH}\"")
-            .addAll(additionalLinkstampDefines);
-
-    if (fdoBuildStamp != null) {
-      defines.add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
-    }
-
-    return Iterables.transform(
-        defines.build(),
-        define ->
-            define
-                .replaceAll(labelPattern, labelReplacement)
-                .replaceAll(outputPathPattern, outputReplacement));
-  }
-
-  private static CcToolchainVariables getVariables(
-      Artifact sourceFile,
-      Artifact outputFile,
-      String labelReplacement,
-      String outputReplacement,
-      Iterable<String> additionalLinkstampDefines,
-      ImmutableList<Artifact> buildInfoHeaderArtifacts,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchainProvider,
-      boolean needsPic,
-      String fdoBuildStamp,
-      boolean codeCoverageEnabled,
-      CppSemantics semantics)
-      throws EvalException {
-    // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
-    Preconditions.checkArgument(
-        featureConfiguration.actionIsConfigured(CppActionNames.LINKSTAMP_COMPILE));
-
-    return CompileBuildVariables.setupVariablesOrReportRuleError(
-        featureConfiguration,
-        ccToolchainProvider,
-        sourceFile,
-        outputFile,
-        /* isCodeCoverageEnabled= */ false,
-        /* gcnoFile= */ null,
-        /* isUsingFission= */ false,
-        /* dwoFile= */ null,
-        /* ltoIndexingFile= */ null,
-        buildInfoHeaderArtifacts.stream()
-            .map(Artifact::getExecPathString)
-            .collect(toImmutableList()),
-        CcStaticCompilationHelper.getCoptsFromOptions(
-            ccToolchainProvider.getCppConfiguration(), semantics, sourceFile.getExecPathString()),
-        /* cppModuleMap= */ null,
-        needsPic,
-        fdoBuildStamp,
-        /* dotdFile= */ null,
-        /* diagnosticsFile= */ null,
-        /* variablesExtensions= */ ImmutableList.of(),
-        /* additionalBuildVariables= */ ImmutableMap.of(),
-        /* directModuleMaps= */ ImmutableList.of(),
-        /* includeDirs= */ NestedSetBuilder.create(Order.STABLE_ORDER, PathFragment.create(".")),
-        /* quoteIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* systemIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* frameworkIncludeDirs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        computeAllLinkstampDefines(
-            labelReplacement,
-            outputReplacement,
-            additionalLinkstampDefines,
-            ccToolchainProvider,
-            fdoBuildStamp,
-            codeCoverageEnabled),
-        /* localDefines= */ ImmutableList.of());
   }
 
   private CppLinkstampCompileHelper() {}

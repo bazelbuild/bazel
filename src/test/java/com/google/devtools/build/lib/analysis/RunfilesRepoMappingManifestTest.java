@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -39,11 +37,8 @@ import org.junit.runner.RunWith;
 public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Override
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
-    // Transitive packages are needed for RepoMappingManifestAction and are only stored when
-    // external repositories are enabled.
-    return SkyframeExecutorRepositoryHelpersHolder.create(
-        new RepositoryDirectoryDirtinessChecker());
+  protected boolean allowExternalRepositories() {
+    return true;
   }
 
   /**
@@ -217,9 +212,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     invalidatePackages();
 
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
-        .containsExactly(
-            "bare_rule+,bare_rule,bare_rule+",
-            "tooled_rule+,bare_rule,bare_rule+")
+        .containsExactly("bare_rule+,bare_rule,bare_rule+", "tooled_rule+,bare_rule,bare_rule+")
         .inOrder();
   }
 

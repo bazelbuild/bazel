@@ -13,14 +13,12 @@ filegroup(
 
 java_library(
     name = "credential_module",
-    srcs = [
-        "CredentialModule.java",
-        "SystemMillisTicker.java",
-    ],
+    srcs = ["CredentialModule.java"],
     deps = [
         ":credentialhelper",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:caffeine",
         "//third_party:guava",
@@ -31,12 +29,10 @@ java_library(
     name = "credentialhelper",
     srcs = glob(
         ["*.java"],
-        exclude = [
-            "CredentialModule.java",
-            "SystemMillisTicker.java",
-        ],
+        exclude = ["CredentialModule.java"],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",

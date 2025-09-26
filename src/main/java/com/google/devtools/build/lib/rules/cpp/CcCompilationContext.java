@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -60,7 +62,7 @@ import net.starlark.java.eval.Tuple;
 @Immutable
 public final class CcCompilationContext implements CcCompilationContextApi<Artifact, CppModuleMap> {
   /** An empty {@code CcCompilationContext}. */
-  public static final CcCompilationContext EMPTY = builder().build();
+  public static final CcCompilationContext EMPTY = builder(SymbolGenerator.CONSTANT_SYMBOL).build();
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
@@ -361,6 +363,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return headerTokens;
   }
 
+  @VisibleForTesting
+  public HeaderInfo getHeaderInfo() {
+    return headerInfo;
+  }
+
   /** Helper class for creating include scanning header data. */
   public static class IncludeScanningHeaderDataHelper {
     private IncludeScanningHeaderDataHelper() {}
@@ -459,7 +466,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.getModularHeaders(),
+          transitiveHeaderInfo.modularPublicHeaders,
+          pathToLegalArtifact,
+          treeArtifacts,
+          isModule,
+          modularHeaders);
+      handleHeadersForIncludeScanning(
+          transitiveHeaderInfo.modularPrivateHeaders,
           pathToLegalArtifact,
           treeArtifacts,
           isModule,
@@ -484,7 +497,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     if (transitiveHeaderCount == -1) {
       transitiveHeaderCount = pathToLegalArtifact.size();
     }
-    removeArtifactsFromSet(modularHeaders, headerInfo.getModularHeaders());
+    removeArtifactsFromSet(modularHeaders, headerInfo.modularPublicHeaders);
+    removeArtifactsFromSet(modularHeaders, headerInfo.modularPrivateHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.separateModuleHeaders);
     return new IncludeScanningHeaderData.Builder(pathToLegalArtifact, modularHeaders);
@@ -506,9 +520,15 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
       // Not using range-based for loops here as often there is exactly one element in this list
       // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
-      ImmutableList<Artifact> modularHeaders = transitiveHeaderInfo.getModularHeaders();
-      for (int i = 0; i < modularHeaders.size(); i++) {
-        Artifact header = modularHeaders.get(i);
+      for (int i = 0; i < transitiveHeaderInfo.modularPublicHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.modularPublicHeaders.get(i);
+        if (includes.contains(header)) {
+          modules.add(module);
+          break;
+        }
+      }
+      for (int i = 0; i < transitiveHeaderInfo.modularPrivateHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.modularPrivateHeaders.get(i);
         if (includes.contains(header)) {
           modules.add(module);
           break;
@@ -601,7 +621,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return headerInfo.separateModuleHeaders;
     }
     return new ImmutableSet.Builder<Artifact>()
-        .addAll(headerInfo.getModularHeaders())
+        .addAll(headerInfo.modularPublicHeaders)
+        .addAll(headerInfo.modularPrivateHeaders)
         .addAll(headerInfo.textualHeaders)
         .addAll(headerInfo.separateModuleHeaders)
         .build()
@@ -696,8 +717,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /** Creates a new builder for a {@link CcCompilationContext} instance. */
-  public static Builder builder() {
-    return new Builder();
+  public static Builder builder(SymbolGenerator.Symbol<?> identityToken) {
+    return new Builder(identityToken);
   }
 
   /** Builder class for {@link CcCompilationContext}. */
@@ -713,7 +734,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         new TransitiveSetHelper<>();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
-    private final HeaderInfo.Builder headerInfoBuilder = new HeaderInfo.Builder();
+    private final HeaderInfo.Builder headerInfoBuilder;
     private final Set<String> defines = new LinkedHashSet<>();
     private final ImmutableList.Builder<CcCompilationContext> deps = ImmutableList.builder();
     private final ImmutableList.Builder<CcCompilationContext> exportedDeps =
@@ -725,17 +746,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    private Builder() {}
-
-    /**
-     * Merges the {@link CcCompilationContext} of a dependency into this one by adding the contents
-     * of all of its attributes.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDependentCcCompilationContext(
-        CcCompilationContext otherCcCompilationContext) {
-      deps.add(otherCcCompilationContext);
-      return this;
+    private Builder(SymbolGenerator.Symbol<?> identityToken) {
+      this.headerInfoBuilder = new HeaderInfo.Builder(identityToken);
     }
 
     private void mergeDependentCcCompilationContext(
@@ -890,17 +902,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     @CanIgnoreReturnValue
     public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
       this.frameworkIncludeDirs.addAll(frameworkIncludeDirs);
-      return this;
-    }
-
-    /**
-     * Mark specified include directory as external, coming from an external workspace. It can be
-     * added with "-isystem" (GCC) or --system-header-prefix (Clang) to suppress warnings coming
-     * from external files.
-     */
-    @CanIgnoreReturnValue
-    public Builder addExternalIncludeDir(PathFragment externalIncludeDir) {
-      this.externalIncludeDirs.add(externalIncludeDir);
       return this;
     }
 
@@ -1132,8 +1133,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * The transitive collection can be iterated without materialization in memory.
    */
   @Immutable
-  static final class HeaderInfo {
+  @VisibleForTesting
+  public static final class HeaderInfo {
     // This class has non-private visibility testing and HeaderInfoCodec.
+
+    final SymbolGenerator.Symbol<?> identityToken;
 
     /**
      * The modules built for this context. If null, then no module is being compiled for this
@@ -1161,17 +1165,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
     final ImmutableList<HeaderInfo> deps;
 
-    /**
-     * All header files that are compiled into this module.
-     *
-     * <p>Lazily initialized. Use {@link #getModularHeaders} instead.
-     */
-    private transient volatile ImmutableList<Artifact> lazyModularHeaders;
 
     /** Collection representing the memoized form of transitive information, set by flatten(). */
     private TransitiveHeaderCollection memo = null;
 
     HeaderInfo(
+        SymbolGenerator.Symbol<?> identityToken,
         DerivedArtifact headerModule,
         DerivedArtifact picHeaderModule,
         ImmutableList<Artifact> modularPublicHeaders,
@@ -1181,6 +1180,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         DerivedArtifact separateModule,
         DerivedArtifact separatePicModule,
         ImmutableList<HeaderInfo> deps) {
+      this.identityToken = identityToken;
       this.headerModule = headerModule;
       this.picHeaderModule = picHeaderModule;
       this.modularPublicHeaders = modularPublicHeaders;
@@ -1208,6 +1208,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         flatten();
       }
       return memo;
+    }
+
+    @VisibleForTesting
+    public ImmutableList<Artifact> modularPublicHeaders() {
+      return modularPublicHeaders;
     }
 
     private synchronized void flatten() {
@@ -1241,16 +1246,17 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
     }
 
-    private ImmutableList<Artifact> getModularHeaders() {
-      if (lazyModularHeaders == null) {
-        synchronized (this) {
-          if (lazyModularHeaders == null) {
-            lazyModularHeaders =
-                ImmutableList.copyOf(Iterables.concat(modularPublicHeaders, modularPrivateHeaders));
-          }
-        }
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof HeaderInfo that)) {
+        return false;
       }
-      return lazyModularHeaders;
+      return identityToken.equals(that.identityToken);
+    }
+
+    @Override
+    public int hashCode() {
+      return identityToken.hashCode();
     }
 
     /** Represents the memoized transitive information for a HeaderInfo instance. */
@@ -1306,6 +1312,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** Builder class for {@link HeaderInfo}. */
     public static class Builder {
+      private final SymbolGenerator.Symbol<?> identityToken;
       private DerivedArtifact headerModule = null;
       private DerivedArtifact picHeaderModule = null;
       private final LinkedHashSet<Artifact> modularPublicHeaders = new LinkedHashSet<>();
@@ -1315,6 +1322,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       private DerivedArtifact separateModule = null;
       private DerivedArtifact separatePicModule = null;
       private final List<HeaderInfo> deps = new ArrayList<>();
+
+      private Builder(SymbolGenerator.Symbol<?> identityToken) {
+        this.identityToken = Preconditions.checkNotNull(identityToken);
+      }
 
       @CanIgnoreReturnValue
       Builder setHeaderModule(DerivedArtifact headerModule) {
@@ -1398,6 +1409,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
             separateModule,
             separatePicModule);
         return new HeaderInfo(
+            identityToken,
             headerModule,
             picHeaderModule,
             ImmutableList.copyOf(modularPublicHeaders),

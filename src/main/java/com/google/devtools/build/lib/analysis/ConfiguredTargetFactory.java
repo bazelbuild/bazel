@@ -171,6 +171,44 @@ public final class ConfiguredTargetFactory {
     return null;
   }
 
+  @Nullable
+  private static TransitiveInfoCollection findTransitiveVisibilityPrerequisite(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
+    for (ConfiguredTargetAndData prerequisite :
+        prerequisiteMap.get(DependencyKind.TRANSITIVE_VISIBILITY_DEPENDENCY)) {
+      // Just return the first one.
+      if (prerequisite.getTargetLabel().equals(label) && prerequisite.getConfiguration() == null) {
+        return prerequisite.getConfiguredTarget();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private PackageSpecificationProvider getTransitiveVisibilityForCurrentPackage(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      EventHandler reporter,
+      Target target) {
+
+    Label tvLabel = target.getPackageDeclarations().getPackageArgs().transitiveVisibility();
+    TransitiveInfoCollection prerequisite =
+        findTransitiveVisibilityPrerequisite(prerequisiteMap, tvLabel);
+    if (prerequisite == null) {
+      return null;
+    }
+    PackageSpecificationProvider provider =
+        prerequisite.getProvider(PackageSpecificationProvider.class);
+    if (provider == null) {
+      reporter.handle(
+          Event.error(
+              target.getLocation(),
+              String.format(
+                  "Label '%s' in transitive_visibility does not refer to a package group",
+                  tvLabel)));
+    }
+    return provider;
+  }
+
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
    *
@@ -186,6 +224,7 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue config,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
@@ -204,6 +243,7 @@ public final class ConfiguredTargetFactory {
             config,
             configuredTargetKey,
             prerequisiteMap,
+            materializerTargets,
             configConditions,
             toolchainContexts,
             transitivePackages,
@@ -229,6 +269,15 @@ public final class ConfiguredTargetFactory {
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageGroupContents> visibility =
         convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target);
+    // For InputFiles, we're not gating on --experimental_enforce_transitive_visibility because they
+    // have no config, so we can't check whether --experimental_enforce_transitive_visibility is
+    // set. Some unnecessary memory cost here, but no enforcement because we'll also check for the
+    // flag where the provider is read.
+    PackageSpecificationProvider transitiveVisibility =
+        (config != null && config.enforceTransitiveVisibility()) || target instanceof InputFile
+            ? getTransitiveVisibilityForCurrentPackage(
+                prerequisiteMap, analysisEnvironment.getEventHandler(), target)
+            : null;
     if (target instanceof OutputFile outputFile) {
       TargetContext targetContext =
           new TargetContext(
@@ -236,7 +285,11 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
-              visibility);
+              visibility,
+              transitiveVisibility // We are passing around this object because it looks nice,
+              // but it's
+              // never used. OutputFiles get the transitive visibility from their generating rule.
+              );
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
       }
@@ -266,7 +319,8 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
-              visibility);
+              visibility,
+              transitiveVisibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
@@ -286,7 +340,11 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
-              visibility);
+              visibility,
+              /* transitiveVisibility= */ null);
+      // No transitive visibility checking on package_groups, in part because transitive visibility
+      // groups *are* package_groups, and
+      // we want to avoid circular dependencies.
       return new PackageGroupConfiguredTarget(configuredTargetKey, targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
       return new EnvironmentGroupConfiguredTarget(configuredTargetKey);
@@ -306,6 +364,7 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue configuration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
@@ -318,6 +377,7 @@ public final class ConfiguredTargetFactory {
     RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         ruleClass.getConfigurationFragmentPolicy();
+
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(env, rule, /* aspects= */ ImmutableList.of(), configuration)
@@ -327,8 +387,12 @@ public final class ConfiguredTargetFactory {
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
             .setPrerequisites(removeToolchainDeps(prerequisiteMap))
+            .setMaterializerTargets(materializerTargets)
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
+            .setTransitiveVisibilityImposedByThisPackage(
+                getTransitiveVisibilityForCurrentPackage(
+                    prerequisiteMap, env.getEventHandler(), rule))
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(

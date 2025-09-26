@@ -22,12 +22,12 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-
 # Test a basic native rule which has tags, that should be propagated
 function test_cc_library_tags_propagated() {
+  add_rules_cc MODULE.bazel
   mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 package(default_visibility = ["//visibility:public"])
 cc_library(
   name = 'test',
@@ -55,7 +55,7 @@ EOF
   assert_contains_n "local:" 1 output1
   assert_contains_n "no-cache:" 1 output1
   assert_contains_n "no-remote:" 1 output1
-  if [ "${PLATFORM}" != "darwin" ]; then
+  if ! is_darwin; then
     # Darwin does not support implicit "nodeps" shared libraries.
     bazel aquery --incompatible_allow_tags_propagation 'mnemonic("CppLink", outputs(".*/libtest.so", //test:test))' > output1 2> $TEST_log \
         || fail "should have generated output successfully"
@@ -68,8 +68,10 @@ EOF
 }
 
 function test_cc_binary_tags_propagated() {
- mkdir -p test
+  add_rules_cc MODULE.bazel
+  mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
   name = "test",

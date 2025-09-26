@@ -129,6 +129,7 @@ public class TypeCheckTest {
 
   @Test
   public void runtimeTypecheck_tuple() throws Exception {
+    ev.exec("def f(a: tuple[]): pass", "f(())");
     ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
     ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
     assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")
@@ -142,6 +143,62 @@ public class TypeCheckTest {
     ev.exec("def f(a: tuple[int, tuple[str, bool]]): pass", "f((1, ('a', True)))");
     // Covariance
     ev.exec("def f(a: tuple[None|int]): pass", "f((1,))");
+  }
+
+  @Test
+  public void runtimeTypecheck_collection() throws Exception {
+    ev.exec("def f(a: Collection[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: Collection[str]): pass", "f({'a': 1, 'b': 2})");
+    ev.exec("def f(a: Collection[str]): pass", "f(set(['a', 'b']))");
+    ev.exec("def f(a: Collection[str]): pass", "f(('a', 'b'))");
+    ev.exec("def f(a: Collection[list[str]]): pass", "f([['a', 'b'], ['c']])");
+    ev.exec("def f(a: Collection[int|str]): pass", "f(['a', 'b'])");
+    ev.exec("def f(a: Collection[int|str]): pass", "f(['a', 1])");
+    ev.exec("def f(a: Collection[int|str]): pass", "f(('a', 1))");
+    ev.exec("def f(a: Collection[Collection[str]]): pass", "f([['a', 'b'], ['c']])");
+    assertExecThrows(EvalException.class, "def f(a: Collection[int]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
+                + " 'Collection[int]'");
+  }
+
+  @Test
+  public void runtimeTypecheck_sequence() throws Exception {
+    ev.exec("def f(a: Sequence[int]): pass", "f([1, 2])");
+    ev.exec("def f(a: Sequence[str]): pass", "f(('a', 'b'))");
+    ev.exec("def f(a: Sequence[list[str]]): pass", "f([['a', 'b'], ['c']])");
+    ev.exec("def f(a: Sequence[int|str]): pass", "f(['a', 'b'])");
+    ev.exec("def f(a: Sequence[int|str]): pass", "f(['a', 1])");
+    ev.exec("def f(a: Sequence[int|str]): pass", "f(('a', 1))");
+    ev.exec("def f(a: Sequence[Sequence[str]]): pass", "f([['a', 'b'], ['c']])");
+    assertExecThrows(EvalException.class, "def f(a: Sequence[int]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
+                + " 'Sequence[int]'");
+    assertExecThrows(EvalException.class, "def f(a: Sequence[int]): pass", "f(set([1, 2]))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'set[int]', want"
+                + " 'Sequence[int]'");
+  }
+
+  @Test
+  public void runtimeTypecheck_mapping() throws Exception {
+    ev.exec("def f(a: Mapping[str, int]): pass", "f({'a': 1, 'b': 2})");
+    assertExecThrows(EvalException.class, "def f(a: Mapping[str, int]): pass", "f([1, 2])")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'list[int]', want"
+                + " 'Mapping[str, int]'");
+    assertExecThrows(EvalException.class, "def f(a: Mapping[str, int]): pass", "f(set([1, 2]))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'set[int]', want"
+                + " 'Mapping[str, int]'");
+    // Covariance in value
+    ev.exec("def f(a: Mapping[str, None|int]): pass", "f({'a': 1})");
+    // Invariance in key
+    assertExecThrows(EvalException.class, "def f(a: Mapping[None|str, int]): pass", "f({'a': 1})")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'dict[str, int]', want"
+                + " 'Mapping[None|str, int]'");
   }
 
   @Test
@@ -211,14 +268,94 @@ public class TypeCheckTest {
             "True: bool",
             "None: None",
             "hash: (str, /) -> int",
-            "bool: (object, /) -> bool",
-            "getattr: (object, str, object, /) -> Any",
+            "bool: ([object], /) -> bool",
+            "getattr: (object, str, [object], /) -> Any",
             "hasattr: (object, str, /) -> bool",
             "repr: (object, /) -> str",
             "str: (object, /) -> str",
             "type: (object, /) -> str",
-            "float: (str|bool|int|float, /) -> float",
-            "int: (str|bool|int|float, /, base: [int]) -> int");
+            "float: ([str|bool|int|float], /) -> float",
+            "int: (str|bool|int|float, /, base: [int]) -> int",
+            "dir: (object, /) -> list[str]",
+            "all: (Collection[object], /) -> bool",
+            "any: (Collection[object], /) -> bool",
+            "range: (int, [int], [int], /) -> Sequence[int]",
+            "len: (Collection[object]|str, /) -> int");
+  }
+
+  @Test
+  public void testStringFields() throws Exception {
+    String s = "Hello!";
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s)) {
+      StarlarkType type =
+          TypeChecker.type(
+              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s, name, null));
+      if (type instanceof CallableType callable) {
+        builder.add(name + ": " + callable.toSignatureString());
+      } else {
+        builder.add(name + ": " + type);
+      }
+    }
+
+    assertThat(builder.build())
+        .containsAtLeast(
+            "capitalize: (str, /) -> str",
+            "count: (str, str, [int|None], [int|None], /) -> int",
+            "elems: (str, /) -> Sequence[str]",
+            "find: (str, str, [int|None], [int|None], /) -> int",
+            "index: (str, str, [int|None], [int|None], /) -> int",
+            "isalnum: (str, /) -> bool",
+            "isalpha: (str, /) -> bool",
+            "isdigit: (str, /) -> bool",
+            "islower: (str, /) -> bool",
+            "isspace: (str, /) -> bool",
+            "istitle: (str, /) -> bool",
+            "isupper: (str, /) -> bool",
+            "join: (str, Collection[str], /) -> str",
+            "lower: (str, /) -> str",
+            "lstrip: (str, [str|None], /) -> str",
+            "removeprefix: (str, str, /) -> str",
+            "removesuffix: (str, str, /) -> str",
+            "replace: (str, str, str, [int], /) -> str",
+            "rfind: (str, str, [int|None], [int|None], /) -> int",
+            "rindex: (str, str, [int|None], [int|None], /) -> int",
+            "rsplit: (str, str, [int], /) -> list[str]",
+            "rstrip: (str, [str|None], /) -> str",
+            "split: (str, str, [int], /) -> list[str]",
+            "splitlines: (str, [bool], /) -> Sequence[str]",
+            "strip: (str, [str|None], /) -> str",
+            "title: (str, /) -> str",
+            "upper: (str, /) -> str");
+    // TODO(ilist@): format (args,kwargs), partition, rpartition (returns tuple), startswith,
+    // endswith (takes tuple)
+  }
+
+  @Test
+  public void testListFields() throws Exception {
+    StarlarkList<String> list = StarlarkList.immutableOf("abc");
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list)) {
+      StarlarkType type =
+          TypeChecker.type(
+              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list, name, null));
+      if (type instanceof CallableType callable) {
+        builder.add(name + ": " + callable.toSignatureString());
+      } else {
+        builder.add(name + ": " + type);
+      }
+    }
+
+    // TODO(ilist@): Any should be string. Handle type variables
+    assertThat(builder.build())
+        .containsExactly(
+            "append: (Any, /) -> None",
+            "clear: () -> None",
+            "extend: (Collection[Any], /) -> None",
+            "index: (Any, [int], [int], /) -> int",
+            "insert: (int, Any, /) -> None",
+            "pop: ([int], /) -> Any",
+            "remove: (Any, /) -> None");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(

@@ -340,4 +340,62 @@ EOF
   expect_log 'repeatable_flag: \["from_mapping"\]'
 }
 
+function test_string_set_flag() {
+  mkdir -p flags
+  cat > flags/flag.bzl <<EOF
+FlagValue = provider(fields = ["value"])
+def _impl(ctx):
+    values = ctx.build_setting_value
+    return [
+        FlagValue(value = values),
+    ]
+
+set_flag = rule(
+    implementation = _impl,
+    build_setting = config.string_set(flag = True),
+)
+
+def _rule_impl(ctx):
+  flag_values = ctx.attr._flag[FlagValue].value
+  print('set_flag: %s' % flag_values)
+  print('platform: %s' % ctx.fragments.platform.platform)
+
+simple_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "_flag": attr.label(default = "//flags:set_flag"),
+    },
+    fragments = ["platform"]
+)
+EOF
+  cat > flags/BUILD <<EOF
+load(":flag.bzl", "set_flag", "simple_rule")
+
+package(default_visibility = ["//visibility:public"])
+
+set_flag(
+    name = "set_flag",
+    build_setting_default = set(["default"]),
+)
+
+simple_rule(name = "t1")
+EOF
+
+   # Set up a platform mapping.
+   cat > platform_mappings <<EOF
+platforms:
+  //plat:platform1
+    --//flags:set_flag=v2,v1,v1,v3,v2
+EOF
+
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --platforms=//plat:platform1 \
+    --//flags:set_flag=v4,v5 \
+    //flags:t1 &> $TEST_log \
+      || fail "Build failed unexpectedly"
+  expect_log 'set_flag: set(\["v2", "v1", "v3"\])'
+  expect_log 'platform: .*//plat:platform1'
+}
+
 run_suite "platform mapping test"

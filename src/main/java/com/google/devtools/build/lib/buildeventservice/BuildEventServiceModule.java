@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -80,11 +81,11 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.util.JsonFormat.TypeRegistry;
-import com.google.protobuf.util.Timestamps;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.List;
@@ -777,27 +778,30 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return null;
     }
 
-    BuildEventServiceProtoUtil besProtoUtil =
-        new BuildEventServiceProtoUtil.Builder()
-            .buildRequestId(buildRequestId)
-            .invocationId(invocationId)
-            .projectId(besOptions.instanceName)
-            .commandName(cmdEnv.getCommandName())
-            .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
-            .checkPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
-            .attemptNumber(cmdEnv.getAttemptNumber())
+    CommandContext commandContext =
+        CommandContext.builder()
+            .setBuildId(buildRequestId)
+            .setInvocationId(invocationId)
+            .setAttemptNumber(cmdEnv.getAttemptNumber())
+            .setKeywords(
+                getBesKeywords(
+                    cmdEnv.getCommandName(),
+                    besOptions,
+                    cmdEnv.getRuntime().getStartupOptionsProvider()))
+            .setProjectId(besOptions.instanceName)
+            .setCheckPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
             .build();
 
     return new BuildEventServiceTransport.Builder()
         .localFileUploader(uploaderSupplier.get())
         .besClient(besClient)
         .besOptions(besOptions)
-        .besProtoUtil(besProtoUtil)
         .artifactGroupNamer(artifactGroupNamer)
         .bepOptions(bepOptions)
         .clock(cmdEnv.getRuntime().getClock())
         .eventBus(cmdEnv.getEventBus())
-        .commandStartTime(Timestamps.fromMillis(cmdEnv.getCommandStartTime()))
+        .commandContext(commandContext)
+        .commandStartTime(Instant.ofEpochMilli(cmdEnv.getCommandStartTime()))
         .build();
   }
 
@@ -946,23 +950,16 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     this.buildEventOutputStreamFactory = factory;
   }
 
-  protected ImmutableSet<String> getBesKeywords(
-      OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
-    List<String> userKeywords = besOptions.besKeywords;
-    List<String> systemKeywords = besOptions.besSystemKeywords;
-    ImmutableSet.Builder<String> keywords =
-        ImmutableSet.builderWithExpectedSize(userKeywords.size() + systemKeywords.size());
-    for (String userKeyword : userKeywords) {
-      keywords.add("user_keyword=" + userKeyword);
-    }
-    keywords.addAll(systemKeywords);
-    return keywords.build();
-  }
+  /** Returns the set of keywords to be sent to the Build Event Service. */
+  protected abstract ImmutableSet<String> getBesKeywords(
+      String commandName,
+      OptionsT besOptions,
+      @Nullable OptionsParsingResult startupOptionsProvider);
 
-  /** A prefix used when printing the invocation ID in the command line */
+  /** Returns the prefix used when printing the invocation ID in the command line. */
   protected abstract String getInvocationIdPrefix();
 
-  /** A prefix used when printing the build request ID in the command line */
+  /** Returns theprefix used when printing the build request ID in the command line. */
   protected abstract String getBuildRequestIdPrefix();
 
   // TODO(b/115961387): This method shouldn't exist. It only does because some tests are relying on
@@ -1024,18 +1021,12 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     @Override
     public BufferedOutputStream create(BuildEventFileType eventFileType, String filePath)
         throws IOException {
-      String buildEventFileName = "";
-      switch (eventFileType) {
-        case TEXT:
-          buildEventFileName = "build_event_text_file";
-          break;
-        case BINARY:
-          buildEventFileName = "build_event_binary_file";
-          break;
-        case JSON:
-          buildEventFileName = "build_event_json_file";
-          break;
-      }
+      String buildEventFileName =
+          switch (eventFileType) {
+            case TEXT -> "build_event_text_file";
+            case BINARY -> "build_event_binary_file";
+            case JSON -> "build_event_json_file";
+          };
       InstrumentationOutput output =
           cmdEnv
               .getRuntime()

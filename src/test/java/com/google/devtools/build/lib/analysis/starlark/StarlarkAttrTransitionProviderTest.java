@@ -126,6 +126,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -588,6 +589,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "not_allowlisted/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//not_allowlisted:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -680,6 +682,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule", "string_list_flag", "string_flag")
 
         string_list_flag(
@@ -766,6 +769,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "test/starlark/BUILD",
         """
         load("//test/starlark:my_rule.bzl", "my_rule")
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
         my_rule(
             name = "test",
@@ -853,6 +857,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/skylark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/skylark:my_rule.bzl", "my_passthrough_rule", "my_set_options_rule")
 
         my_set_options_rule(
@@ -1022,6 +1027,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -2919,6 +2925,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3121,6 +3128,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3190,6 +3198,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3248,6 +3257,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3311,6 +3321,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3384,6 +3395,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:rules.bzl", "apply_transition", "string_flag")
 
         string_flag(
@@ -3472,6 +3484,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:rules.bzl", "apply_transition", "string_flag")
 
         string_flag(
@@ -3773,6 +3786,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:rules.bzl", "apply_transition", "string_flag")
 
         string_flag(

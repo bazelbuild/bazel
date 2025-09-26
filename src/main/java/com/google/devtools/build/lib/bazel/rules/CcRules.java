@@ -19,10 +19,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcModule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
@@ -42,6 +40,7 @@ public class CcRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     BazelCcModule bazelCcModule = new BazelCcModule();
     builder.addConfigurationFragment(CppConfiguration.class);
+    builder.addBzlToplevel("CcInfo", Starlark.NONE);
     builder.addBzlToplevel("DebugPackageInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
@@ -61,8 +60,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
     builder.addRuleDefinition(new EmptyRule("propeller_optimize") {});
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
-    builder.addStarlarkBootstrap(
-        new CcBootstrap(bazelCcModule, CcInfo.PROVIDER, CcToolchainConfigInfo.PROVIDER));
+    builder.addStarlarkBootstrap(new CcBootstrap(bazelCcModule));
   }
 
   @Override

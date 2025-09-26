@@ -74,7 +74,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 21;
+  private static final int VERSION = 23;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -130,7 +130,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static final MapCodec<Integer, Timestamp> TIMESTAMP_CODEC =
-      new MapCodec<Integer, Timestamp>() {
+      new MapCodec<>() {
         @Override
         protected Integer readKey(DataInput in) throws IOException {
           return in.readInt();
@@ -196,7 +196,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static final MapCodec<Integer, byte[]> ACTION_CODEC =
-      new MapCodec<Integer, byte[]>() {
+      new MapCodec<>() {
         @Override
         protected Integer readKey(DataInput in) throws IOException {
           return in.readInt();
@@ -631,7 +631,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   /** Returns a map from action key to last access time. */
-  ImmutableMap<String, Instant> getActionTimestampMap() throws IOException {
+  ImmutableMap<String, Instant> getActionTimestampMap() {
     // Iterate the timestamp map, not the action map, so that the result may be used for testing
     // that an entry is removed from the timestamp map when removed from the action map. Note that
     // the indexer does not support removing entries.
@@ -826,39 +826,46 @@ public class CompactPersistentActionCache implements ActionCache {
                   * entry.getDiscoveredInputPaths().size());
     }
 
-    int maxOutputFilesSize =
-        VarInt.MAX_VARINT_SIZE // entry.getOutputFiles().size()
-            + (VarInt.MAX_VARINT_SIZE // execPath
+    int maxOutputMetadataSize = 1; // presence marker
+    if (entry.hasOutputMetadata()) {
+      int maxOutputFilesSize =
+          VarInt.MAX_VARINT_SIZE // entry.getOutputFiles().size()
+              + (VarInt.MAX_VARINT_SIZE // execPath
+                      + MAX_REMOTE_METADATA_SIZE)
+                  * entry.getOutputFiles().size();
+
+      int maxOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
+      for (Map.Entry<String, SerializableTreeArtifactValue> tree :
+          entry.getOutputTrees().entrySet()) {
+        maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
+
+        SerializableTreeArtifactValue value = tree.getValue();
+
+        maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.childValues().size()
+        maxOutputTreesSize +=
+            (VarInt.MAX_VARINT_SIZE // parentRelativePath
                     + MAX_REMOTE_METADATA_SIZE)
-                * entry.getOutputFiles().size();
+                * value.childValues().size();
 
-    int maxOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
-    for (Map.Entry<String, SerializableTreeArtifactValue> tree :
-        entry.getOutputTrees().entrySet()) {
-      maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
+        maxOutputTreesSize +=
+            // value.archivedFileValue() optional
+            1 + value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
+        maxOutputTreesSize +=
+            // value.resolvedPath() optional
+            1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
+      }
 
-      SerializableTreeArtifactValue value = tree.getValue();
+      int maxProxyOutputsSize =
+          VarInt.MAX_VARINT_SIZE * (entry.getProxyOutputs().size() + 1); // +1 for the size itself.
 
-      maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.childValues().size()
-      maxOutputTreesSize +=
-          (VarInt.MAX_VARINT_SIZE // parentRelativePath
-                  + MAX_REMOTE_METADATA_SIZE)
-              * value.childValues().size();
-
-      maxOutputTreesSize +=
-          // value.archivedFileValue() optional
-          1 + value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
-      maxOutputTreesSize +=
-          // value.resolvedPath() optional
-          1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
+      maxOutputMetadataSize += maxOutputFilesSize + maxOutputTreesSize + maxProxyOutputsSize;
     }
 
     // Estimate the size of the buffer.
     int maxSize =
         (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
             + maxDiscoveredInputsSize
-            + maxOutputFilesSize
-            + maxOutputTreesSize;
+            + maxOutputMetadataSize;
     ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
@@ -872,41 +879,49 @@ public class CompactPersistentActionCache implements ActionCache {
       }
     }
 
-    VarInt.putVarInt(entry.getOutputFiles().size(), sink);
-    for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
-      VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
-      encodeRemoteMetadata(file.getValue(), sink);
-    }
-
-    VarInt.putVarInt(entry.getOutputTrees().size(), sink);
-    for (Map.Entry<String, SerializableTreeArtifactValue> tree :
-        entry.getOutputTrees().entrySet()) {
-      VarInt.putVarInt(indexer.getOrCreateIndex(tree.getKey()), sink);
-
-      SerializableTreeArtifactValue serializableTreeArtifactValue = tree.getValue();
-
-      VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
-      for (Map.Entry<String, FileArtifactValue> child :
-          serializableTreeArtifactValue.childValues().entrySet()) {
-        VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
-        encodeRemoteMetadata(child.getValue(), sink);
+    VarInt.putVarInt(entry.hasOutputMetadata() ? 1 : 0, sink);
+    if (entry.hasOutputMetadata()) {
+      VarInt.putVarInt(entry.getOutputFiles().size(), sink);
+      for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
+        VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
+        encodeRemoteMetadata(file.getValue(), sink);
       }
 
-      Optional<FileArtifactValue> archivedFileValue =
-          serializableTreeArtifactValue.archivedFileValue();
-      if (archivedFileValue.isPresent()) {
-        VarInt.putVarInt(1, sink);
-        encodeRemoteMetadata(archivedFileValue.get(), sink);
-      } else {
-        VarInt.putVarInt(0, sink);
+      VarInt.putVarInt(entry.getOutputTrees().size(), sink);
+      for (Map.Entry<String, SerializableTreeArtifactValue> tree :
+          entry.getOutputTrees().entrySet()) {
+        VarInt.putVarInt(indexer.getOrCreateIndex(tree.getKey()), sink);
+
+        SerializableTreeArtifactValue serializableTreeArtifactValue = tree.getValue();
+
+        VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
+        for (Map.Entry<String, FileArtifactValue> child :
+            serializableTreeArtifactValue.childValues().entrySet()) {
+          VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
+          encodeRemoteMetadata(child.getValue(), sink);
+        }
+
+        Optional<FileArtifactValue> archivedFileValue =
+            serializableTreeArtifactValue.archivedFileValue();
+        if (archivedFileValue.isPresent()) {
+          VarInt.putVarInt(1, sink);
+          encodeRemoteMetadata(archivedFileValue.get(), sink);
+        } else {
+          VarInt.putVarInt(0, sink);
+        }
+
+        Optional<PathFragment> resolvedPath = serializableTreeArtifactValue.resolvedPath();
+        if (resolvedPath.isPresent()) {
+          VarInt.putVarInt(1, sink);
+          VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.get().toString()), sink);
+        } else {
+          VarInt.putVarInt(0, sink);
+        }
       }
 
-      Optional<PathFragment> resolvedPath = serializableTreeArtifactValue.resolvedPath();
-      if (resolvedPath.isPresent()) {
-        VarInt.putVarInt(1, sink);
-        VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.get().toString()), sink);
-      } else {
-        VarInt.putVarInt(0, sink);
+      VarInt.putVarInt(entry.getProxyOutputs().size(), sink);
+      for (String execPath : entry.getProxyOutputs()) {
+        VarInt.putVarInt(indexer.getOrCreateIndex(execPath), sink);
       }
     }
 
@@ -951,6 +966,19 @@ public class CompactPersistentActionCache implements ActionCache {
           builder.add(filename);
         }
         discoveredInputPaths = builder.build();
+      }
+
+      int outputMetadataPresenceMarker = VarInt.getVarInt(source);
+      if (outputMetadataPresenceMarker == 0) {
+        if (source.remaining() > 0) {
+          throw new IOException("serialized entry data has not been fully decoded");
+        }
+        return new ActionCache.Entry(
+            digest,
+            discoveredInputPaths,
+            /* outputFileMetadata= */ ImmutableMap.of(),
+            /* outputTreeMetadata= */ ImmutableMap.of(),
+            /* proxyOutputs= */ ImmutableList.of());
       }
 
       int numOutputFiles = VarInt.getVarInt(source);
@@ -1006,16 +1034,31 @@ public class CompactPersistentActionCache implements ActionCache {
         }
 
         SerializableTreeArtifactValue value =
-            SerializableTreeArtifactValue.create(
+            new SerializableTreeArtifactValue(
                 childValues.buildOrThrow(), archivedFileValue, resolvedPath);
         outputTrees.put(treeKey, value);
+      }
+
+      int numProxyArtifacts = VarInt.getVarInt(source);
+      if (numProxyArtifacts < 0) {
+        throw new IOException("Invalid proxy artifact count: " + numProxyArtifacts);
+      }
+      ImmutableList.Builder<String> proxyArtifacts =
+          ImmutableList.builderWithExpectedSize(numProxyArtifacts);
+      for (int i = 0; i < numProxyArtifacts; i++) {
+        String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
+        proxyArtifacts.add(execPath);
       }
 
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");
       }
       return new ActionCache.Entry(
-          digest, discoveredInputPaths, outputFiles.buildOrThrow(), outputTrees.buildOrThrow());
+          digest,
+          discoveredInputPaths,
+          outputFiles.buildOrThrow(),
+          outputTrees.buildOrThrow(),
+          proxyArtifacts.build());
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

@@ -696,21 +696,17 @@ function test_bad_command_nobatch() {
 
 function get_pid_environment() {
   local pid="$1"
-  case "$(uname -s)" in
-    Linux)
-      cat "/proc/${pid}/environ" | tr '\0' '\n'
-      ;;
-    Darwin)
-      if ! ps > /dev/null; then
-        echo "Cannot use ps command, probably due to sandboxing." >&2
-        return 1
-      fi
-      ps eww -o command "${pid}" | tr ' ' '\n'
-      ;;
-    *)
-      false
-      ;;
-  esac
+  if is_linux; then
+    cat "/proc/${pid}/environ" | tr '\0' '\n'
+  elif is_darwin; then
+    if ! ps > /dev/null; then
+      echo "Cannot use ps command, probably due to sandboxing." >&2
+      return 1
+    fi
+    ps eww -o command "${pid}" | tr ' ' '\n'
+  else
+    return 1
+  fi
 }
 
 function test_proxy_settings() {

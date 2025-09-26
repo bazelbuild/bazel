@@ -33,7 +33,7 @@ java_library(
     name = "SymlinkAwareFileSystemTest",
     srcs = ["SymlinkAwareFileSystemTest.java"],
     deps = [
-        ":testutil",
+        ":FileSystemTest_lib",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -62,8 +62,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -86,6 +86,7 @@ java_library(
     name = "FileSystemTest_lib",
     srcs = ["FileSystemTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -145,6 +146,7 @@ java_library(
     testonly = 1,
     srcs = ["FileSystemTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",

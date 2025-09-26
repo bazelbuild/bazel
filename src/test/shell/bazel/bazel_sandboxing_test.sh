@@ -68,17 +68,14 @@ function test_sandbox_block_filesystem() {
   # /var/log is an arbitrary choice of directory that should exist on all
   # Unix-like systems.
   local block_path
-  case "$(uname -s)" in
-    Darwin)
-      # TODO(jmmv): sandbox-exec does not resolve symlinks, so attempting
-      # to block /var/log does not work. Unsure if we should make this work
-      # by resolving symlinks or documenting the expected behavior.
-      block_path=/private/var/log
-      ;;
-    *)
-      block_path=/var/log
-      ;;
-  esac
+  if is_darwin; then
+    # TODO(jmmv): sandbox-exec does not resolve symlinks, so attempting
+    # to block /var/log does not work. Unsure if we should make this work
+    # by resolving symlinks or documenting the expected behavior.
+    block_path=/private/var/log
+  else
+    block_path=/var/log
+  fi
 
   mkdir pkg
   cat >pkg/BUILD <<EOF
@@ -127,7 +124,7 @@ EOF
 
 # Tests that a pseudoterminal can be opened in linux when --sandbox_explicit_pseudoterminal is active
 function test_can_enable_pseudoterminals() {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: flag intended for linux systems"
     return 0
   fi
@@ -149,7 +146,7 @@ EOF
 }
 
 function test_sandbox_debug() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     # The process wrapper sandbox used in MacOS doesn't emit debug output.
     return 0
   fi
@@ -319,6 +316,57 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+function test_empty_tree_artifact_in_runfiles() {
+  # Test that when an empty tree artifact is in runfiles, an empty directory is
+  # created in the sandbox for action to read.
+
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_d = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_d],
+        command = "mkdir -p %s" % empty_d.path,
+    )
+    executable = ctx.actions.declare_file("%s/executable" % ctx.label.name)
+    ctx.actions.write(
+        output = executable,
+        content = """
+#!/bin/sh
+if [ ! -d "$0.runfiles/_main/{empty_dir}" ]; then
+  echo "Expected $0.runfiles/_main/{empty_dir} to be a directory" >&2
+  exit 1
+fi
+        """.format(empty_dir = empty_d.short_path),
+        is_executable = True,
+    )
+    return [
+        DefaultInfo(
+            executable = executable,
+            runfiles = ctx.runfiles([empty_d]),
+        ),
+    ]
+
+r = rule(implementation = _r, executable = True)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+
+genrule(
+    name = "b",
+    outs = ["b.txt"],
+    tools = [":a"],
+    cmd = "$(location :a) && echo 'Runfiles check passed' > $@",
+)
+EOF
+
+  bazel build //pkg:b &>$TEST_log || fail "expected build to succeed"
+}
+
 # Sets up targets under //test that, when building //test:all, verify that the
 # sandbox setup ensures that /tmp contents written by one action are not visible
 # to another action.
@@ -385,7 +433,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_source() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -418,7 +466,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_target() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -453,7 +501,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_target_and_source() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -485,7 +533,7 @@ EOF
 }
 
 function test_symlink_with_output_base_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -561,7 +609,7 @@ EOF
 }
 
 function test_symlink_to_directory_absolute_path() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -607,7 +655,7 @@ EOF
 }
 
 function test_symlink_to_directory_with_output_base_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -655,7 +703,7 @@ EOF
 }
 
 function test_tmpfs_path_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -695,7 +743,7 @@ EOF
 }
 
 function test_hermetic_tmp_under_tmp {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi

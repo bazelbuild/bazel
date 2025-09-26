@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -207,73 +205,6 @@ public enum CompileBuildVariables {
         localDefines);
   }
 
-  public static CcToolchainVariables setupVariablesOrThrowEvalException(
-      FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchainProvider,
-      String sourceFile,
-      String outputFile,
-      boolean isCodeCoverageEnabled,
-      Artifact gcnoFile,
-      boolean isUsingFission,
-      Artifact dwoFile,
-      Artifact ltoIndexingFile,
-      String thinLtoIndex,
-      String thinLtoInputBitcodeFile,
-      String thinLtoOutputObjectFile,
-      ImmutableList<String> includes,
-      Iterable<String> userCompileFlags,
-      CppModuleMap cppModuleMap,
-      boolean usePic,
-      String fdoStamp,
-      Artifact dotdFile,
-      Artifact diagnosticsFile,
-      ImmutableList<VariablesExtension> variablesExtensions,
-      ImmutableMap<String, String> additionalBuildVariables,
-      ImmutableList<Artifact> directModuleMaps,
-      NestedSet<String> includeDirs,
-      NestedSet<String> quoteIncludeDirs,
-      NestedSet<String> systemIncludeDirs,
-      NestedSet<String> frameworkIncludeDirs,
-      Iterable<String> defines,
-      Iterable<String> localDefines)
-      throws EvalException {
-    if (usePic
-        && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
-        && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-      throw new EvalException(CcCommon.PIC_CONFIGURATION_ERROR);
-    }
-    return setupVariables(
-        featureConfiguration,
-        ccToolchainProvider.getBuildVars(),
-        sourceFile,
-        outputFile,
-        isCodeCoverageEnabled,
-        gcnoFile,
-        isUsingFission,
-        dwoFile,
-        ltoIndexingFile,
-        thinLtoIndex,
-        thinLtoInputBitcodeFile,
-        thinLtoOutputObjectFile,
-        includes,
-        userCompileFlags,
-        cppModuleMap,
-        usePic,
-        fdoStamp,
-        ccToolchainProvider.getFdoContext().getMemProfProfileArtifact() != null,
-        dotdFile,
-        diagnosticsFile,
-        variablesExtensions,
-        additionalBuildVariables,
-        directModuleMaps,
-        asPathFragments(includeDirs),
-        asPathFragments(quoteIncludeDirs),
-        asPathFragments(systemIncludeDirs),
-        asPathFragments(frameworkIncludeDirs),
-        defines,
-        localDefines);
-  }
-
   private static CcToolchainVariables setupVariables(
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables parent,
@@ -341,45 +272,6 @@ public enum CompileBuildVariables {
         directModuleMaps,
         ImmutableMap.of());
     return buildVariables.build();
-  }
-
-  public static void setupSpecificVariables(
-      CcToolchainVariables.Builder buildVariables,
-      Artifact sourceFile,
-      Artifact outputFile,
-      boolean isCodeCoverageEnabled,
-      Artifact gcnoFile,
-      Artifact dwoFile,
-      boolean isUsingFission,
-      Artifact ltoIndexingFile,
-      Iterable<String> userCompileFlags,
-      Artifact dotdFile,
-      Artifact diagnosticsFile,
-      boolean usePic,
-      FeatureConfiguration featureConfiguration,
-      CppModuleMap cppModuleMap,
-      ImmutableList<Artifact> directModuleMaps,
-      Map<String, String> additionalBuildVariables) {
-    setupSpecificVariables(
-        buildVariables,
-        sourceFile,
-        outputFile,
-        isCodeCoverageEnabled,
-        gcnoFile,
-        dwoFile,
-        isUsingFission,
-        ltoIndexingFile,
-        /* thinLtoIndex= */ null,
-        /* thinLtoInputBitcodeFile= */ null,
-        /* thinLtoOutputObjectFile= */ null,
-        userCompileFlags,
-        dotdFile,
-        diagnosticsFile,
-        usePic,
-        featureConfiguration,
-        cppModuleMap,
-        directModuleMaps,
-        additionalBuildVariables);
   }
 
   private static void setupSpecificVariables(
@@ -471,40 +363,6 @@ public enum CompileBuildVariables {
     buildVariables.addAllStringVariables(additionalBuildVariables);
   }
 
-  public static void setupCommonVariables(
-      CcToolchainVariables.Builder buildVariables,
-      FeatureConfiguration featureConfiguration,
-      List<String> includes,
-      String fdoStamp,
-      boolean isUsingMemProf,
-      List<VariablesExtension> variablesExtensions,
-      Map<String, String> additionalBuildVariables,
-      ImmutableList<PathFragment> includeDirs,
-      ImmutableList<PathFragment> quoteIncludeDirs,
-      ImmutableList<PathFragment> systemIncludeDirs,
-      ImmutableList<PathFragment> frameworkIncludeDirs,
-      Iterable<String> defines,
-      Iterable<String> localDefines,
-      ImmutableList<PathFragment> externalIncludeDirs) {
-    setupCommonVariablesInternal(
-        buildVariables,
-        featureConfiguration,
-        includes,
-        fdoStamp,
-        isUsingMemProf,
-        variablesExtensions,
-        additionalBuildVariables,
-        // Stable order NestedSets wrapping ImmutableLists are interned, otherwise this would be
-        // a clear waste of memory as the single caller ensure that there are no duplicates.
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, includeDirs),
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, quoteIncludeDirs),
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, systemIncludeDirs),
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, frameworkIncludeDirs),
-        defines,
-        localDefines,
-        externalIncludeDirs);
-  }
-
   private static void setupCommonVariablesInternal(
       CcToolchainVariables.Builder buildVariables,
       FeatureConfiguration featureConfiguration,
@@ -569,13 +427,6 @@ public enum CompileBuildVariables {
           EXTERNAL_INCLUDE_PATHS.getVariableName(),
           NestedSetBuilder.wrap(Order.STABLE_ORDER, externalIncludeDirs));
     }
-  }
-
-  private static NestedSet<PathFragment> asPathFragments(NestedSet<String> paths) {
-    // Using ImmutableList as the final type to benefit from NestedSet interning.
-    return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER,
-        paths.toList().stream().map(PathFragment::create).collect(toImmutableList()));
   }
 
   public String getVariableName() {

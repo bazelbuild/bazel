@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
@@ -42,6 +43,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file(
         "src/test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "foo",
             srcs = [
@@ -54,6 +56,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file("src/test/some-other-dir/qux.so");
     invalidatePackages();
 
+    analysisMock.ccSupport().setup(new MockToolsConfig(rootDirectory.getChild("src")));
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
     mockToolsConfig.create(
         "toolchain/cc_toolchain_config.bzl",
@@ -61,6 +64,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     scratch.file(
         "toolchain/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name = 'empty',",
@@ -146,6 +150,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file(
         "src/test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "foo",
             srcs = [
@@ -165,8 +170,10 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file("BUILD");
 
     scratch.file("toolchain/MODULE.bazel", "module(name = 'toolchain')");
+    analysisMock.ccSupport().setup(new MockToolsConfig(scratch.resolve("toolchain")));
     scratch.file(
         "toolchain/BUILD",
+        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
         "load('@@//:cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name = 'empty',",

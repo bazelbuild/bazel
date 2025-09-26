@@ -26,6 +26,7 @@ public final class AssignmentStatement extends Statement {
   @Nullable private final TokenKind op; // TODO(adonovan): make this mandatory even when '='.
   private final int opOffset;
   private final Expression rhs;
+  @Nullable private final DocComments docComments;
 
   /**
    * Constructs an assignment statement. For an ordinary assignment ({@code op == null}), the LHS
@@ -34,12 +35,18 @@ public final class AssignmentStatement extends Statement {
    * list and tuple forms are disallowed.
    */
   AssignmentStatement(
-      FileLocations locs, Expression lhs, @Nullable TokenKind op, int opOffset, Expression rhs) {
+      FileLocations locs,
+      Expression lhs,
+      @Nullable TokenKind op,
+      int opOffset,
+      Expression rhs,
+      @Nullable DocComments docComments) {
     super(locs, Kind.ASSIGNMENT);
     this.lhs = lhs;
     this.op = op;
     this.opOffset = opOffset;
     this.rhs = rhs;
+    this.docComments = docComments;
   }
 
   /** Returns the LHS of the assignment. */
@@ -76,6 +83,12 @@ public final class AssignmentStatement extends Statement {
   /** Returns the RHS of the assignment. */
   public Expression getRHS() {
     return rhs;
+  }
+
+  /** Returns the Sphinx autodoc-style doc comments attached to this statement, if any. */
+  @Nullable
+  public DocComments getDocComments() {
+    return docComments;
   }
 
   @Override

@@ -132,7 +132,12 @@ public class CircularDependencyTest extends BuildViewTestCase {
 
   @Test
   public void testTwoRuleCycle() throws Exception {
-    scratchRule("b", "rule2", "cc_library(name='rule2',", "           deps=['//a:rule1'])");
+    scratchRule(
+        "b",
+        "rule2",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='rule2',",
+        "           deps=['//a:rule1'])");
 
     checkError(
         "a",
@@ -142,6 +147,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
                 + ".-> //a:rule1 \\([a-f0-9]+\\)\n"
                 + "|   //b:rule2 \\([a-f0-9]+\\)\n"
                 + "`-- //a:rule1 \\([a-f0-9]+\\)"),
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='rule1',",
         "           deps=['//b:rule2'])");
   }
@@ -407,13 +413,17 @@ public class CircularDependencyTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "rule1",
             visibility = ["//b:rule2"],
             deps = ["//b:rule2"],
         )
         """);
-    scratch.file("b/BUILD", "cc_library(name='rule2')");
+    scratch.file(
+        "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='rule2')");
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:rule1"));
@@ -428,6 +438,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "rule1",
             visibility = ["//b:rule2"],
@@ -437,6 +448,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     scratch.file(
         "b/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         config_setting(
             name = "fastbuild",
             values = {"compilation_mode": "fastbuild"},

@@ -98,9 +98,9 @@ def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, 
     dwo_files = []
     transitive_dwo_files = depset()
     if use_pic:
-        dwo_files.extend(cc_compilation_outputs.pic_dwo_files())
+        dwo_files.extend(cc_compilation_outputs._pic_dwo_files)
     else:
-        dwo_files.extend(cc_compilation_outputs.dwo_files())
+        dwo_files.extend(cc_compilation_outputs._dwo_files)
 
     if lto_backend_artifacts != None:
         for lto_backend_artifact in lto_backend_artifacts:

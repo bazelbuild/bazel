@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -199,6 +200,14 @@ public class ObjectCodecs {
         fingerprintValueService,
         subject,
         /* profileCollector= */ null);
+  }
+
+  public ListenableFuture<SerializationResult<ByteString>> serializeMemoizedAsync(
+      FingerprintValueService fingerprintValueService,
+      Object subject,
+      @Nullable ProfileCollector profileCollector) {
+    return SharedValueSerializationContext.serializeToResultAsync(
+        getCodecRegistry(), getDependencies(), fingerprintValueService, subject, profileCollector);
   }
 
   public Object deserialize(byte[] data) throws SerializationException {

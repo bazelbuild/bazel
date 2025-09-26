@@ -123,12 +123,25 @@ public class MoreFutures {
       R waitForFutureAndGetWithCheckedException(
           Future<R> future, Class<E1> exceptionClass1, @Nullable Class<E2> exceptionClass2)
           throws E1, E2, InterruptedException {
+    return waitForFutureAndGetWithCheckedException(future, exceptionClass1, exceptionClass2, null);
+  }
+
+  public static <R, E1 extends Exception, E2 extends Exception, E3 extends Exception>
+      R waitForFutureAndGetWithCheckedException(
+          Future<R> future,
+          Class<E1> exceptionClass1,
+          @Nullable Class<E2> exceptionClass2,
+          @Nullable Class<E3> exceptionClass3)
+          throws E1, E2, E3, InterruptedException {
     try {
       return future.get();
     } catch (ExecutionException e) {
       throwIfInstanceOf(e.getCause(), exceptionClass1);
       if (exceptionClass2 != null) {
         throwIfInstanceOf(e.getCause(), exceptionClass2);
+      }
+      if (exceptionClass3 != null) {
+        throwIfInstanceOf(e.getCause(), exceptionClass3);
       }
       throwIfUnchecked(e.getCause());
       throwIfInstanceOf(e.getCause(), InterruptedException.class);

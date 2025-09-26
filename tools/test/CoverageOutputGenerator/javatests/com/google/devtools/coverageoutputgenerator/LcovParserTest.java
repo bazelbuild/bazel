@@ -140,16 +140,16 @@ public class LcovParserTest {
         LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
     SourceFileCoverage sourceFile = sourceFiles.get(0);
 
-    List<BranchCoverage> branches =
+    List<BranchCoverageItem> branches =
         sourceFile.getAllBranches().stream().collect(Collectors.toList());
     assertThat(branches)
         .containsExactly(
-            BranchCoverage.create(6, "0", "0", true, 1),
-            BranchCoverage.create(6, "0", "1", true, 0),
-            BranchCoverage.create(7, "0", "0", true, 12),
-            BranchCoverage.create(7, "0", "1", true, 1),
-            BranchCoverage.create(12, "0", "0", false, 0),
-            BranchCoverage.create(12, "0", "1", false, 0));
+            BranchCoverageItem.create(6, "0", "0", true, 1),
+            BranchCoverageItem.create(6, "0", "1", true, 0),
+            BranchCoverageItem.create(7, "0", "0", true, 12),
+            BranchCoverageItem.create(7, "0", "1", true, 1),
+            BranchCoverageItem.create(12, "0", "0", false, 0),
+            BranchCoverageItem.create(12, "0", "1", false, 0));
   }
 
   @Test
@@ -178,17 +178,17 @@ public class LcovParserTest {
         LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
     SourceFileCoverage sourceFile = sourceFiles.get(0);
 
-    List<BranchCoverage> branches =
+    List<BranchCoverageItem> branches =
         sourceFile.getAllBranches().stream().collect(Collectors.toList());
     assertThat(branches)
         .containsExactly(
-            BranchCoverage.create(2, "0", "0", true, 0),
-            BranchCoverage.create(2, "0", "1", true, 1),
-            BranchCoverage.create(4, "0", "0", false, 0),
-            BranchCoverage.create(4, "0", "1", false, 0),
-            BranchCoverage.create(7, "0", "0", true, 1),
-            BranchCoverage.create(7, "0", "1", true, 0),
-            BranchCoverage.create(7, "0", "2", true, 1));
+            BranchCoverageItem.create(2, "0", "0", true, 0),
+            BranchCoverageItem.create(2, "0", "1", true, 1),
+            BranchCoverageItem.create(4, "0", "0", false, 0),
+            BranchCoverageItem.create(4, "0", "1", false, 0),
+            BranchCoverageItem.create(7, "0", "0", true, 1),
+            BranchCoverageItem.create(7, "0", "1", true, 0),
+            BranchCoverageItem.create(7, "0", "2", true, 1));
   }
 
   @Test

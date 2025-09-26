@@ -96,7 +96,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         ctx = ctx,
         cc_config = cpp_config,
         cc_toolchain = cc_toolchain,
-        metadata_files = additional_meta_data + cc_compilation_outputs.gcno_files() + cc_compilation_outputs.pic_gcno_files(),
+        metadata_files = additional_meta_data + cc_compilation_outputs._gcno_files + cc_compilation_outputs._pic_gcno_files,
         virtual_to_original_headers = compilation_context.virtual_to_original_headers(),
     )
     output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
@@ -308,7 +308,7 @@ def _create_transitive_linking_actions(
         cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(
             objects = depset(cc_compilation_outputs.objects),
             pic_objects = depset(cc_compilation_outputs.pic_objects),
-            lto_compilation_context = cc_compilation_outputs.lto_compilation_context(),
+            lto_compilation_context = cc_compilation_outputs._lto_compilation_context,
         )
 
     # Determine the libraries to link in.
@@ -511,7 +511,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         cxx_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "cxxopts"),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps),
-        system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
+        includes = cc_helper.include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),

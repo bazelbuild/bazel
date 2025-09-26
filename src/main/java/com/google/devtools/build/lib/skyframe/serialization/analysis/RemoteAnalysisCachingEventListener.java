@@ -24,8 +24,8 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -122,10 +122,6 @@ public class RemoteAnalysisCachingEventListener {
 
   @ThreadSafe
   public void recordRetrievalResult(RetrievalResult result, SkyKey key) {
-    if (result instanceof Restart) {
-      return;
-    }
-
     switch (result) {
       case RetrievedValue unusedValue -> {
         if (!cacheHits.add(key)) {
@@ -136,17 +132,8 @@ public class RemoteAnalysisCachingEventListener {
             .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
             .incrementAndGet();
       }
-      case NoCachedData unusedNoCachedData -> {
-        if (!cacheMisses.add(key)) {
-          return;
-        }
-        missesBySkyFunctionName
-            .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
-            .incrementAndGet();
-      }
-      case Restart unusedRestart ->
-          throw new IllegalStateException(
-              "should have returned earlier"); // restart counts are not useful (yet).
+      case NoCachedData.NO_CACHED_DATA -> recordCacheMiss(key);
+      case Restart.RESTART -> {}
     }
   }
 
@@ -161,8 +148,9 @@ public class RemoteAnalysisCachingEventListener {
   }
 
   /** Records a {@link SerializationException} encountered during SkyValue retrievals. */
-  public void recordSerializationException(SerializationException e) {
+  public void recordSerializationException(SerializationException e, SkyKey key) {
     serializationExceptions.add(e);
+    recordCacheMiss(key);
   }
 
   /**
@@ -188,4 +176,12 @@ public class RemoteAnalysisCachingEventListener {
     return clientId;
   }
 
+  private void recordCacheMiss(SkyKey key) {
+    if (!cacheMisses.add(key)) {
+      return;
+    }
+    missesBySkyFunctionName
+        .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
+        .incrementAndGet();
+  }
 }

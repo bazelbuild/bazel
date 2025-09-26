@@ -106,21 +106,14 @@ public class PreciseAspectResolver implements AspectResolver {
 
   private ImmutableCollection<Target> getSiblingTargets(Target buildFile)
       throws InterruptedException {
-    Package pkg = buildFile.getPackage();
-    if (pkg == null) {
-      // Lazy macro expansion is enabled; try to expand the full package.
-      try {
-        pkg =
-            packageProvider.getPackage(
-                eventHandler, buildFile.getPackageMetadata().packageIdentifier());
-      } catch (NoSuchPackageException e) {
-        // If we fail to expand the full package (e.g. because a package piece for a symbolic macro
-        // is in error), fall back to iterating only over the targets in the BUILD file's package
-        // piece. The error encountered will be reported in the eventHandler.
-        return buildFile.getPackageoid().getTargets().values();
-      }
+    try {
+      return packageProvider.getSiblingTargetsInPackage(eventHandler, buildFile);
+    } catch (NoSuchPackageException e) {
+      // If we fail to expand the full package (e.g. because a package piece for a symbolic macro
+      // is in error), fall back to iterating only over the targets in the BUILD file's package
+      // piece. The error encountered will be reported in the eventHandler.
+      return buildFile.getPackageoid().getTargets().values();
     }
-    return pkg.getTargets().values();
   }
 
   @Override

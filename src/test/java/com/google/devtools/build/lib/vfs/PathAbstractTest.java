@@ -28,12 +28,10 @@ import org.junit.Test;
 public abstract class PathAbstractTest {
 
   private FileSystem fileSystem;
-  private boolean isCaseSensitive;
 
   @Before
   public void setup() {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-    isCaseSensitive = OsPathPolicy.getFilePathOs().isCaseSensitive();
   }
 
   @Test
@@ -75,12 +73,7 @@ public abstract class PathAbstractTest {
     Collections.sort(list);
     List<String> result = list.stream().map(Path::getPathString).collect(toList());
 
-    if (isCaseSensitive) {
-      assertThat(result).containsExactly("/ABC", "/AbC", "/ZZZ", "/aBc", "/abc", "/zzz").inOrder();
-    } else {
-      // Partial ordering among case-insensitive items guaranteed by Collections.sort stability
-      assertThat(result).containsExactly("/ABC", "/aBc", "/AbC", "/abc", "/zzz", "/ZZZ").inOrder();
-    }
+    assertThat(result).containsExactly("/ABC", "/AbC", "/ZZZ", "/aBc", "/abc", "/zzz").inOrder();
   }
 
   protected Path create(String path) {

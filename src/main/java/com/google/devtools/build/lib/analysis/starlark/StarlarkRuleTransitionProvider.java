@@ -238,6 +238,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
               buildOptions,
               starlarkDefinedConfigTransition,
               allowImmutableFlagChanges(),
+              isExecTransition(),
               attrObject,
               eventHandler);
       if (result == null) {
@@ -251,6 +252,11 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
         return buildOptions.clone();
       }
       return Iterables.getOnlyElement(result.values());
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return false;
     }
 
     @Override

@@ -886,6 +886,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//visibility:private"],
@@ -927,6 +928,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//visibility:private"],
@@ -961,6 +963,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//rule:defs.bzl", "my_rule")
 
         cc_library(name = "dep")
@@ -987,6 +990,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//visibility:private"],
@@ -995,6 +999,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             deps = ["//tool:tool"],
@@ -1016,6 +1021,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//visibility:private"],
@@ -1025,8 +1031,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "macro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility):
-            native.cc_library(
+            cc_library(
                 name = name + "_bar",
                 deps = ["//tool:tool"],
             )
@@ -1057,6 +1064,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//visibility:private"],
@@ -1066,8 +1074,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "submacro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility, deps):
-            native.cc_library(
+            cc_library(
                 name = name + "_baz",
                 deps = deps,
             )
@@ -1081,10 +1090,11 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "macro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//submacro:defs.bzl", "my_submacro")
 
         def _impl(name, visibility, deps, use_submacro):
-            callable = my_submacro if use_submacro else native.cc_library
+            callable = my_submacro if use_submacro else cc_library
             callable(
                 name = name + "_bar",
                 deps = deps,
@@ -1144,6 +1154,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//visibility:private"],
@@ -1153,8 +1164,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "subsubmacro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility, deps):
-            native.cc_library(
+            cc_library(
                 name = name + "_qux",
                 deps = deps,
             )
@@ -1246,6 +1258,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//pkg:__pkg__"],
@@ -1260,6 +1273,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             deps = ["//tool:indirect"],
@@ -1282,6 +1296,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//visibility:private"],
@@ -1290,6 +1305,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             deps = ["//tool:tool"],
@@ -1309,8 +1325,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "macro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility):
-            native.cc_library(
+            cc_library(
                 name = name,
                 deps = ["//pkg:tool"],
             )
@@ -1320,6 +1337,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//macro:defs.bzl", "my_macro")
 
         cc_library(
@@ -1363,8 +1381,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "macro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility, _implicit_dep):
-            native.cc_library(
+            cc_library(
                 name = name,
                 deps = [_implicit_dep],
             )
@@ -1377,6 +1396,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//macro:defs.bzl", "my_macro")
 
         cc_library(
@@ -1429,6 +1449,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//macro:defs.bzl", "my_macro")
 
         cc_library(
@@ -1451,6 +1472,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//macro:__pkg__"],
@@ -1460,8 +1482,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "subsubmacro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility):
-            native.cc_library(
+            cc_library(
                 name = name + "_qux",
                 deps = ["//tool:tool"],
             )
@@ -1540,6 +1563,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//pkg:__pkg__"],
@@ -1549,8 +1573,9 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "submacro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility):
-            native.cc_library(
+            cc_library(
                 name = name + "_baz",
                 deps = ["//tool:tool"],
             )
@@ -1561,13 +1586,14 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "macro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//submacro:defs.bzl", "my_submacro")
 
         def _impl(name, visibility, extra_level_deep):
             if extra_level_deep:
                 my_submacro(name = name + "_bar")
             else:
-                native.cc_library(
+                cc_library(
                     name = name + "_bar",
                     deps = ["//tool:tool"],
                 )
@@ -1620,6 +1646,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "tool",
             visibility = ["//pkg:__pkg__"],
@@ -1629,10 +1656,11 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "submacro/defs.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(name, visibility, deps):
             if not deps:
                 deps = ["//tool:tool"]
-            native.cc_library(
+            cc_library(
                 name = name + "_baz",
                 deps = deps,
             )
@@ -1707,6 +1735,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "dep/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "dep",
             visibility = ["//visibility:private"],
@@ -1715,6 +1744,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             deps = ["//dep:dep"],
@@ -1744,6 +1774,7 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             deps = ["//dep:dep"],

@@ -267,20 +267,19 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected abstract boolean shouldDeleteWorkingDirectoryOnClose(boolean successful);
 
   /** Returns the file digests used by this context object so far. */
-  public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
+  public ImmutableSortedMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
     return ImmutableSortedMap.copyOf(recordedFileInputs);
   }
 
-  public ImmutableMap<Dirents, String> getRecordedDirentsInputs() {
+  public ImmutableSortedMap<Dirents, String> getRecordedDirentsInputs() {
     return ImmutableSortedMap.copyOf(recordedDirentsInputs);
   }
 
-  public ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
+  public ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
       throws InterruptedException {
     // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
     // established by getenv calls.
-    return RepoRecordedInput.EnvVar.wrap(
-        ImmutableSortedMap.copyOf(RepositoryUtils.getEnvVarValues(env, accumulatedEnvKeys)));
+    return RepoRecordedInput.EnvVar.wrap(RepositoryUtils.getEnvVarValues(env, accumulatedEnvKeys));
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -823,7 +822,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               canonicalId,
               Optional.<String>empty(),
               outputPath.getPath(),
-              env.getListener(),
               envVariables,
               identifyingStringForLogging,
               downloadPhaser);
@@ -1061,7 +1059,6 @@ the same path on case-insensitive filesystems.
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              env.getListener(),
               envVariables,
               identifyingStringForLogging,
               downloadPhaser);

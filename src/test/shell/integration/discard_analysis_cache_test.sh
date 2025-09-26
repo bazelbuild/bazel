@@ -41,18 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-IS_WINDOWS=false
-case "$(uname | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  IS_WINDOWS=true
-esac
-
-if "$IS_WINDOWS"; then
-  EXE_EXT=".exe"
-else
-  EXE_EXT=""
-fi
-
 javabase="$1"
 if [[ $javabase = external/* ]]; then
   javabase=${javabase#external/}

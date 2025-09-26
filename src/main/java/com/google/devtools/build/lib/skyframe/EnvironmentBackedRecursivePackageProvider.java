@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
@@ -53,6 +55,10 @@ import javax.annotation.Nullable;
  *
  * <p>This implementation never emits events through the {@link ExtendedEventHandler}s passed to its
  * methods. Instead, it emits events through its environment's {@link Environment#getListener()}.
+ *
+ * <p>This implementation expands symbolic macros eagerly; in other words, {@link #getBuildFile} and
+ * {@link #getTarget} force the full package to be expanded. This is intentional, since this
+ * implementation is used for retrieving the full list of targets in packages.
  *
  * <p>This implementation suppresses most {@link NoSuchPackageException}s discovered during package
  * loading, since target pattern expansion may tolerate point failures in packages. The first one
@@ -107,14 +113,30 @@ public final class EnvironmentBackedRecursivePackageProvider
     }
 
     Package pkg = pkgValue.getPackage();
-    if (pkg.containsErrors()) {
+    handlePackageoidErrors(pkg);
+    return pkg;
+  }
+
+  @SuppressWarnings("ThrowsUncheckedException") // Good for callers to know about MissingDep.
+  @Override
+  public InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+      throws NoSuchPackageException, MissingDepException, InterruptedException {
+    return getPackage(eventHandler, packageName).getBuildFile();
+  }
+
+  @SuppressWarnings("ThrowsUncheckedException") // Good for callers to know about MissingDep.
+  private void handlePackageoidErrors(Packageoid packageoid)
+      throws MissingDepException, InterruptedException {
+    if (packageoid.containsErrors()) {
       // If this is a nokeep_going build, we must shut the build down by throwing an exception. To
       // do that, we request a node that will throw an exception, and then try to catch it and
       // continue. This gives the framework notification to shut down the build if it should.
       try {
         env.getValueOrThrow(
-            PackageErrorFunction.key(packageName), BuildFileContainsErrorsException.class);
-        Preconditions.checkState(env.valuesMissing(), "Should have thrown for %s", packageName);
+            PackageErrorFunction.key(packageoid.getPackageIdentifier()),
+            BuildFileContainsErrorsException.class);
+        Preconditions.checkState(
+            env.valuesMissing(), "Should have thrown for %s", packageoid.getPackageIdentifier());
         throw new MissingDepException();
       } catch (BuildFileContainsErrorsException e) {
         // If this is a keep_going build, then the user of this RecursivePackageProvider has two
@@ -125,7 +147,6 @@ public final class EnvironmentBackedRecursivePackageProvider
         noSuchPackageException.compareAndSet(null, e);
       }
     }
-    return pkgValue.getPackage();
   }
 
   @SuppressWarnings("ThrowsUncheckedException") // Good for callers to know about MissingDep.
@@ -175,12 +196,12 @@ public final class EnvironmentBackedRecursivePackageProvider
         throw new MissingDepException();
       }
 
-      if (repositoryValue instanceof Failure f) {
+      if (repositoryValue instanceof Failure(String errorMsg)) {
         eventHandler.handle(
-            Event.error(String.format("No such repository '%s': %s", repository, f.getErrorMsg())));
+            Event.error(String.format("No such repository '%s': %s", repository, errorMsg)));
         return;
       }
-      roots.add(Root.fromPath(((Success) repositoryValue).getPath()));
+      roots.add(((Success) repositoryValue).root());
     }
 
     IgnoredSubdirectories filteredIgnoredSubdirectories =

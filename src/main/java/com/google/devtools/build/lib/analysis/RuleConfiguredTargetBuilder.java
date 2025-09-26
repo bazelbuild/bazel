@@ -110,6 +110,32 @@ public final class RuleConfiguredTargetBuilder {
         ruleContext.getRule().getRuleClassObject().getAllowlistCheckers()) {
       handleAllowlistChecker(allowlistChecker);
     }
+    if (ruleContext.getConfiguration().enforceTransitiveVisibility()) {
+      // Gather the transitive_visibility from this target's package and deps.
+      // If there are any, propagate their union in a TransitiveVisibilityProvider.
+      // One packageSpecificationProvider is created for each package_group, corresponding to the
+      // restrictions imposed by a single bottom level dependency.
+      ImmutableSet.Builder<PackageSpecificationProvider> tvBuilder = ImmutableSet.builder();
+      if (ruleContext.getTransitiveVisibilityImposedByThisPackage() != null) {
+        tvBuilder.add(ruleContext.getTransitiveVisibilityImposedByThisPackage());
+      }
+      for (String attributeName : ruleContext.attributes().getAttributeNames()) {
+        Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
+        if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+          for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attributeName)) {
+            TransitiveVisibilityProvider provider =
+                dep.getProvider(TransitiveVisibilityProvider.class);
+            if (provider != null) {
+              tvBuilder.addAll(provider.getTransitiveVisibility());
+            }
+          }
+        }
+      }
+      ImmutableSet<PackageSpecificationProvider> finalTransitiveVisibility = tvBuilder.build();
+      if (!finalTransitiveVisibility.isEmpty()) {
+        addProvider(new TransitiveVisibilityProvider(finalTransitiveVisibility));
+      }
+    }
 
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
@@ -462,13 +488,6 @@ public final class RuleConfiguredTargetBuilder {
                 (InstrumentedFilesInfo)
                     providersBuilder.getProvider(
                         InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey()));
-
-    RunEnvironmentInfo environmentProvider =
-        (RunEnvironmentInfo) providersBuilder.getProvider(RunEnvironmentInfo.PROVIDER.getKey());
-    if (environmentProvider != null) {
-      testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
-      testActionBuilder.addExtraInheritedEnv(environmentProvider.getInheritedEnvironment());
-    }
 
     TestParams testParams =
         testActionBuilder

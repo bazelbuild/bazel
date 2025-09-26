@@ -91,15 +91,6 @@ public class BuildEventProtocolOptions extends OptionsBase {
       help = "If true, expand Filesets in the BEP when presenting output files.")
   public boolean expandFilesets;
 
-  // TODO: b/403610723 - Remove this flag.
-  @Option(
-      name = "experimental_build_event_fully_resolve_fileset_symlinks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Deprecated no-op.")
-  public boolean fullyResolveFilesetSymlinks;
-
   @Option(
       name = "experimental_bep_target_summary",
       defaultValue = "false",

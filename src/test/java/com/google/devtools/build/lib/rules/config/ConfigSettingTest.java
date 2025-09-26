@@ -36,6 +36,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
@@ -2897,18 +2898,21 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void canOnlyMatchSingleValueInMultiValueFlags() throws Exception {
+  public void canOnlyMatchSingleValueInMultiValueFlags(@TestParameter boolean repeatable)
+      throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        """
-        def _impl(ctx):
-            return []
+        String.format(
+            """
+            def _impl(ctx):
+                return []
 
-        string_list_flag = rule(
-            implementation = _impl,
-            build_setting = config.string_list(flag = True),
-        )
-        """);
+            string_list_flag = rule(
+                implementation = _impl,
+                build_setting = config.string_list(flag = True, repeatable = %s),
+            )
+            """,
+            repeatable ? "True" : "False"));
     scratch.file(
         "test/BUILD",
         """
@@ -3222,5 +3226,161 @@ public class ConfigSettingTest extends BuildViewTestCase {
             values = {"non_configurable_option": "foo"},
         )
         """);
+  }
+
+  @Test
+  public void stringSet_singleValue_works(@TestParameter boolean flagDefault) throws Exception {
+    String matchValue = flagDefault ? "default_value" : "cmd_val";
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        string_set_flag = rule(
+            implementation = _impl,
+            build_setting = config.string_set(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load("//test:build_settings.bzl", "string_set_flag")
+
+            config_setting(
+                name = "match",
+                flag_values = {
+                    ":my_flag": "%s",
+                },
+            )
+
+            config_setting(
+                name = "no_match",
+                flag_values = {
+                    ":my_flag": "another_value",
+                },
+            )
+
+            string_set_flag(
+                name = "my_flag",
+                build_setting_default = set(["default_value"]),
+            )
+            """,
+            matchValue));
+
+    if (!flagDefault) {
+      useConfiguration("--//test:my_flag=cmd_val");
+    }
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:no_match")).isFalse();
+  }
+
+  @Test
+  public void stringSet_multipleValues_works(
+      @TestParameter({"default", "multiple", "repeatable"}) String valuesSrc) throws Exception {
+    String defaultValue = valuesSrc.equals("default") ? "'v2', 'v1', 'v3'" : "'default_value'";
+    scratch.file(
+        "test/build_settings.bzl",
+        String.format(
+            """
+            def _impl(ctx):
+                return []
+
+            string_set_flag = rule(
+                implementation = _impl,
+                build_setting = config.string_set(flag = True, repeatable = %s),
+            )
+            """,
+            valuesSrc.equals("repeatable") ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load("//test:build_settings.bzl", "string_set_flag")
+
+            config_setting(
+                name = "match_2",
+                flag_values = {
+                    ":my_flag": "v2",
+                },
+            )
+
+            config_setting(
+                name = "match_3",
+                flag_values = {
+                    ":my_flag": "v3",
+                },
+            )
+
+            config_setting(
+                name = "match_4",
+                flag_values = {
+                    ":my_flag": "v4",
+                },
+            )
+
+            string_set_flag(
+                name = "my_flag",
+                build_setting_default = set([%s]),
+            )
+            """,
+            defaultValue));
+
+    if (valuesSrc.equals("multiple")) {
+      useConfiguration("--//test:my_flag=v2,v1,v3");
+    } else if (valuesSrc.equals("repeatable")) {
+      useConfiguration("--//test:my_flag=v3", "--//test:my_flag=v1", "--//test:my_flag=v2");
+    }
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match_2")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match_3")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match_4")).isFalse();
+  }
+
+  @Test
+  public void canOnlyMatchSingleValueWithSetFlags(@TestParameter boolean repeatable)
+      throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        String.format(
+            """
+            def _impl(ctx):
+                return []
+
+            string_set_flag = rule(
+                implementation = _impl,
+                build_setting = config.string_set(flag = True, repeatable = %s),
+            )
+            """,
+            repeatable ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_set_flag")
+
+        string_set_flag(
+            name = "my_flag",
+            build_setting_default = set(["default_value"]),
+        )
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":my_flag": "v1,v2",
+            },
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = select({
+                ":match": [],
+            }),
+        )
+        """);
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//test:fg")).isNull();
+    assertContainsEvent(
+        "\"v1,v2\" not a valid value for flag //test:my_flag. "
+            + "Only single, exact values are allowed");
   }
 }

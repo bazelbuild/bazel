@@ -133,10 +133,10 @@ class TestBase(absltest.TestCase):
       raise Error(f'Version not found for module {module} in {lockfile}')
     return version
 
-  def AddBazelDep(self, module):
+  def AddBazelDep(self, module, path=''):
     version = self.GetModuleVersionFromDefaultLockFile(module)
     self.ScratchFile(
-        'MODULE.bazel',
+        os.path.join(path, 'MODULE.bazel'),
         [
             f'bazel_dep(name = "{module}", version = "{version}")',
         ],

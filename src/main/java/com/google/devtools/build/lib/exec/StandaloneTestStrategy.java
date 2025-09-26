@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -459,7 +458,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 .getExecPath()
                 .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
             action.getTestLog().getExecPathString(),
-            action.getXmlOutputPath().getPathString(),
+            action.getTestXml().getExecPathString(),
             Integer.toString(result.getWallTimeInMs() / 1000),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
@@ -483,7 +482,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* inputs= */ NestedSetBuilder.create(
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
@@ -494,7 +493,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       List<ActionInput> expandedCoverageDir,
       Path tmpDirRoot) {
     ImmutableList<String> args =
-        ImmutableList.of(action.getCollectCoverageScript().getExecPathString());
+        ImmutableList.of(action.getCollectCoverageScript().getExecutable().getExecPathString());
 
     Map<String, String> testEnvironment =
         createEnvironment(actionExecutionContext, action, tmpDirRoot);
@@ -504,6 +503,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
     testEnvironment.put(TEST_NAME_ENV, action.getTestName());
     testEnvironment.put("IS_COVERAGE_SPAWN", "1");
+    // Let the coverage script locate its own runfiles tree, which is separate from the test
+    // runfiles.
+    testEnvironment.remove("RUNFILES_DIR");
+    testEnvironment.remove("JAVA_RUNFILES");
+    testEnvironment.remove("PYTHON_RUNFILES");
 
     return new SimpleSpawn(
         action,
@@ -513,13 +517,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
-            .add(action.getCollectCoverageScript())
             .add(action.getCoverageManifest())
-            .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(
-            ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }

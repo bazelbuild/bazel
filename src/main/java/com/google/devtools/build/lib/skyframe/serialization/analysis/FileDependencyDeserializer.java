@@ -281,7 +281,11 @@ final class FileDependencyDeserializer {
       int pathBegin = key.indexOf(FILE_KEY_DELIMITER) + 1;
       int parentDirectoryEnd = key.lastIndexOf(SEPARATOR_CHAR);
 
-      if (parentDirectoryEnd == -1) {
+      // `parentDirectoryEnd` is the index of the last `/`. This can be -1 if there is no `/` in
+      // the key, or it can be less than `pathBegin` if the only `/`s are in the version part of
+      // the key (e.g. "Ly/APA:WORKSPACE"). In either case, there is no parent directory to
+      // resolve.
+      if (parentDirectoryEnd < pathBegin) {
         checkState(
             !data.hasParentMtsv(), "no parent directory, but had parent MTSV %s, %s", key, data);
         return resolveParent(key, data, key.substring(pathBegin), /* parentKey= */ null);
@@ -653,6 +657,7 @@ final class FileDependencyDeserializer {
     private final FileDependencies[] sources;
 
     private PendingElementCountdown(FileSystemDependencies[] elements, FileDependencies[] sources) {
+      super(directExecutor());
       this.elements = elements;
       this.sources = sources;
     }

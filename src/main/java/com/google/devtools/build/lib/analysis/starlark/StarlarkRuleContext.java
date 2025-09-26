@@ -591,7 +591,12 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public StarlarkActionFactory actions() {
+  public StarlarkActionFactory actions() throws EvalException {
+    // ruleContext will be null when this StarlarkRuleContext is frozen. Accessing ctx.actions when
+    // frozen will throw other errors, so just ignore this for materializer rules.
+    if (ruleContext != null && ruleContext.getRule().getRuleClassObject().isMaterializerRule()) {
+      throw Starlark.errorf("ctx.actions is not available in materializer rules");
+    }
     return actionFactory;
   }
 

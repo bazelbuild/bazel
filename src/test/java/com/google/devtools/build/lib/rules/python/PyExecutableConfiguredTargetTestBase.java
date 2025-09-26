@@ -126,7 +126,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void pyRuntimeInfoIsPresent() throws Exception {
-    useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
         bzlLoad,

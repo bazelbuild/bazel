@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec.local;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
@@ -132,7 +133,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
               : ImmutableMap.of("DEVELOPER_DIR", developerDir);
       CommandResult xcrunResult =
           new Command(
-                  new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"},
+                  ImmutableList.of("/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"),
                   env,
                   null,
                   clientEnv)
@@ -236,7 +237,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     String xcodeLocatorPath = binTools.getEmbeddedPath("xcode-locator").getPathString();
     try {
       CommandResult xcodeLocatorResult =
-          new Command(new String[] {xcodeLocatorPath, version.toString()}, clientEnv).execute();
+          new Command(ImmutableList.of(xcodeLocatorPath, version.toString()), clientEnv).execute();
 
       return new String(xcodeLocatorResult.getStdout(), StandardCharsets.UTF_8).trim();
     } catch (AbnormalTerminationException e) {

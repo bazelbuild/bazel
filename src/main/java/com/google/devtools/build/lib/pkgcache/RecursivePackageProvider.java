@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -108,7 +109,8 @@ public interface RecursivePackageProvider extends PackageProvider {
   }
 
   /**
-   * A {@link RecursivePackageProvider} in terms of a map of pre-fetched packages.
+   * A {@link RecursivePackageProvider} in terms of a map of pre-fetched, fully macro-expanded
+   * packages.
    *
    * <p>Note that this class implements neither {@link #streamPackagesUnderDirectory} nor {@link
    * #bulkGetPackages}, so it can only be used for use cases that do not call either of these
@@ -119,6 +121,8 @@ public interface RecursivePackageProvider extends PackageProvider {
    *
    * @see com.google.devtools.build.lib.cmdline.TargetPattern.Type
    */
+  // TODO(bazel-team): should we avoid forcing symbolic macro expansion, and use a backing map of
+  // packageoids-for-build-file instead?
   class PackageBackedRecursivePackageProvider implements RecursivePackageProvider {
     private final Map<PackageIdentifier, Package> packages;
 
@@ -134,6 +138,12 @@ public interface RecursivePackageProvider extends PackageProvider {
         throw new NoSuchPackageException(packageName, "");
       }
       return pkg;
+    }
+
+    @Override
+    public InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+        throws NoSuchPackageException {
+      return getPackage(eventHandler, packageName).getBuildFile();
     }
 
     @Override

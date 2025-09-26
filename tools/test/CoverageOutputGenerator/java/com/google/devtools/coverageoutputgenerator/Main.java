@@ -175,7 +175,7 @@ public class Main {
     int exitStatus = 0;
 
     try {
-      LcovPrinter.print(new FileOutputStream(outputFile), coverage);
+      LcovPrinter.print(new FileOutputStream(outputFile), coverage, flags.legacyBranches());
     } catch (IOException e) {
       logger.log(
           Level.SEVERE,

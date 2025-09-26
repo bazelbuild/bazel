@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
@@ -69,7 +68,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -85,6 +83,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -231,9 +230,8 @@ public class CombinedCacheTest {
     cas.put(helloDigest, "hello-contents".getBytes(UTF_8));
 
     Path file = fs.getPath("/execroot/symlink-to-file");
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteDownloadSymlinkTemplate = "/home/alice/cas/{hash}-{size_bytes}";
-    InMemoryCombinedCache combinedCache = newCombinedCache(cas, options, digestUtil);
+    InMemoryCombinedCache combinedCache =
+        newCombinedCache(cas, digestUtil, "/home/alice/cas/{hash}-{size_bytes}");
 
     // act
     getFromFuture(combinedCache.downloadFile(remoteActionExecutionContext, file, helloDigest));
@@ -702,28 +700,21 @@ public class CombinedCacheTest {
   }
 
   private InMemoryCombinedCache newCombinedCache() {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    return new InMemoryCombinedCache(options, digestUtil);
+    return new InMemoryCombinedCache(digestUtil);
   }
 
   private InMemoryCombinedCache newCombinedCache(
-      Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
-    return new InMemoryCombinedCache(casEntries, options, digestUtil);
+      Map<Digest, byte[]> casEntries, DigestUtil digestUtil, @Nullable String symlinkTemplate) {
+    return new InMemoryCombinedCache(casEntries, digestUtil, symlinkTemplate);
   }
 
   private CombinedCache newCombinedCache(RemoteCacheClient remoteCacheClient) {
     return new CombinedCache(
-        remoteCacheClient,
-        /* diskCacheClient= */ null,
-        Options.getDefaults(RemoteOptions.class),
-        digestUtil);
+        remoteCacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, digestUtil);
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
     return new RemoteExecutionCache(
-        remoteCacheClient,
-        /* diskCacheClient= */ null,
-        Options.getDefaults(RemoteOptions.class),
-        digestUtil);
+        remoteCacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, digestUtil);
   }
 }

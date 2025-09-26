@@ -46,15 +46,6 @@ export BAZEL_SUFFIX="_nojdk"
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 # Test that nojdk bazel works with --autodetect_server_javabase
 function test_autodetect_server_javabase() {
   bazel --autodetect_server_javabase version &> $TEST_log || fail "Should pass"

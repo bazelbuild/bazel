@@ -80,6 +80,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -717,16 +718,16 @@ Either remove one of these settings or ensure they match the same value.
             continue;
           }
 
-          if (configurationValue instanceof List) {
-            // If the build_setting is a list it's either an allow-multiple string-typed build
-            // setting or a string_list-typed build setting. We use the same semantics as for
-            // multi-value native flags: if *any* entry in the list matches the config_setting's
-            // expected entry, it's a match. In other words,
+          if (configurationValue instanceof List || configurationValue instanceof Set) {
+            // If the build_setting is a list or set, it's either an allow-multiple string-typed
+            // build setting, a string_list-typed build setting or a string_set-typed build setting.
+            // We use the same semantics as for multi-value native flags: if *any* entry in the list
+            // matches the config_setting's expected entry, it's a match. In other words,
             // config_setting(flag_values {"//foo": "bar"} matches //foo=["bar", "baz"].
 
             // If this is an allow-multiple build setting, the converter will have converted the
-            // config settings value to a singular object, if it's a string_list build setting the
-            // converter will have converted it to a list.
+            // config settings value to a singular object, if it's a string_list or string_set build
+            // setting the converter will have converted it to a list or set respectively.
             Iterable<?> specifiedValueAsIterable =
                 provider.allowsMultiple()
                     ? ImmutableList.of(convertedSpecifiedValue)
@@ -741,7 +742,7 @@ Either remove one of these settings or ensure they match the same value.
                           + " allowed. If you want to match multiple values, consider Skylib's "
                           + "selects.config_setting_group",
                       specifiedValue, specifiedLabel));
-            } else if (!((List<?>) configurationValue)
+            } else if (!((Collection<?>) configurationValue)
                 .contains(Iterables.getOnlyElement(specifiedValueAsIterable))) {
               diffs.add(
                   NoMatch.Diff.what(specifiedLabel)

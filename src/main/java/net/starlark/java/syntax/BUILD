@@ -26,6 +26,7 @@ java_library(
         "ConditionalExpression.java",
         "DefStatement.java",
         "DictExpression.java",
+        "DocComments.java",
         "DotExpression.java",
         "Expression.java",
         "ExpressionStatement.java",

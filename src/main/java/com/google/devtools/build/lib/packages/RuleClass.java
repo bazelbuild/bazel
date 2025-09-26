@@ -693,6 +693,7 @@ public class RuleClass implements RuleClassData {
     private boolean documented;
     private boolean outputsToBindir = true;
     private boolean dependencyResolutionRule = false;
+    private boolean isMaterializerRule;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
@@ -766,7 +767,16 @@ public class RuleClass implements RuleClassData {
         starlarkParent = parents[0];
         Preconditions.checkArgument(starlarkParent.isExtendable());
       }
+
       for (RuleClass parent : parents) {
+
+        if (parent.isMaterializerRule()) {
+          isMaterializerRule = true;
+        } else if (isMaterializerRule) {
+          throw new IllegalArgumentException(
+              "Inconsistent value of isMaterializerRule among parents");
+        }
+
         if (parent.dependencyResolutionRule) {
           dependencyResolutionRule = true;
         } else if (dependencyResolutionRule) {
@@ -781,7 +791,7 @@ public class RuleClass implements RuleClassData {
         addToolchainTypes(parent.getToolchainTypes());
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
-          addExecGroups(parent.getDeclaredExecGroups());
+          addExecGroups(parent.getDeclaredExecGroups(), false);
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
@@ -930,6 +940,7 @@ public class RuleClass implements RuleClassData {
           documented,
           outputsToBindir,
           dependencyResolutionRule,
+          isMaterializerRule,
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
@@ -1417,6 +1428,13 @@ public class RuleClass implements RuleClassData {
       return this;
     }
 
+    /** Mark the rule as a materializer rule. */
+    @CanIgnoreReturnValue
+    public Builder setIsMaterializerRule(boolean isMaterializerRule) {
+      this.isMaterializerRule = isMaterializerRule;
+      return this;
+    }
+
     /**
      * This rule class outputs a default executable for every rule with the same name as the
      * rules's. Only works for Starlark.
@@ -1564,10 +1582,10 @@ public class RuleClass implements RuleClassData {
      * same name are added.
      */
     @CanIgnoreReturnValue
-    public Builder addExecGroups(Map<String, DeclaredExecGroup> execGroups) {
+    public Builder addExecGroups(Map<String, DeclaredExecGroup> execGroups, boolean override) {
       for (Map.Entry<String, DeclaredExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
-        if (this.execGroups.containsKey(name)) {
+        if (this.execGroups.containsKey(name) && !override) {
           // If trying to add a new execution group with the same name as a execution group that
           // already exists, check if they are equivalent and error out if not.
           DeclaredExecGroup existingGroup = this.execGroups.get(name);
@@ -1679,6 +1697,7 @@ public class RuleClass implements RuleClassData {
   private final boolean documented;
   private final boolean outputsToBindir;
   private final boolean dependencyResolutionRule;
+  private final boolean isMaterializerRule;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
@@ -1789,6 +1808,7 @@ public class RuleClass implements RuleClassData {
       boolean documented,
       boolean outputsToBindir,
       boolean dependencyResolutionRule,
+      boolean isMaterializerRule,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
@@ -1838,6 +1858,7 @@ public class RuleClass implements RuleClassData {
     this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
     this.outputFileKind = outputFileKind;
     this.dependencyResolutionRule = dependencyResolutionRule;
+    this.isMaterializerRule = isMaterializerRule;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
@@ -1906,6 +1927,10 @@ public class RuleClass implements RuleClassData {
 
   public <T extends ConfiguredTargetFactory<?, ?, ?>> T getConfiguredTargetFactory(Class<T> clazz) {
     return clazz.cast(configuredTargetFactory);
+  }
+
+  public ConfiguredTargetFactory<?, ?, ?> getConfiguredTargetFactory() {
+    return configuredTargetFactory;
   }
 
   /** Returns the class of rule that this RuleClass represents (e.g. "cc_library"). */
@@ -2265,6 +2290,12 @@ public class RuleClass implements RuleClassData {
   @Override
   public boolean isDependencyResolutionRule() {
     return dependencyResolutionRule;
+  }
+
+  /** Whether this rule class is a materializer rule. */
+  @Override
+  public boolean isMaterializerRule() {
+    return isMaterializerRule;
   }
 
   /** Returns true if this rule class outputs a default executable for every rule. */

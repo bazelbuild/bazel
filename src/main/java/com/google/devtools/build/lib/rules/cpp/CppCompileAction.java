@@ -127,6 +127,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Nullable private final Artifact gcnoFile;
   private final Artifact sourceFile;
+
+  @Nullable private final Artifact dotdFile;
   private final BuildConfigurationValue configuration;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> mandatorySpawnInputs;
@@ -152,6 +154,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   // included via a command-line "-include file.h". Actions that use non C++ files as source
   // files--such as Clif--may use this mechanism.
   private final ImmutableList<Artifact> additionalIncludeScanningRoots;
+
   @VisibleForTesting public final CompileCommandLine compileCommandLine;
 
   /**
@@ -287,8 +290,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.additionalIncludeScanningRoots =
         Preconditions.checkNotNull(additionalIncludeScanningRoots);
     this.compileCommandLine =
-        buildCommandLine(
-            sourceFile, coptsFilter, actionName, dotdFile, featureConfiguration, variables);
+        buildCommandLine(coptsFilter, actionName, featureConfiguration, variables);
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
@@ -298,6 +300,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.usedModules = null;
     this.topLevelModules = null;
     this.grepIncludes = grepIncludes;
+    this.dotdFile = isGenerateDotdFile(sourceFile) ? dotdFile : null;
     this.paramFilePath =
         featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)
             ? outputFile
@@ -332,6 +335,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Object rawOutputs,
       @Nullable Artifact gcnoFile,
       Artifact sourceFile,
+      @Nullable Artifact dotdFile,
       BuildConfigurationValue configuration,
       NestedSet<Artifact> mandatorySpawnInputs,
       NestedSet<Artifact> allowedDerivedInputs,
@@ -354,6 +358,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     super(owner, mandatoryInputs, rawOutputs);
     this.gcnoFile = gcnoFile;
     this.sourceFile = sourceFile;
+    this.dotdFile = dotdFile;
     this.configuration = configuration;
     this.mandatoryInputs = mandatoryInputs;
     this.mandatorySpawnInputs = mandatorySpawnInputs;
@@ -406,13 +411,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   static CompileCommandLine buildCommandLine(
-      Artifact sourceFile,
       CoptsFilter coptsFilter,
       String actionName,
-      Artifact dotdFile,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables) {
-    return CompileCommandLine.builder(sourceFile, coptsFilter, actionName, dotdFile)
+    return CompileCommandLine.builder(coptsFilter, actionName)
         .setFeatureConfiguration(featureConfiguration)
         .setVariables(variables)
         .build();
@@ -733,7 +736,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   /** Returns the path of the c/cc source for gcc. */
   public final Artifact getSourceFile() {
-    return compileCommandLine.getSourceFile();
+    return sourceFile;
   }
 
   @Override
@@ -752,8 +755,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /** Returns the path where the compiler should put the discovered dependency information. */
+  @Nullable
   public Artifact getDotdFile() {
-    return compileCommandLine.getDotdFile();
+    return dotdFile;
   }
 
   public CcCompilationContext getCcCompilationContext() {
@@ -1133,7 +1137,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private Iterable<PathFragment> getValidationIgnoredDirs() {
     List<PathFragment> cxxSystemIncludeDirs = getBuiltInIncludeDirectories();
-    return Iterables.concat(cxxSystemIncludeDirs, ccCompilationContext.getSystemIncludeDirs());
+    return Iterables.concat(
+        cxxSystemIncludeDirs,
+        ccCompilationContext.getSystemIncludeDirs(),
+        ccCompilationContext.getExternalIncludeDirs());
   }
 
   @VisibleForTesting
@@ -1992,5 +1999,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         .setMessage(message)
         .setCppCompile(CppCompile.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /** Returns true if Dotd file should be generated. */
+  private boolean isGenerateDotdFile(Artifact sourceArtifact) {
+    return CppFileTypes.headerDiscoveryRequired(sourceArtifact)
+        && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 }

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -49,12 +50,13 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A SkyFunction that evaluates a symbolic macro instance, identified by a
  * {PackagePieceIdentifier.ForMacro}, and produces a {@link PackagePieceValue.ForMacro}.
  */
-final class EvalMacroFunction implements SkyFunction {
+public final class EvalMacroFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final AtomicReference<Semaphore> cpuBoundSemaphore;
 
@@ -238,6 +240,9 @@ final class EvalMacroFunction implements SkyFunction {
     private final LinkedHashMap<PackagePieceIdentifier, PackagePiece> packagePieces =
         new LinkedHashMap<>();
     private final LinkedHashSet<PackagePieceIdentifier> errorKeys = new LinkedHashSet<>();
+    // The following two fields are set by a successful expansion of a PackagePiece.ForBuildFile.
+    @Nullable private StarlarkSemantics starlarkSemantics;
+    @Nullable private RepositoryMapping mainRepositoryMapping;
 
     @Override
     public ImmutableMap<PackagePieceIdentifier, PackagePiece> getPackagePieces() {
@@ -252,6 +257,16 @@ final class EvalMacroFunction implements SkyFunction {
     @Override
     public ImmutableList<PackagePieceIdentifier> getErrorKeys() {
       return ImmutableList.copyOf(errorKeys);
+    }
+
+    @Nullable
+    StarlarkSemantics getStarlarkSemantics() {
+      return starlarkSemantics;
+    }
+
+    @Nullable
+    RepositoryMapping getMainRepositoryMapping() {
+      return mainRepositoryMapping;
     }
 
     /**
@@ -319,10 +334,15 @@ final class EvalMacroFunction implements SkyFunction {
           valuesMissing = true;
           continue;
         }
+        if (packagePieceValue instanceof PackagePieceValue.ForBuildFile forBuildFileValue) {
+          starlarkSemantics = forBuildFileValue.starlarkSemantics();
+          mainRepositoryMapping = forBuildFileValue.mainRepositoryMapping();
+        }
         packagePieces.put(key, packagePieceValue.getPackagePiece());
         if (packagePieceValue.getPackagePiece().containsErrors()) {
           errorKeys.add(key);
         } else {
+          // Find unexpanded macro keys
           for (MacroInstance childMacroInstance : packagePieceValue.getPackagePiece().getMacros()) {
             PackagePieceIdentifier.ForMacro childKey =
                 new PackagePieceIdentifier.ForMacro(
@@ -342,8 +362,43 @@ final class EvalMacroFunction implements SkyFunction {
       }
       return valuesMissing ? null : this;
     }
+
+    @Nullable
+    static PackagePieces expandFinalizers(
+        NonFinalizerPackagePiecesValue nonFinalizerPackagePieces, Environment env)
+        throws NoSuchPackageException,
+            NoSuchPackagePieceException,
+            NoSuchMacroInstanceException,
+            InterruptedException {
+      ImmutableList.Builder<PackagePieceIdentifier.ForMacro> unexpandedKeysBuilder =
+          ImmutableList.builder();
+      for (PackagePiece packagePiece : nonFinalizerPackagePieces.getPackagePieces().values()) {
+        // Find unexpanded macro keys
+        for (MacroInstance macro : packagePiece.getMacros()) {
+          PackagePieceIdentifier.ForMacro key =
+              new PackagePieceIdentifier.ForMacro(
+                  packagePiece.getPackageIdentifier(),
+                  packagePiece.getIdentifier(),
+                  macro.getName());
+          if (!nonFinalizerPackagePieces.getPackagePieces().containsKey(key)) {
+            unexpandedKeysBuilder.add(key);
+          }
+        }
+      }
+      ImmutableList<PackagePieceIdentifier.ForMacro> unexpandedKeys = unexpandedKeysBuilder.build();
+      if (unexpandedKeys.isEmpty()) {
+        return nonFinalizerPackagePieces;
+      }
+      RecursiveExpander expander = new RecursiveExpander();
+      expander.starlarkSemantics = nonFinalizerPackagePieces.starlarkSemantics();
+      expander.mainRepositoryMapping = nonFinalizerPackagePieces.mainRepositoryMapping();
+      expander.packagePieces.putAll(nonFinalizerPackagePieces.getPackagePieces());
+      expander.errorKeys.addAll(nonFinalizerPackagePieces.getErrorKeys());
+      return expander.expand(unexpandedKeys, env, /* expandFinalizers= */ true);
+    }
   }
 
+  /** Wrapper for exceptions which can be thrown by {@link EvalMacroFunction#compute}. */
   public static final class EvalMacroFunctionException extends SkyFunctionException {
     EvalMacroFunctionException(NoSuchPackageException cause) {
       super(cause, Transience.PERSISTENT);

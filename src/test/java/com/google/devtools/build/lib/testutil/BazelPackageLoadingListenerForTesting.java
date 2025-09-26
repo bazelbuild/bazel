@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
@@ -57,12 +58,18 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
 
   @Override
   public void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, Metrics metrics) {
-    sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
+      Package pkg,
+      StarlarkSemantics starlarkSemantics,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages,
+      Metrics metrics) {
+    sanityCheckBazelPackageLoader(
+        pkg, ruleClassProvider, starlarkSemantics, lazyMacroExpansionPackages);
   }
 
   private PackageLoader makeFreshPackageLoader(
-      ConfiguredRuleClassProvider ruleClassProvider, StarlarkSemantics starlarkSemantics) {
+      ConfiguredRuleClassProvider ruleClassProvider,
+      StarlarkSemantics starlarkSemantics,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages) {
     return BazelPackageLoader.builder(
             Root.fromPath(directories.getWorkspace()),
             directories.getInstallBase(),
@@ -71,17 +78,19 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
         .setRuleClassProvider(ruleClassProvider)
         .addExtraPrecomputedValues(extraPrecomputedValues)
         .addExtraSkyFunctions(extraSkyFunctions)
+        .setLazyMacroExpansionPackages(lazyMacroExpansionPackages)
         .build();
   }
 
   private void sanityCheckBazelPackageLoader(
       Package pkg,
       ConfiguredRuleClassProvider ruleClassProvider,
-      StarlarkSemantics starlarkSemantics) {
+      StarlarkSemantics starlarkSemantics,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     Package newlyLoadedPkg;
     try (PackageLoader packageLoader =
-        makeFreshPackageLoader(ruleClassProvider, starlarkSemantics)) {
+        makeFreshPackageLoader(ruleClassProvider, starlarkSemantics, lazyMacroExpansionPackages)) {
       newlyLoadedPkg = packageLoader.loadPackage(pkg.getPackageIdentifier());
     } catch (InterruptedException e) {
       return;

@@ -17,12 +17,15 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Comment;
+import net.starlark.java.syntax.DocComments;
 
 /**
  * BazelModuleContext records Bazel-specific information associated with a .bzl {@link
@@ -101,6 +104,26 @@ public abstract class BazelModuleContext {
   public abstract byte[] bzlTransitiveDigest();
 
   /**
+   * Returns a map from the module's global variable names to Sphinx autodoc-style doc comments
+   * associated with the variable's declarations; global variables without a doc comment are not
+   * included in the map.
+   *
+   * <p>Intended only for use by documentation extraction machinery. Comments - including doc
+   * comments - must not affect Starlark evaluation; use of this method during the evaluation of a
+   * Starlark builtin is almost certainly an error.
+   */
+  public abstract ImmutableMap<String, DocComments> getDocCommentsMap();
+
+  /**
+   * Returns the list of doc comments not associated with any global variable in the module.
+   *
+   * <p>Intended only for use by documentation extraction machinery. Comments - including doc
+   * comments - must not affect Starlark evaluation; use of this method during the evaluation of a
+   * Starlark builtin is almost certainly an error.
+   */
+  public abstract ImmutableList<Comment> getUnusedDocCommentLines();
+
+  /**
    * Returns a label for a {@link net.starlark.java.eval.Module}.
    *
    * <p>This is a user-facing value and we rely on this string to be a valid label for the {@link
@@ -167,8 +190,17 @@ public abstract class BazelModuleContext {
       RepositoryMapping repoMapping,
       String filename,
       ImmutableList<Module> loads,
-      byte[] bzlTransitiveDigest) {
-    return new AutoValue_BazelModuleContext(key, repoMapping, filename, loads, bzlTransitiveDigest);
+      byte[] bzlTransitiveDigest,
+      ImmutableMap<String, DocComments> docCommentsMap,
+      ImmutableList<Comment> unusedDocCommentLines) {
+    return new AutoValue_BazelModuleContext(
+        key,
+        repoMapping,
+        filename,
+        loads,
+        bzlTransitiveDigest,
+        docCommentsMap,
+        unusedDocCommentLines);
   }
 
   public final Label.PackageContext packageContext() {

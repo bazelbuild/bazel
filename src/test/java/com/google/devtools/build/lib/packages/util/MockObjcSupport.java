@@ -37,6 +37,7 @@ public final class MockObjcSupport {
           "ios_arm64",
           "ios_arm64e",
           "darwin_x86_64",
+          "darwin_arm64",
           "watchos_i386",
           "watchos_x86_64",
           "watchos_armv7k",
@@ -65,6 +66,8 @@ public final class MockObjcSupport {
 
   public static final String DARWIN_X86_64 =
       TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":darwin_x86_64";
+  public static final String DARWIN_ARM64 =
+      TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":darwin_arm64";
   public static final String IOS_X86_64 = APPLE_SIMULATOR_PLATFORM_PACKAGE + ":ios_x86_64";
   public static final String IOS_ARM64 = TestConstants.APPLE_PLATFORM_PACKAGE_ROOT + ":ios_arm64";
 
@@ -103,11 +106,6 @@ public final class MockObjcSupport {
       argsBuilder.add("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     }
 
-    // Set a crosstool_top that is compatible with Apple transitions. Currently, even though this
-    // references the old cc_toolchain_suite, it's still required of cc builds even when the
-    // incompatible_enable_cc_toolchain_resolution flag is active.
-    argsBuilder.add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-
     argsBuilder.add("--incompatible_enable_apple_toolchain_resolution");
 
     return argsBuilder.build();
@@ -125,11 +123,6 @@ public final class MockObjcSupport {
       argsBuilder.add("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     }
 
-    // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
-    // AppleCrosstoolTransition
-    argsBuilder
-        .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     return argsBuilder.build();
   }
 
@@ -178,6 +171,14 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
+        "  ],",
+        ")",
+        "platform(",
+        "  name = 'darwin_arm64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
@@ -360,6 +361,7 @@ public final class MockObjcSupport {
   private static ImmutableList<CcToolchainConfig> getDefaultCcToolchainConfigs() {
     return ImmutableList.of(
         darwinX86_64().build(),
+        darwin_arm64().build(),
         x64_windows().build(),
         ios_arm64().build(),
         ios_arm64e().build(),
@@ -406,6 +408,44 @@ public final class MockObjcSupport {
             "/usr/include")
         .withToolchainTargetConstraints(
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx");
+  }
+
+  public static CcToolchainConfig.Builder darwin_arm64() {
+    return CcToolchainConfig.builder()
+        .withCpu("darwin_arm64")
+        .withCompiler("compiler")
+        .withToolchainIdentifier("darwin_arm64")
+        .withHostSystemName("x86_64-apple-macosx")
+        .withTargetSystemName("arm64-apple-macosx")
+        .withTargetLibc("macosx")
+        .withAbiVersion("local")
+        .withAbiLibcVersion("local")
+        .withCcTargetOs("apple")
+        .withSysroot("")
+        .withCxxBuiltinIncludeDirectories(
+            "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_7.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_7.3.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.2.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/Applications/Xcode_7.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/Applications/Xcode_7.3.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/Applications/Xcode_8.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs",
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx")
+        .withToolchainExecConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx");
   }
 

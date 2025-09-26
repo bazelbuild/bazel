@@ -31,7 +31,6 @@ import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
@@ -314,19 +313,6 @@ public class SandboxOptions extends OptionsBase {
               + " once the server becomes idle. Set to `auto` to use as many threads as the number"
               + " of CPUs. A server shutdown blocks on any pending asynchronous deletions.")
   public int asyncTreeDeleteIdleThreads;
-
-  @Option(
-      name = "incompatible_legacy_local_fallback",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, enables the legacy implicit fallback from sandboxed to local strategy."
-              + " This flag will eventually default to false and then become a no-op. Use"
-              + " --strategy, --spawn_strategy, or --dynamic_local_strategy to configure fallbacks"
-              + " instead.")
-  public boolean legacyLocalFallback;
 
   @Option(
       name = "reuse_sandbox_directories",

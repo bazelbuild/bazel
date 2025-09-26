@@ -32,13 +32,13 @@ class BazelOverridesTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'main')
     )
     self.main_registry.start()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
-    ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
+    ).createShModule('bbb', '1.0', {'aaa': '1.0'}).createShModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ddd', '1.0'
     )
     self.ScratchFile(
@@ -66,41 +66,41 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'aaa.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@1.0";',
-            '+    std::string lib_name = "aaa@1.0 (locally patched)";',
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0"',
+            '+    lib_name="aaa@1.0 (locally patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@aaa//:lib_aaa",',
             '    "@bbb//:lib_bbb",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            '#include "bbb.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '    hello_bbb("main function");',
-            '}',
+            'source $(rlocation aaa/aaa.sh)',
+            'source $(rlocation bbb/bbb.sh)',
+            'hello_aaa "main function"',
+            'hello_bbb "main function"',
         ],
+        executable=True,
     )
 
   def testSingleVersionOverrideWithPatch(self):
@@ -108,7 +108,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "aaa", version = "1.1")',
+            'bazel_dep(name = "aaa")',
             'bazel_dep(name = "bbb", version = "1.1")',
             # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
             'single_version_override(',
@@ -119,10 +119,31 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
+
+  def testSingleVersionOverrideVersionTooLow(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.1")',
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  version = "1.0",',
+            ')',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(['mod', 'deps'], allow_failure=True)
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "ERROR: module 'aaa' is overridden to use version '1.0', which is lower"
+        " than the version '1.1' requested by the root module",
+        stderr,
+    )
 
   def testRegistryOverride(self):
     self.writeMainProjectFiles()
@@ -132,7 +153,7 @@ class BazelOverridesTest(test_base.TestBase):
     )
     another_registry.start()
     try:
-      another_registry.createCcModule('aaa', '1.0')
+      another_registry.createShModule('aaa', '1.0')
       self.ScratchFile(
           'MODULE.bazel',
           [
@@ -144,6 +165,7 @@ class BazelOverridesTest(test_base.TestBase):
               ')',
           ],
       )
+      self.AddBazelDep('rules_shell')
       _, stdout, _ = self.RunBazel(['run', '//:main'])
       self.assertIn('main function => aaa@1.0 from another registry', stdout)
       self.assertIn('main function => bbb@1.0', stdout)
@@ -157,54 +179,42 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'aaa2.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@1.0 (locally patched)";',
-            '+    std::string lib_name = "aaa@1.0 (locally patched again)";',
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0 (locally patched)"',
+            '+    lib_name="aaa@1.0 (locally patched again)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
     self.ScratchFile(
         'aaa3.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@1.0 (locally patched again)";',
-            (
-                '+    std::string lib_name = "aaa@1.0 (locally patched again'
-                ' and again)";'
-            ),
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0 (locally patched again)"',
+            '+    lib_name="aaa@1.0 (locally patched again and again)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
     self.ScratchFile(
         'aaa4.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            (
-                '-    std::string lib_name = "aaa@1.0 (locally patched again'
-                ' and again)";'
-            ),
-            (
-                '+    std::string lib_name = "aaa@1.0 (locally patched all over'
-                ' again)";'
-            ),
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0 (locally patched again and again)"',
+            '+    lib_name="aaa@1.0 (locally patched all over again)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
@@ -227,6 +237,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn(
         'main function => aaa@1.0 (locally patched all over again)', stdout
@@ -270,6 +281,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
@@ -278,33 +290,34 @@ class BazelOverridesTest(test_base.TestBase):
   def testGitOverrideStripPrefix(self):
     self.writeMainProjectFiles()
 
-    # Update BUILD and main.cc to also call `ddd`.
+    # Update BUILD and main.sh to also call `ddd`.
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@aaa//:lib_aaa",',
             '    "@bbb//:lib_bbb",',
             '    "@ddd//:lib_ddd",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            '#include "bbb.h"',
-            '#include "ddd.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '    hello_bbb("main function");',
-            '    hello_ddd("main function");',
-            '}',
+            'source $(rlocation aaa/aaa.sh)',
+            'source $(rlocation bbb/bbb.sh)',
+            'source $(rlocation ddd/ddd.sh)',
+            'hello_aaa "main function"',
+            'hello_bbb "main function"',
+            'hello_ddd "main function"',
         ],
+        executable=True,
     )
     src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
     src_ddd_1_0 = self.main_registry.projects.joinpath('ddd', '1.0')
@@ -322,20 +335,16 @@ class BazelOverridesTest(test_base.TestBase):
     subdir_name = 'subdir_containing_ddd'
     shutil.copytree(src=src_ddd_1_0, dst=src_aaa_1_0 / subdir_name)
 
-    # Edit the code in 'subdir_containing_ddd/ddd.cc' so that we can assert
+    # Edit the code in 'subdir_containing_ddd/ddd.sh' so that we can assert
     # that we're using it.
     src_aaa_relpath = src_aaa_1_0.relative_to(self._test_cwd)
     self.ScratchFile(
-        str(src_aaa_relpath / subdir_name / 'ddd.cc'),
+        str(src_aaa_relpath / subdir_name / 'ddd.sh'),
         [
-            '#include <stdio.h>',
-            '#include "ddd.h"',
-            'void hello_ddd(const std::string& caller) {',
-            '    std::string lib_name = "ddd@1.0";',
-            (
-                '    printf("%s => %s from subdir\\n", caller.c_str(),'
-                ' lib_name.c_str());'
-            ),
+            'function hello_ddd {',
+            '    caller_name="${1}"',
+            '    lib_name="ddd@1.0"',
+            '    echo "${caller_name} => ${lib_name} from subdir"',
             '}',
         ],
     )
@@ -366,7 +375,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
@@ -387,6 +396,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
     self.assertIn('main function => bbb@1.1', stdout)

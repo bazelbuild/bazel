@@ -50,7 +50,7 @@ public enum ArtifactCategory {
 
   private final String defaultPrefix;
   private final String defaultExtension;
-  private final String starlarkName;
+
   // The extensions allowed for this artifact name pattern, Bazel should recognized them as
   // corresponding file type in CppFileTypes.java
   final ImmutableList<String> allowedExtensions;
@@ -66,8 +66,6 @@ public enum ArtifactCategory {
             .add(defaultExtension)
             .add(extraAllowedExtensions)
             .build();
-
-    this.starlarkName = toString().toLowerCase();
   }
 
   /** Returns the name of the category. */

@@ -1001,6 +1001,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "bad_gen",
         "some_test",
         "--coverage_report_generator does not refer to an executable target",
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "filegroup(name = 'bad_cov_gen')",
         "cc_test(name = 'some_test')");
   }

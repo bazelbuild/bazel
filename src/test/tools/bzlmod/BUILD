@@ -28,5 +28,6 @@ sh_test(
         "//src:bazel",
         "//src/test/shell/bazel:test-deps",
     ],
+    tags = ["requires-network"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

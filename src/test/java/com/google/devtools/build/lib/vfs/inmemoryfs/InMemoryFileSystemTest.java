@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -386,7 +387,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     Path b = testFS.getPath(bName);
     a.createSymbolicLink(PathFragment.create(bName));
     b.createSymbolicLink(PathFragment.create(aName));
-    IOException e = assertThrows(IOException.class, a::stat);
+    FileSymlinkLoopException e = assertThrows(FileSymlinkLoopException.class, a::stat);
     assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
   }
 
@@ -397,7 +398,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
     Path a = testFS.getPath(aName);
     a.createSymbolicLink(PathFragment.create(aName));
-    IOException e = assertThrows(IOException.class, a::stat);
+    FileSymlinkLoopException e = assertThrows(FileSymlinkLoopException.class, a::stat);
     assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
   }
 

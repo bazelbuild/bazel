@@ -55,28 +55,13 @@ function tear_down() {
   stop_worker
 }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 function has_utf8_locale() {
   charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
   [[ "${charmap}" == "UTF-8" ]]
 }
 
 function setup_credential_helper_test() {
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir -p a
 
@@ -111,6 +96,9 @@ function test_credential_helper_remote_cache() {
   # First build should have called helper for 4 distinct URIs.
   expect_credential_helper_calls 4
 
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --credential_helper="${TEST_TMPDIR}/credhelper" \
@@ -140,6 +128,9 @@ function test_credential_helper_remote_execution() {
 
   # First build should have called helper for 5 distinct URIs.
   expect_credential_helper_calls 5
+
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
 
   bazel build \
       --spawn_strategy=remote \
@@ -231,13 +222,9 @@ EOF
 
 # TODO(b/211478955): Deflake and re-enable.
 function DISABLED_test_remote_grpc_via_unix_socket_proxy() {
-  case "$PLATFORM" in
-  darwin|freebsd|linux|openbsd)
-    ;;
-  *)
+  if is_windows; then
     return 0
-    ;;
-  esac
+  fi
 
   # Test that remote execution can be routed via a UNIX domain socket if
   # supported by the platform.
@@ -270,13 +257,9 @@ EOF
 
 # TODO(b/211478955): Deflake and re-enable.
 function DISABLED_test_remote_grpc_via_unix_socket_direct() {
-  case "$PLATFORM" in
-  darwin|freebsd|linux|openbsd)
-    ;;
-  *)
+  if is_windows; then
     return 0
-    ;;
-  esac
+  fi
 
   # Test that remote execution can be routed via a UNIX domain socket if
   # supported by the platform.
@@ -2426,6 +2409,7 @@ function test_cc_rbe_coverage_produces_report() {
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -2957,7 +2941,7 @@ EOF
 function test_unicode_execution() {
   # The in-tree remote execution worker only supports non-ASCII paths when
   # running in a UTF-8 locale.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
       echo "Available locales:"
@@ -2990,7 +2974,7 @@ function test_unicode_execution() {
 function test_unicode_cache() {
   # The in-tree remote execution worker only supports non-ASCII paths when
   # running in a UTF-8 locale.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
       echo "Available locales:"

@@ -18,7 +18,8 @@ Definition of CcInfo provider.
 load(":common/cc/cc_helper_internal.bzl", "check_private_api")
 load(":common/cc/link/create_extra_link_time_library.bzl", "create_extra_link_time_libraries", "merge_extra_link_time_libraries")
 
-CcInfo = _builtins.toplevel.CcInfo
+cc_common_internal = _builtins.internal.cc_common
+cc_internal = _builtins.internal.cc_internal
 
 CcLinkingContextInfo = provider(
     "CcLinkingContextInfo",
@@ -50,6 +51,11 @@ CcDebugContextInfo = provider(
             """,
         "pic_files": "(.dwo files) The .dwo files for PIC compilation.",
     },
+)
+
+_EMPTY_LINKING_CONTEXT = CcLinkingContextInfo(
+    linker_inputs = depset(),
+    _extra_link_time_libraries = None,
 )
 
 _EMPTY_DEBUG_CONTEXT = CcDebugContextInfo(
@@ -96,8 +102,8 @@ def create_debug_context(compilation_outputs):
     """
     check_private_api()
     return CcDebugContextInfo(
-        files = depset(compilation_outputs.dwo_files()),
-        pic_files = depset(compilation_outputs.pic_dwo_files()),
+        files = depset(compilation_outputs._dwo_files),
+        pic_files = depset(compilation_outputs._pic_dwo_files),
     )
 
 def merge_debug_context(debug_contexts = []):
@@ -123,4 +129,66 @@ def merge_debug_context(debug_contexts = []):
     return CcDebugContextInfo(
         files = depset(transitive = transitive_dwo_files),
         pic_files = depset(transitive = transitive_pic_dwo_files),
+    )
+
+def _create_cc_info(
+        *,
+        compilation_context = None,
+        linking_context = None,
+        debug_context = None,
+        cc_native_library_info = None):
+    return dict(
+        compilation_context = compilation_context or cc_internal.empty_compilation_context(),
+        linking_context = linking_context or _EMPTY_LINKING_CONTEXT,
+        _debug_context = debug_context or _EMPTY_DEBUG_CONTEXT,
+        _legacy_transitive_native_libraries = cc_native_library_info.libraries_to_link if cc_native_library_info else depset(),
+    )
+
+CcInfo, _ = provider(
+    doc = "Provider for C++ compilation and linking information.",
+    fields = {
+        "compilation_context": "A `CcCompilationContext`.",
+        "linking_context": "A `CcLinkingContext`.",
+        "_debug_context": "A `CcDebugInfoContext`.",
+        "_legacy_transitive_native_libraries": "A `CcNativeLibraryInfo`.",
+    },
+    init = _create_cc_info,
+)
+
+def merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
+    """
+    Merges multiple `CcInfo`s into one.
+
+    Args:
+      direct_cc_infos: List of `CcInfo`s to be merged, whose headers will be exported by
+        the direct fields in the returned provider.
+      cc_infos: List of `CcInfo`s to be merged, whose headers will not be exported
+        by the direct fields in the returned provider.
+
+    Returns:
+      Merged CcInfo.
+    """
+    direct_cc_compilation_contexts = []
+    cc_compilation_contexts = []
+    cc_linking_contexts = []
+    cc_debug_info_contexts = []
+    transitive_native_cc_libraries = []
+
+    for cc_info in direct_cc_infos:
+        direct_cc_compilation_contexts.append(cc_info.compilation_context)
+        cc_linking_contexts.append(cc_info.linking_context)
+        cc_debug_info_contexts.append(cc_info._debug_context)
+        transitive_native_cc_libraries.append(cc_info._legacy_transitive_native_libraries)
+
+    for cc_info in cc_infos:
+        cc_compilation_contexts.append(cc_info.compilation_context)
+        cc_linking_contexts.append(cc_info.linking_context)
+        cc_debug_info_contexts.append(cc_info._debug_context)
+        transitive_native_cc_libraries.append(cc_info._legacy_transitive_native_libraries)
+
+    return CcInfo(
+        compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
+        linking_context = merge_linking_contexts(linking_contexts = cc_linking_contexts),
+        debug_context = merge_debug_context(cc_debug_info_contexts),
+        cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(order = "topological", transitive = transitive_native_cc_libraries)),
     )

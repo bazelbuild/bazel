@@ -17,18 +17,18 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -36,16 +36,14 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Sequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueAdapter;
-import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.TextFormat;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import org.junit.Test;
@@ -55,6 +53,62 @@ import org.junit.runners.JUnit4;
 /** Tests for toolchain features. */
 @RunWith(JUnit4.class)
 public final class CcToolchainFeaturesTest extends BuildViewTestCase {
+
+  private final AtomicInteger starlarkConfigCounter = new AtomicInteger(0);
+
+  private void loadCcToolchainConfigLib() throws Exception {
+    scratch.appendFile("tools/cpp/BUILD", "");
+    scratch.overwriteFile(
+        "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
+  }
+
+  private CcToolchainFeatures buildFeatures(String... content) throws Exception {
+    loadCcToolchainConfigLib();
+    String packageName = "crosstool" + starlarkConfigCounter.getAndIncrement();
+    scratch.overwriteFile(
+        packageName + "/crosstool.bzl",
+        "load(",
+        "    '//tools/cpp:cc_toolchain_config_lib.bzl',",
+        "    'action_config',",
+        "    'artifact_name_pattern',",
+        "    'env_entry',",
+        "    'env_set',",
+        "    'feature',",
+        "    'feature_set',",
+        "    'flag_group',",
+        "    'flag_set',",
+        "    'tool',",
+        "    'variable_with_value',",
+        "    'with_feature_set',",
+        ")",
+        "",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "        ctx = ctx,",
+        String.join("\n", content) + ",",
+        "        toolchain_identifier = 'toolchain',",
+        "        host_system_name = 'host',",
+        "        target_system_name = 'target',",
+        "        target_cpu = 'cpu',",
+        "        target_libc = 'libc',",
+        "        compiler = 'compiler',",
+        "    )",
+        "",
+        "cc_toolchain_config_rule = rule(implementation = _impl, provides ="
+            + " [CcToolchainConfigInfo])");
+
+    scratch.overwriteFile(
+        packageName + "/BUILD",
+        "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_config_rule(name = 'r')");
+
+    ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":r");
+    assertThat(target).isNotNull();
+    CcToolchainConfigInfo configInfo = target.get(CcToolchainConfigInfo.PROVIDER);
+    return new CcToolchainFeatures(configInfo, PathFragment.create("crosstool"));
+  }
 
   /**
    * Creates a {@code Variables} configuration from a list of key/value pairs.
@@ -83,15 +137,6 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     return variables.build();
   }
 
-  /** Creates an empty CcToolchainFeatures. */
-  private static CcToolchainFeatures buildEmptyFeatures(String... toolchain) throws Exception {
-    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
-    return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchainForTestingOnly(toolchainBuilder.buildPartial()),
-        PathFragment.EMPTY_FRAGMENT);
-  }
-
   private static ImmutableSet<String> getEnabledFeatures(
       CcToolchainFeatures features, String... requestedFeatures) throws Exception {
     FeatureConfiguration configuration =
@@ -109,41 +154,58 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testFeatureConfigurationCodec() throws Exception {
     FeatureConfiguration emptyConfiguration =
         FeatureConfiguration.intern(
-            buildEmptyFeatures("").getFeatureConfiguration(ImmutableSet.of()));
+            buildFeatures("features=[feature(name = 'no_legacy_features')]")
+                .getFeatureConfiguration(ImmutableSet.of()));
     FeatureConfiguration emptyFeatures =
-        CcToolchainTestHelper.buildFeatures("feature {name: 'a'}", "feature {name: 'b'}")
+        buildFeatures(
+                "features=[feature(name = 'no_legacy_features'),feature(name='a'),"
+                    + " feature(name='b')]")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));
     FeatureConfiguration featuresWithFlags =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "   name: 'a'",
-                "   flag_set {",
-                "      action: 'action-a'",
-                "      flag_group { flag: 'flag-a'}",
-                "   }",
-                "   flag_set {",
-                "      action: 'action-b'",
-                "      flag_group { flag: 'flag-b'}",
-                "   }",
-                "}",
-                "feature {",
-                "   name: 'b'",
-                "   flag_set {",
-                "      action: 'action-c'",
-                "      flag_group { flag: 'flag-c'}",
-                "   }",
-                "}")
+        buildFeatures(
+                "features = [",
+                "    feature(name = 'no_legacy_features'),",
+                "    feature(",
+                "        name = 'a',",
+                "        flag_sets = [",
+                "            flag_set(",
+                "                actions = ['action-a'],",
+                "                flag_groups = [flag_group(flags = ['flag-a'])],",
+                "            ),",
+                "            flag_set(",
+                "                actions = ['action-b'],",
+                "                flag_groups = [flag_group(flags = ['flag-b'])],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "    feature(",
+                "        name = 'b',",
+                "        flag_sets = [",
+                "            flag_set(",
+                "                actions = ['action-c'],",
+                "                flag_groups = [flag_group(flags = ['flag-c'])],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));
     FeatureConfiguration featureWithEnvSet =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "   name: 'a'",
-                "   env_set {",
-                "      action: 'action-a'",
-                "      env_entry { key: 'foo', value: 'bar'}",
-                "      env_entry { key: 'baz', value: 'zee'}",
-                "   }",
-                "}")
+        buildFeatures(
+                "features = [",
+                "    feature(name = 'no_legacy_features'),",
+                "    feature(",
+                "        name = 'a',",
+                "        env_sets = [",
+                "            env_set(",
+                "                actions = ['action-a'],",
+                "                env_entries = [",
+                "                    env_entry(key = 'foo', value = 'bar'),",
+                "                    env_entry(key = 'baz', value = 'zee'),",
+                "                ],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     new SerializationTester(emptyConfiguration, emptyFeatures, featuresWithFlags, featureWithEnvSet)
@@ -151,30 +213,19 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCrosstoolProtoCanBeSerialized() throws Exception {
-    ObjectCodecs objectCodecs =
-        new ObjectCodecs(AutoRegistry.get().getBuilder().build(), ImmutableClassToInstanceMap.of());
-    objectCodecs.serialize(CToolchain.WithFeatureSet.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.VariableWithValue.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.FlagGroup.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.FlagSet.getDefaultInstance());
-    objectCodecs.serialize(CToolchain.EnvSet.getDefaultInstance());
-  }
-
-  @Test
   public void testUnconditionalFeature() throws Exception {
     assertThat(
-            CcToolchainTestHelper.buildFeatures("")
+            buildFeatures("features = []")
                 .getFeatureConfiguration(ImmutableSet.of("a"))
                 .isEnabled("a"))
         .isFalse();
     assertThat(
-            CcToolchainTestHelper.buildFeatures("feature { name: 'a' }")
+            buildFeatures("features = [feature(name = 'a')]")
                 .getFeatureConfiguration(ImmutableSet.of("b"))
                 .isEnabled("a"))
         .isFalse();
     assertThat(
-            CcToolchainTestHelper.buildFeatures("feature { name: 'a' }")
+            buildFeatures("features = [feature(name = 'a')]")
                 .getFeatureConfiguration(ImmutableSet.of("a"))
                 .isEnabled("a"))
         .isTrue();
@@ -183,36 +234,42 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testUnsupportedAction() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures("").getFeatureConfiguration(ImmutableSet.of());
+        buildFeatures("features = []").getFeatureConfiguration(ImmutableSet.of());
     assertThat(configuration.getCommandLine("invalid-action", createVariables())).isEmpty();
   }
 
   @Test
   public void testFlagOrderEqualsSpecOrder() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { flag: '-a-c++-compile' }",
-                "  }",
-                "  flag_set {",
-                "     action: 'link'",
-                "     flag_group { flag: '-a-c++-compile' }",
-                "  }",
-                "}",
-                "feature {",
-                "  name: 'b'",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { flag: '-b-c++-compile' }",
-                "  }",
-                "  flag_set {",
-                "     action: 'link'",
-                "     flag_group { flag: '-b-link' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [",
+                "    feature(",
+                "        name = 'a',",
+                "        flag_sets = [",
+                "            flag_set(",
+                "                actions = ['c++-compile'],",
+                "                flag_groups = [flag_group(flags = ['-a-c++-compile'])],",
+                "            ),",
+                "            flag_set(",
+                "                actions = ['link'],",
+                "                flag_groups = [flag_group(flags = ['-a-c++-compile'])],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "    feature(",
+                "        name = 'b',",
+                "        flag_sets = [",
+                "            flag_set(",
+                "                actions = ['c++-compile'],",
+                "                flag_groups = [flag_group(flags = ['-b-c++-compile'])],",
+                "            ),",
+                "            flag_set(",
+                "                actions = ['link'],",
+                "                flag_groups = [flag_group(flags = ['-b-link'])],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));
     List<String> commandLine =
         configuration.getCommandLine(CppActionNames.CPP_COMPILE, createVariables());
@@ -222,57 +279,73 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testEnvVars() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     env_entry { key: 'foo', value: 'bar' }",
-                "     env_entry { key: 'cat', value: 'meow' }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { flag: '-a-c++-compile' }",
-                "  }",
-                "}",
-                "feature {",
-                "  name: 'b'",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     env_entry { key: 'dog', value: 'woof' }",
-                "  }",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     with_feature: { feature: 'd' }",
-                "     env_entry { key: 'withFeature', value: 'value1' }",
-                "  }",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     with_feature: { feature: 'e' }",
-                "     env_entry { key: 'withoutFeature', value: 'value2' }",
-                "  }",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     with_feature: { not_feature: 'f' }",
-                "     env_entry { key: 'withNotFeature', value: 'value3' }",
-                "  }",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     with_feature: { not_feature: 'g' }",
-                "     env_entry { key: 'withoutNotFeature', value: 'value4' }",
-                "  }",
-                "}",
-                "feature {",
-                "  name: 'c'",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     env_entry { key: 'doNotInclude', value: 'doNotIncludePlease' }",
-                "  }",
-                "}",
-                "feature { name: 'd' }",
-                "feature { name: 'e' }",
-                "feature { name: 'f' }",
-                "feature { name: 'g' }")
+        buildFeatures(
+                "features = [",
+                "    feature(",
+                "        name = 'a',",
+                "        env_sets = [",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                env_entries = [",
+                "                    env_entry(key = 'foo', value = 'bar'),",
+                "                    env_entry(key = 'cat', value = 'meow'),",
+                "                ],",
+                "            ),",
+                "        ],",
+                "        flag_sets = [",
+                "            flag_set(",
+                "                actions = ['c++-compile'],",
+                "                flag_groups = [flag_group(flags = ['-a-c++-compile'])],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "    feature(",
+                "        name = 'b',",
+                "        env_sets = [",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                env_entries = [env_entry(key = 'dog', value = 'woof')],",
+                "            ),",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                with_features = [with_feature_set(features = ['d'])],",
+                "                env_entries = [env_entry(key = 'withFeature', value = 'value1')],",
+                "            ),",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                with_features = [with_feature_set(features = ['e'])],",
+                "                env_entries = [env_entry(key = 'withoutFeature', value ="
+                    + " 'value2')],",
+                "            ),",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                with_features = [with_feature_set(not_features = ['f'])],",
+                "                env_entries = [env_entry(key = 'withNotFeature', value ="
+                    + " 'value3')],",
+                "            ),",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                with_features = [with_feature_set(not_features = ['g'])],",
+                "                env_entries = [env_entry(key = 'withoutNotFeature', value ="
+                    + " 'value4')],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "    feature(",
+                "        name = 'c',",
+                "        env_sets = [",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                env_entries = [env_entry(key = 'doNotInclude', value ="
+                    + " 'doNotIncludePlease')],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "    feature(name = 'd'),",
+                "    feature(name = 'e'),",
+                "    feature(name = 'f'),",
+                "    feature(name = 'g'),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("a", "b", "d", "f"));
     ImmutableMap<String, String> env =
         configuration.getEnvironmentVariables(
@@ -290,14 +363,21 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testEnvVarsWithMissingVariableIsNotExpanded() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     env_entry { key: 'foo', value: 'bar', expand_if_all_available: 'v' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [",
+                "    feature(",
+                "        name = 'a',",
+                "        env_sets = [",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                env_entries = [",
+                "                    env_entry(key = 'foo', value = 'bar', expand_if_available"
+                    + " = 'v')",
+                "                ],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     ImmutableMap<String, String> env =
@@ -310,14 +390,21 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testEnvVarsWithAllVariablesPresentAreExpanded() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     env_entry { key: 'foo', value: 'bar', expand_if_all_available: 'v' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [",
+                "    feature(",
+                "        name = 'a',",
+                "        env_sets = [",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                env_entries = [",
+                "                    env_entry(key = 'foo', value = 'bar', expand_if_available"
+                    + " = 'v')",
+                "                ],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     ImmutableMap<String, String> env =
@@ -331,14 +418,21 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testEnvVarsWithAllVariablesPresentAreExpandedWithVariableExpansion()
       throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  env_set {",
-                "     action: 'c++-compile'",
-                "     env_entry { key: 'foo', value: '%{v}', expand_if_all_available: 'v' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [",
+                "    feature(",
+                "        name = 'a',",
+                "        env_sets = [",
+                "            env_set(",
+                "                actions = ['c++-compile'],",
+                "                env_entries = [",
+                "                    env_entry(key = 'foo', value = '%{v}', expand_if_available"
+                    + " = 'v')",
+                "                ],",
+                "            ),",
+                "        ],",
+                "    ),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     ImmutableMap<String, String> env =
@@ -348,46 +442,48 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertThat(env).containsExactly("foo", "1").inOrder();
   }
 
-  private static String getExpansionOfFlag(String value) throws Exception {
+  private String getExpansionOfFlag(String value) throws Exception {
     return getExpansionOfFlag(value, createVariables());
   }
 
-  private static String getExpansionOfFlag(String value, CcToolchainVariables variables)
-      throws Exception {
+  private String getExpansionOfFlag(String value, CcToolchainVariables variables) throws Exception {
     return getCommandLineForFlag(value, variables).get(0);
   }
 
-  private static List<String> getCommandLineForFlagGroups(
-      String groups, CcToolchainVariables variables) throws Exception {
+  private List<String> getCommandLineForFlagGroups(String groups, CcToolchainVariables variables)
+      throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "    action: 'c++-compile'",
-                "    " + groups,
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [",
+                "   feature(name = 'no_legacy_features'),",
+                "   feature(",
+                "    name = 'a',",
+                "    flag_sets = [",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [" + groups + "],",
+                "        ),",
+                "    ],",
+                ")]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
     return configuration.getCommandLine(CppActionNames.CPP_COMPILE, variables);
   }
 
-  private static List<String> getCommandLineForFlag(String value, CcToolchainVariables variables)
+  private List<String> getCommandLineForFlag(String value, CcToolchainVariables variables)
       throws Exception {
-    return getCommandLineForFlagGroups("flag_group { flag: '" + value + "' }", variables);
+    return getCommandLineForFlagGroups("flag_group(flags = ['" + value + "'])", variables);
   }
 
-  private static String getFlagParsingError(String value) {
+  private String getFlagParsingError(String value) {
     return assertThrows(EvalException.class, () -> getExpansionOfFlag(value)).getMessage();
   }
 
-  private static String getFlagExpansionError(String value, CcToolchainVariables variables) {
+  private String getFlagExpansionError(String value, CcToolchainVariables variables) {
     return assertThrows(ExpansionException.class, () -> getExpansionOfFlag(value, variables))
         .getMessage();
   }
 
-  private static String getFlagGroupsExpansionError(
-      String flagGroups, CcToolchainVariables variables) {
+  private String getFlagGroupsExpansionError(String flagGroups, CcToolchainVariables variables) {
     return assertThrows(
             ExpansionException.class, () -> getCommandLineForFlagGroups(flagGroups, variables))
         .getMessage();
@@ -401,13 +497,15 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertThat(getExpansionOfFlag("%{v}", createVariables("v", "<flag>"))).isEqualTo("<flag>");
     assertThat(getExpansionOfFlag(" %{v1} %{v2} ", createVariables("v1", "1", "v2", "2")))
         .isEqualTo(" 1 2 ");
-    assertThat(getFlagParsingError("%")).contains("expected '{'");
-    assertThat(getFlagParsingError("% ")).contains("expected '{'");
+    assertThat(getFlagParsingError("%"))
+        .contains("expected '{' at position 1 while parsing a flag containing '%'");
+    assertThat(getFlagParsingError("% "))
+        .contains("expected '{' at position 1 while parsing a flag containing '% '");
     assertThat(getFlagParsingError("%{")).contains("expected variable name");
     assertThat(getFlagParsingError("%{}")).contains("expected variable name");
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group{ iterate_over: 'v' flag: '%{v}' }",
+                "flag_group(iterate_over = 'v', flags = ['%{v}'])",
                 CcToolchainVariables.builder()
                     .addStringSequenceVariable("v", ImmutableList.of())
                     .build()))
@@ -524,7 +622,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testSimpleStructureVariableExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group { flag: '-A%{struct.foo}' flag: '-B%{struct.bar}' }",
+                "flag_group(flags = ['-A%{struct.foo}', '-B%{struct.bar}'])",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -537,7 +635,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testNestedStructureVariableExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group { flag: '-A%{struct.foo.bar}' }",
+                "flag_group(flags = ['-A%{struct.foo.bar}'])",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -549,7 +647,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testAccessingStructureAsStringFails() {
     assertThat(
             getFlagGroupsExpansionError(
-                "flag_group { flag: '-A%{struct}' }",
+                "flag_group(flags = ['-A%{struct}'])",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -564,7 +662,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testAccessingStringValueAsStructureFails() {
     assertThat(
             getFlagGroupsExpansionError(
-                "flag_group { flag: '-A%{stringVar.foo}' }",
+                "flag_group(flags = ['-A%{stringVar.foo}'])",
                 createVariables("stringVar", "stringVarValue")))
         .isEqualTo(
             "Invalid toolchain configuration: Cannot expand variable 'stringVar.foo': variable "
@@ -575,7 +673,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testAccessingSequenceAsStructureFails() {
     assertThat(
             getFlagGroupsExpansionError(
-                "flag_group { flag: '-A%{sequence.foo}' }",
+                "flag_group(flags = ['-A%{sequence.foo}'])",
                 createVariables("sequence", "foo1", "sequence", "foo2")))
         .isEqualTo(
             "Invalid toolchain configuration: Cannot expand variable 'sequence.foo': variable "
@@ -586,7 +684,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testAccessingMissingStructureFieldFails() {
     assertThat(
             getFlagGroupsExpansionError(
-                "flag_group { flag: '-A%{struct.missing}' }",
+                "flag_group(flags = ['-A%{struct.missing}'])",
                 createStructureVariables(
                     "struct", new StructureBuilder().addField("bar", "barValue"))))
         .isEqualTo(
@@ -598,7 +696,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testSequenceOfStructuresExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group { iterate_over: 'structs' flag: '-A%{structs.foo}' }",
+                "flag_group(iterate_over = 'structs', flags = ['-A%{structs.foo}'])",
                 createStructureSequenceVariables(
                     "structs",
                     new StructureBuilder().addField("foo", "foo1Value").build(),
@@ -610,10 +708,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testStructureOfSequencesExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  iterate_over: 'struct.sequences'"
-                    + "  flag: '-A%{struct.sequences.foo}'"
-                    + "}",
+                "flag_group("
+                    + "  iterate_over = 'struct.sequences',"
+                    + "  flags = ['-A%{struct.sequences.foo}']"
+                    + ")",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -632,15 +730,15 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testDottedNamesNotAlwaysMeanStructures() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  iterate_over: 'struct.sequence'"
-                    + "  flag_group {"
-                    + "    iterate_over: 'other_sequence'"
-                    + "    flag_group {"
-                    + "      flag: '-A%{struct.sequence} -B%{other_sequence}'"
-                    + "    }"
-                    + "  }"
-                    + "}",
+                "flag_group("
+                    + "  iterate_over = 'struct.sequence',"
+                    + "  flag_groups = [flag_group("
+                    + "    iterate_over = 'other_sequence',"
+                    + "    flag_groups = [flag_group("
+                    + "      flags = ['-A%{struct.sequence} -B%{other_sequence}']"
+                    + "    )]"
+                    + "  )]"
+                    + ")",
                 CcToolchainVariables.builder()
                     .addVariable(
                         "struct",
@@ -656,11 +754,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfAllAvailableWithStructsExpandsIfPresent() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_all_available: 'struct'"
-                    + "  flag: '-A%{struct.foo}'"
-                    + "  flag: '-B%{struct.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_available = 'struct',"
+                    + "  flags = ['-A%{struct.foo}', '-B%{struct.bar}']"
+                    + ")",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -673,11 +770,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfAllAvailableWithStructsDoesntExpandIfMissing() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_all_available: 'nonexistent'"
-                    + "  flag: '-A%{struct.foo}'"
-                    + "  flag: '-B%{struct.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_available = 'nonexistent',"
+                    + "  flags = ['-A%{struct.foo}','-B%{struct.bar}']"
+                    + ")",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -690,11 +786,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfAllAvailableWithStructsDoesntCrashIfMissing() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_all_available: 'nonexistent'"
-                    + "  flag: '-A%{nonexistent.foo}'"
-                    + "  flag: '-B%{nonexistent.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_available = 'nonexistent',"
+                    + "  flags = ['-A%{nonexistent.foo}','-B%{nonexistent.bar}']"
+                    + ")",
                 createVariables()))
         .isEmpty();
   }
@@ -703,11 +798,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfAllAvailableWithStructFieldDoesntCrashIfMissing() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_all_available: 'nonexistent.nonexistant_field'"
-                    + "  flag: '-A%{nonexistent.foo}'"
-                    + "  flag: '-B%{nonexistent.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_available = 'nonexistent.nonexistant_field',"
+                    + "  flags = ['-A%{nonexistent.foo}','-B%{nonexistent.bar}']"
+                    + ")",
                 createVariables()))
         .isEmpty();
   }
@@ -716,11 +810,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfAllAvailableWithStructFieldExpandsIfPresent() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_all_available: 'struct.foo'"
-                    + "  flag: '-A%{struct.foo}'"
-                    + "  flag: '-B%{struct.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_available = 'struct.foo',"
+                    + "  flags = ['-A%{struct.foo}','-B%{struct.bar}']"
+                    + ")",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -733,11 +826,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfAllAvailableWithStructFieldDoesntExpandIfMissing() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_all_available: 'struct.foo'"
-                    + "  flag: '-A%{struct.foo}'"
-                    + "  flag: '-B%{struct.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_available = 'struct.foo',"
+                    + "  flags = ['-A%{struct.foo}','-B%{struct.bar}']"
+                    + ")",
                 createStructureVariables(
                     "struct", new StructureBuilder().addField("bar", "barValue"))))
         .isEmpty();
@@ -747,15 +839,14 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfAllAvailableWithStructFieldScopesRight() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  flag_group {"
-                    + "    expand_if_all_available: 'struct.foo'"
-                    + "    flag: '-A%{struct.foo}'"
-                    + "  }"
-                    + "  flag_group { "
-                    + "    flag: '-B%{struct.bar}'"
-                    + "  }"
-                    + "}",
+                "flag_group(flag_groups = [flag_group("
+                    + "    expand_if_available = 'struct.foo',"
+                    + "    flags = ['-A%{struct.foo}']"
+                    + "  ),"
+                    + "  flag_group("
+                    + "    flags = ['-B%{struct.bar}']"
+                    + "  )]"
+                    + ")",
                 createStructureVariables(
                     "struct", new StructureBuilder().addField("bar", "barValue"))))
         .containsExactly("-BbarValue");
@@ -764,49 +855,48 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testExpandIfNoneAvailableExpandsIfNotAvailable() throws Exception {
     assertThat(
-        getCommandLineForFlagGroups(
-            "flag_group {"
-                + "  flag_group {"
-                + "    expand_if_none_available: 'not_available'"
-                + "    flag: '-foo'"
-                + "  }"
-                + "  flag_group { "
-                + "    expand_if_none_available: 'available'"
-                + "    flag: '-bar'"
-                + "  }"
-                + "}",
-            createVariables("available", "available")))
+            getCommandLineForFlagGroups(
+                "flag_group(flag_groups = [flag_group("
+                    + "    expand_if_not_available = 'not_available',"
+                    + "    flags = ['-foo']"
+                    + "  ),"
+                    + "  flag_group("
+                    + "    expand_if_not_available = 'available',"
+                    + "    flags = ['-bar']"
+                    + "  )]"
+                    + ")",
+                createVariables("available", "available")))
         .containsExactly("-foo");
   }
 
   @Test
   public void testExpandIfNoneAvailableDoesntExpandIfThereIsOneOfManyAvailable() throws Exception {
     assertThat(
-        getCommandLineForFlagGroups(
-            "flag_group {"
-                + "  flag_group {"
-                + "    expand_if_none_available: 'not_available'"
-                + "    expand_if_none_available: 'available'"
-                + "    flag: '-foo'"
-                + "  }"
-                + "}",
-            createVariables("available", "available")))
+            getCommandLineForFlagGroups(
+                "flag_group("
+                    + "  expand_if_not_available = 'not_available',"
+                    + "  flag_groups = [flag_group("
+                    + "    expand_if_not_available = 'available',"
+                    + "    flags = ['-foo']"
+                    + "  )]"
+                    + ")",
+                createVariables("available", "available")))
         .isEmpty();
   }
 
   @Test
   public void testExpandIfTrueDoesntExpandIfMissing() throws Exception {
     assertThat(
-        getCommandLineForFlagGroups(
-            "flag_group {"
-                + "  expand_if_true: 'missing'"
-                + "  flag: '-A%{missing}'"
-                + "}"
-                + "flag_group {"
-                + "  expand_if_false: 'missing'"
-                + "  flag: '-B%{missing}'"
-                + "}",
-            createVariables()))
+            getCommandLineForFlagGroups(
+                "flag_group("
+                    + "  expand_if_true = 'missing',"
+                    + "  flags = ['-A%{missing}']"
+                    + "),"
+                    + "flag_group("
+                    + "  expand_if_false = 'missing',"
+                    + "  flags = ['-B%{missing}']"
+                    + ")",
+                createVariables()))
         .isEmpty();
   }
 
@@ -814,16 +904,14 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfTrueExpandsIfOne() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_true: 'struct.bool'"
-                    + "  flag: '-A%{struct.foo}'"
-                    + "  flag: '-B%{struct.bar}'"
-                    + "}"
-                    + "flag_group {"
-                    + "  expand_if_false: 'struct.bool'"
-                    + "  flag: '-X%{struct.foo}'"
-                    + "  flag: '-Y%{struct.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_true = 'struct.bool',"
+                    + "  flags = ['-A%{struct.foo}','-B%{struct.bar}']"
+                    + "),"
+                    + "flag_group("
+                    + "  expand_if_false = 'struct.bool',"
+                    + "  flags = ['-X%{struct.foo}','-Y%{struct.bar}']"
+                    + ")",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -837,16 +925,14 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfTrueExpandsIfZero() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_true: 'struct.bool'"
-                    + "  flag: '-A%{struct.foo}'"
-                    + "  flag: '-B%{struct.bar}'"
-                    + "}"
-                    + "flag_group {"
-                    + "  expand_if_false: 'struct.bool'"
-                    + "  flag: '-X%{struct.foo}'"
-                    + "  flag: '-Y%{struct.bar}'"
-                    + "}",
+                "flag_group("
+                    + "  expand_if_true = 'struct.bool',"
+                    + "  flags = ['-A%{struct.foo}','-B%{struct.bar}']"
+                    + "),"
+                    + "flag_group("
+                    + "  expand_if_false = 'struct.bool',"
+                    + "  flags = ['-X%{struct.foo}', '-Y%{struct.bar}']"
+                    + ")",
                 createStructureVariables(
                     "struct",
                     new StructureBuilder()
@@ -867,18 +953,12 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testExpandIfEqual() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  expand_if_equal: { variable: 'var' value: 'equal_value' }"
-                    + "  flag: '-foo_%{var}'"
-                    + "}"
-                    + "flag_group {"
-                    + "  expand_if_equal: { variable: 'var' value: 'non_equal_value' }"
-                    + "  flag: '-bar_%{var}'"
-                    + "}"
-                    + "flag_group {"
-                    + "  expand_if_equal: { variable: 'non_existing_var' value: 'non_existing' }"
-                    + "  flag: '-baz_%{non_existing_var}'"
-                    + "}",
+                "flag_group(  expand_if_equal = variable_with_value(name = 'var', value ="
+                    + " 'equal_value'),  flags = ['-foo_%{var}']),flag_group(  expand_if_equal ="
+                    + " variable_with_value(name = 'var', value = 'non_equal_value'),  flags ="
+                    + " ['-bar_%{var}']),flag_group(  expand_if_equal = variable_with_value(name ="
+                    + " 'non_existing_var', value = 'non_existing'),  flags ="
+                    + " ['-baz_%{non_existing_var}'])",
                 createVariables("var", "equal_value")))
         .containsExactly("-foo_equal_value");
   }
@@ -887,7 +967,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testListVariableExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group { iterate_over: 'v' flag: '%{v}' }",
+                "flag_group(iterate_over = 'v', flags = ['%{v}'])",
                 createVariables("v", "1", "v", "2")))
         .containsExactly("1", "2");
   }
@@ -896,7 +976,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testListVariableExpansionMixedWithNonListVariable() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group { iterate_over: 'v1' flag: '%{v1} %{v2}' }",
+                "flag_group(iterate_over = 'v1', flags = ['%{v1} %{v2}'])",
                 createVariables("v1", "a1", "v1", "a2", "v2", "b")))
         .containsExactly("a1 b", "a2 b");
   }
@@ -905,13 +985,13 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testNestedListVariableExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  iterate_over: 'v1'"
-                    + "  flag_group {"
-                    + "    iterate_over: 'v2'"
-                    + "    flag: '%{v1} %{v2}'"
-                    + "  }"
-                    + "}",
+                "flag_group("
+                    + "  iterate_over = 'v1',"
+                    + "  flag_groups = [flag_group("
+                    + "    iterate_over = 'v2',"
+                    + "    flags = ['%{v1} %{v2}'],"
+                    + "  )]"
+                    + ")",
                 createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
         .containsExactly("a1 b1", "a1 b2", "a2 b1", "a2 b2");
   }
@@ -920,7 +1000,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testListVariableExpansionMixedWithImplicitlyAccessedListVariableFails() {
     assertThat(
             getFlagGroupsExpansionError(
-                "flag_group { iterate_over: 'v1' flag: '%{v1} %{v2}' }",
+                "flag_group(iterate_over = 'v1', flags = ['%{v1} %{v2}'])",
                 createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
         .contains("Cannot expand variable 'v2': expected string, found sequence");
   }
@@ -930,22 +1010,22 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertThat(
             getCommandLineForFlagGroups(
                 ""
-                    + "flag_group { iterate_over: 'v' flag: '-f' flag: '%{v}' }"
-                    + "flag_group { flag: '-end' }",
+                    + "flag_group(iterate_over = 'v', flags = ['-f', '%{v}']),"
+                    + "flag_group(flags = ['-end'])",
                 createVariables("v", "1", "v", "2")))
         .containsExactly("-f", "1", "-f", "2", "-end");
     assertThat(
             getCommandLineForFlagGroups(
                 ""
-                    + "flag_group { iterate_over: 'v' flag: '-f' flag: '%{v}' }"
-                    + "flag_group { iterate_over: 'v' flag: '%{v}' }",
+                    + "flag_group(iterate_over = 'v', flags = ['-f', '%{v}']),"
+                    + "flag_group(iterate_over = 'v', flags = ['%{v}'])",
                 createVariables("v", "1", "v", "2")))
         .containsExactly("-f", "1", "-f", "2", "1", "2");
     assertThat(
             getCommandLineForFlagGroups(
                 ""
-                    + "flag_group { iterate_over: 'v' flag: '-f' flag: '%{v}' } "
-                    + "flag_group { iterate_over: 'v' flag: '%{v}' }",
+                    + "flag_group(iterate_over = 'v', flags = ['-f', '%{v}']),"
+                    + "flag_group(iterate_over = 'v', flags = ['%{v}'])",
                 createVariables("v", "1", "v", "2")))
         .containsExactly("-f", "1", "-f", "2", "1", "2");
   }
@@ -977,12 +1057,14 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   public void testFlagTreeVariableExpansion() throws Exception {
     String nestedGroup =
         ""
-            + "flag_group {"
-            + "  iterate_over: 'v'"
-            + "  flag_group { flag: '-a' }"
-            + "  flag_group { iterate_over: 'v' flag: '%{v}' }"
-            + "  flag_group { flag: '-b' }"
-            + "}";
+            + "flag_group("
+            + "  iterate_over = 'v',"
+            + "  flag_groups = ["
+            + "    flag_group(flags = ['-a']),"
+            + "    flag_group(iterate_over = 'v', flags = ['%{v}']),"
+            + "    flag_group(flags = ['-b']),"
+            + "  ],"
+            + ")";
     assertThat(getCommandLineForFlagGroups(nestedGroup, createNestedVariables("v", 1, 3)))
         .containsExactly(
             "-a", "00", "01", "02", "-b", "-a", "10", "11", "12", "-b", "-a", "20", "21", "22",
@@ -994,43 +1076,49 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
             () -> getCommandLineForFlagGroups(nestedGroup, createNestedVariables("v", 2, 3)));
     assertThat(e).hasMessageThat().contains("'v'");
 
-    e =
+    AssertionError ae =
         assertThrows(
-            ExpansionException.class,
+            AssertionError.class,
             () ->
-                CcToolchainTestHelper.buildFeatures(
-                    "feature {",
-                    "  name: 'a'",
-                    "  flag_set {",
-                    "    action: 'c++-compile'",
-                    "    flag_group {",
-                    "      flag_group { flag: '-f' }",
-                    "      flag: '-f'",
-                    "    }",
-                    "  }",
-                    "}"));
-    assertThat(e).hasMessageThat().contains("Invalid toolchain configuration");
+                buildFeatures(
+                    "features = [feature(",
+                    "  name =  'a',",
+                    "  flag_sets = [flag_set(",
+                    "    action = 'c++-compile',",
+                    "    flag_groups = [flag_group(",
+                    "      flag_groups = [flag_group(flags = ['-f'])],",
+                    "      flags = ['-f'],",
+                    "    )],",
+                    "  )],",
+                    ")]"));
+    assertThat(ae)
+        .hasMessageThat()
+        .contains("flag_group must not contain both a flag and another flag_group.");
   }
 
   @Test
   public void testImplies() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' implies: 'b' implies: 'c' }",
-            "feature { name: 'b' }",
-            "feature { name: 'c' implies: 'd' }",
-            "feature { name: 'd' }",
-            "feature { name: 'e' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', implies = ['b', 'c']),",
+            "    feature(name = 'b'),",
+            "    feature(name = 'c', implies = ['d']),",
+            "    feature(name = 'd'),",
+            "    feature(name = 'e'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a")).containsExactly("a", "b", "c", "d");
   }
 
   @Test
   public void testRequires() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' requires: { feature: 'b' } }",
-            "feature { name: 'b' requires: { feature: 'c' } }",
-            "feature { name: 'c' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', requires = [feature_set(features = ['b'])]),",
+            "    feature(name = 'b', requires = [feature_set(features = ['c'])]),",
+            "    feature(name = 'c'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "b")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "c")).containsExactly("c");
@@ -1040,47 +1128,62 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testDisabledRequirementChain() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' }",
-            "feature { name: 'b' requires: { feature: 'c' } implies: 'a' }",
-            "feature { name: 'c' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a'),",
+            "    feature(name = 'b', requires = [feature_set(features = ['c'])], implies ="
+                + " ['a']),",
+            "    feature(name = 'c'),",
+            "]");
     assertThat(getEnabledFeatures(features, "b")).isEmpty();
     features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' }",
-            "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
-            "feature { name: 'c' }",
-            "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
-            "feature { name: 'e' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a'),",
+            "    feature(name = 'b', requires = [feature_set(features = ['a'])], implies ="
+                + " ['c']),",
+            "    feature(name = 'c'),",
+            "    feature(name = 'd', requires = [feature_set(features = ['c'])], implies ="
+                + " ['e']),",
+            "    feature(name = 'e'),",
+            "]");
     assertThat(getEnabledFeatures(features, "b", "d")).isEmpty();
   }
 
   @Test
   public void testEnabledRequirementChain() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: '0' implies: 'a' }",
-            "feature { name: 'a' }",
-            "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
-            "feature { name: 'c' }",
-            "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
-            "feature { name: 'e' }");
-    assertThat(getEnabledFeatures(features, "0", "b", "d")).containsExactly(
-        "0", "a", "b", "c", "d", "e");
+        buildFeatures(
+            "features = [",
+            "    feature(name = '0', implies = ['a']),",
+            "    feature(name = 'a'),",
+            "    feature(name = 'b', requires = [feature_set(features = ['a'])], implies ="
+                + " ['c']),",
+            "    feature(name = 'c'),",
+            "    feature(name = 'd', requires = [feature_set(features = ['c'])], implies ="
+                + " ['e']),",
+            "    feature(name = 'e'),",
+            "]");
+    assertThat(getEnabledFeatures(features, "0", "b", "d"))
+        .containsExactly("0", "a", "b", "c", "d", "e");
   }
 
   @Test
   public void testLogicInRequirements() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature {",
-            "  name: 'a'",
-            "  requires: { feature: 'b' feature: 'c' }",
-            "  requires: { feature: 'd' }",
-            "}",
-            "feature { name: 'b' }",
-            "feature { name: 'c' }",
-            "feature { name: 'd' }");
+        buildFeatures(
+            "features = [",
+            "    feature(",
+            "        name = 'a',",
+            "        requires = [",
+            "            feature_set(features = ['b', 'c']),",
+            "            feature_set(features = ['d']),",
+            "        ],",
+            "    ),",
+            "    feature(name = 'b'),",
+            "    feature(name = 'c'),",
+            "    feature(name = 'd'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a", "b", "c")).containsExactly("a", "b", "c");
     assertThat(getEnabledFeatures(features, "a", "b")).containsExactly("b");
     assertThat(getEnabledFeatures(features, "a", "c")).containsExactly("c");
@@ -1090,22 +1193,26 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testImpliesImpliesRequires() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' implies: 'b' }",
-            "feature { name: 'b' requires: { feature: 'c' } }",
-            "feature { name: 'c' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', implies = ['b']),",
+            "    feature(name = 'b', requires = [feature_set(features = ['c'])]),",
+            "    feature(name = 'c'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
   }
 
   @Test
   public void testMultipleImplies() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' implies: 'b' implies: 'c' implies: 'd' }",
-            "feature { name: 'b' }",
-            "feature { name: 'c' requires: { feature: 'e' } }",
-            "feature { name: 'd' }",
-            "feature { name: 'e' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', implies = ['b', 'c', 'd']),",
+            "    feature(name = 'b'),",
+            "    feature(name = 'c', requires = [feature_set(features = ['e'])]),",
+            "    feature(name = 'd'),",
+            "    feature(name = 'e'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "e")).containsExactly("a", "b", "c", "d", "e");
   }
@@ -1113,10 +1220,12 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testDisabledFeaturesDoNotEnableImplications() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' implies: 'b' requires: { feature: 'c' } }",
-            "feature { name: 'b' }",
-            "feature { name: 'c' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', implies = ['b'], requires = [feature_set(features = ['c'])]),",
+            "    feature(name = 'b'),",
+            "    feature(name = 'c'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
   }
 
@@ -1126,9 +1235,14 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () ->
-                CcToolchainTestHelper.buildFeatures(
-                    "feature { name: '<<<collision>>>' }", "feature { name: '<<<collision>>>' }"));
-    assertThat(e).hasMessageThat().contains("<<<collision>>>");
+                buildFeatures(
+                    "features = [",
+                    "    feature(name = '+++collision+++'),",
+                    "    feature(name = '+++collision+++'),",
+                    "]"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("feature or action config '+++collision+++' was specified multiple times.");
   }
 
   @Test
@@ -1136,44 +1250,52 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class,
-            () ->
-                CcToolchainTestHelper.buildFeatures(
-                    "feature { name: 'a' implies: '<<<undefined>>>' }"));
-    assertThat(e).hasMessageThat().contains("<<<undefined>>>");
+            () -> buildFeatures("features = [feature(name = 'a', implies = ['<<<undefined>>>'])]"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "feature '<<<undefined>>>', which is referenced from feature 'a', is not defined");
   }
 
   @Test
   public void testImpliesWithCycle() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' implies: 'b' }", "feature { name: 'b' implies: 'a' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', implies = ['b']),",
+            "    feature(name = 'b', implies = ['a']),",
+            "]");
     assertThat(getEnabledFeatures(features, "a")).containsExactly("a", "b");
     assertThat(getEnabledFeatures(features, "b")).containsExactly("a", "b");
- }
+  }
 
   @Test
   public void testMultipleImpliesCycle() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' implies: 'b' implies: 'c' implies: 'd' }",
-            "feature { name: 'b' }",
-            "feature { name: 'c' requires: { feature: 'e' } }",
-            "feature { name: 'd' requires: { feature: 'f' } }",
-            "feature { name: 'e' requires: { feature: 'c' } }",
-            "feature { name: 'f' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', implies = ['b', 'c', 'd']),",
+            "    feature(name = 'b'),",
+            "    feature(name = 'c', requires = [feature_set(features = ['e'])]),",
+            "    feature(name = 'd', requires = [feature_set(features = ['f'])]),",
+            "    feature(name = 'e', requires = [feature_set(features = ['c'])]),",
+            "    feature(name = 'f'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a", "e")).isEmpty();
-    assertThat(getEnabledFeatures(features, "a", "e", "f")).containsExactly(
-        "a", "b", "c", "d", "e", "f");
+    assertThat(getEnabledFeatures(features, "a", "e", "f"))
+        .containsExactly("a", "b", "c", "d", "e", "f");
   }
 
   @Test
   public void testRequiresWithCycle() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' requires: { feature: 'b' } }",
-            "feature { name: 'b' requires: { feature: 'a' } }",
-            "feature { name: 'c' implies: 'a' }",
-            "feature { name: 'd' implies: 'b' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a', requires = [feature_set(features = ['b'])]),",
+            "    feature(name = 'b', requires = [feature_set(features = ['a'])]),",
+            "    feature(name = 'c', implies = ['a']),",
+            "    feature(name = 'd', implies = ['b']),",
+            "]");
     assertThat(getEnabledFeatures(features, "c")).isEmpty();
     assertThat(getEnabledFeatures(features, "d")).isEmpty();
     assertThat(getEnabledFeatures(features, "c", "d")).containsExactly("a", "b", "c", "d");
@@ -1182,40 +1304,55 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testImpliedByOneEnabledAndOneDisabledFeature() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' }",
-            "feature { name: 'b' requires: { feature: 'a' } implies: 'd' }",
-            "feature { name: 'c' implies: 'd' }",
-            "feature { name: 'd' }");
+        buildFeatures(
+            "features = [",
+            "    feature(name = 'a'),",
+            "    feature(name = 'b', requires = [feature_set(features = ['a'])], implies ="
+                + " ['d']),",
+            "    feature(name = 'c', implies = ['d']),",
+            "    feature(name = 'd'),",
+            "]");
     assertThat(getEnabledFeatures(features, "b", "c")).containsExactly("c", "d");
   }
 
   @Test
   public void testRequiresOneEnabledAndOneUnsupportedFeature() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' requires: { feature: 'b' } requires: { feature: 'c' } }",
-            "feature { name: 'b' }",
-            "feature { name: 'c' requires: { feature: 'd' } }",
-            "feature { name: 'd' }");
+        buildFeatures(
+            "features = [",
+            "    feature(",
+            "        name = 'a',",
+            "        requires = [",
+            "            feature_set(features = ['b']),",
+            "            feature_set(features = ['c'])",
+            "        ],",
+            "    ),",
+            "    feature(name = 'b'),",
+            "    feature(name = 'c', requires = [feature_set(features = ['d'])]),",
+            "    feature(name = 'd'),",
+            "]");
     assertThat(getEnabledFeatures(features, "a", "b", "c")).containsExactly("a", "b");
   }
 
   @Test
   public void testFlagGroupsWithMissingVariableIsNotExpanded() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { expand_if_all_available: 'v' flag: '%{v}' }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { flag: 'unconditional' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [feature(",
+                "    name = 'a',",
+                "    flag_sets = [",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [",
+                "                flag_group(expand_if_available = 'v', flags = ['%{v}'])",
+                "            ],",
+                "        ),",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [flag_group(flags = ['unconditional'])],",
+                "        ),",
+                "    ],",
+                ")]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     assertThat(configuration.getCommandLine(CppActionNames.CPP_COMPILE, createVariables()))
@@ -1225,26 +1362,33 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testOnlyFlagGroupsWithAllVariablesPresentAreExpanded() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { expand_if_all_available: 'v' flag: '%{v}' }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group {",
-                "       expand_if_all_available: 'v'",
-                "       expand_if_all_available: 'w'",
-                "       flag: '%{v}%{w}'",
-                "     }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { flag: 'unconditional' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [feature(",
+                "    name = 'a',",
+                "    flag_sets = [",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [",
+                "                flag_group(expand_if_available = 'v', flags = ['%{v}'])",
+                "            ],",
+                "        ),",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [",
+                "                flag_group(",
+                "                    expand_if_available = 'w',",
+                "                    flag_groups = [flag_group(",
+                "                    expand_if_available = 'v',",
+                "                    flags = ['%{v}%{w}'])],",
+                "                )",
+                "            ],",
+                "        ),",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [flag_group(flags = ['unconditional'])],",
+                "        ),",
+                "    ],",
+                ")]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     assertThat(configuration.getCommandLine(CppActionNames.CPP_COMPILE, createVariables("v", "1")))
@@ -1254,27 +1398,38 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testOnlyInnerFlagGroupIsIteratedWithSequenceVariable() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { expand_if_all_available: 'v' iterate_over: 'v' flag: '%{v}' }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { ",
-                "       iterate_over: 'v'",
-                "       expand_if_all_available: 'v'",
-                "       expand_if_all_available: 'w'",
-                "       flag: '%{v}%{w}'",
-                "     }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { flag: 'unconditional' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [feature(",
+                "    name = 'a',",
+                "    flag_sets = [",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [",
+                "                flag_group(",
+                "                    expand_if_available = 'v',",
+                "                    iterate_over = 'v',",
+                "                    flags = ['%{v}']",
+                "                ),",
+                "            ],",
+                "        ),",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [",
+                "                flag_group(",
+                "                    expand_if_available = 'w',",
+                "                    flag_groups = [flag_group(",
+                "                    iterate_over = 'v',",
+                "                    expand_if_available = 'v',",
+                "                    flags = ['%{v}%{w}'])],",
+                "                ),",
+                "            ],",
+                "        ),",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [flag_group(flags = ['unconditional'])],",
+                "        ),",
+                "    ],",
+                ")]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     assertThat(
@@ -1287,27 +1442,36 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testFlagSetsAreIteratedIndividuallyForSequenceVariables() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "feature {",
-                "  name: 'a'",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { expand_if_all_available: 'v' iterate_over: 'v' flag: '%{v}' }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { ",
-                "       iterate_over: 'v'",
-                "       expand_if_all_available: 'v'",
-                "       expand_if_all_available: 'w'",
-                "       flag: '%{v}%{w}'",
-                "     }",
-                "  }",
-                "  flag_set {",
-                "     action: 'c++-compile'",
-                "     flag_group { flag: 'unconditional' }",
-                "  }",
-                "}")
+        buildFeatures(
+                "features = [feature(",
+                "    name = 'a',",
+                "    flag_sets = [",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [",
+                "                flag_group(",
+                "                    expand_if_available = 'v',",
+                "                    iterate_over = 'v',",
+                "                    flags = ['%{v}']",
+                "                ),",
+                "            ],",
+                "        ),",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [",
+                "                flag_group(",
+                "                    iterate_over = 'v',",
+                "                    expand_if_available = 'v',",
+                "                    flags = ['%{v}%{w}']",
+                "                ),",
+                "            ],",
+                "        ),",
+                "        flag_set(",
+                "            actions = ['c++-compile'],",
+                "            flag_groups = [flag_group(flags = ['unconditional'])],",
+                "        ),",
+                "    ],",
+                ")]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     assertThat(
@@ -1320,18 +1484,19 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testConfiguration() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature {",
-            "  name: 'a'",
-            "  flag_set {",
-            "    action: 'c++-compile'",
-            "    flag_group {",
-            "      flag: '-f'",
-            "      flag: '%{v}'",
-            "    }",
-            "  }",
-            "}",
-            "feature { name: 'b' implies: 'a' }");
+        buildFeatures(
+            "features = [",
+            "    feature(",
+            "        name = 'a',",
+            "        flag_sets = [",
+            "            flag_set(",
+            "                actions = ['c++-compile'],",
+            "                flag_groups = [flag_group(flags = ['-f', '%{v}'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "    feature(name = 'b', implies = ['a']),",
+            "]");
     assertThat(getEnabledFeatures(features, "b")).containsExactly("a", "b");
     assertThat(
             features
@@ -1351,35 +1516,44 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testDefaultFeatures() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature { name: 'a' }", "feature { name: 'b' enabled: true }");
+        buildFeatures(
+            "features = ["
+                + "feature(name = 'no_legacy_features'),"
+                + "feature(name = 'a'), feature(name = 'b', enabled = True)"
+                + "]");
     assertThat(features.getDefaultFeaturesAndActionConfigs()).containsExactly("b");
   }
 
   @Test
   public void testDefaultActionConfigs() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "action_config { config_name: 'a' action_name: 'a'}",
-            "action_config { config_name: 'b' action_name: 'b' enabled: true }");
+        buildFeatures(
+            "features = [feature(name = 'no_legacy_features')],",
+            "action_configs = [",
+            "    action_config(action_name = 'a'),",
+            "    action_config(action_name = 'b', enabled = True),",
+            "]");
     assertThat(features.getDefaultFeaturesAndActionConfigs()).containsExactly("b");
   }
 
   @Test
   public void testWithFeature_oneSetOneFeature() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature {",
-            "  name: 'a'",
-            "  flag_set {",
-            "    with_feature {feature: 'b'}",
-            "    action: 'c++-compile'",
-            "    flag_group {",
-            "      flag: 'dummy_flag'",
-            "    }",
-            "  }",
-            "}",
-            "feature {name: 'b'}");
+        buildFeatures(
+            "features = [",
+            "feature(name = 'no_legacy_features'),",
+            "    feature(",
+            "        name = 'a',",
+            "        flag_sets = [",
+            "            flag_set(",
+            "                with_features = [with_feature_set(features = ['b'])],",
+            "                actions = ['c++-compile'],",
+            "                flag_groups = [flag_group(flags = ['dummy_flag'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "    feature(name = 'b'),",
+            "]");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b"))
@@ -1395,19 +1569,21 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testWithFeature_oneSetMultipleFeatures() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature {",
-            "  name: 'a'",
-            "  flag_set {",
-            "    with_feature {feature: 'b', feature: 'c'}",
-            "    action: 'c++-compile'",
-            "    flag_group {",
-            "      flag: 'dummy_flag'",
-            "    }",
-            "  }",
-            "}",
-            "feature {name: 'b'}",
-            "feature {name: 'c'}");
+        buildFeatures(
+            "features = [",
+            "    feature(",
+            "        name = 'a',",
+            "        flag_sets = [",
+            "            flag_set(",
+            "                with_features = [with_feature_set(features = ['b', 'c'])],",
+            "                actions = ['c++-compile'],",
+            "                flag_groups = [flag_group(flags = ['dummy_flag'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "    feature(name = 'b'),",
+            "    feature(name = 'c'),",
+            "]");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b", "c"))
@@ -1428,22 +1604,26 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testWithFeature_mulipleSetsMultipleFeatures() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature {",
-            "  name: 'a'",
-            "  flag_set {",
-            "    with_feature {feature: 'b1', feature: 'c1'}",
-            "    with_feature {feature: 'b2', feature: 'c2'}",
-            "    action: 'c++-compile'",
-            "    flag_group {",
-            "      flag: 'dummy_flag'",
-            "    }",
-            "  }",
-            "}",
-            "feature {name: 'b1'}",
-            "feature {name: 'c1'}",
-            "feature {name: 'b2'}",
-            "feature {name: 'c2'}");
+        buildFeatures(
+            "features = [",
+            "    feature(",
+            "        name = 'a',",
+            "        flag_sets = [",
+            "            flag_set(",
+            "                with_features = [",
+            "                    with_feature_set(features = ['b1', 'c1']),",
+            "                    with_feature_set(features = ['b2', 'c2']),",
+            "                ],",
+            "                actions = ['c++-compile'],",
+            "                flag_groups = [flag_group(flags = ['dummy_flag'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "    feature(name = 'b1'),",
+            "    feature(name = 'c1'),",
+            "    feature(name = 'b2'),",
+            "    feature(name = 'c2'),",
+            "]");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a", "b1", "c1", "b2", "c2"))
@@ -1464,22 +1644,26 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testWithFeature_notFeature() throws Exception {
     CcToolchainFeatures features =
-        CcToolchainTestHelper.buildFeatures(
-            "feature {",
-            "  name: 'a'",
-            "  flag_set {",
-            "    with_feature { not_feature: 'x', not_feature: 'y', feature: 'z' }",
-            "    with_feature { not_feature: 'q' }",
-            "    action: 'c++-compile'",
-            "    flag_group {",
-            "      flag: 'dummy_flag'",
-            "    }",
-            "  }",
-            "}",
-            "feature {name: 'x'}",
-            "feature {name: 'y'}",
-            "feature {name: 'z'}",
-            "feature {name: 'q'}");
+        buildFeatures(
+            "features = [",
+            "    feature(",
+            "        name = 'a',",
+            "        flag_sets = [",
+            "            flag_set(",
+            "                with_features = [",
+            "                    with_feature_set(not_features = ['x', 'y'], features = ['z']),",
+            "                    with_feature_set(not_features = ['q']),",
+            "                ],",
+            "                actions = ['c++-compile'],",
+            "                flag_groups = [flag_group(flags = ['dummy_flag'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "    feature(name = 'x'),",
+            "    feature(name = 'y'),",
+            "    feature(name = 'z'),",
+            "    feature(name = 'q'),",
+            "]");
     assertThat(
             features
                 .getFeatureConfiguration(ImmutableSet.of("a"))
@@ -1510,19 +1694,21 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testActivateActionConfigFromFeature() throws Exception {
     CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "action_config {",
-            "  config_name: 'action-a'",
-            "  action_name: 'action-a'",
-            "  tool {",
-            "    tool_path: 'toolchain/feature-a'",
-            "    with_feature: { feature: 'feature-a' }",
-            "  }",
-            "}",
-            "feature {",
-            "   name: 'activates-action-a'",
-            "   implies: 'action-a'",
-            "}");
+        buildFeatures(
+            "action_configs = [",
+            "    action_config(",
+            "        action_name = 'action-a',",
+            "        tools = [",
+            "            tool(",
+            "                path = 'toolchain/feature-a',",
+            "                with_features = [with_feature_set(features = ['feature-a'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "],",
+            "features = [",
+            "    feature(name = 'activates-action-a', implies = ['action-a']),",
+            "]");
 
     FeatureConfiguration featureConfiguration =
         toolchainFeatures.getFeatureConfiguration(ImmutableSet.of("activates-action-a"));
@@ -1533,19 +1719,24 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testFeatureCanRequireActionConfig() throws Exception {
     CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "action_config {",
-            "  config_name: 'action-a'",
-            "  action_name: 'action-a'",
-            "  tool {",
-            "    tool_path: 'toolchain/feature-a'",
-            "    with_feature: { feature: 'feature-a' }",
-            "  }",
-            "}",
-            "feature {",
-            "   name: 'requires-action-a'",
-            "   requires: { feature: 'action-a' }",
-            "}");
+        buildFeatures(
+            "action_configs = [",
+            "    action_config(",
+            "        action_name = 'action-a',",
+            "        tools = [",
+            "            tool(",
+            "                path = 'toolchain/feature-a',",
+            "                with_features = [with_feature_set(features = ['feature-a'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "],",
+            "features = [",
+            "    feature(",
+            "        name = 'requires-action-a',",
+            "        requires = [feature_set(features = ['action-a'])],",
+            "    ),",
+            "]");
 
     FeatureConfiguration featureConfigurationWithoutAction =
         toolchainFeatures.getFeatureConfiguration(ImmutableSet.of("requires-action-a"));
@@ -1559,18 +1750,16 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testSimpleActionTool() throws Exception {
     FeatureConfiguration configuration =
-        CcToolchainTestHelper.buildFeatures(
-                "action_config {",
-                "  config_name: 'action-a'",
-                "  action_name: 'action-a'",
-                "  tool {",
-                "    tool_path: 'toolchain/a'",
-                "  }",
-                "}",
-                "feature {",
-                "   name: 'activates-action-a'",
-                "   implies: 'action-a'",
-                "}")
+        buildFeatures(
+                "action_configs = [",
+                "    action_config(",
+                "        action_name = 'action-a',",
+                "        tools = [tool(path = 'toolchain/a')],",
+                "    ),",
+                "],",
+                "features = [",
+                "    feature(name = 'activates-action-a', implies = ['action-a']),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("activates-action-a"));
     assertThat(configuration.getToolPathForAction("action-a")).isEqualTo("crosstool/toolchain/a");
   }
@@ -1578,46 +1767,38 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testActionToolFromFeatureSet() throws Exception {
     CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "action_config {",
-            "  config_name: 'action-a'",
-            "  action_name: 'action-a'",
-            "  tool {",
-            "    tool_path: 'toolchain/features-a-and-b'",
-            "    with_feature: {",
-            "      feature: 'feature-a'",
-            "      feature: 'feature-b'",
-            "     }",
-            "  }",
-            "  tool {",
-            "    tool_path: 'toolchain/feature-a-and-not-c'",
-            "    with_feature: {",
-            "      feature: 'feature-a'",
-            "      not_feature: 'feature-c'",
-            "    }",
-            "  }",
-            "  tool {",
-            "    tool_path: 'toolchain/feature-b-or-c'",
-            "    with_feature: { feature: 'feature-b' }",
-            "    with_feature: { feature: 'feature-c' }",
-            "  }",
-            "  tool {",
-            "    tool_path: 'toolchain/default'",
-            "  }",
-            "}",
-            "feature {",
-            "  name: 'feature-a'",
-            "}",
-            "feature {",
-            "  name: 'feature-b'",
-            "}",
-            "feature {",
-            "  name: 'feature-c'",
-            "}",
-            "feature {",
-            "  name: 'activates-action-a'",
-            "  implies: 'action-a'",
-            "}");
+        buildFeatures(
+            "action_configs = [",
+            "    action_config(",
+            "        action_name = 'action-a',",
+            "        tools = [",
+            "            tool(",
+            "                path = 'toolchain/features-a-and-b',",
+            "                with_features = [with_feature_set(features = ['feature-a',"
+                + " 'feature-b'])],",
+            "            ),",
+            "            tool(",
+            "                path = 'toolchain/feature-a-and-not-c',",
+            "                with_features = [with_feature_set(features = ['feature-a'],"
+                + " not_features = ['feature-c'])],",
+            "            ),",
+            "            tool(",
+            "                path = 'toolchain/feature-b-or-c',",
+            "                with_features = [",
+            "                    with_feature_set(features = ['feature-b']),",
+            "                    with_feature_set(features = ['feature-c'])",
+            "                ],",
+            "            ),",
+            "            tool(path = 'toolchain/default'),",
+            "        ],",
+            "    ),",
+            "],",
+            "features = [",
+            "    feature(name = 'feature-a'),",
+            "    feature(name = 'feature-b'),",
+            "    feature(name = 'feature-c'),",
+            "    feature(name = 'activates-action-a', implies = ['action-a']),",
+            "]");
 
     FeatureConfiguration featureAConfiguration =
         toolchainFeatures.getFeatureConfiguration(
@@ -1658,22 +1839,22 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testErrorForNoMatchingTool() throws Exception {
     CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "action_config {",
-            "  config_name: 'action-a'",
-            "  action_name: 'action-a'",
-            "  tool {",
-            "    tool_path: 'toolchain/feature-a'",
-            "    with_feature: { feature: 'feature-a' }",
-            "  }",
-            "}",
-            "feature {",
-            "  name: 'feature-a'",
-            "}",
-            "feature {",
-            "  name: 'activates-action-a'",
-            "  implies: 'action-a'",
-            "}");
+        buildFeatures(
+            "action_configs = [",
+            "    action_config(",
+            "        action_name = 'action-a',",
+            "        tools = [",
+            "            tool(",
+            "                path = 'toolchain/feature-a',",
+            "                with_features = [with_feature_set(features = ['feature-a'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "],",
+            "features = [",
+            "    feature(name = 'feature-a'),",
+            "    feature(name = 'activates-action-a', implies = ['action-a']),",
+            "]");
 
     FeatureConfiguration noFeaturesConfiguration =
         toolchainFeatures.getFeatureConfiguration(ImmutableSet.of("activates-action-a"));
@@ -1690,15 +1871,18 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testActivateActionConfigDirectly() throws Exception {
     CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "action_config {",
-            "  config_name: 'action-a'",
-            "  action_name: 'action-a'",
-            "  tool {",
-            "    tool_path: 'toolchain/feature-a'",
-            "    with_feature: { feature: 'feature-a' }",
-            "  }",
-            "}");
+        buildFeatures(
+            "action_configs = [",
+            "    action_config(",
+            "        action_name = 'action-a',",
+            "        tools = [",
+            "            tool(",
+            "                path = 'toolchain/feature-a',",
+            "                with_features = [with_feature_set(features = ['feature-a'])],",
+            "            ),",
+            "        ],",
+            "    ),",
+            "]");
 
     FeatureConfiguration featureConfiguration =
         toolchainFeatures.getFeatureConfiguration(ImmutableSet.of("action-a"));
@@ -1709,19 +1893,22 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testActionConfigCanActivateFeature() throws Exception {
     CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "action_config {",
-            "  config_name: 'action-a'",
-            "  action_name: 'action-a'",
-            "  tool {",
-            "    tool_path: 'toolchain/feature-a'",
-            "    with_feature: { feature: 'feature-a' }",
-            "  }",
-            "  implies: 'activated-feature'",
-            "}",
-            "feature {",
-            "   name: 'activated-feature'",
-            "}");
+        buildFeatures(
+            "action_configs = [",
+            "    action_config(",
+            "        action_name = 'action-a',",
+            "        tools = [",
+            "            tool(",
+            "                path = 'toolchain/feature-a',",
+            "                with_features = [with_feature_set(features = ['feature-a'])],",
+            "            ),",
+            "        ],",
+            "        implies = ['activated-feature'],",
+            "    ),",
+            "],",
+            "features = [",
+            "    feature(name = 'activated-feature'),",
+            "]");
 
     FeatureConfiguration featureConfiguration =
         toolchainFeatures.getFeatureConfiguration(ImmutableSet.of("action-a"));
@@ -1730,54 +1917,29 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInvalidActionConfigurationDuplicateActionConfigs() {
-    EvalException e =
-        assertThrows(
-            EvalException.class,
-            () ->
-                CcToolchainTestHelper.buildFeatures(
-                    "action_config {",
-                    "  config_name: 'action-a'",
-                    "  action_name: 'action-1'",
-                    "}",
-                    "action_config {",
-                    "  config_name: 'action-a'",
-                    "  action_name: 'action-2'",
-                    "}"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("feature or action config 'action-a' was specified multiple times.");
-  }
-
-  @Test
   public void testInvalidActionConfigurationMultipleActionConfigsForAction() {
     EvalException e =
         assertThrows(
             EvalException.class,
             () ->
-                CcToolchainTestHelper.buildFeatures(
-                    "action_config {",
-                    "  config_name: 'name-a'",
-                    "  action_name: 'action-a'",
-                    "}",
-                    "action_config {",
-                    "  config_name: 'name-b'",
-                    "  action_name: 'action-a'",
-                    "}"));
+                buildFeatures(
+                    "action_configs = [",
+                    "    action_config(action_name = 'action-a'),",
+                    "    action_config(action_name = 'action-a'),",
+                    "]"));
     assertThat(e).hasMessageThat().contains("multiple action configs for action 'action-a'");
   }
 
   @Test
   public void testFlagsFromActionConfig() throws Exception {
     FeatureConfiguration featureConfiguration =
-        CcToolchainTestHelper.buildFeatures(
-                "action_config {",
-                "  config_name: 'c++-compile'",
-                "  action_name: 'c++-compile'",
-                "  flag_set {",
-                "    flag_group {flag: 'foo'}",
-                "  }",
-                "}")
+        buildFeatures(
+                "action_configs = [",
+                "    action_config(",
+                "        action_name = 'c++-compile',",
+                "        flag_sets = [flag_set(flag_groups = [flag_group(flags = ['foo'])])],",
+                "    ),",
+                "]")
             .getFeatureConfiguration(ImmutableSet.of("c++-compile"));
     List<String> commandLine =
         featureConfiguration.getCommandLine("c++-compile", createVariables());
@@ -1790,15 +1952,18 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () ->
-                CcToolchainTestHelper.buildFeatures(
-                        "action_config {",
-                        "  config_name: 'c++-compile'",
-                        "  action_name: 'c++-compile'",
-                        "  flag_set {",
-                        "    action: 'c++-compile'",
-                        "    flag_group {flag: 'foo'}",
-                        "  }",
-                        "}")
+                buildFeatures(
+                        "action_configs = [",
+                        "    action_config(",
+                        "        action_name = 'c++-compile',",
+                        "        flag_sets = [",
+                        "            flag_set(",
+                        "                actions = ['c++-compile'],",
+                        "                flag_groups = [flag_group(flags = ['foo'])],",
+                        "            ),",
+                        "        ],",
+                        "    ),",
+                        "]")
                     .getFeatureConfiguration(ImmutableSet.of("c++-compile")));
     assertThat(e)
         .hasMessageThat()
@@ -1811,15 +1976,11 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         assertThrows(
             Exception.class,
             () ->
-                CcToolchainTestHelper.buildFeatures(
-                        "feature {",
-                        " name: 'a'",
-                        " provides: 'provides_string'",
-                        "}",
-                        "feature {",
-                        " name: 'b'",
-                        " provides: 'provides_string'",
-                        "}")
+                buildFeatures(
+                        "features = [",
+                        "    feature(name = 'a', provides = ['provides_string']),",
+                        "    feature(name = 'b', provides = ['provides_string']),",
+                        "]")
                     .getFeatureConfiguration(ImmutableSet.of("a", "b")));
     assertThat(e).hasMessageThat().contains("a b");
   }
@@ -1827,28 +1988,30 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testGetArtifactNameExtensionForCategory() throws Exception {
     CcToolchainFeatures toolchainFeatures =
-        CcToolchainTestHelper.buildFeatures(
-            "artifact_name_pattern {",
-            "  category_name: 'object_file'",
-            "  prefix: ''",
-            "  extension: '.obj'",
-            "}",
-            "artifact_name_pattern {",
-            "  category_name: 'executable'",
-            "  prefix: ''",
-            "  extension: ''",
-            "}",
-            "artifact_name_pattern {",
-            "  category_name: 'static_library'",
-            "  prefix: ''",
-            "  extension: '.a'",
-            "}");
+        buildFeatures(
+            "artifact_name_patterns = [",
+            "    artifact_name_pattern(",
+            "        category_name = 'object_file',",
+            "        prefix = '',",
+            "        extension = '.obj',",
+            "    ),",
+            "    artifact_name_pattern(",
+            "        category_name = 'executable',",
+            "        prefix = '',",
+            "        extension = '',",
+            "    ),",
+            "    artifact_name_pattern(",
+            "        category_name = 'static_library',",
+            "        prefix = '',",
+            "        extension = '.a',",
+            "    ),",
+            "]");
     assertThat(toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE))
         .isEqualTo(".obj");
     assertThat(toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.EXECUTABLE))
         .isEmpty();
     assertThat(
-        toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.STATIC_LIBRARY))
+            toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.STATIC_LIBRARY))
         .isEqualTo(".a");
   }
 }

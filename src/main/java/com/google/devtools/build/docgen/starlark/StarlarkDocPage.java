@@ -13,96 +13,101 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.starlark;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
-import java.text.Collator;
-import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Locale;
-import java.util.TreeMap;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * A typical Starlark documentation page, containing a bunch of field/method documentation entries.
  */
 public abstract class StarlarkDocPage extends StarlarkDoc {
-  private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
-  private final TreeMap<String, StarlarkMethodDoc> methodMap;
-  @Nullable private StarlarkConstructorMethodDoc javaConstructor;
+  // Contains all members; must be sorted for output - we cannot sort before output because
+  // overloading can change a member doc's sort key.
+  private final HashMultimap<String, MemberDoc> membersByShortName = HashMultimap.create();
+  // Contains overloaded members; used only for uniqueness checks in overloadMember().
+  private final HashMap<String, MemberDoc> overloadsBySignature = new HashMap<>();
+  @Nullable private MemberDoc constructor;
 
   protected StarlarkDocPage(StarlarkDocExpander expander) {
     super(expander);
-    this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
-    this.javaMethods = HashMultimap.create();
   }
 
   public abstract String getTitle();
 
-  public void setConstructor(StarlarkConstructorMethodDoc method) {
-    Preconditions.checkState(
-        javaConstructor == null,
+  public void setConstructor(MemberDoc method) {
+    checkArgument(method.isConstructor(), "Expected a constructor, got %s", method);
+    checkState(
+        constructor == null,
         "Constructor method doc already set for %s:\n  existing: %s\n  attempted: %s",
         getName(),
-        javaConstructor,
+        constructor,
         method);
-    javaConstructor = method;
+    constructor = method;
   }
 
-  public void addMethod(StarlarkJavaMethodDoc method) {
-    if (!method.documented()) {
+  public void addMember(MemberDoc member) {
+    if (!member.documented()) {
       return;
     }
 
-    String shortName = method.getName();
-    Collection<StarlarkJavaMethodDoc> overloads = javaMethods.get(shortName);
+    String shortName = member.getShortName();
+    Set<MemberDoc> overloads = membersByShortName.get(shortName);
     if (!overloads.isEmpty()) {
-      method.setOverloaded(true);
       // Overload information only needs to be updated if we're discovering the first overload
       // (= the second method of the same name).
       if (overloads.size() == 1) {
-        Iterables.getOnlyElement(overloads).setOverloaded(true);
+        overloadMember(Iterables.getOnlyElement(overloads));
       }
+      overloadMember(member);
     }
-    javaMethods.put(shortName, method);
+    membersByShortName.put(shortName, member);
+  }
 
-    // If the method is overloaded, getName() now returns a longer,
-    // unique name including the names of the parameters.
-    StarlarkMethodDoc prev = methodMap.put(method.getName(), method);
-    if (prev != null && !prev.getMethod().equals(method.getMethod())) {
-      throw new IllegalStateException(
-          String.format(
-              "Starlark type '%s' has distinct overloads of %s: %s, %s",
-              getName(), method.getName(), method.getMethod(), prev.getMethod()));
+  private void overloadMember(MemberDoc member) {
+    if (member instanceof AnnotStarlarkOrdinaryMethodDoc javaMethod) {
+      javaMethod.setOverloaded(true);
+      MemberDoc prevOverloadWithSameSignature = overloadsBySignature.put(member.getName(), member);
+      if (prevOverloadWithSameSignature != null) {
+        throw new IllegalStateException(
+            String.format(
+                "Starlark type '%s' has multiple overloads with signature %s: %s, %s",
+                getName(), member.getName(), member, prevOverloadWithSameSignature));
+      }
+    } else {
+      throw new IllegalArgumentException(
+          "Only non-constructor Java-defined methods can be overloaded; got " + member);
     }
   }
 
-  public Collection<StarlarkMethodDoc> getJavaMethods() {
-    ImmutableSortedSet.Builder<StarlarkMethodDoc> methods =
-        new ImmutableSortedSet.Builder<>(Comparator.comparing(StarlarkMethodDoc::getName));
-
-    if (javaConstructor != null) {
-      methods.add(javaConstructor);
+  /**
+   * Returns the list of members of this doc page,; first the constructor method (if one is
+   * defined), and then the remaining methods in case-insensitive name order.
+   */
+  public ImmutableList<MemberDoc> getMembers() {
+    ImmutableList.Builder<MemberDoc> members = ImmutableList.builder();
+    if (constructor != null) {
+      members.add(constructor);
     }
-    methods.addAll(javaMethods.values());
-    return methods.build();
-  }
-
-  public ImmutableCollection<? extends StarlarkMethodDoc> getMethods() {
-    ImmutableList.Builder<StarlarkMethodDoc> methods = ImmutableList.builder();
-    if (javaConstructor != null) {
-      methods.add(javaConstructor);
-    }
-    return methods.addAll(methodMap.values()).build();
+    // membersByShortName is a hash map,
+    return members
+        .addAll(
+            ImmutableList.sortedCopyOf(
+                Comparator.comparing(m -> m.getName().toLowerCase(Locale.ROOT)),
+                membersByShortName.values()))
+        .build();
   }
 
   @Nullable
-  public StarlarkConstructorMethodDoc getConstructor() {
-    return javaConstructor;
+  public MemberDoc getConstructor() {
+    return constructor;
   }
 
   /** Returns the path to the source file backing this doc page. */

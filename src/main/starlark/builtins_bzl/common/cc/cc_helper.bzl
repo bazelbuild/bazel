@@ -19,8 +19,9 @@ load(
     ":common/cc/cc_helper_internal.bzl",
     "is_versioned_shared_library_extension_valid",
     "should_create_per_object_debug_info",
-    _artifact_category = "artifact_category",
+    _artifact_category = "artifact_category_names",
     _extensions = "extensions",
+    _is_stamping_enabled = "is_stamping_enabled",
     _package_source_root = "package_source_root",
     _repository_exec_path = "repository_exec_path",
 )
@@ -96,30 +97,6 @@ def _use_cpp_toolchain(mandatory = False):
     """
     return [config_common.toolchain_type(_CPP_TOOLCHAIN_TYPE, mandatory = mandatory)]
 
-def _rule_error(msg):
-    fail(msg)
-
-def _attribute_error(attr_name, msg):
-    fail("in attribute '" + attr_name + "': " + msg)
-
-# NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
-# it has better performance (checking for extension in a short list rather than multiple
-# string.endswith() checks)
-def _is_valid_shared_library_name(shared_library_name):
-    if (shared_library_name.endswith(".so") or
-        shared_library_name.endswith(".dll") or
-        shared_library_name.endswith(".dylib") or
-        shared_library_name.endswith(".wasm")):
-        return True
-
-    return is_versioned_shared_library_extension_valid(shared_library_name)
-
-def _libraries_from_linking_context(linking_context):
-    libraries = []
-    for linker_input in linking_context.linker_inputs.to_list():
-        libraries.extend(linker_input.libraries)
-    return depset(libraries, order = "topological")
-
 def _additional_inputs_from_linking_context(linking_context):
     inputs = []
     for linker_input in linking_context.linker_inputs.to_list():
@@ -133,6 +110,30 @@ cpp_file_types = struct(
 )
 
 artifact_category = _artifact_category
+
+def _rule_error(msg):
+    fail(msg)
+
+def _attribute_error(attr_name, msg):
+    fail("in attribute '" + attr_name + "': " + msg)
+
+def _libraries_from_linking_context(linking_context):
+    libraries = []
+    for linker_input in linking_context.linker_inputs.to_list():
+        libraries.extend(linker_input.libraries)
+    return depset(libraries, order = "topological")
+
+# NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
+# it has better performance (checking for extension in a short list rather than multiple
+# string.endswith() checks)
+def _is_valid_shared_library_name(shared_library_name):
+    if (shared_library_name.endswith(".so") or
+        shared_library_name.endswith(".dll") or
+        shared_library_name.endswith(".dylib") or
+        shared_library_name.endswith(".wasm")):
+        return True
+
+    return is_versioned_shared_library_extension_valid(shared_library_name)
 
 def _replace_name(name, new_name):
     last_slash = name.rfind("/")
@@ -204,7 +205,7 @@ def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
     debug_context = cc_common.create_debug_context(compilation_outputs)
     debug_contexts = []
     for dep_cc_info in dep_cc_infos:
-        debug_contexts.append(dep_cc_info.debug_context())
+        debug_contexts.append(dep_cc_info._debug_context)
     debug_contexts.append(debug_context)
 
     return cc_common.merge_debug_context(debug_contexts)
@@ -239,13 +240,13 @@ def _build_output_groups_for_emitting_compile_providers(
     process_hdrs = cpp_configuration.process_headers_in_dependencies()
     use_pic = cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration)
     output_groups_builder["temp_files_INTERNAL_"] = compilation_outputs.temps()
-    files_to_compile = compilation_outputs.files_to_compile(
-        parse_headers = process_hdrs,
-        use_pic = use_pic,
-    )
+    files_to_compile = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
+    if process_hdrs:
+        files_to_compile = files_to_compile + compilation_outputs._header_tokens
+    files_to_compile = depset(files_to_compile)
     output_groups_builder["compilation_outputs"] = files_to_compile
     output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
-    output_groups_builder["module_files"] = depset(compilation_outputs.module_files())
+    output_groups_builder["module_files"] = depset(compilation_outputs._module_files)
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(
@@ -297,7 +298,7 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
     return library.dynamic_library
 
 def _collect_native_cc_libraries(deps, libraries):
-    transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
+    transitive_libraries = [dep[CcInfo]._legacy_transitive_native_libraries for dep in deps if CcInfo in dep]
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
 def _build_linking_context_from_libraries(ctx, libraries):
@@ -846,7 +847,7 @@ def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
 def _package_exec_path(ctx, package, sibling_repository_layout):
     return paths.get_relative(_repository_exec_path(ctx.label.workspace_name, sibling_repository_layout), package)
 
-def _system_include_dirs(ctx, additional_make_variable_substitutions):
+def _include_dirs(ctx, additional_make_variable_substitutions):
     result = []
     sibling_repository_layout = ctx.configuration.is_sibling_repository_layout()
     package = ctx.label.package
@@ -966,10 +967,6 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     # Expand nocopts and create CoptsFilter.
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
-# This should be enough to assume if two labels are equal.
-def _are_labels_equal(a, b):
-    return a.name == b.name and a.package == b.package
-
 def _map_to_list(m):
     result = []
     for k, v in m.items():
@@ -990,7 +987,7 @@ def _calculate_artifact_label_map(attr_list, attr_name):
                 if "." + artifact.extension not in extensions.CC_HEADER:
                     old_label = artifact_label_map.get(artifact, None)
                     artifact_label_map[artifact] = attr.label
-                    if old_label != None and not _are_labels_equal(old_label, attr.label) and (
+                    if old_label != None and old_label != attr.label and (
                         "." + artifact.extension in extensions.CC_AND_OBJC or attr_name == "module_interfaces"
                     ):
                         fail(
@@ -1108,14 +1105,6 @@ def _linker_scripts(ctx):
                 result.append(f)
     return result
 
-def _is_stamping_enabled(ctx):
-    if ctx.configuration.is_tool_configuration():
-        return 0
-    stamp = 0
-    if hasattr(ctx.attr, "stamp"):
-        stamp = ctx.attr.stamp
-    return stamp
-
 def _has_target_constraints(ctx, constraints):
     # Constraints is a label_list.
     for constraint in constraints:
@@ -1190,13 +1179,13 @@ cc_helper = struct(
     is_stamping_enabled = _is_stamping_enabled,
     is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
-    are_labels_equal = _are_labels_equal,
     get_srcs = _get_srcs,
     get_cpp_module_interfaces = _get_cpp_module_interfaces,
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
-    system_include_dirs = _system_include_dirs,
+    include_dirs = _include_dirs,
+    system_include_dirs = _include_dirs,  # TODO: Remove uses of old name
     get_coverage_environment = _get_coverage_environment,
     create_cc_instrumented_files_info = _create_cc_instrumented_files_info,
     linkopts = _linkopts,

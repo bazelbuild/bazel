@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -97,7 +98,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   /** Creates an {@code objc_library} target writer for the label indicated by the given String. */
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
-    return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
+    return ScratchAttributeWriter.fromLabelString(
+        this,
+        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+        "objc_library",
+        labelString);
   }
 
   private static String compilationModeFlag(CompilationMode mode) {
@@ -289,7 +294,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    'watchos_arm64_32': '" + MockObjcSupport.WATCHOS_ARM64_32 + "',",
         "}",
         "_apple_platform_transition_inputs = [",
-        "    '//command_line_option:apple_crosstool_top',",
         "    '//command_line_option:cpu',",
         "    '//command_line_option:ios_multi_cpus',",
         "    '//command_line_option:macos_cpus',",
@@ -968,12 +972,22 @@ cc_toolchain_forwarder = rule(
 
   protected void checkDefinesFromCcLibraryDep(RuleType ruleType) throws Exception {
     useConfiguration();
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//dep:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//dep:lib")
         .setList("srcs", "a.cc")
         .setList("defines", "foo", "bar")
         .write();
 
-    ScratchAttributeWriter.fromLabelString(this, ruleType.getRuleTypeName(), "//objc:x")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            analysisMock
+                .ccSupport()
+                .getMacroLoadStatement(/* loadMacro= */ true, ruleType.getRuleTypeName()),
+            ruleType.getRuleTypeName(),
+            "//objc:x")
         .setList("srcs", "a.m")
         .setList("deps", "//dep:lib")
         .write();
@@ -1051,7 +1065,7 @@ cc_toolchain_forwarder = rule(
   }
 
   protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target)
-      throws EvalException {
+      throws EvalException, RuleErrorException {
     return Artifact.toRootRelativePaths(
         target
             .get(CcInfo.PROVIDER)
@@ -1059,7 +1073,8 @@ cc_toolchain_forwarder = rule(
             .getStaticModeParamsForDynamicLibraryLibraries());
   }
 
-  protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+  protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target)
+      throws RuleErrorException {
     return Artifact.toRootRelativePaths(
         target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }

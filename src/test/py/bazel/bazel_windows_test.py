@@ -23,8 +23,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "platforms", version = "0.0.9")',
-            'bazel_dep(name = "rules_cc", version = "0.0.12")',
             (
                 'cc_configure ='
                 ' use_extension("@rules_cc//cc:extensions.bzl",'
@@ -33,17 +31,23 @@ class BazelWindowsTest(test_base.TestBase):
             'use_repo(cc_configure, "local_config_cc")',
         ],
     )
-    self.ScratchFile('foo/BUILD', [
-        'platform(',
-        '    name = "x64_windows-msys-gcc",',
-        '    constraint_values = [',
-        '        "@platforms//cpu:x86_64",',
-        '        "@platforms//os:windows",',
-        '        "@bazel_tools//tools/cpp:msys",',
-        '    ],',
-        ')',
-        'cc_binary(name="x", srcs=["x.cc"])',
-    ])
+    self.AddBazelDep('platforms')
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'platform(',
+            '    name = "x64_windows-msys-gcc",',
+            '    constraint_values = [',
+            '        "@platforms//cpu:x86_64",',
+            '        "@platforms//os:windows",',
+            '        "@bazel_tools//tools/cpp:msys",',
+            '    ],',
+            ')',
+            'cc_binary(name="x", srcs=["x.cc"])',
+        ],
+    )
     self.ScratchFile('foo/x.cc', [
         '#include <stdio.h>',
         'int main(int, char**) {',
@@ -96,16 +100,20 @@ class BazelWindowsTest(test_base.TestBase):
   def testWindowsCompilesAssembly(self):
     _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '    name="x",',
-        '    srcs=['
-        '        "inc.asm",',  # Test assemble action_config
-        '        "dec.S",',    # Test preprocess-assemble action_config
-        '        "y.cc",',
-        '    ],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '    name="x",',
+            '    srcs=[        "inc.asm",',  # Test assemble action_config
+            '        "dec.S",',  # Test preprocess-assemble action_config
+            '        "y.cc",',
+            '    ],',
+            ')',
+        ],
+    )
     self.ScratchFile('inc.asm', [
         '.code',
         'PUBLIC increment',
@@ -214,12 +222,17 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testAnalyzeCcRuleWithoutVCInstalled(self):
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "bin",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_cc')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "bin",',
+            '  srcs = ["main.cc"],',
+            ')',
+        ],
+    )
     self.ScratchFile('main.cc', [
         'void main() {',
         '  printf("Hello world");',
@@ -237,14 +250,10 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testBuildNonCcRuleWithoutVCInstalled(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "rules_java", version = "8.12.0")',
-            'bazel_dep(name = "rules_python", version = "0.40.0")',
-            'bazel_dep(name = "rules_shell", version = "0.3.0")',
-        ],
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_java')
+    self.AddBazelDep('rules_python')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
@@ -348,9 +357,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.RunBazel(['clean'])
 
   def testBuildJavaTargetWithClasspathJar(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_java')
     self.ScratchFile(
         'BUILD',
         [
@@ -417,9 +425,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('Hello World!', '\n'.join(stdout))
 
   def testRunWithScriptPath(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
@@ -471,9 +478,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('Hello from test!', '\n'.join(stdout))
 
   def testZipUndeclaredTestOutputs(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
@@ -523,9 +529,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertFalse(os.path.exists(output_zip))
 
   def testBazelForwardsRequiredEnvVariable(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
@@ -560,9 +565,8 @@ class BazelWindowsTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
   def testTestShardStatusFile(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
@@ -598,9 +602,8 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testTestPrematureExitFile(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.ScratchFile('MODULE.bazel')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
@@ -636,9 +639,11 @@ class BazelWindowsTest(test_base.TestBase):
     if not self.IsWindows():
       return
 
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
             'cc_binary(',
             '    name = "test_dll",',
             '    linkshared = 1,',
@@ -653,10 +658,7 @@ class BazelWindowsTest(test_base.TestBase):
                 '    cmd_bat = \'""$(DUMPBIN)"" /EXPORTS $(location :test_dll)'
                 " > $@',"
             ),
-            (
-                '    toolchains ='
-                ' ["@bazel_tools//tools/cpp:toolchain_type"],'
-            ),
+            '    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],',
             ')',
         ],
     )

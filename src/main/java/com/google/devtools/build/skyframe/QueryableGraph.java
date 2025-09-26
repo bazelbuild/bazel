@@ -106,6 +106,24 @@ public interface QueryableGraph {
       throws InterruptedException;
 
   /**
+   * Identical to {@link #getBatchMap}, except that it includes a parameter for a maximum
+   * deserialization limit per-node (in bytes). If the serialized form of any fetched node read from
+   * storage exceeds this limit, then this method throws {@link NodeEntryTooBigException}.
+   *
+   * <p>Note that not every subclass of {@link QueryableGraph} supports this method, especially as
+   * not all graphs use node serialization. This is identical to {@link #getBatchMap} if this graph
+   * does not support limits.
+   */
+  default Map<SkyKey, ? extends NodeEntry> getBatchMapWithSizeLimit(
+      @Nullable SkyKey requestor,
+      Reason reason,
+      Iterable<? extends SkyKey> keys,
+      long nodeSizeLimitInBytes)
+      throws InterruptedException, NodeEntryTooBigException {
+    return getBatchMap(requestor, reason, keys);
+  }
+
+  /**
    * A version of {@link #getBatchMap} that returns an {@link InterruptibleSupplier} to possibly
    * retrieve the results later.
    */
@@ -145,8 +163,8 @@ public interface QueryableGraph {
   enum Reason {
     /**
      * The node is being fetched in order to see if it needs to be evaluated or because it was just
-     * evaluated, but *not* because it was just requested during evaluation of a SkyFunction
-     * (see {@link #DEP_REQUESTED}).
+     * evaluated, but *not* because it was just requested during evaluation of a SkyFunction (see
+     * {@link #DEP_REQUESTED}).
      */
     PRE_OR_POST_EVALUATION,
 
@@ -182,9 +200,7 @@ public interface QueryableGraph {
     /** The node is being looked up so it can be enqueued for evaluation or change pruning. */
     ENQUEUING_CHILD,
 
-    /**
-     * The node is being looked up so that it can be signaled that a dependency is now complete.
-     */
+    /** The node is being looked up so that it can be signaled that a dependency is now complete. */
     SIGNAL_DEP,
 
     /**
@@ -203,9 +219,9 @@ public interface QueryableGraph {
     REWINDING,
 
     /**
-     * The node is being looked up to service {@link WalkableGraph#getValue},
-     * {@link WalkableGraph#getException}, {@link WalkableGraph#getMissingAndExceptions}, or
-     * {@link WalkableGraph#getSuccessfulValues}.
+     * The node is being looked up to service {@link WalkableGraph#getValue}, {@link
+     * WalkableGraph#getException}, {@link WalkableGraph#getMissingAndExceptions}, or {@link
+     * WalkableGraph#getSuccessfulValues}.
      */
     WALKABLE_GRAPH_VALUE,
 
@@ -242,6 +258,23 @@ public interface QueryableGraph {
           || this == WALKABLE_GRAPH_RDEPS
           || this == WALKABLE_GRAPH_VALUE_AND_RDEPS
           || this == WALKABLE_GRAPH_OTHER;
+    }
+  }
+
+  /**
+   * An exception thrown if the serialized form of a node read from storage exceeds the limit as set
+   * by the limit parameter to {@link #getBatchMapWithSizeLimit}.
+   */
+  class NodeEntryTooBigException extends Exception {
+    private final SkyKey key;
+
+    public NodeEntryTooBigException(SkyKey key) {
+      this.key = key;
+    }
+
+    /** Returns the {@link SkyKey} of the node which violated the size limit. */
+    public SkyKey getSkyKey() {
+      return key;
     }
   }
 }

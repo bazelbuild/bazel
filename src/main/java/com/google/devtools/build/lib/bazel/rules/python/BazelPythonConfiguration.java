@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.python;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -24,8 +23,6 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
@@ -43,18 +40,6 @@ public class BazelPythonConfiguration extends Fragment {
 
   /** Bazel-specific Python configuration options. */
   public static final class Options extends FragmentOptions {
-    @Option(
-        name = "python_top",
-        converter = LabelConverter.class,
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "The label of a py_runtime representing the Python interpreter invoked to run Python "
-                + "targets on the target platform. Deprecated; disabled by "
-                + "--incompatible_use_python_toolchains.")
-    public Label pythonTop;
-
     @Option(
         name = "python_path",
         defaultValue = "null",
@@ -79,6 +64,18 @@ public class BazelPythonConfiguration extends Fragment {
                 + "`import myreponame.mytoplevelpackage.package.module` is valid. The latter form "
                 + "is less likely to experience import name collisions.")
     public boolean experimentalPythonImportAllRepositories;
+
+    @Option(
+        name = "incompatible_remove_ctx_bazel_py_fragment",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "When true, Python build flags are defined with Python rules (in BUIILD files) and the"
+                + " ctx.fragments.bazel_py attribute is not present. This is a migration flag to"
+                + " move all Python flags from core Bazel to Python rules.")
+    public boolean disablePyFragment;
   }
 
   private final Options options;
@@ -93,29 +90,15 @@ public class BazelPythonConfiguration extends Fragment {
   }
 
   @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    PythonOptions pythonOpts = buildOptions.get(PythonOptions.class);
-    Options opts = buildOptions.get(Options.class);
-    if (pythonOpts.incompatibleUsePythonToolchains) {
-      // Forbid deprecated flags.
-      if (opts.pythonTop != null) {
-        reporter.handle(
-            Event.error(
-                "`--python_top` is disabled by `--incompatible_use_python_toolchains`. Instead of "
-                    + "configuring the Python runtime directly, register a Python toolchain. See "
-                    + "https://github.com/bazelbuild/bazel/issues/7899. You can temporarily revert "
-                    + "to the legacy flag-based way of specifying toolchains by setting "
-                    + "`--incompatible_use_python_toolchains=false`."));
-      }
-      // TODO(#7901): Also prohibit --python_path here.
-    }
+  public boolean shouldInclude() {
+    return !options.disablePyFragment;
   }
 
   @StarlarkConfigurationField(
       name = "python_top",
-      doc = "The value of the --python_top flag; may be None if not specified")
+      doc = "Deprecated. Always returns None. Use toolchain resolution instead.")
   public Label getPythonTop() {
-    return options.pythonTop;
+    return null;
   }
 
   @StarlarkMethod(

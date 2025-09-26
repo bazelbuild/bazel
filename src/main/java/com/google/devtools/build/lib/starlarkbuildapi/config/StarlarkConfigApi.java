@@ -129,6 +129,38 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   BuildSettingApi stringListSetting(Boolean flag, Boolean repeatable) throws EvalException;
 
+  @StarlarkMethod(
+      name = "string_set",
+      doc =
+          "A string set-typed build setting. The value of this setting will be a <a"
+              + " href='https://bazel.build/rules/lib/core/set'>set</a> of strings in Starlark. On"
+              + " the command line, pass a set using a comma-separated value like"
+              + " <code>--//my/setting=foo,bar</code>."
+              + "<p>Unlike with a <code>string_list</code>, the order of the elements doesn't"
+              + " matter and only a single instance of each element is maintained. This is"
+              + " recommended over <code>string_list</code> for flags where these properties are"
+              + " not needed as it can improve build performance by avoiding unnecessary"
+              + " configurations forking.",
+      parameters = {
+        @Param(
+            name = FLAG_ARG,
+            defaultValue = "False",
+            doc = FLAG_ARG_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = "repeatable",
+            defaultValue = "False",
+            doc =
+                "If set, instead of expecting a comma-separated value, this flag is allowed to be"
+                    + " set multiple times on the command line with each individual value treated"
+                    + " as a single string to add to the set value. Only a single instance of"
+                    + " repeated values is maintained and the insertion order does not matter.",
+            named = true,
+            positional = false)
+      })
+  BuildSettingApi stringSetSetting(Boolean flag, Boolean repeatable) throws EvalException;
+
   /** The API for build setting descriptors. */
   @StarlarkBuiltin(
       name = "BuildSetting",

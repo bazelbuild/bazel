@@ -13,28 +13,50 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
-import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkBuiltinDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.AnnotStarlarkOrdinaryMethodDoc;
+import com.google.devtools.build.docgen.starlark.StardocProtoFunctionDoc;
+import com.google.devtools.build.docgen.starlark.StardocProtoProviderDocPage;
+import com.google.devtools.build.docgen.starlark.StardocProtoStructDocPage;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
 import com.google.devtools.build.docgen.starlark.StarlarkGlobalsDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkJavaMethodDoc;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkOtherSymbolInfo;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
+import com.google.protobuf.ExtensionRegistry;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.text.Collator;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -43,22 +65,48 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 
-/** A helper class that collects Starlark module documentation. */
+/**
+ * A helper class that collects Starlark module documentation.
+ *
+ * <p>The documentation comes from {@link StarlarkBuiltin} annotations in Java code or from Stardoc
+ * protos produced (via {@code starlark_doc_extract} from specially-structured .bzl files serving as
+ * entry points for Starlark APIs. Such an entry point .bzl file is expected to contain only the
+ * following documentable entities (whose names must be unique across all .bzl files being
+ * processed):
+ *
+ * <ul>
+ *   <li>Providers, defined at global scope;
+ *   <li>Structs, defined at global scope, documented using {@code #:}-prefixed doc comments, and
+ *       containing only function members.
+ * </ul>
+ *
+ * <p>Notably, .bzl files from which Build Encyclopedia content is extracted have a different,
+ * incompatible structure.
+ */
 final class StarlarkDocumentationCollector {
   private StarlarkDocumentationCollector() {}
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static ImmutableMap<Category, ImmutableList<StarlarkDocPage>> all;
 
   /** Applies {@link #collectDocPages} to all Bazel and Starlark classes. */
   static synchronized ImmutableMap<Category, ImmutableList<StarlarkDocPage>> getAllDocPages(
-      StarlarkDocExpander expander) throws ClassPathException {
+      StarlarkDocExpander expander, ImmutableList<String> apiStardocProtos)
+      throws ClassPathException, IOException {
     if (all == null) {
+      ImmutableList.Builder<ModuleInfo> parsedApiStardocProtos = ImmutableList.builder();
+      for (String filename : apiStardocProtos) {
+        parsedApiStardocProtos.add(
+            ModuleInfo.parseFrom(
+                new FileInputStream(filename), ExtensionRegistry.getEmptyRegistry()));
+      }
       all =
           collectDocPages(
+              expander,
               Iterables.concat(
                   /*Bazel*/ Classpath.findClasses("com/google/devtools/build"),
                   /*Starlark*/ Classpath.findClasses("net/starlark/java")),
-              expander);
+              parsedApiStardocProtos.build());
     }
     return all;
   }
@@ -68,7 +116,9 @@ final class StarlarkDocumentationCollector {
    * a map from the name of each Starlark module to its documentation.
    */
   static ImmutableMap<Category, ImmutableList<StarlarkDocPage>> collectDocPages(
-      Iterable<Class<?>> classes, StarlarkDocExpander expander) {
+      StarlarkDocExpander expander,
+      Iterable<Class<?>> classes,
+      ImmutableList<ModuleInfo> apiStardocProtos) {
     Map<Category, Map<String, StarlarkDocPage>> pages = new EnumMap<>(Category.class);
     for (Category category : Category.values()) {
       pages.put(category, new HashMap<>());
@@ -106,6 +156,12 @@ final class StarlarkDocumentationCollector {
       collectConstructorMethods(candidateClass, pages, expander);
     }
 
+    // 4. Add docs from .bzl files.
+    HashMap<String, ModuleInfo> bzlStructPages = new HashMap<>();
+    for (ModuleInfo moduleInfo : apiStardocProtos) {
+      collectFromStardocProto(moduleInfo, pages, bzlStructPages, expander);
+    }
+
     return ImmutableMap.copyOf(
         Maps.transformValues(
             pages,
@@ -133,7 +189,8 @@ final class StarlarkDocumentationCollector {
     StarlarkDocPage existingPage = pagesInCategory.get(starlarkBuiltin.name());
     if (existingPage == null) {
       pagesInCategory.put(
-          starlarkBuiltin.name(), new StarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
+          starlarkBuiltin.name(),
+          new AnnotStarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
       return;
     }
 
@@ -143,16 +200,17 @@ final class StarlarkDocumentationCollector {
     // (This is useful if one class is the "common" one with stable methods, and its subclass is
     // an experimental class that also supports all stable methods.)
     Preconditions.checkState(
-        existingPage instanceof StarlarkBuiltinDoc,
+        existingPage instanceof AnnotStarlarkBuiltinDoc,
         "the same name %s is assigned to both a global method environment and a builtin type",
         starlarkBuiltin.name());
-    Class<?> clazz = ((StarlarkBuiltinDoc) existingPage).getClassObject();
+    Class<?> clazz = ((AnnotStarlarkBuiltinDoc) existingPage).getClassObject();
     validateCompatibleBuiltins(clazz, builtinClass);
 
     if (clazz.isAssignableFrom(builtinClass)) {
       // The new builtin is a subclass of the old builtin, so use the subclass.
       pagesInCategory.put(
-          starlarkBuiltin.name(), new StarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
+          starlarkBuiltin.name(),
+          new AnnotStarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
     }
   }
 
@@ -184,8 +242,9 @@ final class StarlarkDocumentationCollector {
     if (starlarkBuiltin == null || !starlarkBuiltin.documented()) {
       return;
     }
-    StarlarkBuiltinDoc builtinDoc =
-        (StarlarkBuiltinDoc) pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
+    AnnotStarlarkBuiltinDoc builtinDoc =
+        (AnnotStarlarkBuiltinDoc)
+            pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
 
     if (builtinClass != builtinDoc.getClassObject()) {
       return;
@@ -210,8 +269,9 @@ final class StarlarkDocumentationCollector {
           javaMethod = selfCall;
         }
       }
-      builtinDoc.addMethod(
-          new StarlarkJavaMethodDoc(builtinDoc.getName(), javaMethod, starlarkMethod, expander));
+      builtinDoc.addMember(
+          new AnnotStarlarkOrdinaryMethodDoc(
+              builtinDoc.getName(), javaMethod, starlarkMethod, expander));
     }
   }
 
@@ -242,7 +302,8 @@ final class StarlarkDocumentationCollector {
         // Only add non-constructor global library methods. Constructors are added later.
         // TODO(wyv): add a redirect instead
         if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
-          page.addMethod(new StarlarkJavaMethodDoc("", entry.getKey(), entry.getValue(), expander));
+          page.addMember(
+              new AnnotStarlarkOrdinaryMethodDoc("", entry.getKey(), entry.getValue(), expander));
         }
       }
     }
@@ -267,7 +328,128 @@ final class StarlarkDocumentationCollector {
         Preconditions.checkNotNull(method.getAnnotation(StarlarkMethod.class));
     StarlarkDocPage doc = pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
     doc.setConstructor(
-        new StarlarkConstructorMethodDoc(starlarkBuiltin.name(), method, methodAnnot, expander));
+        new AnnotStarlarkConstructorMethodDoc(
+            starlarkBuiltin.name(), method, methodAnnot, expander));
+  }
+
+  /**
+   * Parses a Starlark API proto to produce {@link StardocProtoStructDocPage} and {@link
+   * StardocProtoProviderDocPage} pages, inserting them into the appropriate categories of {@code
+   * pages}.
+   *
+   * @param moduleInfo a Stardoc proto for a .bzl file serving as an entry point for Starlark APIs
+   * @param pages the categorized map of documentation pages; added to by this method
+   * @param bzlStructPages a map from names of structs whose documentation has been collected to the
+   *     Stardoc protos defining them; added to by this method
+   * @param expander the expander to use for links
+   */
+  private static void collectFromStardocProto(
+      ModuleInfo moduleInfo,
+      Map<Category, Map<String, StarlarkDocPage>> pages,
+      Map<String, ModuleInfo> bzlStructPages,
+      StarlarkDocExpander expander) {
+    // For now, support only the following:
+    // - structs containing only functions (classified as TOP_LEVEL_MODULE)
+    // - providers not contained in a struct (classified as PROVIDER)
+    Map<String, StarlarkDocPage> pagesInCategory = pages.get(Category.TOP_LEVEL_MODULE);
+    for (StarlarkOtherSymbolInfo symbolInfo : moduleInfo.getStarlarkOtherSymbolInfoList()) {
+      if (symbolInfo.getTypeName().equals("struct")) {
+        String structName = symbolInfo.getName();
+        if (structName.contains(".")) {
+          // Skip nested structs.
+          continue;
+        }
+        if (pagesInCategory.containsKey(structName)) {
+          checkState(
+              !bzlStructPages.containsKey(structName),
+              "Conflicting documentation for struct '%s' defined in Starlark files %s and %s",
+              structName,
+              moduleInfo.getFile(),
+              bzlStructPages.get(structName).getFile());
+          logger.atWarning().log(
+              "Documentation for struct %s defined in %s overrides previously-seen documentation"
+                  + " for module %s implemented in Java",
+              structName, moduleInfo.getFile(), structName);
+        }
+        pagesInCategory.put(
+            structName, new StardocProtoStructDocPage(expander, moduleInfo, symbolInfo));
+      }
+    }
+
+    for (StarlarkFunctionInfo functionInfo : moduleInfo.getFuncInfoList()) {
+      String functionName = functionInfo.getFunctionName();
+      checkState(
+          functionName.contains("."),
+          "Function %s defined in %s must be namespaced inside a struct",
+          functionName,
+          moduleInfo.getFile());
+      String structName = Splitter.on('.').splitToList(functionName).getFirst();
+      checkState(
+          moduleInfo.getStarlarkOtherSymbolInfoList().stream()
+              .anyMatch(symbolInfo -> symbolInfo.getName().equals(structName)),
+          "Struct %s defined in %s must be documented with '#:'-prefixed doc comments",
+          structName,
+          moduleInfo.getFile());
+      StarlarkDocPage page = checkNotNull(pagesInCategory.get(structName));
+      page.addMember(new StardocProtoFunctionDoc(expander, moduleInfo, structName, functionInfo));
+    }
+
+    for (ProviderInfo providerInfo : moduleInfo.getProviderInfoList()) {
+      String providerName = providerInfo.getProviderName();
+      // TODO(arostovtsev): Add a stub for namespaced providers which will be resolved to a link to
+      // the real provider doc.
+      checkState(
+          !providerName.contains("."),
+          "Provider %s in %s: provider members in structs are not supported yet",
+          providerName,
+          moduleInfo.getFile());
+      pages
+          .get(Category.PROVIDER)
+          .put(providerName, new StardocProtoProviderDocPage(expander, moduleInfo, providerInfo));
+    }
+
+    // TODO(arostovtsev): What about other types of members in structs? Need changes to
+    // starlark_doc_extract to check for their presence.
+    verifyDoNotExist(
+        moduleInfo,
+        "aspects",
+        moduleInfo.getAspectInfoList().stream()
+            .map(AspectInfo::getAspectName)
+            .collect(toImmutableList()));
+    verifyDoNotExist(
+        moduleInfo,
+        "macros",
+        moduleInfo.getMacroInfoList().stream()
+            .map(MacroInfo::getMacroName)
+            .collect(toImmutableList()));
+    verifyDoNotExist(
+        moduleInfo,
+        "module extesions",
+        moduleInfo.getModuleExtensionInfoList().stream()
+            .map(ModuleExtensionInfo::getExtensionName)
+            .collect(toImmutableList()));
+    verifyDoNotExist(
+        moduleInfo,
+        "repository rules",
+        moduleInfo.getRepositoryRuleInfoList().stream()
+            .map(RepositoryRuleInfo::getRuleName)
+            .collect(toImmutableList()));
+    verifyDoNotExist(
+        moduleInfo,
+        "rules",
+        moduleInfo.getRuleInfoList().stream()
+            .map(RuleInfo::getRuleName)
+            .collect(toImmutableList()));
+  }
+
+  private static void verifyDoNotExist(ModuleInfo moduleInfo, String what, List<String> badNames) {
+    checkState(
+        badNames.isEmpty(),
+        "Starlark and BUILD language API entry point %s is expected not to contain %s;"
+            + " found %s",
+        moduleInfo.getFile(),
+        what,
+        badNames);
   }
 
   /**

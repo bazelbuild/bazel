@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retrieveRemoteSkyValue;
-import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -42,8 +41,8 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFuncti
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.TraversalRequest.DirectTraversalRoot;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -100,16 +99,16 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   private static class State implements SerializableSkyKeyComputeState {
-    private SerializationState serializationState = INITIAL_STATE;
+    @Nullable // initialized lazily
+    private RetrievalContext retrievalContext = null;
 
     @Override
-    public SerializationState getSerializationState() {
-      return serializationState;
-    }
+    public RetrievalContext getRetrievalContext() {
+      if (retrievalContext == null) {
+        retrievalContext = new RetrievalContext();
+      }
 
-    @Override
-    public void setSerializationState(SerializationState state) {
-      this.serializationState = state;
+      return retrievalContext;
     }
   }
 
@@ -215,7 +214,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
-  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private static TreeArtifactValue createTreeArtifactValueFromActionKey(
       ArtifactDependencies artifactDependencies, Environment env) throws InterruptedException {
@@ -342,18 +340,13 @@ public final class ArtifactFunction implements SkyFunction {
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
         case INCONSISTENT_FILESYSTEM:
+        case DETAILED_IO_EXCEPTION:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
         case GENERATED_PATH_CONFLICT:
           throw new IllegalStateException(
               String.format(
                   "Generated conflict in source tree: %s %s %s", artifact, fileValue, request),
-              e);
-        // TODO: b/7075837 - This code path is possible when BAZEL_TRACK_SOURCE_DIRECTORIES is set.
-        case DETAILED_IO_EXCEPTION:
-          throw new IllegalStateException(
-              String.format(
-                  "%s: %s %s %s", e.getCause().getMessage(), artifact, fileValue, request),
               e);
       }
       throw new IllegalStateException("Can't get here", e);
@@ -501,8 +494,15 @@ public final class ArtifactFunction implements SkyFunction {
       ImmutableList.Builder<ActionLookupData> expandedActionExecutionKeys =
           ImmutableList.builderWithExpectedSize(value.getActions().size());
       for (ActionAnalysisMetadata action : value.getActions()) {
-        expandedActionExecutionKeys.add(
-            ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());
+        // ActionTemplates expand into actions that can generate multiple output trees (as a whole),
+        // but an expanded action can generate outputs under only a single tree. As such, we only
+        // need to evaluate the action if it generates an output under the requested tree artifact.
+        for (Artifact output : action.getOutputs()) {
+          if (output.hasParent() && output.getParent().equals(artifact)) {
+            expandedActionExecutionKeys.add(((DerivedArtifact) output).getGeneratingActionKey());
+            break;
+          }
+        }
       }
       return expandedActionExecutionKeys.build();
     }

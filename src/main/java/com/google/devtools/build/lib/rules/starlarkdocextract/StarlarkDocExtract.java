@@ -73,6 +73,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   static final String DEPS_ATTR = "deps";
   static final String SYMBOL_NAMES_ATTR = "symbol_names";
   static final String RENDER_MAIN_REPO_NAME = "render_main_repo_name";
+  static final String ALLOW_UNUSED_DOC_COMMENTS = "allow_unused_doc_comments";
   static final SafeImplicitOutputsFunction BINARYPROTO_OUT = fromTemplates("%{name}.binaryproto");
   static final SafeImplicitOutputsFunction TEXTPROTO_OUT = fromTemplates("%{name}.textproto");
 
@@ -300,11 +301,14 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   private static ModuleInfo getModuleInfo(
       RuleContext ruleContext, Module module, LabelRenderer labelRenderer)
       throws RuleErrorException {
+    ModuleInfoExtractor moduleInfoExtractor =
+        new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer);
+    if (ruleContext.attributes().get(ALLOW_UNUSED_DOC_COMMENTS, BOOLEAN)) {
+      moduleInfoExtractor.allowUnusedDocComments();
+    }
     ModuleInfo moduleInfo;
     try {
-      moduleInfo =
-          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer)
-              .extractFrom(module);
+      moduleInfo = moduleInfoExtractor.extractFrom(module);
     } catch (ExtractionException e) {
       ruleContext.ruleError(e.getMessage());
       throw new RuleErrorException(e);

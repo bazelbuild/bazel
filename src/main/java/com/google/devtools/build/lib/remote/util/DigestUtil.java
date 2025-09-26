@@ -134,8 +134,8 @@ public class DigestUtil {
 
   public com.google.devtools.build.lib.exec.Protos.Digest asSpawnLogProto(ActionKey actionKey) {
     return com.google.devtools.build.lib.exec.Protos.Digest.newBuilder()
-        .setHash(actionKey.getDigest().getHash())
-        .setSizeBytes(actionKey.getDigest().getSizeBytes())
+        .setHash(actionKey.digest().getHash())
+        .setSizeBytes(actionKey.digest().getSizeBytes())
         .setHashFunctionName(getDigestFunction().toString())
         .build();
   }

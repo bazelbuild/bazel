@@ -53,21 +53,6 @@ function tear_down() {
   stop_worker
 }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 BEP_JSON=bep.json
 
 function expect_bes_file_uploaded() {

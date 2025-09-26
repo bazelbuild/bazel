@@ -65,7 +65,6 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   /** A simple rule that calls JavaInfo constructor using identical attribute as java_library. */
   @Before
   public void constructJavaInfo() throws Exception {
-    useConfiguration("--experimental_java_header_compilation_direct_deps");
     if (!getAnalysisMock().isThisBazel()) {
       setBuildLanguageOptions("--experimental_google_legacy_api");
     }

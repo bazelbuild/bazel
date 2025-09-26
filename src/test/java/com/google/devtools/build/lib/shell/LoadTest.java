@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
@@ -74,7 +75,7 @@ public class LoadTest {
     catBin = runfiles.rlocation(catBin);
 
     final Command command =
-        new Command(new String[] {catBin, tempFile.getAbsolutePath()}, System.getenv());
+        new Command(ImmutableList.of(catBin, tempFile.getAbsolutePath()), System.getenv());
     Thread[] threads = new Thread[10];
     List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<Throwable>());
     for (int i = 0; i < threads.length; i++) {

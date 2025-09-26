@@ -93,6 +93,7 @@ class BuildResultPrinter {
     String productName = runtime.getProductName();
     PathPrettyPrinter prettyPrinter =
         new PathPrettyPrinter(
+            env.getRelativeWorkingDirectory(),
             request.getBuildOptions().getSymlinkPrefix(productName),
             result.getConvenienceSymlinks());
     OutErr outErr = request.getOutErr();

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,14 +60,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * method on {@link RuleContext} mentioned above.
    */
   Artifact.DerivedArtifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root);
-
-  /**
-   * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot)} but includes the option to use
-   * a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  Artifact.DerivedArtifact getDerivedArtifact(
-      PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath);
 
   /**
    * Returns an artifact for the derived file {@code rootRelativePath} whose changes do not cause a

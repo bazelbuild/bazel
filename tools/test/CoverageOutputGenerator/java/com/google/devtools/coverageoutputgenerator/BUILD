@@ -59,22 +59,34 @@ java_library(
 )
 
 java_library(
-    name = "BranchCoverage",
-    srcs = ["BranchCoverage.java"],
+    name = "BranchCoverageItem",
+    srcs = ["BranchCoverageItem.java"],
     deps = [
         "//third_party:auto_value",
-        "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "BranchCoverageKey",
+    srcs = ["BranchCoverageKey.java"],
+    deps = [
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
+    name = "LineCoverage",
+    srcs = ["LineCoverage.java"],
 )
 
 java_library(
     name = "SourceFileCoverage",
     srcs = ["SourceFileCoverage.java"],
     deps = [
-        ":BranchCoverage",
-        "//third_party:auto_value",
+        ":BranchCoverageItem",
+        ":BranchCoverageKey",
+        ":LineCoverage",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -82,7 +94,7 @@ java_library(
     name = "LcovPrinter",
     srcs = ["LcovPrinter.java"],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
         ":Coverage",
         ":SourceFileCoverage",
@@ -103,7 +115,7 @@ java_library(
         "Parser.java",
     ],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
         ":SourceFileCoverage",
         "//third_party:guava",
@@ -117,7 +129,7 @@ java_library(
         "Parser.java",
     ],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
         ":SourceFileCoverage",
         "//third_party:gson",
@@ -131,7 +143,7 @@ java_library(
         "Parser.java",
     ],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
         ":SourceFileCoverage",
     ],

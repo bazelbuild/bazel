@@ -41,23 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if $is_windows; then
-  export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
-  export LC_ALL=C.UTF-8
-else
-  export LC_ALL=en_US.UTF-8
-fi
-
 #### SETUP #############################################################
 
 function unicode_filenames_test_setup() {
@@ -121,13 +104,9 @@ function test_traditional_encoding_source_artifact() {
   # Windows and macOS require filesystem paths to be valid Unicode. Linux and
   # the traditional BSDs typically don't, so their paths can contain arbitrary
   # non-NUL bytes.
-  case "$(uname -s | tr [:upper:] [:lower:])" in
-  linux|freebsd)
-    ;;
-  *)
+  if (is_windows || is_darwin); then
     echo "Skipping test." && return
-    ;;
-  esac
+  fi
 
   # Bazel relies on the JVM for filename encoding, and can only support
   # traditional encodings if it can roundtrip through ISO-8859-1.
@@ -201,16 +180,19 @@ EOF
 function test_cc_dependency_with_utf8_filename() {
   # TODO: Find a way to get cl.exe to output Unicode when not running in a
   # console or migrate to /sourceDependencies.
-  if $is_windows; then
+  if is_windows; then
     echo "Skipping test on Windows." && return
   fi
 
   local unicode="äöüÄÖÜß🌱"
 
   setup_module_dot_bazel
+  add_rules_cc MODULE.bazel
 
   mkdir pkg
   cat >pkg/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib",
     hdrs = ["${unicode}.h"],

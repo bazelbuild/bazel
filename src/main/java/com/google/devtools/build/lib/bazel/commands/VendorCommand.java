@@ -258,7 +258,7 @@ public final class VendorCommand implements BlazeCommand {
             reposToVendor.add(entry.getKey());
           }
         }
-        case Failure f -> notFoundRepoErrors.add(f.getErrorMsg());
+        case Failure(String errorMsg) -> notFoundRepoErrors.add(errorMsg);
       }
     }
 
@@ -383,7 +383,7 @@ public final class VendorCommand implements BlazeCommand {
           vendorManager.vendorRegistryUrl(
               url,
               downloadManager.downloadAndReadOneUrlForBzlmod(
-                  url, env.getReporter(), clientEnvironmentSupplier.get(), checksum));
+                  url, clientEnvironmentSupplier.get(), checksum));
         } catch (IOException e) {
           throw new IOException(
               String.format(

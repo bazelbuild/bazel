@@ -2053,6 +2053,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:defs.bzl", "custom_rule")
 
         cc_library(
@@ -2121,6 +2122,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//bazel_internal/test_rules/cc:defs.bzl", "custom_rule")
 
         cc_library(
@@ -2659,10 +2661,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             srcs = ["custom.java"],
         )
         """);
-    useConfiguration(
-        "--java_header_compilation=true",
-        "--experimental_java_header_input_pruning",
-        "--incompatible_auto_exec_groups=True");
+    useConfiguration("--java_header_compilation=true", "--incompatible_auto_exec_groups=True");
 
     ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
     ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");

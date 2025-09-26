@@ -361,7 +361,10 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        cc_test(
+        load("//test_defs:foo_binary.bzl", "foo_binary")
+        load("//test_defs:foo_test.bzl", "foo_test")
+
+        foo_test(
             name = "y",
             size = "small",
             srcs = ["a"],
@@ -372,7 +375,7 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
             ],
         )
 
-        cc_test(
+        foo_test(
             name = "z",
             size = "small",
             srcs = ["a"],
@@ -382,21 +385,21 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
             ],
         )
 
-        cc_test(
+        foo_test(
             name = "k",
             size = "small",
             srcs = ["a"],
             tags = ["requires-feature1"],
         )
 
-        cc_test(
+        foo_test(
             name = "exclusive_if_local",
             size = "small",
             srcs = ["a"],
             tags = ["exclusive-if-local"],
         )
 
-        cc_test(
+        foo_test(
             name = "exclusive_only",
             size = "small",
             srcs = ["a"],
@@ -408,27 +411,13 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
             tests = ["z"],
         )
 
-        cc_binary(
+        foo_binary(
             name = "x",
             srcs = [
                 "a",
                 "b",
                 "c",
             ],
-            defines = [
-                "-Da",
-                "-Db",
-            ],
-        )
-
-        cc_binary(
-            name = "lib1",
-            srcs = [
-                "a",
-                "b",
-                "c",
-            ],
-            linkshared = 1,
         )
 
         genrule(

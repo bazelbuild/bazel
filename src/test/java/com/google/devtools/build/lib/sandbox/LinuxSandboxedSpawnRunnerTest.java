@@ -211,11 +211,14 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     Path sandboxBase = execRoot.getRelative("sandbox");
     sandboxBase.createDirectory();
 
+    SandboxOptions sandboxOptions = new SandboxOptions();
+    sandboxOptions.sandboxBlockPath = ImmutableList.of();
     return LinuxSandboxedStrategy.create(
         commandEnvironment,
         sandboxBase,
         /* timeoutKillDelay= */ Duration.ofSeconds(2),
-        treeDeleter);
+        treeDeleter,
+        sandboxOptions);
   }
 
   private SpawnExecutionContextForTesting createSpawnExecutionContext(Spawn spawn) {

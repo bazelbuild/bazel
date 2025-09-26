@@ -126,43 +126,6 @@ EOF
   do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
 }
 
-function test_sandbox_not_used_with_legacy_fallback() {
-  mkdir pkg
-  cat >pkg/BUILD <<EOF
-genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@",
-  tags = ["no-sandbox"])
-EOF
-
-  local output_base="$(bazel info output_base)"
-  local sandbox_base="${output_base}/sandbox"
-  rm -rf ${sandbox_base}
-
-  bazel build \
-    --incompatible_legacy_local_fallback //pkg \
-    >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
-
-  expect_not_log "${output_base}.*/sandbox/"
-  expect_log "implicit fallback from sandbox to local"
-}
-
-function test_sandbox_local_not_used_without_legacy_fallback() {
-  mkdir pkg
-  cat >pkg/BUILD <<EOF
-genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@",
-  tags = ["no-sandbox"])
-EOF
-
-  local output_base="$(bazel info output_base)"
-  local sandbox_base="${output_base}/sandbox"
-  rm -rf ${sandbox_base}
-
-  bazel build \
-    --noincompatible_legacy_local_fallback //pkg \
-    >"${TEST_log}" 2>&1 && fail "Expected build to fail" || true
-  # Still warning in this case even when the flag is flipped
-  expect_log "implicit fallback from sandbox to local"
-}
-
 function test_sandbox_local_used_with_proper_strategy() {
   mkdir pkg
   cat >pkg/BUILD <<EOF
@@ -174,12 +137,10 @@ EOF
   local sandbox_base="${output_base}/sandbox"
   rm -rf ${sandbox_base}
 
-  bazel build --genrule_strategy=sandboxed,standalone \
-    --noincompatible_legacy_local_fallback //pkg \
+  bazel build --genrule_strategy=sandboxed,standalone //pkg \
     >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
 
   expect_not_log "${output_base}.*/sandbox/"
-  expect_not_log "implicit fallback from sandbox to local"
 }
 
 function test_sandbox_base_top_is_removed() {
@@ -446,7 +407,7 @@ genrule(
   local = 1,
 )
 EOF
-  bazel build --incompatible_legacy_local_fallback \
+  bazel build --strategy=Genrule=sandboxed,local \
     examples/genrule:breaks1_works_with_local &> $TEST_log \
     || fail "Non-hermetic genrule failed even though local=1: examples/genrule:breaks1_works_with_local"
   [ -f "bazel-genfiles/examples/genrule/breaks1_works_with_local.txt" ] \
@@ -466,7 +427,7 @@ genrule(
   tags = [ "local" ],
 )
 EOF
-  bazel build --incompatible_legacy_local_fallback \
+  bazel build --strategy=Genrule=sandboxed,local \
     examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:breaks1_works_with_local_tag"
   [ -f "bazel-genfiles/examples/genrule/breaks1_works_with_local_tag.txt" ] \
@@ -565,7 +526,7 @@ starlark_breaks1(
 EOF
   write_starlark_breaks1
 
-  bazel build --incompatible_legacy_local_fallback \
+  bazel build --spawn_strategy=sandboxed,standalone,local \
     examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:starlark_breaks1_works_with_local_tag"
   [ -f "bazel-bin/examples/genrule/starlark_breaks1_works_with_local_tag.txt" ] \
@@ -595,7 +556,7 @@ EOF
 
 
 function test_requires_root() {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: fake usernames not supported in this system" 1>&2
     return 0
   fi
@@ -728,7 +689,7 @@ EOF
 }
 
 function test_read_hermetic_tmp {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
@@ -756,7 +717,7 @@ EOF
 }
 
 function test_read_hermetic_tmp_user_override {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
@@ -809,7 +770,7 @@ EOF
 }
 
 function test_write_hermetic_tmp {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
@@ -838,7 +799,7 @@ EOF
 }
 
 function test_write_hermetic_tmp_user_override {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
@@ -964,6 +925,59 @@ EOF
     || fail "Expected build to succeed"
 
   bazel shutdown
+}
+
+# This test does not currently work in Blaze. Not due to the inaccessible dirs
+# in runfiles. Even if the action didn't set the chmod 000 permissions the test
+# would still not work for Blaze. The problem is the difference in how the
+# runfiles are laid out in Blaze vs Bazel:
+# Blaze: <somedir>/sandbox/sandbox_stash/TestRunner/3/execroot/{workspace_name}/runfiles/
+# Bazel: <somedir>/sandbox/sandbox_stash/TestRunner/3//execroot/_main/bazel-out/k8-fastbuild/bin/pkg/create_readonly_dir_in_pwd.runfiles
+
+# The runfiles directory for Blaze has permissions r_xr_xr_x while the runfiles
+# directory for Bazel has permissions rwxr_xr_x. The latter allows writing a
+# new directory from an action (regardless of the permission of that new directory)
+# and then deleting it when reusing the sandbox but when running this test under
+# Blaze due to the missing write permissions we get an error.
+function test_sandbox_reuse_stashes_works_for_actions_creating_inaccessible_dirs_in_runfiles() {
+  if ! is_bazel; then
+    return 0
+  fi
+
+  add_rules_shell "MODULE.bazel"
+
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = "create_readonly_dir_in_pwd",
+  srcs = [ "create_readonly_dir_in_pwd.sh" ],
+)
+EOF
+
+  cat > pkg/create_readonly_dir_in_pwd.sh <<EOF
+#!/bin/sh
+set -e
+mkdir readonly_dir
+touch readonly_dir/some_file
+chmod 000 readonly_dir/some_file
+chmod 000 readonly_dir
+EOF
+  chmod +x pkg/create_readonly_dir_in_pwd.sh
+
+  local output_base="$(bazel info output_base)"
+  local bazel_bin="$(bazel info bazel-bin)"
+  local bazel_bin_reldir="${bazel_bin#$output_base}"
+
+  bazel test --reuse_sandbox_directories //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
+    || fail "Expected first test to succeed"
+
+  local sandbox_stash="${output_base}/sandbox/sandbox_stash"
+  [[ -d "${sandbox_stash}/TestRunner/3/$bazel_bin_reldir/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
+    || fail "${sandbox_stash} did not stash readonly_dir"
+
+  bazel test --reuse_sandbox_directories --nocache_test_results //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
+    || fail "Expected second test to succeed"
 }
 
 function test_hermetic_tmp_with_tmp_sandbox_base() {
@@ -1132,8 +1146,10 @@ function test_changed_async_deleter_filesystem() {
     return
   fi
 
+  add_rules_cc MODULE.bazel
   mkdir pkg
   cat >pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "a",
   srcs = [ "a.cc" ],

@@ -66,6 +66,7 @@ class Module:
     self.strip_prefix = ''
     self.module_dot_bazel = None
     self.patches = []
+    self.overlay = {}
     self.patch_strip = 0
     self.archive_type = None
 
@@ -81,6 +82,10 @@ class Module:
   def set_patches(self, patches, patch_strip):
     self.patches = patches
     self.patch_strip = patch_strip
+    return self
+
+  def set_overlay(self, overlay):
+    self.overlay = overlay
     return self
 
   def set_archive_type(self, archive_type):
@@ -121,7 +126,11 @@ class BazelRegistry:
     """Return the URL of this registry."""
     return self.http_server.getURL()
 
-  def generateCcSource(
+  def getLocalURL(self):
+    """Return the local file:// URL of this registry."""
+    return self.root.as_uri()
+
+  def generateShSource(
       self,
       name,
       version,
@@ -129,9 +138,9 @@ class BazelRegistry:
       repo_names=None,
       extra_module_file_contents=None,
   ):
-    """Generate a cc project with given dependency information.
+    """Generate a sh project with given dependency information.
 
-    1. The cc projects implements a hello_<lib_name> function.
+    1. The sh library implements a hello_<lib_name> function.
     2. The hello_<lib_name> function calls the same function of its
     dependencies.
     3. The hello_<lib_name> function prints "<caller name> =>
@@ -185,39 +194,68 @@ class BazelRegistry:
     )
 
     scratchFile(
-        src_dir.joinpath(name.lower() + '.h'), [
-            '#ifndef %s_H' % name.upper(),
-            '#define %s_H' % name.upper(),
-            '#include <string>',
-            'void hello_%s(const std::string& caller);' % name.lower(),
-            '#endif',
-        ])
-    scratchFile(
-        src_dir.joinpath(name.lower() + '.cc'), [
-            '#include <stdio.h>',
-            '#include "%s.h"' % name.lower(),
-        ] + ['#include "%s.h"' % dep.lower() for dep in deps] + [
-            'void hello_%s(const std::string& caller) {' % name.lower(),
-            '    std::string lib_name = "%s@%s%s";' %
-            (name, version, self.registry_suffix),
-            '    printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
-        ] + ['    hello_%s(lib_name);' % dep.lower() for dep in deps] + [
+        src_dir.joinpath(name.lower() + '.sh'),
+        [
+            'source $(rlocation %s+/%s.sh)' % (dep.lower(), dep.lower())
+            for dep in deps
+        ]
+        + [
+            'function hello_%s {' % name.lower(),
+            '    caller_name="${1}"',
+            '    lib_name="%s@%s%s"' % (name, version, self.registry_suffix),
+            '    echo "${caller_name} => ${lib_name}"',
+        ]
+        + ['    hello_%s ${lib_name}' % dep.lower() for dep in deps]
+        + [
             '}',
-        ])
+        ],
+    )
     scratchFile(
-        src_dir.joinpath('BUILD'), [
+        src_dir.joinpath('sh_library.bzl'),
+        [
+            'def _impl(ctx):',
+            '  f = ctx.actions.declare_file(ctx.label.name + ".dummy")',
+            '  ctx.actions.write(f, "dummy out")',  # dummy action for aquery
+            '  files = depset(',
+            '     ctx.files.srcs,',
+            '     transitive = [d[DefaultInfo].files for d in ctx.attr.deps]',
+            '  )',
+            '  runfiles = ctx.runfiles(transitive_files = files)',
+            '  return DefaultInfo(files = files, runfiles = runfiles)',
+            'sh_library = rule(_impl, attrs = {',
+            (
+                '  "srcs": attr.label_list(allow_files = True),'
+                '  "deps": attr.label_list(allow_rules = ["sh_library"]),'
+                '})'
+            ),
+        ],
+    )
+    scratchFile(
+        src_dir.joinpath('BUILD'),
+        [
+            'load(":sh_library.bzl", "sh_library")',
             'package(default_visibility = ["//visibility:public"])',
-            'cc_library(',
+            'sh_library(',
             '  name = "lib_%s",' % name.lower(),
-            '  srcs = ["%s.cc"],' % name.lower(),
-            '  hdrs = ["%s.h"],' % name.lower(),
-        ] + ([
-            '  deps = ["%s"],' % ('", "'.join([
-                '@%s//:lib_%s' % (repo_names[dep], dep.lower()) for dep in deps
-            ])),
-        ] if deps else []) + [
+            '  srcs = ["%s.sh"],' % name.lower(),
+        ]
+        + (
+            [
+                '  deps = ["%s"],'
+                % (
+                    '", "'.join([
+                        '@%s//:lib_%s' % (repo_names[dep], dep.lower())
+                        for dep in deps
+                    ])
+                ),
+            ]
+            if deps
+            else []
+        )
+        + [
             ')',
-        ])
+        ],
+    )
     return src_dir
 
   def createArchive(self, name, version, src_dir, filename_pattern='%s.%s.zip'):
@@ -267,13 +305,22 @@ class BazelRegistry:
         source['patches'][patch.name] = integrity(read(patch))
         shutil.copy(str(patch), str(patch_dir))
 
+    if module.overlay:
+      overlay_dir = module_dir.joinpath('overlay')
+      overlay_dir.mkdir()
+      source['overlay'] = {}
+      for overlay_rel_path, overlay_file in module.overlay.items():
+        file = pathlib.Path(overlay_file)
+        source['overlay'][overlay_rel_path] = integrity(read(file))
+        shutil.copy(str(file), str(overlay_dir.joinpath(overlay_rel_path)))
+
     if module.archive_type:
       source['archive_type'] = module.archive_type
 
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)
 
-  def createCcModule(
+  def createShModule(
       self,
       name,
       version,
@@ -281,12 +328,13 @@ class BazelRegistry:
       repo_names=None,
       patches=None,
       patch_strip=0,
+      overlay=None,
       archive_pattern=None,
       archive_type=None,
       extra_module_file_contents=None,
   ):
     """Generate a cc project and add it as a module into the registry."""
-    src_dir = self.generateCcSource(
+    src_dir = self.generateShSource(
         name, version, deps, repo_names, extra_module_file_contents
     )
     if archive_pattern:
@@ -300,6 +348,8 @@ class BazelRegistry:
     module.set_module_dot_bazel(src_dir.joinpath('MODULE.bazel'))
     if patches:
       module.set_patches(patches, patch_strip)
+    if overlay:
+      module.set_overlay(overlay)
     if archive_type:
       module.set_archive_type(archive_type)
 

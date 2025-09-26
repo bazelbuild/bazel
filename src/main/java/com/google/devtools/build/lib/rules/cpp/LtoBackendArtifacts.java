@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -94,7 +93,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       LinkActionConstruction linkActionConstruction,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
       boolean usePic,
       boolean generateDwo,
       List<String> userCompileFlags)
@@ -119,7 +117,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         builder,
         buildVariablesBuilder,
         ccToolchain,
-        fdoContext,
         featureConfiguration,
         userCompileFlags);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
@@ -181,18 +178,10 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     }
   }
 
-  public Artifact getObjectFile() {
-    return objectFile;
-  }
-
   @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
   public Artifact getObjectFileForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return objectFile;
-  }
-
-  public Artifact getBitcodeFile() {
-    return bitcodeFile;
   }
 
   @StarlarkMethod(name = "bitcode_file", documented = false, useStarlarkThread = true)
@@ -228,17 +217,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     return imports;
   }
 
-  void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
-    // For objects from linkstatic libraries, we may not be including them in the LTO indexing
-    // step when linked into a test, but rather will use shared non-LTO backends for better
-    // scalability when running large numbers of tests.
-    if (index == null) {
-      return;
-    }
-    builder.add(imports);
-    builder.add(index);
-  }
-
   /**
    * Populate buildVariablesBuilder, and builder with data that is independent of what file is the
    * input to the action.
@@ -247,13 +225,13 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       LtoBackendAction.Builder builder,
       CcToolchainVariables.Builder buildVariablesBuilder,
       CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       List<String> userCompileFlags)
       throws EvalException {
     builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
     builder.setMnemonic("CcLtoBackendCompile");
-    addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
+    addProfileForLtoBackend(
+        builder, ccToolchain.getFdoContext(), featureConfiguration, buildVariablesBuilder);
     // Add the context sensitive instrument path to the backend.
     if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
       buildVariablesBuilder.addVariable(

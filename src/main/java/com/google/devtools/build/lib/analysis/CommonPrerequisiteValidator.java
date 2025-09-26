@@ -55,6 +55,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     validateDirectPrerequisiteForTestOnly(contextBuilder, prerequisite);
     validateDirectPrerequisiteForDeprecation(
         contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
+    validateTransitiveVisibility(contextBuilder, prerequisite, attribute);
   }
 
   /**
@@ -610,6 +611,38 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
             """,
             isSourceFile ? " on this source file" : "",
             isSourceFile ? " using exports_files()" : ""));
+  }
+
+  private void validateTransitiveVisibility(
+      RuleContext.Builder contextBuilder,
+      ConfiguredTargetAndData prerequisite,
+      Attribute attribute) {
+    if (contextBuilder.getConfiguration() == null
+        || !contextBuilder.getConfiguration().enforceTransitiveVisibility()) {
+      return;
+    }
+
+    TransitiveVisibilityProvider tvProvider =
+        prerequisite.getConfiguredTarget().getProvider(TransitiveVisibilityProvider.class);
+    if (tvProvider == null) {
+      return;
+    }
+
+    for (PackageSpecificationProvider transitiveVisibilityDeclaration :
+        tvProvider.getTransitiveVisibility()) {
+      if (!Allowlist.isAvailableFor(
+          transitiveVisibilityDeclaration.getPackageSpecifications(),
+          contextBuilder.getRule().getLabel())) {
+        contextBuilder.attributeError(
+            attribute.getName(),
+            String.format(
+                "Transitive visibility error: %2$s is not transitively visible from %1$s. %2$s"
+                    + " inherits a transitive_visibility declaration from its package or one of"
+                    + " its dependencies that does not allow %1$s",
+                contextBuilder.getRule().getLabel(), prerequisite.getTargetLabel()));
+        return;
+      }
+    }
   }
 
   private void validateDirectPrerequisiteLocation(

@@ -28,21 +28,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_macos=false
-  declare -r is_windows=true
-  ;;
-darwin)
-  declare -r is_macos=true
-  declare -r is_windows=false
-  ;;
-*)
-  declare -r is_macos=false
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 function set_up() {
@@ -136,7 +121,7 @@ EOF
   # their actual contents since that would be too much.
   assert_contains "Inputs: \[" output
   assert_contains "Outputs: \[" output
-  if $is_windows; then
+  if is_windows; then
     assert_contains "Command Line: .*bash\.exe" output
   else
     assert_contains "Command Line: (" output
@@ -262,9 +247,12 @@ EOF
 }
 
 function test_prunable_headers() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(
   name = "foo",
   srcs = ["foo.cc"],
@@ -1023,9 +1011,11 @@ EOF
 }
 
 function test_aquery_noinclude_artifacts() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name='foo',
     srcs=['foo.cc']
@@ -1135,9 +1125,11 @@ EOF
 }
 
 function test_aquery_include_param_file_not_enabled_by_default() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name='foo',
     srcs=['foo.cc']
@@ -1158,6 +1150,7 @@ EOF
 }
 
 function test_aquery_cpp_action_template_treeartifact_output() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/a.bzl" <<'EOF'
@@ -1180,6 +1173,7 @@ cc_tree_artifact_files = rule(
 EOF
 
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(':a.bzl', 'cc_tree_artifact_files')
 cc_tree_artifact_files(
     name = 'tree_artifact',
@@ -1209,7 +1203,7 @@ EOF
     --features=-prefer_pic_for_opt_binaries \
     || fail "Expected success"
   cat output >> "$TEST_log"
-  if (is_darwin || $is_windows); then
+  if (is_darwin || is_windows); then
     expected_num_actions=1
   else
     expected_num_actions=2
@@ -1915,7 +1909,7 @@ EOF
 function test_unicode_text() {
   # Bazel relies on the JVM for filename encoding, and can only support
   # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_iso_8859_1_locale && ! has_utf8_locale; then
       echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
       echo "Available locales (need ISO-8859-1 or UTF-8):"
@@ -1989,7 +1983,7 @@ function test_file_write_is_executable() {
   touch "$pkg/foo.sh"
   cat > "$pkg/write_executable_file.bzl" <<'EOF'
 def _impl(ctx):
-    out = ctx.actions.declare_symlink(ctx.label.name)
+    out = ctx.actions.declare_file(ctx.label.name)
     ctx.actions.write(
         output = out,
         content = "Hello",
@@ -2053,46 +2047,6 @@ EOF
   fi
 }
 
-function test_unresolved_symlinks() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  touch "$pkg/foo.sh"
-  cat > "$pkg/unresolved_symlink.bzl" <<'EOF'
-def _impl(ctx):
-    out = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.symlink(
-        output = out,
-        target_path = ctx.attr.path
-    )
-    return [
-        DefaultInfo(files = depset([out]))
-    ]
-unresolved_symlink = rule(
-    implementation = _impl,
-    attrs = {
-        "path": attr.string(),
-    },
-)
-EOF
-  cat > "$pkg/BUILD" <<'EOF'
-load(":unresolved_symlink.bzl", "unresolved_symlink")
-unresolved_symlink(
-  name = "foo",
-  path = "bar/baz.txt",
-)
-EOF
-  bazel aquery --output=textproto \
-     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "^unresolved_symlink_target:.*bar/baz.txt" output
-
-  bazel aquery --output=text "//$pkg:foo" | \
-    sed -nr '/Mnemonic: UnresolvedSymlink/,/^ *$/p' >output \
-      2> "$TEST_log" || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "^ *UnresolvedSymlinkTarget:.*bar/baz.txt" output
-}
-
 function test_does_not_fail_horribly_with_file() {
   rm -rf peach
   mkdir -p peach
@@ -2113,11 +2067,13 @@ EOF
 }
 
 function test_cpp_compile_action_env() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
 
   touch "$pkg/main.cpp"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "main",
     srcs = ["main.cpp"],
@@ -2127,7 +2083,7 @@ EOF
      "mnemonic(CppCompile,//$pkg:main)" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
 
-  if "$is_windows"; then
+  if is_windows; then
     assert_contains '  key: "INCLUDE"' output
   else
     assert_contains '  key: "PWD"' output
@@ -2139,7 +2095,7 @@ EOF
 function DISABLED_test_unicode_textproto() {
   # Bazel relies on the JVM for filename encoding, and can only support
   # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_iso_8859_1_locale && ! has_utf8_locale; then
       echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
       echo "Available locales (need ISO-8859-1 or UTF-8):"

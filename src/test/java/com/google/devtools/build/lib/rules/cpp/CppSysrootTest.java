@@ -47,7 +47,10 @@ public final class CppSysrootTest extends BuildViewTestCase {
 
   @Before
   public void writeDummyLibrary() throws Exception {
-    scratch.file("dummy/BUILD", "cc_library(name='library')");
+    scratch.file(
+        "dummy/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='library')");
   }
 
   /**
@@ -141,12 +144,9 @@ public final class CppSysrootTest extends BuildViewTestCase {
       if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
         try {
           CcToolchainVariables buildVariables = toolchainProvider.getBuildVars();
-          return CppHelper.getCommandLine(
-              ruleContext,
-              featureConfiguration,
-              buildVariables,
-              CppActionNames.CC_FLAGS_MAKE_VARIABLE);
-
+          return ImmutableList.copyOf(
+              featureConfiguration.getCommandLine(
+                  CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables));
         } catch (EvalException e) {
           throw new RuleErrorException(e.getMessage());
         }
@@ -188,6 +188,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file(
         "a/grte/top/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         filegroup(name = "everything")
 
         cc_library(name = "library")

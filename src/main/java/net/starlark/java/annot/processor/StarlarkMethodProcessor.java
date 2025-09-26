@@ -344,11 +344,12 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
     }
 
-    // Reject generic types C<T> other than C<?>,
+    // Reject generic types C<T> other than C<?> and C<Object>,
     // since reflective calls check only the toplevel class.
+    TypeMirror objectType = getType("java.lang.Object");
     if (paramType instanceof DeclaredType declaredType) {
       for (TypeMirror typeArg : declaredType.getTypeArguments()) {
-        if (!(typeArg instanceof WildcardType)) {
+        if (!(typeArg instanceof WildcardType) && !types.isSameType(typeArg, objectType)) {
           errorf(
               param,
               "parameter '%s' has generic type %s, but only wildcard type parameters are"

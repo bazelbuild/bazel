@@ -183,4 +183,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
 
   @StarlarkMethod(name = "disable_nocopts", documented = false, useStarlarkThread = true)
   boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "save_temps", documented = false, useStarlarkThread = true)
+  boolean getSaveTempsForStarlark(StarlarkThread thread) throws EvalException;
 }

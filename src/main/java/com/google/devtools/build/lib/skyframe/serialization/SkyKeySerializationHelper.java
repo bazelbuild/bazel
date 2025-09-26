@@ -19,7 +19,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 

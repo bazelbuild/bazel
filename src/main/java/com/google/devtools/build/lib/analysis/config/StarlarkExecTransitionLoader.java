@@ -125,6 +125,11 @@ public final class StarlarkExecTransitionLoader {
       // The exec transition must be allowed to change otherwise immutable flags.
       return true;
     }
+
+    @Override
+    public boolean isExecTransitionProvider() {
+      return true;
+    }
   }
 
   /**

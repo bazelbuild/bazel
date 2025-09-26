@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.shell;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
@@ -55,7 +56,7 @@ public class CommandLargeInputsTest {
 
   @Test
   public void testCatRandomBinaryToOutputStream() throws Exception {
-    final Command command = new Command(new String[] {"cat"}, System.getenv());
+    final Command command = new Command(ImmutableList.of("cat"), System.getenv());
     byte[] randomBytes = getRandomBytes();
     ByteArrayInputStream in = new ByteArrayInputStream(randomBytes);
 
@@ -67,7 +68,8 @@ public class CommandLargeInputsTest {
 
   @Test
   public void testCatRandomBinaryToErrorStream() throws Exception {
-    final Command command = new Command(new String[] {"/bin/sh", "-c", "cat >&2"}, System.getenv());
+    final Command command =
+        new Command(ImmutableList.of("/bin/sh", "-c", "cat >&2"), System.getenv());
     byte[] randomBytes = getRandomBytes();
     ByteArrayInputStream in = new ByteArrayInputStream(randomBytes);
 
@@ -79,7 +81,7 @@ public class CommandLargeInputsTest {
 
   @Test
   public void testCatRandomBinaryFromInputStreamToOutputStream() throws Exception {
-    final Command command = new Command(new String[] {"cat"}, System.getenv());
+    final Command command = new Command(ImmutableList.of("cat"), System.getenv());
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
     byte[] randomBytes = getRandomBytes();
@@ -95,7 +97,8 @@ public class CommandLargeInputsTest {
 
   @Test
   public void testCatRandomBinaryFromInputStreamToErrorStream() throws Exception {
-    final Command command = new Command(new String[] {"/bin/sh", "-c", "cat >&2"}, System.getenv());
+    final Command command =
+        new Command(ImmutableList.of("/bin/sh", "-c", "cat >&2"), System.getenv());
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
     byte[] randomBytes = getRandomBytes();
@@ -113,11 +116,10 @@ public class CommandLargeInputsTest {
   public void testStdoutInterleavedWithStdErr() throws Exception {
     final Command command =
         new Command(
-            new String[] {
-              "/bin/bash",
-              "-c",
-              "for i in $( seq 0 999); do (echo OUT$i >&1) && (echo ERR$i  >&2); done"
-            },
+            ImmutableList.of(
+                "/bin/bash",
+                "-c",
+                "for i in $( seq 0 999); do (echo OUT$i >&1) && (echo ERR$i  >&2); done"),
             System.getenv());
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
@@ -139,7 +141,7 @@ public class CommandLargeInputsTest {
 
   @Test
   public void testCatAllByteValues() throws Exception {
-    final Command command = new Command(new String[] {"cat"}, System.getenv());
+    final Command command = new Command(ImmutableList.of("cat"), System.getenv());
     byte[] allByteValues = getAllByteValues();
     ByteArrayInputStream in = new ByteArrayInputStream(allByteValues);
 

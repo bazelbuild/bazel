@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveVisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -62,6 +63,9 @@ public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarg
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
+    if (providerClass.equals(TransitiveVisibilityProvider.class)) {
+      return providerClass.cast(createTransitiveVisibilityProvider());
+    }
     return providerClass.cast(getProviderInternal(providerClass));
   }
 
@@ -81,6 +85,9 @@ public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarg
     if (providerClass == FilesToRunProvider.class) {
       return createFilesToRunProvider();
     }
+    if (providerClass == TransitiveVisibilityProvider.class) {
+      return createTransitiveVisibilityProvider();
+    }
     return null;
   }
 
@@ -92,6 +99,9 @@ public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarg
     return FilesToRunProvider.create(
         singleFile, /* runfilesSupport= */ null, /* executable= */ getArtifact());
   }
+
+  @Nullable
+  protected abstract TransitiveVisibilityProvider createTransitiveVisibilityProvider();
 
   @Override
   @Nullable

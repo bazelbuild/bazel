@@ -210,12 +210,15 @@ This syntax does not extend to the use of `startup` to set
 
 #### `--enable_platform_specific_config` {:#enable_platform_specific_config}
 
-Platform specific configs in the `.bazelrc` can be automatically enabled using
-`--enable_platform_specific_config`. For example, if the host OS is Linux and
-the `build` command is run, the `build:linux` configuration will be
-automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
-`freebsd`, and `openbsd`. Enabling this flag is equivalent to using
-`--config=linux` on Linux, `--config=windows` on Windows, and so on.
+In the `.bazelrc` you can use platform specific configs that will be
+automatically enabled based on the host OS. For example, if the host OS
+is Linux and the `build` command is run, the `build:linux` configuration
+will be automatically enabled. Supported OS identifiers are `linux`,
+`macos`, `windows`, `freebsd`, and `openbsd`.
+
+This is equivalent to using `--config=linux` on Linux,
+`--config=windows` on Windows, and so on. This can be disabled with
+`--enable_platform_specific_config=false`.
 
 See [--enable_platform_specific_config](/reference/command-line-reference#flag--enable_platform_specific_config).
 
@@ -247,11 +250,16 @@ that use other build systems. Place a file called
 and add the directories you want Bazel to ignore, one per
 line. Entries are relative to the workspace root.
 
+The `.bazelignore` file does not permit glob semantics.
+Bazel 8 introduces the `REPO.bazel` file which allows another directive, `ignore_directories()`.
+It takes a list of directories to ignore just like .bazelignore does, but with glob semantics.
+See [#24203](https://github.com/bazelbuild/bazel/pull/24203).
+
 ### The global bazelrc file {:#global-bazelrc}
 
 Bazel reads optional bazelrc files in this order:
 
-1.  System rc-file located at `etc/bazel.bazelrc`.
+1.  System rc-file located at `/etc/bazel.bazelrc`.
 2.  Workspace rc-file located at `$workspace/tools/bazel.rc`.
 3.  Home rc-file located at `$HOME/.bazelrc`
 

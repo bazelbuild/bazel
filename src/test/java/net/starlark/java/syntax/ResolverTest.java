@@ -505,6 +505,23 @@ public class ResolverTest {
         "      aᶠ₀, bᴳ₀, cᶠ₁, dᶠ₂, eᴸ₀, fᴳ₁, gᶠ₃, hᶠ₄");
   }
 
+  @Test
+  public void testDocComments() throws Exception {
+    StarlarkFile file =
+        resolveFile(
+            """
+            #: Doc for FOO
+            #: multiline
+            FOO = 1
+            BAR, BAZ = (2, 3)  #: Applies to LHS list
+            """);
+
+    assertThat(file.docCommentsMap.keySet()).containsExactly("FOO", "BAR", "BAZ").inOrder();
+    assertThat(file.docCommentsMap.get("FOO").getText()).isEqualTo("Doc for FOO\nmultiline");
+    assertThat(file.docCommentsMap.get("BAR").getText()).isEqualTo("Applies to LHS list");
+    assertThat(file.docCommentsMap.get("BAZ").getText()).isEqualTo("Applies to LHS list");
+  }
+
   // checkBindings verifies the binding (scope and index) of each identifier.
   // Every variable must be followed by a superscript letter (its scope)
   // and a subscript numeral (its index). They are replaced by spaces, the

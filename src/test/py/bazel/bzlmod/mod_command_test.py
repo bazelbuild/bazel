@@ -73,7 +73,7 @@ class ModCommandTest(test_base.TestBase):
             'use_repo(ext2, myrepo2="repo1")',
         ],
     )
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'foo',
         '1.0',
         {'bar': '1.0', 'ext': '1.0'},
@@ -86,7 +86,7 @@ class ModCommandTest(test_base.TestBase):
             'use_repo(my_ext, my_repo1="repo1")',
         ],
     )
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'foo',
         '2.0',
         {'bar': '2.0', 'ext': '1.0'},
@@ -97,8 +97,8 @@ class ModCommandTest(test_base.TestBase):
             'use_repo(my_ext, my_repo3="repo3", my_repo4="repo4")',
         ],
     )
-    self.main_registry.createCcModule('bar', '1.0', {'ext': '1.0'})
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule('bar', '1.0', {'ext': '1.0'})
+    self.main_registry.createShModule(
         'bar',
         '2.0',
         {'ext': '1.0', 'ext2': '1.0'},
@@ -224,7 +224,9 @@ class ModCommandTest(test_base.TestBase):
             '    |___$@@ext+//:ext.bzl%ext',
             '    |   |___repo3',
             '    |   |___repo4',
-            '    |___bar@2.0 (*)',
+            '    |___bar@2.0 #',
+            '        |___$@@ext+//:ext.bzl%ext',
+            '            |___repo3',
             '',
         ],
         'wrong output in graph query with extension filter specified',

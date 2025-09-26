@@ -1053,28 +1053,31 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadToplevel_unresolvedSymlink() throws Exception {
-    // Dangling symlink would require developer mode to be enabled in the CI environment.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    PathFragment targetPath =
+        PathFragment.create(OS.getCurrent() == OS.WINDOWS ? "C:/some/path" : "/some/path");
 
     setDownloadToplevel();
     writeSymlinkRule();
     write(
         "BUILD",
-        "load(':symlink.bzl', 'symlink')",
-        "symlink(",
-        "  name = 'foo-link',",
-        "  target_path = '/some/path',",
-        ")");
+        """
+        load(':symlink.bzl', 'symlink')
+        symlink(
+          name = 'foo-link',
+          target_path = '%s',
+        )
+        """
+            .formatted(targetPath.getPathString()));
 
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath);
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath);
   }
 
   @Test
@@ -1823,12 +1826,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)
       throws Exception {
-    // On Windows, symlinks might be implemented as a file copy.
-    if (OS.getCurrent() != OS.WINDOWS) {
-      Path output = getOutputPath(binRelativeLinkPath);
-      assertThat(output.isSymbolicLink()).isTrue();
-      assertThat(output.readSymbolicLink()).isEqualTo(targetPath);
+    // On Windows, readSymbolicLink() always returns an absolute path.
+    if (OS.getCurrent() == OS.WINDOWS && !targetPath.isAbsolute()) {
+      targetPath =
+          getOutputPath(binRelativeLinkPath)
+              .getParentDirectory()
+              .getRelative(targetPath)
+              .asFragment();
     }
+    Path output = getOutputPath(binRelativeLinkPath);
+    assertThat(output.isSymbolicLink()).isTrue();
+    assertThat(output.readSymbolicLink()).isEqualTo(targetPath);
   }
 
   protected void writeSymlinkRule() throws IOException {

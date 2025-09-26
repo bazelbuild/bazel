@@ -32,19 +32,19 @@ public final class StaticInputMetadataProvider implements InputMetadataProvider 
   }
 
   private final ImmutableMap<ActionInput, FileArtifactValue> inputToMetadata;
-  private final ImmutableMap<String, ActionInput> execPathToInput;
+  private final ImmutableMap<PathFragment, ActionInput> execPathToInput;
 
   public StaticInputMetadataProvider(Map<ActionInput, FileArtifactValue> inputToMetadata) {
     this.inputToMetadata = ImmutableMap.copyOf(inputToMetadata);
     this.execPathToInput = constructExecPathToInputMap(inputToMetadata.keySet());
   }
 
-  private static ImmutableMap<String, ActionInput> constructExecPathToInputMap(
+  private static ImmutableMap<PathFragment, ActionInput> constructExecPathToInputMap(
       Collection<ActionInput> inputs) {
-    ImmutableMap.Builder<String, ActionInput> builder =
+    ImmutableMap.Builder<PathFragment, ActionInput> builder =
         ImmutableMap.builderWithExpectedSize(inputs.size());
     for (ActionInput input : inputs) {
-      builder.put(input.getExecPath().getPathString(), input);
+      builder.put(input.getExecPath(), input);
     }
     return builder.buildOrThrow();
   }
@@ -91,7 +91,7 @@ public final class StaticInputMetadataProvider implements InputMetadataProvider 
 
   @Nullable
   @Override
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     return execPathToInput.get(execPath);
   }
 }

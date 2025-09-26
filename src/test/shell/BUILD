@@ -9,6 +9,7 @@ exports_files([
     "bin/bazel_jdk_minimal",
     "bin/bazel_nojdk",
     "integration_test_setup.sh",
+    "platform_utils.sh",
     "sandboxing_test_utils.sh",
     "unittest.bash",
     "shell_utils.sh",

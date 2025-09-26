@@ -21,6 +21,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function set_up() {
   create_new_workspace
+  add_rules_cc "MODULE.bazel"
 }
 
 function write_test_target() {
@@ -55,6 +56,8 @@ function write_crosstool() {
   cat > setup/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 cc_library(

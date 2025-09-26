@@ -18,6 +18,8 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.base.Ascii;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.LatestObjectMetricExporter;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -189,7 +191,6 @@ public final class DefaultSyscallCache implements SyscallCache {
 
   @Nullable
   @Override
-  @SuppressWarnings("unchecked")
   public DirentTypeWithSkip getType(Path path, Symlinks symlinks) throws IOException {
     // Use a cached stat call if we have one. This is done first so that we don't need to iterate
     // over a list of directory entries as we do for cached readdir() entries. We don't ever expect
@@ -218,26 +219,36 @@ public final class DefaultSyscallCache implements SyscallCache {
     // would be resolved sequentially which can be slow on high-latency file systems. If we request
     // the type of a file with FOLLOW, and find a symlink in the directory, we fall back to doing a
     // stat.
-    Object result = readdirCache.getIfPresent(parent);
-    if (result != null && !(result instanceof IOException)) {
+    if (readdirCache.getIfPresent(parent) instanceof Dirents dirents) {
       String baseName = path.getBaseName();
-      for (Dirent dirent : (Collection<Dirent>) result) { // unchecked cast
-        // TODO(djasper): Dealing with filesystem case is a bit of a code smell. Figure out a better
-        // way to store Dirents, e.g. with names normalized.
-        if (path.getFileSystem().isFilePathCaseSensitive() && !dirent.getName().equals(baseName)) {
-          continue;
-        }
-        if (!path.getFileSystem().isFilePathCaseSensitive()
-            && !dirent.getName().equalsIgnoreCase(baseName)) {
-          continue;
-        }
+      var dirent = dirents.maybeGetDirent(baseName);
+      if (dirent != null) {
         if (dirent.getType() == Dirent.Type.SYMLINK && symlinks == Symlinks.FOLLOW) {
           // See above: We don't want to follow symlinks with readdir(). Do a stat() instead.
           return ofStat(statIfFound(path, Symlinks.FOLLOW));
         }
         return DirentTypeWithSkip.of(dirent.getType());
       }
-      return null;
+      if (!path.getFileSystem().mayBeCaseOrNormalizationInsensitive()) {
+        return null;
+      }
+      // The filesystem may be case-insensitive or normalization-insensitive, but it doesn't have
+      // to be and even if it is, we don't know which normalization algorithm it uses. We assume
+      // that every reasonable filesystem doesn't normalize pure ASCII path components in any
+      // way other than ASCII case insensitivity.
+      if (StringUnsafe.isAscii(baseName)) {
+        boolean mayHaveFoundMatch = false;
+        for (Dirent d : dirents) {
+          if (!StringUnsafe.isAscii(d.getName()) || Ascii.equalsIgnoreCase(baseName, d.getName())) {
+            mayHaveFoundMatch = true;
+            break;
+          }
+        }
+        if (!mayHaveFoundMatch) {
+          return null;
+        }
+      }
+      // Fall back to stat() if we might have found a match.
     }
 
     return ofStat(statIfFound(path, symlinks));
@@ -317,9 +328,7 @@ public final class DefaultSyscallCache implements SyscallCache {
   /** Returns a collection of {@link Dirent} or {@link IOException}. */
   private static Object readdirImpl(Path p) {
     try {
-      // TODO(bazel-team): Consider storing the Collection of Dirent values more compactly by
-      // reusing DirectoryEntryListingStateValue#CompactSortedDirents.
-      return p.readdir(Symlinks.NOFOLLOW);
+      return CompactSortedDirents.create(p.readdir(Symlinks.NOFOLLOW));
     } catch (IOException e) {
       return e;
     }

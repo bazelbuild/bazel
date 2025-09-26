@@ -102,6 +102,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     scratch.file(
         "toolchain/BUILD",
 """
+load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
 load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
 cc_toolchain_config_rule(name = "toolchain_config")
 filegroup(name = "empty")
@@ -136,7 +137,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         )]
         """);
     useConfiguration("--features=a", "--extra_toolchains=//toolchain");
-    scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getArguments()).contains("some_flag");
@@ -155,7 +159,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         )]
         """);
     useConfiguration("--extra_toolchains=//toolchain");
-    scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getExecutionInfo()).containsEntry("supports-exec-requirement", "");
@@ -166,6 +173,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "foo",
             srcs = [
@@ -206,6 +214,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "libfoo.so",
             srcs = ["foo.cc"],
@@ -228,6 +237,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "foo",
             srcs = [
@@ -265,6 +275,8 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = "a",
             srcs = ["a.cc"],
@@ -326,7 +338,9 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             CcToolchainConfig.builder()
                 .withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER, CppRuleClasses.SUPPORTS_PIC));
     scratch.file(
-        "x/BUILD", "cc_binary(name = 'a', srcs = ['a.cc'], features = ['-static_link_test_srcs'])");
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'a', srcs = ['a.cc'], features = ['-static_link_test_srcs'])");
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic", "--dynamic_mode=default");
 
@@ -353,7 +367,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         )]
         """);
     useConfiguration("--features=a", "--extra_toolchains=//toolchain");
-    scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of())).containsEntry("foo", "bar");
@@ -363,7 +380,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   public void testCommandLineSplittingWithoutArchiveParamFileFeature_shouldBeOffForCcLibrary()
       throws Exception {
     useConfiguration("--features=-archive_param_file");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
     SpawnAction linkAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -378,7 +398,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     useConfiguration(
         "--features=-archive_param_file", "--platforms=" + MockObjcSupport.DARWIN_X86_64);
     invalidatePackages();
-    scratch.file("foo/BUILD", "objc_library(name = 'foo', srcs = ['foo.m'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+        "objc_library(name = 'foo', srcs = ['foo.m'])");
 
     SpawnAction linkAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -398,7 +421,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration();
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(getCommandLine(linkAction).paramFileInfo).isNull();
@@ -413,7 +439,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
       testCommandLineSplittingWithoutArchiveParamFileFeature_shouldBeOffForPicStaticLibrary()
           throws Exception {
     useConfiguration("--features=-archive_param_file", "--force_pic");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -425,7 +454,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
       testCommandLineSplittingWithoutArchiveParamFileFeature_shouldBeOffForAlwayslinkStaticLibrary()
           throws Exception {
     useConfiguration("--features=-archive_param_file");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -437,7 +469,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
       testCommandLineSplittingWithoutArchiveParamFileFeature_shouldBeOffForAlwayslinkPicStaticLibrary()
           throws Exception {
     useConfiguration("--features=*archive_param_file", "--force_pic");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -453,7 +488,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.ARCHIVE_PARAM_FILE));
     useConfiguration("--features=archive_param_file");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
     SpawnAction linkAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -476,7 +514,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
                     CppRuleClasses.ARCHIVE_PARAM_FILE));
     useConfiguration("--features=archive_param_file,supports_dynamic_linker");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(getCommandLine(linkAction).paramFileInfo).isNull();
@@ -495,7 +536,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.ARCHIVE_PARAM_FILE));
     useConfiguration("--features=archive_param_file");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -513,7 +557,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.ARCHIVE_PARAM_FILE));
     useConfiguration("--features=archive_param_file", "--force_pic");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -532,7 +579,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.ARCHIVE_PARAM_FILE));
     useConfiguration("--features=archive_param_file");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -551,7 +601,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.ARCHIVE_PARAM_FILE));
     useConfiguration("--features=archive_param_file", "--force_pic");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], alwayslink = True)");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -570,7 +623,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     invalidatePackages();
     useConfiguration(
         "--features=archive_param_file", "--platforms=" + MockObjcSupport.DARWIN_X86_64);
-    scratch.file("foo/BUILD", "objc_library(name = 'foo', srcs = ['foo.m'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+        "objc_library(name = 'foo', srcs = ['foo.m'])");
 
     SpawnAction archiveAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -581,7 +637,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
 
   @Test
   public void testLocalLinkResourceEstimate() throws Exception {
-    scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
@@ -612,7 +671,10 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration();
 
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
     assertThat(configuredTarget).isNotNull();
     ImmutableList<String> inputs =
@@ -662,7 +724,10 @@ action_configs = [action_config(
     useConfiguration(
         "--extra_toolchains=//toolchain",
         "--features=build_interface_libraries,dynamic_library_linker_tool");
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['a.c'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.c'])");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
@@ -810,6 +875,7 @@ cc_link_rule = rule(
     scratch.file(
         "foo/BUILD",
 """
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//bazel_internal/test_rules/cc:foo.bzl", "cc_link_rule")
 cc_link_rule(name = "foo")
 cc_binary(name = "tool")
@@ -860,6 +926,7 @@ cc_binary(name = "tool")
   public void testPieOptionDisabledForSharedLibraries() throws Exception {
     scratch.file(
         "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "cc_binary(name = 'foo', srcs = ['foo.cc'], linkopts = ['-pie', '-other', '-pie'],"
             + " linkshared = True)");
 
@@ -875,6 +942,7 @@ cc_binary(name = "tool")
   public void testPieOptionKeptForExecutables() throws Exception {
     scratch.file(
         "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "cc_binary(name = 'foo', srcs = ['foo.cc'], linkopts = ['-pie', '-other', '-pie'],"
             + " linkshared = False)");
 
@@ -889,6 +957,8 @@ cc_binary(name = "tool")
   public void testLinkoptsComeAfterLinkerInputs() throws Exception {
     scratch.file(
         "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'bar1', srcs = ['bar.cc'])",
         "cc_library(name = 'bar2', srcs = ['bar.cc'])",
         "cc_binary(name = 'foo', srcs = ['foo.cc'], deps = [':bar1', ':bar2'], linkopts ="
@@ -934,7 +1004,9 @@ cc_binary(name = "tool")
         """);
     useConfiguration("--extra_toolchains=//toolchain");
     scratch.file(
-        "foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], linkopts = ['FakeLinkopt1'])");
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], linkopts = ['FakeLinkopt1'])");
 
     SpawnAction linkAction =
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
@@ -947,6 +1019,8 @@ cc_binary(name = "tool")
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "bin",
             deps = [":lib"],
@@ -975,6 +1049,7 @@ cc_binary(name = "tool")
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "foo",
             srcs = [

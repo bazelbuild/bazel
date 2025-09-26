@@ -33,6 +33,7 @@ tasks:
       - "//tools/compliance/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # These tests are not compatible with the gcov version of Rocky Linux 8.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
@@ -72,7 +73,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2204:
+  ubuntu2404:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -98,6 +99,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
     include_json_profile:
       - build
       - test
@@ -150,6 +152,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
     include_json_profile:
       - build
       - test
@@ -181,6 +184,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # Disable python and shell integration tests on Intel Macs
       - "-//src/test/shell/..."
       - "-//src/test/py/..."
@@ -226,6 +230,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
@@ -268,10 +273,6 @@ tasks:
       - "//tools/test/..."
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
-      - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
-      - "-//src/test/java/com/google/devtools/build/lib/worker/..."
-      - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
     include_json_profile:
@@ -327,6 +328,7 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      - "//tools/test/..."
       # See https://github.com/bazelbuild/bazel/issues/8033
       - "-//src/tools/singlejar:output_jar_simple_test"
       - "-//src/test/shell/bazel:external_integration_test"

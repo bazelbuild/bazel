@@ -15,12 +15,17 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -36,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -45,6 +51,18 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link TargetPatternPreloader}. */
 @RunWith(JUnit4.class)
 public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTest {
+  private static final RuleDefinition FAKE_CC_LIBRARY =
+      (MockRule)
+          () ->
+              MockRule.define(
+                  "fake_cc_library",
+                  (builder, env) ->
+                      builder
+                          .add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+                          .add(attr("hdrs", LABEL_LIST).legacyAllowAnyFileType())
+                          .add(attr("linkstatic", BOOLEAN))
+                          .add(attr("alwayslink", BOOLEAN)));
+
   private PathFragment fooOffset;
 
   private Set<Label> rulesBeneathFoo;
@@ -53,6 +71,11 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   private Set<Label> targetsInFooBar;
   private Set<Label> targetsBeneathFoo;
   private Set<Label> targetsInOtherrules;
+
+  @Override
+  protected List<RuleDefinition> getExtraRules() {
+    return ImmutableList.of(FAKE_CC_LIBRARY);
+  }
 
   @Before
   public final void createFiles() throws Exception {
@@ -67,7 +90,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file(
         "foo/BUILD",
         """
-        cc_library(
+        fake_cc_library(
             name = "foo1",
             srcs = ["foo1.cc"],
             hdrs = ["foo1.h"],
@@ -78,12 +101,12 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file(
         "foo/bar/BUILD",
         """
-        cc_library(
+        fake_cc_library(
             name = "bar1",
             alwayslink = 1,
         )
 
-        cc_library(name = "bar2")
+        fake_cc_library(name = "bar2")
 
         exports_files([
             "wiz/bang",
@@ -107,7 +130,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
         exports_files(["suite/somefile"])
 
-        cc_library(
+        fake_cc_library(
             name = "wiz",
             linkstatic = 1,
         )
@@ -239,13 +262,13 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.overwriteFile(
         "foo/BUILD",
         """
-        cc_library(
+        fake_cc_library(
             name = "foo1",
             srcs = ["foo1.cc"],
             hdrs = ["foo1.h"],
         )
 
-        cc_library(
+        fake_cc_library(
             name = "foo2",
             srcs = ["foo1.cc"],
             hdrs = ["foo1.h"],
@@ -274,16 +297,16 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   /** Regression test for a bug. */
   @Test
   public void testDotDotDotDoesntMatchDeletedPackages() throws Exception {
-    scratch.file("x/y/BUILD", "cc_library(name='y')");
-    scratch.file("x/z/BUILD", "cc_library(name='z')");
+    scratch.file("x/y/BUILD", "fake_cc_library(name='y')");
+    scratch.file("x/z/BUILD", "fake_cc_library(name='z')");
     setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
     assertThat(parseList("x/...")).isEqualTo(Sets.newHashSet(Label.parseCanonical("//x/z")));
   }
 
   @Test
   public void testDotDotDotDoesntMatchDeletedPackagesRelative() throws Exception {
-    scratch.file("x/y/BUILD", "cc_library(name='y')");
-    scratch.file("x/z/BUILD", "cc_library(name='z')");
+    scratch.file("x/y/BUILD", "fake_cc_library(name='y')");
+    scratch.file("x/z/BUILD", "fake_cc_library(name='z')");
     setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
 
     assertThat(
@@ -300,8 +323,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testDeletedPackagesIncrementality() throws Exception {
-    scratch.file("x/y/BUILD", "cc_library(name='y')");
-    scratch.file("x/z/BUILD", "cc_library(name='z')");
+    scratch.file("x/y/BUILD", "fake_cc_library(name='y')");
+    scratch.file("x/z/BUILD", "fake_cc_library(name='z')");
 
     assertThat(parseList("x/..."))
         .containsExactly(Label.parseCanonical("//x/y"), Label.parseCanonical("//x/z"));
@@ -486,7 +509,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
                     parser,
                     parsingListener,
                     ImmutableList.of("bad/filename/target", "other/bad/filename/target"),
-                    /*keepGoing=*/ false));
+                    /* keepGoing= */ false));
     assertThat(e).hasMessageThat().contains("no such target");
   }
 
@@ -513,17 +536,17 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file(
         "loading/BUILD",
         """
-        cc_library(
+        fake_cc_library(
             name = "y",
             deps = ["a"],
         )
 
-        cc_library(
+        fake_cc_library(
             name = "a",
             deps = ["b"],
         )
 
-        cc_library(
+        fake_cc_library(
             name = "b",
             deps = ["c"],
         )

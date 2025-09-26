@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus.DONE;
+import static com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus.NOT_DONE;
 import static com.google.devtools.build.lib.skyframe.serialization.ExampleValue.exampleValueCodec;
-import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion.CONSTANT_FOR_TESTING;
+import static com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion.CONSTANT_FOR_TESTING;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData.NO_CACHED_DATA;
-import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus.DONE;
-import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus.NOT_DONE;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart.RESTART;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FakeInvalidationDataHelper.prependFakeInvalidationData;
 import static org.junit.Assert.assertThrows;
@@ -31,13 +31,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationStateProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForCacheServiceResponse;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureResult;
@@ -70,7 +68,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
-public final class SkyValueRetrieverTest implements SerializationStateProvider {
+public final class SkyValueRetrieverTest {
   /** Default implementation that errors if any keys are requested. */
   private static final EnvironmentForUtilities NO_LOOKUP_ENVIRONMENT =
       new EnvironmentForUtilities(
@@ -80,7 +78,6 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   private ObjectCodecs codecs = new ObjectCodecs();
 
-  private SerializationState state = SkyValueRetriever.INITIAL_STATE;
 
   private enum InitialQueryCases {
     IMMEDIATE_EMPTY_VALUE,
@@ -118,6 +115,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
           .isNull();
     }
 
+    RetrievalContext state = new RetrievalContext();
     RetrievalResult result =
         SkyValueRetriever.tryRetrieve(
             NO_LOOKUP_ENVIRONMENT,
@@ -126,14 +124,14 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     if (testCase.equals(InitialQueryCases.FUTURE_VALUE)) {
-      assertThat(state).isInstanceOf(WaitingForFutureValueBytes.class);
+      assertThat(state.getState()).isInstanceOf(WaitingForFutureValueBytes.class);
       assertThat(result).isEqualTo(RESTART);
     } else {
-      assertThat(state).isSameInstanceAs(NO_CACHED_DATA);
+      assertThat(state.getState()).isSameInstanceAs(NO_CACHED_DATA);
       assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
     }
   }
@@ -167,6 +165,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
           .isNull();
     }
 
+    RetrievalContext state = new RetrievalContext();
+
     RetrievalResult result =
         SkyValueRetriever.tryRetrieve(
             NO_LOOKUP_ENVIRONMENT,
@@ -175,17 +175,17 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             analysisCacheClient,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     if (testCase.equals(InitialQueryCases.FUTURE_VALUE)) {
-      assertThat(state).isInstanceOf(WaitingForCacheServiceResponse.class);
+      assertThat(state.getState()).isInstanceOf(WaitingForCacheServiceResponse.class);
       assertThat(result).isEqualTo(RESTART);
     } else {
       result =
           maybeWaitForAnalysisCacheService(
-              fingerprintValueService, analysisCacheClient, key, result);
-      assertThat(state).isSameInstanceAs(NO_CACHED_DATA);
+              fingerprintValueService, analysisCacheClient, state, key, result);
+      assertThat(state.getState()).isSameInstanceAs(NO_CACHED_DATA);
       assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
     }
   }
@@ -194,6 +194,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void waitingForFutureValueBytes_returnsImmediateValue() throws Exception {
     // Exercises a scenario without shared values so value is available immediately.
     var fingerprintValueService = FingerprintValueService.createForTesting();
+    var state = new RetrievalContext();
 
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
@@ -207,17 +208,18 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
-    assertThat(state).isInstanceOf(RetrievedValue.class);
+    assertThat(state.getState()).isInstanceOf(RetrievedValue.class);
   }
 
   @Test
   public void waitingForCacheServiceResponse_returnsValue() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
     var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
     RemoteAnalysisCacheClient analysisCacheClient =
         createFakeAnalysisCacheClient(analysisCacheServiceData);
 
@@ -234,23 +236,26 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             analysisCacheClient,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     result =
-        maybeWaitForAnalysisCacheService(fingerprintValueService, analysisCacheClient, key, result);
+        maybeWaitForAnalysisCacheService(
+            fingerprintValueService, analysisCacheClient, state, key, result);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
-    assertThat(state).isInstanceOf(RetrievedValue.class);
+    assertThat(state.getState()).isInstanceOf(RetrievedValue.class);
   }
 
   private RetrievalResult maybeWaitForAnalysisCacheService(
       FingerprintValueService fingerprintValueService,
       RemoteAnalysisCacheClient analysisCacheClient,
+      RetrievalContext state,
       SkyKey key,
       RetrievalResult previousResult)
       throws SerializationException, ExecutionException, InterruptedException {
-    if (state instanceof WaitingForCacheServiceResponse(ListenableFuture<ByteString> futureBytes)) {
+    if (state.getState()
+        instanceof WaitingForCacheServiceResponse(ListenableFuture<ByteString> futureBytes)) {
       // There's a race condition here due to the RequestBatcher's response handling executor.
       // Most of the time, the test thread will outrace the executor and require a restart, but
       // RequestBatcher could occasionally outrace this thread.
@@ -264,7 +269,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
           fingerprintValueService,
           analysisCacheClient,
           key,
-          (SerializationStateProvider) this,
+          state,
           /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
     }
     return previousResult;
@@ -272,6 +277,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   @Test
   public void waitingForFutureValueBytes_missingFingerprintReturnsNoCachedData() throws Exception {
+    RetrievalContext state = new RetrievalContext();
+
     RetrievalResult result =
         SkyValueRetriever.tryRetrieve(
             NO_LOOKUP_ENVIRONMENT,
@@ -280,18 +287,18 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             FingerprintValueService.createForTesting(),
             /* analysisCacheClient= */ null,
             new TrivialKey("a"), // nothing is uploaded to the service
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
-    assertThat(state).isSameInstanceAs(NO_CACHED_DATA);
+    assertThat(state.getState()).isSameInstanceAs(NO_CACHED_DATA);
   }
 
   @Test
   public void waitingForFutureValueBytes_withMatchingDistinguisher_returnsImmediateValue()
       throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
-
+    var state = new RetrievalContext();
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
     var version =
@@ -312,7 +319,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            /* stateProvider= */ this,
+            state,
             /* frontierNodeVersion= */ version);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
@@ -322,7 +329,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void waitingForFutureValueBytes_withNonMatchingDistinguisher_returnsNoCachedData()
       throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
-
+    var state = new RetrievalContext();
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
     var version =
@@ -343,7 +350,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             FingerprintValueService.createForTesting(),
             /* analysisCacheClient= */ null,
             new TrivialKey("a"), // same key..
-            /* stateProvider= */ this,
+            state,
             /* frontierNodeVersion= */ new FrontierNodeVersion(
                 /* topLevelConfigChecksum= */ "9000",
                 /* blazeInstallMD5= */ HashCode.fromInt(9000),
@@ -358,6 +365,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   @Test
   public void tryRetrieve_withoutRestarts_returnsValue() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
+    var state = new RetrievalContext();
+
     codecs = codecs.withCodecOverridesForTesting(ImmutableList.of(new TrivialValueSharingCodec()));
 
     var key = new TrivialKey("a");
@@ -372,7 +381,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
@@ -381,6 +390,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   @Test
   public void tryRetrieve_withAllFutureRestarts_completes() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
+    var state = new RetrievalContext();
+
     codecs = codecs.withCodecOverridesForTesting(ImmutableList.of(new TrivialValueSharingCodec()));
 
     var key = new TrivialKey("a");
@@ -397,12 +408,12 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
     // The underlying future bytes are set immediately by the in-memory FingerprintValueStore, but
     // the `capturingShim` returns `NOT_DONE`, triggering a restart.
     assertThat(result).isEqualTo(RESTART);
-    assertThat(state).isInstanceOf(WaitingForFutureValueBytes.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForFutureValueBytes.class);
 
     // Calling `tryRetrieve` a 2nd time triggers another fetch, this time for the shared value.
     result =
@@ -413,11 +424,11 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
-    assertThat(state).isInstanceOf(WaitingForFutureLookupContinuation.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForFutureLookupContinuation.class);
 
     // Waits for the future to be set (from an executor thread) before restarting.
     Object unused = capturingShim.captured.get();
@@ -432,11 +443,11 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
-    assertThat(state).isInstanceOf(WaitingForFutureResult.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForFutureResult.class);
 
     // Waits for the future to be set (from an executor thread) before restarting.
     unused = capturingShim.captured.get();
@@ -450,7 +461,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
@@ -459,6 +470,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   @Test
   public void tryRetrieve_withSkyframeRestart_completes() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
+    var state = new RetrievalContext();
 
     var key = new ExampleKey("a");
     var value = new ExampleValue(key, 10);
@@ -479,12 +491,12 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(capturedKey[0]).isEqualTo(key);
-    assertThat(state).isInstanceOf(WaitingForLookupContinuation.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
 
     result =
         SkyValueRetriever.tryRetrieve(
@@ -498,7 +510,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
@@ -508,6 +520,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void retrievalError_throwsException() throws Exception {
     var recordingStore = new GetRecordingStore();
     var fingerprintValueService = FingerprintValueService.createForTesting(recordingStore);
+    var state = new RetrievalContext();
 
     var key = new TrivialKey("k");
     var value = new TrivialValue("v");
@@ -521,11 +534,11 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
-    assertThat(state).isInstanceOf(WaitingForFutureValueBytes.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForFutureValueBytes.class);
 
     var error = new IOException();
     recordingStore.pollRequest().response().setException(error);
@@ -541,7 +554,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
                     key,
-                    (SerializationStateProvider) this,
+                    state,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
 
     assertThat(thrown).hasMessageThat().contains("getting value bytes for " + key);
@@ -552,6 +565,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void sharedValueRetrievalError_throwsException() throws Exception {
     var recordingStore = new GetRecordingStore();
     var fingerprintValueService = FingerprintValueService.createForTesting(recordingStore);
+    var state = new RetrievalContext();
 
     codecs = codecs.withCodecOverridesForTesting(ImmutableList.of(new TrivialValueSharingCodec()));
 
@@ -569,11 +583,11 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
-    assertThat(state).isInstanceOf(WaitingForFutureValueBytes.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForFutureValueBytes.class);
 
     recordingStore.pollRequest().complete();
 
@@ -585,11 +599,11 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
-    assertThat(state).isInstanceOf(WaitingForFutureLookupContinuation.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForFutureLookupContinuation.class);
 
     var error = new IOException();
     recordingStore.pollRequest().response().setException(error);
@@ -608,7 +622,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
                     key,
-                    (SerializationStateProvider) this,
+                    state,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
 
     assertThat(thrown).hasMessageThat().contains("waiting for all owned shared values for " + key);
@@ -618,6 +632,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   @Test
   public void skyframeLookupError_throwsException() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
+    var state = new RetrievalContext();
 
     var key = new ExampleKey("a");
     var value = new ExampleValue(key, 10);
@@ -638,12 +653,12 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(capturedKey[0]).isEqualTo(key);
-    assertThat(state).isInstanceOf(WaitingForLookupContinuation.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
 
     var error = new Exception();
 
@@ -662,7 +677,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
                     key,
-                    (SerializationStateProvider) this,
+                    state,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
 
     assertThat(thrown)
@@ -675,6 +690,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   @Test
   public void skyframeLookupError_marksOtherLookupsAbandoned() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
+    var state = new RetrievalContext();
 
     var key = new TrivialKey("a");
 
@@ -698,16 +714,18 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             fingerprintValueService,
             /* analysisCacheClient= */ null,
             key,
-            (SerializationStateProvider) this,
+            state,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(result).isEqualTo(RESTART);
     assertThat(capturedKeys).containsExactly(lookupKey0, lookupKey1).inOrder();
-    assertThat(state).isInstanceOf(WaitingForLookupContinuation.class);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
 
     var lookups =
         ImmutableList.copyOf(
-            ((WaitingForLookupContinuation) state).continuation().getSkyframeLookupsForTesting());
+            ((WaitingForLookupContinuation) state.getState())
+                .continuation()
+                .getSkyframeLookupsForTesting());
     assertThat(lookups).hasSize(2);
 
     var error = new Exception();
@@ -726,7 +744,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
                     key,
-                    (SerializationStateProvider) this,
+                    state,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
     assertThat(thrown)
         .hasMessageThat()
@@ -746,6 +764,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   @Test
   public void exceptionWhileWaitingForResult_throwsException() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
+    var state = new RetrievalContext();
 
     codecs = codecs.withCodecOverridesForTesting(ImmutableList.of(new FaultyTrivialValueCodec()));
 
@@ -764,7 +783,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                     fingerprintValueService,
                     /* analysisCacheClient= */ null,
                     key,
-                    (SerializationStateProvider) this,
+                    state,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
 
     assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
@@ -925,19 +944,6 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     assertThat(first).isNotEqualTo(second);
   }
 
-  // ---------- Begin SerializationStateProvider implementation ----------
-  @Override
-  public SerializationState getSerializationState() {
-    return state;
-  }
-
-  @Override
-  public void setSerializationState(SerializationState state) {
-    this.state = state;
-  }
-
-  // ---------- End SerializationStateProvider implementation ----------
-
   private void uploadKeyValuePair(
       SkyKey key, SkyValue value, FingerprintValueService fingerprintValueService)
       throws SerializationException, InterruptedException, ExecutionException {
@@ -1058,7 +1064,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     return DONE;
   }
 
-  private static class CapturingShim implements SkyValueRetriever.DependOnFutureShim {
+  private static class CapturingShim implements DependOnFutureShim {
     private ListenableFuture<?> captured;
 
     @Override

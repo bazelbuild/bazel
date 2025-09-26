@@ -14,17 +14,21 @@
 
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,8 +37,10 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
+import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -53,6 +59,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -64,10 +71,12 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -125,11 +134,27 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                                           StarlarkProviderIdentifier.forKey(B_KEY),
                                           StarlarkProviderIdentifier.forKey(C_KEY))))));
 
+  private static final RuleDefinition FAKE_CC_LIBRARY =
+      (MockRule)
+          () ->
+              MockRule.define(
+                  "fake_cc_library",
+                  (builder, env) ->
+                      builder
+                          .add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+                          .add(
+                              attr("deps", LABEL_LIST)
+                                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                                  .allowedRuleClasses("fake_cc_library"))
+                          .add(attr("generator_name", STRING))
+                          .add(attr("generator_function", STRING)));
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
-            .addRuleDefinition(TESTING_RULE_FOR_MANDATORY_PROVIDERS);
+            .addRuleDefinition(TESTING_RULE_FOR_MANDATORY_PROVIDERS)
+            .addRuleDefinition(FAKE_CC_LIBRARY);
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -141,6 +166,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("@rules_java//java:defs.bzl", "java_library", "java_import")
         package(features = ['-f1', 'f2', 'f3'])
         genrule(name = 'foo',
@@ -190,7 +216,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           deps = [':jlib'])
         java_library(name = 'jlib',
           srcs = ['bla.java'])
-        cc_library(name = 'cclib',
+        fake_cc_library(name = 'cclib',
           deps = [':jlib'])
         starlark_rule(name = 'skyrule',
           deps = [':jlib'])
@@ -208,7 +234,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           }
         )
         def macro_native_rule(name, deps):
-          native.cc_library(name = name, deps = deps)
+          native.fake_cc_library(name = name, deps = deps)
         def macro_starlark_rule(name, deps):
           starlark_rule(name = name, deps = deps)
         """);
@@ -353,14 +379,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
-        cc_library(name = 'cclib',
+        fake_cc_library(name = 'cclib',
           srcs = ['sub/my_sub_lib.h'])
         """);
-    scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD", "fake_cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:cclib");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:11: Label '//test:sub/my_sub_lib.h' is invalid because "
+        "ERROR /workspace/test/BUILD:1:16: Label '//test:sub/my_sub_lib.h' is invalid because "
             + "'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -434,10 +460,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "/r/BUILD",
         """
-        cc_library(name = 'cclib',
+        fake_cc_library(name = 'cclib',
           srcs = ['sub/my_sub_lib.h'])
         """);
-    scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("/r/sub/BUILD", "fake_cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.overwriteFile(
         "MODULE.bazel", "bazel_dep(name = 'r')", "local_path_override(module_name='r', path='/r')");
     invalidatePackages(
@@ -445,7 +471,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@@r+//:cclib");
     assertContainsEvent(
-        "/external/r+/BUILD:1:11: Label '@@r+//:sub/my_sub_lib.h' is invalid because "
+        "/external/r+/BUILD:1:16: Label '@@r+//:sub/my_sub_lib.h' is invalid because "
             + "'@@r+//sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'@@r+//sub:my_sub_lib.h'?");
   }
@@ -503,7 +529,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/macros.bzl",
         """
         def macro_native_rule(name, deps=[], srcs=[]):
-          native.cc_library(name = name, deps = deps, srcs = srcs)
+          native.fake_cc_library(name = name, deps = deps, srcs = srcs)
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:m_native");
@@ -645,6 +671,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('rule.bzl', 'sample')
         cc_binary(name = 'tool')
         sample(name = 'sample')
@@ -688,6 +715,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         extra_action(
             name = 'foo',
             cmd = 'cmd',
@@ -1053,6 +1081,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "vars/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(':vars.bzl', 'make_var_supplier', 'make_var_user')
         make_var_supplier(name = 'supplier', value = 'foo')
         cc_toolchain_alias(name = 'current_cc_toolchain')
@@ -2112,6 +2141,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load(':rule.bzl', 'bad_runfiles')
         cc_binary(name = 'bin')
         bad_runfiles(name = 'test', bin = ':bin')
@@ -2820,6 +2850,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
           name = 'foo',
           srcs = ['foo.cc'],
@@ -4259,5 +4290,140 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "    name = 'generating_target',",
         "    template = ':template.txt',",
         ")");
+  }
+
+  @Test
+  public void invalidDefaultValue_stringSet() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        string_set_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string_set(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "string_set_flag")
+
+        string_set_flag(
+            name = "my_flag",
+            build_setting_default = set(["v1", 123]),
+        )
+        """);
+
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_flag"));
+    assertContainsEvent(
+        "expected value of type 'string' for element 1 of attribute 'build_setting_default' of"
+            + " 'string_set_flag', but got 123 (int)");
+  }
+
+  @Test
+  public void stringSet_repeatableWithoutFlag_fails() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        string_set_setting = rule(
+            implementation = _impl,
+            build_setting = config.string_set(repeatable = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_set_setting")
+
+        string_set_setting(
+            name = "my_flag",
+            build_setting_default = set(["default_value"]),
+        )
+        """);
+
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_flag"));
+    assertContainsEvent("'repeatable' can only be set for a setting with 'flag = True'");
+  }
+
+  @Test
+  @TestParameters({
+    // Only default value is set.
+    "{defaultValue: ['v2', 'v1', 'v1', 'v3', 'v2', 'v3', 'v4'], repeatable: false, cmdValue: null,"
+        + " expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Not repeatable, flag value is not the same as the default.
+    "{defaultValue: ['default'], repeatable: false, cmdValue:"
+        + " ['v1,v4,v3,v2,v3,v1,v4,v1'], expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Repeatable, flag value is not the same as the default.
+    "{defaultValue: ['default'], repeatable: true, cmdValue: ['v2', 'v2', 'v1', 'v3', 'v4', 'v1'],"
+        + " expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Not repeatable, flag value is the same as the default.
+    "{defaultValue: ['v2', 'v1', 'v1', 'v3', 'v2', 'v3', 'v4'], repeatable: false, cmdValue:"
+        + " ['v1,v4,v3,v2,v3,v1,v4,v1'], expectedValue: ['v1', 'v2', 'v3', 'v4']}",
+    // Repeatable, flag value is the same as the default.
+    "{defaultValue: ['v2', 'v1', 'v1', 'v3', 'v2', 'v3', 'v4'], repeatable: true, cmdValue: ['v2',"
+        + " 'v2', 'v1', 'v3', 'v4', 'v1'], expectedValue: ['v1', 'v2', 'v3', 'v4']}"
+  })
+  public void testStringSetFlag(
+      List<String> defaultValue,
+      boolean repeatable,
+      List<String> cmdValue,
+      List<String> expectedValue)
+      throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        String.format(
+            """
+            BuildSettingInfo = provider(fields = ['name', 'value'])
+            def _impl(ctx):
+              if type(ctx.build_setting_value) != "set":
+                fail("expected value of type 'set(string)' for attribute 'build_setting_value', but got {}".format(type(ctx.build_setting_value)))
+              return [BuildSettingInfo(name = ctx.attr.name, value = ctx.build_setting_value)]
+
+            string_set_flag = rule(
+              implementation = _impl,
+              build_setting = config.string_set(flag = True, repeatable = %s),
+            )
+            """,
+            repeatable ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load('//test:build_setting.bzl', 'string_set_flag')
+            string_set_flag(
+                name = "my_flag",
+                build_setting_default = set([%s]),
+            )
+            """,
+            defaultValue.stream().map(v -> String.format("'%s'", v)).collect(joining(","))));
+    if (cmdValue != null) {
+      useConfiguration(
+          cmdValue.stream()
+              .map(v -> String.format("--//test:my_flag=%s", v))
+              .collect(toImmutableList())
+              .toArray(new String[0]));
+    }
+
+    ConfiguredTarget buildSetting = getConfiguredTarget("//test:my_flag");
+
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
+            "BuildSettingInfo");
+    StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(Set.class);
+    assertThat(buildSettingInfo.getValue("value")).isEqualTo(ImmutableSet.copyOf(expectedValue));
+
+    BuildSettingProvider buildSettingProvider =
+        buildSetting.getProvider(BuildSettingProvider.class);
+    assertThat(buildSettingProvider.getDefaultValue()).isInstanceOf(Set.class);
+    assertThat(buildSettingProvider.getDefaultValue()).isEqualTo(ImmutableSet.copyOf(defaultValue));
+    assertThat(buildSettingProvider.getType()).isEqualTo(Types.STRING_SET);
   }
 }

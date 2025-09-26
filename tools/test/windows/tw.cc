@@ -398,6 +398,10 @@ bool SetEnv(const wchar_t* name, const std::wstring& value) {
   }
 }
 
+bool SetPathEnv(const std::wstring& name, const Path& path) {
+  return SetEnv(name.c_str(), AsMixedPath(path.Get()));
+}
+
 bool SetPathEnv(const wchar_t* name, const Path& path) {
   return SetEnv(name, AsMixedPath(path.Get()));
 }
@@ -554,11 +558,15 @@ bool ExportHome(const Path& test_tmpdir) {
   }
 }
 
-bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
+bool ExportRunfiles(const Path& cwd, const Path& test_srcdir,
+                    const std::wstring& env_prefix) {
   Path runfiles_dir;
-  if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir) ||
-      (runfiles_dir.Absolutize(cwd) &&
-       !SetPathEnv(L"RUNFILES_DIR", runfiles_dir))) {
+  if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir)) {
+    return false;
+  }
+  runfiles_dir.Absolutize(cwd);
+  if (!UnsetEnv(L"RUNFILES_DIR") ||
+      !SetPathEnv(env_prefix + L"RUNFILES_DIR", runfiles_dir)) {
     return false;
   }
 
@@ -566,9 +574,14 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   // {JAVA,PYTHON}_RUNFILES vars.
   Path java_rf, py_rf;
   if (!GetPathEnv(L"JAVA_RUNFILES", &java_rf) ||
-      (java_rf.Absolutize(cwd) && !SetPathEnv(L"JAVA_RUNFILES", java_rf)) ||
-      !GetPathEnv(L"PYTHON_RUNFILES", &py_rf) ||
-      (py_rf.Absolutize(cwd) && !SetPathEnv(L"PYTHON_RUNFILES", py_rf))) {
+      !GetPathEnv(L"PYTHON_RUNFILES", &py_rf)) {
+    return false;
+  }
+  java_rf.Absolutize(cwd);
+  py_rf.Absolutize(cwd);
+  if (!UnsetEnv(L"JAVA_RUNFILES") || !UnsetEnv(L"PYTHON_RUNFILES") ||
+      !SetPathEnv(env_prefix + L"JAVA_RUNFILES", java_rf) ||
+      !SetPathEnv(env_prefix + L"PYTHON_RUNFILES", py_rf)) {
     return false;
   }
 
@@ -583,7 +596,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
         (IsReadableFile(runfiles_mf) &&
-         !SetPathEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf))) {
+         !SetPathEnv(env_prefix + L"RUNFILES_MANIFEST_FILE", runfiles_mf))) {
       return false;
     }
   }
@@ -1383,25 +1396,58 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
   return true;
 }
 
-bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
-               std::wstring* out_test_path_arg, std::wstring* out_args) {
-  if (!out_argv0->Set(argv[0])) {
+bool ParseArgs(int argc, wchar_t** argv, const Path& exec_root,
+               const Path& srcdir, Path* out_executable, std::wstring* out_args,
+               std::wstring* out_runfiles_env_prefix) {
+  Path argv0;
+  if (!argv0.Set(argv[0])) {
     return false;
   }
   argc--;
   argv++;
 
-  if (argc < 1) {
-    LogError(__LINE__, "Usage: $0 <test_path> [test_args...]");
+  std::wstring coverage_dir;
+  if (!GetEnv(L"COVERAGE_DIR", &coverage_dir)) {
     return false;
   }
 
-  *out_test_path_arg = argv[0];
-  std::wstringstream stm;
-  for (int i = 1; i < argc; i++) {
-    stm << L' ' << bazel::windows::WindowsEscapeArg(argv[i]);
+  std::wstringstream args;
+  if (!coverage_dir.empty()) {
+    if (argc < 2) {
+      LogError(__LINE__,
+               "Usage: $0 <coverage_wrapper> <test_path> [test_args...]");
+      return false;
+    }
+    if (!out_executable->Set(argv[0])) {
+      return false;
+    }
+    Path test_path;
+    if (!FindTestBinary(argv0, exec_root, argv[1], srcdir, &test_path)) {
+      return false;
+    }
+    args << bazel::windows::WindowsEscapeArg(test_path.Get());
+    argc--;
+    argv++;
+    // The coverage wrapper has its own runfiles tree, so we need to prefix all
+    // environment variables that influence runfiles discovery before setting
+    // them in the wrapper env. The wrapper will unwrap and pass them to the
+    // test binary.
+    *out_runfiles_env_prefix = L"BAZEL_COVERAGE_INTERNAL_";
+  } else {
+    if (argc < 1) {
+      LogError(__LINE__, "Usage: $0 <test_path> [test_args...]");
+      return false;
+    }
+    if (!FindTestBinary(argv0, exec_root, argv[0], srcdir, out_executable)) {
+      return false;
+    }
+    *out_runfiles_env_prefix = L"";
   }
-  *out_args = stm.str();
+
+  for (int i = 1; i < argc; i++) {
+    args << L' ' << bazel::windows::WindowsEscapeArg(argv[i]);
+  }
+  *out_args = args.str();
   return true;
 }
 
@@ -1889,27 +1935,26 @@ void ZipEntryPaths::Create(const std::string& root,
 }
 
 int TestWrapperMain(int argc, wchar_t** argv) {
-  Path argv0;
-  std::wstring test_path_arg;
-  Path test_path, exec_root, srcdir, tmpdir, test_outerr, xml_log;
+  Path executable, exec_root, srcdir, tmpdir, test_outerr, xml_log;
   UndeclaredOutputs undecl;
-  std::wstring args;
-  if (!AddCurrentDirectoryToPATH() ||
-      !ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
-      !PrintTestLogStartMarker() || !GetCwd(&exec_root) || !ExportUserName() ||
+  std::wstring args, runfiles_env_prefix;
+  if (!AddCurrentDirectoryToPATH() || !GetCwd(&exec_root) ||
       !ExportSrcPath(exec_root, &srcdir) ||
-      !FindTestBinary(argv0, exec_root, test_path_arg, srcdir, &test_path) ||
+      !ParseArgs(argc, argv, exec_root, srcdir, &executable, &args,
+                 &runfiles_env_prefix) ||
+      !PrintTestLogStartMarker() || !ExportUserName() ||
       !ChdirToRunfiles(exec_root, srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
-      !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
-      !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
+      !ExportRunfiles(exec_root, srcdir, runfiles_env_prefix) ||
+      !ExportShardStatusFile(exec_root) || !ExportGtestVariables(tmpdir) ||
+      !ExportMiscEnvvars(exec_root) ||
       !ExportXmlPath(exec_root, &test_outerr, &xml_log) ||
       !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl)) {
     return 1;
   }
 
   Duration test_duration;
-  int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
+  int result = RunSubprocess(executable, args, test_outerr, &test_duration);
   if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
                     DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||

@@ -248,6 +248,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
             obj.getName(),
             obj.getTargetKind(),
             obj.isDependencyResolutionRule(),
+            obj.isMaterializerRule(),
             obj.getAdvertisedProviders()),
         codedOut);
   }

@@ -41,21 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -72,7 +57,7 @@ EOF
 }
 
 function get_extrepourl() {
-  if $is_windows; then
+  if is_windows; then
     echo "file:///$(cygpath -m $1)"
   else
     echo "file://$1"
@@ -241,6 +226,76 @@ EOF
   grep -q '/bin/sh' $foopath || fail "expected local patch to be applied"
 }
 
+test_remote_patch_integrity_empty() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  archive_integrity="sha256-$(cat ext.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
+
+  # Generate the remote patch file
+  cat > remote.patch <<'EOF'
+--- a/foo.sh	2018-01-15 10:39:20.183909147 +0100
++++ b/foo.sh	2018-01-15 10:43:35.331566052 +0100
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo There are dragons...
+EOF
+
+  mkdir main
+  cd main
+
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["${EXTREPOURL}/ext.zip"],
+  integrity="${archive_integrity}",
+  build_file_content="exports_files([\"foo.sh\"])",
+  remote_patches = {"${EXTREPOURL}/remote.patch": ""},
+  remote_patch_strip = 1,
+)
+EOF
+
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.sh"],
+  srcs = ["@ext//:foo.sh"],
+  cmd = "cp $< $@; chmod u+x $@",
+  executable = True,
+)
+EOF
+
+  bazel build :foo.sh > "${TEST_log}" 2>&1
+  expect_log "canonical reproducible form can be obtained by modifying arguments \
+remote_patches = {\".*/remote\.patch\": \"[^\"]*\"}\$"
+
+  foopath=`bazel info bazel-bin`/foo.sh
+  grep -q 'There are' $foopath || fail "expected remote patch to be applied"
+
+  # Check that repo is not marked as reproducible and cached
+
+  bazel clean --expunge
+
+  # Modify the remote patch file
+  cat > ../remote.patch <<'EOF'
+--- a/foo.sh	2018-01-15 10:39:20.183909147 +0100
++++ b/foo.sh	2018-01-15 10:43:35.331566052 +0100
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo No more dragons...
+EOF
+
+  bazel build :foo.sh
+  foopath=`bazel info bazel-bin`/foo.sh
+  grep -q 'No more' $foopath || fail "expected modified remote patch to be applied"
+}
+
 test_remote_patch_integrity_incorrect() {
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
@@ -341,7 +396,7 @@ EOF
 
 test_patch_git() {
   EXTREPODIR=`pwd`
-  if $is_windows; then
+  if is_windows; then
     EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
   fi
 
@@ -548,7 +603,7 @@ test_override_buildfile_git() {
   ## Verify that the BUILD file of an external repository can be overridden
   ## via the git_repository rule.
   EXTREPODIR=`pwd`
-  if $is_windows; then
+  if is_windows; then
     EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
   fi
 
@@ -616,7 +671,7 @@ test_override_buildfilecontents_git() {
   ## Verify that the BUILD file of an external repository can be overridden
   ## via specified content in the git_repository rule.
   EXTREPODIR=`pwd`
-  if $is_windows; then
+  if is_windows; then
     EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
   fi
 

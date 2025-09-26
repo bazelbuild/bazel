@@ -77,7 +77,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -154,18 +153,12 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
-                .put(
-                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-                    new LocalRepositoryLookupFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
-                        ImmutableMap::of,
-                        new AtomicBoolean(true),
-                        directories,
-                        new RepoContentsCache()))
+                        ImmutableMap::of, directories, new RepoContentsCache()))
                 .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
                 .put(
                     SkyFunctions.REGISTRY,
@@ -183,6 +176,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
@@ -194,6 +188,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
+    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableSet.of());
   }
 
   @Test

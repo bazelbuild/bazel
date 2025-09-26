@@ -43,15 +43,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
 
@@ -79,7 +70,7 @@ function test_query_buildfiles_with_load() {
 
     mkdir -p $pkg/x || fail "mkdir $pkg/x failed"
     echo "load('//$pkg/y:rules.bzl', 'a')" >$pkg/x/BUILD
-    echo "cc_library(name='x')"   >>$pkg/x/BUILD
+    echo "filegroup(name='x')"   >>$pkg/x/BUILD
     mkdir -p $pkg/y || fail "mkdir $pkg/y failed"
     touch $pkg/y/BUILD
     echo "a=1" >$pkg/y/rules.bzl
@@ -390,7 +381,7 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/9176
 function test_windows_only__glob_with_junction() {
-  if ! $is_windows; then
+  if ! is_windows; then
     echo "Skipping $FUNCNAME because execution platform is not Windows"
     return
   fi
@@ -441,7 +432,7 @@ function test_bazel_bin_is_not_a_package() {
 }
 
 function test_starlark_cpu_profile() {
-  if $is_windows; then
+  if is_windows; then
     echo "Starlark profiler is not supported on Microsoft Windows."
     return
   fi
@@ -505,13 +496,7 @@ EOF
 
 # Test that actions.write emits a file name containing non-Latin1 characters as
 # a UTF-8 encoded string.
-function test_actions_write_not_latin1_path() {
-  # TODO(https://github.com/bazelbuild/bazel/issues/11602): Enable after that is fixed.
-  if $is_windows ; then
-    echo 'Skipping test_actions_write_not_latin1_path on Windows. See #11602'
-    return
-  fi
-
+function test_actions_write_utf8_path() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -580,6 +565,20 @@ function test_missing_BUILD() {
   touch "$pkg/BUILD" || fail "Couldn't touch"
   bazel query "$pkg/subdir1/subdir2/BUILD" &> "$TEST_log" && fail "Should fail"
   expect_log "no such target '//${pkg}:subdir1/subdir2/BUILD'"
+}
+
+function test_glob_matching_BUILD() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg/dir/BUILD" || fail "could not create \"$pkg/dir/BUILD\""
+  touch "$pkg/dir/BUILD/file" || fail "Couldn't touch"
+  cat > "$pkg/BUILD" <<EOF
+filegroup(
+    name = "files",
+    srcs = glob(["dir/**"]),
+)
+EOF
+  bazel query "$pkg:files" --output=build >&"$TEST_log" || fail "Expected success"
+  expect_log "dir/BUILD/file"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

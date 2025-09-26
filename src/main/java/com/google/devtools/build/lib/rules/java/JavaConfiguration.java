@@ -155,42 +155,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.experimentalTurbineAnnotationProcessing;
     this.experimentalEnableJspecify = javaOptions.experimentalEnableJspecify;
-
-    if (javaOptions.disallowLegacyJavaToolchainFlags) {
-      checkLegacyToolchainFlagIsUnset("javabase", javaOptions.javaBase);
-      checkLegacyToolchainFlagIsUnset("host_javabase", javaOptions.hostJavaBase);
-      checkLegacyToolchainFlagIsUnset("java_toolchain", javaOptions.javaToolchain);
-      checkLegacyToolchainFlagIsUnset("host_java_toolchain", javaOptions.hostJavaToolchain);
-    }
-
-    boolean oldToolchainFlagSet =
-        javaOptions.javaBase != null
-            || javaOptions.hostJavaBase != null
-            || javaOptions.javaToolchain != null
-            || javaOptions.hostJavaToolchain != null;
-    boolean newToolchainFlagSet =
-        javaOptions.javaLanguageVersion != null
-            || javaOptions.hostJavaLanguageVersion != null
-            || javaOptions.javaRuntimeVersion != null
-            || javaOptions.hostJavaRuntimeVersion != null;
-    if (oldToolchainFlagSet && !newToolchainFlagSet) {
-      throw new InvalidConfigurationException(
-          "At least one of the deprecated no-op toolchain configuration flags is set (--javabase,"
-              + " --host_javabase, --java_toolchain, --host_java_toolchain) and none of the new"
-              + " toolchain configuration flags is set (--java_language_version,"
-              + " --tool_java_language_version, --java_runtime_version,"
-              + " --tool_java_runtime_version). This may result in incorrect toolchain selection "
-              + "(see https://github.com/bazelbuild/bazel/issues/7849).");
-    }
-  }
-
-  private static void checkLegacyToolchainFlagIsUnset(String flag, Label label)
-      throws InvalidConfigurationException {
-    if (label != null) {
-      throw new InvalidConfigurationException(
-          String.format(
-              "--%s=%s is no longer supported, use --platforms instead (see #7849)", flag, label));
-    }
   }
 
   @Override
@@ -227,15 +191,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useIjars;
   }
 
-  /** Returns true iff Java header compilation is enabled. */
-  public boolean useHeaderCompilation() {
-    return useHeaderCompilation;
-  }
-
   @Override
   public boolean useHeaderCompilationStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    return useHeaderCompilation();
+    return useHeaderCompilation;
   }
 
   /** Returns true iff dependency information is generated after compilation. */
@@ -384,25 +343,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
    * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
    * dependencies instead of accidentally obtaining them from the TestRunner's dependencies.
    */
-  public boolean explicitJavaTestDeps() {
-    return explicitJavaTestDeps;
-  }
-
   @Override
   public boolean explicitJavaTestDepsStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    return explicitJavaTestDeps();
-  }
-
-  /**
-   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
-   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
-   *
-   * <p>One-version correctness will inspect for multiple non-identical versions of java classes in
-   * the transitive dependencies for a java_binary.
-   */
-  public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
-    return enforceOneVersion;
+    return explicitJavaTestDeps;
   }
 
   @Override
@@ -418,9 +362,16 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return disallowJavaImportExports;
   }
 
+  /**
+   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
+   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
+   *
+   * <p>One-version correctness will inspect for multiple non-identical versions of java classes in
+   * the transitive dependencies for a java_binary.
+   */
   @Override
   public String starlarkOneVersionEnforcementLevel() {
-    return oneVersionEnforcementLevel().name();
+    return enforceOneVersion.name();
   }
 
   @Override

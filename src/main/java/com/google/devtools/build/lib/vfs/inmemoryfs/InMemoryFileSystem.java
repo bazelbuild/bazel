@@ -22,13 +22,14 @@ import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -127,6 +128,8 @@ public class InMemoryFileSystem extends AbstractFileSystem {
           throw new FileAccessException(m);
         case ENOENT:
           throw new FileNotFoundException(m);
+        case ELOOP:
+          throw new FileSymlinkLoopException(path);
         default:
           throw new IOException(m);
       }
@@ -354,7 +357,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
 
   @Override
   @Nullable
-  protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
+  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     return switch (inodeStatErrno(path, followSymlinks)) {
       case InMemoryContentInfo inode -> inode;
       case Errno ignored -> null;
@@ -390,7 +393,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
    */
   @Nullable
   @Override
-  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
+  public PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
     InMemoryContentInfo status = inodeStat(path, false);
@@ -398,24 +401,24 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean exists(PathFragment path, boolean followSymlinks) {
+  public boolean exists(PathFragment path, boolean followSymlinks) {
     return statNullable(path, followSymlinks) != null;
   }
 
   @Override
-  protected boolean isReadable(PathFragment path) throws IOException {
+  public boolean isReadable(PathFragment path) throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
     return status.isReadable();
   }
 
   @Override
-  protected synchronized void setReadable(PathFragment path, boolean readable) throws IOException {
+  public synchronized void setReadable(PathFragment path, boolean readable) throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
     status.setReadable(readable);
   }
 
   @Override
-  protected boolean isWritable(PathFragment path) throws IOException {
+  public boolean isWritable(PathFragment path) throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
     return status.isWritable();
   }
@@ -427,14 +430,13 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean isExecutable(PathFragment path) throws IOException {
+  public boolean isExecutable(PathFragment path) throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
     return status.isExecutable();
   }
 
   @Override
-  protected synchronized void setExecutable(PathFragment path, boolean executable)
-      throws IOException {
+  public synchronized void setExecutable(PathFragment path, boolean executable) throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
     status.setExecutable(executable);
   }
@@ -455,8 +457,8 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return OS.getCurrent() != OS.WINDOWS;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return false;
   }
 
   @Override
@@ -503,8 +505,8 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment path, PathFragment targetFragment)
-      throws IOException {
+  public void createSymbolicLink(
+      PathFragment path, PathFragment targetFragment, SymlinkTargetType type) throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EACCES.exception(path);
     }
@@ -520,7 +522,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     InMemoryContentInfo status = inodeStat(path, false);
     if (status.isSymbolicLink()) {
       Preconditions.checkState(status instanceof InMemoryLinkInfo, status);
@@ -530,13 +532,12 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getSize();
   }
 
   @Override
-  protected synchronized Collection<String> getDirectoryEntries(PathFragment path)
-      throws IOException {
+  public synchronized Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     InMemoryDirectoryInfo dirInfo = getDirectory(path);
     if (!dirInfo.isReadable()) {
       throw Errno.EACCES.exception(path);
@@ -553,7 +554,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
+  public boolean delete(PathFragment path) throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EBUSY.exception(path);
     }
@@ -573,7 +574,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getLastModifiedTime();
   }
 
@@ -585,19 +586,19 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
+  public synchronized InputStream getInputStream(PathFragment path) throws IOException {
     return statFile(path).getInputStream();
   }
 
   @Override
-  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path)
+  public synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path)
       throws IOException {
     InMemoryContentInfo status = getOrCreateWritableInode(path);
     return ((FileInfo) status).createReadWriteByteChannel();
   }
 
   @Override
-  protected synchronized byte[] getFastDigest(PathFragment path) throws IOException {
+  public synchronized byte[] getFastDigest(PathFragment path) throws IOException {
     return statFile(path).getFastDigest();
   }
 
@@ -649,7 +650,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected synchronized OutputStream getOutputStream(
+  public synchronized OutputStream getOutputStream(
       PathFragment path, boolean append, boolean internal) throws IOException {
     InMemoryContentInfo status = getOrCreateWritableInode(path);
     return ((FileInfo) status).getOutputStream(append);
@@ -704,7 +705,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
+  public void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
 
     // Same check used when creating a symbolic link

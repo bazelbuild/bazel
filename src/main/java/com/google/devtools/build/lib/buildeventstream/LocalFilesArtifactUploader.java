@@ -23,14 +23,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** An uploader that simply turns paths into local file URIs. */
 public class LocalFilesArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
   private static final FileUriPathConverter FILE_URI_PATH_CONVERTER = new FileUriPathConverter();
-  private final ConcurrentHashMap<Path, Boolean> fileIsDirectory = new ConcurrentHashMap<>();
 
   @Override
   public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
@@ -70,10 +68,6 @@ public class LocalFilesArtifactUploader extends AbstractReferenceCounted
       LocalFileType type = localFile.type;
       if (type.equals(LocalFileType.OUTPUT_DIRECTORY)
           || type.equals(LocalFileType.OUTPUT_SYMLINK)) {
-        return null;
-      }
-      if (type.equals(LocalFileType.OUTPUT)
-          && fileIsDirectory.computeIfAbsent(path, Path::isDirectory)) {
         return null;
       }
       return FILE_URI_PATH_CONVERTER.apply(path);

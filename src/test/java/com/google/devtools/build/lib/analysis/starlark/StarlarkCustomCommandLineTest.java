@@ -738,7 +738,9 @@ public final class StarlarkCustomCommandLineTest {
                   RepositoryMapping.EMPTY,
                   "test/label.bzl",
                   /* loads= */ ImmutableList.of(),
-                  /* bzlTransitiveDigest= */ new byte[0])),
+                  /* bzlTransitiveDigest= */ new byte[0],
+                  /* docCommentsMap= */ ImmutableMap.of(),
+                  /* unusedDocCommentLines= */ ImmutableList.of())),
           thread);
     }
   }

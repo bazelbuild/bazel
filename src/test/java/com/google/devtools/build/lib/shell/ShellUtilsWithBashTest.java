@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.shell.ShellUtils.prettyPrintArgv;
 import static com.google.devtools.build.lib.shell.ShellUtils.tokenize;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,11 +37,12 @@ public class ShellUtilsWithBashTest {
 
     // Assert that pretty-print is correct, i.e. dual to the actual /bin/sh
     // tokenization.  This test assumes no newlines in the input:
-    String[] execArgs = {
-      "/bin/sh",
-      "-c",
-      "for i in " + shellCommand + "; do echo \"$i\"; done" // tokenize, one word per line
-    };
+    var execArgs =
+        ImmutableList.of(
+            "/bin/sh",
+            "-c",
+            "for i in " + shellCommand + "; do echo \"$i\"; done" // tokenize, one word per line
+            );
     String stdout = null;
     try {
       stdout = new String(new Command(execArgs, System.getenv()).execute().getStdout());

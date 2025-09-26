@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -170,7 +171,12 @@ public class RemoteOutputChecker implements OutputChecker {
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
               .getImportantArtifacts();
       addOutputsToDownload(artifactsToBuild.toList());
-      addRunfiles(target);
+      // RunfileTrees are requested with this special output group. We lack access to an
+      // InputMetadataProvider that can expand arbitrary RunfileTrees, so we have to mirror that
+      // logic here.
+      if (topLevelArtifactContext.outputGroups().contains(OutputGroupInfo.HIDDEN_TOP_LEVEL)) {
+        addRunfiles(target);
+      }
       addExtraActionArtifacts(target);
     }
   }
@@ -257,9 +263,9 @@ public class RemoteOutputChecker implements OutputChecker {
       case RUN -> true;
       case COVERAGE, TEST -> {
         // Do not download test binary in test/coverage mode.
-        if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
-          var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-          yield !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
+        if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget
+            && isTestRuleName(ruleConfiguredTarget.getRuleClassString())) {
+          yield false;
         }
         yield outputsMode != RemoteOutputsMode.MINIMAL;
       }
@@ -368,7 +374,8 @@ public class RemoteOutputChecker implements OutputChecker {
    */
   private static final class ConcurrentArtifactPathTrie {
     // Invariant: no path in this set is a prefix of another path.
-    private final ConcurrentSkipListSet<PathFragment> paths = new ConcurrentSkipListSet<>();
+    private final ConcurrentSkipListSet<PathFragment> paths =
+        new ConcurrentSkipListSet<>(PathFragment.HIERARCHICAL_COMPARATOR);
 
     /**
      * Adds the given {@link ActionInput} to the trie.
@@ -389,8 +396,9 @@ public class RemoteOutputChecker implements OutputChecker {
 
     /** Checks whether the given {@link PathFragment} is contained in an artifact in the trie. */
     boolean contains(PathFragment execPath) {
-      // By the invariant of this set, if a prefix of execPath is present, it must sort right before
-      // it (or be equal to it).
+      // By the invariant of this set, there is at most one prefix of execPath in the set. Since the
+      // comparator sorts all children of a path right after the path itself, if such a prefix
+      // exists, it must thus sort right before execPath (or be equal to it).
       var floorPath = paths.floor(execPath);
       return floorPath != null && execPath.startsWith(floorPath);
     }

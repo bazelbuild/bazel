@@ -583,6 +583,8 @@ launcher_flag_alias(
     config.create(
         "embedded_tools/tools/zip/BUILD",
         """
+        load("@bazel_tools//third_party/cc_rules/macros:defs.bzl", "cc_binary")
+
         package(default_visibility = ["//visibility:public"])
 
         exports_files(["precompile.py"])
@@ -683,6 +685,16 @@ launcher_flag_alias(
           ),
         )
         """);
+
+    config.create(
+        "embedded_tools/tools/allowlists/materializer_rule_allowlist/BUILD",
+        """
+        package_group(
+            name = "materializer_rule_allowlist",
+            packages = ["public"],
+        )
+        """);
+
     MockProtoSupport.setupWorkspace(config);
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);

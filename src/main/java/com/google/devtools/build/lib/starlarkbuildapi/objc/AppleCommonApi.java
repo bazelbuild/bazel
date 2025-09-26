@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -35,8 +34,7 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
-        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcInfoApiT extends CcInfoApi<?>>
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
   @StarlarkMethod(

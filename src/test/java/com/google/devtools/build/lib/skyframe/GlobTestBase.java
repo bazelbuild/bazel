@@ -160,7 +160,8 @@ public abstract class GlobTestBase {
     skyFunctions.put(
         SkyFunctions.REPO_FILE,
         new RepoFileFunction(
-            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
+            ruleClassProvider.getBazelStarlarkEnvironment(),
+            Root.fromPath(directories.getWorkspace())));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
         FileStateKey.FILE_STATE,
@@ -174,9 +175,7 @@ public abstract class GlobTestBase {
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(
-        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-        new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {
@@ -926,16 +925,16 @@ public abstract class GlobTestBase {
     root.getRelative("targets").createDirectoryAndParents();
     pkgPath.getRelative("symlinks").createDirectoryAndParents();
     for (char c = 'a'; c <= 'z'; ++c) {
-      FileSystemUtils.createEmptyFile(root.getRelative("targets/" + c + ".bzl"));
+      FileSystemUtils.createEmptyFile(root.getRelative("targets/" + c + ".ext"));
       FileSystemUtils.ensureSymbolicLink(
-          pkgPath.getRelative("symlinks/" + c + ".bzl"), root.getRelative("targets/" + c + ".bzl"));
+          pkgPath.getRelative("symlinks/" + c + ".ext"), root.getRelative("targets/" + c + ".ext"));
     }
 
     String[] allExpectedPathsInStr = new String[26];
     for (int i = 0; i < 26; ++i) {
-      allExpectedPathsInStr[i] = "symlinks/" + (char) ('a' + i) + ".bzl";
+      allExpectedPathsInStr[i] = "symlinks/" + (char) ('a' + i) + ".ext";
     }
-    assertSingleGlobMatches("symlinks/*.bzl", Operation.FILES_AND_DIRS, allExpectedPathsInStr);
+    assertSingleGlobMatches("symlinks/*.ext", Operation.FILES_AND_DIRS, allExpectedPathsInStr);
   }
 
   static final class CustomInMemoryFs extends InMemoryFileSystem {

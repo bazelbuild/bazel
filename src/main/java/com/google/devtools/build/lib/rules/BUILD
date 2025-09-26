@@ -68,6 +68,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
@@ -203,32 +204,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-    ],
-)
-
-java_library(
-    name = "repository/repository_directory_dirtiness_checker",
-    srcs = ["repository/RepositoryDirectoryDirtinessChecker.java"],
-    deps = [
-        ":repository/repository_directory_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "repository/workspace_attribute_mapper",
-    srcs = ["repository/WorkspaceAttributeMapper.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

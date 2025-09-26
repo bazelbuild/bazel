@@ -113,7 +113,7 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
   private final InputMetadataProvider perBuild;
   private final PathFragment relativeOutputPath;
 
-  private final ConcurrentHashMap<String, ActionInput> seen;
+  private final ConcurrentHashMap<PathFragment, ActionInput> seen;
 
   /**
    * A cache so that we don't need to look up any SkyValue twice.
@@ -187,7 +187,7 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
     SkyKey key = Artifact.key(artifact);
     SkyframeLookup lookup = skyframeLookups.computeIfAbsent(key, SkyframeLookup::new);
     SkyValue value = lookup.tryLookup();
-    seen.put(artifact.getExecPathString(), artifact);
+    seen.put(artifact.getExecPath(), artifact);
     ActionExecutionValue actionExecutionValue = (ActionExecutionValue) value;
     return actionExecutionValue.getExistingFileArtifactValue(artifact);
   }
@@ -228,7 +228,7 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
 
   @Nullable
   @Override
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     ActionInput result = seen.get(execPath);
     if (result == null) {
       result = perBuild.getInput(execPath);

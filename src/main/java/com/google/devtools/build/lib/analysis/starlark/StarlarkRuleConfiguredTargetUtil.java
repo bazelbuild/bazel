@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -241,6 +242,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Location implLoc,
       boolean isDefaultExecutableCreated)
       throws EvalException, InterruptedException {
+
+    // Handle "return provider" vs "return [provider]"
     Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
     if (rawProviders instanceof Info info) {
       if (getProviderKey(info).equals(StructProvider.STRUCT.getKey())) {
@@ -259,11 +262,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // Sequence of declared providers
       for (Info provider :
           Sequence.cast(rawProviders, Info.class, "result of rule implementation function")) {
-        if (provider instanceof StarlarkInfo) {
+        if (provider instanceof StarlarkInfo starlarkInfo) {
           // Provider instances are optimised recursively, without optimising elements of the list.
           // Tradeoff is that some object may be duplicated if they are reachable by more than one
           // path, but we don't expect that much in practice.
-          provider = ((StarlarkInfo) provider).unsafeOptimizeMemoryLayout();
+          provider = starlarkInfo.unsafeOptimizeMemoryLayout();
         }
         Provider.Key providerKey = getProviderKey(provider);
         if (declaredProviders.put(providerKey, provider) != null) {
@@ -275,24 +278,36 @@ public final class StarlarkRuleConfiguredTargetUtil {
           "Expected a list of providers, but got %s", Starlark.type(rawProviders));
     }
 
-    boolean defaultProviderProvidedExplicitly = false;
+    if (context.getRule().getRuleClassObject().isMaterializerRule()) {
+      if (declaredProviders.size() != 1
+          || !declaredProviders.containsKey(MaterializedDepsInfo.PROVIDER.getKey())) {
+        throw Starlark.errorf(
+            "Materializer rules must return exactly one MaterializedDepsInfo provider, but got %s",
+            declaredProviders.keySet());
+      }
+    }
 
+    var runEnvironmentInfo =
+        (RunEnvironmentInfo) declaredProviders.get(RunEnvironmentInfo.PROVIDER.getKey());
+    if (runEnvironmentInfo != null
+        && !context.getRule().getRuleClassObject().isExecutableStarlark()
+        && !context.isTestTarget()) {
+      String message =
+          "Returning RunEnvironmentInfo from a non-executable, non-test target has no effect";
+      if (runEnvironmentInfo.shouldErrorOnNonExecutableRule()) {
+        context.ruleError(message);
+        declaredProviders.remove(RunEnvironmentInfo.PROVIDER.getKey());
+      } else {
+        context.ruleWarning(message);
+      }
+    }
+
+    boolean defaultProviderProvidedExplicitly = false;
     for (Info declaredProvider : declaredProviders.values()) {
       if (declaredProvider instanceof DefaultInfo defaultInfo) {
-        parseDefaultProviderFields(defaultInfo, context, builder, isDefaultExecutableCreated);
+        parseDefaultProviderFields(
+            defaultInfo, context, builder, isDefaultExecutableCreated, runEnvironmentInfo);
         defaultProviderProvidedExplicitly = true;
-      } else if (getProviderKey(declaredProvider).equals(RunEnvironmentInfo.PROVIDER.getKey())
-          && !(context.getRule().getRuleClassObject().isExecutableStarlark()
-              || context.isTestTarget())) {
-        String message =
-            "Returning RunEnvironmentInfo from a non-executable, non-test target has no effect";
-        RunEnvironmentInfo runEnvironmentInfo = (RunEnvironmentInfo) declaredProvider;
-        if (runEnvironmentInfo.shouldErrorOnNonExecutableRule()) {
-          context.ruleError(message);
-        } else {
-          context.ruleWarning(message);
-          builder.addStarlarkDeclaredProvider(declaredProvider);
-        }
       } else {
         builder.addStarlarkDeclaredProvider(declaredProvider);
       }
@@ -302,7 +317,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // TODO(b/308767456): Avoid creating an empty DefaultInfo, just to pass location for throwing
       // exceptions.
       parseDefaultProviderFields(
-          DefaultInfo.createEmpty(implLoc), context, builder, isDefaultExecutableCreated);
+          DefaultInfo.createEmpty(implLoc),
+          context,
+          builder,
+          isDefaultExecutableCreated,
+          runEnvironmentInfo);
     }
   }
 
@@ -341,7 +360,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
       DefaultInfo defaultInfo,
       RuleContext context,
       RuleConfiguredTargetBuilder builder,
-      boolean isDefaultExecutableCreated)
+      boolean isDefaultExecutableCreated,
+      @Nullable RunEnvironmentInfo runEnvironmentInfo)
       throws EvalException, InterruptedException {
     Depset files = defaultInfo.getFiles();
     Runfiles statelessRunfiles = defaultInfo.getStatelessRunfiles();
@@ -397,7 +417,14 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
 
     addSimpleProviders(
-        builder, context, executable, files, statelessRunfiles, dataRunfiles, defaultRunfiles);
+        builder,
+        context,
+        executable,
+        files,
+        statelessRunfiles,
+        dataRunfiles,
+        defaultRunfiles,
+        runEnvironmentInfo);
   }
 
   private static void addSimpleProviders(
@@ -407,7 +434,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
       @Nullable Depset files,
       Runfiles statelessRunfiles,
       Runfiles dataRunfiles,
-      Runfiles defaultRunfiles)
+      Runfiles defaultRunfiles,
+      @Nullable RunEnvironmentInfo runEnvironmentInfo)
       throws EvalException, InterruptedException {
 
     // TODO(bazel-team) if both 'files' and 'executable' are provided, 'files' overrides
@@ -458,7 +486,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
       if (!computedDefaultRunfiles.isEmpty()) {
         Preconditions.checkNotNull(executable, "executable must not be null");
         runfilesSupport =
-            RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
+            RunfilesSupport.withExecutable(
+                ruleContext, computedDefaultRunfiles, executable, runEnvironmentInfo);
       }
       builder.setRunfilesSupport(runfilesSupport, executable);
     }

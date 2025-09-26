@@ -87,10 +87,9 @@ public final class PathCanonicalizerTest {
   @Test
   public void testAbsoluteSymlinkToDifferentDrive() throws Exception {
     assumeTrue(OS.getCurrent() == OS.WINDOWS);
-
     createSymlink("C:/a/b", "D:/e/f");
-    createNonSymlink("D:/e/f");
-    assertSuccess("C:/a/b/c/d", "D:/e/f/c/d");
+    createNonSymlink("D:/e/f/c");
+    assertSuccess("C:/a/b/c", "D:/e/f/c");
   }
 
   @Test
@@ -166,7 +165,7 @@ public final class PathCanonicalizerTest {
     assumeTrue(OS.getCurrent() == OS.WINDOWS);
     createSymlink("C:/a/b", "D:/d");
     createNonSymlink("D:/d/c");
-    createNonSymlink("C:/a/b/c");
+    createNonSymlink("D:/a/b/c");
     assertSuccess("C:/a/b/c", "D:/d/c");
     assertSuccess("D:/a/b/c", "D:/a/b/c");
   }

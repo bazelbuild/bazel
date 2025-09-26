@@ -156,7 +156,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   protected boolean alreadyBuilt = false;
 
-  private long computationSteps = 0;
+  protected long computationSteps = 0;
 
   /** Retrieves this object from a Starlark thread. Returns null if not present. */
   @Nullable
@@ -772,7 +772,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   @Nullable
-  FailureDetail getFailureDetail() {
+  public FailureDetail getFailureDetail() {
     if (failureDetailOverride != null) {
       return failureDetailOverride;
     }

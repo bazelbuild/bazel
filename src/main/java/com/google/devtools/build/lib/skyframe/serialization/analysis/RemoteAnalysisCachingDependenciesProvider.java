@@ -14,15 +14,18 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -39,8 +42,16 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */
   String serializedFrontierProfile();
 
+  /**
+   * True if matching for active directories is available.
+   *
+   * <p>If this is false, it is illegal to call {@link #withinActiveDirectories}.
+   */
+  boolean hasActiveDirectoriesMatcher();
+
   /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
   boolean withinActiveDirectories(PackageIdentifier pkg);
+
 
   /**
    * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
@@ -60,11 +71,19 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   RemoteAnalysisCacheClient getAnalysisCacheClient();
 
+  /** Returns the JSON log writer or null if this log is not enabled. */
+  @Nullable
+  RemoteAnalysisJsonLogWriter getJsonLogWriter();
+
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
-  void recordSerializationException(SerializationException e);
+  void recordSerializationException(SerializationException e, SkyKey key);
 
   void setTopLevelConfigChecksum(String checksum);
+
+  default void setUserOptionsMap(Map<String, String> userOptions) {}
+
+  default void setTopLevelConfigMetadata(BuildOptions checksum) {}
 
   /**
    * Returns the set of SkyKeys to be invalidated.
@@ -89,6 +108,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     @Override
     public String serializedFrontierProfile() {
       return "";
+    }
+
+    @Override
+    public boolean hasActiveDirectoriesMatcher() {
+      return false;
     }
 
     @Override
@@ -117,12 +141,18 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
+    @Nullable
+    public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
+      return null;
+    }
+
+    @Override
     public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public void recordSerializationException(SerializationException e) {
+    public void recordSerializationException(SerializationException e, SkyKey key) {
       throw new UnsupportedOperationException();
     }
 

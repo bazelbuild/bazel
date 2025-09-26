@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuild
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -106,8 +107,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
 
-    Command cmd =
-        new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd, cmdEnv.getClientEnv());
+    Command cmd = new Command(linuxSandboxArgv, env, cwd, cmdEnv.getClientEnv());
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
@@ -400,7 +400,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         sandboxExecRoot,
         userBindMounts);
 
-    for (Path inaccessiblePath : getInaccessiblePaths()) {
+    ImmutableSet<Path> inaccessiblePaths = getInaccessiblePaths();
+    Preconditions.checkState(
+        inaccessiblePaths.isEmpty()
+            || (inaccessibleHelperDir != null && inaccessibleHelperFile != null));
+    for (Path inaccessiblePath : inaccessiblePaths) {
       if (!inaccessiblePath.exists()) {
         // No need to make non-existent paths inaccessible (this would make the bind mount fail).
         continue;
@@ -518,11 +522,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every
     // build avoids annoying permission denied errors if the user happens to run "rm -rf" on the
     // output base. (We have some tests that do that.)
-    if (inaccessibleHelperDir.exists()) {
+    if (inaccessibleHelperDir != null && inaccessibleHelperDir.exists()) {
       inaccessibleHelperDir.chmod(0700);
       inaccessibleHelperDir.deleteTree();
     }
-    if (inaccessibleHelperFile.exists()) {
+    if (inaccessibleHelperFile != null && inaccessibleHelperFile.exists()) {
       inaccessibleHelperFile.chmod(0600);
       inaccessibleHelperFile.delete();
     }

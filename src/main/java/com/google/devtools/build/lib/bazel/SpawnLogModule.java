@@ -170,10 +170,7 @@ public final class SpawnLogModule extends BlazeModule {
       CommandEnvironment env,
       BuildRequest buildRequest) {
     if (spawnLogContext != null) {
-      // TODO(b/63987502): Pretty sure the "spawn-log" commandline identifier is never used as there
-      // is no other SpawnLogContext to distinguish from.
-      registryBuilder.register(SpawnLogContext.class, spawnLogContext, "spawn-log");
-      registryBuilder.restrictTo(SpawnLogContext.class, "");
+      registryBuilder.register(SpawnLogContext.class, spawnLogContext);
     }
   }
 

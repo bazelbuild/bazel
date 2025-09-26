@@ -298,6 +298,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict_non_top_level/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -335,6 +338,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -352,6 +357,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         # Rename target.
         cc_library(
             name = "newx",
@@ -380,6 +387,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -405,6 +415,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -425,6 +438,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["baz.cc"],
@@ -453,6 +468,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -484,6 +502,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='x', srcs=['foo1.cc'])",
         "genrule(name = 'foo', outs=['_objs/x/foo1.o'], srcs=['foo1.cc', 'foo2.cc', "
             + "'foo3.cc', 'foo4.cc', 'foo5.cc', 'foo6.cc'], cmd='', output_to_bindir=1)");
@@ -522,6 +541,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],

@@ -14,35 +14,38 @@
 
 """Starlark tests for cc_static_library"""
 
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_static_library.bzl", "cc_static_library")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test", "test_suite")
 load("@rules_testing//lib:util.bzl", "util")
 load(":mock_toolchain.bzl", "mock_cc_toolchain")
 
 def _set_up_subject(name):
     util.helper_target(
-        native.cc_import,
+        cc_import,
         name = name + "_dynamic_import",
         shared_library = "mylib.dll",
     )
     util.helper_target(
-        native.cc_import,
+        cc_import,
         name = name + "_interface_import",
         interface_library = "mylib.lib",
         shared_library = "mylib.dll",
     )
     util.helper_target(
-        native.cc_import,
+        cc_import,
         name = name + "_static_import",
         static_library = "mylib.lib",
     )
     util.helper_target(
-        native.cc_import,
+        cc_import,
         name = name + "_system_import",
         interface_library = "mylib.lib",
         system_provided = True,
     )
     util.helper_target(
-        native.cc_library,
+        cc_library,
         name = name + "_imports",
         deps = [
             name + "_dynamic_import",
@@ -52,7 +55,7 @@ def _set_up_subject(name):
         ],
     )
     util.helper_target(
-        native.cc_library,
+        cc_library,
         name = name + "_dep_1",
         srcs = ["file.cc"],
         linkopts = [
@@ -62,7 +65,7 @@ def _set_up_subject(name):
         ],
     )
     util.helper_target(
-        native.cc_library,
+        cc_library,
         name = name + "_linkopts_only",
         linkopts = [
             "linkopts_only_arg_1",
@@ -74,7 +77,7 @@ def _set_up_subject(name):
         ],
     )
     util.helper_target(
-        native.cc_library,
+        cc_library,
         name = name + "_duplicate_linkopts",
         linkopts = [
             "linkopts_only_arg_1",
@@ -83,7 +86,7 @@ def _set_up_subject(name):
         ],
     )
     util.helper_target(
-        native.cc_static_library,
+        cc_static_library,
         name = name + "_subject",
         deps = [
             name + "_dep_1",
@@ -124,11 +127,14 @@ def _test_default_outputs_impl(env, target):
         "/usr/bin/my-ar",
         "abc",
     ]).in_order()
+
+    # cc_static_library forces topological order when creating argv, so it
+    # doesn't necessarily match the ordering in the inputs list.
     argv.contains_at_least([
         file.path
         for file in action.actual.inputs.to_list()
         if file.basename.endswith(".o")
-    ]).in_order()
+    ])
     argv.contains("--check-symbols")
 
 def _test_output_groups(name):
@@ -154,6 +160,10 @@ def _test_output_groups_impl(env, target):
     ]).in_order()
 
     subject.output_group("linkopts").contains_exactly([path_prefix + "_linkopts.txt"])
+
+    # RUNTIMES_LINKOPTS is modified by copybara on export.
+    RUNTIMES_LINKOPTS = []
+
     subject.action_generating(path_prefix + "_linkopts.txt").content().split("\n").contains_exactly([
         "dep_1_arg_1",
         "dep_1_arg_2",
@@ -164,6 +174,7 @@ def _test_output_groups_impl(env, target):
         "linkopts_only_arg_1",
         "linkopts_only_arg_2",
         "linkopts_only_arg_1",
+    ] + RUNTIMES_LINKOPTS + [
         "",
     ]).in_order()
 

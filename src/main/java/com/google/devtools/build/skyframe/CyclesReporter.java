@@ -79,7 +79,7 @@ public class CyclesReporter {
     for (CycleInfo cycleInfo : cycles) {
       // TODO(janakr): if this assertion is never hit, remove topLevelKey as an argument to method.
       if (!cycleInfo.getTopKey().equals(topLevelKey)) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException("Cycle " + cycleInfo + " did not start with " + topLevelKey));
       }
       suppressedCycles |= maybeReportCycle(cycleInfo, topLevelKey, firstCycle, eventHandler);

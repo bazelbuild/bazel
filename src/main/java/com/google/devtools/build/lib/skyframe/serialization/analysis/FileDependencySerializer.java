@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -185,6 +186,15 @@ final class FileDependencySerializer {
     }
   }
 
+  /**
+   * Populates the {@link FileDataInfoOrFuture} for the given {@link FutureFileDataInfo}.
+   *
+   * <p>This method is responsible for resolving the {@link FileKey} and its dependencies, and
+   * uploading the resulting {@link FileInvalidationData} to the {@link #fingerprintValueService}.
+   *
+   * @param future The {@link FutureFileDataInfo} to populate.
+   * @return The populated {@link FileDataInfoOrFuture}.
+   */
   FileDataInfoOrFuture populateFutureFileDataInfo(FutureFileDataInfo future) {
     FileKey key = future.key();
     RootedPath rootedPath = key.argument();
@@ -196,7 +206,11 @@ final class FileDependencySerializer {
       return future.completeWith(CONSTANT_FILE);
     }
 
-    var value = (FileValue) checkNotNull(graph.getIfPresent(key), key).getValue();
+    InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+    if (nodeEntry == null) {
+      return future.failWith(new MissingSkyframeEntryException(key));
+    }
+    var value = (FileValue) nodeEntry.getValue();
     RootedPath realRootedPath = value.realRootedPath(rootedPath);
 
     long initialMtsv;
@@ -217,6 +231,19 @@ final class FileDependencySerializer {
             /* realRootedPath= */ realRootedPath,
             value.exists(),
             initialMtsv);
+    // The following steps are performed to ensure that ancestors and ancestor symlinks are resolved
+    // to compute the correct MTSV:
+    // 1. Call fullyResolvePath to register all the parents of the current rootedPath as
+    //    dependencies first.
+    // 2. The transform() method takes the output of the first parameter (a future) and passes it to
+    //    the second parameter (a function).
+    // 3. The output of fullyResolvePath is Void, so the transform method is only being used as a
+    //    stop to not trigger the upload of the current rootedPath till its parents have been
+    //    registered.
+    // 4. The uploader itself is a Function that directly returns a FileDataInfo but gets wrapped as
+    //    a future by the transform method.
+    // 5. The upload happens through the put() operation in the fingerprintValueService inside the
+    //    uploader.
     return future.completeWith(
         Futures.transform(
             fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader),
@@ -441,9 +468,11 @@ final class FileDependencySerializer {
 
   private ListenableFuture<Void> processSymlinkTarget(
       RootedPath resolvedSymlinkPath, FileInvalidationDataUploader uploader) {
-    var symlinkValue =
-        (FileStateValue)
-            checkNotNull(graph.getIfPresent(resolvedSymlinkPath), resolvedSymlinkPath).getValue();
+    InMemoryNodeEntry nodeEntry = graph.getIfPresent(resolvedSymlinkPath);
+    if (nodeEntry == null) {
+      return immediateFailedFuture(new MissingSkyframeEntryException(resolvedSymlinkPath));
+    }
+    var symlinkValue = (FileStateValue) nodeEntry.getValue();
     if (!symlinkValue.getType().equals(SYMLINK)) {
       // We've come full circle back to the initial, fully resolved, FileValue. So there's no
       // additional bookkeeping needed.
@@ -808,30 +837,29 @@ final class FileDependencySerializer {
       }
       return outputStream.toByteArray();
     }
-
-    /*
-     * Computes a canonical byte representation of the node.
-     *
-     * <p>Logically, a node is a set of string file or listing keys, as described at {@link
-     * FileInvalidationData} and {@link DirectoryListingInvalidationData}, respectively, and a set
-     * of {@link NestedFileOpNodes} fingerprints. Its byte representation is specified as follows.
-     *
-     * <ol>
-     *   <li>The count of nested nodes, as a proto-encoded int.
-     *   <li>The count of file keys, as a proto-encoded int.
-     *   <li>The count of listing keys, as a proto-encoded int.
-     *   <li>The count of source file keys, as a proto-encoded int.
-     *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
-     *       representations.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
-     * </ol>
-     *
-     * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
-     */
   }
 
+  /**
+   * Computes a canonical byte representation of the node.
+   *
+   * <p>Logically, a node is a set of string file or listing keys, as described at {@link
+   * FileInvalidationData} and {@link DirectoryListingInvalidationData}, respectively, and a set of
+   * {@link NestedFileOpNodes} fingerprints. Its byte representation is specified as follows.
+   *
+   * <ol>
+   *   <li>The count of nested nodes, as a proto-encoded int.
+   *   <li>The count of file keys, as a proto-encoded int.
+   *   <li>The count of listing keys, as a proto-encoded int.
+   *   <li>The count of source file keys, as a proto-encoded int.
+   *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
+   *       representations.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
+   * </ol>
+   *
+   * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
+   */
   @VisibleForTesting
   static byte[] computeNodeBytes(
       Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,

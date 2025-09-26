@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 
 /** A {@link SkyFunction} that loads metadata from a PROJECT.scl file. */
@@ -396,10 +397,21 @@ public class ProjectFunction implements SkyFunction {
     return activeDirectories;
   }
 
+  private static boolean isDefaultValue(Object v) {
+    if (((v instanceof StarlarkList<?> asList) && asList.isEmpty())) {
+      return true;
+    }
+
+    if (v == Starlark.NONE) {
+      return true;
+    }
+
+    return false;
+  }
+
   private static EnforcementPolicy parseEnforcementPolicy(
       Object enforcementPolicyRaw, Label projectFile) throws ProjectFunctionException {
-    if (enforcementPolicyRaw == null
-        || ((enforcementPolicyRaw instanceof StarlarkList<?> asList) && asList.isEmpty())) {
+    if (enforcementPolicyRaw == null || isDefaultValue(enforcementPolicyRaw)) {
       // Default if unspecified.
       return EnforcementPolicy.WARN;
     }
@@ -504,9 +516,7 @@ public class ProjectFunction implements SkyFunction {
     if (clazz.isInstance(rawValue)) {
       return clazz.cast(rawValue);
     }
-    if (defaultValue != null
-        && (rawValue instanceof StarlarkList<?> listValue)
-        && listValue.isEmpty()) {
+    if (defaultValue != null && isDefaultValue(rawValue)) {
       return clazz.cast(defaultValue);
     }
     throw new ProjectFunctionException(

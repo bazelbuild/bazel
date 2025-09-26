@@ -100,41 +100,26 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
   }
 
   @Test
-  public void expectCheckedInvalidConfiguration_withNoActiveDirectoriesOrProjectScl()
-      throws Exception {
+  public void noActiveDirectoriesOrProjectScl_fallsBackToFullSerialization() throws Exception {
     write(
         "foo/BUILD",
         """
         package_group(name = "empty")
         """);
-    addOptions(UPLOAD_MODE_OPTION);
-    InvalidConfigurationException e =
-        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:empty"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Active directories configuration error: No active directories definitions found in"
-                + " --experimental_active_directories or PROJECT.scl");
+    assertUploadSuccess("//foo:empty");
+    assertContainsEvent("No active directories were found. Falling back on full serialization.");
   }
 
   @Test
-  public void expectCheckedInvalidConfiguration_withExplicitEmptyActiveDirectoriesFlag()
-      throws Exception {
+  public void explicitEmptyActiveDirectoriesFlag_fallsBackToFullSerialization() throws Exception {
     write("foo/BUILD", "filegroup(name='A', srcs = [])");
     addOptions("--experimental_active_directories=");
-    addOptions(UPLOAD_MODE_OPTION);
-    InvalidConfigurationException e =
-        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Active directories configuration error: No active directories definitions found in"
-                + " --experimental_active_directories or PROJECT.scl");
+    assertUploadSuccess("//foo:A");
+    assertContainsEvent("No active directories were found. Falling back on full serialization.");
   }
 
   @Test
-  public void expectCheckedInvalidConfiguration_withNoActiveDirectoriesInProjectScl()
-      throws Exception {
+  public void noActiveDirectoriesInProjectScl_fallsBackToFullSerialization() throws Exception {
     write("foo/BUILD", "filegroup(name='A', srcs = [])");
     writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     write(
@@ -143,47 +128,17 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
 load("//test:project_proto.scl", "project_pb2")
 project = project_pb2.Project.create(project_directories = []) # empty
 """);
-    addOptions(UPLOAD_MODE_OPTION);
-    InvalidConfigurationException e =
-        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Active directories configuration error: No active directories definitions found in"
-                + " --experimental_active_directories or PROJECT.scl");
+    assertUploadSuccess("//foo:A");
+    assertContainsEvent("No active directories were found. Falling back on full serialization.");
   }
 
   @Test
-  public void
-      expectCheckedInvalidConfiguration_withOnlyExcludedDirectories_withActiveDirectoriesFlag()
-          throws Exception {
+  public void onlyExcludedDirectories_withActiveDirectoriesFlag_fallsBackToFullSerialization()
+      throws Exception {
     write("foo/BUILD", "filegroup(name='A', srcs = [])");
     addOptions("--experimental_active_directories=-foo");
-    addOptions(UPLOAD_MODE_OPTION);
-    InvalidConfigurationException e =
-        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Active directories configuration error: No active directories definitions found in"
-                + " --experimental_active_directories or PROJECT.scl");
-  }
-
-  @Test
-  public void serializingFrontierWithNoProjectFile_withActiveDirectoriesFlag_serializesKeys()
-      throws Exception {
-    setupScenarioWithConfiguredTargets();
-
-    addOptions("--experimental_active_directories=foo");
-    addOptions(UPLOAD_MODE_OPTION);
-
-    buildTarget("//foo:A");
-
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isAtLeast(1);
+    assertUploadSuccess("//foo:A");
+    assertContainsEvent("No active directories were found. Falling back on full serialization.");
   }
 
   @Test
@@ -342,8 +297,6 @@ project = project_pb2.Project.create(project_directories = []) # empty
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     assertThat(listener.getSerializedKeysCount()).isAtLeast(1);
     assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET)).isAtLeast(1);
-
-    assertContainsEvent("Waiting for write futures took an additional");
   }
 
   @Test
@@ -788,7 +741,6 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:copy_of_A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
-ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A:copy_of_A, config=
 """
             .lines()
             .collect(toImmutableList());

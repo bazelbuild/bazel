@@ -102,7 +102,17 @@ def _compute_public_headers(
     if include_prefix and include_prefix.startswith("/"):
         include_prefix = include_prefix[1:]
 
-    if not strip_prefix and not include_prefix:
+    if strip_prefix == None and not include_prefix:
+        # If CppOptions.experimentalStarlarkCompiling is enabled, then
+        # strip_include_prefix and include_prefix are not None.
+        # If the option is disabled, their default values (from CcCompilationHelper) are None.
+        #
+        # Special case: when "strip_include_prefix = '.'" is set in a target located in
+        # workspace/BUILD.bazel, strip_prefix will be "", not None.
+        # Thus, we check differently for empty values.
+        #
+        # If neither strip_include_prefix nor include_prefix is specified,
+        # we don't need to create virtual headers, so we return the public headers as-is.
         return struct(
             headers = public_headers_artifacts + non_module_map_headers,
             module_map_headers = public_headers_artifacts,
@@ -125,17 +135,16 @@ def _compute_public_headers(
         if include_prefix != None:
             include_path = paths.get_relative(include_prefix, include_path)
 
-        if not original_header.path == include_path:
-            virtual_header = actions.declare_shareable_artifact(paths.join(virtual_include_dir, include_path))
-            actions.symlink(
-                output = virtual_header,
-                target_file = original_header,
-                progress_message = "Symlinking virtual headers for %{label}",
-                use_exec_root_for_source = USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS,
-            )
-            module_map_headers.append(virtual_header)
-            if config.coverage_enabled:
-                virtual_to_original_headers_list.append((virtual_header.path, original_header.path))
+        virtual_header = actions.declare_shareable_artifact(paths.join(virtual_include_dir, include_path))
+        actions.symlink(
+            output = virtual_header,
+            target_file = original_header,
+            progress_message = "Symlinking virtual headers for %{label}",
+            use_exec_root_for_source = USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS,
+        )
+        module_map_headers.append(virtual_header)
+        if config.coverage_enabled:
+            virtual_to_original_headers_list.append((virtual_header.path, original_header.path))
 
         module_map_headers.append(original_header)
 
@@ -390,7 +399,10 @@ def _init_cc_compilation_context(
     external_include_dirs = []
     declared_include_srcs = []
 
-    if not external:
+    if not external and feature_configuration.is_requested("system_include_paths"):
+        system_include_dirs_for_context = system_include_dirs + include_dirs
+        include_dirs_for_context = []
+    elif not external:
         system_include_dirs_for_context = list(system_include_dirs)
         include_dirs_for_context = list(include_dirs)
     else:
@@ -608,6 +620,21 @@ def _init_cc_compilation_context(
         )
 
     return main_context, implementation_deps_context
+
+# buildifier: disable=function-docstring
+def dotd_files_enabled(cpp_semantics, configuration, feature_configuration):
+    # TODO: b/396122076 - migrate callers of cc_common.compile() to request the
+    #  right fragment(s) and drop this API from cpp_semantics
+    enabled_in_config = cpp_semantics.needs_dotd_input_pruning(configuration)
+    return (
+        enabled_in_config and
+        not feature_configuration.is_enabled("parse_showincludes") and
+        not feature_configuration.is_enabled("no_dotd_file")
+    )
+
+# buildifier: disable=function-docstring
+def serialized_diagnostics_file_enabled(feature_configuration):
+    return feature_configuration.is_enabled("serialized_diagnostics_file")
 
 cc_compilation_helper = struct(
     init_cc_compilation_context = _init_cc_compilation_context,

@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -53,6 +52,14 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
   @Override
+  protected ImmutableList<String> getStartupOptions() {
+    // Some tests require the ability to create symlinks on Windows.
+    return OS.getCurrent() == OS.WINDOWS
+        ? ImmutableList.of("--windows_enable_symlinks")
+        : ImmutableList.of();
+  }
+
+  @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
 
@@ -61,6 +68,12 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--remote_download_minimal",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
+
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Force MSYS `ln -s` to create a (possibly dangling) native symlink or junction.
+      // The default behavior is to require the target path to exist and make a deep copy.
+      addOptions("--action_env=MSYS=winsymlinks:native");
+    }
   }
 
   @Override
@@ -243,9 +256,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void outputSymlinkHandledGracefully() throws Exception {
-    // Dangling symlink would require developer mode to be enabled in the CI environment.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
     write(
         "a/defs.bzl",
         """
@@ -256,6 +266,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                 outputs = [out],
                 command = "ln -s hello $1",
                 arguments = [out.path],
+                use_default_shell_env = True,
             )
             return DefaultInfo(files = depset([out]))
 
@@ -315,6 +326,85 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     FileSystemUtils.writeContent(outputPath, new byte[] {1, 2, 3, 4, 5});
 
     buildTarget("//a:hello");
+  }
+
+  @Test
+  public void downloadTopLevel_doesNotDownloadUnrequestedOutputGroups() throws Exception {
+    write(
+        "a/defs.bzl",
+        """
+        def _rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [out],
+                command = "echo 'echo Hello World' > {output} && chmod +x {output}".format(output = out.path),
+            )
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    transitive = [target[DefaultInfo].files for target in ctx.attr.data],
+                ),
+            ).merge_all([
+                target[DefaultInfo].default_runfiles for target in ctx.attr.data
+            ])
+            return DefaultInfo(
+                executable = out,
+                runfiles = runfiles,
+            )
+
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                "data": attr.label_list(allow_files = True),
+            },
+            executable = True,
+        )
+
+        def _aspect_impl(target, ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".sha256")
+            ctx.actions.run_shell(
+                inputs = depset(
+                    transitive = [
+                        target[DefaultInfo].files,
+                        target[DefaultInfo].default_runfiles.files,
+                    ],
+                ),
+                outputs = [out],
+                command = "echo 'hash' > {output}".format(output = out.path),
+            )
+            return [
+                OutputGroupInfo(
+                    my_aspect_out = depset([out]),
+                )
+            ]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        genrule(
+            name = "gen_data",
+            srcs = [],
+            outs = ["some_data"],
+            cmd = "echo 'data content' > $@",
+        )
+
+        my_rule(
+            name = "hello",
+            data = [":gen_data"],
+        )
+        """);
+
+    setDownloadToplevel();
+    addOptions("--aspects=//a:defs.bzl%my_aspect", "--output_groups=my_aspect_out");
+    buildTarget("//a:hello");
+
+    assertValidOutputFile("a/hello.sha256", "hash\n");
+    assertOutputsDoNotExist("//a:gen_data");
+    assertOutputsDoNotExist("//a:hello");
   }
 
   @Test
@@ -1120,14 +1210,16 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     setDownloadToplevel();
     write(
         "BUILD",
-        "genrule(",
-        "  name = 'gen',",
-        "  outs = ['foo', 'foo-link'],",
-        "  cmd = 'cd $(RULEDIR) && echo hello > foo && ln -s foo foo-link',",
-        // In Blaze, heuristic label expansion defaults to True and will cause `foo` to be expanded
-        // into `blaze-out/.../bin/foo` in the genrule command line.
-        "  heuristic_label_expansion = False,",
-        ")");
+        """
+        genrule(
+          name = 'gen',
+          outs = ['foo', 'foo-link'],
+          cmd = 'cd $(RULEDIR) && echo hello > foo && ln -s foo foo-link',
+          # In Blaze, heuristic label expansion defaults to True and will cause `foo` to be expanded
+          # into `blaze-out/.../bin/foo` in the genrule command line.
+          heuristic_label_expansion = False,
+        )
+        """);
 
     buildTarget("//:gen");
 

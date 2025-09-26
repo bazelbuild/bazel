@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -54,8 +53,6 @@ public interface CcModuleApi<
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
-        CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
 
@@ -384,7 +381,7 @@ public interface CcModuleApi<
             documented = false,
             defaultValue = "unbound"),
       })
-  Tuple compile(
+  default Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
@@ -426,7 +423,9 @@ public interface CcModuleApi<
       Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
 
   // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile_api)
 
@@ -670,16 +669,7 @@ public interface CcModuleApi<
       name = "configure_features",
       doc = "Creates a feature_configuration instance. Requires the cpp configuration fragment.",
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = StarlarkRuleContextApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            doc = "The rule context."),
+        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
         @Param(
             name = "cc_toolchain",
             doc = "cc_toolchain for which we configure features.",
@@ -707,39 +697,36 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]"),
-      },
-      useStarlarkThread = true)
-  FeatureConfigurationT configureFeatures(
-      Object ruleContextOrNone,
+      })
+  default FeatureConfigurationT configureFeatures(
+      StarlarkRuleContextT ruleContext,
       Info toolchain,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures, // <String> expected
-      StarlarkThread thread)
-      throws EvalException;
+      Sequence<?> unsupportedFeatures) { // <String> expected
+
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_lto_compilation_context",
       doc = "Create LTO compilation context",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "objects",
             doc = "map of full object to index object",
             positional = false,
             named = true,
-            defaultValue = "{}",
-            allowedTypes = {
-              @ParamType(type = Dict.class),
-            })
+            defaultValue = "{}")
       })
-  LtoCompilationContextApi createLtoCompilationContextFromStarlark(
-      Object objectsObject, StarlarkThread thread) throws EvalException;
+  default LtoCompilationContextApi createLtoCompilationContextFromStarlark(
+      Dict<?, ?> objectsObject) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "objects",
@@ -786,26 +773,25 @@ public interface CcModuleApi<
               @ParamType(type = Depset.class),
             }),
       })
-  CompilationOutputsT createCompilationOutputsFromStarlark(
+  default CcCompilationOutputsApi<FileT> createCompilationOutputsFromStarlark(
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCopmilationContextObject,
       Object dwoObjectsObject,
-      Object picDwoObjectsObject,
-      StarlarkThread thread)
-      throws EvalException;
+      Object picDwoObjectsObject) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "merge_compilation_outputs",
       doc = "Merge compilation outputs.",
       parameters = {
         @Param(name = "compilation_outputs", positional = false, named = true, defaultValue = "[]"),
-      },
-      useStarlarkThread = true)
-  CompilationOutputsT mergeCcCompilationOutputsFromStarlark(
-      Sequence<?> compilationOutputs, // <CompilationOutputsT> expected
-      StarlarkThread thread)
-      throws EvalException;
+      })
+  default CcCompilationOutputsApi<FileT> mergeCcCompilationOutputsFromStarlark(
+      Sequence<?> compilationOutputs) { // <CompilationOutputsT> expected
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "get_tool_for_action",
@@ -968,7 +954,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_compile_variables",
       doc = "Returns variables used for compilation actions.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "cc_toolchain",
@@ -1142,7 +1127,7 @@ public interface CcModuleApi<
               @ParamType(type = NoneType.class),
             }),
       })
-  CcToolchainVariablesT getCompileBuildVariables(
+  default CcToolchainVariablesT getCompileBuildVariables(
       Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object sourceFile,
@@ -1160,9 +1145,9 @@ public interface CcModuleApi<
       boolean addLegacyCxxOptions,
       Object variablesExtension,
       Object stripOpts,
-      Object inputFile,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object inputFile) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_link_variables",
@@ -1509,6 +1494,34 @@ public interface CcModuleApi<
   default CcLinkingContextApi createCcLinkingInfo(
       Depset linkerInputs, Object extraLinkTimeLibraryObject) throws EvalException {
     throw new UnsupportedOperationException();
+  }
+
+  @StarlarkMethod(
+      name = "merge_cc_infos",
+      doc = "Merges multiple <code>CcInfo</code>s into one.",
+      parameters = {
+        @Param(
+            name = "direct_cc_infos",
+            doc =
+                "List of <code>CcInfo</code>s to be merged, whose headers will be exported by "
+                    + "the direct fields in the returned provider.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "cc_infos",
+            doc =
+                "List of <code>CcInfo</code>s to be merged, whose headers will not be exported "
+                    + "by the direct fields in the returned provider.",
+            positional = false,
+            named = true,
+            defaultValue = "[]")
+      })
+  default Object mergeCcInfos(
+      Sequence<?> directCcInfos, // <CcInfoApi> expected
+      Sequence<?> ccInfos // <CcInfoApi> expected
+      ) {
+    throw new UnsupportedOperationException("only for documentation");
   }
 
   @StarlarkMethod(
@@ -1949,7 +1962,7 @@ public interface CcModuleApi<
                 "The built-in sysroot. If this attribute is not present, Bazel does not "
                     + "allow using a different sysroot, i.e. through the --grte_top option."),
       })
-  CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
+  default void ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> features, // <StructApi> expected
       Sequence<?> actionConfigs, // <StructApi> expected
@@ -1966,8 +1979,9 @@ public interface CcModuleApi<
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
-      StarlarkThread thread)
-      throws EvalException;
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   @StarlarkMethod(
       name = "create_linking_context_from_compilation_outputs",
@@ -2086,7 +2100,7 @@ public interface CcModuleApi<
       String language,
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
-      CompilationOutputsT compilationOutputs,
+      CcCompilationOutputsApi<?> compilationOutputs,
       Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       boolean alwayslink,
@@ -2105,18 +2119,7 @@ public interface CcModuleApi<
       documented = false,
       useStarlarkThread = true,
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "None"),
-        @Param(
-            name = "actions",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "None"),
+        @Param(name = "actions", positional = false, named = true, documented = false),
         @Param(
             name = "lto_output_root_prefix",
             positional = false,
@@ -2136,34 +2139,24 @@ public interface CcModuleApi<
             named = true,
             documented = false),
         @Param(name = "cc_toolchain", positional = false, named = true, documented = false),
-        @Param(name = "fdo_context", positional = false, named = true, documented = false),
         @Param(name = "use_pic", positional = false, named = true, documented = false),
         @Param(
             name = "should_create_per_object_debug_info",
             positional = false,
             named = true,
             documented = false),
-        @Param(
-            name = "create_shared_non_lto",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "False"),
         @Param(name = "argv", positional = false, named = true, documented = false),
       })
   LtoBackendArtifactsT createLtoBackendArtifacts(
-      Object starlarkRuleContextObj,
-      Object actionsObj,
+      StarlarkActionFactoryT actions,
       String ltoOutputRootPrefixString,
       String ltoObjRootPrefixString,
       FileT bitcodeFile,
       Object allBitcodeFilesObj,
       FeatureConfigurationT featureConfigurationForStarlark,
       Info ccToolchain,
-      StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
-      boolean createSharedNonLto,
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException;

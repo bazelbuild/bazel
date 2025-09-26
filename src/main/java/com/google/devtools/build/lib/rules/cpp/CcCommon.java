@@ -15,37 +15,18 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import java.util.List;
 import java.util.regex.Pattern;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Common parts of the implementation of cc rules. */
-public final class CcCommon implements StarlarkValue {
-
-  /** Name of the build variable for the sysroot path variable name. */
-  public static final String SYSROOT_VARIABLE_NAME = "sysroot";
-
-  /** Name of the build variable for the path to the input file being processed. */
-  public static final String INPUT_FILE_VARIABLE_NAME = "input_file";
-
-  /** Name of the build variable for the minimum_os_version being targeted. */
-  public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
-
+public final class CcCommon {
   public static final String PIC_CONFIGURATION_ERROR =
       "PIC compilation is requested but the toolchain does not support it "
           + "(feature named 'supports_pic' is not enabled)";
@@ -156,16 +137,11 @@ public final class CcCommon implements StarlarkValue {
     @Override
     public void repr(Printer printer) {
       printer.append("CoptsFilter(noCoptsPattern=");
-      printer.append(noCoptsPattern.pattern());
+      printer.append(noCoptsPattern == null ? "null" : noCoptsPattern.pattern());
       printer.append(", allPasses=");
       printer.append(Boolean.toString(allPasses));
       printer.append(")");
     }
-  }
-
-  @StarlarkMethod(name = "loose_include_dirs", structField = true, documented = false)
-  public Sequence<String> getLooseIncludeDirsForStarlark() {
-    return StarlarkList.empty();
   }
 
   public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
@@ -181,6 +157,12 @@ public final class CcCommon implements StarlarkValue {
     return coverageFeatures.build();
   }
 
+  /**
+   * Legacy implementation of configure_features only used in tests.
+   *
+   * @deprecated The uses should be replaced with <code>cc_common.configure_features</code>.
+   */
+  @Deprecated
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
@@ -199,7 +181,7 @@ public final class CcCommon implements StarlarkValue {
 
     if (language != Language.OBJC
         && language != Language.OBJCPP
-        && toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
+        && toolchain.getCcInfoCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
 
@@ -350,23 +332,5 @@ public final class CcCommon implements StarlarkValue {
     } catch (CollidingProvidesException ex) {
       throw new EvalException(ex);
     }
-  }
-
-  public static boolean isOldStarlarkApiWhiteListed(
-      StarlarkRuleContext starlarkRuleContext, List<String> whitelistedPackages) {
-    RuleContext context = starlarkRuleContext.getRuleContext();
-    Rule rule = context.getRule();
-
-    RuleClass ruleClass = rule.getRuleClassObject();
-    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label.getRepository().getName().equals("_builtins")) {
-      // always permit builtins
-      return true;
-    }
-    if (label != null) {
-      return whitelistedPackages.stream()
-          .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
-    }
-    return false;
   }
 }

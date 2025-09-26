@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -341,7 +342,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             options,
             new ActionCacheChecker(
-                actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
+                actionCache,
+                null,
+                actionKeyContext,
+                ALWAYS_EXECUTE_FILTER,
+                ProxyMetadataFactory.NO_PROXIES,
+                null),
             ActionOutputDirectoryHelper.createForTesting(),
             new LocalOutputService(directories),
             /* trackIncrementalState= */ true);

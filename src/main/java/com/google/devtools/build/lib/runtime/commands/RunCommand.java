@@ -23,21 +23,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -181,7 +176,7 @@ public class RunCommand implements BlazeCommand {
                 + " <code>=name</code>, which unsets the variable of that name. This option can"
                 + " be used multiple times; for options given for the same variable, the latest"
                 + " wins, options for different variables accumulate. Note that the executed target"
-                + " will generally see the full environment of the host expect for those variables"
+                + " will generally see the full environment of the host except for those variables"
                 + " that have been explicitly unset.")
     public List<Converters.EnvVar> runEnvironment;
   }
@@ -214,17 +209,16 @@ public class RunCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {}
 
   /** Returns the arguments in a {@link ConfiguredTarget}'s {@code args} attribute. */
-  private static ImmutableList<String> getBinaryArgs(ConfiguredTarget targetToRun)
-      throws InterruptedException, CommandLineExpansionException {
-    List<String> args = Lists.newArrayList();
-
+  private static ImmutableList<String> getBinaryArgs(ConfiguredTarget targetToRun) {
     FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
-    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
-    if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
-      CommandLine targetArgs = runfilesSupport.getArgs();
-      Iterables.addAll(args, targetArgs.arguments());
+    if (provider == null) {
+      return ImmutableList.of();
     }
-    return ImmutableList.copyOf(args);
+    RunfilesSupport runfilesSupport = provider.getRunfilesSupport();
+    if (runfilesSupport == null) {
+      return ImmutableList.of();
+    }
+    return runfilesSupport.getArgs().arguments();
   }
 
   @Override
@@ -654,14 +648,6 @@ public class RunCommand implements BlazeCommand {
     if (builtTargets.targetToRunRunfilesSupport != null) {
       actionEnvironment = builtTargets.targetToRunRunfilesSupport.getActionEnvironment();
     }
-    RunEnvironmentInfo environmentProvider =
-        builtTargets.targetToRun.get(RunEnvironmentInfo.PROVIDER);
-    if (environmentProvider != null) {
-      actionEnvironment =
-          actionEnvironment.withAdditionalVariables(
-              environmentProvider.getEnvironment(),
-              ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
-    }
     // The final run environment is a combination of the environment constructed here and the
     // unrestricted client environment. This means that there is a difference between a variable
     // that isn't included in runEnvironment (which will have its value inherited from the
@@ -670,7 +656,7 @@ public class RunCommand implements BlazeCommand {
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     HashSet<String> envVariablesToClear = new HashSet<>();
     ImmutableMap<String, String> clientEnv = env.getClientEnv();
-    actionEnvironment.resolve(runEnvironment, clientEnv);
+    // Process --run_env flags first
     for (var envVar : extraRunEnvironment) {
       switch (envVar) {
         case Converters.EnvVar.Set(String name, String value) -> {
@@ -694,22 +680,8 @@ public class RunCommand implements BlazeCommand {
         }
       }
     }
-
-    ImmutableList<String> argsFromBinary;
-    try {
-      argsFromBinary = getBinaryArgs(builtTargets.targetToRun);
-    } catch (InterruptedException e) {
-      String message = "run: command line expansion interrupted";
-      env.getReporter().handle(Event.error(message));
-      throw new RunCommandException(
-          BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message)),
-          builtTargets.stopTime);
-    } catch (CommandLineExpansionException e) {
-      throw new RunCommandException(
-          reportAndCreateFailureResult(
-              env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE),
-          builtTargets.stopTime);
-    }
+    // Then let the target's environment override --run_env flags
+    actionEnvironment.resolve(runEnvironment, clientEnv);
 
     return constructCommandLine(
         env,
@@ -717,7 +689,7 @@ public class RunCommand implements BlazeCommand {
         ImmutableSortedMap.copyOf(runEnvironment),
         ImmutableSortedSet.copyOf(
             Iterables.concat(envVariablesToClear, ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY)),
-        argsFromBinary,
+        getBinaryArgs(builtTargets.targetToRun),
         argsFromResidue);
   }
 
@@ -843,6 +815,7 @@ public class RunCommand implements BlazeCommand {
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     PathPrettyPrinter prettyPrinter =
         new PathPrettyPrinter(
+            env.getRelativeWorkingDirectory(),
             requestOptions.getSymlinkPrefix(env.getRuntime().getProductName()),
             builtTargets.convenienceSymlinks);
 

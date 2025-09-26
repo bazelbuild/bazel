@@ -76,11 +76,11 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
@@ -170,7 +170,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
@@ -204,6 +204,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//third_party:guava",
         "//third_party:junit4",
@@ -221,6 +222,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/net/starlark/java/annot",
@@ -261,6 +263,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
@@ -312,6 +315,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
@@ -449,8 +453,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_executor_repository_helpers_holder",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
@@ -658,6 +660,25 @@ java_test(
 )
 
 java_test(
+    name = "MaterializerRulesTest",
+    srcs = ["MaterializerRulesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "OutputFileConfiguredTargetTest",
     srcs = ["OutputFileConfiguredTargetTest.java"],
     deps = [
@@ -807,8 +828,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:repo_mapping_manifest_action",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_executor_repository_helpers_holder",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
@@ -889,8 +908,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -1090,6 +1109,19 @@ java_test(
     srcs = ["VisibilityTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "TransitiveVisibilityTest",
+    srcs = ["TransitiveVisibilityTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        # "//src/main/java/com/google/devtools/build/lib/analysis:transitive_visibility_provider",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",

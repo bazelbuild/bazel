@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.starlark;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Map;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -49,6 +52,22 @@ public abstract class StarlarkDoc {
    * variables and unresolved links.
    */
   public abstract String getRawDocumentation();
+
+  /**
+   * For Starlark-defined entities, returns a string containing the Starlark load statement to
+   * import the entity being documented; or an empty string for Java-defined entities.
+   */
+  public String getLoadStatement() {
+    return "";
+  }
+
+  /** Transforms a main repo source file label string into a path string. */
+  protected static String getSourceFileFromLabel(String labelString) {
+    Label label = Label.parseCanonicalUnchecked(labelString);
+    checkArgument(
+        label.getRepository().isMain(), "Expecting a main repository label, got %s", labelString);
+    return label.toPathFragment().getPathString();
+  }
 
   protected String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";

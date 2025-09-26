@@ -15,6 +15,12 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.testutil.TestRuleClassProvider.addStandardRules;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Functions;
@@ -28,11 +34,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.PatternExpanded.TestSuiteExpansion;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -43,6 +51,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -282,8 +291,8 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testManualTarget() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
-    tester.addFile("cc/BUILD", "cc_library(name = 'my_lib', srcs = ['lib.cc'], tags = ['manual'])");
+    tester.addFile(
+        "cc/BUILD", "fake_cc_library(name = 'my_lib', srcs = ['lib.cc'], tags = ['manual'])");
     TargetPatternPhaseValue loadingResult = assertNoErrors(tester.load("//cc:all"));
     assertThat(loadingResult.getTargetLabels()).containsExactlyElementsIn(getLabels());
 
@@ -294,11 +303,10 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testConfigSettingTarget() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "config/BUILD",
         """
-        cc_library(
+        fake_cc_library(
             name = "somelib",
             srcs = ["somelib.cc"],
             hdrs = ["somelib.h"],
@@ -335,7 +343,7 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testNegativeTargetDoesNotShowUpAtAll() throws Exception {
-    tester.addFile("my_library/BUILD", "cc_library(name = 'my_library', srcs = ['test.cc'])");
+    tester.addFile("my_library/BUILD", "fake_cc_library(name = 'my_library', srcs = ['test.cc'])");
     assertNoErrors(tester.loadTests("-//my_library"));
     assertThat(tester.getFilteredTargets()).isEmpty();
     assertThat(tester.getTestFilteredTargets()).isEmpty();
@@ -346,9 +354,9 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "test/BUILD",
         """
-        cc_library(name = "bar1")
+        fake_cc_library(name = "bar1")
 
-        cc_test(
+        fake_cc_test(
             name = "test",
             tags = ["manual"],
             deps = [":bar1"],
@@ -503,11 +511,10 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testTestSuiteExpansion() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "my_test",
             srcs = ["test.cc"],
         )
@@ -659,16 +666,15 @@ public final class LoadingPhaseRunnerTest {
   /** Regression test for bug: "subtracting tests from test doesn't work" */
   @Test
   public void testFilterNegativeTestFromTestSuite() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "my_test",
             srcs = ["test.cc"],
         )
 
-        cc_test(
+        fake_cc_test(
             name = "my_other_test",
             srcs = ["other_test.cc"],
         )
@@ -692,16 +698,15 @@ public final class LoadingPhaseRunnerTest {
   /** Regression test for bug: "blaze doesn't seem to respect target subtractions" */
   @Test
   public void testNegativeTestSuiteExpanded() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "my_test",
             srcs = ["test.cc"],
         )
 
-        cc_test(
+        fake_cc_test(
             name = "my_other_test",
             srcs = ["other_test.cc"],
         )
@@ -727,16 +732,15 @@ public final class LoadingPhaseRunnerTest {
   public void testTestSuiteIsSubtracted() throws Exception {
     // Test suites are expanded for each target pattern in sequence, not the whole set of target
     // patterns after all the inclusions and exclusions are processed.
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "my_test",
             srcs = ["test.cc"],
         )
 
-        cc_test(
+        fake_cc_test(
             name = "my_other_test",
             srcs = ["other_test.cc"],
         )
@@ -756,8 +760,7 @@ public final class LoadingPhaseRunnerTest {
   /** Regression test for bug: "blaze test "no targets found" warning now fatal" */
   @Test
   public void testNoTestsInRecursivePattern() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
-    tester.addFile("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    tester.addFile("foo/BUILD", "fake_cc_library(name = 'foo', srcs = ['foo.cc'])");
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//foo/..."));
     assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//foo"));
     assertThat(result.getTestsToRunLabels()).isEmpty();
@@ -765,16 +768,15 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testComplexTestSuite() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "test1",
             srcs = ["test.cc"],
         )
 
-        cc_test(
+        fake_cc_test(
             name = "test2",
             srcs = ["test.cc"],
         )
@@ -813,16 +815,15 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testAllExcludesManualTest() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "my_test",
             srcs = ["test.cc"],
         )
 
-        cc_test(
+        fake_cc_test(
             name = "my_other_test",
             srcs = ["other_test.cc"],
             tags = ["manual"],
@@ -868,11 +869,10 @@ public final class LoadingPhaseRunnerTest {
    */
   @Test
   public void testTotalNegationEmitsWarning() throws Exception {
-    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
         """
-        cc_test(
+        fake_cc_test(
             name = "my_test",
             srcs = ["test.cc"],
         )
@@ -927,7 +927,7 @@ public final class LoadingPhaseRunnerTest {
   /** Regression test: handle symlink cycles gracefully. */
   @Test
   public void testCycleReporting_symlinkCycleDuringTargetParsing() throws Exception {
-    tester.addFile("hello/BUILD", "cc_library(name = 'a', srcs = glob(['*.cc']))");
+    tester.addFile("hello/BUILD", "fake_cc_library(name = 'a', srcs = glob(['*.cc']))");
     Path buildFilePath = tester.getWorkspace().getRelative("hello/BUILD");
     Path dirPath = buildFilePath.getParentDirectory();
     Path fooFilePath = dirPath.getRelative("foo.cc");
@@ -1033,7 +1033,16 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testCompileOneDependency() throws Exception {
-    tester.addFile("base/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'])");
+    // setting up the cc rules in loading phase tests is non-trivial
+    // when we no longer have builtin cc rules, this test case can be deleted, or moved to
+    // CompileOneDependencyTransformerTest.java
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      return;
+    }
+    tester.addFile(
+        "base/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'hello', srcs = ['hello.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
     TargetPatternPhaseValue result = assertNoErrors(tester.load("base/hello.cc"));
     assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:hello"));
@@ -1041,7 +1050,16 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testCompileOneDependencyNonExistentSource() throws Exception {
-    tester.addFile("base/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    // setting up the cc rules in loading phase tests is non-trivial
+    // when we no longer have builtin cc rules, this test case can be deleted, or moved to
+    // CompileOneDependencyTransformerTest.java
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      return;
+    }
+    tester.addFile(
+        "base/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
     try {
       TargetPatternPhaseValue loadingResult = tester.load("base/hello.cc");
@@ -1053,7 +1071,8 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testCompileOneDependencyNonExistentSourceKeepGoing() throws Exception {
-    tester.addFile("base/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    tester.addFile(
+        "base/BUILD", "fake_cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
     TargetPatternPhaseValue loadingResult = tester.loadKeepGoing("base/hello.cc");
     assertThat(loadingResult.hasPostExpansionError()).isFalse();
@@ -1061,7 +1080,8 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testCompileOneDependencyReferencesFile() throws Exception {
-    tester.addFile("base/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    tester.addFile(
+        "base/BUILD", "fake_cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
     TargetParsingException e =
         assertThrows(TargetParsingException.class, () -> tester.load("//base:hello"));
@@ -1109,8 +1129,8 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void mapsOriginalPatternsToLabels() throws Exception {
-    tester.addFile("test/a/BUILD", "cc_library(name = 'a_lib', srcs = ['a.cc'])");
-    tester.addFile("test/b/BUILD", "cc_library(name = 'b_lib', srcs = ['b.cc'])");
+    tester.addFile("test/a/BUILD", "fake_cc_library(name = 'a_lib', srcs = ['a.cc'])");
+    tester.addFile("test/b/BUILD", "fake_cc_library(name = 'b_lib', srcs = ['b.cc'])");
 
     tester.load("test/a:all", "test/b:all", "test/...");
 
@@ -1124,7 +1144,7 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void mapsOriginalPatternsToLabels_omitsExcludedTargets() throws Exception {
-    tester.addFile("test/a/BUILD", "cc_library(name = 'a_lib', srcs = ['a.cc'])");
+    tester.addFile("test/a/BUILD", "fake_cc_library(name = 'a_lib', srcs = ['a.cc'])");
 
     tester.load("test/...", "-test/a:a_lib");
 
@@ -1479,13 +1499,13 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/lib/BUILD",
         """
-        cc_library(name = "lib1")
+        fake_cc_library(name = "lib1")
 
-        cc_library(name = "lib2")
+        fake_cc_library(name = "lib2")
 
-        cc_library(name = "all-targets")
+        fake_cc_library(name = "all-targets")
 
-        cc_library(name = "all")
+        fake_cc_library(name = "all")
         """);
 
     assertWildcardConflict("//foo/lib:all", ":all");
@@ -1498,13 +1518,13 @@ public final class LoadingPhaseRunnerTest {
     tester.assertContainsWarning(
         String.format(
             "The target pattern '%s' is ambiguous: '%s' is both a wildcard, and the name of an"
-                + " existing cc_library rule; using the latter interpretation",
+                + " existing fake_cc_library rule; using the latter interpretation",
             label, suffix));
   }
 
   @Test
   public void testAbsolutePatternEndsWithSlashAll() throws Exception {
-    tester.addFile("foo/all/BUILD", "cc_library(name = 'all')");
+    tester.addFile("foo/all/BUILD", "fake_cc_library(name = 'all')");
     TargetPatternPhaseValue value = tester.load("//foo/all");
     assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//foo/all:all"));
   }
@@ -1769,7 +1789,7 @@ public final class LoadingPhaseRunnerTest {
               analysisMock.getProductName());
       workspace.getRelative("base").deleteTree();
 
-      ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
+      ConfiguredRuleClassProvider ruleClassProvider = createRuleClassProvider();
       PackageFactory pkgFactory =
           analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
       PackageOptions options = Options.getDefaults(PackageOptions.class);
@@ -1807,6 +1827,39 @@ public final class LoadingPhaseRunnerTest {
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       this.options = Options.getDefaults(LoadingOptions.class);
+    }
+
+    private static ConfiguredRuleClassProvider createRuleClassProvider() {
+      ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+      addStandardRules(builder);
+      builder.addRuleDefinition(
+          (MockRule)
+              () ->
+                  MockRule.define(
+                      "fake_cc_library",
+                      (b, env) ->
+                          b.add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+                              .add(attr("hdrs", LABEL_LIST).legacyAllowAnyFileType())));
+      builder.addRuleDefinition(
+          (MockRule)
+              () ->
+                  MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
+                      .type(RuleClassType.TEST)
+                      .define(
+                          "fake_cc_test",
+                          (b, env) ->
+                              b.add(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+                                  .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
+                                  .add(
+                                      attr("size", STRING).nonconfigurable("policy").value("small"))
+                                  .add(
+                                      attr("timeout", STRING)
+                                          .nonconfigurable("policy")
+                                          .value("short"))
+                                  .add(attr("flaky", BOOLEAN))
+                                  .add(attr("shard_count", INTEGER))
+                                  .add(attr("local", BOOLEAN).nonconfigurable("policy"))));
+      return builder.build();
     }
 
     private static BuildLanguageOptions defaultBuildLanguageOptions()
@@ -1997,7 +2050,7 @@ public final class LoadingPhaseRunnerTest {
     }
 
     @Override
-    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
+    public synchronized InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

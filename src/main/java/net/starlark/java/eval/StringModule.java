@@ -144,9 +144,16 @@ final class StringModule implements StarlarkValue {
               + "joined by this string as a separator. Example:<br>"
               + "<pre class=\"language-python\">\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\""
               + "</pre>",
-      parameters = {@Param(name = "self"), @Param(name = "elements", doc = "The objects to join.")},
+      parameters = {
+        @Param(name = "self"),
+        @Param(
+            name = "elements",
+            allowedTypes = {@ParamType(type = StarlarkIterable.class, generic1 = String.class)},
+            doc = "The objects to join.")
+      },
       useStarlarkThread = true)
-  public String join(String self, Object elements, StarlarkThread thread) throws EvalException {
+  public String join(String self, StarlarkIterable<?> elements, StarlarkThread thread)
+      throws EvalException {
     Iterable<?> items = Starlark.toIterable(elements);
     int i = 0;
     for (Object item : items) {
@@ -388,9 +395,8 @@ final class StringModule implements StarlarkValue {
             name = "maxsplit",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
             },
-            defaultValue = "None",
+            defaultValue = "unbound",
             doc = "The maximum number of splits.")
       },
       useStarlarkThread = true)
@@ -400,7 +406,7 @@ final class StringModule implements StarlarkValue {
       throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
+    if (maxSplitO != Starlark.UNBOUND) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     StarlarkList<String> res = StarlarkList.newList(thread.mutability());
@@ -428,11 +434,8 @@ final class StringModule implements StarlarkValue {
         @Param(name = "sep", doc = "The string to split on."),
         @Param(
             name = "maxsplit",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
+            allowedTypes = {@ParamType(type = StarlarkInt.class)},
+            defaultValue = "unbound",
             doc = "The maximum number of splits.")
       },
       useStarlarkThread = true)
@@ -442,7 +445,7 @@ final class StringModule implements StarlarkValue {
       throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
+    if (maxSplitO != Starlark.UNBOUND) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     ArrayList<String> res = new ArrayList<>();

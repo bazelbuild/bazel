@@ -247,6 +247,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def _impl(ctx):
           print('This rule does nothing')
 
@@ -256,7 +257,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         def macro(name, visibility=None):
           empty(name = name, visibility=visibility)
         def native_macro(name):
-          native.cc_library(name = name + '_suffix')
+          cc_library(name = name + '_suffix')
         """);
     scratch.file(
         "test/starlark/BUILD",
@@ -328,6 +329,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -364,6 +366,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -404,6 +407,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -434,6 +438,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl',  'my_rule')
         cc_binary(name = 'lib', data = ['a.txt'])
         my_rule(name='my', dep = ':lib')
@@ -615,6 +620,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test/starlark:extension.bzl', 'custom_rule')
 
         cc_library(name = 'lib', data = ['a.txt'])
@@ -999,6 +1005,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test/starlark:extension.bzl', 'custom_rule', 'test_rule')
 
         cc_library(name='label_dep', srcs = [':label_dep.cc'])
@@ -1264,6 +1271,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load('//test/starlark:extension.bzl', 'wrapper')
 
         cc_binary(name = 'tool', srcs = [':tool.cc'])
@@ -2754,6 +2762,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'my_analysis_test', 'parent')
         cc_library(name = 'dep')
         my_analysis_test(
@@ -3695,6 +3704,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         cc_library(name = 'r')
         """);
@@ -3711,6 +3721,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         cc_library(name = 'r')
         """);
@@ -3727,6 +3738,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         cc_library(name = 'r')
         """);
@@ -3743,6 +3755,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         cc_library(name = 'r')
         """);
@@ -3766,6 +3779,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         cc_library(name = 'r')
         """);
@@ -3786,6 +3800,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         cc_library(name = 'r')
         """);
@@ -3802,6 +3817,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         {y: 1}
         cc_library(name = 'r')
@@ -3819,6 +3835,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('//test:extension.bzl', 'y')
         {('a', (y,), True): None}
         cc_library(name = 'r')
@@ -3990,7 +4007,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   private void setUpCustomMallocRule() throws IOException {
-    scratch.overwriteFile("base/BUILD", "cc_library(name = 'system_malloc')");
+    scratch.overwriteFile(
+        "base/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'system_malloc')");
     scratch.file(
         "test/starlark/extension.bzl",
         """

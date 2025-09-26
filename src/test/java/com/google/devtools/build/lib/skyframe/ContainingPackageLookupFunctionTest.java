@@ -56,7 +56,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -116,15 +115,12 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
-    skyFunctions.put(
-        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-        new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
-        new RepositoryFetchFunction(
-            ImmutableMap::of, new AtomicBoolean(true), directories, new RepoContentsCache()));
+        new RepositoryFetchFunction(ImmutableMap::of, directories, new RepoContentsCache()));
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {
@@ -148,6 +144,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());

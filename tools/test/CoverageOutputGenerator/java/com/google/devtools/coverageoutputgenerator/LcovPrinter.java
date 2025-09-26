@@ -44,8 +44,15 @@ class LcovPrinter {
 
   static void print(OutputStream outputStream, Coverage coverage, boolean outputLegacyBranches)
       throws IOException {
+    // Emit consistent line endings across all platforms.
     try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8);
-        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter); ) {
+        BufferedWriter bufferedWriter =
+            new BufferedWriter(fileWriter) {
+              @Override
+              public void newLine() throws IOException {
+                write('\n');
+              }
+            }) {
       LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter, outputLegacyBranches);
       lcovPrinter.print(coverage);
     }
@@ -127,7 +134,7 @@ class LcovPrinter {
 
   // BRDA:<line number>,<block number>,<branch number>,<taken>
   private void printBRDALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
+    for (BranchCoverageItem branch : sourceFile.getAllBranches()) {
       bufferedWriter.write(Constants.BRDA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
@@ -146,7 +153,7 @@ class LcovPrinter {
 
   // BA:<line number>,<taken>
   private void printBALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
+    for (BranchCoverageItem branch : sourceFile.getAllBranches()) {
       bufferedWriter.write(Constants.BA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);

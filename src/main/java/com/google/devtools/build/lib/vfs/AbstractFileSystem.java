@@ -48,7 +48,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected InputStream getInputStream(PathFragment path) throws IOException {
+  public InputStream getInputStream(PathFragment path) throws IOException {
     try {
       return createMaybeProfiledInputStream(path);
     } catch (FileNotFoundException e) {
@@ -89,7 +89,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       Sets.immutableEnumSet(READ, WRITE, CREATE, TRUNCATE_EXISTING);
 
   @Override
-  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+  public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     boolean shouldProfile = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
 
     long startTime = Profiler.nanoTimeMaybe();
@@ -126,7 +126,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+  public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     try {
       return createFileOutputStream(path, append, internal);

@@ -144,6 +144,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write(
         "fruit/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "apple",
             deps = [":banana"],
@@ -187,6 +188,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write(
         "fruit/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "apple",
             deps = [":banana__hdrs__"],
@@ -267,6 +269,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             deps = [":z__hdrs__"],

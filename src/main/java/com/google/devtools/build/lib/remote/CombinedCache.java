@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxFutures;
@@ -96,20 +95,20 @@ public class CombinedCache extends AbstractReferenceCounted {
 
   @Nullable protected final RemoteCacheClient remoteCacheClient;
   @Nullable protected final DiskCacheClient diskCacheClient;
-  protected final RemoteOptions options;
+  @Nullable protected final String symlinkTemplate;
   protected final DigestUtil digestUtil;
 
   public CombinedCache(
       @Nullable RemoteCacheClient remoteCacheClient,
       @Nullable DiskCacheClient diskCacheClient,
-      RemoteOptions options,
+      @Nullable String symlinkTemplate,
       DigestUtil digestUtil) {
     checkArgument(
         remoteCacheClient != null || diskCacheClient != null,
         "remoteCacheClient and diskCacheClient cannot be null at the same time");
     this.remoteCacheClient = remoteCacheClient;
     this.diskCacheClient = diskCacheClient;
-    this.options = options;
+    this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
   }
 
@@ -607,14 +606,13 @@ public class CombinedCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
-    if (!options.remoteDownloadSymlinkTemplate.isEmpty()) {
+    if (symlinkTemplate != null) {
       // Don't actually download files from the CAS. Instead, create a
       // symbolic link that points to a location where CAS objects may
       // be found. This could, for example, be a FUSE file system.
       path.createSymbolicLink(
           path.getRelative(
-              options
-                  .remoteDownloadSymlinkTemplate
+              symlinkTemplate
                   .replace("{hash}", digest.getHash())
                   .replace("{size_bytes}", String.valueOf(digest.getSizeBytes()))));
       return COMPLETED_SUCCESS;

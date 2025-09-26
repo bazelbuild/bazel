@@ -53,24 +53,11 @@ function tear_down() {
   stop_worker
 }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 function setup_cc_tree() {
+  add_rules_cc MODULE.bazel
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":tree.bzl", "mytree")
 mytree(name = "tree")
 cc_library(name = "tree_cc", srcs = [":tree"])
@@ -130,7 +117,9 @@ function test_cc_tree_prefetching_download_minimal() {
 }
 
 function test_cc_include_scanning_and_minimal_downloads() {
+  add_rules_cc MODULE.bazel
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
 name = 'bin',
 srcs = ['bin.cc', ':header.h'],
@@ -368,7 +357,9 @@ EOF
 int main() { std::cout << "foo" << std::endl; return 0; }
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 genrule(
   name = "bar",
   srcs = ["create_bar.tmpl"],
@@ -412,7 +403,10 @@ extern int f();
 int main() { return f() == 42 ? 0 : 1; }
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
 cc_binary(
   name = "foo",
   srcs = ["foo.cc"],
@@ -438,62 +432,6 @@ EOF
     //a:foo || fail "Failed to build //a:foobar"
 
   ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
-}
-
-function setup_symlink_output() {
-  mkdir -p pkg
-
-  cat > pkg/defs.bzl <<EOF
-def _impl(ctx):
-  sym = ctx.actions.declare_symlink(ctx.label.name)
-  ctx.actions.run_shell(
-    outputs = [sym],
-    command = "ln -s {} {}".format(ctx.attr.target, sym.path),
-  )
-  return DefaultInfo(files = depset([sym]))
-
-symlink = rule(
-  implementation = _impl,
-  attrs = {
-    "target": attr.string(),
-  },
-)
-EOF
-
-  cat > pkg/BUILD <<EOF
-load(":defs.bzl", "symlink")
-symlink(
-  name = "sym",
-  target = "target.txt",
-)
-EOF
-}
-
-function test_downloads_toplevel_non_dangling_symlink_output() {
-  setup_symlink_output
-  touch pkg/target.txt
-
-  bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_toplevel \
-    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
-
-  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
-    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
-  fi
-}
-
-function test_downloads_toplevel_dangling_symlink_output() {
-  setup_symlink_output
-
-  bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
-
-  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
-    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
-  fi
 }
 
 function test_download_toplevel_tree_artifact() {
@@ -549,7 +487,9 @@ def _gentree(ctx):
 gentree = rule(implementation = _gentree)
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":gentree.bzl", "gentree")
 gentree(name = "tree")
 cc_binary(name = "main", srcs = [":tree"])
@@ -561,7 +501,7 @@ EOF
     --output_groups=compilation_outputs \
     //a:main || fail "Failed to build //a:main"
 
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     expected_object_file=bazel-bin/a/_objs/main/dir/foo.o
   else
     expected_object_file=bazel-bin/a/_pic_objs/main/dir/foo.pic.o
@@ -594,7 +534,9 @@ def _gentree(ctx):
 gentree = rule(implementation = _gentree)
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(":gentree.bzl", "gentree")
 gentree(name = "tree")
 cc_binary(name = "main", srcs = [":tree"])
@@ -612,7 +554,7 @@ EOF
     --output_groups=compilation_outputs \
     //a:main || fail "Failed to build //a:main"
 
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     expected_object_file=bazel-bin/a/_objs/main/dir/foo.o
   else
     expected_object_file=bazel-bin/a/_pic_objs/main/dir/foo.pic.o
@@ -656,8 +598,10 @@ function test_download_toplevel_test_rule() {
   # for a test or coverage command, but the test binary is only downloaded for
   # a build command.
 
+  add_rules_cc MODULE.bazel
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
   name = 'test',
@@ -683,6 +627,7 @@ EOF
   bazel coverage \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
+    --test_env=IGNORE_COVERAGE_COLLECTION_FAILURES=1 \
     //a:test >& $TEST_log || fail "Expected success"
 
   assert_exists bazel-testlogs/a/test/test.log
@@ -699,6 +644,63 @@ EOF
   assert_exists bazel-bin/a/test
 }
 
+function test_download_regex_changed_with_action_cache_hit_for_test() {
+  # Regression test for #25762
+  # Test that changes to --remote_download_regex are effective when matching
+  # test.xml even when the test is cached.
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+
+cat > "$XML_OUTPUT_FILE" <<EOF2
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="test" tests="1" failures="0" errors="0">
+    <testcase name="test_case" status="run">
+      <system-out>test_case succeeded.</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>
+EOF2
+echo "hi" > "$TEST_UNDECLARED_OUTPUTS_DIR/out.txt"
+EOF
+
+  chmod +x a/test.sh
+
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = 'test',
+  srcs = [ 'test.sh' ],
+)
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:test >& $TEST_log || fail "Expected success"
+
+  rm -rf bazel-out bazel-testlogs
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:test >& $TEST_log || fail "Expected success"
+
+  assert_not_exists bazel-testlogs/a/test/test.xml
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --remote_download_regex='.*/test.xml' \
+    //a:test >& $TEST_log || fail "Expected success"
+
+  assert_exists bazel-testlogs/a/test/test.xml
+}
+
 function do_test_non_test_toplevel_targets() {
   # Regression test for https://github.com/bazelbuild/bazel/issues/17190.
   #
@@ -708,6 +710,7 @@ function do_test_non_test_toplevel_targets() {
 
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 genrule(
   name = "foo",
   srcs = [],
@@ -732,12 +735,14 @@ EOF
 }
 
 function test_non_test_toplevel_targets_toplevel() {
+  add_rules_cc MODULE.bazel
   do_test_non_test_toplevel_targets --remote_download_toplevel
 
   [[ -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to be downloaded"
 }
 
 function test_non_test_toplevel_targets_minimal() {
+  add_rules_cc MODULE.bazel
   do_test_non_test_toplevel_targets --remote_download_minimal
 
   [[ ! -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to not be downloaded"
@@ -1827,14 +1832,16 @@ EOF
 }
 
 function test_download_top_level_remote_execution_after_local_fetches_inputs() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
     # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
     # action executors in order to select the appropriate Xcode toolchain.
     return 0
   fi
+  add_rules_cc MODULE.bazel
   mkdir a
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 genrule(name="dep", srcs=["not_used"], outs=["dep.c"], cmd="touch $@")
 cc_library(name="foo", srcs=["dep.c"])
 EOF

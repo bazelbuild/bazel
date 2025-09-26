@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -75,7 +76,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           """
           Specifies the amount of time an entry in the repo contents cache can stay unused before \
-          it's garbage collected. If set to zero, garbage collection is disabled.
+          it's garbage collected. If set to zero, only duplicate entries will be garbage collected.
           """)
   public Duration repoContentsCacheGcMaxAge;
 
@@ -103,6 +104,22 @@ public class RepositoryOptions extends OptionsBase {
               + " important: modules will be looked up in earlier registries first, and only fall"
               + " back to later registries when they're missing from the earlier ones.")
   public List<String> registries;
+
+  @Option(
+      name = "module_mirrors",
+      defaultValue = "null",
+      converter = Converters.CommaSeparatedNonEmptyOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          """
+          A comma-separated list of URLs under which the source URLs of Bazel modules can be found,
+          in addition to and taking precedence over any registry-provided mirror URLs. Set this to
+          an empty value to disable the use of any mirrors not specified by the registries. The
+          default set of mirrors may change over time, but all downloads from mirrors are verified
+          by hashes stored in the registry (and thus pinned by the lockfile).
+          """)
+  public List<String> moduleMirrors;
 
   @Option(
       name = "allow_yanked_versions",

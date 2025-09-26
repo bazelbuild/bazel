@@ -16,6 +16,7 @@
 from __future__ import print_function
 
 import os
+import shutil
 import subprocess
 import textwrap
 import unittest
@@ -50,24 +51,6 @@ class MockPythonLines(object):
       """).split("\n")
 
 
-# TODO(brandjon): Switch to shutil.which when the test is moved to PY3.
-def which(cmd):
-  """A poor man's approximation of `shutil.which()` or the `which` command.
-
-  Args:
-      cmd: The command (executable) name to lookup; should not contain path
-        separators
-
-  Returns:
-      The absolute path to the first match in PATH, or None if not found.
-  """
-  for p in os.environ["PATH"].split(os.pathsep):
-    fullpath = os.path.abspath(os.path.join(p, cmd))
-    if os.path.exists(fullpath):
-      return fullpath
-  return None
-
-
 # TODO(brandjon): Move this test to PY3. Blocked (ironically!) on the fix for
 # #4815 being available in the host version of Bazel used to run this test.
 class PywrapperTest(test_base.TestBase):
@@ -83,7 +66,7 @@ class PywrapperTest(test_base.TestBase):
 
   def setup_tool(self, cmd):
     """Copies a command from its system location to the test directory."""
-    path = which(cmd)
+    path = shutil.which(cmd)
     self.assertIsNotNone(
         path, msg="Could not locate '%s' command on PATH" % cmd)
     # On recent MacOs versions, copying the coreutils tools elsewhere doesn't

@@ -46,6 +46,7 @@ java_library(
     srcs = ["FileSystemLock.java"],
     deps = [
         ":string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
@@ -116,18 +117,29 @@ java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
-        "CommandDescriptionForm.java",
-        "CommandFailureUtils.java",
         "CommandUtils.java",
     ],
     deps = [
-        ":describable_execution_unit",
+        ":command_failure_utils",
         ":os",
-        ":script_util",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "command_failure_utils",
+    srcs = [
+        "CommandDescriptionForm.java",
+        "CommandFailureUtils.java",
+    ],
+    deps = [
+        ":describable_execution_unit",
+        ":script_util",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -254,8 +266,9 @@ java_library(
         ":os",
         ":shell_escaper",
         ":string_encoding",
+        ":thread_dump_analyzer",
+        ":thread_dumper",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -300,11 +313,11 @@ java_library(
         "FileTypeSet.java",
     ],
     deps = [
+        ":os",
         ":string",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -467,6 +480,17 @@ java_library(
     name = "blocker",
     srcs = ["Blocker.java"],
     add_exports = ["java.base/jdk.internal.misc"],
+)
+
+java_library(
+    name = "thread_dumper",
+    srcs = ["ThreadDumper.java"],
+    add_exports = ["java.base/jdk.internal.vm"],
+)
+
+java_library(
+    name = "thread_dump_analyzer",
+    srcs = ["ThreadDumpAnalyzer.java"],
 )
 
 java_library(

@@ -41,15 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
 JAVA_TOOLCHAIN_TYPE="@bazel_tools//tools/jdk:toolchain_type"
@@ -1610,7 +1601,7 @@ EOF
 
 
 function test_current_host_java_runtime_runfiles() {
-  if "$is_windows"; then
+  if is_windows; then
     echo "Skipping test on Windows" && return
   fi
   add_rules_shell "MODULE.bazel"
@@ -1722,14 +1713,17 @@ EOF
 
 function test_jni() {
   # Skip on MS Windows, as Bazel does not create a runfiles symlink tree.
-  # (MSYS_NT is the system name reported by MinGW uname.)
   # TODO(adonovan): make this work.
-  uname -s | grep -q MSYS_NT && return
+  if is_windows; then
+    return
+  fi
 
   # Skip on Darwin, as System.loadLibrary looks for a file named
   # .dylib, not .so, and that's not what the file is called.
   # TODO(adonovan): make this just work.
-  uname -s | grep -q Darwin && return
+  if is_darwin; then
+    return
+  fi
 
   setup_jni_targets ""
 
@@ -1741,10 +1735,10 @@ function test_jni() {
 }
 
 function test_jni_external_repo_runfiles() {
-  # Skip on MS Windows, see details in test_jni
-  uname -s | grep -q MSYS_NT && return
-  # Skip on Darwin, see details in test_jni
-  uname -s | grep -q Darwin && return
+  # Skip on Windows and MacOS. See details in test_jni.
+  if (is_windows || is_darwin); then
+    return
+  fi
 
   setup_jni_targets "my_other_repo"
 
@@ -2077,7 +2071,7 @@ function test_header_compiler_direct_supports_unicode() {
   # to UTF-8 so that Graal picks up the correct sun.jnu.encoding value *and*
   # have an app manifest patched in to set the system code page to UTF-8 at
   # runtime.
-  if [[ "$(uname -s)" == "Linux" ]]; then
+  if is_linux; then
     export LC_ALL=C.UTF-8
     if [[ $(locale charmap) != "UTF-8" ]]; then
       echo "Skipping test due to missing UTF-8 locale"
@@ -2132,7 +2126,7 @@ EOF
 }
 
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
-  if [[ "$is_windows" ]]; then
+  if is_windows; then
     # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
     # workers incompatible with the reduced classpath heuristic on Windows.
     add_to_bazelrc "common --experimental_java_classpath=off"
@@ -2170,7 +2164,7 @@ EOF
 }
 
 function test_sandboxed_multiplexing_full_classpath_fallback() {
-  if [[ "$is_windows" ]]; then
+  if is_windows; then
     # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
     # workers incompatible with the reduced classpath heuristic on Windows.
     add_to_bazelrc "common --experimental_java_classpath=off"

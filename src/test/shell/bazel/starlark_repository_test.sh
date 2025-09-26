@@ -41,24 +41,9 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if $is_windows; then
+if is_windows; then
   export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
+elif is_linux; then
   export LC_ALL=C.UTF-8
 else
   export LC_ALL=en_US.UTF-8
@@ -312,7 +297,7 @@ repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
-  if "$is_windows"; then
+  if is_windows; then
     repo2="$(cygpath $repo2)"
   fi
   expect_log "PWD=$repo2 TOTO=titi"
@@ -321,7 +306,7 @@ EOF
 function test_starlark_repository_unicode() {
   setup_starlark_repository
 
-  if "$is_windows"; then
+  if is_windows; then
     # äöüÄÖÜß in UTF-8
     local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
   else
@@ -976,7 +961,7 @@ EOF
 }
 
 function test_starlark_repository_executable_flag() {
-  if "$is_windows"; then
+  if is_windows; then
     # There is no executable flag on Windows.
     echo "Skipping test_starlark_repository_executable_flag on Windows"
     return
@@ -1048,7 +1033,7 @@ EOF
     || fail "download_executable_file.sh is not downloaded successfully"
 
   # No executable flag for file on Windows
-  if "$is_windows"; then
+  if is_windows;then
     return
   fi
 
@@ -1084,7 +1069,7 @@ function test_starlark_repository_context_downloads_return_struct() {
 
   # On Windows, a file url should be file:///C:/foo/bar,
   # we need to add one more slash at the beginning.
-  if "$is_windows"; then
+  if is_windows; then
     server_dir="/${server_dir}"
   fi
 
@@ -1352,59 +1337,78 @@ maybe_with_auth(
 )
 EOF
 
-  cat > BUILD <<'EOF'
-genrule(
-  name = "it",
-  srcs = ["@ext//x:file.txt"],
-  outs = ["it.txt"],
-  cmd = "cp $< $@",
-)
-EOF
+  touch BUILD
 }
 
 function test_auth_from_starlark() {
   setup_auth foo bar
 
-  bazel build //:it \
-      || fail "Expected success when downloading repo with basic auth"
+  bazel fetch --force @ext//... \
+      || fail "Expected success when fetching repo with basic auth"
 }
 
 function test_auth_from_credential_helper() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
-  setup_auth # no auth
+  setup_auth # no auth headers in bzl
 
-  bazel build //:it \
-      && fail "Expected failure when downloading repo without credential helper"
+  bazel fetch --force @ext//... \
+      && fail "Expected failure when fetching repo without credential helper"
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
 
   expect_credential_helper_calls 1
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
 
   expect_credential_helper_calls 1 # expect credentials to have been cached
 }
 
-function test_auth_from_credential_helper_overrides_starlark() {
-  if "$is_windows"; then
+function test_auth_from_credential_helper_with_expiry() {
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 0 # expire credentials immediately
+
+  setup_auth # no auth headers in bzl
+
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
+
+  expect_credential_helper_calls 1
+
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper"
+
+  expect_credential_helper_calls 2 # expect credentials to have been re-fetched
+}
+
+function test_auth_from_credential_helper_overrides_starlark() {
+  if is_windows; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper 3600
 
   setup_auth baduser badpass
 
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
-      || fail "Expected success when downloading repo with credential helper overriding basic auth"
+  bazel fetch --force \
+      --credential_helper=127.0.0.1="${TEST_TMPDIR}/credhelper" @ext//... \
+      || fail "Expected success when fetching repo with credential helper overriding basic auth"
 }
 
 function test_netrc_reading() {
@@ -1437,7 +1441,7 @@ netrcrepo = repository_rule(
 EOF
 
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
@@ -1542,7 +1546,7 @@ authrepo = repository_rule(
 EOF
 
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
@@ -1682,7 +1686,7 @@ function test_http_archive_netrc() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1719,7 +1723,7 @@ function test_http_archive_auth_patterns() {
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
   netrc_dir="$(pwd)"
-  if "$is_windows"; then
+  if is_windows; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
   cat > $(setup_module_dot_bazel) <<EOF
@@ -1759,7 +1763,7 @@ function test_http_archive_implicit_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
-  if "$is_windows"; then
+  if is_windows; then
     export USERPROFILE="$(cygpath -m ${HOME})"
   fi
   cat > .netrc <<'EOF'
@@ -1791,12 +1795,12 @@ EOF
 }
 
 function test_http_archive_credential_helper() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -1825,12 +1829,12 @@ EOF
 }
 
 function test_http_archive_credential_helper_overrides_netrc() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -1840,7 +1844,7 @@ function test_http_archive_credential_helper_overrides_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
-  if "$is_windows"; then
+  if is_windows; then
     export USERPROFILE="$(cygpath -m ${HOME})"
   fi
   cat > .netrc <<'EOF'
@@ -1947,12 +1951,12 @@ EOF
 
 
 function test_cred_helper_overrides_starlark_headers() {
-  if "$is_windows"; then
+  if is_windows; then
     # Skip on Windows: credential helper is a Python script.
     return
   fi
 
-  setup_credential_helper
+  setup_credential_helper 3600
 
   filename="cred_helper_starlark.txt"
   echo $filename > $filename
@@ -2618,7 +2622,7 @@ EOF
 }
 
 function test_watch_file_status_change_dangling_symlink() {
-  if "$is_windows"; then
+  if is_windows; then
     # symlinks on Windows... annoying
     return
   fi
@@ -2660,7 +2664,7 @@ EOF
 }
 
 function test_watch_file_status_change_symlink_parent() {
-  if "$is_windows"; then
+  if is_windows; then
     # symlinks on Windows... annoying
     return
   fi
@@ -2855,7 +2859,7 @@ EOF
 
 function test_keep_going_weird_deadlock() {
   # regression test for b/330892334
-  if "$is_windows"; then
+  if is_windows; then
     # no symlinks on windows
     return
   fi
@@ -3067,6 +3071,84 @@ EOF
   expect_log 'result_err.output: "err"'
   expect_log 'result_err.return_code: 1'
   expect_log 'result_err.error_message: ""'
+}
+
+function test_resolved_attributes_shows_no_message_if_unchanged() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+  attr3 = "//:default",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "attr1": repository_ctx.attr.attr1,
+    "attr2": repository_ctx.attr.attr2,
+    "attr5": "",
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs={
+    # Consistently changed from default.
+    "attr1": attr.string(default = "default1"),
+    # Unchanged from default.
+    "attr2": attr.string(),
+    # Explicitly set to default in rule attributes, not contained in returned dict.
+    "attr3": attr.label(default = "//:default"),
+    # Not set or included in the returned dict.
+    "attr4": attr.label(),
+    # Not set in rule attributes, but returned as default in the dict.
+    "attr5": attr.string(),
+    "_implicit": attr.string(default = "hi"),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "indicated that a canonical reproducible form can be obtained"
+  expect_not_log "modifying"
+  expect_not_log "dropping"
+}
+
+function test_resolved_attributes_shows_message_if_changed() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+repo = use_repo_rule("//:repo.bzl", "repo")
+repo(
+  name = "repo",
+  attr1 = "value1",
+  attr2 = "value2",
+  attr3 = "value3",
+)
+EOF
+  touch BUILD
+  cat >repo.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='r')")
+  return {
+    "name": repository_ctx.attr.name,
+    "attr1": "default2",
+    "attr2": "default2",
+  }
+
+repo = repository_rule(
+  implementation = _impl,
+  attrs = {
+    "attr1": attr.string(default = "default1"),
+    "attr2": attr.string(default = "default2"),
+    "attr3": attr.string(default = "default3"),
+  },
+)
+EOF
+
+  bazel build @repo//:r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "indicated that a canonical reproducible form can be obtained"
+  expect_log "by modifying arguments attr1 = \"default2\" and dropping \[attr2, attr3\]"
 }
 
 run_suite "local repository tests"

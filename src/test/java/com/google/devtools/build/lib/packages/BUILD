@@ -65,6 +65,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -145,6 +146,8 @@ java_library(
         "//tools/build_defs/cc:action_names.bzl",
         "//tools/python:srcs",  # For BazelMockPythonSupport
         "@rules_cc//cc:srcs",
+        "@rules_cc//cc/common:srcs",
+        "@rules_cc//cc/toolchains:srcs",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",

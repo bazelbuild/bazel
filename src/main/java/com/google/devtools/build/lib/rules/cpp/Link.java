@@ -68,10 +68,6 @@ public abstract class Link {
           CppFileTypes.RUST_RLIB,
           FileType.NO_EXTENSION);
 
-  public static final FileTypeSet LINK_LIBRARY_FILETYPES = FileTypeSet.of(
-      CppFileTypes.ALWAYS_LINK_LIBRARY,
-      CppFileTypes.ALWAYS_LINK_PIC_LIBRARY);
-
   /** The set of object files */
   public static final FileTypeSet OBJECT_FILETYPES =
       FileTypeSet.of(
@@ -257,19 +253,6 @@ public abstract class Link {
 
   /** The degree of "staticness" of symbol resolution during linking. */
   public enum LinkingMode {
-    /**
-     * Same as {@link STATIC}, but for shared libraries. Will be removed soon. This was added in
-     * times when we couldn't control linking mode flags for transitive shared libraries. Now we
-     * can, so this is obsolete.
-     */
-    LEGACY_MOSTLY_STATIC_LIBRARIES,
-    /**
-     * Everything is linked statically; e.g. {@code gcc -static x.o libfoo.a libbar.a -lm}.
-     * Specified by {@code -static} in linkopts. Will be removed soon. This was added in times when
-     * features were not expressive enough to specify different flags for {@link STATIC} and for
-     * fully static links. This is now obsolete.
-     */
-    LEGACY_FULLY_STATIC,
     /**
      * Link binaries statically except for system libraries (e.g. {@code gcc x.o libfoo.a libbar.a
      * -lm}).

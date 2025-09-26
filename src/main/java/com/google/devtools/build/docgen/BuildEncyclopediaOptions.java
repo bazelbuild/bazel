@@ -16,24 +16,10 @@ package com.google.devtools.build.docgen;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 
-/**
- * Command line options for the Build Encyclopedia docgen.
- */
-public class BuildEncyclopediaOptions extends OptionsBase {
-  @Option(
-      name = "link_map_path",
-      abbrev = 'm',
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Path to a JSON file that specifies link mappings (page name to URL and input file/label"
-              + " to source code repository URL).")
-  public String linkMapPath;
-
+/** Command line options for the Build Encyclopedia docgen. */
+public class BuildEncyclopediaOptions extends CommonOptions {
   @Option(
       name = "input_dir",
       abbrev = 'i',
@@ -56,16 +42,17 @@ public class BuildEncyclopediaOptions extends OptionsBase {
   public String inputRoot;
 
   @Option(
-      name = "input_stardoc_proto",
+      name = "be_stardoc_proto",
+      oldName = "input_stardoc_proto",
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A stardoc_output.ModuleInfo binary proto file generated from a Build Encyclopedia entry"
-              + " point .bzl file; documentation from input_stardoc_proto takes precedence over"
+              + " point .bzl file; documentation from rule_stardoc_proto takes precedence over"
               + " documentation from input_dir")
-  public List<String> inputStardocProtos;
+  public List<String> buildEncyclopediaStardocProtos;
 
   @Option(
     name = "provider",
@@ -107,33 +94,13 @@ public class BuildEncyclopediaOptions extends OptionsBase {
   public String denylist;
 
   @Option(
-    name = "single_page",
-    abbrev = '1',
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to generate the BE as a single HTML page or one page per rule family."
-  )
-  public boolean singlePage;
-
-  @Option(
-    name = "help",
-    abbrev = 'h',
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Prints the help string."
-  )
-  public boolean help;
-
-  @Option(
-      name = "create_toc",
-      abbrev = 't',
+      name = "single_page",
+      abbrev = '1',
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Whether a table-of-contents file should be created. Mutually exclusive with"
-              + " --single_page.")
-  public boolean createToc;
+          "Whether to generate the BE as a single HTML page or one page per rule family. Mutually"
+              + " exclusive with --create_toc.")
+  public boolean singlePage;
 }

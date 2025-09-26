@@ -17,15 +17,12 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Null-object like {@link CppSemantics} implementation. Only to be used in tests that don't depend
@@ -77,13 +74,4 @@ public final class MockCppSemantics implements CppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
-
-  @Override
-  public void validateStarlarkCompileApiCall(
-      StarlarkActionFactory actionFactory,
-      StarlarkThread thread,
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots,
-      int stackDepth) {}
 }

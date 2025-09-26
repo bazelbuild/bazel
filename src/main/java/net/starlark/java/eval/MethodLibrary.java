@@ -213,8 +213,8 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
               + "all([-1, 0, 1]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean all(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean all(StarlarkIterable<Object> collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
 
@@ -225,14 +225,14 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
               + "any([False, 0, \"\"]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean any(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean any(StarlarkIterable<Object> collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
   }
 
-  private static boolean hasElementWithBooleanValue(Object seq, boolean value)
+  private static boolean hasElementWithBooleanValue(StarlarkIterable<Object> seq, boolean value)
       throws EvalException {
-    for (Object x : Starlark.toIterable(seq)) {
+    for (Object x : seq) {
       if (Starlark.truth(x) == value) {
         return true;
       }
@@ -405,7 +405,15 @@ class MethodLibrary {
       doc =
           "Returns the length of a string, sequence (such as a list or tuple), dict, set, or other"
               + " iterable.",
-      parameters = {@Param(name = "x", doc = "The value whose length to report.")},
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The value whose length to report.",
+            allowedTypes = {
+              @ParamType(type = StarlarkIterable.class, generic1 = Object.class),
+              @ParamType(type = String.class)
+            })
+      },
       useStarlarkThread = true)
   public int len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
@@ -673,13 +681,11 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
 </pre>
 """,
       parameters = {
-        @Param(
-            name = "elements",
-            defaultValue = "[]",
-            doc = "A set, a sequence of hashable values, or a dict."),
+        @Param(name = "elements", defaultValue = "[]", doc = "An iterable of hashable values."),
       },
       useStarlarkThread = true)
-  public StarlarkSet<Object> set(Object elements, StarlarkThread thread) throws EvalException {
+  public StarlarkSet<Object> set(StarlarkIterable<?> elements, StarlarkThread thread)
+      throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols, so enforce it here instead.
     if (!thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
@@ -742,12 +748,11 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
-            name = "stop_or_none",
+            name = "stop",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
             },
-            defaultValue = "None",
+            defaultValue = "unbound",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
                     + "list; generation of the list stops before <code>stop</code> is reached."),
@@ -758,16 +763,16 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       },
       useStarlarkThread = true)
   public Sequence<StarlarkInt> range(
-      StarlarkInt startOrStop, Object stopOrNone, StarlarkInt stepI, StarlarkThread thread)
+      StarlarkInt startOrStop, Object stopOrUnbound, StarlarkInt stepI, StarlarkThread thread)
       throws EvalException {
     int start;
     int stop;
-    if (stopOrNone == Starlark.NONE) {
+    if (stopOrUnbound == Starlark.UNBOUND) {
       start = 0;
       stop = startOrStop.toInt("stop");
     } else {
       start = startOrStop.toInt("start");
-      stop = Starlark.toInt(stopOrNone, "stop");
+      stop = Starlark.toInt(stopOrUnbound, "stop");
     }
     int step = stepI.toInt("step");
     if (step == 0) {
@@ -829,7 +834,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
               + "methods of the parameter object.",
       parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
-  public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
+  public StarlarkList<String> dir(Object object, StarlarkThread thread) throws EvalException {
     return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
   }
 

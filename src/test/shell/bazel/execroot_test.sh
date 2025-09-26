@@ -71,6 +71,7 @@ EOF
 
 # Regression test for b/149771751
 function test_sibling_repository_layout_indirect_dependency() {
+    add_rules_cc MODULE.bazel
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -82,6 +83,7 @@ filegroup(
 )
 EOF
     cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # cc_library depends on //external:cc_toolchain
 cc_library(
   name = "srcs",
@@ -94,6 +96,7 @@ EOF
 
 # Regression test for b/149771751
 function test_subdirectory_repository_layout_indirect_dependency() {
+    add_rules_cc MODULE.bazel
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -105,6 +108,7 @@ filegroup(
 )
 EOF
     cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # cc_library depends on //external:cc_toolchain
 cc_library(
   name = "srcs",
@@ -161,8 +165,10 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name='a', srcs=['a.cc'])
 EOF
 

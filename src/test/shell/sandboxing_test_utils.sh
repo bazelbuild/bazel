@@ -16,16 +16,8 @@
 #
 
 function check_sandbox_allowed {
-  case "$(uname -s)" in
-    Linux)
-      if ! $linux_sandbox -- /bin/true; then
-        echo "Skipping test: Sandboxing disabled or not supported" 2>&1
-        return 1
-      fi
-      ;;
-
-    *)
-      return 0
-      ;;
-  esac
+  if (is_linux && ! $linux_sandbox -- /bin/true); then
+    echo "Skipping test: Sandboxing disabled or not supported" 2>&1
+    return 1
+  fi
 }

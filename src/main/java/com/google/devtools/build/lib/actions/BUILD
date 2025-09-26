@@ -106,6 +106,7 @@ java_library(
         "OutputChecker.java",
         "ParamFileInfo.java",
         "ParameterFile.java",
+        "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
         "RunfilesTreeAction.java",
@@ -179,7 +180,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
         "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
@@ -429,11 +430,11 @@ java_library(
     deps = [
         ":artifacts",
         ":has_digest",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_path_codec_dependencies",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -573,4 +574,9 @@ java_library(
 java_library(
     name = "total_and_configured_target_only_metric",
     srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
+)
+
+java_library(
+    name = "action_execution_inactivity_event",
+    srcs = ["ActionExecutionInactivityEvent.java"],
 )

@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
@@ -122,8 +123,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     return !successful;
   }
 
-  public ImmutableMap<RepoRecordedInput.DirTree, String> getRecordedDirTreeInputs() {
-    return ImmutableMap.copyOf(recordedDirTreeInputs);
+  public ImmutableSortedMap<RepoRecordedInput.DirTree, String> getRecordedDirTreeInputs() {
+    return ImmutableSortedMap.copyOf(recordedDirTreeInputs);
   }
 
   @StarlarkMethod(
@@ -626,7 +627,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           "attrs_for_reproducibility can only be specified if reproducible is False");
     }
     return new RepoMetadata(
-        reproducible ? RepoMetadata.Reproducibility.YES : RepoMetadata.Reproducibility.NO, attrs);
+        reproducible ? RepoMetadata.Reproducibility.YES : RepoMetadata.Reproducibility.NO,
+        Dict.cast(attrs, String.class, Object.class, "attrs_for_reproducibility"));
   }
 
   @Override

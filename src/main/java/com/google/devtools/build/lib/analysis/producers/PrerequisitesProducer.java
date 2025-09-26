@@ -92,6 +92,9 @@ final class PrerequisitesProducer
   // -------------------- Output --------------------
   private final ResultSink sink;
 
+  // -------------------- Sequencing --------------------
+  private final StateMachine next;
+
   // -------------------- Internal State --------------------
   private ConfiguredTargetAndData[] configuredTargets;
   private ImmutableList<Aspect> execAspects = ImmutableList.of();
@@ -104,7 +107,8 @@ final class PrerequisitesProducer
       AttributeConfiguration configuration,
       ImmutableList<Aspect> propagatingAspects,
       ResultSink sink,
-      boolean useBaseTargetPrerequisitesSupplier) {
+      boolean useBaseTargetPrerequisitesSupplier,
+      StateMachine next) {
     this.parameters = parameters;
     this.label = label;
     this.executionPlatformLabel = executionPlatformLabel;
@@ -112,6 +116,7 @@ final class PrerequisitesProducer
     this.propagatingAspects = propagatingAspects;
     this.sink = sink;
     this.useBaseTargetPrerequisitesSupplier = useBaseTargetPrerequisitesSupplier;
+    this.next = next;
 
     // size > 0 guaranteed by contract of SplitTransition.
     int size = configuration.count();
@@ -262,7 +267,7 @@ final class PrerequisitesProducer
 
     if (aspects.isEmpty()) { // Short circuits if there are no aspects.
       sink.acceptPrerequisitesValue(configuredTargets);
-      return DONE;
+      return next;
     }
 
     for (int i = 0; i < configuredTargets.length; ++i) {
@@ -336,8 +341,10 @@ final class PrerequisitesProducer
   private StateMachine emitMergedTargets(Tasks tasks) {
     if (!hasError) {
       sink.acceptPrerequisitesValue(configuredTargets);
+      return next;
+    } else {
+      return DONE;
     }
-    return DONE;
   }
 
   private ConfiguredTargetKey getPrerequisiteKey(@Nullable BuildConfigurationKey configurationKey) {

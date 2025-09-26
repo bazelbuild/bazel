@@ -30,6 +30,16 @@ public enum TokenKind {
   CONTINUE("continue"),
   DEF("def"),
   DEL("del"),
+  /**
+   * A multiline block of Sphinx autodoc-style doc comments. Implicitly includes terminating
+   * newline.
+   */
+  DOC_COMMENT_BLOCK("#:"),
+  /**
+   * Inline trailing doc comment which was preceded by non-whitespace tokens on the same line.
+   * Doesn't include terminating newline.
+   */
+  DOC_COMMENT_TRAILING("trailing #: "),
   DOT("."),
   ELIF("elif"),
   ELSE("else"),

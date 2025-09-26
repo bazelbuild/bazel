@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
  * slashes ('/') even on Windows, so backslashes '\' get converted to forward slashes during
  * normalization.
  *
- * <p>Mac and Windows file paths are case insensitive. Case is preserved.
+ * <p>All paths are case-sensitive.
  */
 @ThreadSafe
 @AutoCodec
@@ -179,6 +179,18 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
+   * Returns whether another path is an ancestor of this path, ignoring case.
+   *
+   * <p>A path is considered an ancestor of itself.
+   */
+  public boolean startsWithIgnoringCase(Path other) {
+    if (fileSystem != other.fileSystem) {
+      return false;
+    }
+    return pathFragment.startsWithIgnoringCase(other.pathFragment);
+  }
+
+  /**
    * Returns whether another path is an ancestor of this path.
    *
    * <p>A path is considered an ancestor of itself.
@@ -216,7 +228,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   @Override
   public int hashCode() {
     // Do not include file system for efficiency.
-    // In practice we never construct paths from different file systems.
+    // In practice, we don't expect paths on different file systems to be contained in the same
+    // collection.
     return pathFragment.hashCode();
   }
 
@@ -234,6 +247,24 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
       }
     }
     return pathFragment.compareTo(o.pathFragment);
+  }
+
+  /**
+   * Returns the same path on the file system that the current file system is based on, if any.
+   * Otherwise, returns the current path unchanged.
+   *
+   * <p>For an action file system, this should return the on-disk component (or the result of
+   * getHostFileSystem() on that component if it is itself a composite file system).
+   *
+   * <p>Note that the returned path may still reference an in-memory file system (in tests, for
+   * example), but should be treated as being on the "native" file system for the host machine.
+   */
+  public Path forHostFileSystem() {
+    var hostFs = fileSystem.getHostFileSystem();
+    if (hostFs.equals(fileSystem)) {
+      return this;
+    }
+    return Path.create(asFragment(), hostFs);
   }
 
   /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
@@ -494,11 +525,43 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * referent of the created symlink is is the absolute path "target"; it is not possible to create
    * relative symbolic links via this method.
    *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(Path target, SymlinkTargetType type) throws IOException {
+    checkSameFileSystem(target);
+    fileSystem.createSymbolicLink(asFragment(), target.asFragment(), type);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the absolute path "target"; it is not possible to create
+   * relative symbolic links via this method.
+   *
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(Path target) throws IOException {
-    checkSameFileSystem(target);
-    fileSystem.createSymbolicLink(asFragment(), target.asFragment());
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is is the path fragment "target", which may be absolute or
+   * relative.
+   *
+   * <p>The {@code type} argument denotes the file type of the target, if known. Some filesystems
+   * require this information to correctly create a symlink. This argument may be ignored if the
+   * target can be observed to exist and is of a different type.
+   *
+   * @param type the target file type
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(PathFragment target, SymlinkTargetType type) throws IOException {
+    fileSystem.createSymbolicLink(asFragment(), target, type);
   }
 
   /**
@@ -509,7 +572,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(PathFragment target) throws IOException {
-    fileSystem.createSymbolicLink(asFragment(), target);
+    createSymbolicLink(target, SymlinkTargetType.UNSPECIFIED);
   }
 
   /**

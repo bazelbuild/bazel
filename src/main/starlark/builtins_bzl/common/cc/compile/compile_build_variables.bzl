@@ -15,11 +15,16 @@
 All build variables we create for various `CppCompileAction`s
 """
 
+load(":common/cc/cc_helper_internal.bzl", "extensions", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
+
 _cc_internal = _builtins.internal.cc_internal
+cc_common_internal = _builtins.internal.cc_common
 
 # deliberately short name for less clutter while using in this file, we can have
 # a different symbol with a more descriptive name if we ever export this
 _VARS = struct(
+    # Variable for the collection of framework include paths.
+    FRAMEWORK_PATHS = "framework_include_paths",
     # Variable for the path to the source file being compiled.
     SOURCE_FILE = "source_file",
     # Variable for all flags coming from copt rule attribute, and from --copt,
@@ -33,10 +38,22 @@ _VARS = struct(
     SERIALIZED_DIAGNOSTICS_FILE = "serialized_diagnostics_file",
     # Variable for the module file name.
     MODULE_NAME = "module_name",
+    # Variable for the collection of include paths.
+    INCLUDE_PATHS = "include_paths",
+    # Variable for the collection of quote include paths.
+    QUOTE_INCLUDE_PATHS = "quote_include_paths",
+    # Variable for the collection of system include paths.
+    SYSTEM_INCLUDE_PATHS = "system_include_paths",
+    # Variable for the collection of external include paths.
+    EXTERNAL_INCLUDE_PATHS = "external_include_paths",
     # Variable for the module map file name.
     MODULE_MAP_FILE = "module_map_file",
     # Variable for the dependent module map file name.
     DEPENDENT_MODULE_MAP_FILES = "dependent_module_map_files",
+    # Variable for the collection of module files.
+    MODULE_FILES = "module_files",
+    # Variable for the collection of macros defined for preprocessor. */
+    PREPROCESSOR_DEFINES = "preprocessor_defines",
     # Variable for the gcov coverage file path.
     GCOV_GCNO_FILE = "gcov_gcno_file",
     # Variable for the minimized LTO indexing bitcode file, used by the LTO
@@ -57,7 +74,204 @@ _VARS = struct(
     PER_OBJECT_DEBUG_INFO_FILE = "per_object_debug_info_file",
     # Variable present when the output is compiled as position independent.
     PIC = "pic",
+    # Variable marking memprof profile is being used
+    IS_USING_MEMPROF = "is_using_memprof",
+    # Variable for includes that compiler needs to include into sources.
+    INCLUDES = "includes",
 )
+
+_UnboundValueProviderDoNotUse = provider("This provider is used as an unique symbol to distinguish between bound and unbound Starlark values, to avoid using kwargs.", fields = [])
+_UNBOUND = _UnboundValueProviderDoNotUse()
+
+# IMPORTANT: This function is public API exposed on cc_common module!
+def create_compile_variables(
+        *,
+        cc_toolchain,
+        feature_configuration,
+        source_file = None,
+        output_file = None,
+        user_compile_flags = None,
+        includes = None,
+        include_directories = None,
+        quote_include_directories = None,
+        system_include_directories = None,
+        framework_include_directories = None,
+        preprocessor_defines = None,
+        thinlto_index = None,
+        thinlto_input_bitcode_file = None,
+        thinlto_output_object_file = None,
+        use_pic = False,
+        # TODO(b/65151735): Remove once we migrate crosstools to features
+        add_legacy_cxx_options = False,  # unused
+        variables_extension = {},
+        strip_opts = _UNBOUND,
+        input_file = _UNBOUND):
+    """Returns variables used for compilation actions.
+
+    Args:
+        cc_toolchain: cc_toolchain for which we are creating build variables.
+        feature_configuration: Feature configuration to be queried.
+        source_file: Optional source file path for the compilation. Please prefer passing source_file
+            here over appending it to the end of the command line generated from
+            cc_common.get_memory_inefficient_command_line, as then it's in the power of
+            the toolchain author to properly specify and position compiler flags.
+        output_file: Optional output file path of the compilation. Please prefer passing output_file
+            here over appending it to the end of the command line generated from
+            cc_common.get_memory_inefficient_command_line, as then it's in the power of
+            the toolchain author to properly specify and position compiler flags.
+        includes: paths to headers that should be included using -include
+        user_compile_flags: List of additional compilation flags (copts).
+        include_directories: Depset of include directories.
+        quote_include_directories: Depset of quote include directories.
+        system_include_directories: Depset of system include directories.
+        framework_include_directories: Depset of framework include directories.
+        preprocessor_defines: Depset of preprocessor defines.
+        thinlto_index: LTO index file path.
+        thinlto_input_bitcode_file: Bitcode file that is input to LTO backend.
+        thinlto_output_object_file: Object file that is output by LTO backend.
+        use_pic: When true the compilation will generate position independent code.
+        add_legacy_cxx_options: Unused.
+        variables_extension: A dictionary of additional variables used by compile actions.
+        strip_opts: (Private API)
+        input_file: (Private API)
+
+    Returns:
+      (CcToolchainVariables) common compile build variables
+    """
+    if strip_opts != _UNBOUND or input_file != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    if strip_opts == _UNBOUND:
+        strip_opts = []
+    if input_file == _UNBOUND:
+        input_file = None
+    if (use_pic and not feature_configuration.is_enabled("pic") and not feature_configuration.is_enabled("supports_pic")):
+        fail("PIC compilation is requested but the toolchain does not support it " +
+             "(feature named 'supports_pic' is not enabled)")
+
+    cpp_configuration = cc_toolchain._cpp_configuration
+    fdo_context = cc_toolchain._fdo_context
+
+    common_vars = _setup_common_compile_build_variables_internal(
+        feature_configuration = feature_configuration,
+        is_using_memprof = getattr(fdo_context, "memprof_profile_artifact", None) != None,
+        fdo_build_stamp = _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration),
+        variables_extension = variables_extension,
+        includes = includes or [],
+        include_dirs = include_directories or depset(),
+        quote_include_dirs = quote_include_directories or depset(),
+        system_include_dirs = system_include_directories or depset(),
+        framework_include_dirs = framework_include_directories or depset(),
+        defines = preprocessor_defines or depset(),
+    )
+
+    additional_build_variables = {}
+    additional_build_variables["stripopts"] = strip_opts
+    if input_file:
+        additional_build_variables["input_file"] = input_file
+
+    variables = get_specific_compile_build_variables(
+        feature_configuration,
+        use_pic = use_pic,
+        source_file = source_file,
+        output_file = output_file,
+        thinlto_index = thinlto_index,
+        thinlto_bitcode_file = thinlto_input_bitcode_file,
+        thinlto_output_object_file = thinlto_output_object_file,
+        additional_build_variables = additional_build_variables,
+        user_compile_flags = user_compile_flags or [],
+    )
+    return _cc_internal.combine_cc_toolchain_variables(cc_toolchain._build_variables, common_vars, variables)
+
+# buildifier: disable=function-docstring
+def setup_common_compile_build_variables(
+        *,
+        cc_compilation_context,
+        cc_toolchain,
+        cpp_configuration,
+        fdo_context,
+        feature_configuration,
+        variables_extension):
+    common_vars = _setup_common_compile_build_variables_internal(
+        feature_configuration = feature_configuration,
+        is_using_memprof = getattr(fdo_context, "memprof_profile_artifact", None) != None,
+        fdo_build_stamp = _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration),
+        variables_extension = variables_extension,
+        include_dirs = cc_compilation_context.includes,
+        quote_include_dirs = cc_compilation_context.quote_includes,
+        system_include_dirs = cc_compilation_context.system_includes,
+        framework_include_dirs = cc_compilation_context.framework_includes,
+        defines = cc_compilation_context.defines,
+        local_defines = cc_compilation_context.local_defines,
+        external_include_dirs = cc_compilation_context.external_includes,
+    )
+    return _cc_internal.combine_cc_toolchain_variables(cc_toolchain._build_variables, common_vars)
+
+def _setup_common_compile_build_variables_internal(
+        *,
+        feature_configuration,
+        fdo_build_stamp,  # str
+        is_using_memprof,  # bool
+        includes = [],  # [str]
+        variables_extension = [],  # [dict{str,object}]
+        additional_build_variables = {},  # dict{str,str}
+        include_dirs = depset(),
+        quote_include_dirs = depset(),
+        system_include_dirs = depset(),
+        framework_include_dirs = depset(),
+        defines = depset(),
+        local_defines = depset(),
+        external_include_dirs = depset()):
+    result = {}
+
+    if feature_configuration.is_enabled("use_header_modules"):
+        result[_VARS.MODULE_FILES] = []
+    result[_VARS.INCLUDE_PATHS] = include_dirs
+    result[_VARS.QUOTE_INCLUDE_PATHS] = quote_include_dirs
+    result[_VARS.SYSTEM_INCLUDE_PATHS] = system_include_dirs
+    if includes:
+        result[_VARS.INCLUDES] = _cc_internal.intern_string_sequence_variable_value(includes)
+    result[_VARS.FRAMEWORK_PATHS] = framework_include_dirs
+
+    if is_using_memprof:
+        result[_VARS.IS_USING_MEMPROF] = "1"
+
+    # Stamp FDO builds with FDO subtype string
+    all_defines = defines.to_list() + local_defines.to_list() + (
+        ["BUILD_FDO_TYPE=\"" + fdo_build_stamp + "\""] if fdo_build_stamp else []
+    )
+    result[_VARS.PREPROCESSOR_DEFINES] = _cc_internal.intern_string_sequence_variable_value(all_defines)
+    result = result | additional_build_variables
+
+    for key, value in variables_extension.items():
+        if type(value) == type([]):
+            result[key] = _cc_internal.intern_string_sequence_variable_value(value)
+        elif type(value) == type(""):
+            result[key] = value
+        elif type(value) == type(depset()):
+            for e in value.to_list():
+                if type(e) != type(""):
+                    fail("for string_sequence_variables_extension, got element of type " + type(e) + ", want string")
+            result[key] = value
+        else:
+            fail("for variable extension key:" + key + ", got element of type " + type(value) + ", want string")
+
+    if external_include_dirs:
+        result[_VARS.EXTERNAL_INCLUDE_PATHS] = external_include_dirs
+    return _cc_internal.cc_toolchain_variables(vars = result)
+
+def _get_fdo_build_stamp(cpp_configuration, fdo_context, feature_configuration):
+    branch_fdo_profile = getattr(fdo_context, "branch_fdo_profile", None)
+    if branch_fdo_profile:
+        branch_fdo_mode = branch_fdo_profile.branch_fdo_mode
+        if branch_fdo_mode == "auto_fdo":
+            return "AFDO" if feature_configuration.is_enabled("autofdo") else None
+        if branch_fdo_mode == "xbinary_fdo":
+            return "XFDO" if feature_configuration.is_enabled("xbinaryfdo") else None
+        if branch_fdo_mode == "llvm_cs_fdo" or cpp_configuration.cs_fdo_instrument():
+            return "CSFDO"
+    if branch_fdo_profile or cpp_configuration.fdo_instrument():
+        return "FDO"
+    return None
 
 # Note: this method is side-effect free, callers should add fdo inputs to
 # cc_compile_action_builder themselves
@@ -152,3 +366,273 @@ def get_specific_compile_build_variables(
     result = result | additional_build_variables
     result = result | fdo_build_variables
     return _cc_internal.cc_toolchain_variables(vars = result)
+
+_SOURCE_TYPES_FOR_CXXOPTS = set(
+    extensions.CC_SOURCE +
+    extensions.CC_HEADER +
+    extensions.CLIF_INPUT_PROTO +
+    extensions.CPP_MODULE_MAP +
+    extensions.OBJCPP_SOURCE,
+)
+
+# buildifier: disable=function-docstring
+def get_copts(
+        language,
+        cpp_configuration,
+        source_file,
+        conlyopts,
+        copts,
+        cxxopts,
+        label):
+    extension = "." + source_file.extension if source_file.extension else ""
+    result = []
+    result.extend(_copts_from_options(language, cpp_configuration, extension))
+    result.extend(copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cxxopts)
+    if label:
+        result.extend(_cc_internal.per_file_copts(cpp_configuration, source_file, label))
+    return result
+
+def _copts_from_options(language, cpp_configuration, extension):
+    result = []
+    result.extend(cpp_configuration.copts)
+    if extension in extensions.C_SOURCE:
+        result.extend(cpp_configuration.conlyopts)
+    if extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cpp_configuration.cxxopts)
+    if extension in extensions.OBJC_SOURCE or extension in extensions.OBJCPP_SOURCE or (
+        language == "objc" and extension in extensions.CC_HEADER
+    ):
+        result.extend(cpp_configuration.objccopts)
+    return result
+
+def get_fdo_variables_and_inputs(
+        cc_toolchain,
+        fdo_context,
+        feature_configuration,
+        cpp_configuration):
+    auxiliary_fdo_inputs_list = _get_auxiliary_fdo_inputs_list(
+        cc_toolchain = cc_toolchain,
+        fdo_context = fdo_context,
+        feature_configuration = feature_configuration,
+    )
+    fdo_build_variables = _setup_fdo_build_variables(
+        cc_toolchain = cc_toolchain,
+        fdo_context = fdo_context,
+        auxiliary_fdo_inputs_list = auxiliary_fdo_inputs_list,
+        feature_configuration = feature_configuration,
+        fdo_instrument = cpp_configuration.fdo_instrument(),
+        cs_fdo_instrument = cpp_configuration.cs_fdo_instrument(),
+    )
+
+    # TODO(b/396122076): once starlarkification of CcStaticCompilationHelper is done, check whether
+    # we can change auxiliary_fdo_inputs from depset to list.
+    auxiliary_fdo_inputs = depset(direct = auxiliary_fdo_inputs_list)
+    return fdo_build_variables, auxiliary_fdo_inputs
+
+def _setup_fdo_build_variables(
+        cc_toolchain,
+        fdo_context,
+        auxiliary_fdo_inputs_list,
+        feature_configuration,
+        fdo_instrument,
+        cs_fdo_instrument):
+    """Populates FDO build variables."""
+    variables = {}
+    if feature_configuration.is_enabled("fdo_instrument"):
+        variables["fdo_instrument_path"] = fdo_instrument
+    if feature_configuration.is_enabled("cs_fdo_instrument"):
+        variables["cs_fdo_instrument_path"] = cs_fdo_instrument
+
+    if not (getattr(fdo_context, "branch_fdo_profile", None) or
+            getattr(fdo_context, "prefetch_hints_artifact", None) or
+            getattr(fdo_context, "propeller_optimize_info", None) or
+            getattr(fdo_context, "memprof_profile_artifact", None)):
+        return variables
+
+    prefetch_hints_artifact = getattr(fdo_context, "prefetch_hints_artifact", None)
+    if prefetch_hints_artifact:
+        variables["fdo_prefetch_hints_path"] = prefetch_hints_artifact.path
+
+    if _should_pass_propeller_profiles(cc_toolchain, fdo_context, feature_configuration):
+        # _should_pass_propeller_profiles() ensures that fdo_context.propeller_optimize_info
+        # is not None.
+        cc_artifact = getattr(fdo_context.propeller_optimize_info, "cc_profile", None)
+        if cc_artifact:
+            variables["propeller_optimize_cc_path"] = cc_artifact.path
+        ld_artifact = getattr(fdo_context.propeller_optimize_info, "ld_profile", None)
+        if ld_artifact:
+            variables["propeller_optimize_ld_path"] = ld_artifact.path
+
+    memprof_profile_artifact = getattr(fdo_context, "memprof_profile_artifact", None)
+    if memprof_profile_artifact:
+        variables["memprof_profile_path"] = memprof_profile_artifact.path
+
+    branch_fdo_profile = getattr(fdo_context, "branch_fdo_profile", None)
+    if (branch_fdo_profile and
+        auxiliary_fdo_inputs_list and
+        (
+            feature_configuration.is_enabled("autofdo") or
+            feature_configuration.is_enabled("xbinaryfdo") or
+            (
+                feature_configuration.is_enabled("fdo_optimize") and
+                branch_fdo_profile.branch_fdo_mode in ("llvm_fdo", "llvm_cs_fdo")
+            )
+        )):
+        variables["fdo_profile_path"] = branch_fdo_profile.profile_artifact.path
+    return variables
+
+def _get_auxiliary_fdo_inputs_list(
+        cc_toolchain,
+        fdo_context,
+        feature_configuration):
+    """Returns the auxiliary files that need to be added to CppCompileAction."""
+    auxiliary_inputs = []
+
+    prefetch_hints_artifact = getattr(fdo_context, "prefetch_hints_artifact", None)
+    if prefetch_hints_artifact:
+        auxiliary_inputs.append(prefetch_hints_artifact)
+
+    if _should_pass_propeller_profiles(cc_toolchain, fdo_context, feature_configuration):
+        # _should_pass_propeller_profiles() ensures that fdo_context.propeller_optimize_info
+        # is not None.
+        cc_artifact = getattr(fdo_context.propeller_optimize_info, "cc_profile", None)
+        if cc_artifact:
+            auxiliary_inputs.append(cc_artifact)
+        ld_artifact = getattr(fdo_context.propeller_optimize_info, "ld_profile", None)
+        if ld_artifact:
+            auxiliary_inputs.append(ld_artifact)
+
+    memprof_profile_artifact = getattr(fdo_context, "memprof_profile_artifact", None)
+    if memprof_profile_artifact:
+        auxiliary_inputs.append(memprof_profile_artifact)
+
+    branch_fdo_profile = getattr(fdo_context, "branch_fdo_profile", None)
+
+    # If --fdo_optimize was not specified, we don't have any additional inputs.
+    if branch_fdo_profile:
+        auxiliary_inputs.append(branch_fdo_profile.profile_artifact)
+
+    return auxiliary_inputs
+
+def _should_pass_propeller_profiles(
+        cc_toolchain,
+        fdo_context,
+        feature_configuration):
+    """Returns whether Propeller profiles should be passed to a compile action."""
+    if cc_toolchain._is_tool_configuration:
+        # Propeller doesn't make much sense for host builds.
+        return False
+
+    if getattr(fdo_context, "propeller_optimize_info", None) == None:
+        # No Propeller profiles to pass.
+        return False
+
+    # Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
+    return (not feature_configuration.is_enabled("thin_lto") or
+            feature_configuration.is_enabled("propeller_optimize_thinlto_compile_actions"))
+
+def get_linkstamp_compile_variables(
+        source_file,
+        output_file,
+        label_replacement,
+        output_replacement,
+        additional_linkstamp_defines,
+        build_info_header_artifacts,
+        feature_configuration,
+        cc_toolchain,
+        needs_pic):
+    """Returns variables for linkstamp compilation.
+
+    Args:
+        source_file: The linkstamp source file to be compiled.
+        output_file: The output object file.
+        label_replacement: String to replace ${LABEL} in linkstamp defines.
+        output_replacement: String to replace ${OUTPUT_PATH} in linkstamp defines.
+        additional_linkstamp_defines: A list of additional defines for linkstamp compilation.
+        build_info_header_artifacts: A list of build info header artifacts.
+        feature_configuration: The feature configuration.
+        cc_toolchain: The C++ toolchain provider.
+        needs_pic: Whether PIC compilation is needed.
+
+    Returns:
+        CcToolchainVariables for linkstamp compilation.
+    """
+
+    if not cc_common_internal.action_is_enabled(
+        feature_configuration = feature_configuration,
+        action_name = "linkstamp-compile",
+    ):
+        fail("Action 'linkstamp-compile' is not configured.")
+    fdo_build_stamp = _get_fdo_build_stamp(
+        cc_toolchain._cpp_configuration,
+        cc_toolchain._fdo_context,
+        feature_configuration,
+    )
+    code_coverage_enabled = feature_configuration.is_enabled("coverage")
+    copts = get_copts(
+        language = "c++",  # The only language that receives special treatment is "objc".
+        cpp_configuration = cc_toolchain._cpp_configuration,
+        source_file = source_file,
+        conlyopts = [],
+        copts = [],
+        cxxopts = [],
+        label = None,
+    )
+    defines = _compute_all_linkstamp_defines(
+        label_replacement = label_replacement,
+        output_replacement = output_replacement,
+        additional_linkstamp_defines = additional_linkstamp_defines,
+        cc_toolchain = cc_toolchain,
+        fdo_build_stamp = fdo_build_stamp,
+        code_coverage_enabled = code_coverage_enabled,
+    )
+    return create_compile_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        source_file = source_file,
+        output_file = output_file,
+        use_pic = needs_pic,
+        preprocessor_defines = depset(defines),
+        includes = [a.path for a in build_info_header_artifacts],
+        include_directories = depset(["."]),
+        user_compile_flags = copts,
+    )
+
+def _compute_all_linkstamp_defines(
+        label_replacement,
+        output_replacement,
+        additional_linkstamp_defines,
+        cc_toolchain,
+        fdo_build_stamp,
+        code_coverage_enabled):
+    """Computes defines for linkstamp compilation."""
+    defines = [
+        'GPLATFORM="' + cc_toolchain.toolchain_id + '"',
+        "BUILD_COVERAGE_ENABLED=" + ("1" if code_coverage_enabled else "0"),
+        # G3_TARGET_NAME is a C string literal that normally contain the label of the target
+        # being linked.  However, they are set differently when using shared native deps. In
+        # that case, a single .so file is shared by multiple targets, and its contents cannot
+        # depend on which target(s) were specified on the command line.  So in that case we
+        # have to use the (obscure) name of the .so file instead, or more precisely the path of
+        # the .so file relative to the workspace root.
+        'G3_TARGET_NAME="${LABEL}"',
+        # G3_BUILD_TARGET is a C string literal containing the output of this
+        # link.  (An undocumented and untested invariant is that G3_BUILD_TARGET is the
+        # location of the executable, either absolutely, or relative to the directory part of
+        # BUILD_INFO.)
+        'G3_BUILD_TARGET="${OUTPUT_PATH}"',
+    ]
+    if additional_linkstamp_defines:
+        defines.extend(additional_linkstamp_defines)
+
+    if fdo_build_stamp:
+        defines.append('BUILD_FDO_TYPE="' + fdo_build_stamp + '"')
+
+    return [
+        define.replace("${LABEL}", label_replacement).replace("${OUTPUT_PATH}", output_replacement)
+        for define in defines
+    ]

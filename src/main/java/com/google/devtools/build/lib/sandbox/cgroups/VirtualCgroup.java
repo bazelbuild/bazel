@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedMemory;
 import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupControllerInfo;
 import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo;
+import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -78,21 +79,24 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   private static VirtualCgroup createInstance() {
-    VirtualCgroup instance;
+    if (OS.getCurrent() != OS.LINUX) {
+      // Cgroups are only supported on Linux.
+      return NULL;
+    }
     try {
       VirtualCgroup cgroupRoot = createRoot();
       // In our implementation, only the root cgroup holds the cgroupsInfo object. If we want to
       // create a node to be the new root of our cgroup, we need to pass down the cgroupsInfo,
       // otherwise it'll be null.
-      instance =
+      VirtualCgroup instance =
           cgroupRoot.createChild(
               "blaze_" + ProcessHandle.current().pid() + "_spawns.slice", cgroupRoot.cgroupsInfo());
+      Runtime.getRuntime().addShutdownHook(new Thread(VirtualCgroup::deleteInstance));
+      return instance;
     } catch (IOException e) {
       logger.atInfo().withCause(e).log("Failed to create root cgroup");
-      instance = NULL;
+      return NULL;
     }
-    Runtime.getRuntime().addShutdownHook(new Thread(VirtualCgroup::deleteInstance));
-    return instance;
   }
 
   public static void deleteInstance() {

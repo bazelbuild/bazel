@@ -54,19 +54,23 @@ import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
+import com.google.devtools.build.lib.skyframe.EvalMacroFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
+import com.google.devtools.build.lib.skyframe.MacroInstanceFunction;
+import com.google.devtools.build.lib.skyframe.NonFinalizerPackagePiecesFunction;
+import com.google.devtools.build.lib.skyframe.PackageDeclarationsFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
@@ -170,6 +174,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected ExternalFilesHelper externalFilesHelper;
     protected ConfiguredRuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
     protected StarlarkSemantics starlarkSemantics;
+    protected LazyMacroExpansionPackages lazyMacroExpansionPackages =
+        LazyMacroExpansionPackages.NONE;
     protected Reporter commonReporter = new Reporter(new EventBus());
     protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
@@ -214,6 +220,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     @CanIgnoreReturnValue
     public Builder useDefaultStarlarkSemantics() {
       this.starlarkSemantics = StarlarkSemantics.DEFAULT;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setLazyMacroExpansionPackages(LazyMacroExpansionPackages packages) {
+      this.lazyMacroExpansionPackages = packages;
       return this;
     }
 
@@ -309,7 +321,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             starlarkSemantics,
             builder.pkgLocator,
             ruleClassProvider,
-            ImmutableList.copyOf(builder.extraPrecomputedValues));
+            ImmutableList.copyOf(builder.extraPrecomputedValues),
+            builder.lazyMacroExpansionPackages);
     pkgFactory =
         new PackageFactory(
             ruleClassProvider,
@@ -324,7 +337,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       StarlarkSemantics starlarkSemantics,
       PathPackageLocator pkgLocator,
       RuleClassProvider ruleClassProvider,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      LazyMacroExpansionPackages lazyMacroExpansionPackages) {
     final Map<SkyKey, Delta> valuesToInject = new HashMap<>();
     Injectable injectable =
         new Injectable() {
@@ -348,6 +362,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
     AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         injectable, new AutoloadSymbols(ruleClassProvider, starlarkSemantics));
+    PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.set(injectable, lazyMacroExpansionPackages);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 
@@ -509,8 +524,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   protected abstract ImmutableList<BuildFileName> getBuildFilesByPriority();
 
-  protected abstract ExternalPackageHelper getExternalPackageHelper();
-
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
 
   protected abstract boolean shouldUseRepoDotBazel();
@@ -537,6 +550,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             return buildFileForPackage == null ? null : buildFileForPackage.getBaseName();
           }
         };
+    AtomicReference<Semaphore> cpuBoundSemaphore =
+        new AtomicReference<>(
+            cpuBoundSemaphoreTokenCount > 0 ? new Semaphore(cpuBoundSemaphoreTokenCount) : null);
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
@@ -569,7 +585,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.REPO_FILE,
             new RepoFileFunction(
-                ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
+                ruleClassProvider.getBazelStarlarkEnvironment(),
+                Root.fromPath(directories.getWorkspace())))
         .put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE)
         .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction(ruleClassProvider))
@@ -581,12 +598,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 .setActionOnIOExceptionReadingBuildFile(getActionOnIOExceptionReadingBuildFile())
                 .setShouldUseRepoDotBazel(shouldUseRepoDotBazel())
                 .setGlobbingStrategy(GlobbingStrategy.NON_SKYFRAME)
-                .setCpuBoundSemaphore(
-                    new AtomicReference<>(
-                        cpuBoundSemaphoreTokenCount > 0
-                            ? new Semaphore(cpuBoundSemaphoreTokenCount)
-                            : null))
+                .setCpuBoundSemaphore(cpuBoundSemaphore)
                 .build())
+        .put(SkyFunctions.PACKAGE_DECLARATIONS, new PackageDeclarationsFunction())
+        .put(SkyFunctions.MACRO_INSTANCE, new MacroInstanceFunction())
+        .put(SkyFunctions.EVAL_MACRO, new EvalMacroFunction(pkgFactory, cpuBoundSemaphore))
+        .put(SkyFunctions.NON_FINALIZER_PACKAGE_PIECES, new NonFinalizerPackagePiecesFunction())
         .putAll(extraSkyFunctions);
     return builder.buildOrThrow();
   }

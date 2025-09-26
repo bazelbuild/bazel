@@ -130,6 +130,7 @@ cc_binary(
         ":archive_utils",
         ":bazel_startup_options",
         ":blaze_util",
+        ":command_extension_adder",
         ":option_processor",
         ":startup_interceptor",
         ":startup_options",
@@ -270,6 +271,12 @@ cc_library(
         "//src:__pkg__",
         "//src/test/cpp:__pkg__",
     ],
+)
+
+cc_library(
+    name = "command_extension_adder",
+    hdrs = ["command_extension_adder.h"],
+    deps = ["//src/main/protobuf:command_server_cc_proto"],
 )
 
 filegroup(

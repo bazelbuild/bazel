@@ -17,11 +17,12 @@ A module to create C/C++ link actions in a consistent way.
 
 load(
     ":common/cc/cc_helper_internal.bzl",
-    "artifact_category",
     "wrap_with_check_private_api",
     _use_pic_for_binaries = "use_pic_for_binaries",
     _use_pic_for_dynamic_libs = "use_pic_for_dynamic_libs",
+    artifact_category = "artifact_category_names",
 )
+load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS")
 load(":common/cc/link/cpp_link_action.bzl", "link_action")
 load(":common/cc/link/create_library_to_link.bzl", "make_library_to_link")
 load(":common/cc/link/lto_indexing_action.bzl", "create_lto_artifacts_and_lto_indexing_action")
@@ -149,7 +150,7 @@ def create_cc_link_actions(
         fail("stamp value %d is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)" % stamp)
     stamping = False if cc_toolchain._is_tool_configuration else (stamp == 1 or (stamp == -1 and cc_toolchain._stamp_binaries))
     if not compilation_outputs:
-        compilation_outputs = cc_internal.empty_compilation_outputs()
+        compilation_outputs = EMPTY_COMPILATION_OUTPUTS
     linkopts = list(linkopts)
 
     cpp_config = cc_toolchain._cpp_configuration
@@ -203,7 +204,7 @@ def create_cc_link_actions(
         # TODO(bazel-team): There is no practical difference in non-code inputs and additional linker
         # inputs in CppLinkActionBuilder. So these should be merged. Even before that happens, it's
         # totally fine for nonCodeLinkerInputs to contains precompiled libraries.
-        link_action_kwargs["non_code_inputs"] = list(compilation_outputs.header_tokens())
+        link_action_kwargs["non_code_inputs"] = list(compilation_outputs._header_tokens)
 
         # linkopts attribute is only passed when creating .so files
         link_action_kwargs["linkopts"] = linkopts
@@ -431,8 +432,8 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
     if not feature_configuration.is_enabled("thin_lto"):
         return all_lto_artifacts, allow_lto_indexing, thinlto_param_file, additional_object_files
 
-    lto_compilation_context = compilation_outputs.lto_compilation_context()
-    has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs()
+    lto_compilation_context = compilation_outputs._lto_compilation_context
+    has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs
 
     # TODO(b/338618120): deduplicate prefer_static_lib, prefer_pic_libs computed in finalize_link_action as well
     prefer_static_libs = linking_mode == LINKING_MODE.STATIC or \
@@ -451,7 +452,7 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
         for lib in static_libraries_to_link:
             pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
             context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
-            if context and context.lto_bitcode_inputs():
+            if context and context.lto_bitcode_inputs:
                 has_lto_bitcode_inputs = True
                 break
 

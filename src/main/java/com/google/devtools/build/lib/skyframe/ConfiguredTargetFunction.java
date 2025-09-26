@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.retrieveRemoteSkyValue;
-import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -67,8 +67,8 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptio
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
@@ -215,7 +215,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     final DependencyResolver.State computeDependenciesState;
 
-    private SerializationState serializationState = INITIAL_STATE;
+    @Nullable // Initialized lazily
+    private RetrievalContext retrievalContext = null;
 
     State(boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
@@ -240,13 +241,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     @Override
-    public SerializationState getSerializationState() {
-      return serializationState;
-    }
+    public RetrievalContext getRetrievalContext() {
+      if (retrievalContext == null) {
+        retrievalContext = new RetrievalContext();
+      }
 
-    @Override
-    public void setSerializationState(SerializationState state) {
-      this.serializationState = state;
+      return retrievalContext;
     }
   }
 
@@ -374,6 +374,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getTargetAndConfiguration(),
               configuredTargetKey,
               prereqs.getDepValueMap(),
+              prereqs.getMaterializerTargets(),
               prereqs.getConfigConditions(),
               toolchainContexts,
               computeDependenciesState.execGroupCollectionBuilder,
@@ -422,6 +423,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       TargetAndConfiguration ctgValue,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
@@ -454,6 +456,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               analysisEnvironment,
               configuredTargetKey,
               depValueMap,
+              materializerTargets,
               configConditions,
               toolchainContexts,
               transitivePackages,
@@ -491,7 +494,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredValueCreationException(
           ctgValue.getTarget(),
           null,
-          "Analysis of target '" + target.getLabel() + "' failed",
+          "Analysis of target '%s' (config: %s) failed"
+              .formatted(
+                  target.getLabel(),
+                  configuration != null ? configuration.getOptions().shortId() : "none"),
           rootCauses,
           null);
     }

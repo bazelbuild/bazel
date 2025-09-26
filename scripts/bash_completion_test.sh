@@ -763,7 +763,7 @@ test_info() {
     assert_expansion 'info commi' \
                      'info committed-heap-size '
     assert_expansion 'info i' \
-                     'info install_base '
+                     'info install_'
     assert_expansion 'info --show_m' \
                      'info --show_make_env '
 }

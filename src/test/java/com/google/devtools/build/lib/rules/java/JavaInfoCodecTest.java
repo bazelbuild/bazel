@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripp
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping.MissingResultException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import net.starlark.java.eval.SymbolGenerator;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -112,6 +113,7 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
     for (Object val : dependencies.values()) {
       registryBuilder.addReferenceConstant(val);
     }
+    registryBuilder.addReferenceConstant(SymbolGenerator.CONSTANT_SYMBOL);
     return new ObjectCodecs(registryBuilder.build(), dependencies);
   }
 }

@@ -26,7 +26,7 @@ and formatting different types of libraries. For an example specification,
 see `unix_cc_toolchain_config.bzl`
 """
 
-load(":common/cc/cc_helper_internal.bzl", "artifact_category", "should_create_per_object_debug_info")
+load(":common/cc/cc_helper_internal.bzl", "should_create_per_object_debug_info", artifact_category = "artifact_category_names")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal

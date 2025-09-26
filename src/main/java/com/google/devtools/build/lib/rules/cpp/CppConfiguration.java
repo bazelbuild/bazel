@@ -52,12 +52,6 @@ public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
 
-  /**
-   * String indicating a Mac system, for example when used in a crosstool configuration's exec or
-   * target system name.
-   */
-  public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
-
   /** String constant for CC_FLAGS make variable name */
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
 
@@ -168,7 +162,6 @@ public final class CppConfiguration extends Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
   private final boolean collectCodeCoverage;
-  private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
 
@@ -309,7 +302,6 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
     this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
@@ -335,15 +327,6 @@ public final class CppConfiguration extends Fragment
   public String getCompilationModeForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return compilationMode.toString();
-  }
-
-  public boolean hasSharedLinkOption() {
-    return linkopts.contains("-shared");
-  }
-
-  /** Returns the set of command-line LTO indexing options. */
-  public ImmutableList<String> getLtoIndexOptions() {
-    return ltoindexOptions;
   }
 
   @StarlarkMethod(name = "lto_index_options", documented = false, useStarlarkThread = true)
@@ -414,6 +397,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.saveTemps;
   }
 
+  @Override
+  public boolean getSaveTempsForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getSaveTemps();
+  }
+
   /**
    * Returns the {@link PerLabelOptions} to apply to the gcc command line, if the label of the
    * compiled file matches the regular expression.
@@ -482,29 +471,14 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useStartEndLib;
   }
 
-  /** Returns value from --compiler option, null if the option was not passed. */
-  @Nullable
-  public String getCompilerFromOptions() {
-    return cppOptions.cppCompiler;
-  }
-
   public boolean experimentalLinkStaticLibrariesOnce() {
     return cppOptions.experimentalLinkStaticLibrariesOnce;
-  }
-
-
-  public boolean legacyWholeArchive() {
-    return cppOptions.legacyWholeArchive;
   }
 
   @StarlarkMethod(name = "legacy_whole_archive", documented = false, useStarlarkThread = true)
   public boolean legacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.legacyWholeArchive;
-  }
-
-  public boolean removeLegacyWholeArchive() {
-    return cppOptions.removeLegacyWholeArchive;
   }
 
   @StarlarkMethod(
@@ -706,10 +680,15 @@ public final class CppConfiguration extends Fragment
     return propellerOptimizeAbsoluteLdProfile;
   }
 
-  @Nullable
   @StarlarkConfigurationField(
       name = "fdo_prefetch_hints",
       doc = "The label specified in --fdo_prefetch_hints")
+  @StarlarkMethod(
+      name = "_fdo_prefetch_hints_label",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  @Nullable
   public Label getFdoPrefetchHintsLabel() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
@@ -762,12 +741,13 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
-  @Nullable
-  public static PathFragment computeDefaultSysroot(String builtInSysroot) {
-    if (builtInSysroot.isEmpty()) {
-      return null;
-    }
-    return PathFragment.create(builtInSysroot);
+  @StarlarkMethod(
+      name = "use_llvm_coverage_map_format",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useLlvmCoverageMapFormatStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return useLLVMCoverageMapFormat();
   }
 
   /**
@@ -790,29 +770,7 @@ public final class CppConfiguration extends Fragment
     return shareNativeDeps();
   }
 
-  /**
-   * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
-   */
-  @Nullable
-  @StarlarkConfigurationField(
-      name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN",
-      doc = "DO NOT USE")
-  public Label getTargetLibcTopLabel() {
-    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
-      // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
-      // target configuration while platform-enabled toolchains evaluate in the exec configuration).
-      // targetLibcTopLabel is only intended for platform-enabled toolchains and can cause errors
-      // otherwise.
-      //
-      // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
-      // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
-      // iOS CPU, the alias resolution fails. Legacy toolchains should read --grte_top through
-      // libcTopLabel (which changes along with the iOS CPU change), not this.
-      return null;
-    }
-    return cppOptions.targetLibcTopLabel;
-  }
-
+  @StarlarkMethod(name = "_dont_enable_host_nonhost", documented = false, structField = true)
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
   }
@@ -997,14 +955,5 @@ public final class CppConfiguration extends Fragment
   public boolean getProtoProfile(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.protoProfile;
-  }
-
-  @StarlarkMethod(
-      name = "experimental_starlark_compiling",
-      documented = false,
-      useStarlarkThread = true)
-  public boolean experimentalStarlarkCompiling(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.experimentalStarlarkCompiling;
   }
 }

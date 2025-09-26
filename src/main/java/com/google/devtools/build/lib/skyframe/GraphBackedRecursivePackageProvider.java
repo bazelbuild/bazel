@@ -32,8 +32,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -44,6 +47,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A {@link com.google.devtools.build.lib.pkgcache.RecursivePackageProvider} backed by a {@link
@@ -115,6 +119,18 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   @Override
   public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, InterruptedException {
+    Package pkg = getPackageInternal(packageName);
+    if (pkg != null) {
+      return pkg;
+    }
+    // If the package key does not exist in the graph, then it must not correspond to any package,
+    // because the SkyQuery environment has already loaded the universe.
+    throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
+  }
+
+  @Nullable
+  private Package getPackageInternal(PackageIdentifier packageName)
+      throws NoSuchPackageException, InterruptedException {
     PackageValue pkgValue = (PackageValue) graph.getValue(packageName);
     if (pkgValue != null) {
       return pkgValue.getPackage();
@@ -125,11 +141,40 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
     }
     if (graph.isCycle(packageName)) {
       throw new NoSuchPackageException(packageName, "Package depends on a cycle");
-    } else {
-      // If the package key does not exist in the graph, then it must not correspond to any package,
-      // because the SkyQuery environment has already loaded the universe.
-      throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
     }
+    return null;
+  }
+
+  @Override
+  public InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
+      throws NoSuchPackageException, NoSuchPackagePieceException, InterruptedException {
+    // Do we have a full package?
+    Package pkg = getPackageInternal(packageName);
+    if (pkg != null) {
+      return pkg.getBuildFile();
+    }
+
+    // Do we have a PackagePiece.ForBuildFile?
+    PackagePieceIdentifier.ForBuildFile packagePieceIdentifier =
+        new PackagePieceIdentifier.ForBuildFile(packageName);
+    PackagePieceValue.ForBuildFile packagePieceValue =
+        (PackagePieceValue.ForBuildFile) graph.getValue(packagePieceIdentifier);
+    if (packagePieceValue != null) {
+      return packagePieceValue.getPackagePiece().getBuildFile();
+    }
+    Exception exception = graph.getException(packagePieceIdentifier);
+    if (exception != null) {
+      Throwables.throwIfInstanceOf(exception, NoSuchPackageException.class);
+      Throwables.throwIfInstanceOf(exception, NoSuchPackagePieceException.class);
+    }
+    if (graph.isCycle(packagePieceIdentifier)) {
+      throw new NoSuchPackageException(packageName, "Package depends on a cycle");
+    }
+
+    // If both the package key and the package piece for BUILD file key do not exist in the graph,
+    // then packageName must not correspond to any package, because the SkyQuery environment has
+    // already loaded the universe.
+    throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
   }
 
   @Override
@@ -241,7 +286,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
     } else {
       if (graph.getValue(RepositoryDirectoryValue.key(repository))
           instanceof RepositoryDirectoryValue.Success success) {
-        return ImmutableList.of(Root.fromPath(success.getPath()));
+        return ImmutableList.of(success.root());
       }
       // If this key doesn't exist, the repository is outside the universe, so we return
       // "nothing".

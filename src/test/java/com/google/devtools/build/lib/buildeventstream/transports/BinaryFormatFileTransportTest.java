@@ -398,7 +398,7 @@ public class BinaryFormatFileTransportTest {
     @Override
     public Collection<LocalFile> referencedLocalFiles() {
       return files.stream()
-          .map(f -> new LocalFile(f, LocalFileType.OUTPUT, /* artifactMetadata= */ null))
+          .map(f -> new LocalFile(f, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null))
           .collect(toImmutableList());
     }
 

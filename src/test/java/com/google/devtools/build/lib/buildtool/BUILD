@@ -74,12 +74,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/includescanning",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -201,6 +201,7 @@ java_test(
 java_test(
     name = "DirectoryArtifactWarningTest",
     srcs = ["DirectoryArtifactWarningTest.java"],
+    jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=0"],
     tags = [
         "no_windows",
     ],

@@ -53,7 +53,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -113,7 +112,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Command cmd =
         new Command(
-            new String[] {dockerClient.getPathString(), "info"},
+            ImmutableList.of(dockerClient.getPathString(), "info"),
             cmdEnv.getClientEnv(),
             cmdEnv.getExecRoot().getPathFile(),
             cmdEnv.getClientEnv());
@@ -387,7 +386,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return result;
   }
 
-  private String executeCommand(List<String> cmdLine, InputStream stdIn)
+  private String executeCommand(ImmutableList<String> cmdLine, InputStream stdIn)
       throws UserExecException, InterruptedException {
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
@@ -395,11 +394,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // Docker might need the $HOME and $PATH variables in order to be able to use advanced
     // authentication mechanisms (e.g. for Google Cloud), thus we pass in the client env.
     Command cmd =
-        new Command(
-            cmdLine.toArray(new String[0]),
-            cmdEnv.getClientEnv(),
-            execRoot.getPathFile(),
-            cmdEnv.getClientEnv());
+        new Command(cmdLine, cmdEnv.getClientEnv(), execRoot.getPathFile(), cmdEnv.getClientEnv());
     try {
       cmd.executeAsync(stdIn, stdOut, stdErr, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     } catch (CommandException e) {
@@ -450,11 +445,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     Command cmd =
-        new Command(
-            cmdLine.toArray(new String[0]),
-            cmdEnv.getClientEnv(),
-            execRoot.getPathFile(),
-            cmdEnv.getClientEnv());
+        new Command(cmdLine, cmdEnv.getClientEnv(), execRoot.getPathFile(), cmdEnv.getClientEnv());
 
     try {
       cmd.execute();

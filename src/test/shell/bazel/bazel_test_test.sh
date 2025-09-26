@@ -72,7 +72,7 @@ function test_3_cpus() {
   set_up_jobcount
   # 3 CPUs, so no more than 3 tests in parallel.
   bazel test --spawn_strategy=standalone --test_output=errors \
-    --local_test_jobs=0 --local_cpu_resources=3 \
+    --local_test_jobs=0 --local_resources=cpu=3 \
     --runs_per_test=10 //dir:test
 }
 
@@ -80,7 +80,7 @@ function test_3_local_jobs() {
   set_up_jobcount
   # 3 local test jobs, so no more than 3 tests in parallel.
   bazel test --spawn_strategy=standalone --test_output=errors \
-    --local_test_jobs=3 --local_cpu_resources=10 \
+    --local_test_jobs=3 --local_resources=cpu=10 \
     --runs_per_test=10 //dir:test
 }
 
@@ -91,7 +91,9 @@ function test_tmpdir() {
 #!/bin/sh
 set -e
 echo TEST_TMPDIR=$TEST_TMPDIR
+echo HOME=$HOME
 touch "$TEST_TMPDIR/foo"
+touch "$HOME/bar"
 EOF
   chmod +x foo/bar_test.sh
   cat > foo/BUILD <<EOF
@@ -105,10 +107,12 @@ EOF
   bazel test --test_output=all //foo:bar_test >& $TEST_log || \
     fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=/.*"
+  expect_log "HOME=/.*"
 
   bazel test --nocache_test_results --test_output=all --test_tmpdir=$TEST_TMPDIR //foo:bar_test \
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
+  expect_log "HOME=$TEST_TMPDIR"
 }
 
 function test_env_vars() {
@@ -118,6 +122,7 @@ function test_env_vars() {
 #!/bin/sh
 echo "pwd: $PWD"
 echo "src: $TEST_SRCDIR"
+echo "rd: $RUNFILES_DIR"
 echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
@@ -131,8 +136,9 @@ sh_test(
 EOF
 
   bazel test --test_output=all //foo &> $TEST_log || fail "Test failed"
-  expect_log "pwd: .*/foo.runfiles/_main$"
-  expect_log "src: .*/foo.runfiles$"
+  expect_log "pwd: /.*/foo.runfiles/_main$"
+  expect_log "src: /.*/foo.runfiles$"
+  expect_log "rd: /.*/foo.runfiles$"
   expect_log "ws: _main$"
 }
 

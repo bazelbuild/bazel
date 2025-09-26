@@ -76,6 +76,10 @@ def wrap_with_check_private_api(symbol):
 
     return callback
 
+CPP_SOURCE_TYPE_HEADER = "HEADER"
+CPP_SOURCE_TYPE_SOURCE = "SOURCE"
+CPP_SOURCE_TYPE_CLIF_INPUT_PROTO = "CLIF_INPUT_PROTO"
+
 # LINT.IfChange(forked_exports)
 
 _CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
@@ -98,6 +102,7 @@ _OBJECT_FILE = [".o", ".obj"]
 _PIC_OBJECT_FILE = [".pic.o"]
 _CPP_MODULE = [".pcm", ".gcm", ".ifc"]
 _CPP_MODULE_MAP = [".cppmap"]
+_LTO_INDEXING_OBJECT_FILE = [".indexing.o"]
 
 _CC_AND_OBJC = []
 _CC_AND_OBJC.extend(_CC_SOURCE)
@@ -142,33 +147,64 @@ extensions = struct(
     DISALLOWED_HDRS_FILES = _DISALLOWED_HDRS_FILES,  # Also includes VERSIONED_SHARED_LIBRARY files.
     CPP_MODULE = _CPP_MODULE,
     CPP_MODULE_MAP = _CPP_MODULE_MAP,
+    LTO_INDEXING_OBJECT_FILE = _LTO_INDEXING_OBJECT_FILE,
 )
 
-artifact_category = struct(
-    STATIC_LIBRARY = "STATIC_LIBRARY",
-    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
-    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
-    EXECUTABLE = "EXECUTABLE",
-    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
-    PIC_FILE = "PIC_FILE",
-    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
-    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
-    OBJECT_FILE = "OBJECT_FILE",
-    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
-    CPP_MODULE = "CPP_MODULE",
-    CPP_MODULE_GCM = "CPP_MODULE_GCM",
-    CPP_MODULE_IFC = "CPP_MODULE_IFC",
-    CPP_MODULES_INFO = "CPP_MODULES_INFO",
-    CPP_MODULES_DDI = "CPP_MODULES_DDI",
-    CPP_MODULES_MODMAP = "CPP_MODULES_MODMAP",
-    CPP_MODULES_MODMAP_INPUT = "CPP_MODULES_MODMAP_INPUT",
-    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
-    PROCESSED_HEADER = "PROCESSED_HEADER",
-    GENERATED_HEADER = "GENERATED_HEADER",
-    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
-    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
-    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
-    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
+def _artifact_category_info_init(name, default_prefix, *extensions):
+    return {
+        "name": name,
+        "default_prefix": default_prefix,
+        "default_extension": extensions[0],
+        "allowed_extensions": extensions,
+    }
+
+# buildifier: disable=unused-variable
+_ArtifactCategoryInfo, _unused_new_aci = provider(
+    """A category of artifacts that are candidate input/output to an action, for
+     which the toolchain can select a single artifact.""",
+    fields = ["name", "default_prefix", "default_extension", "allowed_extensions"],
+    init = _artifact_category_info_init,
+)
+
+# TODO: b/433485282 - remove duplicated extensions lists with above constants
+_artifact_categories = [
+    _ArtifactCategoryInfo("STATIC_LIBRARY", "lib", ".a", ".lib"),
+    _ArtifactCategoryInfo("ALWAYSLINK_STATIC_LIBRARY", "lib", ".lo", ".lo.lib"),
+    _ArtifactCategoryInfo("DYNAMIC_LIBRARY", "lib", ".so", ".dylib", ".dll", ".wasm"),
+    _ArtifactCategoryInfo("EXECUTABLE", "", "", ".exe", ".wasm"),
+    _ArtifactCategoryInfo("INTERFACE_LIBRARY", "lib", ".ifso", ".tbd", ".if.lib", ".lib"),
+    _ArtifactCategoryInfo("PIC_FILE", "", ".pic"),
+    _ArtifactCategoryInfo("INCLUDED_FILE_LIST", "", ".d"),
+    _ArtifactCategoryInfo("SERIALIZED_DIAGNOSTICS_FILE", "", ".dia"),
+    _ArtifactCategoryInfo("OBJECT_FILE", "", ".o", ".obj"),
+    _ArtifactCategoryInfo("PIC_OBJECT_FILE", "", ".pic.o"),
+    _ArtifactCategoryInfo("CPP_MODULE", "", ".pcm"),
+    _ArtifactCategoryInfo("CPP_MODULE_GCM", "", ".gcm"),
+    _ArtifactCategoryInfo("CPP_MODULE_IFC", "", ".ifc"),
+    _ArtifactCategoryInfo("CPP_MODULES_INFO", "", ".CXXModules.json"),
+    _ArtifactCategoryInfo("CPP_MODULES_DDI", "", ".ddi"),
+    _ArtifactCategoryInfo("CPP_MODULES_MODMAP", "", ".modmap"),
+    _ArtifactCategoryInfo("CPP_MODULES_MODMAP_INPUT", "", ".modmap.input"),
+    _ArtifactCategoryInfo("GENERATED_ASSEMBLY", "", ".s", ".asm"),
+    _ArtifactCategoryInfo("PROCESSED_HEADER", "", ".processed"),
+    _ArtifactCategoryInfo("GENERATED_HEADER", "", ".h"),
+    _ArtifactCategoryInfo("PREPROCESSED_C_SOURCE", "", ".i"),
+    _ArtifactCategoryInfo("PREPROCESSED_CPP_SOURCE", "", ".ii"),
+    _ArtifactCategoryInfo("COVERAGE_DATA_FILE", "", ".gcno"),
+    # A matched-clif protobuf. Typically in binary format, but could be text
+    # depending on the options passed to the clif_matcher.
+    _ArtifactCategoryInfo("CLIF_OUTPUT_PROTO", "", ".opb"),
+]
+
+artifact_category_names = struct(**{ac.name: ac.name for ac in _artifact_categories})
+
+output_subdirectories = struct(
+    OBJS = "_objs",
+    PIC_OBJS = "_pic_objs",
+    DOTD_FILES = "_dotd",
+    PIC_DOTD_FILES = "_pic_dotd",
+    DIA_FILES = "_dia",
+    PIC_DIA_FILES = "_pic_dia",
 )
 
 def should_create_per_object_debug_info(feature_configuration, cpp_configuration):
@@ -239,6 +275,26 @@ def repository_exec_path(repository, sibling_repository_layout):
     if repository.startswith("@"):
         repository = repository[1:]
     return paths.get_relative(prefix, repository)
+
+def is_stamping_enabled(ctx):
+    """Returns whether to encode build information into the binary.
+
+    Args:
+        ctx: The rule context.
+
+    Returns:
+    (int): 1: Always stamp the build information into the binary, even in [--nostamp][stamp] builds.
+        This setting should be avoided, since it potentially kills remote caching for the binary and
+        any downstream actions that depend on it.
+        0: Always replace build information by constant values. This gives good build result caching.
+        -1: Embedding of build information is controlled by the [--[no]stamp][stamp] flag.
+    """
+    if ctx.configuration.is_tool_configuration():
+        return 0
+    stamp = 0
+    if hasattr(ctx.attr, "stamp"):
+        stamp = ctx.attr.stamp
+    return stamp
 
 # LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)
 
