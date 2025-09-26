@@ -734,7 +734,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         new TransitiveSetHelper<>();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
-    private final HeaderInfo.Builder headerInfoBuilder;
     private final Set<String> defines = new LinkedHashSet<>();
     private final ImmutableList.Builder<CcCompilationContext> deps = ImmutableList.builder();
     private final ImmutableList.Builder<CcCompilationContext> exportedDeps =
@@ -745,9 +744,22 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
+    // HeaderInfo
+    private final SymbolGenerator.Symbol<?> identityToken;
+    private DerivedArtifact headerModule = null;
+    private DerivedArtifact picHeaderModule = null;
+    private final List<Artifact> modularPublicHeaders = new ArrayList<>();
+    private final List<Artifact> modularPrivateHeaders = new ArrayList<>();
+    private final List<Artifact> textualHeaders = new ArrayList<>();
+    private Collection<Artifact> separateModuleHeaders = ImmutableList.of();
+    private DerivedArtifact separateModule = null;
+    private DerivedArtifact separatePicModule = null;
+    private final ImmutableList.Builder<HeaderInfo> depHeaderInfos = ImmutableList.builder();
+    private final ImmutableList.Builder<HeaderInfo> mergedHeaderInfos = ImmutableList.builder();
+
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
     private Builder(SymbolGenerator.Symbol<?> identityToken) {
-      this.headerInfoBuilder = new HeaderInfo.Builder(identityToken);
+      this.identityToken = identityToken;
     }
 
     private void mergeDependentCcCompilationContext(
@@ -765,7 +777,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
       externalIncludeDirs.addTransitive(otherCcCompilationContext.getExternalIncludeDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
-      headerInfoBuilder.addDep(otherCcCompilationContext.headerInfo);
+      depHeaderInfos.add(otherCcCompilationContext.headerInfo);
 
       transitiveModules.addTransitive(otherCcCompilationContext.transitiveModules);
       addIfNotNull(transitiveModules, otherCcCompilationContext.headerInfo.headerModule);
@@ -844,7 +856,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
         // Merge the modular and textual headers from the compilation context so that they are also
         // re-exported.
-        headerInfoBuilder.mergeHeaderInfo(ccCompilationContext.headerInfo);
+        mergedHeaderInfos.add(ccCompilationContext.headerInfo);
       }
     }
 
@@ -947,19 +959,19 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     @CanIgnoreReturnValue
     public Builder addModularPublicHdrs(Collection<Artifact> headers) {
-      this.headerInfoBuilder.addPublicHeaders(headers);
+      this.modularPublicHeaders.addAll(headers);
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addModularPrivateHdrs(Collection<Artifact> headers) {
-      this.headerInfoBuilder.addPrivateHeaders(headers);
+      this.modularPrivateHeaders.addAll(headers);
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addTextualHdrs(Collection<Artifact> headers) {
-      this.headerInfoBuilder.addTextualHeaders(headers);
+      this.textualHeaders.addAll(headers);
       return this;
     }
 
@@ -968,7 +980,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         Collection<Artifact> headers,
         DerivedArtifact separateModule,
         DerivedArtifact separatePicModule) {
-      this.headerInfoBuilder.setSeparateModuleHdrs(headers, separateModule, separatePicModule);
+      this.separateModuleHeaders = headers;
+      this.separateModule = separateModule;
+      this.separatePicModule = separatePicModule;
       return this;
     }
 
@@ -1021,7 +1035,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      */
     @CanIgnoreReturnValue
     Builder setHeaderModule(DerivedArtifact headerModule) {
-      this.headerInfoBuilder.setHeaderModule(headerModule);
+      this.headerModule = headerModule;
       return this;
     }
 
@@ -1032,7 +1046,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      */
     @CanIgnoreReturnValue
     Builder setPicHeaderModule(DerivedArtifact picHeaderModule) {
-      this.headerInfoBuilder.setPicHeaderModule(picHeaderModule);
+      this.picHeaderModule = picHeaderModule;
       return this;
     }
 
@@ -1060,7 +1074,19 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
       allDefines.addAll(defines);
 
-      HeaderInfo headerInfo = headerInfoBuilder.build();
+      HeaderInfo headerInfo =
+          HeaderInfo.create(
+              identityToken,
+              headerModule,
+              picHeaderModule,
+              modularPublicHeaders,
+              modularPrivateHeaders,
+              textualHeaders,
+              ImmutableList.copyOf(separateModuleHeaders),
+              separateModule,
+              separatePicModule,
+              depHeaderInfos.build(),
+              mergedHeaderInfos.build());
       NestedSet<Artifact> constructedPrereq = compilationPrerequisites.build();
 
       return new CcCompilationContext(
@@ -1310,116 +1336,76 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
     }
 
-    /** Builder class for {@link HeaderInfo}. */
-    public static class Builder {
-      private final SymbolGenerator.Symbol<?> identityToken;
-      private DerivedArtifact headerModule = null;
-      private DerivedArtifact picHeaderModule = null;
-      private final LinkedHashSet<Artifact> modularPublicHeaders = new LinkedHashSet<>();
-      private final LinkedHashSet<Artifact> modularPrivateHeaders = new LinkedHashSet<>();
-      private final LinkedHashSet<Artifact> textualHeaders = new LinkedHashSet<>();
-      private Collection<Artifact> separateModuleHeaders = ImmutableList.of();
-      private DerivedArtifact separateModule = null;
-      private DerivedArtifact separatePicModule = null;
-      private final List<HeaderInfo> deps = new ArrayList<>();
-
-      private Builder(SymbolGenerator.Symbol<?> identityToken) {
-        this.identityToken = Preconditions.checkNotNull(identityToken);
-      }
-
-      @CanIgnoreReturnValue
-      Builder setHeaderModule(DerivedArtifact headerModule) {
-        this.headerModule = headerModule;
-        return this;
-      }
-
-      @CanIgnoreReturnValue
-      Builder setPicHeaderModule(DerivedArtifact headerModule) {
-        this.picHeaderModule = headerModule;
-        return this;
-      }
-
-      @CanIgnoreReturnValue
-      public Builder addDep(HeaderInfo dep) {
-        deps.add(dep);
-        return this;
-      }
-
-      @CanIgnoreReturnValue
-      public Builder addPublicHeaders(Collection<Artifact> headers) {
-        // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
-        // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
-        for (Artifact header : headers) {
-          if (header.isFileType(CppFileTypes.CPP_TEXTUAL_INCLUDE)) {
-            this.textualHeaders.add(header);
-          } else {
-            this.modularPublicHeaders.add(header);
-          }
+    /**
+     * Creates a new {@link HeaderInfo} instance.
+     *
+     * @param identityToken The identity token for the HeaderInfo.
+     * @param headerModule The .pcm file generated for this library.
+     * @param picHeaderModule The .pic.pcm file generated for this library.
+     * @param publicHeaders All public header files that are compiled into this module.
+     * @param privateHeaders All private header files that are compiled into this module.
+     * @param textualHeaders All textual header files that are contained in this module.
+     * @param separateModuleHeaders Headers that can be compiled into a separate, smaller module for
+     *     performance reasons.
+     * @param separateModule The .pcm file generated for the separate module.
+     * @param separatePicModule The .pic.pcm file generated for the separate module.
+     * @param deps HeaderInfos of direct dependencies of C++ target represented by this context.
+     * @param mergedDeps HeaderInfos to merge into this one.
+     */
+    public static HeaderInfo create(
+        SymbolGenerator.Symbol<?> identityToken,
+        @Nullable DerivedArtifact headerModule,
+        @Nullable DerivedArtifact picHeaderModule,
+        Collection<Artifact> publicHeaders,
+        Collection<Artifact> privateHeaders,
+        Collection<Artifact> textualHeaders,
+        ImmutableList<Artifact> separateModuleHeaders,
+        @Nullable DerivedArtifact separateModule,
+        @Nullable DerivedArtifact separatePicModule,
+        ImmutableList<HeaderInfo> deps,
+        ImmutableList<HeaderInfo> mergedDeps) {
+      Preconditions.checkState(
+          (separateModule == null || headerModule != null)
+              && (separatePicModule == null || picHeaderModule != null),
+          "Separate module ('%s', '%s') cannot be used without main module",
+          separateModule,
+          separatePicModule);
+      ImmutableSet.Builder<Artifact> modularPublicHeaders = ImmutableSet.builder();
+      ImmutableSet.Builder<Artifact> modularPrivateHeaders = ImmutableSet.builder();
+      ImmutableSet.Builder<Artifact> allTextualHeaders = ImmutableSet.builder();
+      allTextualHeaders.addAll(textualHeaders);
+      // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
+      // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
+      for (Artifact header : publicHeaders) {
+        if (header.isFileType(CppFileTypes.CPP_TEXTUAL_INCLUDE)) {
+          allTextualHeaders.add(header);
+        } else {
+          modularPublicHeaders.add(header);
         }
-        return this;
       }
-
-      @CanIgnoreReturnValue
-      public Builder addPrivateHeaders(Collection<Artifact> headers) {
-        // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
-        // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
-        for (Artifact header : headers) {
-          if (header.isFileType(CppFileTypes.CPP_TEXTUAL_INCLUDE)) {
-            this.textualHeaders.add(header);
-          } else {
-            this.modularPrivateHeaders.add(header);
-          }
+      for (Artifact header : privateHeaders) {
+        if (header.isFileType(CppFileTypes.CPP_TEXTUAL_INCLUDE)) {
+          allTextualHeaders.add(header);
+        } else {
+          modularPrivateHeaders.add(header);
         }
-        return this;
       }
-
-      @CanIgnoreReturnValue
-      public Builder addTextualHeaders(Collection<Artifact> headers) {
-        this.textualHeaders.addAll(headers);
-        return this;
+      for (HeaderInfo otherHeaderInfo : mergedDeps) {
+        modularPublicHeaders.addAll(otherHeaderInfo.modularPublicHeaders);
+        modularPrivateHeaders.addAll(otherHeaderInfo.modularPrivateHeaders);
+        allTextualHeaders.addAll(otherHeaderInfo.textualHeaders);
       }
-
-      @CanIgnoreReturnValue
-      public Builder setSeparateModuleHdrs(
-          Collection<Artifact> headers,
-          DerivedArtifact separateModule,
-          DerivedArtifact separatePicModule) {
-        this.separateModuleHeaders = headers;
-        this.separateModule = separateModule;
-        this.separatePicModule = separatePicModule;
-        return this;
-      }
-
-      /** Adds the headers of the given {@code HeaderInfo} into the one being built. */
-      @CanIgnoreReturnValue
-      public Builder mergeHeaderInfo(HeaderInfo otherHeaderInfo) {
-        this.modularPublicHeaders.addAll(otherHeaderInfo.modularPublicHeaders);
-        this.modularPrivateHeaders.addAll(otherHeaderInfo.modularPrivateHeaders);
-        this.textualHeaders.addAll(otherHeaderInfo.textualHeaders);
-        return this;
-      }
-
-      @SuppressWarnings("LenientFormatStringValidation")
-      public HeaderInfo build() {
-        // Expected 0 args, but got 2.
-        Preconditions.checkState(
-            (separateModule == null || headerModule != null)
-                && (separatePicModule == null || picHeaderModule != null),
-            "Separate module cannot be used without main module",
-            separateModule,
-            separatePicModule);
-        return new HeaderInfo(
-            identityToken,
-            headerModule,
-            picHeaderModule,
-            ImmutableList.copyOf(modularPublicHeaders),
-            ImmutableList.copyOf(modularPrivateHeaders),
-            ImmutableList.copyOf(textualHeaders),
-            ImmutableList.copyOf(separateModuleHeaders),
-            separateModule,
-            separatePicModule,
-            ImmutableList.copyOf(deps));
-      }
+      return new HeaderInfo(
+          identityToken,
+          headerModule,
+          picHeaderModule,
+          modularPublicHeaders.build().asList(),
+          modularPrivateHeaders.build().asList(),
+          allTextualHeaders.build().asList(),
+          separateModuleHeaders,
+          separateModule,
+          separatePicModule,
+          deps);
     }
   }
 }
