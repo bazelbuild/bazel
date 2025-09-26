@@ -50,7 +50,6 @@ public interface RemoteAnalysisCacheClient {
       String configurationHash,
       String bazelVersion,
       String area,
-      Collection<String> targets,
       Collection<String> configFlags,
       EventHandler eventHandler);
 

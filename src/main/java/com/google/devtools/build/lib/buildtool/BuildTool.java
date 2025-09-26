@@ -1708,7 +1708,6 @@ public class BuildTool {
               skycacheMetadataParams.getConfigurationHash(),
               skycacheMetadataParams.getBazelVersion(),
               skycacheMetadataParams.getArea(),
-              skycacheMetadataParams.getTargets(),
               skycacheMetadataParams.getConfigFlags(),
               eventHandler);
     }
