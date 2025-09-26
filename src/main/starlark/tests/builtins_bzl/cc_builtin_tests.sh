@@ -182,11 +182,6 @@ EOF
 }
 
 function test_cc_static_library_protobuf() {
-  if is_windows; then
-    # Fails on Windows due to long paths of the test workspace.
-    return 0
-  fi
-
   add_rules_cc "MODULE.bazel"
   add_protobuf "MODULE.bazel"
   mkdir -p pkg
@@ -198,14 +193,7 @@ cc_static_library(
 )
 EOF
 
-  # can be removed with protobuf v28.x onwards
-  if is_windows; then
-    CXXOPTS=""
-  else
-    CXXOPTS="--cxxopt=-Wno-deprecated-declarations --host_cxxopt=-Wno-deprecated-declarations"
-  fi
-  bazel build $CXXOPTS //pkg:protobuf \
-    &> $TEST_log || fail "Expected build to fail"
+  bazel build //pkg:protobuf &> $TEST_log || fail "Expected build to fail"
 }
 
 run_suite "cc_* built starlark test"
