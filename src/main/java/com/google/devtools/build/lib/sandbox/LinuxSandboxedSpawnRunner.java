@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -72,6 +73,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /**
    * Returns whether the linux sandbox is supported on the local machine by running a small command
    * in it.
@@ -111,6 +114,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
+      logger.atWarning().withCause(e).log(
+          "Checking for linux sandbox support failed: %s", e.getMessage());
       return false;
     }
 

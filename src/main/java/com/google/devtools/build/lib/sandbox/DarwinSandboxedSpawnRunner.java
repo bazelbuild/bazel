@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -49,6 +50,8 @@ import javax.annotation.Nullable;
 
 /** Spawn runner that uses Darwin (macOS) sandboxing to execute a process. */
 final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Path to the {@code getconf} system tool to use. */
   @VisibleForTesting
@@ -90,6 +93,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     try {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
+      logger.atWarning().withCause(e).log(
+          "Checking for darwin sandbox support failed: %s", e.getMessage());
       return false;
     }
 
