@@ -16,16 +16,22 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -104,22 +110,18 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     // imports files
     PathFragment indexObj = ltoOutputRootPrefix.getRelative(bitcodeFile.getExecPath());
 
-    LtoBackendAction.Builder builder = new LtoBackendAction.Builder();
-
-    CcToolchainVariables ccToolchainVariables;
-
-    ccToolchainVariables = ccToolchain.getBuildVars();
-
     CcToolchainVariables.Builder buildVariablesBuilder =
-        CcToolchainVariables.builder(ccToolchainVariables);
+        CcToolchainVariables.builder(ccToolchain.getBuildVars());
+    NestedSetBuilder<Artifact> additionalInputs = NestedSetBuilder.stableOrder();
 
-    initializeLtoBackendBuilder(
-        builder,
+    initializeBuildVariables(
         buildVariablesBuilder,
+        additionalInputs,
         ccToolchain,
         featureConfiguration,
         userCompileFlags);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
+    ActionEnvironment env = getEnvironmentVariables(buildVariables, featureConfiguration);
     BitcodeFiles bitcodeFiles = null;
     if (allBitcodeFiles != null) {
       bitcodeFiles = new BitcodeFiles(allBitcodeFiles);
@@ -142,7 +144,8 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       createLtoBackendActionTemplate(
           linkActionConstruction.getContext(),
           featureConfiguration,
-          builder,
+          additionalInputs.build(),
+          env,
           buildVariables,
           usePic,
           bitcodeFiles);
@@ -167,9 +170,9 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
                         linkActionConstruction.getConfig().isSiblingRepositoryLayout()),
                     ".dwo"));
       }
-      addEnvironmentVariables(builder, buildVariables, featureConfiguration);
       scheduleLtoBackendAction(
-          builder,
+          additionalInputs.build(),
+          env,
           buildVariables,
           linkActionConstruction.getContext(),
           featureConfiguration,
@@ -218,20 +221,20 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
   }
 
   /**
-   * Populate buildVariablesBuilder, and builder with data that is independent of what file is the
-   * input to the action.
+   * Populate buildVariablesBuilder, and additionalInputs with data that is independent of what file
+   * is the input to the action.
    */
-  private static void initializeLtoBackendBuilder(
-      LtoBackendAction.Builder builder,
+  private static void initializeBuildVariables(
       CcToolchainVariables.Builder buildVariablesBuilder,
+      NestedSetBuilder<Artifact> additionalInputs,
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
       List<String> userCompileFlags)
       throws EvalException {
-    builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
-    builder.setMnemonic("CcLtoBackendCompile");
+    additionalInputs.addTransitive(ccToolchain.getCompilerFiles());
+
     addProfileForLtoBackend(
-        builder, ccToolchain.getFdoContext(), featureConfiguration, buildVariablesBuilder);
+        additionalInputs, ccToolchain.getFdoContext(), featureConfiguration, buildVariablesBuilder);
     // Add the context sensitive instrument path to the backend.
     if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
       buildVariablesBuilder.addVariable(
@@ -246,9 +249,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
           "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
               + " for 'lto-backend' action.");
     }
-    PathFragment compiler =
-        PathFragment.create(featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
-    builder.setExecutable(compiler);
   }
 
   private static void addPathsToBuildVariablesBuilder(
@@ -282,44 +282,42 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     }
   }
 
-  private static void addInputsToLtoBackendActionBuilder(
-      LtoBackendAction.Builder builder,
+  private static NestedSet<Artifact> getLtoBackendActionInputs(
       @Nullable Artifact index,
       @Nullable Artifact imports,
       Artifact bitcodeFile,
-      @Nullable BitcodeFiles bitcodeFiles) {
-    builder.addInput(bitcodeFile);
-    Preconditions.checkState(
-        (index == null) == (imports == null) && (imports == null) == (bitcodeFiles == null),
-        "Either all or none of index, imports and bitcodeFiles should be null");
+      NestedSet<Artifact> additionalInputs) {
+    NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
+    inputsBuilder.addTransitive(additionalInputs);
+    inputsBuilder.add(bitcodeFile);
     if (imports != null) {
-      builder.addImportsInfo(bitcodeFiles, imports);
       // Although the imports file is not used by the LTOBackendAction while the action is
       // executing, it is needed during the input discovery phase, and we must list it as an input
       // to the action in order for it to be preserved under --discard_orphaned_artifacts.
-      builder.addInput(imports);
+      inputsBuilder.add(imports);
     }
     if (index != null) {
-      builder.addInput(index);
+      inputsBuilder.add(index);
     }
+    return inputsBuilder.build();
   }
 
-  private static void addOutputsToLtoBackendActionBuilder(
-      LtoBackendAction.Builder builder, Artifact objectFile, Artifact dwoFile) {
-    builder.addOutput(objectFile);
+  private static ImmutableSet<Artifact> getLtoBackendActionOutputs(
+      Artifact objectFile, Artifact dwoFile) {
+    ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
+    builder.add(objectFile);
     // Add the context sensitive instrument path to the backend.
     if (dwoFile != null) {
-      builder.addOutput(dwoFile);
+      builder.add(dwoFile);
     }
+    return builder.build();
   }
 
-  private static void addEnvironmentVariables(
-      LtoBackendAction.Builder builder,
-      CcToolchainVariables buildVariables,
-      FeatureConfiguration featureConfiguration)
+  private static ActionEnvironment getEnvironmentVariables(
+      CcToolchainVariables buildVariables, FeatureConfiguration featureConfiguration)
       throws EvalException {
     try {
-      builder.setEnvironment(
+      return ActionEnvironment.create(
           featureConfiguration.getEnvironmentVariables(
               CppActionNames.LTO_BACKEND, buildVariables, PathMapper.NOOP));
     } catch (ExpansionException e) {
@@ -327,8 +325,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     }
   }
 
-  private static void addCommandLineToLtoBackendActionBuilder(
-      LtoBackendAction.Builder builder,
+  private static CommandLines getLtoBackendCommandLine(
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables buildVariables,
       boolean usePic) {
@@ -365,17 +362,21 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
             return args.build();
           }
         };
-    builder.addCommandLine(ltoCommandLine);
+    PathFragment compiler =
+        PathFragment.create(featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
+    return CommandLines.builder()
+        .addSingleArgument(compiler)
+        .addCommandLine(ltoCommandLine)
+        .build();
   }
 
   /**
    * Adds artifact to builder. The resulting builder can be built into a valid ltoBackendAction.
    *
    * <p>Assumes that build and builderVariableBuilder have been initialized by calling {@link
-   * initializeLtoBackendBuilder}. If this is not true, the action will be wrong.
+   * initializeBuildVariables}. If this is not true, the action will be wrong.
    *
-   * @param builder the builder to add the artifacts to, initialized by initializeLtoBackendBuilder.
-   * @param buildVariables CcToolchainVariables initialized by initializeLtoBackendBuilder
+   * @param buildVariables CcToolchainVariables initialized by {@link initializeBuildVariables}.
    * @param featureConfiguration the feature configuration to get the command line for the builder.
    * @param index the index artifact to add. Can be a TreeFileArtifact but cannot be a Tree
    *     Artifact.
@@ -393,8 +394,11 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
    * @param isDummyAction if true then ignores the preconditions, because it is generating a dummy
    *     action, not a valid action.
    */
-  public static void addArtifactsLtoBackendAction(
-      LtoBackendAction.Builder builder,
+  public static LtoBackendAction createLtoBackendAction(
+      ActionOwner actionOwner,
+      BuildConfigurationValue configuration,
+      NestedSet<Artifact> additionalInputs,
+      ActionEnvironment env,
       CcToolchainVariables buildVariables,
       FeatureConfiguration featureConfiguration,
       @Nullable Artifact index,
@@ -421,9 +425,9 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
             + " path.");
     CcToolchainVariables.Builder buildVariablesBuilder =
         CcToolchainVariables.builder(buildVariables);
-    addInputsToLtoBackendActionBuilder(builder, index, imports, bitcodeArtifact, bitcodeFiles);
-    addOutputsToLtoBackendActionBuilder(builder, objectFile, dwoFile);
-    builder.setProgressMessage("LTO Backend Compile %{output}");
+    NestedSet<Artifact> inputs =
+        getLtoBackendActionInputs(index, imports, bitcodeArtifact, additionalInputs);
+    ImmutableSet<Artifact> outputs = getLtoBackendActionOutputs(objectFile, dwoFile);
 
     String indexPath = index == null ? null : index.getExecPathString();
     String dwoFilePath = dwoFile == null ? null : dwoFile.getExecPathString();
@@ -434,14 +438,19 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         dwoFilePath,
         bitcodeFilePath != null ? bitcodeFilePath : bitcodeArtifact.getExecPathString());
     CcToolchainVariables buildVariablesWithFiles = buildVariablesBuilder.build();
-    addCommandLineToLtoBackendActionBuilder(
-        builder, featureConfiguration, buildVariablesWithFiles, usePic);
+
+    CommandLines commandLine =
+        getLtoBackendCommandLine(featureConfiguration, buildVariablesWithFiles, usePic);
+
+    return LtoBackendAction.create(
+        actionOwner, configuration, inputs, bitcodeFiles, imports, outputs, commandLine, env);
   }
 
   private void createLtoBackendActionTemplate(
       ActionConstructionContext actionConstructionContext,
       FeatureConfiguration featureConfiguration,
-      LtoBackendAction.Builder ltoBackendActionbuilder,
+      NestedSet<Artifact> additionalInputs,
+      ActionEnvironment env,
       CcToolchainVariables buildVariables,
       boolean usePic,
       BitcodeFiles bitcodeFiles) {
@@ -455,7 +464,8 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
             (SpecialArtifact) objectFile,
             (SpecialArtifact) dwoFile,
             featureConfiguration,
-            ltoBackendActionbuilder,
+            additionalInputs,
+            env,
             buildVariables,
             usePic,
             bitcodeFiles,
@@ -464,28 +474,33 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
   }
 
   private void scheduleLtoBackendAction(
-      LtoBackendAction.Builder builder,
+      NestedSet<Artifact> additionalInputs,
+      ActionEnvironment env,
       CcToolchainVariables buildVariables,
       ActionConstructionContext actionConstructionContext,
       FeatureConfiguration featureConfiguration,
       boolean usePic,
       @Nullable BitcodeFiles bitcodeFiles) {
 
-    addArtifactsLtoBackendAction(
-        builder,
-        buildVariables,
-        featureConfiguration,
-        index,
-        imports,
-        bitcodeFile,
-        objectFile,
-        bitcodeFiles,
-        dwoFile,
-        usePic,
-        /* bitcodeFilePath= */ null,
-        /* isDummyAction= */ false);
+    LtoBackendAction action =
+        createLtoBackendAction(
+            actionConstructionContext.getActionOwner(),
+            actionConstructionContext.getConfiguration(),
+            additionalInputs,
+            env,
+            buildVariables,
+            featureConfiguration,
+            index,
+            imports,
+            bitcodeFile,
+            objectFile,
+            bitcodeFiles,
+            dwoFile,
+            usePic,
+            /* bitcodeFilePath= */ null,
+            /* isDummyAction= */ false);
 
-    actionConstructionContext.registerAction(builder.build(actionConstructionContext));
+    actionConstructionContext.registerAction(action);
   }
 
   /**
@@ -493,7 +508,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
    */
   @ThreadSafe
   private static void addProfileForLtoBackend(
-      LtoBackendAction.Builder builder,
+      NestedSetBuilder<Artifact> additionalInputs,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables.Builder buildVariables)
@@ -501,21 +516,21 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     Artifact prefetch = fdoContext.getPrefetchHintsArtifact();
     if (prefetch != null) {
       buildVariables.addVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
-      builder.addInput(fdoContext.getPrefetchHintsArtifact());
+      additionalInputs.add(fdoContext.getPrefetchHintsArtifact());
     }
     if (fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
       buildVariables.addVariable(
           "propeller_optimize_cc_path",
           fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
-      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
+      additionalInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
     }
     if (fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
       buildVariables.addVariable(
           "propeller_optimize_ld_path",
           fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
-      builder.addInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+      additionalInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
         && !featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_OPTIMIZE)
@@ -527,7 +542,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         Preconditions.checkNotNull(fdoContext.getBranchFdoProfile());
     Artifact profile = branchFdoProfile.getProfileArtifact();
     buildVariables.addVariable("fdo_profile_path", profile.getExecPathString());
-    builder.addInput(branchFdoProfile.getProfileArtifact());
+    additionalInputs.add(branchFdoProfile.getProfileArtifact());
   }
 
   @Override
