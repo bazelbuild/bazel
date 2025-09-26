@@ -871,7 +871,14 @@ public class CcStarlarkInternal implements StarlarkValue {
   public ImmutableList<String> perFileCopts(
       CppConfiguration cppConfiguration, Artifact sourceFile, Label sourceLabel)
       throws EvalException {
-    return CcStaticCompilationHelper.collectPerFileCopts(cppConfiguration, sourceFile, sourceLabel);
+    return cppConfiguration.getPerFileCopts().stream()
+        .filter(
+            perLabelOptions ->
+                (sourceLabel != null && perLabelOptions.isIncluded(sourceLabel))
+                    || perLabelOptions.isIncluded(sourceFile))
+        .map(PerLabelOptions::getOptions)
+        .flatMap(options -> options.stream())
+        .collect(toImmutableList());
   }
 
   @StarlarkMethod(
