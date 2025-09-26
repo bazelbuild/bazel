@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -108,6 +107,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private final boolean propagateModuleMapAsActionInput;
 
   // Derived from depsContexts.
+  // TODO(blaze-team@): remove, compilationPrerequisites and declaredIncludeSrcs have the same
+  // content.
   private final NestedSet<Artifact> compilationPrerequisites;
 
   // Each pair maps the Bazel generated paths of virtual include headers back to their original path
@@ -190,8 +191,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public static CcCompilationContext createAndMerge(
       SymbolGenerator.Symbol<?> identityToken,
+      CcCompilationContext single,
       Sequence<CcCompilationContext> exportedDeps,
       Sequence<CcCompilationContext> deps) {
+    Preconditions.checkState(single.getHeaderInfo().deps.isEmpty());
+
     // CommandLineCcCompilationContext fields
     TransitiveSetHelper<PathFragment> includeDirs = new TransitiveSetHelper<>();
     TransitiveSetHelper<PathFragment> quoteIncludeDirs = new TransitiveSetHelper<>();
@@ -214,6 +218,22 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     // Transitive part of HeaderInfo
     ImmutableList.Builder<HeaderInfo> depHeaderInfos = ImmutableList.builder();
     ImmutableList.Builder<HeaderInfo> mergedHeaderInfos = ImmutableList.builder();
+
+    // Merge in single
+    compilationPrerequisites.addTransitive(single.getTransitiveCompilationPrerequisites());
+    includeDirs.addTransitive(single.getIncludeDirs());
+    quoteIncludeDirs.addTransitive(single.getQuoteIncludeDirs());
+    systemIncludeDirs.addTransitive(single.getSystemIncludeDirs());
+    frameworkIncludeDirs.addTransitive(single.getFrameworkIncludeDirs());
+    externalIncludeDirs.addTransitive(single.getExternalIncludeDirs());
+    declaredIncludeSrcs.addTransitive(single.getDeclaredIncludeSrcs());
+    nonCodeInputs.addTransitive(single.getNonCodeInputs());
+    virtualToOriginalHeaders.addTransitive(single.getVirtualToOriginalHeaders());
+    headerTokens.addTransitive(single.getHeaderTokens());
+    transitiveModules.addTransitive(single.getTransitiveModules(false));
+    transitivePicModules.addTransitive(single.getTransitiveModules(true));
+    directModuleMaps.addAll(single.getDirectModuleMaps());
+    exportingModuleMaps.addAll(single.getExportingModuleMaps());
 
     // Merge the compilation contexts.
     for (CcCompilationContext otherCcCompilationContext : Iterables.concat(exportedDeps, deps)) {
@@ -270,17 +290,20 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       mergedHeaderInfos.add(ccCompilationContext.getHeaderInfo());
     }
 
+    // Merge direct defines last.
+    allDefines.addAll(single.getDefines());
+
     HeaderInfo headerInfo =
         HeaderInfo.create(
             identityToken,
-            /* headerModule= */ null,
-            /* picHeaderModule= */ null,
-            /* publicHeaders= */ ImmutableList.of(),
-            /* privateHeaders= */ ImmutableList.of(),
-            /* textualHeaders= */ ImmutableList.of(),
-            /* separateModuleHeaders= */ ImmutableList.of(),
-            /* separateModule= */ null,
-            /* separatePicModule= */ null,
+            single.getHeaderInfo().headerModule,
+            single.getHeaderInfo().picHeaderModule,
+            single.getHeaderInfo().modularPublicHeaders,
+            single.getHeaderInfo().modularPrivateHeaders,
+            single.getHeaderInfo().textualHeaders,
+            single.getHeaderInfo().separateModuleHeaders,
+            single.getHeaderInfo().separateModule,
+            single.getHeaderInfo().separatePicModule,
             depHeaderInfos.build(),
             mergedHeaderInfos.build());
     NestedSet<Artifact> constructedPrereq = compilationPrerequisites.build();
@@ -293,7 +316,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
             frameworkIncludeDirs.getMergedResult(),
             externalIncludeDirs.getMergedResult(),
             allDefines.getMergedResult(),
-            /* localDefines= */ ImmutableList.of()),
+            single.getNonTransitiveDefines()),
         constructedPrereq,
         declaredIncludeSrcs.build(),
         nonCodeInputs.build(),
@@ -302,8 +325,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         transitivePicModules.build(),
         ImmutableList.copyOf(directModuleMaps),
         ImmutableList.copyOf(exportingModuleMaps),
-        /* cppModuleMap= */ null,
-        /* propagateModuleMapAsActionInput= */ true,
+        single.getCppModuleMap(),
+        single.getPropagateModuleMapAsActionInput(),
         virtualToOriginalHeaders.build(),
         headerTokens.build());
   }
@@ -850,7 +873,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * actions.
    */
   @Immutable
-  private static final class CommandLineCcCompilationContext {
+  static final class CommandLineCcCompilationContext {
     private final ImmutableList<PathFragment> includeDirs;
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
@@ -877,396 +900,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
   }
 
-  /** Creates a new builder for a {@link CcCompilationContext} instance. */
-  public static Builder builder(SymbolGenerator.Symbol<?> identityToken) {
-    return new Builder(identityToken);
-  }
-
-  /** Builder class for {@link CcCompilationContext}. */
-  public static class Builder {
-    private final NestedSetBuilder<Artifact> compilationPrerequisites =
-        NestedSetBuilder.stableOrder();
-    private final TransitiveSetHelper<PathFragment> includeDirs = new TransitiveSetHelper<>();
-    private final TransitiveSetHelper<PathFragment> quoteIncludeDirs = new TransitiveSetHelper<>();
-    private final TransitiveSetHelper<PathFragment> systemIncludeDirs = new TransitiveSetHelper<>();
-    private final TransitiveSetHelper<PathFragment> frameworkIncludeDirs =
-        new TransitiveSetHelper<>();
-    private final TransitiveSetHelper<PathFragment> externalIncludeDirs =
-        new TransitiveSetHelper<>();
-    private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
-    private final Set<String> defines = new LinkedHashSet<>();
-    private final ImmutableList.Builder<CcCompilationContext> deps = ImmutableList.builder();
-    private final ImmutableList.Builder<CcCompilationContext> exportedDeps =
-        ImmutableList.builder();
-    private final Set<String> localDefines = new LinkedHashSet<>();
-    private CppModuleMap cppModuleMap;
-    private boolean propagateModuleMapAsActionInput = true;
-    private final NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-
-    // HeaderInfo
-    private final SymbolGenerator.Symbol<?> identityToken;
-    private DerivedArtifact headerModule = null;
-    private DerivedArtifact picHeaderModule = null;
-    private final List<Artifact> modularPublicHeaders = new ArrayList<>();
-    private final List<Artifact> modularPrivateHeaders = new ArrayList<>();
-    private final List<Artifact> textualHeaders = new ArrayList<>();
-    private Collection<Artifact> separateModuleHeaders = ImmutableList.of();
-    private DerivedArtifact separateModule = null;
-    private DerivedArtifact separatePicModule = null;
-    private final ImmutableList.Builder<HeaderInfo> depHeaderInfos = ImmutableList.builder();
-    private final ImmutableList.Builder<HeaderInfo> mergedHeaderInfos = ImmutableList.builder();
-
-    /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    private Builder(SymbolGenerator.Symbol<?> identityToken) {
-      this.identityToken = identityToken;
-    }
-
-    private void mergeDependentCcCompilationContext(
-        CcCompilationContext otherCcCompilationContext,
-        TransitiveSetHelper<String> allDefines,
-        NestedSetBuilder<Artifact> transitiveModules,
-        NestedSetBuilder<Artifact> transitivePicModules,
-        Set<Artifact> directModuleMaps) {
-      Preconditions.checkNotNull(otherCcCompilationContext);
-      compilationPrerequisites.addTransitive(
-          otherCcCompilationContext.getTransitiveCompilationPrerequisites());
-      includeDirs.addTransitive(otherCcCompilationContext.getIncludeDirs());
-      quoteIncludeDirs.addTransitive(otherCcCompilationContext.getQuoteIncludeDirs());
-      systemIncludeDirs.addTransitive(otherCcCompilationContext.getSystemIncludeDirs());
-      frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
-      externalIncludeDirs.addTransitive(otherCcCompilationContext.getExternalIncludeDirs());
-      declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
-      depHeaderInfos.add(otherCcCompilationContext.headerInfo);
-
-      transitiveModules.addTransitive(otherCcCompilationContext.transitiveModules);
-      addIfNotNull(transitiveModules, otherCcCompilationContext.headerInfo.headerModule);
-      addIfNotNull(transitiveModules, otherCcCompilationContext.headerInfo.separateModule);
-
-      transitivePicModules.addTransitive(otherCcCompilationContext.transitivePicModules);
-      addIfNotNull(transitivePicModules, otherCcCompilationContext.headerInfo.picHeaderModule);
-      addIfNotNull(transitivePicModules, otherCcCompilationContext.headerInfo.separatePicModule);
-
-      nonCodeInputs.addTransitive(otherCcCompilationContext.nonCodeInputs);
-
-      // All module maps of direct dependencies are inputs to the current compile independently of
-      // the build type.
-      if (otherCcCompilationContext.getCppModuleMap() != null) {
-        directModuleMaps.add(otherCcCompilationContext.getCppModuleMap().getArtifact());
-      }
-      // Likewise, module maps re-exported from dependencies are inputs to the current compile.
-      for (CppModuleMap moduleMap : otherCcCompilationContext.exportingModuleMaps) {
-        directModuleMaps.add(moduleMap.getArtifact());
-      }
-
-      allDefines.addTransitive(otherCcCompilationContext.getDefines());
-      virtualToOriginalHeaders.addTransitive(
-          otherCcCompilationContext.getVirtualToOriginalHeaders());
-
-      headerTokens.addTransitive(otherCcCompilationContext.getHeaderTokens());
-    }
-
-    /**
-     * Merges the given {@code CcCompilationContext}s into this one by adding the contents of their
-     * attributes, and re-exporting the direct headers and module maps of {@code
-     * exportedCcCompilationContexts} through this one.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDependentCcCompilationContexts(
-        Iterable<CcCompilationContext> exportedCcCompilationContexts,
-        Iterable<CcCompilationContext> ccCompilationContexts) {
-      deps.addAll(ccCompilationContexts);
-      exportedDeps.addAll(exportedCcCompilationContexts);
-      return this;
-    }
-
-    private void mergeDependentCcCompilationContexts(
-        Iterable<CcCompilationContext> exportedCcCompilationContexts,
-        Iterable<CcCompilationContext> ccCompilationContexts,
-        TransitiveSetHelper<String> allDefines,
-        NestedSetBuilder<Artifact> transitiveModules,
-        NestedSetBuilder<Artifact> transitivePicModules,
-        Set<Artifact> directModuleMaps,
-        Set<CppModuleMap> exportingModuleMaps) {
-      for (CcCompilationContext ccCompilationContext :
-          Iterables.concat(exportedCcCompilationContexts, ccCompilationContexts)) {
-        mergeDependentCcCompilationContext(
-            ccCompilationContext,
-            allDefines,
-            transitiveModules,
-            transitivePicModules,
-            directModuleMaps);
-      }
-
-      for (CcCompilationContext ccCompilationContext : exportedCcCompilationContexts) {
-        // For each of the exported contexts, re-export its own module map and all of the module
-        // maps that it exports.
-        CppModuleMap moduleMap = ccCompilationContext.getCppModuleMap();
-        if (moduleMap != null) {
-          exportingModuleMaps.add(moduleMap);
-        }
-        exportingModuleMaps.addAll(ccCompilationContext.exportingModuleMaps);
-
-        // Merge the modular and textual headers from the compilation context so that they are also
-        // re-exported.
-        mergedHeaderInfos.add(ccCompilationContext.headerInfo);
-      }
-    }
-
-    /**
-     * Add a single include directory to be added with "-I". It can be either relative to the exec
-     * root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
-     * Before it is stored, the include directory is normalized.
-     */
-    @CanIgnoreReturnValue
-    public Builder addIncludeDir(PathFragment includeDir) {
-      includeDirs.add(includeDir);
-      return this;
-    }
-
-    /** See {@link #addIncludeDir(PathFragment)} */
-    @CanIgnoreReturnValue
-    public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
-      this.includeDirs.addAll(includeDirs);
-      return this;
-    }
-
-    /**
-     * Add a single include directory to be added with "-iquote". It can be either relative to the
-     * exec root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
-     * Before it is stored, the include directory is normalized.
-     */
-    @CanIgnoreReturnValue
-    public Builder addQuoteIncludeDir(PathFragment quoteIncludeDir) {
-      quoteIncludeDirs.add(quoteIncludeDir);
-      return this;
-    }
-
-    /** See {@link #addQuoteIncludeDir(PathFragment)} */
-    @CanIgnoreReturnValue
-    public Builder addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
-      this.quoteIncludeDirs.addAll(quoteIncludeDirs);
-      return this;
-    }
-
-    /**
-     * Add include directories to be added with "-isystem". It can be either relative to the exec
-     * root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
-     * Before it is stored, the include directory is normalized.
-     */
-    @CanIgnoreReturnValue
-    public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
-      this.systemIncludeDirs.addAll(systemIncludeDirs);
-      return this;
-    }
-
-    /** Add framework include directories to be added with "-F". */
-    @CanIgnoreReturnValue
-    public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
-      this.frameworkIncludeDirs.addAll(frameworkIncludeDirs);
-      return this;
-    }
-
-    /**
-     * Mark specified include directories as external, coming from an external workspace. These can
-     * be added with "-isystem" (GCC) or --system-header-prefix (Clang) to suppress warnings coming
-     * from external files.
-     */
-    @CanIgnoreReturnValue
-    public Builder addExternalIncludeDirs(Iterable<PathFragment> externalIncludeDirs) {
-      this.externalIncludeDirs.addAll(externalIncludeDirs);
-      return this;
-    }
-
-    /**
-     * Adds a header that has been declared in the {@code src} or {@code headers attribute}. The
-     * header will also be added to the compilation prerequisites.
-     *
-     * <p>Filters out fileset directory artifacts, which are not valid inputs.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDeclaredIncludeSrc(Artifact header) {
-      if (!header.isFileset()) {
-        declaredIncludeSrcs.add(header);
-        compilationPrerequisites.add(header);
-      }
-      return this;
-    }
-
-    /**
-     * Adds multiple headers that have been declared in the {@code src} or {@code headers
-     * attribute}. The headers will also be added to the compilation prerequisites.
-     *
-     * <p>Filters out fileset directory artifacts, which are not valid inputs.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDeclaredIncludeSrcs(Iterable<Artifact> declaredIncludeSrcs) {
-      for (Artifact source : declaredIncludeSrcs) {
-        addDeclaredIncludeSrc(source);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addModularPublicHdrs(Collection<Artifact> headers) {
-      this.modularPublicHeaders.addAll(headers);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addModularPrivateHdrs(Collection<Artifact> headers) {
-      this.modularPrivateHeaders.addAll(headers);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addTextualHdrs(Collection<Artifact> headers) {
-      this.textualHeaders.addAll(headers);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setSeparateModuleHdrs(
-        Collection<Artifact> headers,
-        DerivedArtifact separateModule,
-        DerivedArtifact separatePicModule) {
-      this.separateModuleHeaders = headers;
-      this.separateModule = separateModule;
-      this.separatePicModule = separatePicModule;
-      return this;
-    }
-
-    /** Add a set of required non-code compilation input. */
-    @CanIgnoreReturnValue
-    public Builder addNonCodeInputs(Iterable<Artifact> inputs) {
-      nonCodeInputs.addAll(inputs);
-      return this;
-    }
-
-    /** Adds a single define. */
-    @CanIgnoreReturnValue
-    public Builder addDefine(String define) {
-      defines.add(define);
-      return this;
-    }
-
-    /** Adds multiple defines. */
-    @CanIgnoreReturnValue
-    public Builder addDefines(Iterable<String> defines) {
-      Iterables.addAll(this.defines, defines);
-      return this;
-    }
-
-    /** Adds multiple non-transitive defines. */
-    @CanIgnoreReturnValue
-    public Builder addNonTransitiveDefines(Iterable<String> defines) {
-      Iterables.addAll(this.localDefines, defines);
-      return this;
-    }
-
-    /** Sets the C++ module map. */
-    @CanIgnoreReturnValue
-    public Builder setCppModuleMap(CppModuleMap cppModuleMap) {
-      this.cppModuleMap = cppModuleMap;
-      return this;
-    }
-
-    /** Causes the module map to be passed as an action input to dependant compilations. */
-    @CanIgnoreReturnValue
-    public Builder setPropagateCppModuleMapAsActionInput(boolean propagateModuleMap) {
-      this.propagateModuleMapAsActionInput = propagateModuleMap;
-      return this;
-    }
-
-    /**
-     * Sets the C++ header module in non-pic mode.
-     *
-     * @param headerModule The .pcm file generated for this library.
-     */
-    @CanIgnoreReturnValue
-    Builder setHeaderModule(DerivedArtifact headerModule) {
-      this.headerModule = headerModule;
-      return this;
-    }
-
-    /**
-     * Sets the C++ header module in pic mode.
-     *
-     * @param picHeaderModule The .pic.pcm file generated for this library.
-     */
-    @CanIgnoreReturnValue
-    Builder setPicHeaderModule(DerivedArtifact picHeaderModule) {
-      this.picHeaderModule = picHeaderModule;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addVirtualToOriginalHeaders(NestedSet<Tuple> virtualToOriginalHeaders) {
-      this.virtualToOriginalHeaders.addTransitive(virtualToOriginalHeaders);
-      return this;
-    }
-
-    /** Builds the {@link CcCompilationContext}. */
-    public CcCompilationContext build() {
-      TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
-      NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
-      NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
-      Set<Artifact> directModuleMaps = new LinkedHashSet<>();
-      Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
-      mergeDependentCcCompilationContexts(
-          exportedDeps.build(),
-          deps.build(),
-          allDefines,
-          transitiveModules,
-          transitivePicModules,
-          directModuleMaps,
-          exportingModuleMaps);
-
-      allDefines.addAll(defines);
-
-      HeaderInfo headerInfo =
-          HeaderInfo.create(
-              identityToken,
-              headerModule,
-              picHeaderModule,
-              modularPublicHeaders,
-              modularPrivateHeaders,
-              textualHeaders,
-              ImmutableList.copyOf(separateModuleHeaders),
-              separateModule,
-              separatePicModule,
-              depHeaderInfos.build(),
-              mergedHeaderInfos.build());
-      NestedSet<Artifact> constructedPrereq = compilationPrerequisites.build();
-
-      return new CcCompilationContext(
-          new CommandLineCcCompilationContext(
-              includeDirs.getMergedResult(),
-              quoteIncludeDirs.getMergedResult(),
-              systemIncludeDirs.getMergedResult(),
-              frameworkIncludeDirs.getMergedResult(),
-              externalIncludeDirs.getMergedResult(),
-              allDefines.getMergedResult(),
-              ImmutableList.copyOf(localDefines)),
-          constructedPrereq,
-          declaredIncludeSrcs.build(),
-          nonCodeInputs.build(),
-          headerInfo,
-          transitiveModules.build(),
-          transitivePicModules.build(),
-          ImmutableList.copyOf(directModuleMaps),
-          ImmutableList.copyOf(exportingModuleMaps),
-          cppModuleMap,
-          propagateModuleMapAsActionInput,
-          virtualToOriginalHeaders.build(),
-          headerTokens.build());
-    }
-  }
-
   private static void addIfNotNull(
       NestedSetBuilder<Artifact> builder, @Nullable Artifact artifact) {
     if (artifact != null) {
@@ -1285,22 +918,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final Set<E> all = CompactHashSet.create();
     private ImmutableList<E> largestTransitive = ImmutableList.of();
 
-    public void add(E element) {
-      all.add(element);
-    }
-
-    public void addAll(Iterable<E> elements) {
+    void addAll(Iterable<E> elements) {
       Iterables.addAll(all, elements);
     }
 
-    public void addTransitive(ImmutableList<E> transitive) {
+    void addTransitive(ImmutableList<E> transitive) {
       all.addAll(transitive);
       if (transitive.size() > largestTransitive.size()) {
         largestTransitive = transitive;
       }
     }
 
-    public ImmutableList<E> getMergedResult() {
+    ImmutableList<E> getMergedResult() {
       ImmutableList<E> allAsList = ImmutableList.copyOf(all);
       return allAsList.equals(largestTransitive) ? largestTransitive : allAsList;
     }

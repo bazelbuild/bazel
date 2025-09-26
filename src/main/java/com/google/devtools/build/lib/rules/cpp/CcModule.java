@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.WrappedStarlarkActionFactory;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
@@ -228,86 +229,76 @@ public abstract class CcModule
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
 
-    CcCompilationContext.Builder ccCompilationContext =
-        CcCompilationContext.builder(thread.getNextIdentityToken());
-
     // Public parameters.
     ImmutableList<Artifact> headerList = toNestedSetOfArtifacts(headers, "headers").toList();
-    ccCompilationContext.addDeclaredIncludeSrcs(headerList);
     ImmutableList<Artifact> textualHdrsList =
         Sequence.cast(directTextualHdrs, Artifact.class, "direct_textual_headers")
             .getImmutableList();
-    ImmutableList<Artifact> modularPublicHdrsList =
-        Sequence.cast(directPublicHdrs, Artifact.class, "direct_public_headers").getImmutableList();
+    ImmutableList.Builder<Artifact> modularPublicHdrsList = ImmutableList.builder();
+    modularPublicHdrsList.addAll(
+        Sequence.cast(directPublicHdrs, Artifact.class, "direct_public_headers"));
     ImmutableList<Artifact> modularPrivateHdrsList =
         Sequence.cast(directPrivateHdrs, Artifact.class, "direct_private_headers")
             .getImmutableList();
 
-    ccCompilationContext.addSystemIncludeDirs(
-        toNestedSetOfStrings(systemIncludes, "system_includes").toList().stream()
-            .map(x -> PathFragment.create(x))
-            .collect(toImmutableList()));
-    ccCompilationContext.addIncludeDirs(
-        toNestedSetOfStrings(includes, "includes").toList().stream()
-            .map(x -> PathFragment.create(x))
-            .collect(toImmutableList()));
-    ccCompilationContext.addQuoteIncludeDirs(
-        toNestedSetOfStrings(quoteIncludes, "quote_includes").toList().stream()
-            .map(x -> PathFragment.create(x))
-            .collect(toImmutableList()));
-    ccCompilationContext.addFrameworkIncludeDirs(
-        toNestedSetOfStrings(frameworkIncludes, "framework_includes").toList().stream()
-            .map(x -> PathFragment.create(x))
-            .collect(toImmutableList()));
-    ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").toList());
-    ccCompilationContext.addNonTransitiveDefines(
-        toNestedSetOfStrings(localDefines, "local_defines").toList());
-    ccCompilationContext.addTextualHdrs(textualHdrsList);
-    ccCompilationContext.addModularPublicHdrs(modularPublicHdrsList);
-    ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrsList);
-
-    if (moduleMap != null && moduleMap != Starlark.UNBOUND && moduleMap != Starlark.NONE) {
-      ccCompilationContext.setCppModuleMap((CppModuleMap) moduleMap);
-    }
-
-    ccCompilationContext.addExternalIncludeDirs(
-        toNestedSetOfStrings(externalIncludes, "external_includes").toList().stream()
-            .map(PathFragment::create)
-            .collect(toImmutableList()));
-
-    ccCompilationContext.addVirtualToOriginalHeaders(
-        Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"));
-
-    ccCompilationContext.addDependentCcCompilationContexts(
-        Sequence.cast(
-                exportedDependentCcCompilationContexts,
-                CcCompilationContext.class,
-                "exported_dependent_cc_compilation_contexts")
-            .getImmutableList(),
-        Sequence.cast(
-                dependentCcCompilationContexts,
-                CcCompilationContext.class,
-                "dependent_cc_compilation_contexts")
-            .getImmutableList());
-
-    ccCompilationContext.addNonCodeInputs(
-        Sequence.cast(nonCodeInputs, Artifact.class, "non_code_inputs").getImmutableList());
-
-    ccCompilationContext.setPropagateCppModuleMapAsActionInput(propagateModuleMapToCompileAction);
-    ccCompilationContext.setPicHeaderModule(
-        picHeaderModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) picHeaderModule);
-    ccCompilationContext.setHeaderModule(
-        headerModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) headerModule);
-    ccCompilationContext.setSeparateModuleHdrs(
-        Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers"),
-        convertFromNoneable(separateModule, null),
-        convertFromNoneable(separatePicModule, null));
-
     if ((Boolean) addPublicHeadersToModularHeaders) {
-      ccCompilationContext.addModularPublicHdrs(headerList);
+      modularPublicHdrsList.addAll(headerList);
     }
 
-    return ccCompilationContext.build();
+    HeaderInfo headerInfo =
+        HeaderInfo.create(
+            thread.getNextIdentityToken(),
+            // TODO(ilist@): typechecks; user code can throw ClassCastException
+            headerModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) headerModule,
+            picHeaderModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) picHeaderModule,
+            modularPublicHdrsList.build(),
+            modularPrivateHdrsList,
+            textualHdrsList,
+            Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers")
+                .getImmutableList(),
+            convertFromNoneable(separateModule, null),
+            convertFromNoneable(separatePicModule, null),
+            ImmutableList.of(),
+            ImmutableList.of());
+
+    CcCompilationContext single =
+        CcCompilationContext.create(
+            new CcCompilationContext.CommandLineCcCompilationContext(
+                toPathFragments(includes, "includes"),
+                toPathFragments(quoteIncludes, "quote_includes"),
+                toPathFragments(systemIncludes, "system_includes"),
+                toPathFragments(frameworkIncludes, "framework_includes"),
+                toPathFragments(externalIncludes, "external_includes"),
+                toNestedSetOfStrings(defines, "defines").toList(),
+                toNestedSetOfStrings(localDefines, "local_defines").toList()),
+            /* compilationPrerequisites= */ NestedSetBuilder.wrap(Order.STABLE_ORDER, headerList),
+            /* declaredIncludeSrcs= */ NestedSetBuilder.wrap(Order.STABLE_ORDER, headerList),
+            NestedSetBuilder.wrap(
+                Order.STABLE_ORDER,
+                Sequence.cast(nonCodeInputs, Artifact.class, "non_code_inputs")),
+            headerInfo,
+            /* transitiveModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* transitivePicModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* directModuleMaps= */ ImmutableList.of(),
+            /* exportingModuleMaps= */ ImmutableList.of(),
+            moduleMap instanceof CppModuleMap cppModuleMap ? cppModuleMap : null,
+            propagateModuleMapToCompileAction,
+            Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+
+    Sequence<CcCompilationContext> exportedDeps =
+        Sequence.cast(
+            exportedDependentCcCompilationContexts,
+            CcCompilationContext.class,
+            "exported_dependent_cc_compilation_contexts");
+    Sequence<CcCompilationContext> deps =
+        Sequence.cast(
+            dependentCcCompilationContexts,
+            CcCompilationContext.class,
+            "dependent_cc_compilation_contexts");
+
+    return CcCompilationContext.createAndMerge(
+        thread.getNextIdentityToken(), single, exportedDeps, deps);
   }
 
   @Override
@@ -328,7 +319,8 @@ public abstract class CcModule
             CcCompilationContext.class,
             "non_exported_compilation_contexts");
 
-    return CcCompilationContext.createAndMerge(thread.getNextIdentityToken(), exportedDeps, deps);
+    return CcCompilationContext.createAndMerge(
+        thread.getNextIdentityToken(), CcCompilationContext.EMPTY, exportedDeps, deps);
   }
 
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
@@ -347,6 +339,13 @@ public abstract class CcModule
     } else {
       return Depset.noneableCast(obj, String.class, fieldName);
     }
+  }
+
+  private static ImmutableList<PathFragment> toPathFragments(Object obj, String fieldName)
+      throws EvalException {
+    return toNestedSetOfStrings(obj, fieldName).toList().stream()
+        .map(x -> PathFragment.create(x))
+        .collect(toImmutableList());
   }
 
   @Override
