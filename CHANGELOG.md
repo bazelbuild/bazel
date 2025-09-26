@@ -1,3 +1,38 @@
+## Release 9.0.0-pre.20250916.1 (2025-09-26)
+
+```
+Baseline: 9b54736af5729536d61550ebbd98ed6fe991db51
+
+Cherry picks:
+
+   + 5639134ce52acad91dc235aaf7df3e73b1cf0da3:
+     Fix load statements for Java
+```
+
+Incompatible changes:
+
+  - Bazel releases that include a bundled JDK now use the system
+    trust store for certificates by default. Set `-Djavax....
+  - autoloads are disabled, issue
+    https://github.com/bazelbuild/bazel/issues/23043
+  - A `single_version_override` that pins a module to a lower version
+    than requested in a `bazel_dep` for that module now results in an
+    error instead of silently ignoring the `bazel_dep` version
+    requirement. This is meant to catch a common source of bugs when
+    updating a `bazel_dep` without noticing that it is overridden.
+  - Starlark list methods don't accept Nones.
+
+Important changes:
+
+  - The following rules have been removed from Bazel and must be
+    loaded from `@rules_cc`: `cc_binary`, `cc_import`, `cc_library`,
+    `cc_shared_library`, `cc_shared_library`, `cc_static_library`,
+    `cc_test`, `cc_toolchain`, `cc_toolchain_alias`, `objc_import`,
+    `objc_library`, `fdo_prefetch_hints`, `fdo_profile`,
+    `memprof_profile`, `propeller_optimize`
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Carmen Chui, dependabot[bot], Fabian Meumertzheim, Grzegorz Lukasik, Keith Smiley.
+
 ## Release 9.0.0-pre.20250908.2 (2025-09-22)
 
 ```
