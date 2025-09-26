@@ -635,7 +635,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             Profiler.instance().profile(ProfilerTask.BZLMOD, "compute main repo mapping")) {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
-          optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
+          optionsParser =
+              optionsParser.toBuilder()
+                  .withConversionContext(mainRepoMapping)
+                  .withAliases(env.getSkyframeExecutor().getFlagAliases(reporter))
+                  .build();
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";

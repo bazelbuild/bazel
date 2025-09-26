@@ -1170,4 +1170,27 @@ public class ModuleFileGlobals {
     validateModuleName(moduleName);
     context.addOverride(moduleName, new NonRegistryOverride(LocalPathRepoSpecs.create(path)));
   }
+
+  @StarlarkMethod(
+      name = "flag_alias",
+      doc =
+          """
+            Maps a command-line flag --foo to a Starlark flag --@repo//defs:foo. Bazel translates all
+            instances of $ bazel build //target --foo to $ bazel build //target --@repo//defs:foo.
+          """,
+      parameters = {
+        @Param(name = "name", doc = "The name of the flag.", positional = true),
+        @Param(
+            name = "starlark_flag",
+            doc = "The label of the Starlark flag to alias to.",
+            positional = true),
+      },
+      useStarlarkThread = true)
+  public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException {
+    ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "flag_alias()");
+    // TODO: add input validation for stalark flag label
+    context.setNonModuleCalled();
+    context.getModuleBuilder().addFlagAlias(nativeName, starlarkLabel);
+  }
 }

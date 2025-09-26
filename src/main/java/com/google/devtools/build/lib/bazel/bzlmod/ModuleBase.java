@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 /** Represents a node in the external dependency graph. */
 abstract class ModuleBase {
@@ -70,4 +71,10 @@ abstract class ModuleBase {
 
   /** The module extensions used in this module. */
   public abstract ImmutableList<ModuleExtensionUsage> getExtensionUsages();
+
+  /**
+   * The flag aliases for this module. This is a list of String of the following format {@code
+   * ${ALIAS}=${LABEL}}
+   */
+  public abstract ImmutableMap<String, String> getFlagAliases();
 }
