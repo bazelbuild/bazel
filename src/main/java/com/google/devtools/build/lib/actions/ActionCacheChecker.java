@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
@@ -326,6 +327,17 @@ public class ActionCacheChecker {
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
         SpecialArtifact parent = (SpecialArtifact) artifact;
+
+        if (proxyOutputs.contains(parent.getExecPathString())) {
+          try {
+            TreeArtifactValue metadata = constructProxyTreeMetadata(parent);
+            mergedTreeMetadata.put(parent, metadata);
+          } catch (IOException e) {
+            // Ignore - we'll get an action cache miss.
+          }
+          continue;
+        }
+
         SerializableTreeArtifactValue cachedTreeMetadata = entry.getOutputTree(parent);
         if (cachedTreeMetadata == null) {
           continue;
@@ -408,6 +420,24 @@ public class ActionCacheChecker {
 
     return new CachedOutputMetadata(
         mergedFileMetadata.buildOrThrow(), mergedTreeMetadata.buildOrThrow());
+  }
+
+  private TreeArtifactValue constructProxyTreeMetadata(SpecialArtifact parent)
+      throws IOException, InterruptedException {
+    TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
+    TreeArtifactValue.visitTree(
+        parent.getPath(),
+        (parentRelativePath, type, traversedSymlink) -> {
+          if (type != Dirent.Type.DIRECTORY) {
+            TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
+            FileArtifactValue metadata = proxyMetadataFactory.createProxyMetadata(child);
+            // visitTree() uses multiple threads and putChild() is not thread-safe
+            synchronized (tree) {
+              tree.putChild(child, metadata);
+            }
+          }
+        });
+    return tree.build();
   }
 
   /**
