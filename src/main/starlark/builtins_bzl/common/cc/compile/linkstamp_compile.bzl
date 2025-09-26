@@ -17,6 +17,7 @@ The cc_common.register_linkstamp_compile_action function.
 Used for C++ linkstamp compiling.
 """
 
+load(":common/cc/action_names.bzl", "LINKSTAMP_COMPILE_ACTION_NAME")
 load(
     ":common/cc/cc_helper_internal.bzl",
     "is_stamping_enabled",
@@ -84,17 +85,30 @@ def register_linkstamp_compile_action(
         cc_toolchain = cc_toolchain,
         needs_pic = needs_pic,
     )
-    cc_common_internal.register_linkstamp_compile_action_internal(
-        actions = actions,
+
+    if stamping:
+        # Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
+        # See b/326620485 for more details.
+        unused = ctx.version_file  # @unused
+
+    # TODO(b/447325425): Consider if inputs_for_validation could (and should?) be passed in via
+    # cc_compilation_context instead of via cache_key_inputs - a param that is used only here.
+    cc_internal.create_cpp_compile_action(
+        action_construction_context = ctx,
+        cc_compilation_context = cc_internal.empty_compilation_context(),
         cc_toolchain = cc_toolchain,
+        configuration = ctx.configuration,
+        copts_filter = cc_internal.create_copts_filter(),
         feature_configuration = feature_configuration,
-        source_file = source_file,
+        cpp_semantics = cc_common_internal.get_cpp_semantics(language = "c++"),
+        source_artifact = source_file,
+        additional_compilation_inputs = compilation_inputs.to_list(),
         output_file = output_file,
-        compilation_inputs = compilation_inputs,
-        inputs_for_validation = inputs_for_validation,
-        label_replacement = label_replacement,
-        output_replacement = output_replacement,
-        needs_pic = needs_pic,
-        stamping = stamping,
+        use_pic = needs_pic,
         compile_build_variables = compile_build_variables,
+        cache_key_inputs = inputs_for_validation,
+        build_info_header_files = build_info_files,
+        action_name = LINKSTAMP_COMPILE_ACTION_NAME,
+        should_scan_includes = True,
+        shareable = True,
     )
