@@ -58,16 +58,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean runMemleaks;
 
   @Option(
-    name = "experimental_objc_fastbuild_options",
-    defaultValue = "-O0,-DDEBUG=1",
-    converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Uses these strings as objc fastbuild compiler options."
-  )
-  public List<String> fastbuildOptions;
-
-  @Option(
     name = "ios_signing_cert_name",
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.SIGNING,
