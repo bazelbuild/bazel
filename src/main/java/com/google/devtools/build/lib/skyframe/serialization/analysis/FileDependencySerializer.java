@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -44,7 +45,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
-import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSources;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
@@ -636,10 +637,8 @@ final class FileDependencySerializer {
     switch (node) {
       case NestedFileOpNodes plainNodes:
         break;
-      case NestedFileOpNodesWithSources withSources:
-        for (int i = 0; i < withSources.sourceCount(); i++) {
-          dependencyHandler.addSourceFile(withSources.getSource(i));
-        }
+      case NestedFileOpNodesWithSource withSource:
+        dependencyHandler.setSourceFile(withSource.source());
         break;
     }
 
@@ -678,14 +677,13 @@ final class FileDependencySerializer {
     private final TreeSet<String> listingKeys = new TreeSet<>();
     private final TreeMap<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies =
         new TreeMap<>();
-    private final TreeSet<String> sourceFileKeys = new TreeSet<>();
+    @Nullable private FileDataInfoOrFuture sourceFileOrFuture;
 
     private final ArrayList<WriteStatus> writeStatuses = new ArrayList<>();
 
     private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
     private final ArrayList<FutureNodeDataInfo> futureNodeDataInfo = new ArrayList<>();
-    private final ArrayList<FutureFileDataInfo> futureSourceFileInfo = new ArrayList<>();
 
     @Override
     public NodeDataInfo call() throws ExecutionException, IOException {
@@ -698,11 +696,9 @@ final class FileDependencySerializer {
       for (FutureNodeDataInfo futureInfo : futureNodeDataInfo) {
         addNodeInfo(Futures.getDone(futureInfo));
       }
-      for (FutureFileDataInfo futureInfo : futureSourceFileInfo) {
-        addSourceFileInfo(Futures.getDone(futureInfo));
-      }
+      @Nullable String sourceFileKey = getSourceFileKey();
 
-      if (fileKeys.isEmpty() && listingKeys.isEmpty() && sourceFileKeys.isEmpty()) {
+      if (fileKeys.isEmpty() && listingKeys.isEmpty() && sourceFileKey == null) {
         if (nodeDependencies.isEmpty()) {
           return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
         }
@@ -720,7 +716,7 @@ final class FileDependencySerializer {
         }
       }
 
-      byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKeys);
+      byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKey);
       byte[] maybeCompressedBytes = nodeBytes;
       if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
         maybeCompressedBytes = compressBytes(nodeBytes);
@@ -731,7 +727,6 @@ final class FileDependencySerializer {
     }
 
     private void addFileKey(FileKey fileKey) {
-
       switch (registerDependency(fileKey)) {
         case FileDataInfo info:
           addFileInfo(info);
@@ -797,35 +792,27 @@ final class FileDependencySerializer {
       }
     }
 
-    private void addSourceFile(FileKey sourceFile) {
-      switch (registerDependency(sourceFile)) {
-        case FileDataInfo info:
-          addSourceFileInfo(info);
-          break;
-        case FutureFileDataInfo futureInfo:
-          futureSourceFileInfo.add(futureInfo);
-          break;
-      }
-    }
-
-    private void addSourceFileInfo(FileDataInfo info) {
-      switch (info) {
-        case CONSTANT_FILE:
-          break;
-        case FileInvalidationDataInfo fileInfo:
-          sourceFileKeys.add(fileInfo.cacheKey());
-          writeStatuses.add(fileInfo.writeStatus());
-          break;
-      }
+    private void setSourceFile(FileKey sourceFile) {
+      checkState(
+          sourceFileOrFuture == null,
+          "Attempting to set source file to %s, but it was already set to %s",
+          sourceFile,
+          sourceFileOrFuture);
+      this.sourceFileOrFuture = registerDependency(sourceFile);
     }
 
     private ImmutableList<ListenableFuture<?>> getCombinedFutures() {
-      return ImmutableList.<ListenableFuture<?>>builder()
-          .addAll(futureFileDataInfo)
-          .addAll(futureListingDataInfo)
-          .addAll(futureNodeDataInfo)
-          .addAll(futureSourceFileInfo)
-          .build();
+      var combined =
+          ImmutableList.<ListenableFuture<?>>builder()
+              .addAll(futureFileDataInfo)
+              .addAll(futureListingDataInfo)
+              .addAll(futureNodeDataInfo);
+      switch (sourceFileOrFuture) {
+        case null -> {}
+        case FileDataInfo unusedSource -> {}
+        case FutureFileDataInfo futureSource -> combined.add(futureSource);
+      }
+      return combined.build();
     }
 
     private byte[] compressBytes(byte[] nodeBytes) throws IOException {
@@ -836,6 +823,23 @@ final class FileDependencySerializer {
         compressedBytesStream.write(nodeBytes);
       }
       return outputStream.toByteArray();
+    }
+
+    @Nullable
+    private String getSourceFileKey() throws ExecutionException {
+      if (sourceFileOrFuture == null) {
+        return null;
+      }
+      return switch (switch (sourceFileOrFuture) {
+        case FileDataInfo sourceInfo -> sourceInfo;
+        case FutureFileDataInfo futureSourceInfo -> Futures.getDone(futureSourceInfo);
+      }) {
+        case CONSTANT_FILE -> null;
+        case FileInvalidationDataInfo fileInfo -> {
+          writeStatuses.add(fileInfo.writeStatus());
+          yield fileInfo.cacheKey();
+        }
+      };
     }
   }
 
@@ -850,12 +854,12 @@ final class FileDependencySerializer {
    *   <li>The count of nested nodes, as a proto-encoded int.
    *   <li>The count of file keys, as a proto-encoded int.
    *   <li>The count of listing keys, as a proto-encoded int.
-   *   <li>The count of source file keys, as a proto-encoded int.
+   *   <li>A proto-encoded boolean, true if a source file key is present and false otherwise.
    *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
    *       representations.
    *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
    *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
-   *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
+   *   <li>Proto-encoded string of the source file key, if applicable.
    * </ol>
    *
    * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
@@ -865,14 +869,14 @@ final class FileDependencySerializer {
       Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,
       Set<String> fileKeys,
       Set<String> listingKeys,
-      Set<String> sourceFileKeys) {
+      @Nullable String sourceFileKey) {
     try {
       var bytesOut = new ByteArrayOutputStream();
       var codedOut = CodedOutputStream.newInstance(bytesOut);
       codedOut.writeInt32NoTag(nodeDependencies.size());
       codedOut.writeInt32NoTag(fileKeys.size());
       codedOut.writeInt32NoTag(listingKeys.size());
-      codedOut.writeInt32NoTag(sourceFileKeys.size());
+      codedOut.writeBoolNoTag(sourceFileKey != null);
       for (PackedFingerprint fp : nodeDependencies.keySet()) {
         fp.writeTo(codedOut);
       }
@@ -882,8 +886,8 @@ final class FileDependencySerializer {
       for (String key : listingKeys) {
         codedOut.writeStringNoTag(key);
       }
-      for (String key : sourceFileKeys) {
-        codedOut.writeStringNoTag(key);
+      if (sourceFileKey != null) {
+        codedOut.writeStringNoTag(sourceFileKey);
       }
       codedOut.flush();
       bytesOut.flush();

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 import static java.util.concurrent.ForkJoinPool.commonPool;
@@ -35,10 +36,10 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /**
  * Computes a mapping from {@link ActionLookupKey}s to {@link FileOpNodeOrFuture}s, representing the
@@ -116,25 +117,8 @@ final class FileOpNodeMemoizingLookup {
       collector.failWith(new MissingSkyframeEntryException(key));
       return;
     }
-    for (SkyKey dep : nodeEntry.getDirectDeps()) {
-      switch (dep) {
-        case FileOpNode immediateNode:
-          collector.addNode(immediateNode);
-          break;
-        default:
-          addNodeForKey(dep, collector);
-          break;
-      }
-    }
-  }
 
-  private void addNodeForKey(SkyKey key, FileOpNodeCollector collector) {
     if (key instanceof ActionLookupKey actionLookupKey) {
-      InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
-      if (nodeEntry == null) {
-        collector.failWith(new MissingSkyframeEntryException(key));
-        return;
-      }
       // If the corresponding value is an InputFileConfiguredTarget, it indicates an execution time
       // file dependency.
       if ((checkNotNull(nodeEntry.getValue(), actionLookupKey)
@@ -152,11 +136,24 @@ final class FileOpNodeMemoizingLookup {
           //
           // TODO: b/364831651 - for greater determinism, consider performing additional Skyframe
           // evaluations for these unused dependencies.
-          collector.addSource(fileKey);
+          collector.setSource(fileKey);
         }
       }
     }
 
+    for (SkyKey dep : nodeEntry.getDirectDeps()) {
+      switch (dep) {
+        case FileOpNode immediateNode:
+          collector.addNode(immediateNode);
+          break;
+        default:
+          addNodeForKey(dep, collector);
+          break;
+      }
+    }
+  }
+
+  private void addNodeForKey(SkyKey key, FileOpNodeCollector collector) {
     // TODO: b/364831651 - This adds all traversed SkyKeys to `nodes`. Consider if certain types
     // should be excluded from memoization.
     switch (nodes.getValueOrFuture(key)) {
@@ -174,7 +171,7 @@ final class FileOpNodeMemoizingLookup {
   private static final class FileOpNodeCollector extends QuiescingFuture<FileOpNodeOrEmpty>
       implements FutureCallback<FileOpNodeOrEmpty> {
     private final Set<FileOpNode> nodes = ConcurrentHashMap.newKeySet();
-    private final HashSet<FileKey> sourceFiles = new HashSet<>();
+    @Nullable private FileKey sourceFile = null;
 
     private FileOpNodeCollector() {
       super(directExecutor());
@@ -182,15 +179,20 @@ final class FileOpNodeMemoizingLookup {
 
     @Override
     protected FileOpNodeOrEmpty getValue() {
-      return AbstractNestedFileOpNodes.from(nodes, sourceFiles);
+      return AbstractNestedFileOpNodes.from(nodes, sourceFile);
     }
 
     private void addNode(FileOpNode node) {
       nodes.add(node);
     }
 
-    private void addSource(FileKey sourceFile) {
-      sourceFiles.add(sourceFile);
+    private void setSource(FileKey sourceFile) {
+      checkState(
+          this.sourceFile == null,
+          "Attempted to set source to %s but source already set to %s.",
+          sourceFile,
+          this.sourceFile);
+      this.sourceFile = sourceFile;
     }
 
     private void addFuture(FutureFileOpNode future) {

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
-import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSources;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
@@ -199,13 +199,11 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
           flattenNode(nested.getAnalysisDependency(i), nodes, sources, visited);
         }
         break;
-      case NestedFileOpNodesWithSources withSources:
+      case NestedFileOpNodesWithSource withSources:
         for (int i = 0; i < withSources.analysisDependenciesCount(); i++) {
           flattenNode(withSources.getAnalysisDependency(i), nodes, sources, visited);
         }
-        for (int i = 0; i < withSources.sourceCount(); i++) {
-          sources.add(withSources.getSource(i));
-        }
+        sources.add(withSources.source());
         break;
     }
   }

@@ -52,13 +52,13 @@ import javax.annotation.Nullable;
  * <ul>
  *   <li>{@link NestedFileOpNodes}: Represents a set of {@link FileOpNode}s without any immediate
  *       source file dependencies.
- *   <li>{@link NestedFileOpNodesWithSources}: Represents a set of {@link FileOpNode}s along with a
- *       list of immediate source file dependencies ({@link FileKey}s).
+ *   <li>{@link NestedFileOpNodesWithSource}: Represents a set of {@link FileOpNode}s along with an
+ *       immediate source file dependency ({@link FileKey}s).
  * </ul>
  */
 public abstract sealed class AbstractNestedFileOpNodes implements FileOpNodeOrFuture.FileOpNode
     permits AbstractNestedFileOpNodes.NestedFileOpNodes,
-        AbstractNestedFileOpNodes.NestedFileOpNodesWithSources {
+        AbstractNestedFileOpNodes.NestedFileOpNodesWithSource {
   private final FileOpNode[] analysisDependencies;
 
   /**
@@ -92,18 +92,17 @@ public abstract sealed class AbstractNestedFileOpNodes implements FileOpNodeOrFu
   }
 
   /**
-   * Creates {@link NestedFileOpNodesWithSources} with reductions similar to {@link
+   * Creates {@link NestedFileOpNodesWithSource} with reductions similar to {@link
    * #from(Collection<FileOpNode>)}.
    */
   public static FileOpNodeOrEmpty from(
-      Collection<FileOpNode> analysisDependencies, Collection<FileKey> sources) {
-    if (sources.isEmpty()) {
+      Collection<FileOpNode> analysisDependencies, @Nullable FileKey source) {
+    if (source == null) {
       return from(analysisDependencies);
     }
     // It's unclear if `analysisDependencies` can ever be empty here in practice, but it's
     // permitted. It should be rare enough that defining a special type for it isn't worth it.
-    return new NestedFileOpNodesWithSources(
-        analysisDependencies.toArray(FileOpNode[]::new), sources.toArray(FileKey[]::new));
+    return new NestedFileOpNodesWithSource(analysisDependencies.toArray(FileOpNode[]::new), source);
   }
 
   private AbstractNestedFileOpNodes(FileOpNode[] analysisDependencies) {
@@ -135,21 +134,17 @@ public abstract sealed class AbstractNestedFileOpNodes implements FileOpNodeOrFu
     }
   }
 
-  /** A set of analysis and source file dependencies. */
-  public static final class NestedFileOpNodesWithSources extends AbstractNestedFileOpNodes {
-    private final FileKey[] sources; // never empty
+  /** A set of analysis dependencies and source file dependency. */
+  public static final class NestedFileOpNodesWithSource extends AbstractNestedFileOpNodes {
+    private final FileKey source;
 
-    private NestedFileOpNodesWithSources(FileOpNode[] nodes, FileKey[] sources) {
+    private NestedFileOpNodesWithSource(FileOpNode[] nodes, FileKey source) {
       super(nodes);
-      this.sources = sources;
+      this.source = source;
     }
 
-    public int sourceCount() {
-      return sources.length;
-    }
-
-    public FileKey getSource(int i) {
-      return sources[i];
+    public FileKey source() {
+      return source;
     }
   }
 }
