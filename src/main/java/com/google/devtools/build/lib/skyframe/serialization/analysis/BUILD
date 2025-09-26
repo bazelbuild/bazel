@@ -16,7 +16,6 @@ java_library(
     srcs = ["RemoteAnalysisCachingEventListener.java"],
     deps = [
         ":client_id",
-        ":deserialized_keys_sink",
         ":remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -311,21 +310,11 @@ java_library(
 )
 
 java_library(
-    name = "deserialized_keys_sink",
-    srcs = ["DeserializedKeysSink.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-    ],
-)
-
-java_library(
     name = "remote_analysis_caching_server_state",
     srcs = ["RemoteAnalysisCachingServerState.java"],
     deps = [
         ":client_id",
-        ":deserialized_keys_sink",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
