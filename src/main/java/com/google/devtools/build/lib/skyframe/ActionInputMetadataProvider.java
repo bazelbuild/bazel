@@ -154,4 +154,10 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
     }
     return checkNotNull(value, artifact);
   }
+
+  @Nullable
+  @Override
+  public PathFragment getSomeArtifactWithPrefix(PathFragment execPath) {
+    return inputArtifactData.getSomeArtifactWithPrefix(execPath);
+  }
 }
