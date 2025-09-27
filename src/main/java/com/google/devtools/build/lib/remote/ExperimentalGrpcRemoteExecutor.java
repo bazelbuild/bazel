@@ -190,7 +190,11 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
 
     @Nullable
     ExecuteResponse waitExecution() throws IOException {
-      Preconditions.checkState(lastOperation != null);
+      // If lastOperation is null, return null to incur reexecution. This can happen in
+      // either an execute stream termination, or a mid-stream waitExecution retriable exception
+      if (lastOperation == null) {
+        return null;
+      }
 
       WaitExecutionRequest request =
           WaitExecutionRequest.newBuilder().setName(lastOperation.getName()).build();
