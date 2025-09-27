@@ -26,8 +26,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -44,10 +44,13 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.SortedMap;
+import java.util.function.Supplier;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -331,11 +334,11 @@ public class AbstractSpawnStrategyTest {
 
     verify(spawnLogContext)
         .logSpawn(
-            SIMPLE_SPAWN,
-            inputMetadataProvider,
-            ImmutableSortedMap.of(),
-            actionFs,
-            Duration.ZERO,
-            spawnResult);
+            eq(SIMPLE_SPAWN),
+            eq(inputMetadataProvider),
+            (Supplier<SortedMap<PathFragment, ActionInput>>) any(),
+            eq(actionFs),
+            eq(Duration.ZERO),
+            eq(spawnResult));
   }
 }
