@@ -160,7 +160,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     }
 
     @Override
-    public void sendOverStream(StreamEvent streamEvent) throws InterruptedException {
+    public StreamEvent sendOverStream(StreamEvent streamEvent) throws InterruptedException {
       PublishBuildToolEventStreamRequest request =
           BuildEventServiceProtoUtil.publishBuildToolEventStreamRequest(streamEvent);
       throwIfInterrupted();
@@ -170,6 +170,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
         Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
         streamStatus.set(Status.fromThrowable(e));
       }
+      return new BuildEventServiceProtoUtil.SerializedEvent(request);
     }
 
     @Override
@@ -202,7 +203,9 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
         }
 
         @Override
-        public void sendOverStream(StreamEvent streamEvent) {}
+        public StreamEvent sendOverStream(StreamEvent streamEvent) {
+          return streamEvent;
+        }
 
         @Override
         public void halfCloseStream() {}
