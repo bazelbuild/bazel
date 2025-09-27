@@ -145,9 +145,10 @@ projects:
 ## Configuring the Java toolchains {:#config-java-toolchains}
 
 Bazel uses two types of Java toolchains:
-- execution, used to execute and test Java binaries, controlled with
+
+* execution, used to execute and test Java binaries, controlled with the
   `--java_runtime_version` flag
-- compilation, used to compile Java sources, controlled with
+* compilation, used to compile Java sources, controlled with the
   `--java_language_version` flag
 
 ### Configuring additional execution toolchains {:#config-execution-toolchains}
