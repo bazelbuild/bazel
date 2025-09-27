@@ -38,11 +38,6 @@ landing_page:
       image_path: /images/why_faq.svg
       description: >
         Get and give support by joining the Bazel community on Slack, Stack Overflow, and more.
-    - heading: Community updates
-      path: /community/update
-      image_path: /images/new_3.svg
-      description: >
-        Tune in for our new monthly community update livestream.
     - heading: Contributor's guide
       path: /contribute/
       image_path: /images/why_overview.svg
