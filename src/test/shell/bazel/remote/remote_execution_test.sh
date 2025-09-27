@@ -2239,13 +2239,6 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
@@ -2310,15 +2303,6 @@ function test_create_tree_artifact_outputs() {
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:a &>$TEST_log || fail "expected build to succeed"
-  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
-  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -3151,15 +3135,6 @@ EOF
     build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
-
-  bazel clean --expunge
-  bazel \
-    --windows_enable_symlinks \
-    build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:b &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
@@ -3838,7 +3813,7 @@ EOF
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:gen >& $TEST_log && fail "build //a:gen should fail"
-  expect_log "The file type of 'a/dir/symlink.txt' is not supported."
+  expect_log "The file type of '.*a/dir/symlink.txt' is not supported."
 }
 
 run_suite "Remote execution and remote cache tests"
