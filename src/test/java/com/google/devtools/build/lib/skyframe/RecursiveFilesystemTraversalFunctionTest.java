@@ -152,7 +152,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         ExternalFilesHelper.createForTesting(
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            directories);
+            directories,
+            /* repoContentsCachePath= */ Suppliers.ofInstance(null));
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(
