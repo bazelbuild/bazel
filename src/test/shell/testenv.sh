@@ -260,16 +260,15 @@ function try_with_timeout() {
   done
 }
 
-function setup_localjdk_javabase() {
-  if is_windows; then
-    jdk_binary=local_jdk/bin/java.exe
-  else
-    jdk_binary=local_jdk/bin/java
+function setup_javabase() {
+  if [[ -z "${JAVA_ROOTPATH:-}" ]]; then
+    log_fatal "set JAVA_ROOTPATH to the rootpath of a java binary to use setup_javabase"
   fi
-  jdk_binary_rlocation=$(rlocation ${jdk_binary})
+  jdk_binary_rlocation=$(rlocation ${JAVA_ROOTPATH#../}) || {
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
+  }
   if [[ -z "${jdk_binary_rlocation}" ]]; then
-    echo "error: failed to find $jdk_binary, make sure you have java \
-installed or pass --java_runtime_verison=XX with the correct version" >&2
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
   fi
   if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
@@ -589,9 +588,12 @@ function add_zlib() {
 }
 
 function add_protobuf() {
-  version=$(get_version_from_default_lock_file "protobuf")
+  protobuf_version=$(get_version_from_default_lock_file "protobuf")
+  abseil_version=$(get_version_from_default_lock_file "abseil-cpp")
   cat >> "$1" <<EOF
-bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "$protobuf_version", repo_name = "com_google_protobuf")
+# Fixes compilation errors with old C++ compiler versions.
+bazel_dep(name = "abseil-cpp", version = "$abseil_version", repo_name = None)
 EOF
 }
 

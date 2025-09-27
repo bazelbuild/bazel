@@ -16,7 +16,7 @@
 
 set -eu
 
-setup_localjdk_javabase
+setup_javabase
 
 # Serves $1 as a file on localhost:$nc_port.  Sets the following variables:
 #   * nc_port - the port nc is listening on.
