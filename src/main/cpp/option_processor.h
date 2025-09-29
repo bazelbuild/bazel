@@ -188,6 +188,10 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       std::unique_ptr<RcFile>* result_rc_file,
                                       std::string* error);
 
+// Returns the list of environment variables in the form "KEY=value", with
+// synthetic entries (Windows only) filtered out.
+std::vector<std::string> GetProcessedEnv();
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
