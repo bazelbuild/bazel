@@ -42,6 +42,7 @@ bazel_dep(name = "rules_java", version = "8.14.0")
 bazel_dep(name = "rules_cc", version = "0.1.1")
 bazel_dep(name = "rules_python", version = "0.40.0")
 bazel_dep(name = "rules_shell", version = "0.2.0")
+bazel_dep(name = "apple_support", version = "1.23.1", repo_name = None)
 # add rules_android
 # add apple_support
 
