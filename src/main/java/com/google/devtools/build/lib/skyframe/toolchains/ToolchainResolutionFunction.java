@@ -50,6 +50,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedSet;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -396,6 +397,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           missingToolchainTypes.stream()
               .map(ToolchainTypeInfo::typeLabel)
               .map(Label::toString)
+              .map(Pattern::quote)
               .collect(toImmutableList());
       ImmutableList<String> missingToolchainRows =
           missingToolchainTypes.stream()
