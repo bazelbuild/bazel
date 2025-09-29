@@ -88,6 +88,80 @@ EOF
       || fail "Expected output 'Hello World'"
 }
 
+test_files_repository_changed() {
+  # Verify that changes to overlaid files are applied.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir remote
+  (cd remote && src_only_repo_with_local_include)
+  tar cvf remote.tar remote
+  rm -rf remote
+
+  mkdir main
+  cd main
+  build_def
+  cat > greeting.h <<'EOF'
+#define GREETING "Hello World"
+EOF
+  touch BUILD
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name = "remote",
+  strip_prefix = "remote",
+  urls = ["file://${WRKDIR}/remote.tar"],
+  files = {
+    "MODULE.bazel": "//:_.MODULE",
+    "src/BUILD.bazel": "//:_.BUILD",
+    "src/consts/greeting.h": "//:greeting.h",
+  },
+)
+EOF
+
+  bazel build @remote//src:hello || fail "Expected build to succeed"
+  bazel run @remote//src:hello | grep 'Hello World' \
+      || fail "Expected output 'Hello World'"
+  
+  cat > greeting.h <<'EOF'
+#define GREETING "Goodbye World"
+EOF
+  bazel build @remote//src:hello || fail "Expected build to succeed"
+  bazel run @remote//src:hello | grep 'Goodbye World' \
+      || fail "Expected output 'Goodbye World'"
+}
+
+test_files_repository_collision() {
+  # Verify that overlaid files overwrite existing files.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  mkdir remote
+  (cd remote && src_only_repo_with_local_include)
+  tar cvf remote.tar remote
+  rm -rf remote
+
+  mkdir main
+  cd main
+  build_def
+  touch BUILD
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name = "remote",
+  strip_prefix = "remote",
+  urls = ["file://${WRKDIR}/remote.tar"],
+  files = {
+    "MODULE.bazel": "//:_.MODULE",
+    "src/BUILD.bazel": "//:_.BUILD",
+  },
+)
+EOF
+
+  bazel build @remote//src:hello || fail "Expected build to succeed"
+  bazel run @remote//src:hello | grep 'Hello World' \
+      || fail "Expected output 'Hello World'"
+}
 
 test_files_repository_bad_label() {
   # Verify that labels for non-existant source files raise an error.

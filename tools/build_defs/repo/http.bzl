@@ -326,8 +326,9 @@ and `strip_prefix = "foo-1.2.3"`.""",
     ),
     "files": attr.string_keyed_label_dict(
         doc = """A map of relative paths (key) to a file label (value) that overlaid on the repo as
-a symlink. This is useful when you want to add WORKSPACE or BUILD.bazel files atop an existing
-repository. Files are symlinked after patches have been applied.
+a symlink. This is useful when you want to add REPO.bazel or BUILD.bazel files atop an existing
+repository. Files are symlinked after remote files are downloaded and patches (`remote_patches`,
+`patches`) are applied. Existing files will be overwritten.
 """,
     ),
     "type": attr.string(
@@ -349,12 +350,13 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     ),
     "remote_file_urls": attr.string_list_dict(
         default = {},
-        doc =
-            "A map of relative paths (key) to a list of URLs (value) that are to be downloaded " +
-            "and made available as overlaid files on the repo. This is useful when you want " +
-            "to add WORKSPACE or BUILD.bazel files atop an existing repository. The files " +
-            "are downloaded before applying the patches in the `patches` attribute and the list of URLs " +
-            "should all be possible mirrors of the same file. The URLs are tried in order until one succeeds. ",
+        doc = """A map of relative paths (key) to a list of URLs (value) that are to be downloaded
+and made available as overlaid files on the repo. This is useful when you want to add REPO.bazel or
+BUILD.bazel files atop an existing repository. The files are downloaded before `files` are
+symlinked and patches (`remote_patches`, `patches`) are applied. The list of URLs should all be
+possible mirrors of the same file. The URLs are tried in order until one succeeds. Existing files
+will be overwritten.
+""",
     ),
     "remote_file_integrity": attr.string_dict(
         default = {},

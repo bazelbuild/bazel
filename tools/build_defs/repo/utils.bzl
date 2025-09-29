@@ -89,6 +89,8 @@ def download_remote_files(ctx, auth = None):
     a repository rule. It assumes the parameters `remote_file_urls` and
     `remote_file_integrity` to be present in `ctx.attr`.
 
+    Existing files will be overwritten.
+
     Args:
       ctx: The repository context of the repository rule calling this utility
         function.
@@ -119,6 +121,8 @@ def symlink_files(ctx):
     This is intended to be used in the implementation function of a repository rule. It assumes the
     parameter `files` is present in `ctx.attr`.
 
+    Existing files will be overwritten.
+
     Args:
       ctx: The repository context of the repository rule calling this utility
         function.
@@ -127,6 +131,8 @@ def symlink_files(ctx):
         src_path = ctx.path(label)
         if not src_path.exists:
             fail("Input %s does not exist" % label)
+        if ctx.path(path).exists:
+            ctx.delete(path)
         ctx.symlink(src_path, path)
 
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
