@@ -38,14 +38,13 @@ import java.util.Set;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Integration tests for LocalDiffAwareness.
- */
+/** Integration tests for LocalDiffAwareness. */
 @RunWith(JUnit4.class)
 public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
@@ -58,11 +57,10 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   private Path testCaseRoot;
   private Path testCaseIgnoredDir;
 
-  @org.junit.Rule
-  public TestName name = new TestName();
+  @Rule public TestName name = new TestName();
 
   @Before
-  public final void initializeSettings() throws Exception  {
+  public final void initializeSettings() throws Exception {
     LocalDiffAwareness.Factory factory = new LocalDiffAwareness.Factory(ImmutableList.<String>of());
     // Make sure all test functions have their own directory to test
     testCaseRoot = testRoot.getChild(name.getMethodName());
@@ -197,9 +195,25 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     touch("equestria/foo.txt");
     new ModifiedFileSetChecker().modify("equestria").modify("equestria/foo.txt").check();
 
-
     rm("equestria");
     new ModifiedFileSetChecker().modify("equestria").modify("equestria/foo.txt").check();
+  }
+
+  @Test
+  public void testMoveDirectory() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+
+    mkdir("equestria");
+    touch("equestria/foo.txt");
+    new ModifiedFileSetChecker().modify("equestria").modify("equestria/foo.txt").check();
+
+    testCaseRoot.getRelative("equestria").renameTo(testCaseRoot.getRelative("equestria2"));
+    // The contents of a moved directory are *not* reported as modified.
+    new ModifiedFileSetChecker()
+        .modify("equestria")
+        .modify("equestria2")
+        .modify("equestria2/foo.txt")
+        .check();
   }
 
   @Test
@@ -220,12 +234,12 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     mkdir("a/b");
     touch("a/b/b1.txt");
     new ModifiedFileSetChecker()
-    .modify("a")
-    .modify("a/a1.txt")
-    .modify("a/a2.txt")
-    .modify("a/b")
-    .modify("a/b/b1.txt")
-    .check();
+        .modify("a")
+        .modify("a/a1.txt")
+        .modify("a/a2.txt")
+        .modify("a/b")
+        .modify("a/b/b1.txt")
+        .check();
 
     rm("a/b/b1.txt");
     touch("a/b/b2.txt");
@@ -235,11 +249,11 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     mkdir("a/b");
     touch("a/b/b3.txt");
     new ModifiedFileSetChecker()
-    .modify("a/b")
-    .modify("a/b/b1.txt")
-    .modify("a/b/b2.txt")
-    .modify("a/b/b3.txt")
-    .check();
+        .modify("a/b")
+        .modify("a/b/b1.txt")
+        .modify("a/b/b2.txt")
+        .modify("a/b/b3.txt")
+        .check();
 
     rm("a/b/b3.txt");
     new ModifiedFileSetChecker().modify("a/b/b3.txt").check();
@@ -288,12 +302,12 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
     View oldView =
         new LocalDiffAwareness.SequentialView(
-            localDiff, /*position=*/ 0, /*modifiedAbsolutePaths=*/ ImmutableSet.of());
+            localDiff, /* position= */ 0, /* modifiedAbsolutePaths= */ ImmutableSet.of());
     View newView =
         new LocalDiffAwareness.SequentialView(
             localDiff,
-            /*position=*/ 1,
-            /*modifiedAbsolutePaths=*/ ImmutableSet.of(
+            /* position= */ 1,
+            /* modifiedAbsolutePaths= */ ImmutableSet.of(
                 otherRootDirectoryNioPath.resolve("foo.txt")));
     Throwable throwable =
         assertThrows(BrokenDiffAwarenessException.class, () -> localDiff.getDiff(oldView, newView));
