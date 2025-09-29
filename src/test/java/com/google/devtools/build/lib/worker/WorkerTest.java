@@ -175,6 +175,20 @@ public final class WorkerTest {
     assertThat(readResponse).isEqualTo(response);
   }
 
+  @Test
+  public void testPutRequest_destroyedWorker_throws() throws Exception {
+    TestWorker testWorker = createTestWorker(new byte[0], PROTO);
+    testWorker.destroy();
+    assertThrows(IOException.class, () -> testWorker.putRequest(WorkRequest.getDefaultInstance()));
+  }
+
+  @Test
+  public void testGetResponse_destroyedWorker_throws() throws Exception {
+    TestWorker testWorker = createTestWorker(new byte[0], PROTO);
+    testWorker.destroy();
+    assertThrows(IOException.class, () -> testWorker.getResponse(0));
+  }
+
   private void verifyGetResponseFailure(String responseString, String expectedError)
       throws IOException, InterruptedException, UserExecException {
     TestWorker testWorker = createTestWorker((responseString + "\n").getBytes(UTF_8), JSON);

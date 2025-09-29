@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Interface to a worker process running as a single child process.
@@ -57,7 +58,9 @@ class SingleplexWorker extends Worker {
   @Nullable private RecordingInputStream recordingInputStream;
 
   /** The implementation of the worker protocol (JSON or Proto). */
-  @Nullable private WorkerProtocolImpl workerProtocol;
+  @GuardedBy("this")
+  @Nullable
+  private WorkerProtocolImpl workerProtocol;
 
   private Subprocess process;
 
@@ -135,14 +138,14 @@ class SingleplexWorker extends Worker {
       status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
       recordingInputStream = new RecordingInputStream(process.getInputStream());
     }
-    if (workerProtocol == null) {
-      switch (workerKey.getProtocolFormat()) {
-        case JSON:
-          workerProtocol = new JsonWorkerProtocol(process.getOutputStream(), recordingInputStream);
-          break;
-        case PROTO:
-          workerProtocol = new ProtoWorkerProtocol(process.getOutputStream(), recordingInputStream);
-          break;
+    synchronized (this) {
+      if (workerProtocol == null) {
+        workerProtocol =
+            switch (workerKey.getProtocolFormat()) {
+              case JSON -> new JsonWorkerProtocol(process.getOutputStream(), recordingInputStream);
+              case PROTO ->
+                  new ProtoWorkerProtocol(process.getOutputStream(), recordingInputStream);
+            };
       }
     }
   }
@@ -174,7 +177,10 @@ class SingleplexWorker extends Worker {
   }
 
   @Override
-  void putRequest(WorkRequest request) throws IOException {
+  synchronized void putRequest(WorkRequest request) throws IOException {
+    if (workerProtocol == null) {
+      throw new IOException("Worker has been destroyed.");
+    }
     workerProtocol.putRequest(request);
   }
 
@@ -189,11 +195,18 @@ class SingleplexWorker extends Worker {
                 "Worker process for %s died while waiting for response", workerKey.getMnemonic()));
       }
     }
-    return workerProtocol.getResponse();
+    // We only want to synchronize on the getResponse() call, and not in the loop above to avoid
+    // locking this worker.
+    synchronized (this) {
+      if (workerProtocol == null) {
+        throw new IOException("Worker has been destroyed.");
+      }
+      return workerProtocol.getResponse();
+    }
   }
 
   @Override
-  void destroy() {
+  synchronized void destroy() {
     if (workerProtocol != null) {
       try {
         workerProtocol.close();
