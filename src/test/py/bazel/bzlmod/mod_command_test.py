@@ -234,7 +234,7 @@ class ModCommandTest(test_base.TestBase):
             '    |   |___repo3',
             '    |   |___repo4',
             '    |___bar@2.0 #',
-            '        |___$@@ext+//:ext.bzl%ext',
+            '        |___$@@ext~//:ext.bzl%ext',
             '            |___repo3',
             '',
         ],
