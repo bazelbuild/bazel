@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -56,6 +59,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
 /** Handles the 'cquery' command on the Blaze command line. */
 @Command(
@@ -191,6 +195,7 @@ public final class CqueryCommand implements BlazeCommand {
             .setCheckforActionConflicts(false)
             .setReportIncompatibleTargets(false)
             .build();
+    resetDeserializedKeysFromRemoteAnalysisCache(env);
     DetailedExitCode detailedExitCode =
         new BuildTool(env, new CqueryProcessor(expr, mainRepoTargetParser))
             .processRequest(
@@ -201,6 +206,17 @@ public final class CqueryCommand implements BlazeCommand {
                 targetsForProjectResolution)
             .getDetailedExitCode();
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
+  }
+
+  @VisibleForTesting
+  public static void resetDeserializedKeysFromRemoteAnalysisCache(CommandEnvironment env) {
+    var evaluator = env.getSkyframeExecutor().getEvaluator();
+    var deserializedKeysToDelete =
+        evaluator.getDoneValues().entrySet().stream()
+            .filter(e -> e.getValue() instanceof DeserializedSkyValue)
+            .map(Map.Entry::getKey)
+            .collect(toImmutableSet());
+    evaluator.delete(deserializedKeysToDelete::contains);
   }
 
   private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {

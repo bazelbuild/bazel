@@ -36,8 +36,13 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.BuildTool.AnalysisPostProcessor;
+import com.google.devtools.build.lib.buildtool.CqueryProcessor;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
@@ -50,6 +55,10 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -64,6 +73,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -71,6 +81,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
@@ -80,6 +91,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -414,7 +426,51 @@ public class BlazeRuntimeWrapper {
     }
   }
 
+  /**
+   * Runs a cquery command with the given expression and target.
+   *
+   * @param cqueryExpr the cquery expression to evaluate.
+   * @param target the target to run the cquery against.
+   */
+  public void runCqueryExprCommand(String cqueryExpr, String target) throws Exception {
+    newCommand(CqueryCommand.class);
+    // Resetting the deserialized keys is necessary to avoid cquery using the pruned graph and
+    // missing targets in its output. Since BlazeRuntimeWrapper is written using the method
+    // buildTargets from BuildTool directly and skips going through the entry class
+    // CqueryCommand, we have to reimplement some of the logic here for cquery expressions like
+    // "deps(//foo)" to work in the integration tests. The alternative is a bigger refactoring
+    // rewriting BlazeRuntimeWrapper to use the *Command.java classes with the possibility of
+    // increasing overall complexity.
+    CqueryCommand.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.MAIN,
+            RepositoryMapping.create(
+                ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
+                RepositoryName.MAIN));
+    HashMap<String, QueryFunction> functions = new HashMap<>();
+    for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    for (QueryFunction queryFunction : getRuntime().getQueryFunctions()) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    QueryExpression expr = QueryParser.parse(cqueryExpr, functions);
+    CqueryProcessor cqueryProcessor = new CqueryProcessor(expr, parser);
+
+    executeBuild(Arrays.asList(target), cqueryProcessor);
+  }
+
   void executeBuild(List<String> targets) throws Exception {
+    // The analysisPostProcessor is only needed for printing to stdout the results from cquery, for
+    // regular builds BuildTool uses a NOOP processor.
+    executeBuild(targets, /* analysisPostProcessor= */ null);
+  }
+
+  void executeBuild(List<String> targets, AnalysisPostProcessor analysisPostProcessor)
+      throws Exception {
     if (command == null) {
       newCommand(BuildCommand.class); // If you didn't create a command we do it for you.
     }
@@ -432,7 +488,12 @@ public class BlazeRuntimeWrapper {
 
         Crash crash = null;
         DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
-        BuildTool buildTool = new BuildTool(env);
+        BuildTool buildTool;
+        if (analysisPostProcessor == null) {
+          buildTool = new BuildTool(env);
+        } else {
+          buildTool = new BuildTool(env, analysisPostProcessor);
+        }
         try {
           try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
             env.syncPackageLoading(lastRequest);
