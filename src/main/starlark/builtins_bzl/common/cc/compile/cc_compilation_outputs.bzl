@@ -38,6 +38,10 @@ CcCompilationOutputsInfo = provider(
         "temps": '(() -> depset[File]) All artifacts that are created if "--save_temps" is true.',
         "_header_tokens": "(list[File]) All token .h.processed files created when preprocessing or parsing headers.",
         "_module_files": "(list[File]) All .pcm files built by the target.",
+        "cpp_module_files": "(list[File]) All .pcm files built by the target's C++20 Modules interface.",
+        "pic_cpp_module_files": "(list[File]) All .pic.pcm files built by the target's C++20 Modules interface.",
+        "cpp_modules_info_file": "(File) .CXXModules.json file created by the target.",
+        "pic_cpp_modules_info_file": "(File) .CXXModules.json file created by the target.",
     },
 )
 
@@ -52,7 +56,11 @@ def create_compilation_outputs_internal(
         pic_gcno_files = [],
         temps = [],
         header_tokens = [],
-        module_files = []):
+        module_files = [],
+        cpp_module_files = [],
+        pic_cpp_module_files = [],
+        cpp_modules_info_file = None,
+        pic_cpp_modules_info_file = None):
     """Creates a CcCompilationOutputsInfo provider.
 
     Args:
@@ -66,6 +74,10 @@ def create_compilation_outputs_internal(
         temps: A depset of temporary files.
         header_tokens: A list of header tokens.
         module_files: A list of module files.
+        cpp_module_files: A list of C++ module files.
+        pic_cpp_module_files: A list of PIC C++ module files.
+        cpp_modules_info_file: A C++ modules info file.
+        pic_cpp_modules_info_file: A PIC C++ modules info file.
 
     Returns:
         A CcCompilationOutputsInfo provider.
@@ -83,6 +95,10 @@ def create_compilation_outputs_internal(
         _pic_gcno_files = cc_internal.freeze(pic_gcno_files),
         _dwo_files = cc_internal.freeze(dwo_files),
         _pic_dwo_files = cc_internal.freeze(pic_dwo_files),
+        cpp_module_files = cc_internal.freeze(cpp_module_files),
+        pic_cpp_module_files = cc_internal.freeze(pic_cpp_module_files),
+        cpp_modules_info_file = cpp_modules_info_file,
+        pic_cpp_modules_info_file = pic_cpp_modules_info_file,
     )
 
 EMPTY_COMPILATION_OUTPUTS = create_compilation_outputs_internal()

@@ -74,6 +74,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           HeaderInfo.EMPTY,
           /* transitiveModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* transitivePicModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* moduleFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* picModuleFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* modulesInfoFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* picModulesInfoFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* directModuleMaps= */ ImmutableList.of(),
           /* exportingModuleMaps= */ ImmutableList.of(),
           /* cppModuleMap= */ null,
@@ -96,6 +100,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private final HeaderInfo headerInfo;
   private final NestedSet<Artifact> transitiveModules;
   private final NestedSet<Artifact> transitivePicModules;
+
+  private final NestedSet<Artifact> moduleFiles;
+  private final NestedSet<Artifact> picModuleFiles;
+  private final NestedSet<Artifact> modulesInfoFiles;
+  private final NestedSet<Artifact> picModulesInfoFiles;
 
   private final CppModuleMap cppModuleMap;
 
@@ -126,6 +135,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       HeaderInfo headerInfo,
       NestedSet<Artifact> transitiveModules,
       NestedSet<Artifact> transitivePicModules,
+      NestedSet<Artifact> moduleFiles,
+      NestedSet<Artifact> picModuleFiles,
+      NestedSet<Artifact> modulesInfoFiles,
+      NestedSet<Artifact> picModulesInfoFiles,
       ImmutableList<Artifact> directModuleMaps,
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
@@ -139,6 +152,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.headerInfo = headerInfo;
     this.transitiveModules = transitiveModules;
     this.transitivePicModules = transitivePicModules;
+    this.moduleFiles = moduleFiles;
+    this.picModuleFiles = picModuleFiles;
+    this.modulesInfoFiles = modulesInfoFiles;
+    this.picModulesInfoFiles = picModulesInfoFiles;
     this.cppModuleMap = cppModuleMap;
     this.nonCodeInputs = nonCodeInputs;
     this.virtualToOriginalHeaders = virtualToOriginalHeaders;
@@ -153,6 +170,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       HeaderInfo headerInfo,
       NestedSet<Artifact> transitiveModules,
       NestedSet<Artifact> transitivePicModules,
+      NestedSet<Artifact> moduleFiles,
+      NestedSet<Artifact> picModuleFiles,
+      NestedSet<Artifact> modulesInfoFiles,
+      NestedSet<Artifact> picModulesInfoFiles,
       ImmutableList<Artifact> directModuleMaps,
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
@@ -165,6 +186,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         headerInfo,
         transitiveModules,
         transitivePicModules,
+        moduleFiles,
+        picModuleFiles,
+        modulesInfoFiles,
+        picModulesInfoFiles,
         directModuleMaps,
         exportingModuleMaps,
         cppModuleMap,
@@ -196,6 +221,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> moduleFiles = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> picModuleFiles = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> modulesInfoFiles = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> picModulesInfoFiles = NestedSetBuilder.stableOrder();
     Set<Artifact> directModuleMaps = new LinkedHashSet<>();
     Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
     NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
@@ -231,6 +260,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       addIfNotNull(transitiveModules, otherCcCompilationContext.getHeaderInfo().getModule(false));
       addIfNotNull(
           transitiveModules, otherCcCompilationContext.getHeaderInfo().getSeparateModule(false));
+      moduleFiles.addTransitive(otherCcCompilationContext.getModuleFiles(false));
+      picModuleFiles.addTransitive(otherCcCompilationContext.getModuleFiles(true));
+      modulesInfoFiles.addTransitive(otherCcCompilationContext.getModulesInfoFiles(false));
+      picModulesInfoFiles.addTransitive(otherCcCompilationContext.getModulesInfoFiles(true));
 
       transitivePicModules.addTransitive(otherCcCompilationContext.getTransitiveModules(true));
       addIfNotNull(transitivePicModules, otherCcCompilationContext.getHeaderInfo().getModule(true));
@@ -299,6 +332,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         headerInfo,
         transitiveModules.build(),
         transitivePicModules.build(),
+        moduleFiles.build(),
+        picModuleFiles.build(),
+        modulesInfoFiles.build(),
+        picModulesInfoFiles.build(),
         ImmutableList.copyOf(directModuleMaps),
         ImmutableList.copyOf(exportingModuleMaps),
         single.getCppModuleMap(),
@@ -725,6 +762,26 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
     return usePic ? transitivePicModules : transitiveModules;
+  }
+
+  public NestedSet<Artifact> getModuleFiles(boolean usePic) {
+    return usePic ? picModuleFiles : moduleFiles;
+  }
+
+  public NestedSet<Artifact> getModulesInfoFiles(boolean usePic) {
+    return usePic ? picModulesInfoFiles : modulesInfoFiles;
+  }
+
+  @Override
+  public Depset getStarlarkModulesInfoFiles(boolean usePic, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.class, getModulesInfoFiles(usePic));
+  }
+
+  @Override
+  public Depset getStarlarkModuleFiles(boolean usePic, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.class, getModuleFiles(usePic));
   }
 
   @Override

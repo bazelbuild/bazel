@@ -106,6 +106,7 @@ public class BazelCppSemantics implements CppSemantics {
           .setShouldScanIncludes(
               cppConfig.experimentalIncludeScanning()
                   && featureConfiguration.getRequestedFeatures().contains("cc_include_scanning")
+                  && !actionBuilder.getActionName().equals(CppActionNames.CPP_MODULE_DEPS_SCANNING)
                   && !sourceFile.isFileType(CppFileTypes.ASSEMBLER)
                   && !sourceFile.isFileType(CppFileTypes.CPP_MODULE));
     } else {

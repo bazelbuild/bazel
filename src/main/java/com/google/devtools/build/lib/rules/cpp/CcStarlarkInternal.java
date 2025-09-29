@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
@@ -482,7 +483,84 @@ public class CcStarlarkInternal implements StarlarkValue {
         .flatMap(options -> options.stream())
         .collect(toImmutableList());
   }
-
+/**
+   * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
+   * with C++20 Module files and Modules info files in {@code ccOutputs} added.
+   */
+  @StarlarkMethod(
+      name = "create_cc_compilation_context_with_cpp20_modules",
+      doc =
+          "Creates a <code>CompilationContext</code> based on an existing one, with C++20 Modules outputs",
+      parameters = {
+        @Param(
+            name = "cc_compilation_context",
+            doc = "The base <code>CompilationContext</code>.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "cpp_module_files",
+            doc = "C++20 Module files",
+            positional = false,
+            named = true),
+        @Param(
+            name = "pic_cpp_module_files",
+            doc = "PIC C++20 Module files",
+            positional = false,
+            named = true),
+        @Param(
+            name = "cpp_modules_info_file",
+            doc = "C++20 Modules info file",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "pic_cpp_modules_info_file",
+            doc = "PIC C++20 Modules info file",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)}),
+      })
+  public CcCompilationContext createCcCompilationContextWithCpp20Modules(
+      CcCompilationContext ccCompilationContext, 
+      Sequence<?> cppModuleFiles,
+      Sequence<?> picCppModuleFiles,
+      Object cppModulesInfoFile,
+      Object picCppModulesInfoFile
+      )
+      throws EvalException {
+    var moduleFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.getModuleFiles(/*pic= */false))
+            .addAll(Sequence.cast(cppModuleFiles, Artifact.class, "cpp_module_files").getImmutableList());
+    var picModuleFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.getModuleFiles(/*pic= */true))
+            .addAll(Sequence.cast(picCppModuleFiles, Artifact.class, "pic_cpp_module_files").getImmutableList());
+    var modulesInfoFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.getModulesInfoFiles(/*pic= */false));
+    if (cppModulesInfoFile instanceof Artifact artifact) {
+      modulesInfoFilesBuilder.add(artifact);
+    }
+    var picModulesInfoFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.getModulesInfoFiles(/*pic= */true));
+    if (picCppModulesInfoFile instanceof Artifact artifact) {
+      picModulesInfoFilesBuilder.add(artifact);
+    }
+    return CcCompilationContext.create(
+        ccCompilationContext.getCommandLineCcCompilationContext(),
+        ccCompilationContext.getDeclaredIncludeSrcs(),
+        ccCompilationContext.getNonCodeInputs(),
+        ccCompilationContext.getHeaderInfo(),
+        ccCompilationContext.getTransitiveModules(false),
+        ccCompilationContext.getTransitiveModules(true),
+        moduleFilesBuilder.build(),
+        picModuleFilesBuilder.build(),
+        modulesInfoFilesBuilder.build(),
+        picModulesInfoFilesBuilder.build(),
+        ccCompilationContext.getDirectModuleMaps(),
+        ccCompilationContext.getExportingModuleMaps(),
+        ccCompilationContext.getCppModuleMap(),
+        ccCompilationContext.getVirtualToOriginalHeaders(),
+        ccCompilationContext.getHeaderTokens());
+  }
   /**
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
    * with {@code extraHeaderTokens} added to the header tokens.
@@ -519,6 +597,10 @@ public class CcStarlarkInternal implements StarlarkValue {
         ccCompilationContext.getHeaderInfo(),
         ccCompilationContext.getTransitiveModules(false),
         ccCompilationContext.getTransitiveModules(true),
+        ccCompilationContext.getModuleFiles(false),
+        ccCompilationContext.getModuleFiles(true),
+        ccCompilationContext.getModulesInfoFiles(false),
+        ccCompilationContext.getModulesInfoFiles(true),
         ccCompilationContext.getDirectModuleMaps(),
         ccCompilationContext.getExportingModuleMaps(),
         ccCompilationContext.getCppModuleMap(),
@@ -629,6 +711,20 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "lto_indexing_file", positional = false, named = true, defaultValue = "None"),
         @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
         @Param(name = "compile_build_variables", positional = false, named = true),
+        @Param(
+            name = "action_name",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
+        @Param(name = "module_files", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "modmap_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "modmap_input_file", positional = false, named = true, defaultValue = "None"),
+        @Param(
+            name = "additional_outputs",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
       })
   public void createCppCompileAction(
       StarlarkRuleContext starlarkRuleContext,
@@ -648,7 +744,13 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object dwoFile,
       Object ltoIndexingFile,
       boolean usePic,
-      CcToolchainVariables compileBuildVariables)
+      CcToolchainVariables compileBuildVariables,
+      Object actionName,
+      Object moduleFiles,
+      Object modmapFile,
+      Object modmapInputFile,
+      Sequence<?> additionalOutputs
+      )
       throws EvalException {
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
@@ -670,6 +772,17 @@ public class CcStarlarkInternal implements StarlarkValue {
             ltoIndexingFile,
             usePic);
     builder.setVariables(compileBuildVariables);
+    if (actionName instanceof String actionNameString) {
+      builder.setActionName(actionNameString);
+    }
+    builder.setModuleFiles(Depset.noneableCast(moduleFiles, Artifact.class, "module_files"));
+    builder.setModmapFile(nullIfNone(modmapFile, Artifact.class));
+    builder.setModmapInputFile(nullIfNone(modmapInputFile, Artifact.class));
+    builder.setAdditionalOutputs(Sequence.cast(
+      additionalOutputs,
+      Artifact.class,
+      "additional_outputs"
+    ).getImmutableList());
     semantics.finalizeCompileActionBuilder(
         configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
     try {
