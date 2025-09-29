@@ -54,6 +54,9 @@ import javax.annotation.Nullable;
  * <p>The code is structured to be as similar to the implementation of UNIX "namei" as is reasonably
  * possibly. This provides a firm reference point for many concepts and makes compatibility easier
  * to achieve.
+ *
+ * <p>Although this filesystem stores all 9 permission bits (user, group and other), only the user
+ * bits are considered for the purpose of determining whether a file is accessible.
  */
 @ThreadSafe
 public class InMemoryFileSystem extends AbstractFileSystem {
@@ -403,6 +406,12 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   @Override
   public boolean exists(PathFragment path, boolean followSymlinks) {
     return statNullable(path, followSymlinks) != null;
+  }
+
+  @Override
+  public void chmod(PathFragment path, int permissions) throws IOException {
+    InMemoryContentInfo status = inodeStat(path, true);
+    status.chmod(permissions);
   }
 
   @Override

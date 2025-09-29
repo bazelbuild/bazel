@@ -1724,6 +1724,7 @@ public abstract class FileSystemTest {
   }
 
   // Test the access permissions
+
   @Test
   public void testNewFilesAreWritable() throws Exception {
     assertThat(xFile.isWritable()).isTrue();
@@ -1750,16 +1751,16 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCannotGetExecutableOnNonexistingFile() throws Exception {
+  public void testCannotGetReadableOnNonexistingFile() throws Exception {
     FileNotFoundException ex =
-        assertThrows(FileNotFoundException.class, () -> xNothing.isExecutable());
+        assertThrows(FileNotFoundException.class, () -> xNothing.isReadable());
     assertThat(ex).hasMessageThat().endsWith(xNothing + " (No such file or directory)");
   }
 
   @Test
-  public void testCannotSetExecutableOnNonexistingFile() throws Exception {
+  public void testCannotSetReadableOnNonexistingFile() throws Exception {
     FileNotFoundException ex =
-        assertThrows(FileNotFoundException.class, () -> xNothing.setExecutable(true));
+        assertThrows(FileNotFoundException.class, () -> xNothing.setReadable(false));
     assertThat(ex).hasMessageThat().endsWith(xNothing + " (No such file or directory)");
   }
 
@@ -1774,6 +1775,20 @@ public abstract class FileSystemTest {
   public void testCannotSetWritableOnNonexistingFile() throws Exception {
     FileNotFoundException ex =
         assertThrows(FileNotFoundException.class, () -> xNothing.setWritable(false));
+    assertThat(ex).hasMessageThat().endsWith(xNothing + " (No such file or directory)");
+  }
+
+  @Test
+  public void testCannotGetExecutableOnNonexistingFile() throws Exception {
+    FileNotFoundException ex =
+        assertThrows(FileNotFoundException.class, () -> xNothing.isExecutable());
+    assertThat(ex).hasMessageThat().endsWith(xNothing + " (No such file or directory)");
+  }
+
+  @Test
+  public void testCannotSetExecutableOnNonexistingFile() throws Exception {
+    FileNotFoundException ex =
+        assertThrows(FileNotFoundException.class, () -> xNothing.setExecutable(true));
     assertThat(ex).hasMessageThat().endsWith(xNothing + " (No such file or directory)");
   }
 

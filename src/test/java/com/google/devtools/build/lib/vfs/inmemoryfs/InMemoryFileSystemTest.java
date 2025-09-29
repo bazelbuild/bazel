@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -62,6 +63,20 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
   private static void writeToFile(Path path, String data) throws IOException {
     try (OutputStream out = path.getOutputStream()) {
       out.write(data.getBytes(Charset.defaultCharset()));
+    }
+  }
+
+  @Test
+  public void testPermissions() throws Exception {
+    Path file = testFS.getPath("/file");
+    FileSystemUtils.createEmptyFile(file);
+    for (int bits = 0; bits <= 0777; bits++) {
+      String msg = "for permissions 0%s".formatted(Integer.toString(bits, 8));
+      file.chmod(bits);
+      assertWithMessage(msg).that(file.stat().getPermissions()).isEqualTo(bits);
+      assertWithMessage(msg).that(file.isReadable()).isEqualTo((bits & 0400) != 0);
+      assertWithMessage(msg).that(file.isWritable()).isEqualTo((bits & 0200) != 0);
+      assertWithMessage(msg).that(file.isExecutable()).isEqualTo((bits & 0100) != 0);
     }
   }
 
