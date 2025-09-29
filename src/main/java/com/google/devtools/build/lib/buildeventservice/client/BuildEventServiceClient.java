@@ -18,12 +18,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoBuilder;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.time.Instant;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
@@ -34,7 +34,7 @@ public interface BuildEventServiceClient {
       String buildId,
       String invocationId,
       int attemptNumber,
-      ImmutableSet<String> keywords,
+      Set<String> keywords,
       @Nullable String projectId,
       boolean checkPrecedingLifecycleEvents) {
     public CommandContext {
@@ -57,7 +57,7 @@ public interface BuildEventServiceClient {
 
       public abstract Builder setAttemptNumber(int attemptNumber);
 
-      public abstract Builder setKeywords(ImmutableSet<String> keywords);
+      public abstract Builder setKeywords(Set<String> keywords);
 
       public abstract Builder setProjectId(@Nullable String projectId);
 
