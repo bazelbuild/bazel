@@ -65,6 +65,7 @@ public class DownloadManager {
   private UrlRewriter rewriter;
   private final Downloader downloader;
   private final HttpDownloader bzlmodHttpDownloader;
+  private final ExtendedEventHandler eventHandler;
   private boolean disableDownload = false;
   private int retries = 0;
   @Nullable private Credentials netrcCreds;
@@ -84,10 +85,14 @@ public class DownloadManager {
    *     registry.
    */
   public DownloadManager(
-      DownloadCache downloadCache, Downloader downloader, HttpDownloader bzlmodHttpDownloader) {
+      DownloadCache downloadCache,
+      Downloader downloader,
+      HttpDownloader bzlmodHttpDownloader,
+      ExtendedEventHandler eventHandler) {
     this.downloadCache = downloadCache;
     this.downloader = downloader;
     this.bzlmodHttpDownloader = bzlmodHttpDownloader;
+    this.eventHandler = eventHandler;
   }
 
   public void setDistdir(List<Path> distdir) {
@@ -124,7 +129,6 @@ public class DownloadManager {
       String canonicalId,
       Optional<String> type,
       Path output,
-      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       String context,
       Phaser downloadPhaser) {
@@ -143,7 +147,6 @@ public class DownloadManager {
                 canonicalId,
                 type,
                 output,
-                eventHandler,
                 clientEnv,
                 context);
           } finally {
@@ -174,7 +177,6 @@ public class DownloadManager {
    * @param checksum valid checksum which is checked, or absent to disable
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
    * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
-   * @param eventHandler CLI progress reporter
    * @param clientEnv environment variables in shell issuing this command
    * @param context the context in which the file was fetched; used only for reporting
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
@@ -189,7 +191,6 @@ public class DownloadManager {
       String canonicalId,
       Optional<String> type,
       Path output,
-      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
@@ -388,7 +389,6 @@ public class DownloadManager {
    * the cache prior to returning the value.
    *
    * @param originalUrl the original URL of the file
-   * @param eventHandler CLI progress reporter
    * @param clientEnv environment variables in shell issuing this command
    * @param checksum checksum of the file used to verify the content and obtain repository cache
    *     hits
@@ -397,10 +397,7 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public byte[] downloadAndReadOneUrlForBzlmod(
-      URL originalUrl,
-      ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv,
-      Optional<Checksum> checksum)
+      URL originalUrl, Map<String, String> clientEnv, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();

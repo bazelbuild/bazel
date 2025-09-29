@@ -823,7 +823,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               canonicalId,
               Optional.<String>empty(),
               outputPath.getPath(),
-              env.getListener(),
               envVariables,
               identifyingStringForLogging,
               downloadPhaser);
@@ -1061,7 +1060,6 @@ the same path on case-insensitive filesystems.
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              env.getListener(),
               envVariables,
               identifyingStringForLogging,
               downloadPhaser);
