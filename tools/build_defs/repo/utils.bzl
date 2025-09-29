@@ -129,6 +129,8 @@ def symlink_files(ctx):
     """
     for path, label in ctx.attr.files.items():
         src_path = ctx.path(label)
+        # On Windows `ctx.symlink` may be implemented as a copy, so the file MUST be watched
+        ctx.watch(src_path)
         if not src_path.exists:
             fail("Input %s does not exist" % label)
         if ctx.path(path).exists:
