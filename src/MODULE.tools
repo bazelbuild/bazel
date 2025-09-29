@@ -48,4 +48,4 @@ buildozer_binary = use_extension("@buildozer//:buildozer_binary.bzl", "buildozer
 use_repo(buildozer_binary, "buildozer_binary")
 
 # Platforms used by transitions in builtins
-bazel_dep(name = "apple_support", version = "1.5.0", repo_name = "build_bazel_apple_support")
+bazel_dep(name = "apple_support", version = "1.23.1", repo_name = "build_bazel_apple_support")
