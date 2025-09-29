@@ -244,6 +244,24 @@ static void PerformIntegerValueCallback(jobject object, const char *callback,
   }
 }
 
+namespace {
+
+class JStringLatin1Holder {
+  const char* const chars;
+
+ public:
+  JStringLatin1Holder(JNIEnv* env, jstring string)
+      : chars(GetStringLatin1Chars(env, string)) {}
+
+  ~JStringLatin1Holder() { ReleaseStringLatin1Chars(chars); }
+
+  operator const char*() const { return chars; }
+
+  operator std::string() const { return chars; }
+};
+
+}  // namespace
+
 // TODO(bazel-team): split out all the FileSystem class's native methods
 // into a separate source file, fsutils.cc.
 
@@ -251,16 +269,15 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_readlink(JNIEnv *env,
                                                      jclass clazz,
                                                      jstring path) {
-  const char *path_chars = GetStringLatin1Chars(env, path);
-  char target[PATH_MAX] = "";
-  jstring r = nullptr;
-  if (readlink(path_chars, target, arraysize(target)) == -1) {
+  JStringLatin1Holder path_chars(env, path);
+  char target[PATH_MAX + 1];
+  ssize_t len = readlink(path_chars, target, arraysize(target) - 1);
+  if (len == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-  } else {
-    r = NewStringLatin1(env, target);
+    return nullptr;
   }
-  ReleaseStringLatin1Chars(path_chars);
-  return r;
+  target[len] = '\0';
+  return NewStringLatin1(env, target);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -333,21 +350,6 @@ static jobject NewUnixFileStatus(JNIEnv *env,
       static_cast<jlong>(stat_ref.st_size),
       static_cast<jlong>(stat_ref.st_ino));
 }
-
-// RAII class for jstring.
-class JStringLatin1Holder {
-  const char *const chars;
-
- public:
-  JStringLatin1Holder(JNIEnv *env, jstring string)
-      : chars(GetStringLatin1Chars(env, string)) {}
-
-  ~JStringLatin1Holder() { ReleaseStringLatin1Chars(chars); }
-
-  operator const char *() const { return chars; }
-
-  operator std::string() const { return chars; }
-};
 
 }  // namespace
 
