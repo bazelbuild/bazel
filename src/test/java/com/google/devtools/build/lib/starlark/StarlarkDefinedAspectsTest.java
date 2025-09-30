@@ -867,6 +867,53 @@ my_rule = rule(
   }
 
   @Test
+  public void labelListDictAllowsAspects() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+           return AspectInfo(aspect_data=target.label.name)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+           return RuleInfo(
+               data=','.join(['{}:{}'.format(dep[AspectInfo].aspect_data, val)
+                              for val, deps in ctx.attr.attr.items() for dep in deps]))
+
+        MyAspect = aspect(
+           implementation=_aspect_impl,
+        )
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' : attr.label_list_dict(aspects = [MyAspect]) },
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+             name = 'yyy1',
+        )
+        java_library(
+             name = 'yyy2',
+        )
+        my_rule(
+             name = 'xxx',
+             attr = {'zzz': [':yyy1', ':yyy2']},
+        )
+        """);
+
+    AnalysisResult analysisResult = update("//test:xxx");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    String value = getStarlarkProvider(target, "RuleInfo").getValue("data", String.class);
+    assertThat(value).isEqualTo("yyy1:zzz,yyy2:zzz");
+  }
+
+  @Test
   public void aspectsDoNotAttachToFiles() throws Exception {
     scratch.file(
         "test/aspect.bzl",

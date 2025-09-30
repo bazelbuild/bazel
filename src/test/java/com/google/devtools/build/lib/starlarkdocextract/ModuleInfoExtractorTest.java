@@ -828,6 +828,7 @@ public final class ModuleInfoExtractorTest {
                     "j": attr.string_list_dict(),
                     "k": attr.output(),
                     "l": attr.output_list(),
+                    "m": attr.label_list_dict(),
                 },
             )
             """);
@@ -898,6 +899,11 @@ public final class ModuleInfoExtractorTest {
                         .setType(AttributeType.OUTPUT_LIST)
                         .setDefaultValue("[]")
                         .setNonconfigurable(true)
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("m")
+                        .setType(AttributeType.LABEL_LIST_DICT)
+                        .setDefaultValue("{}")
                         .build())
                 .build());
   }
@@ -1145,6 +1151,9 @@ my_macro = macro(
                     "label_keyed_string_dict": attr.label_keyed_string_dict(
                         default = {"//x": "label_in_main", "@@canonical//y": "label_in_dep"},
                     ),
+                    "label_list_dict": attr.label_list_dict(
+                        default = {"a": ["//x", "@@canonical//y", "@@canonical//y:z"]},
+                    ),
                 },
             )
             """);
@@ -1159,7 +1168,8 @@ my_macro = macro(
         .containsExactly(
             "\"@my_repo//test:foo\"",
             "[\"@my_repo//x\", \"@local//y\", \"@local//y:z\"]",
-            "{\"@my_repo//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}");
+            "{\"@my_repo//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}",
+            "{\"a\": [\"@my_repo//x\", \"@local//y\", \"@local//y:z\"]}");
   }
 
   @Test
