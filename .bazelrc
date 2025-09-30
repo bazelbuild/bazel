@@ -1,4 +1,5 @@
 common --enable_platform_specific_config
+common --stamp --embed_label 7.7.0
 
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
