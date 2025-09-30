@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests the patching functionality of external repositories.
+# Tests the remote files overlay patching functionality of external repositories.
 
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
@@ -318,6 +318,54 @@ EOF
 
   bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error in download: Cannot write outside of the repository directory"
+}
+
+test_overlay_remote_file_collision() {
+  # hello_world.c
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  archive_integrity="sha256-$(cat hello_world.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
+
+  # Generate the remote files to overlay
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "hello_world",
+    srcs = ["hello_world.c"],
+)
+EOF
+  touch REPO.bazel
+  cat > hello_world.c <<'EOF'
+#include <stdio.h>
+int main() {
+  printf("Goodbye, world!\n");
+  return 0;
+}
+EOF
+
+  mkdir main
+  cd main
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="hello_world",
+  strip_prefix="hello_world-0.1.2",
+  urls=["${EXTREPOURL}/hello_world.zip"],
+  integrity="${archive_integrity}",
+  remote_file_urls={
+    "REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
+    "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
+    "hello_world.c": ["${EXTREPOURL}/hello_world.c"],
+  },
+)
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  bazel build @hello_world//:hello_world > "${TEST_log}" 2>&1
+  bazel run @hello_world//:hello_world | grep 'Goodbye, world!' \
+    || fail "Expected output 'Goodbye, world!'"
 }
 
 run_suite "external remote file tests"

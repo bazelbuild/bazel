@@ -768,6 +768,14 @@ sh_test(
 )
 
 sh_test(
+    name = "external_files_test",
+    size = "large",
+    srcs = ["external_files_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "external_integration_test",
     size = "large",
     srcs = ["external_integration_test.sh"],
