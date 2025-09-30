@@ -28,6 +28,25 @@ from absl.testing import absltest
 import runfiles
 
 
+def _has_ipv6_default_route():
+  """Returns True if an IPv6 default route exists on Darwin."""
+  try:
+    result = subprocess.run(
+        ['netstat', '-rn', '-f', 'inet6'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+      for line in result.stdout.splitlines():
+        if line.strip().startswith('default'):
+          return True
+  except (FileNotFoundError, OSError):
+    # netstat not found or failed; assume no IPv6 default route.
+    pass
+  return False
+
+
 class Error(Exception):
   """Base class for errors in this module."""
   pass
@@ -83,7 +102,7 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
-      if TestBase.IsDarwin() and TestBase._HasIPv6DefaultRoute():
+      if TestBase.IsDarwin() and _has_ipv6_default_route():
         # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
         f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
@@ -583,7 +602,7 @@ class TestBase(absltest.TestCase):
       existing = os.environ.get('COURSIER_OPTS')
       if existing is not None:
         env['COURSIER_OPTS'] = existing
-      elif TestBase._HasIPv6DefaultRoute():
+      elif _has_ipv6_default_route():
         env['COURSIER_OPTS'] = '-Djava.net.preferIPv6Addresses=true'
 
     if env_remove:
@@ -594,25 +613,6 @@ class TestBase(absltest.TestCase):
       for e in env_add:
         env[e] = env_add[e]
     return env
-
-  @staticmethod
-  def _HasIPv6DefaultRoute():
-    if not TestBase.IsDarwin():
-      return False
-    try:
-      result = subprocess.run(
-          ['netstat', '-rn', '-f', 'inet6'],
-          capture_output=True,
-          text=True,
-          check=False,
-      )
-      if result.returncode == 0:
-        for line in result.stdout.splitlines():
-          if line.strip().startswith('default'):
-            return True
-    except Exception:
-      pass
-    return False
 
   @staticmethod
   def _CreateDirs(path):
