@@ -1387,7 +1387,7 @@ EOF
     version="${version#* }"
   fi
   bazel build @test//:test >& $TEST_log || fail "Failed to build"
-  expect_log ": ${version}."
+  expect_log ": ${version}"
 }
 
 
