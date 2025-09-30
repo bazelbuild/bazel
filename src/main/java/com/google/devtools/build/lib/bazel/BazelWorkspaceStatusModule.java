@@ -272,7 +272,11 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     @Override
     public ImmutableSortedMap<String, String> createDummyWorkspaceStatus(
         @Nullable WorkspaceInfoFromDiff workspaceInfoFromDiff) {
-      return ImmutableSortedMap.of();
+      // Include this generally useful information in the BES even for commands that don't run the
+      // workspace status action.
+      return ImmutableSortedMap.of(
+          BuildInfo.BUILD_HOST, NetUtil.getCachedShortHostName(),
+          BuildInfo.BUILD_USER, USER_NAME.value());
     }
 
     @Override
