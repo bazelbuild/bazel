@@ -155,15 +155,6 @@ final class NativePosixFiles {
   static native boolean mkdirWritable(String path);
 
   /**
-   * Implements (effectively) mkdir -p.
-   *
-   * @param path the directory to recursively create.
-   * @param mode the mode with which to create the directories.
-   * @throws IOException if the directory creation failed for any reason.
-   */
-  static native void mkdirs(String path, int mode) throws IOException;
-
-  /**
    * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
    *
    * @param path the directory to read.

@@ -38,6 +38,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -294,12 +295,20 @@ public class UnixFileSystem extends AbstractFileSystem {
 
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
-    var comp = Blocker.begin();
-    try {
-      // Use 0777 so that the permissions can be overridden by umask(2).
-      NativePosixFiles.mkdirs(path.toString(), 0777);
-    } finally {
-      Blocker.end(comp);
+    ArrayDeque<PathFragment> dirsToCreate = new ArrayDeque<>();
+    for (PathFragment dir = path; dir != null; dir = dir.getParentDirectory()) {
+      FileStatus stat = statIfFound(dir, /* followSymlinks= */ true);
+      if (stat != null) {
+        if (stat.isDirectory()) {
+          break;
+        } else {
+          throw new IOException(path + " (File exists)");
+        }
+      }
+      dirsToCreate.addLast(dir);
+    }
+    while (!dirsToCreate.isEmpty()) {
+      var unused = createDirectory(dirsToCreate.removeLast());
     }
   }
 
