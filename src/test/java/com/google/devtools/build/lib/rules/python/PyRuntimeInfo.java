@@ -85,16 +85,6 @@ public final class PyRuntimeInfo {
     return value == Starlark.NONE ? null : (Artifact) value;
   }
 
-  public String getStubShebang() throws EvalException {
-    return info.getValue("stub_shebang", String.class);
-  }
-
-  @Nullable
-  public Artifact getBootstrapTemplate() {
-    Object value = info.getValue("bootstrap_template");
-    return value == Starlark.NONE ? null : (Artifact) value;
-  }
-
   @Nullable
   public NestedSet<Artifact> getFiles() throws EvalException {
     Object value = info.getValue("files");
