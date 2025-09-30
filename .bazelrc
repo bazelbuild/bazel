@@ -61,6 +61,7 @@ build:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
 # Flags for CI builds
 ## Common
 common:ci-common --lockfile_mode=error
+test --test_env BAZEL_DEV_VERSION_OVERRIDE=7.7.0
 
 ## For Linux
 common:ci-linux --config=ci-common
