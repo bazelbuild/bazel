@@ -447,12 +447,12 @@ public final class ActionRewindStrategy {
   public void reset(ExtendedEventHandler eventHandler) {
     PostableActionRewindingStats rewindingStats =
         new PostableActionRewindingStats(
-            lostInputsCount.getAndSet(0),
-            lostOutputsCount.getAndSet(0),
-            sameActionLostInputsCount.getAndSet(0),
-            sameTopLevelKeyLostOutputsCount.getAndSet(0),
-            skyframeActionExecutor.getRewoundActionCount(),
-            ImmutableList.copyOf(rewindEventSamples));
+            /* lostInputsCount= */ lostInputsCount.getAndSet(0),
+            /* lostOutputsCount= */ lostOutputsCount.getAndSet(0),
+            /* rewoundActionCount= */ skyframeActionExecutor.getRewoundActionCount(),
+            /* sameActionLostInputsCount= */ sameActionLostInputsCount.getAndSet(0),
+            /* sameTopLevelKeyLostOutputsCount= */ sameTopLevelKeyLostOutputsCount.getAndSet(0),
+            /* actionRewindEvents= */ ImmutableList.copyOf(rewindEventSamples));
     eventHandler.post(rewindingStats);
     currentBuildLostInputRecords = new ConcurrentHashMap<>();
     rewindEventSamples.clear();
