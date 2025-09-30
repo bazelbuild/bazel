@@ -102,6 +102,8 @@ public final class GoogleAuthUtils {
           builder.overrideAuthority(options.tlsAuthorityOverride);
         }
       }
+      builder.maxInboundMessageSize(64 * 1024 * 1024);
+      builder.maxInboundMetadataSize(8 * 1024 * 1024);
       return builder.build();
     } catch (RuntimeException e) {
       // gRPC might throw all kinds of RuntimeExceptions: StatusRuntimeException,
