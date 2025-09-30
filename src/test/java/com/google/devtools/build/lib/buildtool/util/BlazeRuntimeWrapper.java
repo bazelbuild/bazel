@@ -225,7 +225,7 @@ public class BlazeRuntimeWrapper {
                 InvocationPolicy.getDefaultInstance(),
                 workspaceSetupWarnings,
                 /* waitTimeInMs= */ 0L,
-                /* commandStartTime= */ 0L,
+                /* commandStartTime= */ runtime.getClock().currentTimeMillis(),
                 /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
                 this.crashMessages::add,
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
