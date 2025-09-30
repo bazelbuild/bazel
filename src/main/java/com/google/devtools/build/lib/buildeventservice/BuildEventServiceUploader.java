@@ -23,6 +23,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
@@ -63,6 +64,7 @@ import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -717,10 +719,9 @@ public final class BuildEventServiceUploader implements Runnable {
             ackQueueSize));
   }
 
-  private static void addStreamStatusListener(
-      ListenableFuture<Status> stream, Consumer<Status> onDone) {
+  private static void addStreamStatusListener(Future<Status> stream, Consumer<Status> onDone) {
     Futures.addCallback(
-        stream,
+        JdkFutureAdapters.listenInPoolThread(stream),
         new FutureCallback<Status>() {
           @Override
           public void onSuccess(Status result) {

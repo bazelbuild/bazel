@@ -18,12 +18,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoBuilder;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.time.Instant;
 import java.util.Set;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
@@ -154,11 +154,11 @@ public interface BuildEventServiceClient {
      * The completed status of the stream. The future will never fail, but in case of error will
      * contain a corresponding status.
      */
-    ListenableFuture<Status> getStatus();
+    Future<Status> getStatus();
 
     /**
      * Sends a {@link StreamEvent} over the currently open stream. In case of error, this method
-     * will fail silently and report the error via the {@link ListenableFuture} returned by {@link
+     * will fail silently and report the error via the {@link Future} returned by {@link
      * #getStatus()}.
      *
      * <p>This method may block due to flow control.
