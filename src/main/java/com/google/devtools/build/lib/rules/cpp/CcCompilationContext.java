@@ -195,6 +195,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       Sequence<CcCompilationContext> exportedDeps,
       Sequence<CcCompilationContext> deps) {
     Preconditions.checkState(single.getHeaderInfo().deps.isEmpty());
+    Preconditions.checkArgument(single.transitiveModules.isEmpty());
+    Preconditions.checkArgument(single.transitivePicModules.isEmpty());
+    Preconditions.checkArgument(single.directModuleMaps.isEmpty());
+    Preconditions.checkArgument(single.exportingModuleMaps.isEmpty());
 
     // CommandLineCcCompilationContext fields
     TransitiveSetHelper<PathFragment> includeDirs = new TransitiveSetHelper<>();
@@ -220,20 +224,16 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     ImmutableList.Builder<HeaderInfo> mergedHeaderInfos = ImmutableList.builder();
 
     // Merge in single
-    compilationPrerequisites.addTransitive(single.getTransitiveCompilationPrerequisites());
+    compilationPrerequisites.addAll(single.getTransitiveCompilationPrerequisites().toList());
     includeDirs.addTransitive(single.getIncludeDirs());
     quoteIncludeDirs.addTransitive(single.getQuoteIncludeDirs());
     systemIncludeDirs.addTransitive(single.getSystemIncludeDirs());
     frameworkIncludeDirs.addTransitive(single.getFrameworkIncludeDirs());
     externalIncludeDirs.addTransitive(single.getExternalIncludeDirs());
-    declaredIncludeSrcs.addTransitive(single.getDeclaredIncludeSrcs());
-    nonCodeInputs.addTransitive(single.getNonCodeInputs());
+    declaredIncludeSrcs.addAll(single.getDeclaredIncludeSrcs().toList());
+    nonCodeInputs.addAll(single.getNonCodeInputs().toList());
     virtualToOriginalHeaders.addTransitive(single.getVirtualToOriginalHeaders());
     headerTokens.addTransitive(single.getHeaderTokens());
-    transitiveModules.addTransitive(single.getTransitiveModules(false));
-    transitivePicModules.addTransitive(single.getTransitiveModules(true));
-    directModuleMaps.addAll(single.getDirectModuleMaps());
-    exportingModuleMaps.addAll(single.getExportingModuleMaps());
 
     // Merge the compilation contexts.
     for (CcCompilationContext otherCcCompilationContext : Iterables.concat(exportedDeps, deps)) {
