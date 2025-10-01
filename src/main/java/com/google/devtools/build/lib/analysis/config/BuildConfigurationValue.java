@@ -734,6 +734,11 @@ public class BuildConfigurationValue
     return options.collectCodeCoverage;
   }
 
+  @Override
+  public String getShortId() {
+    return buildOptions.shortId();
+  }
+
   @Nullable
   public RunUnder getRunUnder() {
     return options.runUnder;
