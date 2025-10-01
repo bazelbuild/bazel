@@ -1,33 +1,45 @@
-<a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/issues/new?title=%5Bbazel.build%5D+Problem+with+{% dynamic print request.path %}&template=doc_issue.yml&link=https%3A%2F%2Fbazel.build{% dynamic print request.path %}" target="_blank">
-  Report an issue<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
-</a>
-{% dynamic if not setvar.source_file %}
-{% dynamic if "version" in request.path %}
-{% dynamic setvar branchpath "/release-"+request.path.split("/")[2]+"/site/en/"+"/".join(request.path.split("/")[3:]) %}
-<a class="button button-with-icon"
-href="https://github.com/bazelbuild/bazel/tree{% dynamic print setvar.branchpath %}.md"
-target="_blank">
-{% dynamic else %}
-<a class="button button-with-icon"
-href="https://github.com/bazelbuild/bazel/tree/master/site/en{% dynamic print request.path %}.md"
-target="_blank">
-{% dynamic endif %}
-  View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
-</a>
-{% dynamic elif setvar.source_file != "NONE" %}
-<a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree/master/{% dynamic print setvar.source_file %}" target="_blank">
-  View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
-</a>
-{% dynamic endif %}
-{% dynamic if not setvar.original_path %}
-{% dynamic setvar original_path %}{% dynamic print request.path %}{% dynamic endsetvar %}
-{% dynamic endif %}
-<span style="float: right; line-height: 36px">
-{% dynamic if not setvar.version %}
-<strong>Nightly</strong>
-{% dynamic else %}
-<a href="{% dynamic print setvar.original_path %}">Nightly</a>
-{% dynamic endif %}
+<style>
+  .bazel-button-bar {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>
+
+<div class="bazel-button-bar">
+  <div>
+    <a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/issues/new?title=%5Bbazel.build%5D+Problem+with+{% dynamic print request.path %}&template=doc_issue.yml&link=https%3A%2F%2Fbazel.build{% dynamic print request.path %}" target="_blank">
+      Report an issue<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+    </a>
+    {% dynamic if not setvar.source_file %}
+      {% dynamic if "version" in request.path %}
+        {% dynamic setvar branchpath "/release-"+request.path.split("/")[2]+"/site/en/"+"/".join(request.path.split("/")[3:]) %}
+        <a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree{% dynamic print setvar.branchpath %}.md" target="_blank">
+      {% dynamic else %}
+        <a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree/master/site/en{% dynamic print request.path %}.md" target="_blank">
+      {% dynamic endif %}
+        View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+      </a>
+    {% dynamic elif setvar.source_file != "NONE" %}
+      <a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree/master/{% dynamic print setvar.source_file %}" target="_blank">
+        View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+      </a>
+    {% dynamic endif %}
+    {% dynamic if not setvar.original_path %}
+      {% dynamic setvar original_path %}{% dynamic print request.path %}{% dynamic endsetvar %}
+    {% dynamic endif %}
+  </div>
+
+  <div>
+    {% dynamic if not setvar.version %}
+      <strong>Nightly</strong>
+    {% dynamic else %}
+      <a href="{% dynamic print setvar.original_path %}">Nightly</a>
+    {% dynamic endif %}
+
 <!-- The lines below are updated by //scripts/docs:gen_new_toc -->
 <!-- BEGIN_VERSION_INDICATOR -->
 ·
@@ -68,5 +80,5 @@ target="_blank">
 {% dynamic endif %}
 
 <!-- END_VERSION_INDICATOR -->
-</span>
-<p/>
+  </div>
+</div>
