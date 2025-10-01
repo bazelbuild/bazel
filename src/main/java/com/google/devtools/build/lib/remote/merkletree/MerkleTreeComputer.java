@@ -76,8 +76,7 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * Computes a Merkle tree representing the inputs of a {@link Spawn} in a {@link
- * Action#getInputRootDigest()}.
+ * Computes a Merkle tree for a set of inputs, as expected by {@link Action#getInputRootDigest()}
  *
  * <p>Remote execution should allow a developer to run up to thousands of actions remotely in
  * parallel on a regular machine. As a result, this class is optimized with the following goals in
@@ -139,9 +138,8 @@ public final class MerkleTreeComputer {
   private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentNonToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
 
-  // @GuardedBy("MerkleTreeComputer.class") for writes, reads use double-checked locking
-  @Nullable
-  private static volatile Scrubber lastScrubber;
+  // @GuardedBy("MerkleTreeComputer.class") for writes, reads use double-checked locking.
+  @Nullable private static volatile Scrubber lastScrubber;
 
   private final DigestUtil digestUtil;
   @Nullable private final MerkleTreeUploader remoteExecutionCache;
