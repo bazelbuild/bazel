@@ -117,7 +117,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
 
   @Test
   public void starlarkConstructor_filesDefaultsToEmpty() throws Exception {
-    writeCreatePyRuntimeInfo("    interpreter = dummy_interpreter", "    python_version = 'PY2'");
+    writeCreatePyRuntimeInfo("    interpreter = dummy_interpreter", "    python_version = 'PY3'");
 
     PyRuntimeInfo info = getPyRuntimeInfo();
 
@@ -136,7 +136,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     writeCreatePyRuntimeInfo(
         "interpreter_path = '/system/interpreter'",
         "interpreter = dummy_interpreter",
-        "python_version = 'PY2'");
+        "python_version = 'PY3'");
 
     assertContainsError("exactly one of.*interpreter.*interpreter_path.*must be specified");
   }
@@ -146,7 +146,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     writeCreatePyRuntimeInfo(
         "interpreter = dummy_interpreter", //
         "files = 'abc'",
-        "python_version = 'PY2'");
+        "python_version = 'PY3'");
 
     assertContainsError("invalid files:.*got.*string.*want.*depset");
   }
@@ -156,7 +156,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     writeCreatePyRuntimeInfo(
         "interpreter_path = '/system/interpreter'",
         "files = depset([dummy_file])",
-        "python_version = 'PY2'");
+        "python_version = 'PY3'");
 
     assertContainsError("cannot specify 'files' if 'interpreter_path' is given");
   }

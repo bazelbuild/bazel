@@ -114,7 +114,6 @@ public class PythonToolchainTest extends BuildViewTestCase {
         ")");
     ToolchainInfo info =
         getConfiguredTarget("//pkg:my_py_runtime_pair").get(ToolchainInfo.PROVIDER);
-    assertThat(info.getValue("py2_runtime")).isEqualTo(NONE);
     assertThat(info.getValue("py3_runtime")).isEqualTo(NONE);
   }
 
