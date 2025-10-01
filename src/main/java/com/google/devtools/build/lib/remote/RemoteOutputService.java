@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build without local output service daemon. */
@@ -186,14 +187,13 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public boolean canCreateSymlinkTree() {
-    /* TODO(buchgr): Optimize symlink creation for remote execution */
-    return false;
+    return true;
   }
 
   @Override
   public void createSymlinkTree(
-      Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {
-    throw new UnsupportedOperationException();
+      Supplier<Map<PathFragment, PathFragment>> symlinks, PathFragment symlinkTreeRoot) {
+    // No-op, symlink trees are created lazily by AbstractActionInputPrefetcher.
   }
 
   @Override

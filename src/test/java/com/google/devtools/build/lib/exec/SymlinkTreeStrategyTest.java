@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -113,9 +114,10 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     action.execute(context);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<PathFragment, PathFragment>> capture = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Supplier<Map<PathFragment, PathFragment>>> capture =
+        ArgumentCaptor.forClass(Supplier.class);
     verify(outputService, times(1)).createSymlinkTree(capture.capture(), any());
-    assertThat(capture.getValue())
+    assertThat(capture.getValue().get())
         .containsExactly(
             PathFragment.create("TESTING/dir/runfile"),
             runfile.getPath().asFragment(),
