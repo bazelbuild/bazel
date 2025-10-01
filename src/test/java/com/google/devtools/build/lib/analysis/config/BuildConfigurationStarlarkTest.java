@@ -92,4 +92,41 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
     assertThat(e).hasMessageThat().contains("file '//example:rule.bzl' cannot use private API");
   }
+
+  @Test
+  public void testShortId() throws Exception {
+    scratch.file(
+        "example/BUILD",
+        """
+        load(":rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
+
+    scratch.file(
+        "example/rule.bzl",
+        """
+        MyInfo = provider()
+
+        def _impl(ctx):
+            return [MyInfo(short_id = ctx.configuration.short_id)]
+
+        custom_rule = rule(implementation = _impl)
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//example:custom");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//example:rule.bzl")), "MyInfo");
+    StructImpl myInfo = (StructImpl) target.get(key);
+    String firstShortId = (String) myInfo.getValue("short_id");
+    assertThat(firstShortId).isEqualTo(target.getConfigurationKey().getOptions().shortId());
+
+    useConfiguration("--compilation_mode=dbg");
+    target = getConfiguredTarget("//example:custom");
+    myInfo = (StructImpl) target.get(key);
+    String secondShortId = (String) myInfo.getValue("short_id");
+    assertThat(secondShortId).isEqualTo(target.getConfigurationKey().getOptions().shortId());
+
+    assertThat(firstShortId).isNotEqualTo(secondShortId);
+  }
 }
