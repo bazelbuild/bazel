@@ -388,7 +388,8 @@ function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.15.1")
+bazel_dep(name = "apple_support")
+single_version_override(module_name = "apple_support", version = "1.15.1")
 EOF
 
   mkdir -p "$pkg"
