@@ -17,6 +17,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a directory that has been expanded at execution time. */
 @StarlarkBuiltin(
@@ -24,7 +25,7 @@ import net.starlark.java.eval.StarlarkList;
     category = DocCategory.BUILTIN,
     doc =
         "Represents an expanded directory that makes the files within the it directly accessible.")
-public interface ExpandedDirectoryApi extends FileApi {
+public interface ExpandedDirectoryApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "directory",

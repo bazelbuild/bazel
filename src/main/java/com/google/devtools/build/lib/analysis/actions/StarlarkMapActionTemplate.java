@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTemplateContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.starlarkbuildapi.ExpandedDirectoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -470,61 +468,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     @Override
     public SpecialArtifact getDirectory() {
       return directory;
-    }
-
-    @Override
-    public final String getDirnameForStarlark(StarlarkSemantics semantics) {
-      return directory.getDirnameForStarlark(semantics);
-    }
-
-    @Override
-    public final String getFilename() {
-      return directory.getFilename();
-    }
-
-    @Override
-    public final String getExtension() {
-      return directory.getExtension();
-    }
-
-    @Override
-    public Label getOwnerLabel() {
-      return directory.getOwnerLabel();
-    }
-
-    @Override
-    public final FileRootApi getRootForStarlark(StarlarkSemantics semantics) {
-      return directory.getRootForStarlark(semantics);
-    }
-
-    @Override
-    public final boolean isSourceArtifact() {
-      return directory.isSourceArtifact();
-    }
-
-    @Override
-    public boolean isDirectory() {
-      return directory.isDirectory();
-    }
-
-    @Override
-    public boolean isSymlink() {
-      return directory.isSymlink();
-    }
-
-    @Override
-    public final String getRunfilesPathString() {
-      return directory.getRunfilesPathString();
-    }
-
-    @Override
-    public String getExecPathStringForStarlark(StarlarkSemantics semantics) {
-      return directory.getExecPathStringForStarlark(semantics);
-    }
-
-    @Override
-    public String getTreeRelativePathString() throws EvalException {
-      return directory.getTreeRelativePathString();
     }
 
     // TODO(b/130571505): Switch over to use the new repr(Printer, StarlarkSemantics) method.
