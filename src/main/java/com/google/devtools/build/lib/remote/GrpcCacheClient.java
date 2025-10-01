@@ -323,6 +323,9 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+    if (out instanceof ByteString.Output) {
+      throw IllegalStateException();
+    }
     if (digest.getSizeBytes() == 0) {
       return Futures.immediateVoidFuture();
     }
