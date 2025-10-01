@@ -212,12 +212,23 @@ final class Parser {
   /** Parses an expression, possibly followed by newline tokens. */
   static Expression parseExpression(ParserInput input, FileOptions options)
       throws SyntaxError.Exception {
+    return parseValueOrTypeExpr(input, options, /* isTypeExpr= */ false);
+  }
+
+  /** Parses a type expression, possibly preceded or followed by comments or whitespace. */
+  static Expression parseTypeExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    return parseValueOrTypeExpr(input, options, /* isTypeExpr= */ true);
+  }
+
+  private static Expression parseValueOrTypeExpr(
+      ParserInput input, FileOptions options, boolean isTypeExpr) throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, errors, options);
     Parser parser = new Parser(lexer, errors, options);
     Expression result = null;
     try {
-      result = parser.parseExpression();
+      result = isTypeExpr ? parser.parseTypeExpr() : parser.parseExpression();
       while (parser.token.kind == TokenKind.NEWLINE) {
         parser.nextToken();
       }

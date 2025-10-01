@@ -74,4 +74,20 @@ public abstract class Expression extends Node {
   public static Expression parse(ParserInput input) throws SyntaxError.Exception {
     return parse(input, FileOptions.DEFAULT);
   }
+
+  /**
+   * Parses a type expression.
+   *
+   * @param options parsing options; note that {@link FileOptions#allowStarlarkTypeSyntax} doesn't
+   *     need to be set - this method supports Starlark types implicitly.
+   */
+  public static Expression parseTypeExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    return Parser.parseTypeExpression(input, options);
+  }
+
+  /** Parses a type expression with default options. */
+  public static Expression parseTypeExpression(ParserInput input) throws SyntaxError.Exception {
+    return parseTypeExpression(input, FileOptions.DEFAULT);
+  }
 }
