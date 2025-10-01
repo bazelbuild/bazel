@@ -29,7 +29,8 @@ public class Scope {
    */
   public enum ScopeType {
     UNIVERSAL,
-    PROJECT;
+    PROJECT,
+    TARGET;
 
     public static ScopeType valueOfIgnoreCase(String scopeType) {
       for (ScopeType scope : values()) {
