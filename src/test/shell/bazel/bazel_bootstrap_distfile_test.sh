@@ -102,6 +102,7 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
 
+    export BAZEL_DEV_VERSION_OVERRIDE="7.7.0"
     env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel. If you updated MODULE.bazel, see the NOTE in that file."
 

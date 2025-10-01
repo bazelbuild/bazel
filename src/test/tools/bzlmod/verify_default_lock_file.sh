@@ -34,6 +34,7 @@ function test_verify_lock_file() {
   touch MODULE.bazel
   cp $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock
   echo "Running: bazel mod deps --lockfile_mode=error" >& "$TEST_log"
+  export BAZEL_DEV_VERSION_OVERRIDE="7.7.0"
   bazel mod deps --lockfile_mode=error >& "$TEST_log" || fail "Default lockfile for empty workspace is no longer in sync with MODULE.tools. Please run \"bazel run //src/test/tools/bzlmod:update_default_lock_file\""
 }
 

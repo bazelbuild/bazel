@@ -66,10 +66,10 @@ function test_determinism()  {
     mkdir "${workdir}" || fail "Could not create work directory"
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"
+    export BAZEL_DEV_VERSION_OVERRIDE="7.7.0"
 
     # Set up the maven repository properly.
     cp derived/maven/BUILD.vendor derived/maven/BUILD
-
     # Build Bazel once.
     bazel \
       --output_base="${TEST_TMPDIR}/out1" \
