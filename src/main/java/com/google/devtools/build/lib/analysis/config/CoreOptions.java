@@ -202,6 +202,20 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<Map.Entry<Label, String>> overridePlatformCpuName;
 
   @Option(
+      name = "incompatible_limit_platforms_in_output_dir_to",
+      converter = LabelListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Added for gradual rollout of --experimental_platform_in_output_dir to non-exec"
+              + " configurations. Takes a comma-separated list of platform labels. If set,"
+              + " --experimental_platform_in_output_dir is only enabled for platforms in this list."
+              + " Otherwise, --experimental_platform_in_output_dir applies to all platforms.")
+  public List<Label> limitOutputDirToPlatforms;
+
+  @Option(
       name = "incompatible_target_cpu_from_platform",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1052,8 +1066,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
             .map(Map.Entry::getValue));
   }
 
-  public boolean usePlatformInOutputDir() {
-    return platformInOutputDir == TriState.YES || (platformInOutputDir == TriState.AUTO && isExec);
+  public boolean usePlatformInOutputDir(Label platform) {
+    if (isExec) {
+      return platformInOutputDir == TriState.YES || platformInOutputDir == TriState.AUTO;
+    }
+
+    if (platformInOutputDir == TriState.YES) {
+      return limitOutputDirToPlatforms.isEmpty() || limitOutputDirToPlatforms.contains(platform);
+    }
+
+    return false;
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */

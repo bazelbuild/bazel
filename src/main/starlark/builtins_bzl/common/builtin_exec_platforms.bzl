@@ -271,6 +271,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:incompatible_compact_repo_mapping_manifest",
         "//command_line_option:incompatible_filegroup_runfiles_for_data",
         "//command_line_option:incompatible_bep_cpu_from_platform",
+        "//command_line_option:incompatible_limit_platforms_in_output_dir_to",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [

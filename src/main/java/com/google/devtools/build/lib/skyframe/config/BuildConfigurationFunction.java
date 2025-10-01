@@ -154,8 +154,8 @@ public final class BuildConfigurationFunction implements SkyFunction {
     // In practice, platforms should always be 'well-formed' and contain at most one Label.
     Label newPlatform = null;
     if (useDynamicBaseline
-        && coreOptions.usePlatformInOutputDir()
         && platformOptions != null
+        && coreOptions.usePlatformInOutputDir(platformOptions.computeTargetPlatform())
         && platformOptions.platforms != null // this may be overly defensive
         && platformOptions.platforms.size() <= 1) {
       newPlatform = platformOptions.computeTargetPlatform();

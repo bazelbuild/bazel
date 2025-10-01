@@ -676,6 +676,113 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  @TestParameters({
+    "{limitOutputDirToPlatforms: [],"
+        + "t1Path: p1-fastbuild,"
+        + "d1Path: p1-fastbuild,"
+        + "d2Path: p2-opt-exec,"
+        + "d3Path: p3-fastbuild}",
+    "{limitOutputDirToPlatforms: [//platforms:p1],"
+        + "t1Path: p1-fastbuild,"
+        + "d1Path: p1-fastbuild,"
+        + "d2Path: p2-opt-exec,"
+        + "d3Path: p3_cpu-fastbuild}",
+    "{limitOutputDirToPlatforms: [//platforms:p1, //platforms:p3],"
+        + "t1Path: p1-fastbuild,"
+        + "d1Path: p1-fastbuild,"
+        + "d2Path: p2-opt-exec,"
+        + "d3Path: p3-fastbuild}",
+  })
+  public void testLimitOutputDirToPlatforms(
+      List<String> limitOutputDirToPlatforms,
+      String t1Path,
+      String d1Path,
+      String d2Path,
+      String d3Path)
+      throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _p3_transition_impl(settings, attr):
+            return {
+                "//command_line_option:platforms": ["//platforms:p3"]
+            }
+
+        p3_transition = transition(
+            implementation = _p3_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+
+        def _impl(ctx):
+            d3 = ctx.attr.d3[0] if ctx.attr.d3 else None
+            return MyInfo(d1 = ctx.attr.d1, d2 = ctx.attr.d2, d3 = d3)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "d1": attr.label(),
+                "d2": attr.label(cfg = 'exec'),
+                "d3": attr.label(cfg = p3_transition),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(
+            name = "t1",
+            d1 = ":d1",
+            d2 = ":d2",
+            d3 = ":d3",
+        )
+
+        my_rule(name = "d1")
+        my_rule(name = "d2")
+        my_rule(name = "d3")
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "p1")
+        platform(name = "p2")
+        platform(name = "p3", flags = ["--cpu=p3_cpu"])
+        """);
+    useConfiguration(
+        "--compilation_mode=fastbuild",
+        "--platforms=//platforms:p1",
+        "--cpu=p1_cpu",
+        "--host_platform=//platforms:p2",
+        "--host_cpu=p2_cpu",
+        "--experimental_platform_in_output_dir",
+        "--incompatible_limit_platforms_in_output_dir_to="
+            + String.join(",", limitOutputDirToPlatforms));
+
+    ConfiguredTarget t1 = getConfiguredTarget("//test:t1");
+    assertThat(getMnemonic(t1)).isEqualTo(t1Path);
+
+    ConfiguredTarget d1 = (ConfiguredTarget) getMyInfoFromTarget(t1).getValue("d1");
+    assertThat(getMnemonic(d1)).isEqualTo(d1Path);
+
+    ConfiguredTarget d2 = (ConfiguredTarget) getMyInfoFromTarget(t1).getValue("d2");
+    assertThat(getMnemonic(d2)).isEqualTo(d2Path);
+
+    ConfiguredTarget d3 = (ConfiguredTarget) getMyInfoFromTarget(t1).getValue("d3");
+    assertThat(getMnemonic(d3)).contains(d3Path);
+    if (limitOutputDirToPlatforms.isEmpty()
+        || limitOutputDirToPlatforms.contains("//platforms:p3")) {
+      assertThat(getMnemonic(d3)).doesNotContain("-ST-");
+    } else {
+      assertThat(getMnemonic(d3)).contains("-ST-");
+    }
+  }
+
+  @Test
   public void testPlatformWithNoCPUConstraint_emptyTargetCpu() throws Exception {
     scratch.file(
         "platforms/BUILD",
