@@ -90,53 +90,6 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTestWithExclusiveRunLocallyByDefault() throws Exception {
-    useConfiguration("--noincompatible_exclusive_test_sandboxed");
-    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
-    scratch.file(
-        "tests/BUILD",
-        """
-        load('//test_defs:foo_test.bzl', 'foo_test')
-        foo_test(
-            name = "test",
-            size = "small",
-            srcs = ["test.sh"],
-            tags = ["exclusive"],
-        )
-        """);
-    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
-    TestRunnerAction testAction =
-        (TestRunnerAction)
-            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    assertThat(testAction.getExecutionInfo()).containsKey(ExecutionRequirements.LOCAL);
-    assertThat(testAction.getExecutionInfo()).hasSize(1);
-  }
-
-  @Test
-  public void testTestWithExclusiveIfRunLocally_notTaggedLocal() throws Exception {
-    useConfiguration("--noincompatible_exclusive_test_sandboxed");
-    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
-    scratch.file(
-        "tests/BUILD",
-        """
-        load('//test_defs:foo_test.bzl', 'foo_test')
-        foo_test(
-            name = "test",
-            size = "small",
-            srcs = ["test.sh"],
-            tags = ["exclusive-if-local"],
-        )
-        """);
-    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
-    TestRunnerAction testAction =
-        (TestRunnerAction)
-            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    // "exclusive" tests become local when TestTargetProperties adds local executionInfo.
-    // Ensure this is not the case for "exclusive-if-local"
-    assertThat(testAction.getExecutionInfo()).isEmpty();
-  }
-
-  @Test
   public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
@@ -159,7 +112,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTestWithExclusiveIfRunLocally_notTaggedNoRemote() throws Exception {
+  public void testTestWithExclusiveIfRunLocally_notTagged() throws Exception {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
@@ -183,7 +136,6 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
 
   @Test
   public void testTestWithExclusiveAndLocalRunLocally() throws Exception {
-    useConfiguration("--incompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
