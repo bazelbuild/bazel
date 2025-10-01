@@ -106,7 +106,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesEx
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -239,6 +239,7 @@ public class RemoteExecutionService {
     this.merkleTreeComputer =
         new MerkleTreeComputer(
             digestUtil,
+            // Merkle trees only need to be uploaded for actions that are executed remotely.
             combinedCache instanceof RemoteExecutionCache remoteExecutionCache
                 ? remoteExecutionCache
                 : null,
