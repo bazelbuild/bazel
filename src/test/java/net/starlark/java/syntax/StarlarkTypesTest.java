@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
 import org.junit.Test;
@@ -176,18 +175,7 @@ public class StarlarkTypesTest {
   }
 
   private StarlarkType resolveType(String type) throws Exception {
-    // Use a simple function definition to parse type expression
-    ParserInput input = ParserInput.fromLines(String.format("def f() -> %s: pass", type));
-
-    StarlarkFile file =
-        StarlarkFile.parse(input, FileOptions.builder().allowTypeAnnotations(true).build());
-    Resolver.resolveFile(file, Resolver.moduleWithPredeclared());
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
-    return ((DefStatement) Iterables.getOnlyElement(file.getStatements()))
-        .getResolvedFunction()
-        .getFunctionType()
-        .getReturnType();
+    Expression typeExpr = Expression.parseTypeExpression(ParserInput.fromLines(type));
+    return Resolver.resolveType(typeExpr, Resolver.moduleWithPredeclared(), FileOptions.DEFAULT);
   }
 }

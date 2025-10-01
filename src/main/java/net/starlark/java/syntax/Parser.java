@@ -237,6 +237,17 @@ final class Parser {
   /** Parses an expression, possibly preceded or followed by comments or whitespace. */
   static Expression parseExpression(ParserInput input, FileOptions options)
       throws SyntaxError.Exception {
+    return parseValueOrTypeExpr(input, options, /* isTypeExpr= */ false);
+  }
+
+  /** Parses a type expression, possibly preceded or followed by comments or whitespace. */
+  static Expression parseTypeExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    return parseValueOrTypeExpr(input, options, /* isTypeExpr= */ true);
+  }
+
+  private static Expression parseValueOrTypeExpr(
+      ParserInput input, FileOptions options, boolean isTypeExpr) throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, errors, options);
     Parser parser = new Parser(lexer, errors, options);
@@ -246,7 +257,7 @@ final class Parser {
       while (parser.token.kind == TokenKind.DOC_COMMENT_BLOCK) {
         parser.nextToken();
       }
-      result = parser.parseExpression();
+      result = isTypeExpr ? parser.parseTypeExpr() : parser.parseExpression();
       // Skip following doc comments and newlines (no-ops for an expression).
       while (parser.token.kind == TokenKind.NEWLINE
           || parser.token.kind == TokenKind.DOC_COMMENT_BLOCK

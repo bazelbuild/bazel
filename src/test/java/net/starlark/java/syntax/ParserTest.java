@@ -67,6 +67,23 @@ public final class ParserTest {
     }
   }
 
+  // Joins the lines, parse, and returns a type expression.
+  private static Expression parseTypeExpression(String... lines) throws SyntaxError.Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    return Expression.parseTypeExpression(input);
+  }
+
+  // Parses the type expression, asserts that parsing fails, and returns the first error message.
+  private static String parseTypeExpressionError(String src) {
+    ParserInput input = ParserInput.fromLines(src);
+    try {
+      Expression.parseTypeExpression(input);
+      throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
+    } catch (SyntaxError.Exception ex) {
+      return ex.errors().get(0).message();
+    }
+  }
+
   // Joins the lines, parses, and returns a file.
   // Errors are added to this.events, or thrown if this.failFast;
   private StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
@@ -1351,6 +1368,37 @@ public final class ParserTest {
   }
 
   @Test
+  public void testTypeExpression() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    // basic examples
+    assertThat(parseTypeExpression("int")).isInstanceOf(Identifier.class);
+    assertThat(parseTypeExpression("tuple[]")).isInstanceOf(TypeApplication.class);
+    assertThat(parseTypeExpression("list[str]")).isInstanceOf(TypeApplication.class);
+    assertThat(parseTypeExpression("dict[str, int]")).isInstanceOf(TypeApplication.class);
+    // type expressions can use list literals
+    assertThat(parseTypeExpression("Callable[[int, str], int]"))
+        .isInstanceOf(TypeApplication.class);
+    // type expressions can use dict literals
+    assertThat(parseTypeExpression("TypedDict[{'a': int, 'b': bool}]"))
+        .isInstanceOf(TypeApplication.class);
+    // type expressions can use string literals
+    assertThat(parseTypeExpression("Literal['abc']")).isInstanceOf(TypeApplication.class);
+    // composition
+    assertThat(parseTypeExpression("list[str, dict[str, bool]]"))
+        .isInstanceOf(TypeApplication.class);
+    // type unions
+    assertThat(parseTypeExpression("str | int")).isInstanceOf(BinaryOperatorExpression.class);
+    assertThat(parseTypeExpression("str | int | bool"))
+        .isInstanceOf(BinaryOperatorExpression.class);
+    // empty dict and list literals
+    assertThat(parseTypeExpression("Callable[[], TypeDict[{}]]"))
+        .isInstanceOf(TypeApplication.class);
+    // trailing commas in dict and list arguments
+    assertThat(parseTypeExpression("Callable[[int,],bool]")).isInstanceOf(TypeApplication.class);
+    assertThat(parseTypeExpression("TypeDict[{'foo': int, }]")).isInstanceOf(TypeApplication.class);
+  }
+
+  @Test
   public void testDefWithTypeAnnotations() throws Exception {
     setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
     parseStatement("def f(a: int): pass");
@@ -1358,35 +1406,12 @@ public final class ParserTest {
     parseStatement("def f(a: list[str]): pass");
     parseStatement("def f(a: dict[str, int]): pass");
 
-    // test list literal
-    parseStatement("def f(a: Callable[[int, str], int]): pass");
-
-    // test dict literal
-    parseStatement("def f(a: TypedDict[{'a': int, 'b': bool}]): pass");
-
-    // test string literal
-    parseStatement("def f(a: Literal['abc']): pass");
-
-    // test composition
-    parseStatement("def f(a: list[str, dict[str, bool]]): pass");
-
-    // test optional
-    parseStatement("def f(a: str | int): pass");
-    parseStatement("def f(a: str | int | bool): pass");
-
     // test with default values
     parseStatement("def f(a: int, *, b: bool = True, c): pass");
 
     // test args and kwargs
     parseStatement("def f(*args: list[int]): pass");
     parseStatement("def f(**kwargs: dict[str, Any]): pass");
-
-    // Empty dict or list argument
-    parseStatement("def f(a: Callable[[], TypeDict[{}]]): pass");
-
-    // Trailing commas in dict and list arguments
-    parseStatement("def f(a: Callable[[int,],bool]): pass");
-    parseStatement("def f(a: TypeDict[{'foo': int, }]): pass");
 
     // Return type
     parseStatement("def f() -> int: pass");
@@ -1400,12 +1425,11 @@ public final class ParserTest {
     assertContainsError("syntax error at ':': expected )");
   }
 
+  // TODO(ilist): Python allows trailing commas in type arguments - we probably should too.
   @Test
   public void testTrailingCommaNotAllowedInTypeArgumentList() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
-    setFailFast(false);
-    parseStatement("def f(a: list[int,]): pass");
-    assertContainsError("syntax error at ']': expected a type argument");
+    assertThat(parseTypeExpressionError("list[int,]"))
+        .contains("syntax error at ']': expected a type argument");
   }
 
   @Test
@@ -1417,19 +1441,31 @@ public final class ParserTest {
   }
 
   @Test
-  public void testDefWithLiteralInTypeAnnotation() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
-    setFailFast(false);
-    parseStatement("def f(a: [int]): pass");
-    assertContainsError("syntax error at '[': expected a type");
+  public void testTypeApplicationsRequireConstructor() throws Exception {
+    assertThat(parseTypeExpressionError("[int]")).contains("syntax error at '[': expected a type");
   }
 
   @Test
-  public void testDefWithExpressionInTypeAnnotation() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
-    setFailFast(false);
-    parseStatement("def f(a: int[f(1)]): pass");
-    assertContainsError("syntax error at '(': expected ,");
+  public void testFunctionCallsNotAllowedInTypeExpressions() throws Exception {
+    assertThat(parseTypeExpressionError("int[f(1)]")).contains("syntax error at '(': expected ,");
+  }
+
+  @Test
+  public void testOnlyPipeOperatorsAllowedInTypeExpressions() throws Exception {
+    ImmutableList<TokenKind> badOperators =
+        ImmutableList.of(
+            TokenKind.AMPERSAND,
+            TokenKind.EQUALS,
+            TokenKind.GREATER,
+            TokenKind.LESS,
+            TokenKind.MINUS,
+            TokenKind.PLUS,
+            TokenKind.SLASH,
+            TokenKind.STAR);
+    for (TokenKind op : badOperators) {
+      assertThat(parseTypeExpressionError("int " + op + " str"))
+          .contains("syntax error at '" + op + "'");
+    }
   }
 
   @Test

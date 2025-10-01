@@ -843,7 +843,6 @@ public final class Resolver extends NodeVisitor {
     return bind;
   }
 
-  @Nullable
   public Object resolveTypeOrArg(Resolver.Module module, Expression expr) {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
@@ -901,7 +900,6 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  @Nullable
   public StarlarkType resolveType(Resolver.Module module, Expression expr) {
     Object typeOrArg = resolveTypeOrArg(module, expr);
     if (!(typeOrArg instanceof StarlarkType type)) {
@@ -913,6 +911,27 @@ public final class Resolver extends NodeVisitor {
       return Types.ANY;
     }
     return type;
+  }
+
+  /**
+   * Resolves a type expression to a {@link StarlarkType}.
+   *
+   * @param expr a valid type expression; for example, one produced by {@link
+   *     Expression#parseTypeExpression}.
+   * @param options resolver options; note that {@link FileOptions#allowStarlarkTypeSyntax} doesn't
+   *     need to be set - this method supports Starlark types implicitly.
+   * @throws SyntaxError.Exception if expr is not a type expression or if it could not be resolved
+   *     to a type.
+   */
+  public static StarlarkType resolveType(
+      Expression expr, Resolver.Module module, FileOptions options) throws SyntaxError.Exception {
+    ArrayList<SyntaxError> errors = new ArrayList<>();
+    Resolver r = new Resolver(errors, module, options, /* docCommentsMap= */ null);
+    StarlarkType result = r.resolveType(module, expr);
+    if (!errors.isEmpty()) {
+      throw new SyntaxError.Exception(errors);
+    }
+    return result;
   }
 
   public Types.CallableType resolveFunctionType(
