@@ -46,6 +46,7 @@ public class WorkerFilesHash {
     workerFilesMap.forEach(
         (execPath, digest) -> {
           byte[] execPathBytes = StringUnsafe.getInternalStringBytes(execPath.getPathString());
+          hasher.putByte((byte) 0);
           hasher.putInt(execPathBytes.length);
           hasher.putBytes(execPathBytes);
 
