@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.LocationExpander.LabelLocationFunction;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -59,15 +60,15 @@ public class LocationExpanderTest {
   }
 
   private LocationExpander makeExpander(RuleErrorConsumer ruleErrorConsumer) throws Exception {
-    LocationFunction f1 =
+    var f1 =
         new LocationFunctionBuilder("//a", false)
-            .setPathType(LocationFunction.PathType.LOCATION)
+            .setPathType(LabelLocationFunction.PathType.LOCATION)
             .add("//a", "/exec/src/a")
             .build();
 
-    LocationFunction f2 =
+    var f2 =
         new LocationFunctionBuilder("//b", true)
-            .setPathType(LocationFunction.PathType.LOCATION)
+            .setPathType(LabelLocationFunction.PathType.LOCATION)
             .add("//b", "/exec/src/b")
             .build();
 
@@ -128,9 +129,9 @@ public class LocationExpanderTest {
 
   @Test
   public void expansionWithRepositoryMapping() throws Exception {
-    LocationFunction f1 =
+    var f1 =
         new LocationFunctionBuilder("//a", false)
-            .setPathType(LocationFunction.PathType.LOCATION)
+            .setPathType(LabelLocationFunction.PathType.LOCATION)
             .add("@bar//a", "/exec/src/a")
             .build();
 
@@ -140,7 +141,7 @@ public class LocationExpanderTest {
     LocationExpander locationExpander =
         new LocationExpander(
             new Capture(),
-            ImmutableMap.<String, LocationFunction>of("location", f1),
+            ImmutableMap.of("location", f1),
             RepositoryMapping.create(repositoryMapping, RepositoryName.MAIN),
             "workspace");
 
