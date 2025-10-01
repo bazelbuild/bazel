@@ -217,16 +217,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     return new ParamFileWriter(arguments, pathMapper, type);
   }
 
-  private static class ParamFileWriter implements DeterministicWriter {
-    private final ArgChunk arguments;
-    private final PathMapper pathMapper;
-    private final ParameterFileType type;
-
-    ParamFileWriter(ArgChunk arguments, PathMapper pathMapper, ParameterFileType type) {
-      this.arguments = arguments;
-      this.pathMapper = pathMapper;
-      this.type = type;
-    }
+  private record ParamFileWriter(ArgChunk arguments, PathMapper pathMapper, ParameterFileType type)
+      implements DeterministicWriter {
 
     @Override
     public void writeTo(OutputStream out) throws IOException {
