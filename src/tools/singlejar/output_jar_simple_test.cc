@@ -66,6 +66,10 @@ static bool EndsWith(const string &s, const string &what) {
   return what.size() <= s.size() && s.substr(s.size() - what.size()) == what;
 }
 
+static bool StartsWith(const string& s, const string& what) {
+  return what.size() <= s.size() && s.substr(0, what.size()) == what;
+}
+
 // A subclass of the OutputJar which concatenates the contents of each
 // entry in the data/ directory from the input archives.
 class CustomOutputJar : public OutputJar {
@@ -681,7 +685,11 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   string out_path = OutputFilePath("out.jar");
   string testjar_path = OutputFilePath("testinput.jar");
   {
-    std::string jar_tool_path = runfiles->Rlocation(JAR_TOOL_PATH);
+    // Skip over the leading ../ to get the rlocationpath.
+    std::string jar_tool_rlocationpath =
+        StartsWith(JAR_TOOL_PATH, "../") ? std::string(JAR_TOOL_PATH).substr(3)
+                                         : JAR_TOOL_PATH;
+    std::string jar_tool_path = runfiles->Rlocation(jar_tool_rlocationpath);
     string textfile_path = CreateTextFile("jar_testinput.txt", "jar_inputtext");
     string classfile_path = CreateTextFile("JarTestInput.class", "Dummy");
     unlink(testjar_path.c_str());
@@ -758,7 +766,11 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
   string out_path = OutputFilePath("out.jar");
   string testjar_path = OutputFilePath("testinput.jar");
 
-  std::string jar_tool_path = runfiles->Rlocation(JAR_TOOL_PATH);
+  // Skip over the leading ../ to get the rlocationpath.
+  std::string jar_tool_rlocationpath =
+      StartsWith(JAR_TOOL_PATH, "../") ? std::string(JAR_TOOL_PATH).substr(3)
+                                       : JAR_TOOL_PATH;
+  std::string jar_tool_path = runfiles->Rlocation(jar_tool_rlocationpath);
   string textfile_path =
       CreateTextFile("a/b/jar_testinput.txt", "jar_inputtext");
   string classfile1_path = CreateTextFile("a/c/Foo.class", "Dummy");
