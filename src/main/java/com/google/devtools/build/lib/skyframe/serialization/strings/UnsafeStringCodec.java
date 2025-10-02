@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationC
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -48,17 +49,34 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
 
   @Override
   public void serialize(LeafSerializationContext context, String obj, CodedOutputStream codedOut)
-      throws IOException {
-    byte[] value = StringUnsafe.getInternalStringBytes(obj);
-    codedOut.writeInt32NoTag(value.length);
+      throws SerializationException, IOException {
+    byte coder = StringUnsafe.getCoder(obj);
+    byte[] value = StringUnsafe.getByteArray(obj);
+    // Optimize for the case that coder == 0, in which case we can just write the length here,
+    // potentially using just one byte. If coder != 0, we'll use 4 bytes, but that's vanishingly
+    // rare.
+    if (coder == 0) {
+      codedOut.writeInt32NoTag(value.length);
+    } else if (coder == 1) {
+      codedOut.writeInt32NoTag(-value.length);
+    } else {
+      throw new SerializationException("Unexpected coder value: " + coder + " for " + obj);
+    }
     codedOut.writeRawBytes(value);
   }
 
   @Override
   public String deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
-      throws IOException {
+      throws SerializationException, IOException {
     int length = codedIn.readInt32();
+    byte coder;
+    if (length >= 0) {
+      coder = 0;
+    } else {
+      coder = 1;
+      length = -length;
+    }
     byte[] value = codedIn.readRawBytes(length);
-    return StringUnsafe.newInstance(value, StringUnsafe.LATIN1);
+    return StringUnsafe.newInstance(value, coder);
   }
 }
