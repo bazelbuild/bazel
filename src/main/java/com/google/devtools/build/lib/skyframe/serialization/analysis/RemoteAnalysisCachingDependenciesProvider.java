@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -79,8 +78,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   void recordSerializationException(SerializationException e, SkyKey key);
 
   void setTopLevelConfigChecksum(String checksum);
-
-  default void setUserOptionsMap(Map<String, String> userOptions) {}
 
   default void setTopLevelConfigMetadata(BuildOptions checksum) {}
 

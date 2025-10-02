@@ -36,19 +36,12 @@ public interface SkycacheMetadataParams {
   Duration TIMEOUT = Duration.ofSeconds(5);
 
   void init(
-      long clNumber, String bazelVersion, Collection<String> targets, boolean useFakeStampData);
-
-  /**
-   * Sets the user map options which contains all the options that were passed either from the
-   * command line or bazelrc file. The value in the map contains the name of the config they were
-   * expanded from or an empty string if they weren't expanded.
-   *
-   * <p>This map is used by later by the method setContractedConfigAffectingOptions. The user
-   * options map is not passed to setContractedConfigAffectingOptions directly because we have a
-   * reference to it at a different point in the code where we need to call the method.
-   * setUserOptionsMap only stores the reference.
-   */
-  void setUserOptionsMap(Map<String, String> userOptionsMap);
+      long clNumber,
+      String bazelVersion,
+      Collection<String> targets,
+      boolean useFakeStampData,
+      Map<String, String> userOptions,
+      Set<String> projectSclOptions);
 
   /**
    * Using the user options map (setUserOptionsMap must have been called before this method) and

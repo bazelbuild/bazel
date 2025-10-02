@@ -386,8 +386,9 @@ public class BuildTool {
           RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
               env,
               projectEvaluationResult.activeDirectoriesMatcher(),
-              targetPatternPhaseValue.getTargetLabels());
-      analysisCachingDeps.setUserOptionsMap(request.getUserOptions());
+              targetPatternPhaseValue.getTargetLabels(),
+              request.getUserOptions(),
+              projectEvaluationResult.buildOptions());
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // a.k.a. Skymeld.
@@ -1278,7 +1279,9 @@ public class BuildTool {
     static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env,
         Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher,
-        Collection<Label> targets)
+        Collection<Label> targets,
+        Map<String, String> userOptions,
+        Set<String> projectSclOptions)
         throws InterruptedException, AbruptExitException, InvalidConfigurationException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
@@ -1295,7 +1298,9 @@ public class BuildTool {
               maybeActiveDirectoriesMatcherFromFlags,
               options.mode,
               options.serializedFrontierProfile,
-              targets);
+              targets,
+              userOptions,
+              projectSclOptions);
 
       return switch (options.mode) {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
@@ -1378,7 +1383,9 @@ public class BuildTool {
         Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
         RemoteAnalysisCacheMode mode,
         String serializedFrontierProfile,
-        Collection<Label> targets)
+        Collection<Label> targets,
+        Map<String, String> userOptions,
+        Set<String> projectSclOptions)
         throws InterruptedException, AbruptExitException {
       RemoteAnalysisCachingOptions options =
           env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
@@ -1502,7 +1509,9 @@ public class BuildTool {
             evaluatingVersion.getVal(),
             String.format("%s-%s", BlazeVersionInfo.instance().getReleaseName(), blazeInstallMD5),
             targets.stream().map(Label::toString).collect(toImmutableList()),
-            env.getUseFakeStampData());
+            env.getUseFakeStampData(),
+            userOptions,
+            projectSclOptions);
       }
     }
 
@@ -1640,13 +1649,6 @@ public class BuildTool {
     @Override
     public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
       this.topLevelConfigChecksum = topLevelConfigChecksum;
-    }
-
-    @Override
-    public void setUserOptionsMap(Map<String, String> userOptionsMap) {
-      if (isAnalysisCacheMetadataQueriesEnabled) {
-        skycacheMetadataParams.setUserOptionsMap(userOptionsMap);
-      }
     }
 
     @Override
