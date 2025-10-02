@@ -119,6 +119,13 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 
@@ -151,9 +158,18 @@ sh_test(
     name = "bazel_embedded_starlark_test",
     size = "medium",
     srcs = ["bazel_embedded_starlark_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     tags = [
         "no_windows",  # TODO(laszlocsomor): make this run on Windows
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 
@@ -778,9 +794,18 @@ sh_test(
     name = "external_starlark_execute_test",
     size = "large",
     srcs = ["external_starlark_execute_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     shard_count = 2,
     tags = ["no_windows"],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
 )
 
 sh_test(
@@ -806,12 +831,18 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
-        "@local_jdk//:jdk",  # for remote_helpers setup_localjdk_javabase
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     shard_count = 15,
     tags = [
         "no_windows",
         "requires-network",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 
@@ -844,9 +875,16 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     shard_count = 6,
     tags = ["no_windows"],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
 )
 
 sh_test(
@@ -906,11 +944,17 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
-        "@local_jdk//:jdk",  # for remote_helpers setup_localjdk_javabase
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     shard_count = 10,
     tags = [
         "requires-network",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 
@@ -1088,11 +1132,18 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     tags = [
         "no-sandbox",
         "no_windows",
         "requires-network",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 
@@ -1166,11 +1217,20 @@ sh_test(
     name = "bazel_repository_cache_test",
     size = "large",
     srcs = ["bazel_repository_cache_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     shard_count = 6,
     tags = [
         "no_windows",
         "requires-network",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
 )
 
@@ -1420,11 +1480,17 @@ sh_test(
     data = [
         ":test-deps",
         "//src/tools/remote:worker",
-        "@local_jdk//:jdk",  # for remote_helpers
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+    },
     tags = [
         "no_windows",
         "requires-network",  # for Bzlmod
+    ],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
     ],
     deps = [
         "//src/test/shell/bazel/remote:remote_utils",
