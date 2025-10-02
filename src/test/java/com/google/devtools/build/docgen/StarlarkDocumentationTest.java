@@ -40,9 +40,12 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
 import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.lib.util.Classpath;
+import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.starlark.java.annot.Param;
@@ -609,21 +612,20 @@ public class StarlarkDocumentationTest {
     assertThat(methodDoc.getSignature()).isEqualTo("unknown foo.bar(a, *args, b=42, **kwargs)");
   }
 
-  // TODO(arostovtsev): parse type names from argument docstrings.
   @Test
   public void testStardocProtoFunctionParamDocs() throws Exception {
     ModuleInfo moduleInfo =
         getModuleInfo(
             "//pkg:test.bzl",
             """
-            def _func(name, *extra_names, answer=42, vals=[], **kwargs):
+            def _func(name, *extra_names, answer=42, vals={}, **kwargs):
                 '''Blah blah blah
 
                 Args:
-                  name: Entity name.
+                  name: (string): Entity name.
                   *extra_names: Extra names.
-                  answer: Expected answer.
-                  vals: List of values.
+                  answer: (int | None) Expected answer.
+                  vals: (dict[string, int]) Dict of values.
                 '''
                 pass
             #: Foo module.
@@ -647,15 +649,48 @@ public class StarlarkDocumentationTest {
         .inOrder();
     assertThat(
             moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getDocumentation))
-        .containsExactly("Entity name.", "Expected answer.", "List of values.", "Extra names.", "")
+        .containsExactly("Entity name.", "Expected answer.", "Dict of values.", "Extra names.", "")
         .inOrder();
     assertThat(moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getType))
-        .containsExactly("", "", "", "", "")
+        .containsExactly(
+            "<code><a class=\"anchor\" href=\"../core/string.html\">string</a></code>",
+            "<code><a class=\"anchor\" href=\"../core/int.html\">int</a> | None</code>",
+            "<code><a class=\"anchor\" href=\"../core/dict.html\">dict</a>[<a class=\"anchor\""
+                + " href=\"../core/string.html\">string</a>, <a class=\"anchor\""
+                + " href=\"../core/int.html\">int</a>]</code>",
+            "",
+            "")
         .inOrder();
     assertThat(
             moduleDoc.getMembers().getFirst().getParams().stream().map(ParamDoc::getDefaultValue))
-        .containsExactly("", "42", "[]", "", "")
+        .containsExactly("", "42", "{}", "", "")
         .inOrder();
+  }
+
+  @Test
+  public void testStardocProtoFunctionReturnsDocs() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//pkg:test.bzl",
+            """
+            def _func(**kwargs):
+                '''Blah blah blah
+
+                Returns:
+                  (set[string]) The answers. Not always accurate.
+                '''
+                pass
+            #: Foo module.
+            foo = struct(func = _func)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    StarlarkDocPage moduleDoc = objects.get(Category.TOP_LEVEL_MODULE).getFirst();
+    assertThat(moduleDoc.getMembers().getFirst().getReturnType())
+        .isEqualTo(
+            "<code><a class=\"anchor\" href=\"../core/set.html\">set</a>[<a class=\"anchor\""
+                + " href=\"../core/string.html\">string</a>]</code>");
+    assertThat(moduleDoc.getMembers().getFirst().getReturnTypeExtraMessage())
+        .isEqualTo("The answers. Not always accurate.");
   }
 
   @Test
@@ -718,7 +753,6 @@ public class StarlarkDocumentationTest {
         .containsExactly("foo.bzl", "baz.bzl");
   }
 
-  // TODO(arostovtsev): parse field types from provider docstrings.
   @Test
   public void testStardocProtoProviderBasicFunctionality() throws Exception {
     ModuleInfo moduleInfo =
@@ -749,14 +783,16 @@ public class StarlarkDocumentationTest {
         .inOrder();
   }
 
-  // TODO(arostovtsev): parse field types from provider docstrings.
   @Test
   public void testStardocProtoProviderFieldDocs() throws Exception {
     ModuleInfo moduleInfo =
         getModuleInfo(
             "//pkg:my_info.bzl",
             """
-            MyInfo = provider(doc = "My info.", fields = {"b": "Field B.", "a": "Field A."})
+            MyInfo = provider(
+                doc = "My info.",
+                fields = {"b": "Field B.", "a": "(list[string] | None) Field A."},
+            )
             """);
     ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
     assertThat(objects.get(Category.PROVIDER)).hasSize(1);
@@ -766,7 +802,10 @@ public class StarlarkDocumentationTest {
         .containsExactly("a", "b") // sorted!
         .inOrder();
     assertThat(providerDoc.getMembers().stream().map(MemberDoc::getReturnType))
-        .containsExactly("unknown", "unknown")
+        .containsExactly(
+            "<code><a class=\"anchor\" href=\"../core/list.html\">list</a>[<a class=\"anchor\""
+                + " href=\"../core/string.html\">string</a>] | None</code>",
+            "unknown")
         .inOrder();
     assertThat(providerDoc.getMembers().stream().map(MemberDoc::getDocumentation))
         .containsExactly("Field A.", "Field B.")
@@ -793,7 +832,10 @@ public class StarlarkDocumentationTest {
     MemberDoc constructor = providerDoc.getConstructor();
     assertThat(constructor.getName()).isEqualTo("MyInfo");
     assertThat(constructor.getDocumentation()).isEqualTo("Initializes a MyInfo instance.");
-    assertThat(constructor.getSignature()).isEqualTo("unknown MyInfo(a, b=1, **kwargs)");
+    assertThat(constructor.getSignature())
+        .isEqualTo(
+            "<code><a class=\"anchor\" href=\"../providers/MyInfo.html\">MyInfo</a></code>"
+                + " MyInfo(a, b=1, **kwargs)");
     assertThat(constructor.getParams().stream().map(ParamDoc::getName))
         .containsExactly("a", "b", "kwargs")
         .inOrder();
@@ -806,9 +848,13 @@ public class StarlarkDocumentationTest {
   }
 
   private ImmutableMap<Category, ImmutableList<StarlarkDocPage>> collect(
-      ModuleInfo... apiStardocProtos) throws IOException {
+      ModuleInfo... apiStardocProtos) throws IOException, ClassPathException {
     return StarlarkDocumentationCollector.collectDocPages(
-        expander, ImmutableList.of(), ImmutableList.copyOf(apiStardocProtos));
+        expander, getCoreStarlarkClasses(), ImmutableList.copyOf(apiStardocProtos));
+  }
+
+  private Set<Class<?>> getCoreStarlarkClasses() throws ClassPathException {
+    return Classpath.findClasses("net/starlark/java");
   }
 
   /**

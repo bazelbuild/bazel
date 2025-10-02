@@ -37,6 +37,7 @@ import com.google.devtools.build.docgen.starlark.StardocProtoStructDocPage;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
 import com.google.devtools.build.docgen.starlark.StarlarkGlobalsDoc;
+import com.google.devtools.build.docgen.starlark.TypeParser;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleExtensionInfo;
@@ -75,9 +76,14 @@ import net.starlark.java.eval.StarlarkSemantics;
  * processed):
  *
  * <ul>
- *   <li>Providers, defined at global scope;
+ *   <li>Providers, defined at global scope. Field docstrings can be prefixed with a type expression
+ *       enclosed in parentheses, optionally followed by a colon, for example {@code "(list[string])
+ *       Some free text about field foo"}
  *   <li>Structs, defined at global scope, documented using {@code #:}-prefixed doc comments, and
- *       containing only function members.
+ *       containing only function members. The returns and parameter sections of the function
+ *       members' docstrings can be prefixed with a type expression enclosed in parentheses,
+ *       optionally followed by a colon, for example {@code "(string | None): Some free text about
+ *       parameter blah"}
  * </ul>
  *
  * <p>Notably, .bzl files from which Build Encyclopedia content is extracted have a different,
@@ -161,6 +167,22 @@ final class StarlarkDocumentationCollector {
     for (ModuleInfo moduleInfo : apiStardocProtos) {
       collectFromStardocProto(moduleInfo, pages, bzlStructPages, expander);
     }
+
+    // 5. Define a parser for type expressions in .bzl-defined doc strings.
+    // This parser needs a map from type identifiers (e.g. core Starlark types, BUILD language
+    // types, and providers) to their categories, so that it can generate link URLs for them.
+    ImmutableMap.Builder<String, Category> typeIdentifierToCategory = ImmutableMap.builder();
+    for (Map.Entry<Category, Map<String, StarlarkDocPage>> pagesEntry : pages.entrySet()) {
+      if (pagesEntry.getKey() == Category.CONFIGURATION_FRAGMENT) {
+        // Assume nothing returns a configuration fragment; some of them clash with names of
+        // built-in modules.
+        continue;
+      }
+      for (StarlarkDocPage page : pagesEntry.getValue().values()) {
+        typeIdentifierToCategory.put(page.getName(), pagesEntry.getKey());
+      }
+    }
+    expander.setTypeParser(new TypeParser(typeIdentifierToCategory.buildOrThrow()));
 
     return ImmutableMap.copyOf(
         Maps.transformValues(

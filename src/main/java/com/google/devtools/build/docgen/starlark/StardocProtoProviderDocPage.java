@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A documentation page for a Starlark provider described by a Stardoc proto obtained via {@code
@@ -35,17 +36,16 @@ public final class StardocProtoProviderDocPage extends StarlarkDocPage {
     this.providerInfo = providerInfo;
 
     if (providerInfo.hasInit()) {
-      // TODO(arostovtsev): hard-code return type to the provider's own symbol.
       setConstructor(
           new StardocProtoFunctionDoc(
               expander,
               moduleInfo,
               providerInfo.getProviderName(),
               providerInfo.getInit(),
-              /* isConstructor= */ true));
+              providerInfo.getProviderName()));
     }
     for (ProviderFieldInfo fieldInfo : providerInfo.getFieldInfoList()) {
-      addMember(new ProviderFieldDoc(expander, fieldInfo));
+      addMember(new ProviderFieldDoc(expander, sourceFileLabel, providerInfo, fieldInfo));
     }
   }
 
@@ -76,11 +76,21 @@ public final class StardocProtoProviderDocPage extends StarlarkDocPage {
   }
 
   private static final class ProviderFieldDoc extends MemberDoc {
+    private final String sourceFileLabel; // for error reporting
+    private final ProviderInfo providerInfo; // for error reporting
     private final ProviderFieldInfo fieldInfo;
+    private final TypeParser.TypedDocstring typedDocstring;
 
-    ProviderFieldDoc(StarlarkDocExpander expander, ProviderFieldInfo fieldInfo) {
+    ProviderFieldDoc(
+        StarlarkDocExpander expander,
+        String sourceFileLabel,
+        ProviderInfo providerInfo,
+        ProviderFieldInfo fieldInfo) {
       super(expander);
+      this.sourceFileLabel = sourceFileLabel;
+      this.providerInfo = providerInfo;
       this.fieldInfo = fieldInfo;
+      this.typedDocstring = TypeParser.TypedDocstring.of(fieldInfo.getDocString());
     }
 
     @Override
@@ -105,13 +115,26 @@ public final class StardocProtoProviderDocPage extends StarlarkDocPage {
 
     @Override
     public String getReturnType() {
-      // TODO(arostovtsev): Parse return type from doc string.
-      return "unknown";
+      try {
+        // TODO(arostovtsev): the "unknown" fallback text should be provided by the template.
+        return expander.getTypeParser().getHtml(typedDocstring.typeExpression(), "unknown");
+      } catch (EvalException e) {
+        throw new IllegalStateException(
+            String.format(
+                "Failed to parse type for field %s of %s in %s",
+                getName(), providerInfo.getProviderName(), sourceFileLabel),
+            e);
+      }
     }
 
     @Override
     public String getRawDocumentation() {
       return fieldInfo.getDocString();
+    }
+
+    @Override
+    public String getDocumentation() {
+      return expander.expand(typedDocstring.remainder());
     }
 
     @Override

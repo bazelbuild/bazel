@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 public abstract class StarlarkDocPage extends StarlarkDoc {
   // Contains all members; must be sorted for output - we cannot sort before output because
   // overloading can change a member doc's sort key.
-  private final HashMultimap<String, MemberDoc> membersByShortName = HashMultimap.create();
+  protected final HashMultimap<String, MemberDoc> membersByShortName = HashMultimap.create();
   // Contains overloaded members; used only for uniqueness checks in overloadMember().
   private final HashMap<String, MemberDoc> overloadsBySignature = new HashMap<>();
   @Nullable private MemberDoc constructor;

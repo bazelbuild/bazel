@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A documentation entry for a Starlark function described by a Stardoc proto obtained via {@code
@@ -30,15 +32,16 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
   private final String structName;
   private final String nameWithoutNamespace;
   private final StarlarkFunctionInfo functionInfo;
+  private final TypeParser.TypedDocstring typedReturnDocstring;
   private final ImmutableList<StardocProtoParamDoc> params;
-  private final boolean isConstructor;
+  @Nullable private final String constructorType;
 
   public StardocProtoFunctionDoc(
       StarlarkDocExpander expander,
       ModuleInfo moduleInfo,
       String structName,
       StarlarkFunctionInfo functionInfo,
-      boolean isConstructor) {
+      @Nullable String constructorType) {
     super(expander);
     this.sourceFileLabel = moduleInfo.getFile();
     this.structName = structName;
@@ -47,11 +50,20 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
             ? functionInfo.getFunctionName().substring(structName.length() + 1)
             : functionInfo.getFunctionName();
     this.functionInfo = functionInfo;
+    this.constructorType = constructorType;
+    if (constructorType == null) {
+      this.typedReturnDocstring =
+          TypeParser.TypedDocstring.of(functionInfo.getReturn().getDocString());
+    } else {
+      // Constructors always return the type they construct
+      this.typedReturnDocstring = new TypeParser.TypedDocstring(constructorType, "");
+    }
     this.params =
         functionInfo.getParameterList().stream()
-            .map(paramInfo -> new StardocProtoParamDoc(expander, paramInfo))
+            .map(
+                paramInfo ->
+                    new StardocProtoParamDoc(expander, sourceFileLabel, functionInfo, paramInfo))
             .collect(toImmutableList());
-    this.isConstructor = isConstructor;
   }
 
   public StardocProtoFunctionDoc(
@@ -59,7 +71,7 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
       ModuleInfo moduleInfo,
       String structName,
       StarlarkFunctionInfo functionInfo) {
-    this(expander, moduleInfo, structName, functionInfo, /* isConstructor= */ false);
+    this(expander, moduleInfo, structName, functionInfo, /* constructorType= */ null);
   }
 
   @Override
@@ -74,7 +86,7 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
 
   @Override
   public boolean isConstructor() {
-    return isConstructor;
+    return constructorType != null;
   }
 
   @Override
@@ -84,7 +96,7 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
 
   @Override
   public String getRawDocumentation() {
-    // TODO(arostovtsev): emit something useful for 'returns' and 'deprecated' sections.
+    // TODO(arostovtsev): emit separate stanzas for 'returns' and 'deprecated' sections.
     return functionInfo.getDocString();
   }
 
@@ -97,8 +109,22 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
 
   @Override
   public String getReturnType() {
-    // TODO(arostovtsev): parse return type from 'returns' section of docstring.
-    return "unknown";
+    try {
+      // TODO(arostovtsev): the "unknown" fallback text should be provided by the template.
+      return expander.getTypeParser().getHtml(typedReturnDocstring.typeExpression(), "unknown");
+    } catch (EvalException e) {
+      throw new IllegalStateException(
+          String.format(
+              "Failed to parse return type for %s in %s",
+              functionInfo.getFunctionName(), sourceFileLabel),
+          e);
+    }
+  }
+
+  // TODO(arostovtsev): fix templates to move 'returns' section remainder text into a new stanza.
+  @Override
+  public String getReturnTypeExtraMessage() {
+    return typedReturnDocstring.remainder();
   }
 
   @Override
@@ -118,11 +144,21 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
 
   /** Documentation for a Starlark function parameter. */
   public static class StardocProtoParamDoc extends ParamDoc {
+    private final String sourceFileLabel;
+    private final StarlarkFunctionInfo functionInfo;
     private final FunctionParamInfo paramInfo;
+    private final TypeParser.TypedDocstring typedDocstring;
 
-    public StardocProtoParamDoc(StarlarkDocExpander expander, FunctionParamInfo paramInfo) {
+    public StardocProtoParamDoc(
+        StarlarkDocExpander expander,
+        String sourceFileLabel,
+        StarlarkFunctionInfo functionInfo,
+        FunctionParamInfo paramInfo) {
       super(expander, Kind.fromProto(paramInfo.getRole()));
+      this.sourceFileLabel = sourceFileLabel;
+      this.functionInfo = functionInfo;
       this.paramInfo = paramInfo;
+      this.typedDocstring = TypeParser.TypedDocstring.of(paramInfo.getDocString());
     }
 
     @Override
@@ -132,8 +168,16 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
 
     @Override
     public String getType() {
-      // TODO(arostovtsev): parse return type from docstring.
-      return "";
+      try {
+        // TODO(arostovtsev): the fallback text should be provided by the template.
+        return expander.getTypeParser().getHtml(typedDocstring.typeExpression());
+      } catch (EvalException e) {
+        throw new IllegalStateException(
+            String.format(
+                "Failed to parse type for param %s of %s in %s",
+                getName(), functionInfo.getFunctionName(), sourceFileLabel),
+            e);
+      }
     }
 
     @Override
@@ -144,6 +188,11 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
     @Override
     public String getRawDocumentation() {
       return paramInfo.getDocString();
+    }
+
+    @Override
+    public String getDocumentation() {
+      return expander.expand(typedDocstring.remainder());
     }
   }
 }
