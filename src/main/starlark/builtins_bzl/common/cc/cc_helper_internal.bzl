@@ -56,6 +56,8 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     # Rust rules
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
+    # Python rules
+    ("", "third_party/bazel_rules/rules_python/google"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 def check_private_api():
