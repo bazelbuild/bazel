@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -215,7 +216,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   public void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
-      SortedMap<PathFragment, ActionInput> inputMap,
+      Supplier<SortedMap<PathFragment, ActionInput>> inputMap,
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)

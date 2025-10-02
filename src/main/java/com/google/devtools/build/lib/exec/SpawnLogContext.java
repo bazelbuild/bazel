@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An {@link ActionContext} providing the ability to log executed spawns. */
@@ -62,7 +63,7 @@ public abstract class SpawnLogContext implements ActionContext {
    *
    * @param spawn the spawn to log
    * @param inputMetadataProvider provides metadata for the spawn inputs
-   * @param inputMap the mapping from input paths to action inputs
+   * @param inputMap the mapping from input paths to action inputs (built lazily)
    * @param fileSystem the filesystem containing the spawn inputs and outputs, which might be an
    *     action filesystem when building without the bytes
    * @param timeout the timeout the spawn was run under
@@ -71,11 +72,23 @@ public abstract class SpawnLogContext implements ActionContext {
   public abstract void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
-      SortedMap<PathFragment, ActionInput> inputMap,
+      Supplier<SortedMap<PathFragment, ActionInput>> inputMap,
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
       throws IOException, InterruptedException, ExecException;
+
+  @VisibleForTesting
+  void logSpawn(
+      Spawn spawn,
+      InputMetadataProvider inputMetadataProvider,
+      SortedMap<PathFragment, ActionInput> inputMap,
+      FileSystem fileSystem,
+      Duration timeout,
+      SpawnResult result)
+      throws IOException, InterruptedException, ExecException {
+    logSpawn(spawn, inputMetadataProvider, () -> inputMap, fileSystem, timeout, result);
+  }
 
   /**
    * Logs an internal symlink action, which is not backed by a spawn.
