@@ -393,11 +393,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     private static String getMessage(
         PlatformInfo targetPlatformInfo, SequencedSet<ToolchainTypeInfo> missingToolchainTypes) {
+      // All characters with special meaning anywhere in a regex (':' for example is only special within brackets).
+      List<Character> regexSpecialChars = "+.|([{^$?\\*".codePoints()
+          .mapToObj(c -> (char) c)
+          .toList();
       ImmutableList<String> labelStrings =
           missingToolchainTypes.stream()
               .map(ToolchainTypeInfo::typeLabel)
               .map(Label::toString)
-              .map(Pattern::quote)
+              .map(label -> {
+                // Regex-quote if label contains special characters.
+                for (char c : regexSpecialChars) {
+                  if (label.indexOf(c) >= 0) {
+                    return Pattern.quote(label);
+                  }
+                }
+                
+                return label;
+              })
               .collect(toImmutableList());
       ImmutableList<String> missingToolchainRows =
           missingToolchainTypes.stream()

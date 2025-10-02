@@ -18,9 +18,11 @@ import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSub
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.ToolchainTypeLookupUtil
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.LinkedHashSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -391,9 +394,32 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 """
 No matching toolchains found for types:
   //toolchain:test_toolchain
-To debug, rerun with --toolchain_resolution_debug='\\Q//toolchain:test_toolchain\\E'
+To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
 For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
 """);
+  }
+
+  @Test
+  public void unresolved_toolchain_message_regex_quotes() throws Exception {
+    PlatformInfo platformInfo = PlatformInfo.builder()
+        .setLabel(Label.parseCanonicalUnchecked("//platforms:test_platform"))
+        .build();
+    ToolchainTypeInfo toolchainTypeInfo = ToolchainTypeInfo.create(
+        Label.parseCanonicalUnchecked("@@repo+//toolchain:test_toolchain"));
+    LinkedHashSet<ToolchainTypeInfo> missingToolchainTypes = new LinkedHashSet<>();
+    missingToolchainTypes.add(toolchainTypeInfo);
+
+    var exception = new ToolchainResolutionFunction.UnresolvedToolchainsException(platformInfo, missingToolchainTypes);
+
+    assertThat(exception)
+        .hasMessageThat()
+        .isEqualTo(
+"""
+No matching toolchains found for types:
+  @@repo+//toolchain:test_toolchain
+To debug, rerun with --toolchain_resolution_debug='\\Q@@repo+//toolchain:test_toolchain\\E'
+"""
+        );
   }
 
   @Test
