@@ -222,7 +222,6 @@ public abstract class CcModule
       Sequence<?> nonCodeInputs,
       Sequence<?> looseHdrsDirsObject,
       String headersCheckingMode,
-      Boolean propagateModuleMapToCompileAction,
       Object picHeaderModule,
       Object headerModule,
       Sequence<?> separateModuleHeaders,
@@ -285,7 +284,6 @@ public abstract class CcModule
             /* directModuleMaps= */ ImmutableList.of(),
             /* exportingModuleMaps= */ ImmutableList.of(),
             moduleMap instanceof CppModuleMap cppModuleMap ? cppModuleMap : null,
-            propagateModuleMapToCompileAction,
             Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 

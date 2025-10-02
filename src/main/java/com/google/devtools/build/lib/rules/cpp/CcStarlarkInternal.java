@@ -519,7 +519,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         ccCompilationContext.getDirectModuleMaps(),
         ccCompilationContext.getExportingModuleMaps(),
         ccCompilationContext.getCppModuleMap(),
-        ccCompilationContext.getPropagateModuleMapAsActionInput(),
         ccCompilationContext.getVirtualToOriginalHeaders(),
         headerTokens.build());
   }

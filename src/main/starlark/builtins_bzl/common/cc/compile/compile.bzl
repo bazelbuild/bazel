@@ -117,7 +117,6 @@ def compile(
         additional_inputs = [],
         module_map = None,
         additional_module_maps = [],
-        propagate_module_map_to_compile_action = True,
         do_not_generate_module_map = False,
         code_coverage_enabled = False,
         hdrs_checking_mode = None,  # TODO(b/396122076): seems unused; double-check and remove
@@ -185,7 +184,6 @@ def compile(
         additional_inputs: List of additional files needed for compilation of srcs
         module_map: undocumented
         additional_module_maps: undocumented
-        propagate_module_map_to_compile_action: undocumented
         do_not_generate_module_map: undocumented
         code_coverage_enabled: undocumented
         hdrs_checking_mode: undocumented
@@ -293,7 +291,6 @@ def compile(
         generate_pic_action = generate_pic_action,
         generate_no_pic_action = generate_no_pic_action,
         module_map = module_map,
-        propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
         additional_exported_headers =
             additional_exported_hdrs + [h.path for h in textual_hdrs_list] if textual_hdrs_list else additional_exported_hdrs,
         deps = compilation_contexts,

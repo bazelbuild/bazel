@@ -303,13 +303,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = CppModuleMapApi.class)},
             named = true),
         @Param(
-            name = "propagate_module_map_to_compile_action",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Boolean.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "do_not_generate_module_map",
             positional = false,
             named = true,
@@ -411,7 +404,6 @@ public interface CcModuleApi<
       Sequence<?> additionalInputs, // <Artifact> expected
       Object moduleMapNoneable,
       Object additionalModuleMapsNoneable,
-      Object propagateModuleMapToCompileActionObject,
       Object doNotGenerateModuleMapObject,
       Object codeCoverageEnabledObject,
       Object hdrsCheckingModeObject,
@@ -1668,12 +1660,6 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
         @Param(
-            name = "propagate_module_map_to_compile_action",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
             name = "pic_header_module",
             documented = false,
             positional = false,
@@ -1732,7 +1718,6 @@ public interface CcModuleApi<
       Sequence<?> nonCodeInputs,
       Sequence<?> looseHdrsDirs,
       String headersCheckingMode,
-      Boolean propagateModuleMapToCompileAction,
       Object picHeaderModule,
       Object headerModule,
       Sequence<?> separateModuleHeaders,

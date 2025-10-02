@@ -80,7 +80,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           /* directModuleMaps= */ ImmutableList.of(),
           /* exportingModuleMaps= */ ImmutableList.of(),
           /* cppModuleMap= */ null,
-          /* propagateModuleMapAsActionInput= */ true,
           /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* headerTokens= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
@@ -102,8 +101,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private final NestedSet<Artifact> transitivePicModules;
 
   private final CppModuleMap cppModuleMap;
-
-  private final boolean propagateModuleMapAsActionInput;
 
   // Derived from depsContexts.
 
@@ -135,7 +132,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       ImmutableList<Artifact> directModuleMaps,
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
-      boolean propagateModuleMapAsActionInput,
       NestedSet<Tuple> virtualToOriginalHeaders,
       NestedSet<Artifact> headerTokens) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
@@ -148,7 +144,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.transitivePicModules = transitivePicModules;
     this.cppModuleMap = cppModuleMap;
     this.nonCodeInputs = nonCodeInputs;
-    this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
     this.virtualToOriginalHeaders = virtualToOriginalHeaders;
     this.transitiveHeaderCount = -1;
     this.headerTokens = headerTokens;
@@ -164,7 +159,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       ImmutableList<Artifact> directModuleMaps,
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
-      boolean propagateModuleMapAsActionInput,
       NestedSet<Tuple> virtualToOriginalHeaders,
       NestedSet<Artifact> headerTokens) {
     return new CcCompilationContext(
@@ -177,7 +171,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         directModuleMaps,
         exportingModuleMaps,
         cppModuleMap,
-        propagateModuleMapAsActionInput,
         virtualToOriginalHeaders,
         headerTokens);
   }
@@ -312,7 +305,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ImmutableList.copyOf(directModuleMaps),
         ImmutableList.copyOf(exportingModuleMaps),
         single.getCppModuleMap(),
-        single.getPropagateModuleMapAsActionInput(),
         virtualToOriginalHeaders.build(),
         headerTokens.build());
   }
@@ -764,7 +756,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   void addAdditionalInputs(NestedSetBuilder<Artifact> builder) {
     builder.addAll(directModuleMaps);
     builder.addTransitive(nonCodeInputs);
-    if (cppModuleMap != null && propagateModuleMapAsActionInput) {
+    if (cppModuleMap != null) {
       builder.add(cppModuleMap.getArtifact());
     }
   }
@@ -823,11 +815,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   /** Returns the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
-  }
-
-  /** Returns whether the C++ module map of the owner should be propagated as an action input. */
-  public boolean getPropagateModuleMapAsActionInput() {
-    return propagateModuleMapAsActionInput;
   }
 
   /** Returns the list of dependencies' C++ module maps re-exported by this compilation context. */

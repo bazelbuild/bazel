@@ -273,7 +273,6 @@ def _create_compilation_context(
         exported_dependent_cc_compilation_contexts = _UNBOUND,
         non_code_inputs = _UNBOUND,
         headers_checking_mode = _UNBOUND,
-        propagate_module_map_to_compile_action = _UNBOUND,
         pic_header_module = _UNBOUND,
         header_module = _UNBOUND,
         separate_module_headers = _UNBOUND,
@@ -288,7 +287,6 @@ def _create_compilation_context(
        dependent_cc_compilation_contexts != _UNBOUND or \
        non_code_inputs != _UNBOUND or \
        headers_checking_mode != _UNBOUND or \
-       propagate_module_map_to_compile_action != _UNBOUND or \
        pic_header_module != _UNBOUND or \
        header_module != _UNBOUND or \
        separate_module_headers != _UNBOUND or \
@@ -317,8 +315,6 @@ def _create_compilation_context(
         non_code_inputs = []
     if headers_checking_mode == _UNBOUND:
         headers_checking_mode = "STRICT"
-    if propagate_module_map_to_compile_action == _UNBOUND:
-        propagate_module_map_to_compile_action = True
     if pic_header_module == _UNBOUND:
         pic_header_module = None
     if header_module == _UNBOUND:
@@ -353,7 +349,6 @@ def _create_compilation_context(
         non_code_inputs = non_code_inputs,
         loose_hdrs_dirs = [],
         headers_checking_mode = headers_checking_mode,
-        propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
         pic_header_module = pic_header_module,
         header_module = header_module,
         separate_module_headers = separate_module_headers,
@@ -535,8 +530,6 @@ def _compile(
         additional_module_maps = []
     if additional_exported_hdrs == _UNBOUND:
         additional_exported_hdrs = []
-    if propagate_module_map_to_compile_action == _UNBOUND:
-        propagate_module_map_to_compile_action = True
     if do_not_generate_module_map == _UNBOUND:
         do_not_generate_module_map = False
     if code_coverage_enabled == _UNBOUND:
@@ -590,7 +583,6 @@ def _compile(
         additional_inputs = additional_inputs,
         module_map = module_map,
         additional_module_maps = additional_module_maps,
-        propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
         do_not_generate_module_map = do_not_generate_module_map,
         code_coverage_enabled = code_coverage_enabled,
         hdrs_checking_mode = hdrs_checking_mode,

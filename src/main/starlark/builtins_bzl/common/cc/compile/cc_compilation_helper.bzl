@@ -372,7 +372,6 @@ def _init_cc_compilation_context(
         generate_pic_action,
         generate_no_pic_action,
         module_map,
-        propagate_module_map_to_compile_action,
         additional_exported_headers,
         deps,
         purpose,
@@ -549,7 +548,6 @@ def _init_cc_compilation_context(
     else:
         # Do not set module map related attributes.
         module_map = None
-        propagate_module_map_to_compile_action = True
 
     dependent_cc_compilation_contexts = []
     if cc_toolchain_compilation_context != None:
@@ -573,7 +571,6 @@ def _init_cc_compilation_context(
         direct_public_headers = public_headers.headers,
         direct_private_headers = private_headers_artifacts,
         direct_textual_headers = public_textual_headers,
-        propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
         module_map = module_map,
         pic_header_module = pic_header_module,
         header_module = header_module,
@@ -605,7 +602,6 @@ def _init_cc_compilation_context(
             direct_public_headers = public_headers.headers,
             direct_private_headers = private_headers_artifacts,
             direct_textual_headers = public_textual_headers,
-            propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
             module_map = module_map,
             pic_header_module = pic_header_module,
             header_module = header_module,

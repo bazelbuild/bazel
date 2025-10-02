@@ -7201,7 +7201,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             compileCall + " module_map = module_map)",
             compileCall + " additional_module_maps = [module_map])",
             compileCall + "additional_exported_hdrs = [])",
-            compileCall + "propagate_module_map_to_compile_action = True)",
             compileCall + "do_not_generate_module_map = True)",
             compileCall + "code_coverage_enabled = True)",
             compileCall + "separate_module_headers = [])",

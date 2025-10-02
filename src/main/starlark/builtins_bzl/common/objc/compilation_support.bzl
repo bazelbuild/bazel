@@ -209,7 +209,6 @@ def _compile(
         cxx_flags = common_variables.compilation_attributes.cxxopts,
         conly_flags = common_variables.compilation_attributes.conlyopts,
         module_map = module_map,
-        propagate_module_map_to_compile_action = True,
         variables_extension = extension,
         language = "objc",
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = common_variables.ctx),
