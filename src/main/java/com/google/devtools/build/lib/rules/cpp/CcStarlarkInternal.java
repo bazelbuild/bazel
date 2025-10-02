@@ -511,7 +511,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         Sequence.cast(extraHeaderTokens, Artifact.class, "extra_header_tokens").getImmutableList());
     return CcCompilationContext.create(
         ccCompilationContext.getCommandLineCcCompilationContext(),
-        ccCompilationContext.getTransitiveCompilationPrerequisites(),
         ccCompilationContext.getDeclaredIncludeSrcs(),
         ccCompilationContext.getNonCodeInputs(),
         ccCompilationContext.getHeaderInfo(),

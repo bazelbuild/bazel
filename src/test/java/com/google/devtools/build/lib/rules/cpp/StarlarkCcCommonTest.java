@@ -7257,17 +7257,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         load(
             "//my_rules:rule.bzl",
             "additional_inputs_rule",
-            "method_rule",
             "param_2_rule",
             "transitive_modules_rule",
         )
 
         param_2_rule(
             name = "p2",
-        )
-
-        method_rule(
-            name = "m",
         )
 
         additional_inputs_rule(
@@ -7282,11 +7277,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "my_rules/rule.bzl",
         """
-        def _m_impl(ctx):
-            comp_context = cc_common.create_compilation_context()
-            comp_context.transitive_compilation_prerequisites()
-            return [CcInfo(compilation_context = comp_context)]
-
         def _p2_impl(ctx):
             comp_context = cc_common.create_compilation_context(purpose = "testing")
             return [CcInfo(compilation_context = comp_context)]
@@ -7299,9 +7289,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             comp_context = cc_common.create_compilation_context()
             comp_context.transitive_modules(use_pic = True)
 
-        method_rule = rule(
-            implementation = _m_impl,
-        )
         param_2_rule = rule(
             implementation = _p2_impl,
         )
@@ -7312,9 +7299,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             implementation = _transitive_modules_impl,
         )
         """);
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:m"));
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:p2"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:p2"));
     assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:ai"));
     assertThat(e).hasMessageThat().contains("cannot use private API");

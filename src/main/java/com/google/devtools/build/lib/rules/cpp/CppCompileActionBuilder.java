@@ -341,7 +341,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   }
 
   NestedSet<Artifact> getInputsForInvalidation() {
-    return ccCompilationContext.getTransitiveCompilationPrerequisites();
+    return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 
   private boolean useHeaderModules(Artifact sourceFile) {

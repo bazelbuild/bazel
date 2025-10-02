@@ -312,7 +312,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     NestedSetBuilder<Artifact> allowedDerivedInputsBuilder =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
             .addTransitive(additionalPrunableHeaders)
-            .addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites())
             .addTransitive(ccCompilationContext.getDeclaredIncludeSrcs())
             .addTransitive(ccCompilationContext.getTransitiveModules(usePic))
             .add(getSourceFile());
@@ -1247,7 +1246,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
-    return ccCompilationContext.getTransitiveCompilationPrerequisites();
+    return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 
   @Override
@@ -1349,7 +1348,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         mandatorySpawnInputs,
         additionalPrunableHeaders,
         builtInIncludeDirectories,
-        ccCompilationContext.getTransitiveCompilationPrerequisites(),
+        ccCompilationContext.getDeclaredIncludeSrcs(),
         getMnemonic(),
         PathMappers.getOutputPathsMode(configuration));
   }

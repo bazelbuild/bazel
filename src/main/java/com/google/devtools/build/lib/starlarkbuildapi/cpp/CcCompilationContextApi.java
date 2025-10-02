@@ -136,12 +136,6 @@ public interface CcCompilationContextApi<
   StarlarkList<FileT> getStarlarkDirectTextualHeaders();
 
   @StarlarkMethod(
-      name = "transitive_compilation_prerequisites",
-      documented = false,
-      useStarlarkThread = true)
-  Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
       name = "validation_artifacts",
       doc = "Returns the set of validation artifacts.",
       structField = true)

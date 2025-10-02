@@ -72,7 +72,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               /* externalIncludeDirs= */ ImmutableList.of(),
               /* defines= */ ImmutableList.of(),
               /* localDefines= */ ImmutableList.of()),
-          /* compilationPrerequisites= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* declaredIncludeSrcs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           HeaderInfo.EMPTY,
@@ -107,9 +106,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private final boolean propagateModuleMapAsActionInput;
 
   // Derived from depsContexts.
-  // TODO(blaze-team@): remove, compilationPrerequisites and declaredIncludeSrcs have the same
-  // content.
-  private final NestedSet<Artifact> compilationPrerequisites;
 
   // Each pair maps the Bazel generated paths of virtual include headers back to their original path
   // relative to the workspace directory.
@@ -119,6 +115,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   // This is needed only when code coverage collection is enabled, to report the actual source file
   // name in the coverage output file.
   private final NestedSet<Tuple> virtualToOriginalHeaders;
+
   /**
    * Caches the actual number of transitive headers reachable through transitiveHeaderInfos. We need
    * to create maps to store these and so caching this count can substantially help with memory
@@ -130,7 +127,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   private CcCompilationContext(
       CommandLineCcCompilationContext commandLineCcCompilationContext,
-      NestedSet<Artifact> compilationPrerequisites,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
       HeaderInfo headerInfo,
@@ -152,7 +148,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.transitivePicModules = transitivePicModules;
     this.cppModuleMap = cppModuleMap;
     this.nonCodeInputs = nonCodeInputs;
-    this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
     this.virtualToOriginalHeaders = virtualToOriginalHeaders;
     this.transitiveHeaderCount = -1;
@@ -161,7 +156,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public static CcCompilationContext create(
       CommandLineCcCompilationContext commandLineCcCompilationContext,
-      NestedSet<Artifact> compilationPrerequisites,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
       HeaderInfo headerInfo,
@@ -175,7 +169,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       NestedSet<Artifact> headerTokens) {
     return new CcCompilationContext(
         commandLineCcCompilationContext,
-        compilationPrerequisites,
         declaredIncludeSrcs,
         nonCodeInputs,
         headerInfo,
@@ -209,7 +202,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
 
     // CcCompilationContext fields
-    NestedSetBuilder<Artifact> compilationPrerequisites = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
@@ -224,7 +216,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     ImmutableList.Builder<HeaderInfo> mergedHeaderInfos = ImmutableList.builder();
 
     // Merge in single
-    compilationPrerequisites.addAll(single.getTransitiveCompilationPrerequisites().toList());
     includeDirs.addTransitive(single.getIncludeDirs());
     quoteIncludeDirs.addTransitive(single.getQuoteIncludeDirs());
     systemIncludeDirs.addTransitive(single.getSystemIncludeDirs());
@@ -243,9 +234,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
       externalIncludeDirs.addTransitive(otherCcCompilationContext.getExternalIncludeDirs());
       allDefines.addTransitive(otherCcCompilationContext.getDefines());
-
-      compilationPrerequisites.addTransitive(
-          otherCcCompilationContext.getTransitiveCompilationPrerequisites());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       nonCodeInputs.addTransitive(otherCcCompilationContext.getNonCodeInputs());
 
@@ -306,7 +294,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
             single.getHeaderInfo().separatePicModule,
             depHeaderInfos.build(),
             mergedHeaderInfos.build());
-    NestedSet<Artifact> constructedPrereq = compilationPrerequisites.build();
 
     return new CcCompilationContext(
         new CommandLineCcCompilationContext(
@@ -317,7 +304,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
             externalIncludeDirs.getMergedResult(),
             allDefines.getMergedResult(),
             single.getNonTransitiveDefines()),
-        constructedPrereq,
         declaredIncludeSrcs.build(),
         nonCodeInputs.build(),
         headerInfo,
@@ -433,13 +419,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.class, getTransitiveCompilationPrerequisites());
-  }
-
-  @Override
   public Depset getStarlarkValidationArtifacts() {
     return Depset.of(Artifact.class, getHeaderTokens());
   }
@@ -462,20 +441,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return StarlarkList.immutableCopyOf(getExportingModuleMaps());
-  }
-
-  /**
-   * Returns the transitive compilation prerequisites.
-   *
-   * <p>Transitive compilation prerequisites are the prerequisites that will be needed by all
-   * reverse dependencies; note that these do specifically not include any compilation prerequisites
-   * that are only needed by the rule itself (for example, compiled source files from the {@code
-   * srcs} attribute).
-   *
-   * <p>The returned set can be empty if there are no prerequisites.
-   */
-  public NestedSet<Artifact> getTransitiveCompilationPrerequisites() {
-    return compilationPrerequisites;
   }
 
   /** Returns the command line compilation context. */
@@ -539,6 +504,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   /**
    * Returns the immutable set of headers that have been declared in the {@code srcs} or {@code
    * hdrs} attribute (possibly empty but never null).
+   *
+   * <p>Those are exactly transitive compilation prerequisites needed by all reverse dependencies;
+   * note that these do specifically not include any compilation prerequisites that are only needed
+   * by the rule itself (for example, compiled source files from the {@code srcs} attribute).
+   *
+   * <p>The returned set can be empty if there are no prerequisites.
    */
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
     return declaredIncludeSrcs;

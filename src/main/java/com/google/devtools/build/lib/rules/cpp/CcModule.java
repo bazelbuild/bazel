@@ -275,7 +275,6 @@ public abstract class CcModule
                 toPathFragments(externalIncludes, "external_includes"),
                 toNestedSetOfStrings(defines, "defines").toList(),
                 toNestedSetOfStrings(localDefines, "local_defines").toList()),
-            /* compilationPrerequisites= */ NestedSetBuilder.wrap(Order.STABLE_ORDER, headerList),
             /* declaredIncludeSrcs= */ NestedSetBuilder.wrap(Order.STABLE_ORDER, headerList),
             NestedSetBuilder.wrap(
                 Order.STABLE_ORDER,
