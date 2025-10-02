@@ -19,7 +19,6 @@ These may change at any time and are closely coupled to the rule implementation.
 """
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/cc/cc_debug_helper.bzl", "create_debug_packager_actions")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
@@ -73,9 +72,6 @@ def _compile(*args, **kwargs):
 def _copy_without_caching(*args, **kwargs):
     return _py_builtins.copy_without_caching(*args, **kwargs)
 
-def _create_debug_packager_actions(*args, **kwargs):
-    return create_debug_packager_actions(*args, **kwargs)
-
 def _create_linking_context_from_compilation_outputs(*args, **kwargs):
     return cc_common.create_linking_context_from_compilation_outputs(*args, **kwargs)
 
@@ -96,9 +92,6 @@ def _expand_location_and_make_variables(*args, **kwargs):
 
 def _extra_libraries_build_libraries(extra_libraries, *args, **kwargs):
     return cc_common.build_extra_link_time_libraries(extra_libraries.libraries, *args, **kwargs)
-
-def _get_all_lto_artifacts(cc_linking_outputs):
-    return cc_linking_outputs.all_lto_artifacts()
 
 def _get_current_os_name(*args, **kwargs):
     return _py_builtins.get_current_os_name(*args, **kwargs)
@@ -183,7 +176,6 @@ py_internal = struct(
     compilation_outputs_pic_gcno_files = _compilation_outputs_pic_gcno_files,
     compile = _compile,
     copy_without_caching = _copy_without_caching,
-    create_debug_packager_actions = _create_debug_packager_actions,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
     create_repo_mapping_manifest = _create_repo_mapping_manifest,
     create_sources_only_manifest = _create_sources_only_manifest,
@@ -191,7 +183,6 @@ py_internal = struct(
     declare_shareable_artifact = _declare_shareable_artifact,
     expand_location_and_make_variables = _expand_location_and_make_variables,
     extra_libraries_build_libraries = _extra_libraries_build_libraries,
-    get_all_lto_artifacts = _get_all_lto_artifacts,
     get_current_os_name = _get_current_os_name,
     get_label_repo_runfiles_path = _get_label_repo_runfiles_path,
     get_legacy_external_runfiles = _get_legacy_external_runfiles,
