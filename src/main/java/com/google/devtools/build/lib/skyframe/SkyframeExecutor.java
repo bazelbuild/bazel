@@ -628,14 +628,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       logger.atInfo().log("Invalidating key: %s", key.getCanonicalName());
     }
 
-    // In Bazel UI, report the number of invalidated SkyKeys by SkyFunction.
-    Map<SkyFunctionName, Long> countsByFunctionName =
-        keysToInvalidate.stream().collect(groupingBy(SkyKey::functionName, counting()));
-    if (!countsByFunctionName.isEmpty()) {
-      eventHandler.handle(
-          Event.info(
-              String.format("Invalidation counts by SkyFunction: %s", countsByFunctionName)));
-    }
+    // Log the number of invalidated SkyKeys by SkyFunction.
+    logger.atInfo().log(
+        "Skycache invalidation counts by SkyFunction: %s",
+        keysToInvalidate.stream().collect(groupingBy(SkyKey::functionName, counting())));
 
     // `delete` is used instead of `invalidate` because the latter marks the
     // nodes as `changed`, which is not allowed for hermetic SkyFunctions. This
