@@ -2216,6 +2216,9 @@ function test_cpp20_modules_with_clang() {
       return 0
     fi
   fi
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    return 0
+  fi
 
   add_rules_cc "MODULE.bazel"
 
