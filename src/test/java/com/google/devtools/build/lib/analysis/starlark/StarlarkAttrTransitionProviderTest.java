@@ -1196,12 +1196,12 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "test/starlark/my_rule.bzl",
         """
         def transition_func(settings, attr):
-            return {"//command_line_option:incompatible_merge_genfiles_directory": True}
+            return {"//command_line_option:incompatible_filegroup_runfiles_for_data": True}
 
         my_transition = transition(
             implementation = transition_func,
             inputs = [],
-            outputs = ["//command_line_option:incompatible_merge_genfiles_directory"],
+            outputs = ["//command_line_option:incompatible_filegroup_runfiles_for_data"],
         )
 
         def impl(ctx):
@@ -1234,7 +1234,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
-        "Invalid transition output '//command_line_option:incompatible_merge_genfiles_directory'. "
+        "Invalid transition output '//command_line_option:incompatible_filegroup_runfiles_for_data'. "
             + "Cannot transition on --experimental_* or --incompatible_* options");
   }
 

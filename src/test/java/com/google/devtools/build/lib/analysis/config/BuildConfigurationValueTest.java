@@ -617,8 +617,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testIncompatibleMergeGenfilesDirectory() throws Exception {
-    BuildConfigurationValue target = create("--incompatible_merge_genfiles_directory");
-    BuildConfigurationValue exec = createExec("--incompatible_merge_genfiles_directory");
+    BuildConfigurationValue target = create();
+    BuildConfigurationValue exec = createExec();
     assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
         .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
     assertThat(exec.getGenfilesDirectory(RepositoryName.MAIN))
@@ -632,7 +632,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         create("--javacopt=foo"),
         create("--platform_suffix=-test"),
         create("--target_environment=//foo", "--target_environment=//bar"),
-        create("--incompatible_merge_genfiles_directory"),
         create(
             "--define",
             "foo=#foo",

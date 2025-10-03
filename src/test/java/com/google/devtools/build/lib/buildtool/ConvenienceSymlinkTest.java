@@ -390,7 +390,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("nothing-bin");
     binLink.createSymbolicLink(config.getChild("bin"));
     Path genfilesLink = getWorkspace().getChild("nothing-genfiles");
-    genfilesLink.createSymbolicLink(config.getChild("genfiles"));
+    genfilesLink.createSymbolicLink(config.getChild("bin"));
     Path testlogsLink = getWorkspace().getChild("nothing-testlogs");
     testlogsLink.createSymbolicLink(config.getChild("testlogs"));
 
@@ -432,7 +432,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("nulled-bin");
     binLink.createSymbolicLink(config.getChild("bin"));
     Path genfilesLink = getWorkspace().getChild("nulled-genfiles");
-    genfilesLink.createSymbolicLink(config.getChild("genfiles"));
+    genfilesLink.createSymbolicLink(config.getChild("bin"));
     Path testlogsLink = getWorkspace().getChild("nulled-testlogs");
     testlogsLink.createSymbolicLink(config.getChild("testlogs"));
 
@@ -466,7 +466,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("ambiguous-bin");
     binLink.createSymbolicLink(config.getChild("bin"));
     Path genfilesLink = getWorkspace().getChild("ambiguous-genfiles");
-    genfilesLink.createSymbolicLink(config.getChild("genfiles"));
+    genfilesLink.createSymbolicLink(config.getChild("bin"));
     Path testlogsLink = getWorkspace().getChild("ambiguous-testlogs");
     testlogsLink.createSymbolicLink(config.getChild("testlogs"));
 
@@ -508,8 +508,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
       throws Exception {
     addOptions(
         "--symlink_prefix=ambiguous-",
-        "--incompatible_skip_genfiles_symlink=false",
-        "--incompatible_merge_genfiles_directory=false",
         "--incompatible_skip_genfiles_symlink=false");
 
     Path config = getOutputPath().getRelative("some-imaginary-config");
@@ -517,7 +515,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path binLink = getWorkspace().getChild("ambiguous-bin");
     binLink.createSymbolicLink(config.getChild("bin"));
     Path genfilesLink = getWorkspace().getChild("ambiguous-genfiles");
-    genfilesLink.createSymbolicLink(config.getChild("genfiles"));
+    genfilesLink.createSymbolicLink(config.getChild("bin"));
     Path testlogsLink = getWorkspace().getChild("ambiguous-testlogs");
     testlogsLink.createSymbolicLink(config.getChild("testlogs"));
 
@@ -540,7 +538,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/bin"),
             "ambiguous-genfiles",
             getOutputPath()
-                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/bin"),
             "ambiguous-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-default/testlogs"),
@@ -555,7 +553,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     addOptions(
         "--symlink_prefix=same-",
         "--compilation_mode=fastbuild",
-        "--incompatible_merge_genfiles_directory=false",
         "--incompatible_skip_genfiles_symlink=false");
 
     write(
@@ -580,7 +577,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/bin"),
             "same-genfiles",
             getOutputPath()
-                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/bin"),
             "same-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-configured/testlogs"),
@@ -597,7 +594,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         "--output_directory_name=from_flag",
         "--symlink_prefix=united-",
         "--compilation_mode=fastbuild",
-        "--incompatible_merge_genfiles_directory=false",
         "--incompatible_skip_genfiles_symlink=false");
 
     write(
@@ -629,7 +625,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "united-genfiles",
             getOutputPath()
-                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "united-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
@@ -647,7 +643,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         "--output_directory_name=from_flag",
         "--symlink_prefix=unchanged-",
         "--compilation_mode=fastbuild",
-        "--incompatible_merge_genfiles_directory=false",
         "--incompatible_skip_genfiles_symlink=false");
 
     write(
@@ -674,7 +669,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "unchanged-genfiles",
             getOutputPath()
-                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "unchanged-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
@@ -690,7 +685,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         "--output_directory_name=from_flag",
         "--symlink_prefix=mixed-",
         "--compilation_mode=fastbuild",
-        "--incompatible_merge_genfiles_directory=false",
         "--incompatible_skip_genfiles_symlink=false");
 
     write(
@@ -712,7 +706,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "mixed-genfiles",
             getOutputPath()
-                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles"),
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin"),
             "mixed-testlogs",
             getOutputPath()
                 .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/testlogs"),
@@ -784,7 +778,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     // Simulate leftover symlink from prior build.
     Path config = getOutputPath().getRelative("some-imaginary-config");
     Path genfilesLink = getWorkspace().getChild("prefix-genfiles");
-    genfilesLink.createSymbolicLink(config.getChild("genfiles"));
+    genfilesLink.createSymbolicLink(config.getChild("bin"));
 
     write("target/BUILD", "basic_rule(name='target')");
     buildTarget("//target:target");
@@ -870,7 +864,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         "--output_directory_name=from_flag",
         "--symlink_prefix=replaced-",
         "--compilation_mode=fastbuild",
-        "--incompatible_merge_genfiles_directory=false",
         "--incompatible_skip_genfiles_symlink=false");
 
     Path binLink = getWorkspace().getChild("replaced-bin");
@@ -898,7 +891,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     assertThat(genfilesLink.readSymbolicLink())
         .isEqualTo(
             getOutputPath()
-                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/genfiles")
+                .getRelative(getTargetConfiguration().getCpu() + "-fastbuild-from_flag/bin")
                 .asFragment());
     assertThat(testlogsLink.readSymbolicLink())
         .isEqualTo(
@@ -922,7 +915,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     assertThat(getWorkspace().getChild("created").isDirectory()).isTrue();
     assertThat(getWorkspace().getRelative("created/bin").isSymbolicLink()).isTrue();
-    assertThat(getWorkspace().getRelative("created/genfiles").isSymbolicLink()).isTrue();
+    assertThat(getWorkspace().getRelative("created/bin").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getRelative("created/testlogs").isSymbolicLink()).isTrue();
     assertThat(
             getWorkspace().getRelative("created/" + TestConstants.WORKSPACE_NAME).isSymbolicLink())
@@ -959,7 +952,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     assertThat(getWorkspace().getChild("cooperating").isDirectory()).isTrue();
     assertThat(getWorkspace().getRelative("cooperating/bin").isSymbolicLink()).isTrue();
-    assertThat(getWorkspace().getRelative("cooperating/genfiles").isSymbolicLink()).isTrue();
+    assertThat(getWorkspace().getRelative("cooperating/bin").isSymbolicLink()).isTrue();
     assertThat(getWorkspace().getRelative("cooperating/testlogs").isSymbolicLink()).isTrue();
     assertThat(
             getWorkspace()
@@ -1016,7 +1009,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path config = getOutputPath().getRelative("some-imaginary-config");
     // put symlinks at the convenience symlinks spots to simulate a prior build
     binLink.createSymbolicLink(config.getChild("bin"));
-    genfilesLink.createSymbolicLink(config.getChild("genfiles"));
+    genfilesLink.createSymbolicLink(config.getChild("bin"));
     testlogsLink.createSymbolicLink(config.getChild("testlogs"));
 
     write("file/BUILD", "exports_files(['file'])");
