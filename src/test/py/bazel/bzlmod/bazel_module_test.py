@@ -1015,7 +1015,7 @@ class BazelModuleTest(test_base.TestBase):
     self.AssertNotExitCode(exit_code, 0, stderr)
     self.assertIn(
       'include() directive found at ' + self.main_registry.getURL()
-      + '/modules/foo/1.0/MODULE.bazel:6:1 but it can only be used in the '
+      + '/modules/foo/1.0/MODULE.bazel:6:1, but it can only be used in the '
       + 'root module or in modules with non-registry overrides',
       '\n'.join(stderr),
     )
