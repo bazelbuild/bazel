@@ -46,6 +46,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_transition",

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
@@ -24,6 +23,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
+import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
@@ -56,6 +57,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.NoneType;
@@ -192,16 +194,8 @@ public final class FunctionTransitionUtil {
     // Get the defaults:
     fromOptions.getNativeOptions().forEach(o -> defaultBuilder.addFragmentOptions(o.getDefault()));
     // Propagate Starlark options from the source config if allowed.
-    if (fromOptions.get(CoreOptions.class).excludeStarlarkFlagsFromExecConfig) {
-      ImmutableMap<Label, Object> starlarkOptions =
-          fromOptions.getStarlarkOptions().entrySet().stream()
-              .filter(
-                  (starlarkFlag) -> propagateStarlarkFlagToExec(starlarkFlag.getKey(), fromOptions))
-              .collect(toImmutableMap(Map.Entry::getKey, (e) -> e.getValue()));
-      defaultBuilder.addStarlarkOptions(starlarkOptions);
-    } else {
-      defaultBuilder.addStarlarkOptions(fromOptions.getStarlarkOptions());
-    }
+    defaultBuilder.addStarlarkOptions(
+        getExecPropagatingStarlarkFlags(fromOptions.getStarlarkOptions(), fromOptions));
     // Hard-code TestConfiguration for now, which clones the source options.
     // TODO(b/295936652): handle this directly in Starlark. This has two complications:
     //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
@@ -231,22 +225,61 @@ public final class FunctionTransitionUtil {
   }
 
   /**
-   * Returns true if the given Starlark flag should propagate from the target to exec configuration.
+   * Filters a map of Starlark flag <Label, value> pairs to those that should propagate from the
+   * target configuration to exec configuration.
    */
-  private static boolean propagateStarlarkFlagToExec(
-      Label starlarkFlag, BuildOptions buildOptions) {
-    return buildOptions.get(CoreOptions.class).customFlagsToPropagate.stream()
-        .anyMatch(
-            flagToPropagate ->
-                (flagToPropagate.equals(starlarkFlag.getUnambiguousCanonicalForm())
-                    || (flagToPropagate.endsWith(CustomFlagConverter.SUBPACKAGES_SUFFIX)
-                        && starlarkFlag
-                            .getUnambiguousCanonicalForm()
-                            .startsWith(
-                                flagToPropagate.substring(
-                                    0,
-                                    flagToPropagate.lastIndexOf(
-                                        CustomFlagConverter.SUBPACKAGES_SUFFIX))))));
+  private static ImmutableMap<Label, Object> getExecPropagatingStarlarkFlags(
+      Map<Label, Object> starlarkOptions, BuildOptions options) {
+    for (Label flag : starlarkOptions.keySet()) {
+      Verify.verify(
+          options.getScopeTypeMap().containsKey(flag),
+          "No scope info available for Starlark flag %s.",
+          flag);
+    }
+    if (!options.get(CoreOptions.class).excludeStarlarkFlagsFromExecConfig) {
+      // Starlark flags propagate to exec by default. This can only be changed by a flag explicitly
+      // setting "scope = 'target'".
+      return starlarkOptions.entrySet().stream()
+          .filter(
+              entry ->
+                  options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.UNIVERSAL
+                      || options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.DEFAULT)
+          .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    // --incompatible_exclude_starlark_flags_from_exec_config=True: Starlark flags don't propagate
+    // to the exec config by default. This can be overridden by a flag setting "scope = 'universal'"
+    // or --experimental_propagate_custom_flag. If both are set, the flag setting takes precedence.
+    Map<Boolean, List<String>> partitioned =
+        options.get(CoreOptions.class).customFlagsToPropagate.stream()
+            .collect(
+                Collectors.partitioningBy(f -> f.endsWith(CustomFlagConverter.SUBPACKAGES_SUFFIX)));
+    // Holds --experimental_propagate_custom_flag patterns=//pkg/... patterns. These are rare.
+    List<String> customPropagatingFlagPatterns = partitioned.get(true);
+    // Flags that should propagate according to --experimental_propagate_custom_flag.
+    Set<String> customPropagatingFlags = new HashSet<>(partitioned.get(false));
+
+    ImmutableMap.Builder<Label, Object> ans = ImmutableMap.builder();
+    for (Map.Entry<Label, Object> entry : starlarkOptions.entrySet()) {
+      if (options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.UNIVERSAL) {
+        ans.put(entry);
+      } else if (options.getScopeTypeMap().get(entry.getKey()) == Scope.ScopeType.TARGET) {
+        // Don't propagate this flag.
+      } else if (customPropagatingFlags.contains(entry.getKey().getUnambiguousCanonicalForm())) {
+        ans.put(entry);
+      } else if (customPropagatingFlagPatterns.stream()
+          .anyMatch(
+              pattern ->
+                  entry
+                      .getKey()
+                      .getUnambiguousCanonicalForm()
+                      .startsWith(
+                          pattern.substring(
+                              0, pattern.lastIndexOf(CustomFlagConverter.SUBPACKAGES_SUFFIX))))) {
+        ans.put(entry);
+      }
+    }
+    return ans.buildOrThrow();
   }
 
   /**

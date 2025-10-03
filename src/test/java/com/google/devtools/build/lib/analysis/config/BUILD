@@ -69,6 +69,7 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

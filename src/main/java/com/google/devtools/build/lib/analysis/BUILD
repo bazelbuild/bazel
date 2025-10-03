@@ -1757,6 +1757,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:optioninfo",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:options_diff",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

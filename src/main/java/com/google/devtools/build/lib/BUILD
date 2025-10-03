@@ -280,6 +280,7 @@ java_library(
     srcs = ["runtime/StarlarkOptionsParser.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",

@@ -343,7 +343,7 @@ public final class BuildConfigurationKeyProducer<C>
       if (scope == null) {
         Verify.verify(
             transitionedOptionsWithScopeType.getScopeTypeMap().get(flagLabel)
-                == Scope.ScopeType.UNIVERSAL);
+                != Scope.ScopeType.PROJECT);
       } else if (scope.getScopeType() == Scope.ScopeType.PROJECT) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);

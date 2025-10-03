@@ -489,6 +489,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         )
         basic_flag(
             name = "bar",
+            scope = "universal",
             build_setting_default = "default",
         )
         """);
@@ -596,6 +597,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         )
         basic_flag(
             name = "bar",
+            scope = "universal",
             build_setting_default = "default",
         )
         """);
@@ -677,10 +679,12 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         load(":def.bzl", "basic_flag")
         basic_flag(
             name = "foo",
+            scope = "universal",
             build_setting_default = "default",
         )
         basic_flag(
             name = "bar",
+            scope = "universal",
             build_setting_default = "default",
         )
         """);

@@ -28,12 +28,13 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link BuildConfigurationValue}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
@@ -336,7 +337,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             return []
 
         bool_flag = rule(
-            implementation = _basic_impl,
+            implementation = _impl,
             build_setting = config.bool(flag = True),
         )
         """);
@@ -347,7 +348,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
         bool_flag(
             name = "starlark_flag",
-            build_setting_default = "False",
+            build_setting_default = False,
         )
         """);
     BuildConfigurationValue cfg =
@@ -459,6 +460,147 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//flags_to_reset:exclude_me")))
         .isNull();
+  }
+
+  @Test
+  public void starlarkFlagExecScopes(@TestParameter boolean propagateByDefault) throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(values = ["target", "universal"])},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "string_flag")
+        string_flag(
+            name = "default_scope",
+            build_setting_default = "default",
+        )
+        string_flag(
+            name = "target_scope",
+            build_setting_default = "default",
+            scope = "target",
+        )
+        string_flag(
+            name = "universal_scope",
+            build_setting_default = "default",
+            scope = "universal",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of(
+                "//test:default_scope",
+                "custom",
+                "//test:target_scope",
+                "custom",
+                "//test:universal_scope",
+                "custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config="
+                + (propagateByDefault ? "false" : "true"));
+
+    if (propagateByDefault) {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:default_scope"),
+              "custom");
+    } else {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
+    }
+  }
+
+  @Test
+  public void starlarkFlagExecScopes_take_precedence_over_custom_overrides() throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(values = ["target", "universal"])},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "string_flag")
+        string_flag(
+            name = "default_scope",
+            build_setting_default = "default",
+        )
+        string_flag(
+            name = "target_scope",
+            build_setting_default = "default",
+            scope = "target",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of("//test:default_scope", "custom", "//test:target_scope", "custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true",
+            "--experimental_propagate_custom_flag=//test:target_scope",
+            "--experimental_propagate_custom_flag=//test:default_scope");
+
+    assertThat(execConfig.getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:default_scope"), "custom");
+  }
+
+  @Test
+  public void labelFlagExecScopes(@TestParameter boolean propagateByDefault) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        label_flag(
+            name = "default_scope",
+            build_setting_default = "//foo",
+        )
+        label_flag(
+            name = "target_scope",
+            build_setting_default = "//foo",
+            scope = "target",
+        )
+        label_flag(
+            name = "universal_scope",
+            build_setting_default = "//foo",
+            scope = "universal",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of(
+                "//test:default_scope",
+                "//custom",
+                "//test:target_scope",
+                "//custom",
+                "//test:universal_scope",
+                "//custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config="
+                + (propagateByDefault ? "false" : "true"));
+
+    if (propagateByDefault) {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "//custom",
+              Label.parseCanonicalUnchecked("//test:default_scope"),
+              "//custom");
+    } else {
+      assertThat(execConfig.getOptions().getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "//custom");
+    }
   }
 
   @Test
