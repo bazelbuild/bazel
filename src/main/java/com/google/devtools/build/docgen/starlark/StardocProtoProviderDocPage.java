@@ -60,6 +60,15 @@ public final class StardocProtoProviderDocPage extends StarlarkDocPage {
   }
 
   @Override
+  public String getDeprecatedStanza() {
+    if (providerInfo.hasInit()
+        && !providerInfo.getInit().getDeprecated().getDocString().isEmpty()) {
+      return expander.expand(providerInfo.getInit().getDeprecated().getDocString());
+    }
+    return "";
+  }
+
+  @Override
   public String getTitle() {
     return providerInfo.getProviderName();
   }

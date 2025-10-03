@@ -47,12 +47,23 @@ public abstract class MemberDoc extends StarlarkDoc {
   public abstract String getReturnType();
 
   /**
-   * For a callable value, returns a string containing additional documentation about the return
-   * value.
+   * For a callable value, returns a short piece of additional documentation about the return value,
+   * which will be appended to the main documentation.
    *
    * <p>Returns an empty string by default.
+   *
+   * <p>Contrast with {@link #getReturnsStanza}, which requires formatting under a separate
+   * sub-header.
    */
   public String getReturnTypeExtraMessage() {
+    return "";
+  }
+
+  /**
+   * Long-form HTML documentation about the return value; inserted in the output as a separate
+   * stanza with a sub-header.
+   */
+  public String getReturnsStanza() {
     return "";
   }
 

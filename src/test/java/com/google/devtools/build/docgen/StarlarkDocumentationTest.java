@@ -689,8 +689,32 @@ public class StarlarkDocumentationTest {
         .isEqualTo(
             "<code><a class=\"anchor\" href=\"../core/set.html\">set</a>[<a class=\"anchor\""
                 + " href=\"../core/string.html\">string</a>]</code>");
-    assertThat(moduleDoc.getMembers().getFirst().getReturnTypeExtraMessage())
+    assertThat(moduleDoc.getMembers().getFirst().getReturnsStanza())
         .isEqualTo("The answers. Not always accurate.");
+    // Unused for Stardoc proto-based documentation.
+    assertThat(moduleDoc.getMembers().getFirst().getReturnTypeExtraMessage()).isEmpty();
+  }
+
+  @Test
+  public void testStardocProtoFunctionDeprecatedDocs() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//pkg:test.bzl",
+            """
+            def _func(**kwargs):
+                '''Blah blah blah
+
+                Deprecated:
+                  Don't use this function!
+                '''
+                pass
+            #: Foo module.
+            foo = struct(func = _func)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    StarlarkDocPage moduleDoc = objects.get(Category.TOP_LEVEL_MODULE).getFirst();
+    assertThat(moduleDoc.getMembers().getFirst().getDeprecatedStanza())
+        .isEqualTo("Don't use this function!");
   }
 
   @Test

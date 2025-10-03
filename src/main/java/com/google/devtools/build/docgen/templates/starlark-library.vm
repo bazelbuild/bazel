@@ -13,6 +13,10 @@
 
 ${page.documentation}
 
+#if (!$page.deprecatedStanza.isEmpty())
+  <h2 class="hide-from-toc">Deprecated</h2>
+  ${page.deprecatedStanza}
+#end
 #if (!$page.members.isEmpty())
 <h2>Members</h2>
 <ul>
@@ -34,7 +38,14 @@ ${page.documentation}
     #end
 
     ${method.documentation}
-
+    #if (!$method.returnsStanza.isEmpty())
+      <h3 class="hide-from-toc">Returns</h3>
+      ${method.returnsStanza}
+    #end
+    #if (!$method.deprecatedStanza.isEmpty())
+      <h3 class="hide-from-toc">Deprecated</h3>
+      ${method.deprecatedStanza}
+    #end
     #if (!$method.params.isEmpty())
       <!-- hide-from-toc is a class used by DevSite for the public Bazel site
       (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->

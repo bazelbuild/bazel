@@ -96,7 +96,6 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
 
   @Override
   public String getRawDocumentation() {
-    // TODO(arostovtsev): emit separate stanzas for 'returns' and 'deprecated' sections.
     return functionInfo.getDocString();
   }
 
@@ -121,10 +120,15 @@ public final class StardocProtoFunctionDoc extends MemberDoc {
     }
   }
 
-  // TODO(arostovtsev): fix templates to move 'returns' section remainder text into a new stanza.
   @Override
-  public String getReturnTypeExtraMessage() {
-    return typedReturnDocstring.remainder();
+  public String getReturnsStanza() {
+    return expander.expand(typedReturnDocstring.remainder());
+  }
+
+  @Override
+  public String getDeprecatedStanza() {
+    // A provider constructor's deprecation stanza applies to the provider it constructs.
+    return isConstructor() ? "" : expander.expand(functionInfo.getDeprecated().getDocString());
   }
 
   @Override

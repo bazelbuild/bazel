@@ -54,6 +54,14 @@ public abstract class StarlarkDoc {
   public abstract String getRawDocumentation();
 
   /**
+   * Long-form HTML documentation about deprecation, if the entity being documented is deprecated,
+   * or an empty string otherwise; inserted in the output as a separate stanza with a sub-header.
+   */
+  public String getDeprecatedStanza() {
+    return "";
+  }
+
+  /**
    * For Starlark-defined entities, returns a string containing the Starlark load statement to
    * import the entity being documented; or an empty string for Java-defined entities.
    */
