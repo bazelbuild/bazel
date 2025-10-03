@@ -238,18 +238,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean checkBzlVisibility;
 
   @Option(
-      name = "experimental_cc_skylark_api_enabled_packages",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Passes list of packages that can use the C++ Starlark API. Don't enable this flag yet, "
-              + "we will be making breaking changes.")
-  public List<String> experimentalCcStarlarkApiEnabledPackages;
-
-  @Option(
       name = "experimental_enable_android_migration_apis",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -331,19 +319,6 @@ public final class BuildLanguageOptions extends OptionsBase {
           "If set to true, enables a number of platform-related Starlark APIs useful for "
               + "debugging.")
   public boolean experimentalPlatformsApi;
-
-  @Option(
-      name = "experimental_cc_shared_library",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, rule attributes and Starlark API methods needed for the rule "
-              + "cc_shared_library will be available")
-  public boolean experimentalCcSharedLibrary;
 
   @Option(
       name = "experimental_repo_remote_exec",
@@ -757,6 +732,17 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " files in <code>DefaultInfo.files</code> under $(locations ...) expansion if the"
               + " number of files is not 1.")
   public boolean incompatibleLocationsPrefersExecutable;
+
+  // TODO(bazel-team): Delete this once all usages of the deprecated cc_shared_library rule
+  //  attributes have been cleaned up.
+  @Option(
+      name = "experimental_cc_shared_library",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "Do not use in new code, enables deprecated cc_shared_library rule attributes.")
+  public boolean experimentalCcSharedLibrary;
 
   @Option(
       name = "internal_starlark_utf_8_byte_strings",
