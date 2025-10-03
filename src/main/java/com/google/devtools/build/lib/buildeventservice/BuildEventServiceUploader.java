@@ -18,7 +18,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
@@ -61,6 +63,7 @@ import io.grpc.StatusException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.EnumSet;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -110,6 +113,10 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final ImmutableSet<Code> RETRYABLE_STATUS_CODES =
+      Sets.immutableEnumSet(
+          EnumSet.complementOf(EnumSet.of(Code.INVALID_ARGUMENT, Code.PERMISSION_DENIED)));
 
   private final BuildEventServiceClient besClient;
   private final BuildEventArtifactUploader buildEventUploader;
@@ -459,7 +466,6 @@ public final class BuildEventServiceUploader implements Runnable {
           case Command.SendRegularBuildEvent sendRegularBuildEventCmd -> {
             // Invariant: commandQueue may contain commands of any type
 
-
             PathConverter pathConverter = waitForUploads(sendRegularBuildEventCmd);
 
             BuildEventStreamProtos.BuildEvent serializedRegularBuildEvent =
@@ -735,7 +741,7 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private static boolean shouldRetryStatus(Status status) {
-    return !status.getCode().equals(Code.INVALID_ARGUMENT);
+    return RETRYABLE_STATUS_CODES.contains(status.getCode());
   }
 
   private static boolean shouldStartNewInvocation(Status status) {
