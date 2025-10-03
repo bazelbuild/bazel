@@ -710,40 +710,10 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
         @Param(name = "compile_build_variables", positional = false, named = true),
         @Param(
-            name = "cache_key_inputs",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = Depset.class, generic1 = Artifact.class),
-              @ParamType(type = NoneType.class)
-            },
-            defaultValue = "None"),
-        @Param(
-            name = "build_info_header_files",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = Artifact.class),
-              @ParamType(type = NoneType.class)
-            },
-            defaultValue = "None"),
-        @Param(
             name = "action_name",
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None"),
-        @Param(
-            name = "should_scan_includes",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Boolean.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None"),
-        @Param(
-            name = "shareable",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Boolean.class), @ParamType(type = NoneType.class)},
             defaultValue = "None"),
         @Param(name = "module_files", positional = false, named = true, defaultValue = "None"),
         @Param(name = "modmap_file", positional = false, named = true, defaultValue = "None"),
@@ -773,11 +743,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object ltoIndexingFile,
       boolean usePic,
       CcToolchainVariables compileBuildVariables,
-      Object cacheKeyInputs,
-      Object buildInfoHeaderArtifacts,
       Object actionName,
-      Object shouldScanIncludes,
-      Object shareable,
       Object moduleFiles,
       Object modmapFile,
       Object modmapInputFile,
@@ -804,22 +770,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             ltoIndexingFile,
             usePic);
     builder.setVariables(compileBuildVariables);
-    if (cacheKeyInputs != Starlark.NONE) {
-      builder.setCacheKeyInputs(Depset.cast(cacheKeyInputs, Artifact.class, "cache_key_inputs"));
-    }
-    if (buildInfoHeaderArtifacts != Starlark.NONE) {
-      builder.setBuildInfoHeaderArtifacts(
-          Sequence.cast(buildInfoHeaderArtifacts, Artifact.class, "builtin_header_files")
-              .getImmutableList());
-    }
     if (actionName instanceof String actionNameString) {
       builder.setActionName(actionNameString);
-    }
-    if (shouldScanIncludes instanceof Boolean bool) {
-      builder.setShouldScanIncludes(bool);
-    }
-    if (shareable instanceof Boolean bool) {
-      builder.setShareable(bool);
     }
     builder.setModuleFiles(Depset.noneableCast(moduleFiles, Artifact.class, "module_files"));
     builder.setModmapFile(nullIfNone(modmapFile, Artifact.class));
