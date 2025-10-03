@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
@@ -110,10 +111,11 @@ public abstract class VirtualActionInput implements ActionInput, DeterministicWr
     byte[] digest;
 
     FileSystem fs = target.getFileSystem();
-    try (OutputStream out = target.getOutputStream();
-        HashingOutputStream hashingOut =
-            new HashingOutputStream(fs.getDigestFunction().getHashFunction(), out)) {
-      writeTo(hashingOut);
+    try (var out = target.getOutputStream();
+        var hashingOut = new HashingOutputStream(fs.getDigestFunction().getHashFunction(), out);
+        var bufferedHashingOut = new BufferedOutputStream(hashingOut)) {
+      writeTo(bufferedHashingOut);
+      bufferedHashingOut.flush();
       digest = hashingOut.hash().asBytes();
     }
     // Some of the virtual inputs can be executed, e.g. embedded tools. Setting executable flag for

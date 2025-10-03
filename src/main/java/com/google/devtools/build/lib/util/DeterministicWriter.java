@@ -28,6 +28,14 @@ public interface DeterministicWriter {
    *
    * <p>Every invocation of this method writes the same stream of bytes.
    *
+   * <p>Implementations
+   *
+   * <ul>
+   *   <li>must not close the given {@link OutputStream}
+   *   <li>may flush the given {@link OutputStream}
+   *   <li>should not wrap the given {@link OutputStream} in a buffered stream. The caller is
+   *       responsible for providing a buffered stream if necessary.
+   *
    * @param out the {@link OutputStream} to write to
    * @throws IOException only if out throws an IOException
    */
