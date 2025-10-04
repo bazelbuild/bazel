@@ -187,7 +187,6 @@ public class ModuleFileFunction implements SkyFunction {
     if (getModuleFileResult == null) {
       return null;
     }
-    getModuleFileResult.downloadEventHandler.replayOn(env.getListener());
 
     CompiledModuleFile compiledModuleFile;
     try {
