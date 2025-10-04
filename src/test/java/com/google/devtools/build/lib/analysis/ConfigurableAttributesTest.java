@@ -847,6 +847,88 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             "bin java/a/liba.jar", "bin java/a/libb.jar", "bin java/a/libc.jar"));
   }
 
+  /** Tests that specialization checking works as expected when one user-defined flag is aliased. */
+  @Test
+  public void multipleMatchesUnambiguous_aliasedFlagValue() throws Exception {
+    scratch.file(
+        "conditions/rules.bzl",
+        "def _build_setting_impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _build_setting_impl,",
+        "  build_setting = config.string(flag=True))");
+    scratch.file(
+        "conditions/BUILD",
+        "load('//conditions:rules.bzl', 'string_flag')",
+        "string_flag(name = 'foo_arg', build_setting_default = 'foo')",
+        "string_flag(name = 'bar_arg', build_setting_default = 'bar')",
+        "alias(",
+        "    name = 'foo_alias',",
+        "    actual = ':foo_arg')",
+        "config_setting(",
+        "    name = 'a',",
+        "    flag_values = {':foo_arg': 'foo'})",
+        "config_setting(",
+        "    name = 'b',",
+        "    flag_values = {':foo_alias': 'foo', ':bar_arg': 'bar'})");
+    scratch.file(
+        "a/BUILD",
+        "genrule(",
+        "    name = 'gen',",
+        "    cmd = '',",
+        "    outs = ['gen.out'],",
+        "    srcs = select({",
+        "        '//conditions:a': ['a.in'],",
+        "        '//conditions:b': ['b.in'],",
+        "    }))");
+    checkRule(
+        "//a:gen",
+        "srcs",
+        ImmutableList.of(),
+        /*expected:*/ ImmutableList.of("src a/b.in"),
+        /*not expected:*/ ImmutableList.of("src a/a.in"));
+  }
+
+  /** Tests that specialization checking works as expected when one constraint is aliased. */
+  @Test
+  public void multipleMatchesUnambiguous_aliasedConstraintValue() throws Exception {
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'foo_con')",
+        "constraint_setting(name = 'bar_con')",
+        "constraint_value(name = 'foo', constraint_setting = 'foo_con')",
+        "constraint_value(name = 'bar', constraint_setting = 'bar_con')",
+        "alias(",
+        "    name = 'foo_alias',",
+        "    actual = ':foo')",
+        "platform(",
+        "    name = 'specialized_platform',",
+        "    constraint_values = [':foo', ':bar'],",
+        ")",
+        "config_setting(",
+        "    name = 'a',",
+        "    constraint_values = [':foo'])",
+        "config_setting(",
+        "    name = 'b',",
+        "    constraint_values = [':foo_alias', ':bar'])");
+    scratch.file(
+        "a/BUILD",
+        "genrule(",
+        "    name = 'gen',",
+        "    cmd = '',",
+        "    outs = ['gen.out'],",
+        "    srcs = select({",
+        "        '//conditions:a': ['a.in'],",
+        "        '//conditions:b': ['b.in'],",
+        "    }))");
+    checkRule(
+        "//a:gen",
+        "srcs",
+        ImmutableList.of("--platforms=//conditions:specialized_platform"),
+        /*expected:*/ ImmutableList.of("src a/b.in"),
+        /*not expected:*/ ImmutableList.of("src a/a.in"));
+  }
+
   /** Tests that default conditions are only required when no main condition matches. */
   @Test
   public void noDefaultCondition() throws Exception {
