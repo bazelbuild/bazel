@@ -686,15 +686,13 @@ public final class BlazeOptionHandler {
       if (!validCommands.contains(command)
           && !command.equals(ALWAYS_PSEUDO_COMMAND)
           && !command.equals(COMMON_PSEUDO_COMMAND)) {
-        eventHandler.handle(
-            Event.warn(
-                "while reading option defaults file '"
-                    + rcFile
-                    + "':\n"
-                    + "  invalid command name '"
-                    + override.command
-                    + "'."));
-        continue;
+        throw new OptionsParsingException(
+            "while reading option defaults file '"
+            + rcFile
+            + "':\n"
+            + "  invalid command name '"
+            + override.command
+            + "'.");
       }
 
       // We've moved on to another rc file "chunk," store the accumulated args from the last one.
