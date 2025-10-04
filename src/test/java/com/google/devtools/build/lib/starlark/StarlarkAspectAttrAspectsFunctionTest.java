@@ -1075,6 +1075,7 @@ attr_map = {
   'string_keyed_label_dict': {'key1': Label('//pkg1:dep_1'), 'key2': Label('//pkg1:dep_2')},
   'string_list': ['string_value_1', 'string_value_2'],
   'string_list_dict': {'key1': ['string_value_1', 'string_value_2'], 'key2': ['string_value_3', 'string_value_4']},
+  'label_list_dict': {'key1': [Label('//pkg1:dep_1')], 'key2': [Label('//pkg1:dep_2')]},
 }
 def _propagation_attrs(ctx):
   for attr_name, expected_val in attr_map.items():
@@ -1118,6 +1119,7 @@ my_rule = rule(
     "string_keyed_label_dict": attr.string_keyed_label_dict(),
     "string_list": attr.string_list(),
     "string_list_dict": attr.string_list_dict(),
+    "label_list_dict": attr.label_list_dict(),
     })
 """);
     scratch.file(
@@ -1139,6 +1141,7 @@ my_rule(
     string_keyed_label_dict = {'key1': ':dep_1', 'key2': ':dep_2'},
     string_list = ['string_value_1', 'string_value_2'],
     string_list_dict = {'key1': ['string_value_1', 'string_value_2'], 'key2': ['string_value_3', 'string_value_4']},
+    label_list_dict = {'key1': [':dep_1'], 'key2': [':dep_2']},
 )
 
 my_rule(name = 'dep_1')

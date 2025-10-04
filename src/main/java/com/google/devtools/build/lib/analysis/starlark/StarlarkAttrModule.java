@@ -1014,6 +1014,60 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   @Override
+  public Descriptor labelListDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Dict<?, ?> defaultValue,
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Object forDependencyResolution,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Boolean skipValidations,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException {
+    checkContext(thread, "attr.label_list_dict()");
+    Map<String, Object> kwargs =
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            ALLOW_FILES_ARG,
+            allowFiles,
+            ALLOW_RULES_ARG,
+            allowRules,
+            PROVIDERS_ARG,
+            providers,
+            FOR_DEPENDENCY_RESOLUTION_ARG,
+            forDependencyResolution,
+            FLAGS_ARG,
+            flags,
+            MANDATORY_ARG,
+            mandatory,
+            SKIP_VALIDATIONS_ARG,
+            skipValidations,
+            ALLOW_EMPTY_ARG,
+            allowEmpty,
+            CONFIGURATION_ARG,
+            cfg,
+            ASPECTS_ARG,
+            aspects);
+    ImmutableAttributeFactory attribute =
+        createAttributeFactory(
+            BuildType.LABEL_LIST_DICT,
+            Starlark.toJavaOptional(doc, String.class),
+            kwargs,
+            thread,
+            "label_list_dict");
+    return new Descriptor("label_list_dict", attribute);
+  }
+
+  @Override
   public Descriptor boolAttribute(
       Object configurable,
       Boolean defaultValue,
