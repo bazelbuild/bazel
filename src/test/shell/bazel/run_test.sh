@@ -199,4 +199,47 @@ EOF
   true
 }
 
+function test_run_subcommands_flag() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg="pkg${LINENO}"
+  mkdir $pkg
+  cat >$pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "hello",
+    srcs = ["hello.sh"],
+)
+EOF
+
+  cat >$pkg/hello.sh <<'EOF'
+#!/bin/bash
+echo "Hello from test script!"
+echo "BUILD_WORKING_DIRECTORY: \${BUILD_WORKING_DIRECTORY:-NOT SET}"
+echo "CUSTOM_VAR: \${CUSTOM_VAR:-NOT SET}"
+EOF
+  chmod +x $pkg/hello.sh
+
+  bazel run //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
+    || fail "Expected bazel run to succeed"
+  expect_log "Running command line:"
+  if is_windows; then
+    expect_not_log "cd /d"
+  else
+    expect_not_log "exec env"
+  fi
+
+  bazel run -s //$pkg:hello --run_env=CUSTOM_VAR=test_value >&$TEST_log 2>&1 \
+    || fail "Expected bazel run -s to succeed"
+  expect_log "Running command line:"
+  if is_windows; then
+    expect_log "cd /d"
+    expect_log "SET BUILD_WORKSPACE_DIRECTORY="
+    expect_log "SET CUSTOM_VAR=test_value"
+  else
+    expect_log "exec env"
+    expect_log "BUILD_WORKING_DIRECTORY="
+    expect_log "CUSTOM_VAR=test_value"
+  fi
+}
+
 run_suite "run_under_tests"
