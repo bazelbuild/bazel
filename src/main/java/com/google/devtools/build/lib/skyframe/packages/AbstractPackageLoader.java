@@ -141,7 +141,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final Reporter commonReporter;
   protected final ConfiguredRuleClassProvider ruleClassProvider;
   private final PackageFactory pkgFactory;
-  protected StarlarkSemantics starlarkSemantics;
+  protected final StarlarkSemantics starlarkSemantics;
   protected final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
   private final AtomicReference<PathPackageLocator> pkgLocatorRef;
   protected final ExternalFilesHelper externalFilesHelper;
