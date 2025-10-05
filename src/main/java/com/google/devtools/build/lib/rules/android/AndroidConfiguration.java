@@ -251,6 +251,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " each specified target platform.")
     public List<Label> androidPlatforms;
 
+    @Deprecated
     @Option(
         name = "fat_apk_hwasan",
         defaultValue = "false",
@@ -258,6 +259,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.NO_OP,
         },
+        metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op flag. Will be removed in a future release.")
     public boolean fatApkHwasan;
 
@@ -471,6 +473,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op. Kept here for backwards compatibility.")
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 

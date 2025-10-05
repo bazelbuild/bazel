@@ -21,6 +21,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
@@ -36,6 +37,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       name = "experimental_spawn_scheduler",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       defaultValue = "null",
       help =
           "Enable dynamic execution by running actions locally and remotely in parallel. Bazel "
