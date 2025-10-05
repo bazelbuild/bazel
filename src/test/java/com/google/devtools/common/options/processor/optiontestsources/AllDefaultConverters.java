@@ -29,7 +29,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "boolean_option",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public boolean booleanOption;
 
@@ -37,7 +37,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "double_option",
     defaultValue = "42.73",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public double doubleOption;
 
@@ -45,7 +45,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "int_option",
     defaultValue = "42",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public int intOption;
 
@@ -53,7 +53,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "long_option",
     defaultValue = "-5000000000000",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public long longOption;
 
@@ -61,7 +61,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "string_option",
     defaultValue = "strings are strings are strings are strings",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public String stringOption;
 
@@ -69,7 +69,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "tri_state_option",
     defaultValue = "auto",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public TriState triStateOption;
 
@@ -77,7 +77,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "duration_option",
     defaultValue = "3600s",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public Duration durationOption;
 
@@ -85,7 +85,7 @@ public class AllDefaultConverters extends OptionsBase {
     name = "void_option",
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS}
   )
   public Void voidOption;
 }
