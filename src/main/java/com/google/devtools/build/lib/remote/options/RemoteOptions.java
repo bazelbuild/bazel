@@ -289,6 +289,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "local",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "Deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
   public String remoteLocalFallbackStrategy;
 
