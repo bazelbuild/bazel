@@ -254,7 +254,14 @@ public class TestOptions extends OptionsBase {
       defaultValue = "default",
       help =
           """
-          normal, `code span`, *emphasis*, **strong emphasis**, [inline link](/url (title)), [reference link][ref]
+          normal
+          `code span`
+          *emphasis*
+          **strong emphasis**
+          [inline link](/url (title))
+          [reference link][ref]
+          [shorthand reference link]
+          [`complex` shorthand reference link]
           hard line\\
           break
           ```
@@ -270,6 +277,8 @@ public class TestOptions extends OptionsBase {
           paragraph 2
 
           [ref]: /url (title)
+          [shorthand reference link]: /url (title)
+          [`complex` shorthand reference link]: /url (title)
           """,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP})

@@ -597,8 +597,14 @@ public final class OptionsUsageTest {
         .isEqualTo(
             """
               --markdown_in_help (a string; default: "default")
-                normal, `code span`, *emphasis*, **strong emphasis**, [inline link](/url\s
-                (title)), [reference link][ref]
+                normal
+                `code span`
+                *emphasis*
+                **strong emphasis**
+                [inline link](/url (title))
+                [reference link][ref]
+                [shorthand reference link]
+                [`complex` shorthand reference link]
                 hard line\\
                 break
                 ```
@@ -614,6 +620,8 @@ public final class OptionsUsageTest {
                 paragraph 2
                \s
                 [ref]: /url (title)
+                [shorthand reference link]: /url (title)
+                [`complex` shorthand reference link]: /url (title)
                \s
             """);
   }
@@ -625,7 +633,14 @@ public final class OptionsUsageTest {
             """
             <dt id="flag--markdown_in_help"><code><a href="#flag--markdown_in_help">--markdown_in_help</a>=&lt;a string&gt;</code> default: "default"</dt>
             <dd>
-            <p>normal, <code>code span</code>, <em>emphasis</em>, <strong>strong emphasis</strong>, <a href="/url" title="title">inline link</a>, <a href="/url" title="title">reference link</a>
+            <p>normal
+            <code>code span</code>
+            <em>emphasis</em>
+            <strong>strong emphasis</strong>
+            <a href="/url" title="title">inline link</a>
+            <a href="/url" title="title">reference link</a>
+            <a href="/url" title="title">shorthand reference link</a>
+            <a href="/url" title="title"><code>complex</code> shorthand reference link</a>
             hard line<br />
             break</p>
             <pre><code>code block
