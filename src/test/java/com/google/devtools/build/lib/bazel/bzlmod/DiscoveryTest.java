@@ -180,7 +180,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
-                        ImmutableMap::of, directories, new RepoContentsCache()))
+                        ImmutableMap::of, ImmutableMap::of, directories, new RepoContentsCache()))
                 .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
                 .put(
                     SkyFunctions.REGISTRY,

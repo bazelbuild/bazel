@@ -182,7 +182,7 @@ public abstract class AnalysisMock extends LoadingMock {
     return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
-            new RepositoryFetchFunction(ImmutableMap::of, directories, new RepoContentsCache()))
+            new RepositoryFetchFunction(ImmutableMap::of, ImmutableMap::of, directories, new RepoContentsCache()))
         .put(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
@@ -197,7 +197,7 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .put(
             SkyFunctions.SINGLE_EXTENSION_EVAL,
-            new SingleExtensionEvalFunction(directories, ImmutableMap::of))
+            new SingleExtensionEvalFunction(directories, ImmutableMap::of, ImmutableMap::of))
         .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .put(
             SkyFunctions.REGISTRY,
