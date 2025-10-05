@@ -372,7 +372,7 @@ def _find_potential_solib_parents(output, dynamic_library_solib_symlink_output, 
             # Handles case 8a. The runfiles path is of the form ../some_repo/pkg/file and we need to
             # walk up some_repo/pkg and then down into main_repo.
             solib_parents.append(
-                "../" * (len(output.short_path.split("/")) - 1) + workspace_name + "/",
+                "../" * (len(output.short_path.split("/")) - 2) + workspace_name + "/",
             )
 
     return solib_parents
