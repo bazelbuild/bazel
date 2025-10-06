@@ -114,7 +114,7 @@ public abstract class AbstractHttpHandlerTest {
     ch.writeOneOutbound(cmd, writePromise);
 
     HttpRequest request = ch.readOutbound();
-    assertThat(request.headers().get(HttpHeaderNames.USER_AGENT)).isEqualTo("bazel/");
+    assertThat(request.headers().get(HttpHeaderNames.USER_AGENT)).isEqualTo("bazel/7.7.0");
   }
 
   @Test

@@ -39,6 +39,7 @@ function generate_lock_file() {
   bazel=$(rlocation io_bazel/src/bazel)
 
   echo "Running: $bazel mod deps $@"
+  export BAZEL_DEV_VERSION_OVERRIDE="7.7.0"
   $bazel mod deps "$@"
   cp ./MODULE.bazel.lock $BUILD_WORKSPACE_DIRECTORY/src/test/tools/bzlmod/MODULE.bazel.lock
 }

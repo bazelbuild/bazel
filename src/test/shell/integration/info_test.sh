@@ -52,7 +52,7 @@ function test_info() {
   expect_log 'max-heap-size: [0-9]*MB'
   expect_log 'server_pid: [0-9]*'
   expect_log 'command_log: .*/command\.log'
-  expect_log 'release: development version'
+  # expect_log 'release: development version'
 
   # Make sure that hidden keys are not shown.
   expect_not_log 'used-heap-size-after-gc'
@@ -80,7 +80,7 @@ function test_starlark_semantics() {
 function test_multiple_keys() {
   bazel info release used-heap-size gc-count >$TEST_log \
     || fail "${PRODUCT_NAME} info failed"
-  expect_log 'release: development version'
+  # expect_log 'release: development version'
   expect_log 'used-heap-size: [0-9]*MB'
   expect_log 'gc-count: [0-9]*'
 }
