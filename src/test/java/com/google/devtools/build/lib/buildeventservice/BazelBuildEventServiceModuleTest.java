@@ -102,7 +102,9 @@ import java.util.SortedSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
@@ -576,6 +578,58 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   }
 
   @Test
+  public void testAfterCommand_waitForUploadComplete_retryableErrorEarlyInStream()
+      throws Exception {
+    int numRetries = 3;
+    buildEventService.setErrorMessageAndCode("Boom8", Status.UNAVAILABLE);
+    buildEventService.setErrorEarlyInStream(true);
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
+        "--build_event_upload_max_retries=" + numRetries);
+    afterBuildCommand();
+    events.assertContainsError(
+        Pattern.compile(
+            "The Build Event Protocol upload failed: Not retrying publishBuildEvents, no more"
+                + " attempts left.*Boom8"));
+    assertThat(buildEventService.getRequestsReceivedCount()).isEqualTo(numRetries + 1);
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadComplete_permissionDeniedErrorEarlyInStream()
+      throws Exception {
+    int numRetries = 3;
+    buildEventService.setErrorMessageAndCode("Boom15", Status.PERMISSION_DENIED);
+    buildEventService.setErrorEarlyInStream(true);
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
+        "--build_event_upload_max_retries=" + numRetries);
+    afterBuildCommand();
+    events.assertContainsError(
+        Pattern.compile(
+            "The Build Event Protocol upload failed: Not retrying publishBuildEvents.*Boom15"));
+    assertThat(buildEventService.getRequestsReceivedCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadComplete_invalidArgumentErrorEarlyInStream()
+      throws Exception {
+    int numRetries = 3;
+    buildEventService.setErrorMessageAndCode("Boom15", Status.INVALID_ARGUMENT);
+    buildEventService.setErrorEarlyInStream(true);
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
+        "--build_event_upload_max_retries=" + numRetries);
+    afterBuildCommand();
+    events.assertContainsError(
+        Pattern.compile(
+            "The Build Event Protocol upload failed: Not retrying publishBuildEvents.*Boom15"));
+    assertThat(buildEventService.getRequestsReceivedCount()).isEqualTo(1);
+  }
+
+  @Test
   public void testAfterCommand_waitForUploadComplete_errorOnComplete() throws Exception {
     buildEventService.setErrorMessage("Boom1");
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
@@ -1034,6 +1088,13 @@ project = project_pb2.Project.create(
     @Nullable
     private String errorMessage = null;
 
+    @GuardedBy("this")
+    @Nullable
+    private Status errorCode = null;
+
+    private final AtomicInteger requestsReceived = new AtomicInteger(0);
+    private boolean errorEarlyInStream = false;
+
     /**
      * Synchronizing this method can lead to deadlocks -- it calls into {@link
      * io.grpc.inprocess.InProcessTransport} which takes a locks on itself. Opposite order of locks
@@ -1056,13 +1117,15 @@ project = project_pb2.Project.create(
     public synchronized StreamObserver<PublishBuildToolEventStreamRequest>
         publishBuildToolEventStream(
             StreamObserver<PublishBuildToolEventStreamResponse> responseObserver) {
+      requestsReceived.incrementAndGet();
       RequestMetadata metadata = TracingMetadataUtils.fromCurrentContext();
       assertThat(metadata.getToolInvocationId()).isNotEmpty();
       assertThat(metadata.getCorrelatedInvocationsId()).isNotEmpty();
       assertThat(metadata.getActionId()).isEqualTo("publish_build_tool_event_stream");
 
       if (errorMessage != null) {
-        return new ErroringPublishBuildStreamObserver(responseObserver, errorMessage);
+        return new ErroringPublishBuildStreamObserver(
+            responseObserver, errorMessage, errorCode, errorEarlyInStream);
       }
       DelayingPublishBuildStreamObserver observer =
           new DelayingPublishBuildStreamObserver(
@@ -1072,7 +1135,16 @@ project = project_pb2.Project.create(
     }
 
     synchronized void setErrorMessage(String errorMessage) {
+      setErrorMessageAndCode(errorMessage, Status.DATA_LOSS);
+    }
+
+    synchronized void setErrorMessageAndCode(String errorMessage, Status code) {
       this.errorMessage = errorMessage;
+      this.errorCode = code;
+    }
+
+    synchronized void setErrorEarlyInStream(boolean errorEarlyInStream) {
+      this.errorEarlyInStream = errorEarlyInStream;
     }
 
     synchronized void setDelayBeforeClosingStream(Duration delay) {
@@ -1082,6 +1154,10 @@ project = project_pb2.Project.create(
     synchronized void setDelayBeforeHalfClosingStream(Duration delay) {
       this.delayBeforeHalfClosingStream = delay;
     }
+
+    int getRequestsReceivedCount() {
+      return requestsReceived.get();
+    }
   }
 
   private static final class ErroringPublishBuildStreamObserver
@@ -1089,15 +1165,26 @@ project = project_pb2.Project.create(
 
     private final StreamObserver<PublishBuildToolEventStreamResponse> responseObserver;
     private final String errorMessage;
+    private final Status errorCode;
+    private final boolean errorEarlyInStream;
 
     ErroringPublishBuildStreamObserver(
-        StreamObserver<PublishBuildToolEventStreamResponse> responseObserver, String errorMessage) {
+        StreamObserver<PublishBuildToolEventStreamResponse> responseObserver,
+        String errorMessage,
+        Status errorCode,
+        boolean errorEarlyInStream) {
       this.responseObserver = responseObserver;
       this.errorMessage = errorMessage;
+      this.errorCode = errorCode;
+      this.errorEarlyInStream = errorEarlyInStream;
     }
 
     @Override
     public void onNext(PublishBuildToolEventStreamRequest value) {
+      if (errorEarlyInStream) {
+        responseObserver.onError(
+            new StatusRuntimeException(errorCode.withDescription(errorMessage)));
+      }
       responseObserver.onNext(
           PublishBuildToolEventStreamResponse.newBuilder()
               .setStreamId(value.getOrderedBuildEventOrBuilder().getStreamId())
@@ -1110,8 +1197,7 @@ project = project_pb2.Project.create(
 
     @Override
     public void onCompleted() {
-      responseObserver.onError(
-          new StatusRuntimeException(Status.DATA_LOSS.withDescription(errorMessage)));
+      responseObserver.onError(new StatusRuntimeException(errorCode.withDescription(errorMessage)));
     }
   }
 
