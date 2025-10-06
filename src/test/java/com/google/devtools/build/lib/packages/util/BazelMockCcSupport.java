@@ -170,6 +170,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");
   }
 
   @Override
