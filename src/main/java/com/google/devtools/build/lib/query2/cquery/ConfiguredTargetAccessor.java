@@ -175,7 +175,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   @Override
   public List<String> getStringListAttr(CqueryNode target, String attrName) {
     ConfiguredAttributeMapper attributeMapper = getAttributes(target);
-    return attributeMapper.get(attrName, Types.STRING_LIST);
+    return attributeMapper.get(attrName, Type.STRING_LIST);
   }
 
   @Override
