@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
 import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.starlark.java.annot.Param;
@@ -865,6 +865,31 @@ public class StarlarkDocumentationTest {
         .inOrder();
   }
 
+  @Test
+  public void testStardocProtoProviderAlias() throws Exception {
+    ModuleInfo moduleInfo =
+        getModuleInfo(
+            "//:test.bzl",
+            """
+            MyInfo = provider(doc = "My info.", fields = ["a", "b"])
+            #: Foo module.
+            foo = struct(my_aliased_info = MyInfo)
+            """);
+    ImmutableMap<Category, ImmutableList<StarlarkDocPage>> objects = collect(moduleInfo);
+    assertThat(objects.get(Category.TOP_LEVEL_MODULE)).hasSize(1);
+    StarlarkDocPage moduleDoc = objects.get(Category.TOP_LEVEL_MODULE).getFirst();
+    MemberDoc providerAlias = moduleDoc.getMembers().getFirst();
+    assertThat(providerAlias.getName()).isEqualTo("my_aliased_info");
+    assertThat(providerAlias.getSignature())
+        .isEqualTo(
+            "<code><a class=\"anchor\" href=\"../builtins/Provider.html\">Provider</a></code>"
+                + " my_aliased_info");
+    assertThat(providerAlias.getDocumentation())
+        .isEqualTo(
+            "A convenience alias for the <code><a class=\"anchor\""
+                + " href=\"../providers/MyInfo.html\">MyInfo</a></code> provider symbol.");
+  }
+
   private ImmutableMap<Category, ImmutableList<StarlarkDocPage>> collect(Class<?>... classObjects)
       throws IOException {
     return StarlarkDocumentationCollector.collectDocPages(
@@ -877,8 +902,12 @@ public class StarlarkDocumentationTest {
         expander, getCoreStarlarkClasses(), ImmutableList.copyOf(apiStardocProtos));
   }
 
-  private Set<Class<?>> getCoreStarlarkClasses() throws ClassPathException {
-    return Classpath.findClasses("net/starlark/java");
+  private ImmutableList<Class<?>> getCoreStarlarkClasses() throws ClassPathException {
+    ImmutableList.Builder<Class<?>> classes = ImmutableList.builder();
+    return classes
+        .addAll(Classpath.findClasses("net/starlark/java"))
+        .add(ProviderApi.class)
+        .build();
   }
 
   /**

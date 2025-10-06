@@ -80,10 +80,10 @@ import net.starlark.java.eval.StarlarkSemantics;
  *       enclosed in parentheses, optionally followed by a colon, for example {@code "(list[string])
  *       Some free text about field foo"}
  *   <li>Structs, defined at global scope, documented using {@code #:}-prefixed doc comments, and
- *       containing only function members. The returns and parameter sections of the function
- *       members' docstrings can be prefixed with a type expression enclosed in parentheses,
- *       optionally followed by a colon, for example {@code "(string | None): Some free text about
- *       parameter blah"}
+ *       containing only function members or aliases of providers. The returns and parameter
+ *       sections of the function members' docstrings can be prefixed with a type expression
+ *       enclosed in parentheses, optionally followed by a colon, for example {@code "(string |
+ *       None): Some free text about parameter blah"}
  * </ul>
  *
  * <p>Notably, .bzl files from which Build Encyclopedia content is extracted have a different,
@@ -371,7 +371,7 @@ final class StarlarkDocumentationCollector {
       Map<String, ModuleInfo> bzlStructPages,
       StarlarkDocExpander expander) {
     // For now, support only the following:
-    // - structs containing only functions (classified as TOP_LEVEL_MODULE)
+    // - structs containing only functions or provider aliases (classified as TOP_LEVEL_MODULE)
     // - providers not contained in a struct (classified as PROVIDER)
     Map<String, StarlarkDocPage> pagesInCategory = pages.get(Category.TOP_LEVEL_MODULE);
     for (StarlarkOtherSymbolInfo symbolInfo : moduleInfo.getStarlarkOtherSymbolInfoList()) {
@@ -405,29 +405,25 @@ final class StarlarkDocumentationCollector {
           "Function %s defined in %s must be namespaced inside a struct",
           functionName,
           moduleInfo.getFile());
-      String structName = Splitter.on('.').splitToList(functionName).getFirst();
-      checkState(
-          moduleInfo.getStarlarkOtherSymbolInfoList().stream()
-              .anyMatch(symbolInfo -> symbolInfo.getName().equals(structName)),
-          "Struct %s defined in %s must be documented with '#:'-prefixed doc comments",
-          structName,
-          moduleInfo.getFile());
+      String structName = getStructName(functionName, moduleInfo);
       StarlarkDocPage page = checkNotNull(pagesInCategory.get(structName));
       page.addMember(new StardocProtoFunctionDoc(expander, moduleInfo, structName, functionInfo));
     }
 
     for (ProviderInfo providerInfo : moduleInfo.getProviderInfoList()) {
       String providerName = providerInfo.getProviderName();
-      // TODO(arostovtsev): Add a stub for namespaced providers which will be resolved to a link to
-      // the real provider doc.
-      checkState(
-          !providerName.contains("."),
-          "Provider %s in %s: provider members in structs are not supported yet",
-          providerName,
-          moduleInfo.getFile());
-      pages
-          .get(Category.PROVIDER)
-          .put(providerName, new StardocProtoProviderDocPage(expander, moduleInfo, providerInfo));
+      if (providerName.contains(".")) {
+        // Aliased provider inside a struct.
+        String structName = getStructName(providerName, moduleInfo);
+        StardocProtoStructDocPage structPage =
+            (StardocProtoStructDocPage) checkNotNull(pagesInCategory.get(structName));
+        structPage.addProviderAlias(providerInfo);
+      } else {
+        // Top-level provider.
+        pages
+            .get(Category.PROVIDER)
+            .put(providerName, new StardocProtoProviderDocPage(expander, moduleInfo, providerInfo));
+      }
     }
 
     // TODO(arostovtsev): What about other types of members in structs? Need changes to
@@ -462,6 +458,21 @@ final class StarlarkDocumentationCollector {
         moduleInfo.getRuleInfoList().stream()
             .map(RuleInfo::getRuleName)
             .collect(toImmutableList()));
+  }
+
+  /**
+   * Given a name of a struct member, for example "a.b.c", verifies that "a" is the name of a
+   * documented struct in the moduleInfo and returns it.
+   */
+  private static String getStructName(String memberName, ModuleInfo moduleInfo) {
+    String structName = Splitter.on('.').splitToList(memberName).getFirst();
+    checkState(
+        moduleInfo.getStarlarkOtherSymbolInfoList().stream()
+            .anyMatch(symbolInfo -> symbolInfo.getName().equals(structName)),
+        "Struct %s defined in %s must be documented with '#:'-prefixed doc comments",
+        structName,
+        moduleInfo.getFile());
+    return structName;
   }
 
   private static void verifyDoNotExist(ModuleInfo moduleInfo, String what, List<String> badNames) {

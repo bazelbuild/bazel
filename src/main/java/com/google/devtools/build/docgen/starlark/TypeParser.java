@@ -40,6 +40,16 @@ import net.starlark.java.syntax.TypeApplication;
  * ModuleInfoExtractor into Stardoc protos.
  */
 public final class TypeParser {
+  private static final String STARLARK_SPEC_URL =
+      "https://github.com/bazelbuild/starlark/blob/master/spec.md";
+  private static final ImmutableMap<String, String> SPECIAL_TYPE_URLS =
+      ImmutableMap.of(
+          "None", "",
+          "Collection", STARLARK_SPEC_URL + "#collection-types",
+          "Sequence", STARLARK_SPEC_URL + "#collection-types",
+          "Mapping", STARLARK_SPEC_URL + "#collection-types",
+          "Callable", STARLARK_SPEC_URL + "#functions");
+
   private final ImmutableMap<String, Category> typeIdentifierToCategory;
 
   public TypeParser(Map<String, Category> typeIdentifierToCategory) {
@@ -90,18 +100,18 @@ public final class TypeParser {
     return getHtml(typeExpression, /* fallback= */ "");
   }
 
+  public String getHtmlForIdentifier(String name) {
+    return emitHtmlForIdentifier(new StringBuilder("<code>"), name).append("</code>").toString();
+  }
+
+  public boolean isDocumentedIdentifier(String name) {
+    return SPECIAL_TYPE_URLS.containsKey(name) || typeIdentifierToCategory.containsKey(name);
+  }
+
   @CanIgnoreReturnValue
   private StringBuilder emitHtml(StringBuilder sb, Expression typeExpression) throws EvalException {
     if (typeExpression instanceof Identifier ident) {
-      String url = getUrl(ident.getName(), typeIdentifierToCategory);
-      if (url.isEmpty()) {
-        return sb.append(ident.getName());
-      } else {
-        return sb.append(
-            String.format(
-                "<a class=\"anchor\" href=\"%s\">%s</a>",
-                getUrl(ident.getName(), typeIdentifierToCategory), ident.getName()));
-      }
+      return emitHtmlForIdentifier(sb, ident.getName());
     } else if (typeExpression instanceof BinaryOperatorExpression expr) {
       if (expr.getOperator() != TokenKind.PIPE) {
         throw Starlark.errorf(
@@ -128,22 +138,25 @@ public final class TypeParser {
     throw Starlark.errorf("Unsupported type expression '%s'", typeExpression);
   }
 
+  private StringBuilder emitHtmlForIdentifier(StringBuilder sb, String name) {
+    String url = getUrl(name, typeIdentifierToCategory);
+    if (url.isEmpty()) {
+      return sb.append(name);
+    } else {
+      return sb.append(
+          String.format(
+              "<a class=\"anchor\" href=\"%s\">%s</a>",
+              getUrl(name, typeIdentifierToCategory), name));
+    }
+  }
+
   private static String getUrl(String name, Map<String, Category> docPages) {
-    switch (name) {
-      case "None":
-        return "";
-      case "Collection":
-      case "Sequence":
-      case "Mapping":
-        return "https://github.com/bazelbuild/starlark/blob/master/spec.md#collection-types";
-      case "Callable":
-        return "https://github.com/bazelbuild/starlark/blob/master/spec.md#functions";
-      default:
-        if (docPages.containsKey(name)) {
-          return String.format("../%s/%s.html", docPages.get(name).getPath(), name);
-        } else {
-          return "";
-        }
+    if (SPECIAL_TYPE_URLS.containsKey(name)) {
+      return SPECIAL_TYPE_URLS.get(name);
+    } else if (docPages.containsKey(name)) {
+      return String.format("../%s/%s.html", docPages.get(name).getPath(), name);
+    } else {
+      return "";
     }
   }
 }
