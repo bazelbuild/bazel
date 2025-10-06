@@ -117,14 +117,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "disable_py2",
-      structField = true,
-      doc = "No-op: PY2 is no longer supported.")
-  public boolean getDisablePy2() {
-    return true;
-  }
-
-  @StarlarkMethod(
       name = "disallow_native_rules",
       structField = true,
       doc = "The value of the --incompatible_python_disallow_native_rules flag.")
