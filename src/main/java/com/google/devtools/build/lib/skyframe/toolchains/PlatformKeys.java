@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlat
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -57,7 +58,7 @@ record PlatformKeys(
     private final Label hostPlatformLabel;
     private final Label targetPlatformLabel;
     private ConfiguredTargetKey hostPlatformKey;
-    private List<ConfiguredTargetKey> executionPlatformKeys;
+    private LinkedHashSet<ConfiguredTargetKey> executionPlatformKeys;
     private Map<ConfiguredTargetKey, PlatformInfo> platformInfos;
 
     private Builder(
@@ -139,7 +140,10 @@ record PlatformKeys(
           .filter(Predicates.not(Map::isEmpty))
           .ifPresent(debugPrinter::reportRejectedExecutionPlatforms);
 
-      this.executionPlatformKeys = new ArrayList<>();
+      // A given execution platform may be registered multiple times, but only the earliest
+      // registration is meaningful in practice. To avoid unnecessary reprocessing a LinkedHashSet
+      // is used to de-duplicate while preserving order.
+      this.executionPlatformKeys = new LinkedHashSet<>();
       executionPlatformKeys.addAll(registeredExecutionPlatforms.registeredExecutionPlatformKeys());
       this.hostPlatformKey =
           ConfiguredTargetKey.builder()
