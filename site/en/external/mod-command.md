@@ -423,7 +423,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     dependency graph.
 
     ```sh
-    bazel mod graph --extension_info=usages --extension_filter=all
+    bazel mod graph --extension_info=usages
     ```
 
     ```none
