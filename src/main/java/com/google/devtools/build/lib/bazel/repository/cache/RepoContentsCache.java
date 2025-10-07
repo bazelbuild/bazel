@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Comparator.comparingLong;
 
 import com.google.common.base.Preconditions;
@@ -35,6 +34,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -47,12 +47,9 @@ import javax.annotation.Nullable;
  * transitive bzl digest, repo attrs, starlark semantics, etc). Each distinct predeclared inputs
  * hash is its own entry directory in the first layer.
  *
- * <p>Inside each entry directory are pairs of directories and files {@code <N, N.recorded_inputs>}
- * where {@code N} is an integer. The file {@code N.recorded_inputs} contains the recorded inputs
- * and their values of a cached repo, and the directory {@code N} contains the cached repo contents.
- * There is also a file named {@code counter} that stores the next available {@code N} for this
- * entry directory, and a file named {@code lock} to ensure exclusive access to the {@code counter}
- * file.
+ * <p>Inside each entry directory are pairs of directories and files {@code <UUID,
+ * UUID.recorded_inputs>}. The file {@code UUID.recorded_inputs} contains the recorded inputs and
+ * their values of a cached repo, and the directory {@code UUID} contains the cached repo contents.
  *
  * <p>On a cache hit (that is, the predeclared inputs hash matches, and recorded inputs are
  * up-to-date), the recorded inputs file has its mtime updated. Cached repos whose recorded inputs
@@ -127,24 +124,15 @@ public final class RepoContentsCache {
       // being stuck with the old one. Since the inputs file is touched on use, we can just sort by
       // mtime. This is slightly more complex than in runGc below as the files may be touched
       // concurrently and we need to ensure that the equality relation is consistent.
-      var mtimes =
-          entryDir.getDirectoryEntries().stream()
-              .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-              .collect(
-                  toImmutableMap(
-                      path -> path,
-                      path -> {
-                        try {
-                          return path.getLastModifiedTime();
-                        } catch (IOException e) {
-                          // If we can't read the mtime from the entry, it's broken and treated as
-                          // outdated.
-                          return 0L;
-                        }
-                      }));
+      var mtimes = new HashMap<Path, Long>();
       return entryDir.getDirectoryEntries().stream()
           .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-          .sorted(Comparator.comparingLong(path -> mtimes.getOrDefault(path, 0L)).reversed())
+          .sorted(
+              Comparator.comparingLong(
+                      (Path path) ->
+                          mtimes.computeIfAbsent(
+                              path, RepoContentsCache::getLastModifiedTimeOrZero))
+                  .reversed())
           .map(CandidateRepo::fromRecordedInputsFile)
           .collect(toImmutableList());
     } catch (IOException e) {
@@ -172,16 +160,6 @@ public final class RepoContentsCache {
     Preconditions.checkState(path != null);
 
     Path entryDir = path.getRelative(predeclaredInputHash);
-    // The entry name needs to be unique across Bazel instances so that the repo cache supports
-    // concurrent operations for the same repo definition. It also has to be unique over time even
-    // when the repo contents cache directory is deleted since otherwise the following can happen:
-    // - Repo foo is fetched and moved into the repo contents cache under <cache>/<hash>/<name>.
-    // - The entire <cache> directory is deleted while the Bazel server is still alive.
-    // - On the next invocation, Skyframe FS diffing notices that <cache>/<hash>/<name> is missing
-    //   and marks it as non-existent.
-    // - Repo foo is refetched and moved into the repo contents cache under <cache>/<hash>/<name>.
-    // - FileStateFunction for that path incorrectly reuses the information that this path doesn't
-    //   exist.
     String uniqueEntryName = UUID.randomUUID().toString();
     Path cacheRecordedInputsFile = entryDir.getChild(uniqueEntryName + RECORDED_INPUTS_SUFFIX);
     Path cacheRepoDir = entryDir.getChild(uniqueEntryName);
@@ -276,18 +254,7 @@ public final class RepoContentsCache {
       var recordedInputsFiles =
           path.getChild(dirent.getName()).getDirectoryEntries().stream()
               .filter(file -> file.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-              .sorted(
-                  comparingLong(
-                          (Path path) -> {
-                            try {
-                              return path.getLastModifiedTime();
-                            } catch (IOException e) {
-                              // If we can't read the mtime from the entry, it's broken and treated
-                              // as outdated.
-                              return 0;
-                            }
-                          })
-                      .reversed())
+              .sorted(comparingLong(RepoContentsCache::getLastModifiedTimeOrZero).reversed())
               .collect(toImmutableList());
       var seen = new HashSet<HashCode>();
       for (Path recordedInputsFile : recordedInputsFiles) {
@@ -306,6 +273,15 @@ public final class RepoContentsCache {
           repoDir.renameTo(trashDir.getChild(UUID.randomUUID().toString()));
         }
       }
+    }
+  }
+
+  private static long getLastModifiedTimeOrZero(Path path) {
+    try {
+      return path.getLastModifiedTime();
+    } catch (IOException e) {
+      // If we can't read the mtime from the entry, it's broken and treated as outdated.
+      return 0L;
     }
   }
 }
