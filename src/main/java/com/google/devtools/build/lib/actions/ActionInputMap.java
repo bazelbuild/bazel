@@ -469,7 +469,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     // there are no duplicate keys.
     if (table.length < size * 2) {
       table = new int[table.length * 2];
-      next = new int[size * 2];
       Arrays.fill(table, -1);
       for (int i = 0; i < size; i++) {
         int index = paths[i].hashCode() & (table.length - 1);
