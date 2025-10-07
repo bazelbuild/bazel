@@ -119,12 +119,12 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       structField = true,
       doc =
           """
-          The JSON-like dict returned by a previous execution of this extension in the <code>\
-          facts</code> parameter of <a href="../builtins/module_ctx#extension_metadata"><code>\
-          extension_metadata</code></a> or else <code>{}</code>.
-          This is useful for extensions that want to preserve universally true facts such as the \
+          The JSON-like dict returned by a previous execution of this extension in the `facts`
+          parameter of [`extension_metadata`](../builtins/module_ctx#extension_metadata) or else
+          `{}`.
+          This is useful for extensions that want to preserve universally true facts such as the
           hashes of artifacts in an immutable repository.
-          Note that the returned value may have been created by a different version of the \
+          Note that the returned value may have been created by a different version of the
           extension, which may have used a different schema.
           """)
   public Facts getFacts() {
@@ -246,17 +246,17 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
             doc =
                 """
                 A JSON-like dict that is made available to future executions of this extension via
-                the <code>module_ctx.facts</code> property.
+                the `module_ctx.facts` property.
                 This is useful for extensions that want to preserve universally true facts such as
                 the hashes of artifacts in an immutable repository.
 
                 Bazel may shallowly merge multiple facts dicts returned by different versions of the
                 extension in order to resolve merge conflicts on the MODULE.bazel.lock file, as if
-                by applying the <code>dict.update()</code> method or the <code>|</code> operator in
-                Starlark. Extensions should use facts for key-value storage only and ensure that
-                the key uniquely determines the value, although perhaps only via additional
-                information and network access. An extension can opt out of this merging by
-                providing a dict with a single, fixed top-level key and an arbitrary value.
+                by applying the `dict.update()` method or the `|` operator in Starlark. Extensions
+                should use facts for key-value storage only and ensure that the key uniquely
+                determines the value, although perhaps only via additional information and network
+                access. An extension can opt out of this merging by providing a dict with a single,
+                fixed top-level key and an arbitrary value.
 
                 Note that the value provided here may be read back by a different version of the
                 extension, so either include a version number or use a schema that is unlikely to
