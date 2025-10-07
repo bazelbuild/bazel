@@ -65,7 +65,8 @@ Features:
   through code, inspect variables, and so on)
 
 Find [the plugin on the Visual Studio
-marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel){: .external}.
+marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel){: .external}
+or the [OpenVSX marketplace](https://open-vsx.org/extension/BazelBuild/vscode-bazel){: .external}.
 The plugin is [open source](https://github.com/bazelbuild/vscode-bazel){: .external}.
 
 See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
