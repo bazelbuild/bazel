@@ -599,8 +599,8 @@ public abstract class ActionInputPrefetcherTestBase {
             Priority.MEDIUM,
             Reason.INPUTS));
 
-    verify(fs).createWritableDirectory(root);
-    verify(fs).createWritableDirectory(subdir);
+    verify(fs).createDirectory(root);
+    verify(fs).createDirectory(subdir);
     verify(fs).chmod(root, 0555);
     verify(fs).chmod(subdir, 0555);
 
@@ -614,8 +614,8 @@ public abstract class ActionInputPrefetcherTestBase {
             Priority.MEDIUM,
             Reason.INPUTS));
 
-    verify(fs, never()).createWritableDirectory(root);
-    verify(fs, never()).createWritableDirectory(subdir);
+    verify(fs, never()).createDirectory(root);
+    verify(fs, never()).createDirectory(subdir);
     verify(fs, never()).chmod(root, 0555);
     verify(fs, never()).chmod(subdir, 0555);
   }

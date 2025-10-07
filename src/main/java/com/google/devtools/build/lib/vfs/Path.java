@@ -490,19 +490,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Ensures that a directory exists with the name of the current path, not following symbolic
-   * links. If necessary, creates the directory or adjusts permissions on a preexisting one.
-   *
-   * <p>This operation is not atomic. Concurrent modifications will result in undefined behavior.
-   *
-   * @throws IOException if the directory creation or permission adjustment failed
-   * @return whether a new directory was created by this call
-   */
-  public boolean createWritableDirectory() throws IOException {
-    return fileSystem.createWritableDirectory(asFragment());
-  }
-
-  /**
    * Ensures that a directory exists with the name of the current path, following symbolic links. If
    * necessary, creates the directory and any missing ancestor directories.
    *

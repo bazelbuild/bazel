@@ -284,16 +284,6 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean createWritableDirectory(PathFragment path) throws IOException {
-    var comp = Blocker.begin();
-    try {
-      return NativePosixFiles.mkdirWritable(path.toString());
-    } finally {
-      Blocker.end(comp);
-    }
-  }
-
-  @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     ArrayDeque<PathFragment> dirsToCreate = new ArrayDeque<>();
     for (PathFragment dir = path; dir != null; dir = dir.getParentDirectory()) {

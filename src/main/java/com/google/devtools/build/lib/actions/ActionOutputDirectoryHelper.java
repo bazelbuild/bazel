@@ -252,6 +252,9 @@ public final class ActionOutputDirectoryHelper {
    * Create an output directory and ensure that no symlinks exists between the output root and the
    * output file. These are all expected to be regular directories. Violations of this expectations
    * can only come from state left behind by previous invocations or external filesystem mutation.
+   *
+   * @throws IOException if any of the path components between the output root and the output file
+   *     already exists but is not a directory
    */
   private void createAndCheckForSymlinks(Path dir, Path rootPath) throws IOException {
     PathFragment root = rootPath.asFragment();
@@ -274,23 +277,44 @@ public final class ActionOutputDirectoryHelper {
       dir = dir.getParentDirectory();
     }
 
-    // Check in reverse order (parent directory first):
-    // - If symlink -> Exception.
-    // - If non-existent -> Create directory and all children.
+    // Check in reverse order (parent directory first).
     boolean parentCreated = knownDirectories.get(dir.asFragment()) == DirectoryState.CREATED;
     for (Path path : Lists.reverse(checkDirs)) {
       if (parentCreated) {
         // If we have created this directory's parent, we know that it doesn't exist or else we
         // would know about it already. Even if a parallel thread has created it in the meantime,
-        // createDirectory() will return normally and we can assume that a regular directory exists
+        // createDirectory() will succeed and we can assume that a regular directory exists
         // afterwards.
         path.createDirectory();
         knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
         continue;
       }
-      boolean createdNew = path.createWritableDirectory();
-      knownDirectories.put(
-          path.asFragment(), createdNew ? DirectoryState.CREATED : DirectoryState.FOUND);
+      // Otherwise, check whether the directory already exists.
+      // Note: while we could also optimistically try to create the directory upfront, benchmarks
+      // indicate that doing it this way is faster.
+      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+      if (stat != null) {
+        // Already exists, but make sure it's a directory.
+        if (!stat.isDirectory()) {
+          throw new IOException(path + " (File exists)");
+        }
+        // Adjust permissions on the directory if necessary.
+        // Avoid touching permissions for group/other, which may have been overridden by umask(2)
+        // when this directory was originally created.
+        int perms = stat.getPermissions();
+        if (perms == -1) {
+          path.chmod(0777);
+        } else if ((perms & 0700) != 0700) {
+          path.chmod(perms | 0700);
+        }
+        knownDirectories.put(path.asFragment(), DirectoryState.FOUND);
+      } else {
+        // Create the directory. Even if a parallel thread has created it in the meantime,
+        // createDirectory() will succeed and we can assume that a regular directory exists
+        // afterwards.
+        path.createDirectory();
+        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
+      }
     }
   }
 

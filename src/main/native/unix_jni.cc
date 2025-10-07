@@ -466,51 +466,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
   return result;
 }
 
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    mkdirWritable
- * Signature: (Ljava/lang/String;I)Z
- * Throws:    java.io.IOException
- */
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirWritable(
-    JNIEnv *env, jclass clazz, jstring path) {
-  JStringLatin1Holder path_chars(env, path);
-
-  portable_stat_struct statbuf;
-  int r;
-  do {
-    r = portable_lstat(path_chars, &statbuf);
-  } while (r != 0 && errno == EINTR);
-
-  if (r != 0) {
-    if (errno != ENOENT) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-      return false;
-    }
-    // Directory does not exist.
-    // Use 0777 so that the permissions can be overridden by umask(2).
-    if (::mkdir(path_chars, 0777) == -1) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-    }
-    return true;
-  }
-  // Path already exists, but might not be a directory.
-  if (!S_ISDIR(statbuf.st_mode)) {
-    POST_EXCEPTION_FROM_ERRNO(env, ENOTDIR, path_chars);
-    return false;
-  }
-  // Make sure the permissions are correct.
-  // Avoid touching permissions for group/other, which may have been overridden
-  // by umask(2) when this directory was originally created.
-  if ((statbuf.st_mode & S_IRWXU) != S_IRWXU) {
-    if (::chmod(path_chars, statbuf.st_mode | S_IRWXU) == -1) {
-      POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
-    }
-  }
-  return false;
-}
-
 namespace {
 static jobject NewDirents(JNIEnv *env,
                           jobjectArray names,

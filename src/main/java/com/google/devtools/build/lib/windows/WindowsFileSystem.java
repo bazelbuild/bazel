@@ -71,12 +71,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean createWritableDirectory(PathFragment path) throws IOException {
-    // All directories are writable on Windows.
-    return createDirectory(path);
-  }
-
-  @Override
   public void createSymbolicLink(
       PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {

@@ -146,15 +146,6 @@ final class NativePosixFiles {
   static native boolean mkdir(String path, int mode) throws IOException;
 
   /**
-   * Makes sure a writable directory exists at a given path. Returns whether a new directory was
-   * created.
-   *
-   * <p>Unlike {@link #mkdir}, it fails if a file/symlink at a given path already exists. If a
-   * directory is already present, it will make sure it is writable and return false.
-   */
-  static native boolean mkdirWritable(String path);
-
-  /**
    * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscall.
    *
    * @param path the directory to read.
