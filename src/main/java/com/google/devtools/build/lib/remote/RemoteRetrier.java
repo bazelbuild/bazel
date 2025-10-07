@@ -55,7 +55,7 @@ public class RemoteRetrier extends Retrier {
               !Thread.currentThread().isInterrupted()
                   ? Result.TRANSIENT_FAILURE
                   : Result.PERMANENT_FAILURE;
-          case NOT_FOUND, ALREADY_EXISTS, OUT_OF_RANGE -> Result.SUCCESS;
+          case NOT_FOUND, ALREADY_EXISTS -> Result.SUCCESS;
           case UNKNOWN, DEADLINE_EXCEEDED, ABORTED, INTERNAL, UNAVAILABLE, RESOURCE_EXHAUSTED ->
               Result.TRANSIENT_FAILURE;
           default -> Result.PERMANENT_FAILURE;
