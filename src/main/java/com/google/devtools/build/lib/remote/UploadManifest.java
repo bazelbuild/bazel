@@ -652,6 +652,7 @@ public class UploadManifest {
    * Returns a {@link Single} which upon subscription will upload outputs and action result (if exit
    * code is 0) to remote cache.
    */
+  // TODO: Inline this into the single caller and de-RxJava it.
   public Single<ActionResult> uploadAsync(
       RemoteActionExecutionContext context,
       CombinedCache combinedCache,
