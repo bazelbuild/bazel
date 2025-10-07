@@ -39,8 +39,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
-import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.WrappedStarlarkActionFactory;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -76,7 +74,6 @@ public abstract class CcModule
         Artifact,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
-        LtoBackendArtifacts,
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,
@@ -354,57 +351,6 @@ public abstract class CcModule
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     return new CppModuleMap(file, name);
-  }
-
-  /**
-   * Create an LTO backend, using the appropriate constructor depending on whether the associated
-   * ThinLTO link will utilize LTO indexing (therefore unique LTO backend actions), or not (and
-   * therefore the library being linked will create a set of shared LTO backends).
-   *
-   * <p>TODO(b/128341904): Do cross module optimization once there is Starlark support.
-   */
-  @Override
-  public LtoBackendArtifacts createLtoBackendArtifacts(
-      StarlarkActionFactory actions,
-      String ltoOutputRootPrefixString,
-      String ltoObjRootPrefixString,
-      Artifact bitcodeFile,
-      Object allBitcodeFilesObj,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Info ccToolchainInfo,
-      boolean usePic,
-      boolean shouldCreatePerObjectDebugInfo,
-      Sequence<?> argv,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException, RuleErrorException {
-    isCalledFromStarlarkCcCommon(thread);
-    LinkActionConstruction actionConstruction;
-    // TODO(b/331164666): cleanup uses of newActionConstruction
-    if (actions instanceof WrappedStarlarkActionFactory wrapped) {
-      actionConstruction = wrapped.construction;
-    } else {
-      actionConstruction = CppLinkActionBuilder.newActionConstruction(actions.getRuleContext());
-    }
-
-    PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
-    PathFragment ltoObjRootPrefix = PathFragment.create(ltoObjRootPrefixString);
-    CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
-    LtoBackendArtifacts ltoBackendArtifacts;
-    ltoBackendArtifacts =
-        new LtoBackendArtifacts(
-            ltoOutputRootPrefix,
-            ltoObjRootPrefix,
-            bitcodeFile,
-            allBitcodeFilesObj == Starlark.NONE
-                ? null
-                : Depset.noneableCast(allBitcodeFilesObj, Artifact.class, "all_bitcode_files"),
-            actionConstruction,
-            featureConfigurationForStarlark.getFeatureConfiguration(),
-            ccToolchain,
-            usePic,
-            shouldCreatePerObjectDebugInfo,
-            Sequence.cast(argv, String.class, "argv"));
-    return ltoBackendArtifacts;
   }
 
   @Override

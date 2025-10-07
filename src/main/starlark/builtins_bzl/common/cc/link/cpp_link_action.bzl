@@ -137,7 +137,7 @@ def link_action(
     # We're doing 4-phased lto build, and this is the final link action (4-th phase).
     if all_lto_artifacts:
         for lto_artifact in all_lto_artifacts:
-            lto_mapping[lto_artifact.bitcode_file()] = lto_artifact.object_file()
+            lto_mapping[lto_artifact._bitcode_file] = lto_artifact._object_file
 
     if thinlto_param_file:
         non_code_inputs.append(thinlto_param_file)

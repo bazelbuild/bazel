@@ -19,10 +19,12 @@ import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -936,5 +939,144 @@ public class CcStarlarkInternal implements StarlarkValue {
     return ruleContext.getDerivedArtifact(
         objectFile.getRootRelativePath().getParentDirectory().getRelative(outputName),
         ruleContext.getConfiguration().getBinDirectory(ruleContext.getLabel().getRepository()));
+  }
+
+  @StarlarkMethod(
+      name = "create_lto_backend_action",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "build_variables", positional = false, named = true),
+        @Param(name = "use_pic", positional = false, named = true),
+        @Param(name = "inputs", positional = false, named = true),
+        @Param(
+            name = "all_bitcode_files",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "imports",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)}),
+        @Param(name = "outputs", positional = false, named = true),
+        @Param(name = "env", positional = false, named = true),
+      })
+  public void createLtoBackendAction(
+      StarlarkActionFactory actions,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CcToolchainVariables buildVariables,
+      boolean usePic,
+      Depset inputs,
+      Object allBitcodeFiles,
+      Object imports,
+      Sequence<?> outputs,
+      Dict<?, ?> env)
+      throws EvalException {
+    FeatureConfiguration featureConfiguration =
+        featureConfigurationForStarlark.getFeatureConfiguration();
+    BitcodeFiles bitcodeFiles =
+        allBitcodeFiles == Starlark.NONE
+            ? null
+            : new BitcodeFiles(Depset.cast(allBitcodeFiles, Artifact.class, "bitcode_files"));
+    LtoBackendAction action =
+        LtoBackendArtifacts.createLtoBackendActionForStarlark(
+            actions.getRuleContext().getActionOwner(),
+            actions.getRuleContext().getConfiguration(),
+            featureConfiguration,
+            buildVariables,
+            usePic,
+            Depset.cast(inputs, Artifact.class, "inputs"),
+            bitcodeFiles,
+            imports instanceof Artifact importsArtifact ? importsArtifact : null,
+            ImmutableSet.copyOf(Sequence.cast(outputs, Artifact.class, "outputs")),
+            ActionEnvironment.create(
+                ImmutableMap.copyOf(Dict.cast(env, String.class, String.class, "env"))));
+    actions.getRuleContext().registerAction(action);
+  }
+
+  @StarlarkMethod(
+      name = "create_lto_backend_action_template",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "build_variables", positional = false, named = true),
+        @Param(name = "use_pic", positional = false, named = true),
+        @Param(
+            name = "all_bitcode_files",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
+        @Param(name = "additional_inputs", positional = false, named = true),
+        @Param(
+            name = "index",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "bitcode_file",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "object_file",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "dwo_file",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = SpecialArtifact.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(name = "env", positional = false, named = true),
+      })
+  public void createLtoBackendActionTemplate(
+      StarlarkActionFactory actions,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CcToolchainVariables buildVariables,
+      boolean usePic,
+      Object allBitcodeFiles,
+      Depset additionalInputs,
+      Object indexObj,
+      Object bitcodeFileObj,
+      Object objectFileObj,
+      Object dwoFileObj,
+      Dict<?, ?> env)
+      throws EvalException {
+    FeatureConfiguration featureConfiguration =
+        featureConfigurationForStarlark.getFeatureConfiguration();
+    BitcodeFiles bitcodeFiles =
+        allBitcodeFiles == Starlark.NONE
+            ? null
+            : new BitcodeFiles(Depset.cast(allBitcodeFiles, Artifact.class, "bitcode_files"));
+    LtoBackendActionTemplate actionTemplate =
+        new LtoBackendActionTemplate(
+            indexObj instanceof SpecialArtifact index ? index : null,
+            bitcodeFileObj instanceof SpecialArtifact bitcodeFile ? bitcodeFile : null,
+            objectFileObj instanceof SpecialArtifact objectFile ? objectFile : null,
+            dwoFileObj instanceof SpecialArtifact dwoFile ? dwoFile : null,
+            featureConfiguration,
+            Depset.cast(additionalInputs, Artifact.class, "additional_inputs"),
+            ActionEnvironment.create(
+                ImmutableMap.copyOf(Dict.cast(env, String.class, String.class, "env"))),
+            buildVariables,
+            usePic,
+            bitcodeFiles,
+            actions.getRuleContext().getActionOwner());
+    actions.getRuleContext().registerAction(actionTemplate);
   }
 }

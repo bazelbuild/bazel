@@ -201,7 +201,7 @@ def _lto_indexing_action(
                     # Include the native object produced by the shared LTO backend in the LTO indexing
                     # step instead of the bitcode file. The LTO indexing step invokes the linker which
                     # must see all objects used to produce the final link output.
-                    lto_mapping[a] = lto_artifacts.object_file()
+                    lto_mapping[a] = lto_artifacts._object_file
                     continue
                 elif get_minimized_bitcode_or_self(lib_lto_compilation_context, a) != a:
                     fail(("For artifact '%s' in library '%s': unexpectedly has a shared LTO artifact for " +

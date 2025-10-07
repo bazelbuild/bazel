@@ -17,240 +17,28 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.LtoBackendArtifactsApi;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
-import java.util.Objects;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
 
-/**
- * LtoBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.
- *
- * <p>ThinLTO expands the traditional 2 step compile (N x compile .cc, 1x link (N .o files) into a 4
- * step process:
- *
- * <ul>
- *   <li>1. Bitcode generation (N times). This is produces intermediate LLVM bitcode from a source
- *       file. For this product, it reuses the .o extension.
- *   <li>2. Indexing (once on N files). This takes all bitcode .o files, and for each .o file, it
- *       decides from which other .o files symbols can be inlined. In addition, it generates an
- *       index for looking up these symbols, and an imports file for identifying new input files for
- *       each step 3 {@link LtoBackendAction}.
- *   <li>3. Backend compile (N times). This is the traditional compilation, and uses the same
- *       command line as the Bitcode generation in 1). Since the compiler has many bit code files
- *       available, it can inline functions and propagate constants across .o files. This step is
- *       costly, as it will do traditional optimization. The result is a .lto.o file, a traditional
- *       ELF object file.
- *   <li>4. Backend link (once). This is the traditional link, and produces the final executable.
- * </ul>
- */
-public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifact> {
+/** Remaining code that is needed because {@link LtoBackendActionTemplate} is still native. */
+public final class LtoBackendArtifacts {
+  private LtoBackendArtifacts() {}
 
-  // A file containing mapping of symbol => bitcode file containing the symbol.
-  // It will be null when this is a shared non-lto backend.
-  @Nullable private final Artifact index;
-
-  // The bitcode file which is the input of the compile.
-  private final Artifact bitcodeFile;
-
-  // A file containing a list of bitcode files necessary to run the backend step.
-  // It will be null when this is a shared non-lto backend.
-  @Nullable private final Artifact imports;
-
-  // The result of executing the above command line, an ELF object file.
-  private final Artifact objectFile;
-
-  // The corresponding dwoFile if fission is used.
-  private Artifact dwoFile;
-
-  /**
-   * If allBitcodeFiles is null, create an LTO backend that does not perform any cross-module
-   * optimization, by not generating import and index files.
-   */
-  LtoBackendArtifacts(
-      PathFragment ltoOutputRootPrefix,
-      PathFragment ltoObjRootPrefix,
-      Artifact bitcodeFile,
-      @Nullable NestedSet<Artifact> allBitcodeFiles,
-      LinkActionConstruction linkActionConstruction,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchain,
-      boolean usePic,
-      boolean generateDwo,
-      List<String> userCompileFlags)
-      throws EvalException {
-    boolean createSharedNonLto = allBitcodeFiles == null;
-    this.bitcodeFile = bitcodeFile;
-    PathFragment obj = ltoObjRootPrefix.getRelative(bitcodeFile.getExecPath());
-    // indexObj is an object that does not exist but helps us find where to store the index and
-    // imports files
-    PathFragment indexObj = ltoOutputRootPrefix.getRelative(bitcodeFile.getExecPath());
-
-    CcToolchainVariables.Builder buildVariablesBuilder =
-        CcToolchainVariables.builder(ccToolchain.getBuildVars());
-    NestedSetBuilder<Artifact> additionalInputs = NestedSetBuilder.stableOrder();
-
-    initializeBuildVariables(
-        buildVariablesBuilder,
-        additionalInputs,
-        ccToolchain,
-        featureConfiguration,
-        userCompileFlags);
-    CcToolchainVariables buildVariables = buildVariablesBuilder.build();
-    ActionEnvironment env = getEnvironmentVariables(buildVariables, featureConfiguration);
-    BitcodeFiles bitcodeFiles = null;
-    if (allBitcodeFiles != null) {
-      bitcodeFiles = new BitcodeFiles(allBitcodeFiles);
-    }
-    if (bitcodeFile.isTreeArtifact()) {
-      objectFile = linkActionConstruction.createTreeArtifact(obj);
-      if (createSharedNonLto) {
-        imports = null;
-        index = null;
-      } else {
-        imports = linkActionConstruction.createTreeArtifact(indexObj);
-        index = imports;
-      }
-      if (generateDwo) {
-        // No support for dwo files for tree artifacts at the moment. This should not throw an
-        // irrecoverable exception because we can still generate dwo files for the other artifacts.
-        // TODO(b/289089713): Add support for dwo files for tree artifacts.
-        dwoFile = null;
-      }
-      createLtoBackendActionTemplate(
-          linkActionConstruction.getContext(),
-          featureConfiguration,
-          additionalInputs.build(),
-          env,
-          buildVariables,
-          usePic,
-          bitcodeFiles);
-    } else {
-      objectFile = linkActionConstruction.create(obj);
-      if (createSharedNonLto) {
-        imports = null;
-        index = null;
-      } else {
-        String importsExt = Iterables.getOnlyElement(CppFileTypes.LTO_IMPORTS_FILE.getExtensions());
-        String indexExt =
-            Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_ANALYSIS_FILE.getExtensions());
-        imports =
-            linkActionConstruction.create(FileSystemUtils.appendExtension(indexObj, importsExt));
-        index = linkActionConstruction.create(FileSystemUtils.appendExtension(indexObj, indexExt));
-      }
-      if (generateDwo) {
-        dwoFile =
-            linkActionConstruction.create(
-                FileSystemUtils.replaceExtension(
-                    objectFile.getOutputDirRelativePath(
-                        linkActionConstruction.getConfig().isSiblingRepositoryLayout()),
-                    ".dwo"));
-      }
-      scheduleLtoBackendAction(
-          additionalInputs.build(),
-          env,
-          buildVariables,
-          linkActionConstruction.getContext(),
-          featureConfiguration,
-          usePic,
-          bitcodeFiles);
-    }
-  }
-
-  @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
-  public Artifact getObjectFileForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return objectFile;
-  }
-
-  @StarlarkMethod(name = "bitcode_file", documented = false, useStarlarkThread = true)
-  public Artifact getBitcodeFileForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return bitcodeFile;
-  }
-
-  public Artifact getDwoFile() {
-    return dwoFile;
-  }
-
-  @StarlarkMethod(
-      name = "dwo_file",
-      documented = false,
-      useStarlarkThread = true,
-      allowReturnNones = true)
-  @Nullable
-  public Artifact getDwoFileForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getDwoFile();
-  }
-
-  @StarlarkMethod(name = "index", documented = false, structField = true, allowReturnNones = true)
-  @Nullable
-  public Artifact getIndex() {
-    return index;
-  }
-
-  @StarlarkMethod(name = "imports", documented = false, structField = true, allowReturnNones = true)
-  @Nullable
-  public Artifact getImports() {
-    return imports;
-  }
-
-  /**
-   * Populate buildVariablesBuilder, and additionalInputs with data that is independent of what file
-   * is the input to the action.
-   */
-  private static void initializeBuildVariables(
-      CcToolchainVariables.Builder buildVariablesBuilder,
-      NestedSetBuilder<Artifact> additionalInputs,
-      CcToolchainProvider ccToolchain,
-      FeatureConfiguration featureConfiguration,
-      List<String> userCompileFlags)
-      throws EvalException {
-    additionalInputs.addTransitive(ccToolchain.getCompilerFiles());
-
-    addProfileForLtoBackend(
-        additionalInputs, ccToolchain.getFdoContext(), featureConfiguration, buildVariablesBuilder);
-    // Add the context sensitive instrument path to the backend.
-    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
-      buildVariablesBuilder.addVariable(
-          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
-          ccToolchain.getCSFdoInstrument());
-    }
-    buildVariablesBuilder.addStringSequenceVariable(
-        CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
-
-    if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
-      throw Starlark.errorf(
-          "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
-              + " for 'lto-backend' action.");
-    }
-  }
-
+  // LINT.IfChange(lto_backends)
   private static void addPathsToBuildVariablesBuilder(
       CcToolchainVariables.Builder buildVariablesBuilder,
       String indexPath,
@@ -313,18 +101,6 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     return builder.build();
   }
 
-  private static ActionEnvironment getEnvironmentVariables(
-      CcToolchainVariables buildVariables, FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    try {
-      return ActionEnvironment.create(
-          featureConfiguration.getEnvironmentVariables(
-              CppActionNames.LTO_BACKEND, buildVariables, PathMapper.NOOP));
-    } catch (ExpansionException e) {
-      throw new EvalException(e.getMessage());
-    }
-  }
-
   private static CommandLines getLtoBackendCommandLine(
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables buildVariables,
@@ -370,13 +146,31 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         .build();
   }
 
+  public static LtoBackendAction createLtoBackendActionForStarlark(
+      ActionOwner owner,
+      @Nullable BuildConfigurationValue configuration,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainVariables buildVariables,
+      boolean usePic,
+      NestedSet<Artifact> inputs,
+      BitcodeFiles allBitcodeFiles,
+      Artifact imports,
+      ImmutableSet<Artifact> outputs,
+      ActionEnvironment env) {
+
+    CommandLines commandLines =
+        LtoBackendArtifacts.getLtoBackendCommandLine(featureConfiguration, buildVariables, usePic);
+    return LtoBackendAction.create(
+        owner, configuration, inputs, allBitcodeFiles, imports, outputs, commandLines, env);
+  }
+
   /**
    * Adds artifact to builder. The resulting builder can be built into a valid ltoBackendAction.
    *
-   * <p>Assumes that build and builderVariableBuilder have been initialized by calling {@link
-   * initializeBuildVariables}. If this is not true, the action will be wrong.
+   * <p>Assumes that buildVariables have been initialized previously. If this is not true, the
+   * action will be wrong.
    *
-   * @param buildVariables CcToolchainVariables initialized by {@link initializeBuildVariables}.
+   * @param buildVariables preinitialized CcToolchainVariables.
    * @param featureConfiguration the feature configuration to get the command line for the builder.
    * @param index the index artifact to add. Can be a TreeFileArtifact but cannot be a Tree
    *     Artifact.
@@ -394,9 +188,8 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
    * @param isDummyAction if true then ignores the preconditions, because it is generating a dummy
    *     action, not a valid action.
    */
-  public static LtoBackendAction createLtoBackendAction(
+  public static LtoBackendAction createLtoBackendActionForTemplate(
       ActionOwner actionOwner,
-      BuildConfigurationValue configuration,
       NestedSet<Artifact> additionalInputs,
       ActionEnvironment env,
       CcToolchainVariables buildVariables,
@@ -439,129 +232,18 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         bitcodeFilePath != null ? bitcodeFilePath : bitcodeArtifact.getExecPathString());
     CcToolchainVariables buildVariablesWithFiles = buildVariablesBuilder.build();
 
-    CommandLines commandLine =
-        getLtoBackendCommandLine(featureConfiguration, buildVariablesWithFiles, usePic);
-
-    return LtoBackendAction.create(
-        actionOwner, configuration, inputs, bitcodeFiles, imports, outputs, commandLine, env);
+    return createLtoBackendActionForStarlark(
+        actionOwner,
+        /* configuration= */ null,
+        featureConfiguration,
+        buildVariablesWithFiles,
+        usePic,
+        inputs,
+        bitcodeFiles,
+        imports,
+        outputs,
+        env);
   }
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/lto_backends.bzl:lto_backends)
 
-  private void createLtoBackendActionTemplate(
-      ActionConstructionContext actionConstructionContext,
-      FeatureConfiguration featureConfiguration,
-      NestedSet<Artifact> additionalInputs,
-      ActionEnvironment env,
-      CcToolchainVariables buildVariables,
-      boolean usePic,
-      BitcodeFiles bitcodeFiles) {
-    Preconditions.checkState(
-        (index == null && imports == null) || index.equals(imports),
-        "index and imports tree artifact must be the same");
-    LtoBackendActionTemplate actionTemplate =
-        new LtoBackendActionTemplate(
-            (SpecialArtifact) index,
-            (SpecialArtifact) bitcodeFile,
-            (SpecialArtifact) objectFile,
-            (SpecialArtifact) dwoFile,
-            featureConfiguration,
-            additionalInputs,
-            env,
-            buildVariables,
-            usePic,
-            bitcodeFiles,
-            actionConstructionContext.getActionOwner());
-    actionConstructionContext.registerAction(actionTemplate);
-  }
-
-  private void scheduleLtoBackendAction(
-      NestedSet<Artifact> additionalInputs,
-      ActionEnvironment env,
-      CcToolchainVariables buildVariables,
-      ActionConstructionContext actionConstructionContext,
-      FeatureConfiguration featureConfiguration,
-      boolean usePic,
-      @Nullable BitcodeFiles bitcodeFiles) {
-
-    LtoBackendAction action =
-        createLtoBackendAction(
-            actionConstructionContext.getActionOwner(),
-            actionConstructionContext.getConfiguration(),
-            additionalInputs,
-            env,
-            buildVariables,
-            featureConfiguration,
-            index,
-            imports,
-            bitcodeFile,
-            objectFile,
-            bitcodeFiles,
-            dwoFile,
-            usePic,
-            /* bitcodeFilePath= */ null,
-            /* isDummyAction= */ false);
-
-    actionConstructionContext.registerAction(action);
-  }
-
-  /**
-   * Adds the AFDO profile path to the variable builder and the profile to the inputs of the action.
-   */
-  @ThreadSafe
-  private static void addProfileForLtoBackend(
-      NestedSetBuilder<Artifact> additionalInputs,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainVariables.Builder buildVariables)
-      throws EvalException {
-    Artifact prefetch = fdoContext.getPrefetchHintsArtifact();
-    if (prefetch != null) {
-      buildVariables.addVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
-      additionalInputs.add(fdoContext.getPrefetchHintsArtifact());
-    }
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-      buildVariables.addVariable(
-          "propeller_optimize_cc_path",
-          fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
-      additionalInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
-    }
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      buildVariables.addVariable(
-          "propeller_optimize_ld_path",
-          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
-      additionalInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-    }
-    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
-        && !featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_OPTIMIZE)
-        && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
-      return;
-    }
-
-    FdoContext.BranchFdoProfile branchFdoProfile =
-        Preconditions.checkNotNull(fdoContext.getBranchFdoProfile());
-    Artifact profile = branchFdoProfile.getProfileArtifact();
-    buildVariables.addVariable("fdo_profile_path", profile.getExecPathString());
-    additionalInputs.add(branchFdoProfile.getProfileArtifact());
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof LtoBackendArtifacts that)) {
-      return false;
-    }
-    return Objects.equals(index, that.index)
-        && bitcodeFile.equals(that.bitcodeFile)
-        && Objects.equals(imports, that.imports)
-        && objectFile.equals(that.objectFile)
-        && Objects.equals(dwoFile, that.dwoFile);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(index, bitcodeFile, imports, objectFile, dwoFile);
-  }
 }

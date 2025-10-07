@@ -18,7 +18,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -49,7 +48,6 @@ public interface CcModuleApi<
         FileT extends FileApi,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
-        LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
@@ -625,7 +623,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  default CcLinkingOutputsApi<FileT, LtoBackendArtifactsT> link(
+  default CcLinkingOutputsApi<FileT> link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
@@ -2098,53 +2096,6 @@ public interface CcModuleApi<
       throws InterruptedException, EvalException {
     throw new UnsupportedOperationException();
   }
-
-  @StarlarkMethod(
-      name = "create_lto_backend_artifacts",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "actions", positional = false, named = true, documented = false),
-        @Param(
-            name = "lto_output_root_prefix",
-            positional = false,
-            named = true,
-            documented = false),
-        @Param(name = "lto_obj_root_prefix", positional = false, named = true, documented = false),
-        @Param(name = "bitcode_file", positional = false, named = true, documented = false),
-        @Param(
-            name = "all_bitcode_files",
-            positional = false,
-            named = true,
-            documented = false,
-            defaultValue = "None"),
-        @Param(
-            name = "feature_configuration",
-            positional = false,
-            named = true,
-            documented = false),
-        @Param(name = "cc_toolchain", positional = false, named = true, documented = false),
-        @Param(name = "use_pic", positional = false, named = true, documented = false),
-        @Param(
-            name = "should_create_per_object_debug_info",
-            positional = false,
-            named = true,
-            documented = false),
-        @Param(name = "argv", positional = false, named = true, documented = false),
-      })
-  LtoBackendArtifactsT createLtoBackendArtifacts(
-      StarlarkActionFactoryT actions,
-      String ltoOutputRootPrefixString,
-      String ltoObjRootPrefixString,
-      FileT bitcodeFile,
-      Object allBitcodeFilesObj,
-      FeatureConfigurationT featureConfigurationForStarlark,
-      Info ccToolchain,
-      boolean usePic,
-      boolean shouldCreatePerObjectDebugInfo,
-      Sequence<?> argv,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
       name = "merge_compilation_contexts",

@@ -208,9 +208,8 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
           generateDwoArtifact(fullBitcodeRelativePath, artifactOwner);
 
       LtoBackendAction action =
-          LtoBackendArtifacts.createLtoBackendAction(
+          LtoBackendArtifacts.createLtoBackendActionForTemplate(
               getOwner(),
-              /* configuration= */ null,
               additionalInputs,
               env,
               buildVariables,
@@ -304,9 +303,8 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
           generateDwoArtifact(fullBitcodeRelativePath, artifactOwner);
 
       LtoBackendAction action =
-          LtoBackendArtifacts.createLtoBackendAction(
+          LtoBackendArtifacts.createLtoBackendActionForTemplate(
               getOwner(),
-              /* configuration= */ null,
               additionalInputs,
               env,
               buildVariables,
@@ -345,9 +343,8 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
   private LtoBackendAction getDummyAction() {
     // This is a dummy action that would not work, because the bitcode file path is a directory
     // rather than a file.
-    return LtoBackendArtifacts.createLtoBackendAction(
+    return LtoBackendArtifacts.createLtoBackendActionForTemplate(
         getOwner(),
-        /* configuration= */ null,
         additionalInputs,
         env,
         buildVariables,

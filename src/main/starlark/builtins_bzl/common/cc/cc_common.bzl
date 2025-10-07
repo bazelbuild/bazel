@@ -33,6 +33,7 @@ load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "cre
 load(":common/cc/link/create_linkstamp.bzl", "create_linkstamp")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
+load(":common/cc/link/lto_backends.bzl", "create_lto_backend_artifacts")
 load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "create_cc_toolchain_config_info")
 load(":common/cc/toolchain_config/configure_features.bzl", "configure_features")
 
@@ -608,7 +609,7 @@ def _create_lto_backend_artifacts(
         should_create_per_object_debug_info,
         argv):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.create_lto_backend_artifacts(
+    return create_lto_backend_artifacts(
         actions = actions or ctx.actions,
         bitcode_file = bitcode_file,
         lto_output_root_prefix = lto_output_root_prefix,
