@@ -104,10 +104,10 @@ public sealed interface MerkleTree {
         RemotePathResolver remotePathResolver,
         Digest digest) {
       return switch (blobs.get(digest)) {
-        case byte[] data -> Optional.of(uploader.upload(context, digest, data));
-        case Path path -> Optional.of(uploader.upload(context, remotePathResolver, digest, path));
+        case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data));
+        case Path path -> Optional.of(uploader.uploadFile(context, remotePathResolver, digest, path));
         case VirtualActionInput virtualActionInput ->
-            Optional.of(uploader.upload(context, digest, virtualActionInput));
+            Optional.of(uploader.uploadVirtualActionInput(context, digest, virtualActionInput));
         case null -> Optional.empty();
         default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
       };

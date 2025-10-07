@@ -11,17 +11,18 @@ import java.io.IOException;
 /** The basic cache operations needed to upload a {@link MerkleTree} and its associated blobs. */
 public interface MerkleTreeUploader {
   /** Uploads an in-memory blob to the remote cache. */
-  ListenableFuture<Void> upload(RemoteActionExecutionContext context, Digest digest, byte[] data);
+  ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, byte[] data);
 
   /** Uploads a local file to the remote cache. */
-  ListenableFuture<Void> upload(
+  ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context,
       RemotePathResolver remotePathResolver,
       Digest digest,
       Path path);
 
   /** Uploads a virtual action input to the remote cache. */
-  ListenableFuture<Void> upload(
+  ListenableFuture<Void> uploadVirtualActionInput(
       RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput);
 
   /**

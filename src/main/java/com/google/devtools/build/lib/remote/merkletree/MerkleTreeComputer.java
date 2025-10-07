@@ -142,7 +142,7 @@ public final class MerkleTreeComputer {
   @Nullable private static volatile Scrubber lastScrubber;
 
   private final DigestUtil digestUtil;
-  @Nullable private final MerkleTreeUploader remoteExecutionCache;
+  @Nullable private final MerkleTreeUploader merkleTreeUploader;
   private final String buildRequestId;
   private final String commandId;
   private final Digest emptyDigest;
@@ -156,7 +156,7 @@ public final class MerkleTreeComputer {
       String buildRequestId,
       String commandId) {
     this.digestUtil = digestUtil;
-    this.remoteExecutionCache = remoteExecutionCache;
+    this.merkleTreeUploader = remoteExecutionCache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     var emptyBlob = new byte[0];
@@ -830,8 +830,8 @@ public final class MerkleTreeComputer {
                       merkleTree -> {
                         if (merkleTree instanceof MerkleTree.Uploadable uploadable) {
                           try {
-                            if (remoteExecutionCache != null) {
-                              remoteExecutionCache.ensureInputsPresent(
+                            if (merkleTreeUploader != null) {
+                              merkleTreeUploader.ensureInputsPresent(
                                   remoteActionExecutionContext,
                                   uploadable,
                                   blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
