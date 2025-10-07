@@ -70,11 +70,13 @@ public class PlatformOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The platforms that are available as execution platforms to run actions. "
-              + "Platforms can be specified by exact target, or as a target pattern. "
-              + "These platforms will be considered before those declared in the WORKSPACE file by "
-              + "register_execution_platforms(). This option may only be set once; later "
-              + "instances will override earlier flag settings.")
+          """
+          The platforms that are available as execution platforms to run actions.
+          Platforms can be specified by exact target, or as a target pattern.
+          These platforms will be considered before those declared in the `WORKSPACE` file by
+          `register_execution_platforms()`. This option may only be set once; later
+          instances will override earlier flag settings.
+          """)
   public List<String> extraExecutionPlatforms;
 
   @Option(
@@ -105,10 +107,12 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help =
-          "The toolchain rules to be considered during toolchain resolution. "
-              + "Toolchains can be specified by exact target, or as a target pattern. "
-              + "These toolchains will be considered before those declared in the WORKSPACE file "
-              + "by register_toolchains().")
+          """
+          The toolchain rules to be considered during toolchain resolution.
+          Toolchains can be specified by exact target, or as a target pattern.
+          These toolchains will be considered before those declared in the `WORKSPACE` file
+          by `register_toolchains()`.
+          """)
   public List<String> extraToolchains;
 
   @Option(
@@ -149,12 +153,13 @@ public class PlatformOptions extends FragmentOptions {
         OptionMetadataTag.NON_CONFIGURABLE,
       },
       help =
-          "The location of a mapping file that describes which platform to use if none is set or "
-              + "which flags to set when a platform already exists. Must be relative to the main "
-              + "workspace root. Defaults to 'platform_mappings' (a file directly under the "
-              + "workspace root).")
+          """
+          The location of a mapping file that describes which platform to use if none is set or
+          which flags to set when a platform already exists. Must be relative to the main
+          workspace root. Defaults to `platform_mappings` (a file directly under the
+          workspace root).
+          """)
   public PlatformMappingKey platformMappingKey;
-
 
   /**
    * Deduplicate the given list, keeping the last copy of any duplicates.
