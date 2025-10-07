@@ -87,8 +87,8 @@ def create_compile_action_templates(
             use_pic = generate_pic_action,
             source_file = source_artifact,
             output_file = header_token_file,
-            cpp_module_map = cc_compilation_context.module_map(),
-            direct_module_maps = cc_compilation_context.direct_module_maps,
+            cpp_module_map = cc_compilation_context._module_map,
+            direct_module_maps = cc_compilation_context._direct_module_maps,
             user_compile_flags = all_copts,
         )
         dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
@@ -145,8 +145,8 @@ def create_compile_action_templates(
                 use_pic = False,
                 source_file = source_artifact,
                 output_file = object_file,
-                cpp_module_map = cc_compilation_context.module_map(),
-                direct_module_maps = cc_compilation_context.direct_module_maps,
+                cpp_module_map = cc_compilation_context._module_map,
+                direct_module_maps = cc_compilation_context._direct_module_maps,
                 user_compile_flags = all_copts,
             )
             dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
@@ -202,8 +202,8 @@ def create_compile_action_templates(
                 use_pic = generate_pic_action,
                 source_file = source_artifact,
                 output_file = pic_object_file,
-                cpp_module_map = cc_compilation_context.module_map(),
-                direct_module_maps = cc_compilation_context.direct_module_maps,
+                cpp_module_map = cc_compilation_context._module_map,
+                direct_module_maps = cc_compilation_context._direct_module_maps,
                 user_compile_flags = all_copts,
             )
             dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(

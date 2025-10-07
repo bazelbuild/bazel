@@ -7249,64 +7249,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExpandedCcCompilationContextApiBlocked() throws Exception {
-    scratch.file(
-        "b/BUILD",
-        """
-        load(
-            "//my_rules:rule.bzl",
-            "additional_inputs_rule",
-            "param_2_rule",
-            "transitive_modules_rule",
-        )
-
-        param_2_rule(
-            name = "p2",
-        )
-
-        additional_inputs_rule(
-            name = "ai",
-        )
-
-        transitive_modules_rule(
-            name = "tm",
-        )
-        """);
-    scratch.file("my_rules/BUILD");
-    scratch.file(
-        "my_rules/rule.bzl",
-        """
-        def _p2_impl(ctx):
-            comp_context = cc_common.create_compilation_context(purpose = "testing")
-            return [CcInfo(compilation_context = comp_context)]
-
-        def _additional_inputs_impl(ctx):
-            comp_context = cc_common.create_compilation_context()
-            comp_context.additional_inputs()
-
-        def _transitive_modules_impl(ctx):
-            comp_context = cc_common.create_compilation_context()
-            comp_context.transitive_modules(use_pic = True)
-
-        param_2_rule = rule(
-            implementation = _p2_impl,
-        )
-        additional_inputs_rule = rule(
-            implementation = _additional_inputs_impl,
-        )
-        transitive_modules_rule = rule(
-            implementation = _transitive_modules_impl,
-        )
-        """);
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:p2"));
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:ai"));
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:tm"));
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
   public void testExpandedLinkApiRaisesError() throws Exception {
     scratch.file(
         "b/BUILD",
@@ -8138,57 +8080,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("'struct' value has no field or method 'check_private_api'");
-  }
-
-  @Test
-  public void testCheckPrivateApiAllowlistBlocksPrivateParameter() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":custom_rule.bzl", "custom_rule")
-
-        custom_rule(name = "custom")
-        """);
-    scratch.file(
-        "foo/custom_rule.bzl",
-        """
-        def _impl(ctx):
-            cc_common.create_compilation_context(purpose = "whatever")
-            return []
-
-        custom_rule = rule(
-            implementation = _impl,
-        )
-        """);
-
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
-  public void testCheckPrivateApiAllowlistAllowsPrivateParameter() throws Exception {
-    scratch.overwriteFile(
-        "tools/build_defs/android/BUILD",
-        """
-        load(":custom_rule.bzl", "custom_rule")
-
-        custom_rule(name = "custom")
-        """);
-    scratch.overwriteFile(
-        "tools/build_defs/android/custom_rule.bzl",
-        """
-        def _impl(ctx):
-            cc_common.create_compilation_context(purpose = "whatever")
-            return []
-
-        custom_rule = rule(
-            implementation = _impl,
-        )
-        """);
-
-    getConfiguredTarget("//tools/build_defs/android:custom");
   }
 
   @Test

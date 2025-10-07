@@ -178,12 +178,12 @@ def _collect_module_maps(deps, cc_toolchain_compilation_context, additional_cpp_
     # in the module map file.
     module_maps = []
     for cc_context in deps:
-        if cc_context.module_map() != None:
-            module_maps.append(cc_context.module_map())
-        module_maps.extend(cc_context.exporting_module_maps())
+        if cc_context._module_map != None:
+            module_maps.append(cc_context._module_map)
+        module_maps.extend(cc_context._exporting_module_maps)
 
-    if cc_toolchain_compilation_context != None and cc_toolchain_compilation_context.module_map() != None:
-        module_maps.append(cc_toolchain_compilation_context.module_map())
+    if cc_toolchain_compilation_context != None and cc_toolchain_compilation_context._module_map != None:
+        module_maps.append(cc_toolchain_compilation_context._module_map)
 
     for additional_cpp_module_map in additional_cpp_module_maps:
         module_maps.append(additional_cpp_module_map)
@@ -374,7 +374,6 @@ def _init_cc_compilation_context(
         module_map,
         additional_exported_headers,
         deps,
-        purpose,
         implementation_deps,
         additional_cpp_module_maps):
     # Single usage of ctx.
@@ -555,8 +554,6 @@ def _init_cc_compilation_context(
     dependent_cc_compilation_contexts.extend(deps)
 
     main_context = cc_common_internal.create_compilation_context(
-        actions = actions,
-        label = label,
         quote_includes = depset(quote_include_dirs_for_context),
         framework_includes = depset(framework_include_dirs),
         external_includes = depset(external_include_dirs),
@@ -577,7 +574,6 @@ def _init_cc_compilation_context(
         separate_module_headers = separate_public_headers.headers,
         separate_module = separate_module,
         separate_pic_module = separate_pic_module,
-        purpose = purpose,
         add_public_headers_to_modular_headers = False,
         exported_dependent_cc_compilation_contexts = [],
         headers_checking_mode = "STRICT",
@@ -586,8 +582,6 @@ def _init_cc_compilation_context(
     implementation_deps_context = None
     if implementation_deps:
         implementation_deps_context = cc_common_internal.create_compilation_context(
-            actions = actions,
-            label = label,
             quote_includes = depset(quote_include_dirs_for_context),
             framework_includes = depset(framework_include_dirs),
             external_includes = depset(external_include_dirs),
@@ -608,7 +602,6 @@ def _init_cc_compilation_context(
             separate_module_headers = separate_public_headers.headers,
             separate_module = separate_module,
             separate_pic_module = separate_pic_module,
-            purpose = purpose + "_impl",
             add_public_headers_to_modular_headers = False,
             exported_dependent_cc_compilation_contexts = [],
             headers_checking_mode = "STRICT",

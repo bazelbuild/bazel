@@ -97,7 +97,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         cc_config = cpp_config,
         cc_toolchain = cc_toolchain,
         metadata_files = additional_meta_data + cc_compilation_outputs._gcno_files + cc_compilation_outputs._pic_gcno_files,
-        virtual_to_original_headers = compilation_context.virtual_to_original_headers(),
+        virtual_to_original_headers = compilation_context._virtual_to_original_headers,
     )
     output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
         cc_compilation_outputs,

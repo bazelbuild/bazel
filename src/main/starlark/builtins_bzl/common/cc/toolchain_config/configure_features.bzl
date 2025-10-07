@@ -119,7 +119,7 @@ def configure_features(
 
     if (language != "objc" and
         language != "objcpp" and
-        cc_toolchain._cc_info.compilation_context.module_map() == None):
+        cc_toolchain._cc_info.compilation_context._module_map == None):
         all_unsupported_features_set.add("module_maps")
 
     if cpp_configuration.force_pic():

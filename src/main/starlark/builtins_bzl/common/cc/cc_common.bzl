@@ -264,10 +264,7 @@ def _create_compilation_context(
         direct_textual_headers = [],
         direct_public_headers = [],
         direct_private_headers = [],
-        purpose = _UNBOUND,
         module_map = _UNBOUND,
-        actions = _UNBOUND,
-        label = _UNBOUND,
         external_includes = _UNBOUND,
         virtual_to_original_headers = _UNBOUND,
         dependent_cc_compilation_contexts = _UNBOUND,
@@ -280,9 +277,7 @@ def _create_compilation_context(
         separate_module = _UNBOUND,
         separate_pic_module = _UNBOUND,
         add_public_headers_to_modular_headers = _UNBOUND):
-    if purpose != _UNBOUND or \
-       module_map != _UNBOUND or \
-       actions != _UNBOUND or \
+    if module_map != _UNBOUND or \
        external_includes != _UNBOUND or \
        virtual_to_original_headers != _UNBOUND or \
        dependent_cc_compilation_contexts != _UNBOUND or \
@@ -293,17 +288,10 @@ def _create_compilation_context(
        separate_module_headers != _UNBOUND or \
        separate_module != _UNBOUND or \
        separate_pic_module != _UNBOUND or \
-       add_public_headers_to_modular_headers != _UNBOUND or \
-       label != _UNBOUND:
+       add_public_headers_to_modular_headers != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if purpose == _UNBOUND:
-        purpose = None
     if module_map == _UNBOUND:
         module_map = None
-    if actions == _UNBOUND:
-        actions = None
-    if label == _UNBOUND:
-        label = None
     if external_includes == _UNBOUND:
         external_includes = depset()
     if virtual_to_original_headers == _UNBOUND:
@@ -339,10 +327,7 @@ def _create_compilation_context(
         direct_textual_headers = direct_textual_headers,
         direct_public_headers = direct_public_headers,
         direct_private_headers = direct_private_headers,
-        purpose = purpose,
         module_map = module_map,
-        actions = actions,
-        label = label,
         external_includes = external_includes,
         virtual_to_original_headers = virtual_to_original_headers,
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,

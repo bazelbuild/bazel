@@ -48,11 +48,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 
@@ -416,22 +413,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public Depset getStarlarkVirtualToOriginalHeaders() {
     return Depset.of(Tuple.class, getVirtualToOriginalHeaders());
   }
 
   @Override
   @Nullable
-  public CppModuleMap getStarlarkModuleMap(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public CppModuleMap getStarlarkModuleMap() {
     return getCppModuleMap();
   }
 
   @Override
-  public StarlarkList<CppModuleMap> getStarlarkExportingModuleMaps(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public StarlarkList<CppModuleMap> getStarlarkExportingModuleMaps() {
     return StarlarkList.immutableCopyOf(getExportingModuleMaps());
   }
 
@@ -509,6 +502,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public NestedSet<Artifact> getNonCodeInputs() {
     return nonCodeInputs;
+  }
+
+  @Override
+  public Depset getNonCodeInputsForStarlark() {
+    return Depset.of(Artifact.class, nonCodeInputs);
   }
 
   /** Returns headers given as textual_hdrs in this target. */
@@ -730,26 +728,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.class, getTransitiveModules(usePic));
-  }
-
-  /**
-   * Returns the immutable set of additional transitive inputs needed for compilation, like C++
-   * module map artifacts.
-   */
-  public NestedSet<Artifact> getAdditionalInputs() {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    addAdditionalInputs(builder);
-    return builder.build();
+  public Depset getStarlarkTransitiveModules() {
+    return Depset.of(Artifact.class, getTransitiveModules(false));
   }
 
   @Override
-  public Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.class, getAdditionalInputs());
+  public Depset getStarlarkTransitivePicModules() {
+    return Depset.of(Artifact.class, getTransitiveModules(true));
   }
 
   /** Adds additional transitive inputs needed for compilation to builder. */
@@ -766,7 +751,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return directModuleMaps;
   }
 
-  @StarlarkMethod(name = "direct_module_maps", structField = true, documented = false)
+  @Override
   public StarlarkList<Artifact> getDirectModuleMapsForStarlark() {
     return StarlarkList.immutableCopyOf(getDirectModuleMaps());
   }

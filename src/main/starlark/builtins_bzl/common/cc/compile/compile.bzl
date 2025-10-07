@@ -294,11 +294,6 @@ def compile(
         additional_exported_headers =
             additional_exported_hdrs + [h.path for h in textual_hdrs_list] if textual_hdrs_list else additional_exported_hdrs,
         deps = compilation_contexts,
-        purpose = "unused",
-        # init_cc_compilation_context() passes purpose to two calls to
-        # createCcCompilationContext() where "purpose" is matched to param "unused3" after the
-        # references to middleman were removed. See cl/696431863.
-        # TODO(b/396122076): remove purpose from init_cc_compilation_context()
         implementation_deps = implementation_compilation_contexts,
         additional_cpp_module_maps = additional_module_maps,
     )
@@ -307,7 +302,7 @@ def compile(
         fail("Compilation context for implementation deps was not created")
     cc_compilation_context = implementation_deps_context if implementation_compilation_contexts else public_compilation_context
 
-    if feature_configuration.is_enabled("header_modules") and not public_compilation_context.module_map:
+    if feature_configuration.is_enabled("header_modules") and not public_compilation_context._module_map:
         fail("All cc rules must support module maps.")
 
     common_compile_build_variables = setup_common_compile_build_variables(
@@ -509,7 +504,7 @@ def _create_cc_compile_actions(
     native_cc_semantics = cc_common_internal.get_cpp_semantics(language = language)
 
     if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
-        cpp_module_map = cc_compilation_context.module_map()
+        cpp_module_map = cc_compilation_context._module_map
         module_map_label = Label(cpp_module_map.name())
         modules = _create_module_action(
             action_construction_context = action_construction_context,
@@ -626,7 +621,7 @@ def _create_cc_compile_actions(
                 common_compile_variables = common_compile_build_variables,
                 fdo_build_variables = fdo_build_variables,
                 output_category = (artifact_category.CLIF_OUTPUT_PROTO if cpp_source.type == CPP_SOURCE_TYPE_CLIF_INPUT_PROTO else artifact_category.OBJECT_FILE),
-                cpp_module_map = cc_compilation_context.module_map(),
+                cpp_module_map = cc_compilation_context._module_map,
                 add_object = True,
                 enable_coverage = is_code_coverage_enabled,
                 generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration),
@@ -717,8 +712,8 @@ def _create_cc_compile_actions(
             output_file = output_file,
             dotd_file = dotd_file,
             diagnostics_file = diagnostics_file,
-            cpp_module_map = cc_compilation_context.module_map(),
-            direct_module_maps = cc_compilation_context.direct_module_maps,
+            cpp_module_map = cc_compilation_context._module_map,
+            direct_module_maps = cc_compilation_context._direct_module_maps,
             user_compile_flags = get_copts(
                 language = language,
                 cpp_configuration = cpp_configuration,
@@ -988,7 +983,7 @@ def _create_compile_source_action(
         use_pic = use_pic,
         cpp_module_map = cpp_module_map,
         feature_configuration = feature_configuration,
-        direct_module_maps = cc_compilation_context.direct_module_maps,
+        direct_module_maps = cc_compilation_context._direct_module_maps,
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {},
     )
@@ -1182,8 +1177,8 @@ def _create_temps_action(
         dotd_file = preprocess_dotd_file,
         diagnostics_file = preprocess_diagnostics_file,
         use_pic = use_pic,
-        cpp_module_map = cc_compilation_context.module_map(),
-        direct_module_maps = cc_compilation_context.direct_module_maps,
+        cpp_module_map = cc_compilation_context._module_map,
+        direct_module_maps = cc_compilation_context._direct_module_maps,
         feature_configuration = feature_configuration,
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {"output_preprocess_file": preprocess_object_file.path},
@@ -1201,8 +1196,8 @@ def _create_temps_action(
         dotd_file = assembly_dotd_file,
         diagnostics_file = assembly_diagnostics_file,
         use_pic = use_pic,
-        cpp_module_map = cc_compilation_context.module_map(),
-        direct_module_maps = cc_compilation_context.direct_module_maps,
+        cpp_module_map = cc_compilation_context._module_map,
+        direct_module_maps = cc_compilation_context._direct_module_maps,
         feature_configuration = feature_configuration,
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {"output_assembly_file": assembly_object_file.path},
@@ -1363,9 +1358,9 @@ def _create_module_codegen_action(
         dotd_file = dotd_file,
         diagnostics_file = diagnostics_file,
         use_pic = use_pic,
-        cpp_module_map = cc_compilation_context.module_map(),
+        cpp_module_map = cc_compilation_context._module_map,
         feature_configuration = feature_configuration,
-        direct_module_maps = cc_compilation_context.direct_module_maps,
+        direct_module_maps = cc_compilation_context._direct_module_maps,
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {},
     )

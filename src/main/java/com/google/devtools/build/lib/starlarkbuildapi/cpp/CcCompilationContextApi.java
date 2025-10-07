@@ -18,13 +18,9 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -141,37 +137,29 @@ public interface CcCompilationContextApi<
       structField = true)
   Depset getStarlarkValidationArtifacts();
 
-  @StarlarkMethod(name = "additional_inputs", documented = false, useStarlarkThread = true)
-  Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_transitive_modules", structField = true, documented = false)
+  Depset getStarlarkTransitiveModules();
+
+  @StarlarkMethod(name = "_transitive_pic_modules", structField = true, documented = false)
+  Depset getStarlarkTransitivePicModules();
+
+  @StarlarkMethod(name = "_virtual_to_original_headers", structField = true, documented = false)
+  Depset getStarlarkVirtualToOriginalHeaders();
 
   @StarlarkMethod(
-      name = "transitive_modules",
+      name = "_module_map",
+      structField = true,
       documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "use_pic",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = Boolean.class)})
-      })
-  Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "virtual_to_original_headers",
-      documented = false,
-      useStarlarkThread = true)
-  Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "module_map",
-      documented = false,
-      useStarlarkThread = true,
       allowReturnNones = true)
   @Nullable
-  CppModuleMapT getStarlarkModuleMap(StarlarkThread thread) throws EvalException;
+  CppModuleMapT getStarlarkModuleMap();
 
-  @StarlarkMethod(name = "exporting_module_maps", documented = false, useStarlarkThread = true)
-  StarlarkList<CppModuleMapT> getStarlarkExportingModuleMaps(StarlarkThread thread)
-      throws EvalException;
+  @StarlarkMethod(name = "_direct_module_maps", structField = true, documented = false)
+  public StarlarkList<FileT> getDirectModuleMapsForStarlark();
+
+  @StarlarkMethod(name = "_exporting_module_maps", structField = true, documented = false)
+  StarlarkList<CppModuleMapT> getStarlarkExportingModuleMaps();
+
+  @StarlarkMethod(name = "_non_code_inputs", structField = true, documented = false)
+  Depset getNonCodeInputsForStarlark();
 }
