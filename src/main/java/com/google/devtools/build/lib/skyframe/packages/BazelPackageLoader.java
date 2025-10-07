@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
@@ -147,7 +148,13 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               httpDownloader,
               httpDownloader,
               // Only used in tests, so it's okay to miss download progress events.
-              ExtendedEventHandler.NOOP);
+              new ExtendedEventHandler() {
+                @Override
+                public void post(Postable obj) {}
+
+                @Override
+                public void handle(Event event) {}
+              });
       RegistryFactoryImpl registryFactory =
           new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
 
