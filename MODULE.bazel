@@ -171,13 +171,14 @@ maven.install(
         "com.google.http-client:google-http-client:1.42.2",
         "com.google.http-client:google-http-client-gson:1.42.2",
         "com.google.turbine:turbine:0.13.1",
-        "com.guardsquare:proguard-base:jar:7.5.0",
+        "com.guardsquare:proguard-base:jar:7.8.2",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
         "com.squareup:javapoet:1.12.0",
         "commons-collections:commons-collections:3.2.2",
         "commons-lang:commons-lang:2.6",
+        "io.github.eisop:dataflow-errorprone:jar:3.49.3-eisop1",
         "io.github.java-diff-utils:java-diff-utils:4.12",
         "io.grpc:grpc-api:1.66.0",
         "io.grpc:grpc-auth:1.66.0",
@@ -224,7 +225,7 @@ maven.install(
         "org.apache.commons:commons-lang3:3.14.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
-        "org.checkerframework:checker-qual:3.42.0",
+        "org.checkerframework:checker-qual:3.49.3",
         "org.commonmark:commonmark:0.25.0",
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
@@ -256,6 +257,14 @@ maven.install(
         "https://repo1.maven.org/maven2",
     ],
     strict_visibility = True,
+)
+maven.override(
+    coordinates = "com.google.api.grpc:proto-google-common-protos",
+    target = "@googleapis//google/rpc:rpc_java_proto",
+)
+maven.override(
+    coordinates = "io.github.eisop:checker-qual",
+    target = "@maven//:org_checkerframework_checker_qual",
 )
 
 # Test only maven dependencies
@@ -455,6 +464,8 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 # =========================================
 
 register_execution_platforms("//:default_host_platform")
+
+register_toolchains("//:all")
 
 register_toolchains("@local_config_winsdk//:all")
 

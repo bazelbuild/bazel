@@ -52,18 +52,6 @@ java_import(
     jars = ["java/gson.jar"],
 )
 
-# libtomcat9-java
-java_import(
-    name = "tomcat_annotations_api",
-    jars = ["java/tomcat9-annotations-api.jar"],
-)
-
-# For bootstrapping java toolcahin
-filegroup(
-    name = "tomcat_annotations_api-jars",
-    srcs = ["java/tomcat9-annotations-api.jar"],
-)
-
 # libjava-allocation-instrumenter-java
 java_import(
     name = "allocation_instrumenter",

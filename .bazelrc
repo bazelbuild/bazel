@@ -64,6 +64,9 @@ common --tool_java_runtime_version=remotejdk_25
 common --javacopt=-Xlint:-removal
 common --host_javacopt=-Xlint:-removal
 
+# Fail if a classpath contains different versions of the same class
+common --experimental_one_version_enforcement=ERROR
+
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
 
