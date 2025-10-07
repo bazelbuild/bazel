@@ -135,9 +135,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
-import io.reactivex.rxjava3.core.Scheduler;
-import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
@@ -155,11 +152,11 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -193,9 +190,10 @@ public class RemoteExecutionService {
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Set<String> reportedErrors = new HashSet<>();
-  private final Phaser backgroundTaskPhaser = new Phaser(1);
 
-  private final Scheduler scheduler;
+  private final ExecutorService backgroundTaskExecutor =
+      Executors.newThreadPerTaskExecutor(
+          Thread.ofVirtual().name("remote-execution-bg-", 0).factory());
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
@@ -209,7 +207,6 @@ public class RemoteExecutionService {
   private Boolean useOutputPaths;
 
   public RemoteExecutionService(
-      Executor executor,
       Reporter reporter,
       boolean verboseFailures,
       Path execRoot,
@@ -254,7 +251,6 @@ public class RemoteExecutionService {
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
-    this.scheduler = Schedulers.from(executor, /* interruptibleWorker= */ true);
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
     this.knownMissingCasDigests = knownMissingCasDigests;
@@ -1132,7 +1128,7 @@ public class RemoteExecutionService {
       }
     }
 
-    waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt= */ true);
+    waitForBulkTransfer(dirMetadataDownloads.values());
 
     ImmutableMap.Builder<Path, DirectoryMetadata> directories = ImmutableMap.builder();
     for (Map.Entry<Path, ListenableFuture<Tree>> metadataDownload :
@@ -1346,7 +1342,7 @@ public class RemoteExecutionService {
 
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
     try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
-      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
+      waitForBulkTransfer(downloads);
     } catch (Exception e) {
       // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
       // rethrowing
@@ -1697,54 +1693,34 @@ public class RemoteExecutionService {
     }
   }
 
-  private Single<UploadManifest> buildUploadManifestAsync(
-      RemoteAction action, SpawnResult spawnResult) {
-    return Single.fromCallable(
-        () -> {
-          try (SilentCloseable c = Profiler.instance().profile("build upload manifest")) {
-            ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
-            // Check that all mandatory outputs are created.
-            for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
-              Symlinks followSymlinks =
-                  outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
-              Path localPath = execRoot.getRelative(outputFile.getExecPath());
-              if (action.getSpawn().isMandatoryOutput(outputFile)
-                  && !localPath.exists(followSymlinks)) {
-                throw new IOException(
-                    "Expected output " + prettyPrint(outputFile) + " was not created locally.");
-              }
-              outputFiles.add(localPath);
-            }
-
-            return UploadManifest.create(
-                combinedCache.getRemoteCacheCapabilities(),
-                digestUtil,
-                action.getRemotePathResolver(),
-                action.getActionKey(),
-                action.getAction(),
-                action.getCommand(),
-                outputFiles.build(),
-                action.getSpawnExecutionContext().getFileOutErr(),
-                spawnResult.exitCode(),
-                spawnResult.getStartTime(),
-                spawnResult.getWallTimeInMs());
-          }
-        });
-  }
-
   @VisibleForTesting
   UploadManifest buildUploadManifest(RemoteAction action, SpawnResult spawnResult)
       throws IOException, ExecException, InterruptedException {
-    try {
-      return buildUploadManifestAsync(action, spawnResult).blockingGet();
-    } catch (RuntimeException e) {
-      Throwable cause = e.getCause();
-      if (cause != null) {
-        Throwables.throwIfInstanceOf(cause, IOException.class);
-        Throwables.throwIfInstanceOf(cause, ExecException.class);
-        Throwables.throwIfInstanceOf(cause, InterruptedException.class);
+    try (SilentCloseable c = Profiler.instance().profile("build upload manifest")) {
+      ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
+      // Check that all mandatory outputs are created.
+      for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+        Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
+        Path localPath = execRoot.getRelative(outputFile.getExecPath());
+        if (action.getSpawn().isMandatoryOutput(outputFile) && !localPath.exists(followSymlinks)) {
+          throw new IOException(
+              "Expected output " + prettyPrint(outputFile) + " was not created locally.");
+        }
+        outputFiles.add(localPath);
       }
-      throw e;
+
+      return UploadManifest.create(
+          combinedCache.getRemoteCacheCapabilities(),
+          digestUtil,
+          action.getRemotePathResolver(),
+          action.getActionKey(),
+          action.getAction(),
+          action.getCommand(),
+          outputFiles.build(),
+          action.getSpawnExecutionContext().getFileOutErr(),
+          spawnResult.exitCode(),
+          spawnResult.getStartTime(),
+          spawnResult.getWallTimeInMs());
     }
   }
 
@@ -1778,37 +1754,24 @@ public class RemoteExecutionService {
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      AtomicLong startTime = new AtomicLong();
-      var unused =
-          Single.using(
-                  () -> {
-                    backgroundTaskPhaser.register();
-                    CombinedCache cache = combinedCache.retain();
-                    startTime.set(Profiler.nanoTimeMaybe());
-                    return cache;
-                  },
-                  combinedCache ->
-                      buildUploadManifestAsync(action, spawnResult)
-                          .flatMap(
-                              manifest ->
-                                  manifest.uploadAsync(
-                                      action.getRemoteActionExecutionContext(),
-                                      combinedCache,
-                                      reporter)),
-                  cacheResource -> {
-                    Profiler.instance()
-                        .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
-                    onUploadComplete.run();
-                    // Release the cache first before arriving the backgroundTaskPhaser. Otherwise,
-                    // the release here could make the reference count reach zero and close the
-                    // cache, resulting in a deadlock when using HTTP cache.
-                    // See https://github.com/bazelbuild/bazel/issues/25232.
-                    cacheResource.release();
-                    backgroundTaskPhaser.arriveAndDeregister();
-                  },
-                  /* eager= */ false)
-              .subscribeOn(scheduler)
-              .subscribe(result -> {}, this::reportUploadError);
+      var startTime = Profiler.nanoTimeMaybe();
+      backgroundTaskExecutor.execute(
+          () -> {
+            try {
+              UploadManifest manifest = buildUploadManifest(action, spawnResult);
+              var unused =
+                  manifest.upload(
+                      action.getRemoteActionExecutionContext(), combinedCache, reporter);
+            } catch (IOException | ExecException e) {
+              reportUploadError(e);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+            } finally {
+              Profiler.instance()
+                  .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
+              onUploadComplete.run();
+            }
+          });
     } else {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
@@ -2022,33 +1985,19 @@ public class RemoteExecutionService {
     }
   }
 
-  /**
-   * Shuts the service down. Wait for active network I/O to finish but new requests are rejected.
-   */
+  /** Shuts the service down. */
   public void shutdown() {
     if (!shutdown.compareAndSet(false, true)) {
       return;
     }
 
     if (buildInterrupted.get()) {
+      backgroundTaskExecutor.shutdownNow();
       Thread.currentThread().interrupt();
     }
 
-    if (combinedCache != null) {
-      try {
-        backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
-      } catch (InterruptedException e) {
-        buildInterrupted.set(true);
-        combinedCache.shutdownNow();
-        Thread.currentThread().interrupt();
-      }
-
-      // Only release the combinedCache once all background tasks have been finished. Otherwise, the
-      // last task might try to close the combinedCache inside the callback of network response
-      // which might cause deadlocks.
-      // See https://github.com/bazelbuild/bazel/issues/21568.
-      combinedCache.release();
-    }
+    // Waits for all background tasks to finish and interrupts them if there is another interrupt.
+    backgroundTaskExecutor.close();
 
     if (remoteExecutor != null) {
       remoteExecutor.close();

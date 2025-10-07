@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -302,7 +301,6 @@ public class RemoteSpawnCacheTest {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
-                directExecutor(),
                 reporter,
                 /* verboseFailures= */ true,
                 execRoot,

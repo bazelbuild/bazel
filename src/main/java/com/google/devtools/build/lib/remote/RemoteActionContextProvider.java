@@ -174,7 +174,6 @@ final class RemoteActionContextProvider {
           checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
       remoteExecutionService =
           new RemoteExecutionService(
-              executor,
               env.getReporter(),
               verboseFailures,
               env.getExecRoot(),
