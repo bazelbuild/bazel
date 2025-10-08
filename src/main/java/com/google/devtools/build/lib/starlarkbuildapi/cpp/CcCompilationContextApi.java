@@ -137,29 +137,17 @@ public interface CcCompilationContextApi<
       structField = true)
   Depset getStarlarkValidationArtifacts();
 
-  @StarlarkMethod(
-      name = "modules_info_files",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "use_pic",
-            positional = false,
-            named = true)
-      })
-  Depset getStarlarkModulesInfoFiles(boolean usePic, StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_modules_info_files", structField = true, documented = false)
+  Depset getStarlarkModulesInfoFiles();
 
-  @StarlarkMethod(
-      name = "module_files",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "use_pic",
-            positional = false,
-            named = true)
-      })
-  Depset getStarlarkModuleFiles(boolean usePic, StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "_pic_modules_info_files", structField = true, documented = false)
+  Depset getStarlarkPicModulesInfoFiles();
+
+  @StarlarkMethod(name = "_module_files", structField = true, documented = false)
+  Depset getStarlarkModuleFiles();
+
+  @StarlarkMethod(name = "_pic_module_files", structField = true, documented = false)
+  Depset getStarlarkPicModuleFiles();
 
   @StarlarkMethod(name = "_transitive_modules", structField = true, documented = false)
   Depset getStarlarkTransitiveModules();

@@ -773,15 +773,23 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getStarlarkModulesInfoFiles(boolean usePic, StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.class, getModulesInfoFiles(usePic));
+  public Depset getStarlarkModulesInfoFiles() {
+    return Depset.of(Artifact.class, getModulesInfoFiles(false));
   }
 
   @Override
-  public Depset getStarlarkModuleFiles(boolean usePic, StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.class, getModuleFiles(usePic));
+  public Depset getStarlarkPicModulesInfoFiles() {
+    return Depset.of(Artifact.class, getModulesInfoFiles(true));
+  }
+
+  @Override
+  public Depset getStarlarkModuleFiles() {
+    return Depset.of(Artifact.class, getModuleFiles(false));
+  }
+
+  @Override
+  public Depset getStarlarkPicModuleFiles() {
+    return Depset.of(Artifact.class, getModuleFiles(true));
   }
 
   @Override

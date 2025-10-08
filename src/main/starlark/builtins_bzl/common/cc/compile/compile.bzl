@@ -543,8 +543,8 @@ def _create_scan_deps_action(
         source_file = source_artifact,
         output_file = ddi_file,
         dotd_file = dotd_file,
-        cpp_module_map = cc_compilation_context.module_map(),
-        direct_module_maps = cc_compilation_context.direct_module_maps,
+        cpp_module_map = cc_compilation_context._module_map,
+        direct_module_maps = cc_compilation_context._direct_module_maps,
         user_compile_flags = get_copts(
             language = language,
             cpp_configuration = cpp_configuration,
@@ -750,11 +750,11 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
         cc_toolchain = cc_toolchain,
         ddi_files = source_to_ddi_file_map.values(),
         direct_module_files = direct_module_files,
-        transitive_modules_info_files = cc_compilation_context.modules_info_files(use_pic = use_pic),
+        transitive_modules_info_files = cc_compilation_context._pic_modules_info_files if use_pic else cc_compilation_context._modules_info_files,
         modules_info_file = modules_info_file,
     )
     compiled_basenames = set()
-    transitive_module_files = cc_compilation_context.module_files(use_pic = use_pic)
+    transitive_module_files = cc_compilation_context._pic_module_files if use_pic else cc_compilation_context._module_files
     for cpp_source in module_interfaces_sources.values():
         source_artifact = cpp_source.file
         output_name = output_name_map[source_artifact]
@@ -829,7 +829,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             common_compile_variables = common_compile_build_variables,
             fdo_build_variables = fdo_build_variables,
             output_category = artifact_category.CLIF_OUTPUT_PROTO if cpp_source.type == CPP_SOURCE_TYPE_CLIF_INPUT_PROTO else artifact_category.OBJECT_FILE,
-            cpp_module_map = cc_compilation_context.module_map(),
+            cpp_module_map = cc_compilation_context._module_map,
             add_object = True,
             enable_coverage = is_code_coverage_enabled,
             generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration),
@@ -978,7 +978,7 @@ def _create_cc_compile_actions_with_cpp20_module_helper(
             common_compile_variables = common_compile_build_variables,
             fdo_build_variables = fdo_build_variables,
             output_category =  artifact_category.CLIF_OUTPUT_PROTO if cpp_source.type == CPP_SOURCE_TYPE_CLIF_INPUT_PROTO else artifact_category.OBJECT_FILE,
-            cpp_module_map = cc_compilation_context.module_map(),
+            cpp_module_map = cc_compilation_context._module_map,
             add_object = True,
             enable_coverage = is_code_coverage_enabled,
             generate_dwo = should_create_per_object_debug_info(feature_configuration, cpp_configuration),
