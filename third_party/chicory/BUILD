@@ -10,9 +10,9 @@ filegroup(
 java_library(
     name = "chicory",
     exports = [
-        "@chicory//log",
-        "@chicory//runtime",
-        "@chicory//wasm",
+        "@maven//:com_dylibso_chicory_log",
+        "@maven//:com_dylibso_chicory_runtime",
+        "@maven//:com_dylibso_chicory_wasm",
     ],
 )
 
@@ -20,8 +20,8 @@ java_library(
 filegroup(
     name = "dist_jars",
     srcs = [
-        "@chicory//log",
-        "@chicory//runtime",
-        "@chicory//wasm",
+        "@maven//:com_dylibso_chicory_log",
+        "@maven//:com_dylibso_chicory_runtime",
+        "@maven//:com_dylibso_chicory_wasm",
     ],
 )
