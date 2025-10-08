@@ -883,12 +883,12 @@ public class ModuleFileGlobals {
               + " <code>include()</code> behaves as if the included file is textually placed at the"
               + " location of the <code>include()</code> call, except that variable bindings (such"
               + " as those used for <code>use_extension</code>) are only ever visible in the file"
-              + " they occur in, not in any included or including files.<p>Only the root module may"
-              + " use <code>include()</code>; it is an error if a <code>bazel_dep</code>'s MODULE"
-              + " file uses <code>include()</code>.<p>Only files in the main repo may be"
-              + " included.<p><code>include()</code> allows you to segment the root module file"
-              + " into multiple parts, to avoid having an enormous MODULE.bazel file or to better"
-              + " manage access control for individual semantic segments.",
+              + " they occur in, not in any included or including files.<p>Only the root module and"
+              + " modules subject to a non-registry override may use <code>include()</code>."
+              + "<p>Only files in the current module's repo may be included."
+              + "<p><code>include()</code> allows you to segment a module file into multiple parts,"
+              + " to avoid having an enormous MODULE.bazel file or to better manage access control"
+              + " for individual semantic segments.",
       parameters = {
         @Param(
             name = "label",
