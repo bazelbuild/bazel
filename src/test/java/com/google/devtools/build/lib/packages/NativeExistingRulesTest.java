@@ -888,4 +888,45 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         .containsAtLeast(
             "name", "bar", "kind", "test_library", "srcs", StarlarkList.immutableOf(":bar.cc"));
   }
+
+  @Test
+  public void existingRule_roundTripThroughRule() throws Exception {
+    // Verify that the set of native attributes captured by native.existing_rule() are
+    // round-trippable (e.g. we don't attempt to capture computed defaults, etc.), with the
+    // exception of name/kind pseudo-attributes, and restricted_to/visibility which have special
+    // semantics.
+    scratch.file(
+        "test/macros.bzl",
+        """
+        def lib(name, **kwargs):
+            native.filegroup(name=name, **kwargs)
+
+        def get_round_trippable_attrs(r):
+            return {
+                k: v
+                for k, v in native.existing_rule(r).items()
+                if k not in ("name", "kind", "restricted_to", "visibility")
+            }
+
+        def copy(name, src):
+            src_attrs = get_round_trippable_attrs(src)
+            test.save("src_attrs", src_attrs)
+            native.filegroup(name = name, **src_attrs)
+            test.save("copy_attrs", get_round_trippable_attrs(name))
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":macros.bzl", "lib", "copy")
+        lib(name = "a", srcs = ["BUILD"])
+        copy(name = "b", src = "a")
+        """);
+    getConfiguredTarget("//test:b");
+    Dict<String, Object> srcAttrs =
+        Dict.cast(getSaved("src_attrs"), String.class, Object.class, "copy_args");
+    Dict<String, Object> copyAttrs =
+        Dict.cast(getSaved("copy_attrs"), String.class, Object.class, "copy_attrs");
+
+    assertThat(copyAttrs.entrySet()).containsExactlyElementsIn(srcAttrs.entrySet());
+  }
 }

@@ -721,7 +721,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       // Computed defaults. They will be represented as
       // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
       // Filter them until we invent something more clever.
-      return false;
+      return null;
     }
 
     return switch (val) {
