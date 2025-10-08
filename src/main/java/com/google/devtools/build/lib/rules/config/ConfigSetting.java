@@ -153,7 +153,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             settings.nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            ImmutableSet.copyOf(settings.constraintValueSettings),
+            ImmutableSet.copyOf(getSpecifiedConstraintValues(ruleContext)),
             Stream.of(userDefinedFlags.result(), nativeFlagsResult, constraintValuesResult)
                 .reduce(MatchResult::combine)
                 .get());
@@ -836,5 +836,19 @@ Either remove one of these settings or ensure they match the same value.
       // Swallow this: the subsequent type conversion already checks for this.
       return expectedValue;
     }
+  }
+
+  /**
+   * Returns a list of labels for all prerequisite constraint values for this rule.
+   *
+   * <p>If any of the constraint values are provided via an alias, this method will resolve them to
+   * their concrete targets. This is needed for specialization checking in select() statements.
+   *
+   * @param ruleContext this rule's RuleContext
+   */
+  private static List<Label> getSpecifiedConstraintValues(RuleContext ruleContext) {
+    return ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE).stream()
+        .map(TransitiveInfoCollection::getLabel)
+        .collect(Collectors.toList());
   }
 }
