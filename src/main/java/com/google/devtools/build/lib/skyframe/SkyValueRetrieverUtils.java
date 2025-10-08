@@ -49,6 +49,11 @@ public final class SkyValueRetrieverUtils {
       RemoteAnalysisCachingDependenciesProvider analysisCachingDeps,
       Supplier<? extends SerializableSkyKeyComputeState> stateSupplier)
       throws InterruptedException {
+    if (env.inErrorBubbling()) {
+      // Remote retrieval during error bubbling causes incorrect error propagation. See b/449016469.
+      return NO_CACHED_DATA;
+    }
+
     Label label =
         switch (key) {
           case ActionLookupKey alk -> alk.getLabel();
