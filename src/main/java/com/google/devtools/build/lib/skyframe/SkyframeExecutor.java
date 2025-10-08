@@ -2967,7 +2967,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
       OptionsProvider options,
-      String commandName)
+      String commandName,
+      boolean commandExecutes)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
     var platformOptions = options.getOptions(PlatformOptions.class);
@@ -2984,6 +2985,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         executors,
         options,
         commandName,
+        commandExecutes,
         eventHandler);
 
     if (lastAnalysisDiscarded) {
@@ -3017,6 +3019,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       QuiescingExecutors executors,
       OptionsProvider options,
       String commandName,
+      boolean commandExecutes,
       ExtendedEventHandler eventHandler)
       throws AbruptExitException {
     PackageOptions packageOptions = options.getOptions(PackageOptions.class);

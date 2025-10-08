@@ -361,7 +361,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),
-          /* commandName= */ "query");
+          /* commandName= */ "query",
+          /* commandExecutes= */ false);
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }

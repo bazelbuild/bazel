@@ -831,7 +831,8 @@ public class CommandEnvironment {
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options,
-                getCommandName());
+                getCommandName(),
+                command.buildPhase().executes());
   }
 
   /** Returns true if {@link #syncPackageLoading} has already been called. */

@@ -342,7 +342,8 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
         FakeOptions.builder().put(packageOptions).put(options).build(),
-        /* commandName= */ "build");
+        /* commandName= */ "build",
+        /* commandExecutes= */ true);
     evaluator = skyframeExecutor.getEvaluator();
   }
 

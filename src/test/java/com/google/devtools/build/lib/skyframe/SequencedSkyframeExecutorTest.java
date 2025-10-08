@@ -2710,6 +2710,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             tsgm,
             QuiescingExecutorsImpl.forTesting(),
             options,
-            /* commandName= */ "build");
+            /* commandName= */ "build",
+            /* commandExecutes= */ true);
   }
 }
