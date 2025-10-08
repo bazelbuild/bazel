@@ -52,7 +52,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -100,7 +100,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodToolchains));
 
     // Expand target patterns.
-    ImmutableList<Label> toolchainLabels;
+    ImmutableSet<Label> toolchainLabels;
     try {
       toolchainLabels =
           TargetPatternUtil.expandTargetPatterns(
@@ -179,7 +179,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
   @Nullable
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
-      Environment env, BuildConfigurationValue configuration, List<Label> labels)
+      Environment env, BuildConfigurationValue configuration, Set<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     ImmutableSet<ActionLookupKey> keys =
         labels.stream()

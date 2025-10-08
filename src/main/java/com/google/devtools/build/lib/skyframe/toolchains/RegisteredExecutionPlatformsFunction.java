@@ -58,8 +58,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -110,7 +110,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodExecutionPlatforms));
 
     // Expand target patterns.
-    ImmutableList<Label> platformLabels;
+    ImmutableSet<Label> platformLabels;
     try {
       platformLabels =
           TargetPatternUtil.expandTargetPatterns(
@@ -191,7 +191,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   @Nullable
   private static ImmutableMap<ConfiguredTargetKey, PlatformInfo>
       configureRegisteredExecutionPlatforms(
-          Environment env, BuildConfigurationValue configuration, List<Label> labels)
+          Environment env, BuildConfigurationValue configuration, Set<Label> labels)
           throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
     ImmutableSet<ConfiguredTargetKey> keys =
         labels.stream()
