@@ -49,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** A {@link BlazeModule} that dumps the state of all threads periodically. */
@@ -57,8 +58,7 @@ public final class ThreadDumpModule extends BlazeModule {
   private static final DateTimeFormatter TIME_FORMAT =
       DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-  @Nullable private ScheduledExecutorService scheduledExecutor;
-  @Nullable private ThreadDumpTask threadDumpTask;
+  private final AtomicReference<ThreadDumpTask> threadDumpTaskRef = new AtomicReference<>();
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
@@ -79,9 +79,6 @@ public final class ThreadDumpModule extends BlazeModule {
       return;
     }
 
-    checkState(threadDumpTask == null);
-    checkState(scheduledExecutor == null);
-
     var bepOptions = env.getOptions().getOptions(BuildEventProtocolOptions.class);
     BuildEventArtifactUploader uploader = null;
     if (bepOptions != null && bepOptions.streamingLogFileUploads) {
@@ -93,26 +90,17 @@ public final class ThreadDumpModule extends BlazeModule {
     }
 
     var outputBaseRelativeDumpDirectory = prepareDumpDirectory(env);
-    threadDumpTask =
+    var threadDumpTask =
         new ThreadDumpTask(
             env,
             ProcessHandle.current().pid(),
             env.getRuntime().getClock(),
             outputBaseRelativeDumpDirectory,
             commandOptions.threadDumpActionExecutionInactivityDuration,
+            commandOptions.threadDumpInterval,
             uploader);
-
-    scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
-
-    var threadDumpInterval = commandOptions.threadDumpInterval;
-    if (!threadDumpInterval.isZero()) {
-      var unused =
-          scheduledExecutor.scheduleAtFixedRate(
-              threadDumpTask,
-              threadDumpInterval.toMillis(),
-              threadDumpInterval.toMillis(),
-              MILLISECONDS);
-    }
+    var oldThreadDumpTask = threadDumpTaskRef.getAndSet(threadDumpTask);
+    checkState(oldThreadDumpTask == null);
 
     env.getEventBus().register(this);
   }
@@ -149,29 +137,28 @@ public final class ThreadDumpModule extends BlazeModule {
 
   @Subscribe
   public void onActionExecutionInactivityEvent(ActionExecutionInactivityEvent event) {
-    checkState(scheduledExecutor != null);
-    checkState(threadDumpTask != null);
-
-    if (threadDumpTask.shouldDumpForActionExecutionInactivity(event)) {
-      var unused = scheduledExecutor.schedule(threadDumpTask, 0, MILLISECONDS);
-    }
+    var threadDumpTask = threadDumpTaskRef.get();
+    checkNotNull(threadDumpTask);
+    threadDumpTask.onActionExecutionInactivityEvent(event);
   }
 
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
-    checkNotNull(scheduledExecutor);
-    checkNotNull(threadDumpTask);
+    shutdown(event.getResult().getBuildToolLogCollection());
+  }
 
-    scheduledExecutor.shutdownNow();
-    try (var sc = Profiler.instance().profile("Joining dump thread")) {
-      Uninterruptibles.awaitTerminationUninterruptibly(scheduledExecutor);
+  private void shutdown(@Nullable BuildToolLogCollection buildToolLogCollection) {
+    // We might get concurrent call to shutdown (via afterCommand).
+    var threadDumpTask = threadDumpTaskRef.getAndSet(null);
+    if (threadDumpTask != null) {
+      threadDumpTask.shutdown(buildToolLogCollection);
     }
+  }
 
-    var buildToolLogCollection = event.getResult().getBuildToolLogCollection();
-    threadDumpTask.shutdown(buildToolLogCollection);
-
-    scheduledExecutor = null;
-    threadDumpTask = null;
+  @Override
+  public void afterCommand() {
+    // Defensively shut down in case we failed to do so under normal operation.
+    shutdown(/* buildToolLogCollection= */ null);
   }
 
   private static final class ThreadDumpTask implements Runnable {
@@ -179,8 +166,9 @@ public final class ThreadDumpModule extends BlazeModule {
     private final long pid;
     private final Clock clock;
     private final PathFragment outputBaseRelativeDumpDirectory;
-    private final Duration dumpActionExecutionInactivityDuration;
+    private final Duration threadDumpActionExecutionInactivityDuration;
     @Nullable private final BuildEventArtifactUploader uploader;
+    private final ScheduledExecutorService scheduledExecutor;
 
     private final List<InstrumentationOutput> instrumentationOutputs =
         Collections.synchronizedList(new ArrayList<>());
@@ -192,14 +180,23 @@ public final class ThreadDumpModule extends BlazeModule {
         long pid,
         Clock clock,
         PathFragment outputBaseRelativeDumpDirectory,
-        Duration dumpActionExecutionInactivityDuration,
+        Duration threadDumpActionExecutionInactivityDuration,
+        Duration threadDumpInterval,
         @Nullable BuildEventArtifactUploader uploader) {
       this.env = env;
       this.pid = pid;
       this.clock = clock;
       this.outputBaseRelativeDumpDirectory = outputBaseRelativeDumpDirectory;
-      this.dumpActionExecutionInactivityDuration = dumpActionExecutionInactivityDuration;
+      this.threadDumpActionExecutionInactivityDuration =
+          threadDumpActionExecutionInactivityDuration;
       this.uploader = uploader;
+      this.scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+
+      if (!threadDumpInterval.isZero()) {
+        var unused =
+            scheduledExecutor.scheduleAtFixedRate(
+                this, threadDumpInterval.toMillis(), threadDumpInterval.toMillis(), MILLISECONDS);
+      }
     }
 
     @Override
@@ -229,22 +226,36 @@ public final class ThreadDumpModule extends BlazeModule {
       lastDumpAt = clock.now();
     }
 
-    boolean shouldDumpForActionExecutionInactivity(ActionExecutionInactivityEvent event) {
-      if (dumpActionExecutionInactivityDuration.isZero()) {
+    private boolean shouldDumpForActionExecutionInactivity(ActionExecutionInactivityEvent event) {
+      if (threadDumpActionExecutionInactivityDuration.isZero()) {
         return false;
       }
 
       var now = clock.now();
-      if (now.isBefore(event.lastActionCompletedAt().plus(dumpActionExecutionInactivityDuration))) {
+      if (now.isBefore(
+          event.lastActionCompletedAt().plus(threadDumpActionExecutionInactivityDuration))) {
         return false;
       }
 
-      return now.isAfter(lastDumpAt.plus(dumpActionExecutionInactivityDuration));
+      return now.isAfter(lastDumpAt.plus(threadDumpActionExecutionInactivityDuration));
     }
 
-    void shutdown(BuildToolLogCollection buildToolLogCollection) {
-      for (var output : instrumentationOutputs) {
-        output.publish(buildToolLogCollection);
+    void onActionExecutionInactivityEvent(ActionExecutionInactivityEvent event) {
+      if (shouldDumpForActionExecutionInactivity(event)) {
+        var unused = scheduledExecutor.schedule(this, 0, MILLISECONDS);
+      }
+    }
+
+    void shutdown(@Nullable BuildToolLogCollection buildToolLogCollection) {
+      scheduledExecutor.shutdownNow();
+      try (var sc = Profiler.instance().profile("Joining dump thread")) {
+        Uninterruptibles.awaitTerminationUninterruptibly(scheduledExecutor);
+      }
+
+      if (buildToolLogCollection != null) {
+        for (var output : instrumentationOutputs) {
+          output.publish(buildToolLogCollection);
+        }
       }
 
       if (uploader != null) {
