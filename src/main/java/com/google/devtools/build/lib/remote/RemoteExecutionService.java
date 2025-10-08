@@ -2083,9 +2083,11 @@ public class RemoteExecutionService {
     }
 
     if (buildInterrupted.get()) {
+      backgroundTaskExecutor.shutdownNow();
       Thread.currentThread().interrupt();
     }
 
+    // Waits for all background tasks to finish and interrupts them if there is another interrupt.
     backgroundTaskExecutor.close();
 
     if (remoteExecutor != null) {
