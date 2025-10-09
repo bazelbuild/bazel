@@ -284,9 +284,10 @@ def create_lto_backend_artifacts(
 
     imports, index, dwo_file = None, None, None
     if bitcode_file.is_directory:
-        object_file = actions.declare_directory(obj)
+        # declare_shareable_directory is needed to create TreeArtifact in a different configuration (for Android split configurations)
+        object_file = actions.declare_shareable_directory(obj)
         if not create_shared_non_lto:
-            imports = actions.declare_directory(index_obj)
+            imports = actions.declare_shareable_directory(index_obj)
             index = imports
 
         # No support for dwo files for tree artifacts at the moment. This should not throw an

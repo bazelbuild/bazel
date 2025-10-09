@@ -415,6 +415,14 @@ public class CcStarlarkInternal implements StarlarkValue {
         String path, Object artifactRoot, StarlarkThread thread) {
       return construction.create(PathFragment.create(path));
     }
+
+    @StarlarkMethod(
+        name = "declare_shareable_directory",
+        parameters = {@Param(name = "path")},
+        documented = false)
+    public FileApi createShareableDirectory(String path) {
+      return construction.createTreeArtifact(PathFragment.create(path));
+    }
   }
 
   @StarlarkMethod(
