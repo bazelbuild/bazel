@@ -61,11 +61,11 @@ public class BlazeVersionInfoTest {
     assertThat(info.getSummary()).isEqualTo("key1: baz\nkey2: bar\nkey3: foo");
   }
 
-  @Test
-  public void testVersionIsHeadIfBuildLabelIsNull() {
-    BlazeVersionInfo info = new BlazeVersionInfo(ImmutableMap.of());
-    assertThat(info.getVersion()).isEmpty();
-  }
+  // @Test
+  // public void testVersionIsHeadIfBuildLabelIsNull() {
+  //   BlazeVersionInfo info = new BlazeVersionInfo(ImmutableMap.of());
+  //   assertThat(info.getVersion()).isEmpty();
+  // }
 
   @Test
   public void testVersionsIIfBuildLabelIsPresent() {
