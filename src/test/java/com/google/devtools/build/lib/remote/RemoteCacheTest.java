@@ -435,7 +435,7 @@ public class RemoteCacheTest {
           throws Exception {
     // arrange
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
-    RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
 
     SettableFuture<ImmutableSet<Digest>> findMissingDigestsFuture = SettableFuture.create();
     CountDownLatch findMissingDigestsCalled = new CountDownLatch(1);
@@ -444,7 +444,7 @@ public class RemoteCacheTest {
               findMissingDigestsCalled.countDown();
               return findMissingDigestsFuture;
             })
-        .when(remoteCache)
+        .when(cacheProtocol)
         .findMissingDigests(any(), any());
     Deque<SettableFuture<Void>> futures = new ConcurrentLinkedDeque<>();
     CountDownLatch uploadBlobCalls = new CountDownLatch(2);
@@ -681,11 +681,18 @@ public class RemoteCacheTest {
   }
 
   private RemoteCache newRemoteCache(RemoteCacheClient remoteCacheClient) {
-    return new RemoteCache(remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+    return new RemoteCache(
+        remoteCacheClient,
+        /* diskCacheClient= */ null,
+        Options.getDefaults(RemoteOptions.class),
+        digestUtil);
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
     return new RemoteExecutionCache(
-        remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+        remoteCacheClient,
+        /* diskCacheClient= */ null,
+        Options.getDefaults(RemoteOptions.class),
+        digestUtil);
   }
 }
