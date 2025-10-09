@@ -61,7 +61,7 @@ public final class AnalysisCacheInvalidatorTest {
       FingerprintValueService.createForTesting();
 
   @Test
-  public void lookupKeysToInvalidate_emptyInput_returnsEmptySet() {
+  public void lookupKeysToInvalidate_emptyInput_returnsEmptySet() throws Exception {
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,

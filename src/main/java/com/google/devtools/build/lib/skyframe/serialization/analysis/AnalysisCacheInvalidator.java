@@ -79,7 +79,8 @@ public final class AnalysisCacheInvalidator {
    * @return The subset of keysToLookup that got a cache miss should be invalidated locally.
    */
   public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-      ImmutableSet<SkyKey> keysToLookup, RemoteAnalysisCachingServerState serverState) {
+      ImmutableSet<SkyKey> keysToLookup, RemoteAnalysisCachingServerState serverState)
+      throws InterruptedException {
     if (keysToLookup.isEmpty()) {
       logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
       return ImmutableSet.of();
@@ -123,11 +124,6 @@ public final class AnalysisCacheInvalidator {
       } catch (ExecutionException e) {
         throw new IllegalStateException(
             "Skycache: Error waiting for analysis cache responses during invalidation check.", e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        logger.atWarning().log("Skycache: Interrupted while waiting for analysis cache responses.");
-        throw new IllegalStateException(
-            "Skycache: Interrupted while waiting for analysis cache responses", e);
       }
       stopwatch.stop();
       eventHandler.handle(
