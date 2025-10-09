@@ -341,7 +341,7 @@ public final class FileSystemValueCheckerInferringAncestors {
     boolean typeChanged = newFsv.getType() != oldFsv.getType();
     if (typeChanged) {
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
-      if (oldFsv.isDirectory() && !newFsv.exists()) {
+      if (oldFsv.getType().isDirectory() && !newFsv.getType().exists()) {
         deletedDirectories.add(path);
       }
     }
