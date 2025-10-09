@@ -967,11 +967,8 @@ function test_sandbox_reuse_stashes_works_for_actions_creating_inaccessible_dirs
     return 0
   fi
 
-  add_rules_shell "MODULE.bazel"
-
   mkdir pkg
   cat >pkg/BUILD <<EOF
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "create_readonly_dir_in_pwd",
   srcs = [ "create_readonly_dir_in_pwd.sh" ],
