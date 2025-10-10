@@ -6,6 +6,7 @@ load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 
@@ -305,10 +306,18 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
     for platform_name in REMOTE_PLATFORMS
 ]
 
-default_java_toolchain(
-    name = "java_toolchain",
-    java_runtime = "@rules_java//toolchains:remotejdk_25",
-    oneversion_allowlist = ":oneversion_allowlist",
-    source_version = "21",
-    target_version = "21",
-)
+[
+    default_java_toolchain(
+        name = "java_toolchain_%s" % version,
+        java_runtime = "@rules_java//toolchains:remotejdk_25",
+        oneversion_allowlist = ":oneversion_allowlist.csv",
+        oneversion_allowlist_for_tests = ":oneversion_allowlist.csv",
+        source_version = str(version),
+        target_version = str(version),
+    )
+    for version in set([
+        MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
+        MINIMUM_JAVA_RUNTIME_VERSION,
+        25,
+    ])
+]
