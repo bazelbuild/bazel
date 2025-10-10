@@ -109,7 +109,7 @@ def create_compile_action_templates(
         )
         if bitcode_output:
             outputs["lto_compilation_context"][header_token_file] = (lto_index_tree_artifact, all_copts)
-        _cc_internal.create_cpp_compile_action_template(
+        _cc_internal.create_cc_compile_action_template(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
@@ -120,7 +120,7 @@ def create_compile_action_templates(
                 common_compile_build_variables,
                 specific_compile_build_variables,
             ),
-            cpp_semantics = native_cc_semantics,
+            cc_semantics = native_cc_semantics,
             source = cpp_source.file,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
@@ -167,7 +167,7 @@ def create_compile_action_templates(
             )
             if feature_configuration.is_enabled("thin_lto"):
                 outputs["lto_compilation_context"][object_file] = (lto_index_tree_artifact, all_copts)
-            _cc_internal.create_cpp_compile_action_template(
+            _cc_internal.create_cc_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
@@ -178,7 +178,7 @@ def create_compile_action_templates(
                     common_compile_build_variables,
                     specific_compile_build_variables,
                 ),
-                cpp_semantics = native_cc_semantics,
+                cc_semantics = native_cc_semantics,
                 source = cpp_source.file,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
@@ -224,7 +224,7 @@ def create_compile_action_templates(
             )
             if feature_configuration.is_enabled("thin_lto"):
                 outputs["lto_compilation_context"][pic_object_file] = (lto_index_tree_artifact, all_copts)
-            _cc_internal.create_cpp_compile_action_template(
+            _cc_internal.create_cc_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
@@ -235,7 +235,7 @@ def create_compile_action_templates(
                     common_compile_build_variables,
                     specific_compile_build_variables,
                 ),
-                cpp_semantics = native_cc_semantics,
+                cc_semantics = native_cc_semantics,
                 source = cpp_source.file,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,

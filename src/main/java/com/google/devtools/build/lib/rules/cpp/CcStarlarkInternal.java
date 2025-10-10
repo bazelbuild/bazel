@@ -608,7 +608,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_cpp_compile_action",
+      name = "create_cc_compile_action",
       documented = false,
       parameters = {
         @Param(name = "action_construction_context", positional = false, named = true),
@@ -617,8 +617,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "configuration", positional = false, named = true),
         @Param(name = "copts_filter", positional = false, named = true),
         @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "cpp_semantics", positional = false, named = true),
-        @Param(name = "source_artifact", positional = false, named = true),
+        @Param(name = "cc_semantics", positional = false, named = true),
+        @Param(name = "source", positional = false, named = true),
         @Param(
             name = "additional_compilation_inputs",
             positional = false,
@@ -692,7 +692,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_cpp_compile_action_template",
+      name = "create_cc_compile_action_template",
       documented = false,
       parameters = {
         @Param(name = "action_construction_context", positional = false, named = true),
@@ -704,7 +704,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true), // FeatureConfigurationForStarlark
         @Param(name = "compile_build_variables", positional = false, named = true),
-        @Param(name = "cpp_semantics", positional = false, named = true),
+        @Param(name = "cc_semantics", positional = false, named = true),
         @Param(name = "source", positional = false, named = true),
         @Param(
             name = "additional_compilation_inputs",

@@ -501,7 +501,7 @@ def _create_cc_compile_actions(
         fail("PIC compilation is requested but the toolchain does not support it " +
              "(feature named 'supports_pic' is not enabled)")
 
-    native_cc_semantics = cc_common_internal.get_cpp_semantics(language = language)
+    native_cc_semantics = cc_common_internal.get_cc_semantics(language = language)
 
     if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
         cpp_module_map = cc_compilation_context._module_map
@@ -524,7 +524,7 @@ def _create_cc_compile_actions(
             label = label,
             common_compile_build_variables = common_compile_build_variables,
             fdo_build_variables = fdo_build_variables,
-            cpp_semantics = native_cc_semantics,
+            native_cc_semantics = native_cc_semantics,
             outputs = outputs,
             cpp_module_map = cpp_module_map,
             language = language,
@@ -551,7 +551,7 @@ def _create_cc_compile_actions(
                 label = label,
                 common_compile_build_variables = common_compile_build_variables,
                 fdo_build_variables = fdo_build_variables,
-                cpp_semantics = native_cc_semantics,
+                native_cc_semantics = native_cc_semantics,
                 outputs = outputs,
                 cpp_module_map = separate_cpp_module_map,
                 language = language,
@@ -612,7 +612,7 @@ def _create_cc_compile_actions(
                 feature_configuration = feature_configuration,
                 configuration = configuration,
                 cpp_configuration = cpp_configuration,
-                cpp_semantics = native_cc_semantics,
+                native_cc_semantics = native_cc_semantics,
                 language = language,
                 conlyopts = conlyopts,
                 cxxopts = cxxopts,
@@ -731,15 +731,15 @@ def _create_cc_compile_actions(
 
         # This creates the action to parse a header file.
         # If we generate pic actions, we prefer the header actions to use the pic artifacts.
-        cc_internal.create_cpp_compile_action(
+        cc_internal.create_cc_compile_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
             configuration = configuration,
             copts_filter = copts_filter,
             feature_configuration = feature_configuration,
-            cpp_semantics = native_cc_semantics,
-            source_artifact = source_artifact,
+            cc_semantics = native_cc_semantics,
+            source = source_artifact,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
             output_file = output_file,
@@ -762,7 +762,7 @@ def _create_pic_nopic_compile_source_actions(
         feature_configuration,
         configuration,
         cpp_configuration,
-        cpp_semantics,
+        native_cc_semantics,
         language,
         conlyopts,
         copts,
@@ -796,7 +796,7 @@ def _create_pic_nopic_compile_source_actions(
             feature_configuration = feature_configuration,
             configuration = configuration,
             cpp_configuration = cpp_configuration,
-            cpp_semantics = cpp_semantics,
+            native_cc_semantics = native_cc_semantics,
             language = language,
             conlyopts = conlyopts,
             copts = copts,
@@ -833,7 +833,7 @@ def _create_pic_nopic_compile_source_actions(
             feature_configuration = feature_configuration,
             configuration = configuration,
             cpp_configuration = cpp_configuration,
-            cpp_semantics = cpp_semantics,
+            native_cc_semantics = native_cc_semantics,
             language = language,
             conlyopts = conlyopts,
             copts = copts,
@@ -871,7 +871,7 @@ def _create_compile_source_action(
         feature_configuration,
         configuration,
         cpp_configuration,
-        cpp_semantics,
+        native_cc_semantics,
         language,
         conlyopts,
         copts,
@@ -914,7 +914,7 @@ def _create_compile_source_action(
         category = output_category,
         output_name = output_pic_nopic_name,
         cc_toolchain = cc_toolchain,
-        cpp_semantics = cpp_semantics,
+        cpp_semantics = native_cc_semantics,
         configuration = configuration,
         feature_configuration = feature_configuration,
     )
@@ -997,7 +997,7 @@ def _create_compile_source_action(
         cc_toolchain = cc_toolchain,
         configuration = configuration,
         cpp_configuration = cpp_configuration,
-        cpp_semantics = cpp_semantics,
+        cpp_semantics = native_cc_semantics,
         copts = complete_copts,
         copts_filter = copts_filter,
         common_compile_variables = common_compile_variables,
@@ -1020,17 +1020,17 @@ def _create_compile_source_action(
     if add_object and fdo_context_has_artifacts:
         additional_inputs = additional_compilation_inputs + auxiliary_fdo_inputs.to_list()
 
-    cc_internal.create_cpp_compile_action(
+    cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cpp_semantics = cpp_semantics,
+        cc_semantics = native_cc_semantics,
         additional_compilation_inputs = additional_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
-        source_artifact = source_artifact,
+        source = source_artifact,
         output_file = object_file,
         diagnostics_file = diagnostics_file,
         dotd_file = dotd_file,
@@ -1202,15 +1202,15 @@ def _create_temps_action(
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {"output_assembly_file": assembly_object_file.path},
     )
-    cc_internal.create_cpp_compile_action(
+    cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cpp_semantics = cpp_semantics,
-        source_artifact = source_artifact,
+        cc_semantics = cpp_semantics,
+        source = source_artifact,
         additional_compilation_inputs = additional_compilation_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
         output_file = preprocess_object_file,
@@ -1222,15 +1222,15 @@ def _create_temps_action(
             preprocess_compile_variables,
         ),
     )
-    cc_internal.create_cpp_compile_action(
+    cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cpp_semantics = cpp_semantics,
-        source_artifact = source_artifact,
+        cc_semantics = cpp_semantics,
+        source = source_artifact,
         additional_compilation_inputs = additional_compilation_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
         output_file = assembly_object_file,
@@ -1379,21 +1379,21 @@ def _create_module_codegen_action(
                                  getattr(fdo_context, "memprof_profile_artifact", None))
 
     # This flattening is cheap and is only necessary because get_auxiliary_fdo_inputs creates a
-    # depset instead of returning a list, and and create_cpp_compile_action_builder() expects a
+    # depset instead of returning a list, and and create_cc_compile_action() expects a
     # list instead of a depset
     # TODO(cmita): Fix this muddle
     if fdo_context_has_artifacts:
         additional_inputs = auxiliary_fdo_inputs.to_list()
 
-    cc_internal.create_cpp_compile_action(
+    cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cpp_semantics = cpp_semantics,
-        source_artifact = module,
+        cc_semantics = cpp_semantics,
+        source = module,
         additional_compilation_inputs = additional_inputs,
         output_file = object_file,
         dotd_file = dotd_file,
@@ -1425,7 +1425,7 @@ def _create_module_action(
         label,
         common_compile_build_variables,
         fdo_build_variables,
-        cpp_semantics,
+        native_cc_semantics,
         language,
         cpp_module_map,
         additional_compilation_inputs,
@@ -1449,7 +1449,7 @@ def _create_module_action(
         label = label,
         common_compile_variables = common_compile_build_variables,
         fdo_build_variables = fdo_build_variables,
-        cpp_semantics = cpp_semantics,
+        native_cc_semantics = native_cc_semantics,
         source_label = module_map_label,
         output_name = paths.basename(module_map_label.name),
         outputs = outputs,

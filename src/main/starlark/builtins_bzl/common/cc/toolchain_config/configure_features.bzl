@@ -102,7 +102,7 @@ def configure_features(
 
     cpp_configuration = ctx.fragments.cpp
 
-    native_cc_semantics = cc_common_internal.get_cpp_semantics(language = language)
+    native_cc_semantics = cc_common_internal.get_cc_semantics(language = language)
     native_cc_semantics.validate_layering_check_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,

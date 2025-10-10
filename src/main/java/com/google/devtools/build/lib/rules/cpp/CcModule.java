@@ -591,8 +591,8 @@ public abstract class CcModule
   }
 
   @StarlarkMethod(
-      name = "get_cpp_semantics",
-      doc = "Gets a CppSemantics object from a language string, for creating Cpp actions.",
+      name = "get_cc_semantics",
+      doc = "Gets a native cc_semantics object from a language string, for creating cc actions.",
       useStarlarkThread = true,
       parameters = {
         @Param(
