@@ -414,12 +414,21 @@ class ModCommandTest(test_base.TestBase):
     )
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
+    self.assertRegex(
+        stdout.pop(7),
+        r'^  remote_module_file_urls = \[".*/modules/bar/2.0/MODULE.bazel"\],$',
+    )
+    self.assertRegex(stdout.pop(7), r'^  remote_module_file_integrity = ".*",$')
     self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
     # lines after 'Rule data_repo defined at (most recent call last):'
     stdout.pop(33)
     stdout.pop(44)
     self.assertRegex(stdout.pop(49), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(49), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(52), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(
+        stdout.pop(52), r'^  remote_module_file_integrity = ".*",$'
+    )
     # lines after '# Rule http_archive defined at (most recent call last):'
     stdout.pop(13)
     stdout.pop(57)
@@ -485,6 +494,8 @@ class ModCommandTest(test_base.TestBase):
             '  strip_prefix = "",',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
+            # pop(52) -- remote_module_file_urls=[...]
+            # pop(52) -- remote_module_file_integrity=...
             '  remote_patches = {},',
             '  remote_patch_strip = 0,',
             ')',

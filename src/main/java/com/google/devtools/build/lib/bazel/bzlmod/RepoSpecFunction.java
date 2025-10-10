@@ -45,13 +45,23 @@ public class RepoSpecFunction implements SkyFunction {
     if (registry == null) {
       return null;
     }
+    ModuleFileValue moduleFileValue =
+        (ModuleFileValue) env.getValue(ModuleFileValue.key(key.getModuleKey()));
+    if (moduleFileValue == null) {
+      return null;
+    }
 
     StoredEventHandler downloadEvents = new StoredEventHandler();
     RepoSpec repoSpec;
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.getModuleKey())) {
-      repoSpec = registry.getRepoSpec(key.getModuleKey(), downloadEvents, this.downloadManager);
+      repoSpec =
+          registry.getRepoSpec(
+              key.getModuleKey(),
+              moduleFileValue.registryFileHashes(),
+              downloadEvents,
+              this.downloadManager);
     } catch (IOException e) {
       throw new RepoSpecException(
           ExternalDepsException.withCauseAndMessage(

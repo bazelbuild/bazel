@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.ArchiveRepoSpecBuilder.RemoteFile;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
@@ -145,9 +146,10 @@ public class IndexRegistry implements Registry {
       maybeContent = Optional.of(doGrabFile(downloadManager, url, eventHandler, useChecksum));
       return maybeContent.get();
     } finally {
-      if ((knownFileHashesMode == KnownFileHashesMode.USE_AND_UPDATE
-              || knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE)
-          && useChecksum) {
+      // We intentionally don't check knownFileHashesMode here: The checksums of module files are
+      // always needed for the remote_module_file_integrity attributes of the http_archive backing
+      // the module repo.
+      if (useChecksum) {
         eventHandler.post(RegistryFileDownloadEvent.create(url, maybeContent));
       }
     }
@@ -240,11 +242,14 @@ public class IndexRegistry implements Registry {
   public ModuleFile getModuleFile(
       ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException, NotFoundException {
-    String url =
-        constructUrl(
-            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+    String url = constructModuleFileUrl(key);
     byte[] content = grabFile(url, eventHandler, downloadManager, /* useChecksum= */ true);
     return ModuleFile.create(content, url);
+  }
+
+  private String constructModuleFileUrl(ModuleKey key) {
+    return constructUrl(
+        getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
   }
 
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
@@ -334,7 +339,10 @@ public class IndexRegistry implements Registry {
 
   @Override
   public RepoSpec getRepoSpec(
-      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      ModuleKey key,
+      ImmutableMap<String, Optional<Checksum>> moduleFileHashes,
+      ExtendedEventHandler eventHandler,
+      DownloadManager downloadManager)
       throws IOException, InterruptedException {
     String jsonUrl = getSourceJsonUrl(key);
     Optional<String> jsonString =
@@ -349,17 +357,27 @@ public class IndexRegistry implements Registry {
       case "archive" -> {
         ArchiveSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
-        return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
+        var moduleFileUrl = constructModuleFileUrl(key);
+        var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
+        return createArchiveRepoSpec(
+            typedSourceJson,
+            moduleFileUrl,
+            moduleFileChecksum,
+            getBazelRegistryJson(eventHandler, downloadManager),
+            key);
       }
       case "local_path" -> {
         LocalPathSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
-        return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
+        return createLocalPathRepoSpec(
+            typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
       }
       case "git_repository" -> {
         GitRepoSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
-        return createGitRepoSpec(typedSourceJson);
+        var moduleFileUrl = constructModuleFileUrl(key);
+        var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
+        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum);
       }
       default ->
           throw new IOException(
@@ -427,7 +445,11 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createArchiveRepoSpec(
-      ArchiveSourceJson sourceJson, Optional<BazelRegistryJson> bazelRegistryJson, ModuleKey key)
+      ArchiveSourceJson sourceJson,
+      String moduleFileUrl,
+      Checksum moduleFileChecksum,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key)
       throws IOException {
     URL sourceUrl = sourceJson.url;
     if (sourceUrl == null) {
@@ -501,12 +523,16 @@ public class IndexRegistry implements Registry {
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
         .setOverlay(overlay)
+        .setRemoteModuleFile(
+            new RemoteFile(
+                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();
   }
 
-  private RepoSpec createGitRepoSpec(GitRepoSourceJson sourceJson) {
+  private RepoSpec createGitRepoSpec(
+      GitRepoSourceJson sourceJson, String moduleFileUrl, Checksum moduleFileChecksum) {
     return new GitRepoSpecBuilder()
         .setRemote(sourceJson.remote)
         .setCommit(sourceJson.commit)
@@ -515,6 +541,9 @@ public class IndexRegistry implements Registry {
         .setInitSubmodules(sourceJson.initSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
+        .setRemoteModuleFile(
+            new RemoteFile(
+                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
         .build();
   }
 
