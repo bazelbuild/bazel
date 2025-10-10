@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionExceptio
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -121,7 +121,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     RepositoryFetchFunction delegatorFunction =
-        new RepositoryFetchFunction(ImmutableMap::of, directories, new RepoContentsCache());
+        new RepositoryFetchFunction(ImmutableMap::of, directories, new LocalRepoContentsCache());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
