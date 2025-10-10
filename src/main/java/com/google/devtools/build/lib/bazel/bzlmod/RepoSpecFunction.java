@@ -70,7 +70,6 @@ public class RepoSpecFunction implements SkyFunction {
               "Unable to get module repo spec for %s from registry",
               key.moduleKey()));
     }
-    downloadEvents.replayOn(env.getListener());
     return RepoSpecValue.create(
         repoSpec, RegistryFileDownloadEvent.collectToMap(downloadEvents.getPosts()));
   }
