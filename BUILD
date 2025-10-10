@@ -308,16 +308,16 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
 
 [
     default_java_toolchain(
-        name = "java_toolchain_%s" % version,
+        name = "java_toolchain_%s" % language_version,
         java_runtime = "@rules_java//toolchains:remotejdk_25",
         oneversion_allowlist = ":oneversion_allowlist.csv",
-        oneversion_allowlist_for_tests = ":oneversion_allowlist.csv",
-        source_version = str(version),
-        target_version = str(version),
+        oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
+        source_version = str(language_version),
+        target_version = str(language_version),
     )
-    for version in set([
+    for language_version in set([
         MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
         MINIMUM_JAVA_RUNTIME_VERSION,
-        25,
+        21,
     ])
 ]
