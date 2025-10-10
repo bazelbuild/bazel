@@ -1,6 +1,7 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -303,3 +304,11 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
     )
     for platform_name in REMOTE_PLATFORMS
 ]
+
+default_java_toolchain(
+    name = "java_toolchain",
+    java_runtime = "@rules_java//toolchains:remotejdk_25",
+    oneversion_allowlist = ":oneversion_allowlist",
+    source_version = "21",
+    target_version = "21",
+)
