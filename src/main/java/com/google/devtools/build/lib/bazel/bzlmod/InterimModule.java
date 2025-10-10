@@ -264,7 +264,7 @@ public abstract class InterimModule extends ModuleBase {
     if (!(override instanceof SingleVersionOverride singleVersion)) {
       return repoSpec;
     }
-    if (singleVersion.patches().isEmpty()) {
+    if (singleVersion.patches().isEmpty() && singleVersion.patchCmds().isEmpty() && singleVersion.patchStrip() == 0) {
       return repoSpec;
     }
     Dict.Builder<String, Object> attrBuilder = Dict.builder();
