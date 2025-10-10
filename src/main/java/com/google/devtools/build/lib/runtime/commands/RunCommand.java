@@ -192,6 +192,17 @@ public class RunCommand implements BlazeCommand {
             "If true, runs the target in the current working directory instead of the runfile"
                 + " tree.")
     public boolean runInCwd;
+ 
+    @Option(
+        name = "omit_run_args",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help =
+            "Specifies whether the arguments passed to the runable target will be omitted from the output"
+                + " for privacy reasons. If set to true, the output will not contain the arguments passed to"
+                + " the target. If set to false, the output will contain the arguments passed to the target.")
+    public boolean runOmitRunArgs;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -354,7 +365,7 @@ public class RunCommand implements BlazeCommand {
               /* executionPlatformLabel= */ null,
               /* spawnRunner= */ null);
     } else {
-      commandDescription = runCommandLine.getPrettyArgs();
+      commandDescription = runCommandLine.getPrettyArgs(runOptions.runOmitRunArgs);
     }
 
     String prefix = runOptions.runBuiltTarget ? "Running" : "Runnable";
