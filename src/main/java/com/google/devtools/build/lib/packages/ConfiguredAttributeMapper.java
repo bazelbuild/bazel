@@ -391,31 +391,50 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       Label targetLabel,
       String configHash) {
     String error =
-        String.format(
-            "configurable attribute \"%s\" in %s doesn't match this configuration",
-            attribute, targetLabel);
+        "%s has a select() on attribute \"%s\" that doesn't match configuration %s"
+            .formatted(targetLabel, attribute, configHash);
     if (!customNoMatchError.isEmpty()) {
       error += String.format(": %s\n", customNoMatchError);
     } else {
       error +=
-          ". Would a default condition help?\n\n"
-              + "Conditions checked:\n "
-              + Joiner.on("\n ").join(conditionLabels)
-              + "\n\n"
-              + "To see a condition's definition, run: bazel query --output=build "
-              + "<condition label>.\n";
+"""
+.
+
+Conditions checked:
+ %s
+
+Explanation:
+ - A configuration is a collection of build flags.
+ - select() conditions are expectations that certain build flags have certain values.
+ - A target may build with different configurations in the same build.
+ - This instance of %s fails with configuration %s.
+
+Diagnostics:
+ - To see configuration %s's build flags, run: %s config %s
+ - To see %s's "%s" attribute, run: %s query --output=build %s
+ - To see a condition's criteria, run, for example: %s query --output=build %s
+
+Suggestions:
+  - Add "//conditions:default" to match a select() when no other conditions match.
+
+More info:
+ - https://bazel.build/docs/configurable-attributes#faq-select-choose-condition
+
+"""
+              .formatted(
+                  Joiner.on("\n ").join(conditionLabels),
+                  targetLabel,
+                  configHash,
+                  configHash,
+                  ProductName.get(),
+                  configHash,
+                  targetLabel,
+                  attribute,
+                  ProductName.get(),
+                  targetLabel,
+                  ProductName.get(),
+                  conditionLabels.getFirst());
     }
-    // See ConfiguredTargetQueryEnvironment#shortID for the substring rationale.
-    String configShortHash = configHash.substring(0, 7);
-    error +=
-        String.format(
-            "\nThis instance of %s has configuration identifier %s. "
-                + "To inspect its configuration, run: bazel config %s.\n",
-            targetLabel, configShortHash, configShortHash);
-    error +=
-        "\n"
-            + "For more help, see"
-            + " https://bazel.build/docs/configurable-attributes#faq-select-choose-condition.\n\n";
     return error;
   }
 
