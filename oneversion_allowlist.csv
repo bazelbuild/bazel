@@ -1,0 +1,3 @@
+javax/annotation @@rules_jvm_external++maven+maven//:io_github_eisop_dataflow_errorprone
+javax/annotation/concurrent @@rules_jvm_external++maven+maven//:io_github_eisop_dataflow_errorprone
+javax/annotation/meta @@rules_jvm_external++maven+maven//:io_github_eisop_dataflow_errorprone

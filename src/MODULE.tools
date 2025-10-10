@@ -7,7 +7,7 @@ module(name = "bazel_tools")
 bazel_dep(name = "rules_license", version = "1.0.0")
 
 bazel_dep(name = "buildozer", version = "8.2.0.bcr.1")
-bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
 
 # Enforce a minimal required version
@@ -36,14 +36,15 @@ use_repo(buildozer_binary, "buildozer_binary")
 
 # Dependencies used to auto-load removed symbols and rules from Bazel (due to Starlarkification)
 # See also:  --incompatible_autoload_externally, AutoloadSymbols
-bazel_dep(name = "protobuf", version = "32.0", repo_name = "com_google_protobuf")
-bazel_dep(name = "rules_java", version = "8.15.2")
+bazel_dep(name = "protobuf", version = "32.1", repo_name = "com_google_protobuf")
+bazel_dep(name = "rules_java", version = "8.16.1")
 bazel_dep(name = "rules_cc", version = "0.2.9")
 bazel_dep(name = "rules_python", version = "1.4.1")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "apple_support", version = "1.23.1", repo_name = None)
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None) # version bump, older versions contribute lockfile entries
 bazel_dep(name = "rules_swift", version = "2.8.2", repo_name = None) # version bump, older versions don't load JavaInfo
+bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None) # version bump, fixes errors with older compilers
 # add rules_android
 
 register_toolchains(

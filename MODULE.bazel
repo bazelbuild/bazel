@@ -13,8 +13,8 @@ module(
 # Bazel module dependencies
 # =========================================
 
-bazel_dep(name = "abseil-cpp", version = "20250512.1")
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "abseil-cpp", version = "20250814.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.1")
 bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
@@ -25,7 +25,7 @@ bazel_dep(name = "grpc", version = "1.73.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "protobuf", version = "32.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
-bazel_dep(name = "rules_java", version = "8.15.2")
+bazel_dep(name = "rules_java", version = "8.16.1")
 bazel_dep(name = "rules_jvm_external", version = "6.6")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
@@ -157,9 +157,9 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
+        "com.dylibso.chicory:log:1.5.2",
         "com.dylibso.chicory:runtime:1.5.2",
         "com.dylibso.chicory:wasm:1.5.2",
-        "com.dylibso.chicory:log:1.5.2",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
@@ -193,6 +193,7 @@ maven.install(
         "com.squareup:javapoet:1.12.0",
         "commons-collections:commons-collections:3.2.2",
         "commons-lang:commons-lang:2.6",
+        "io.github.eisop:dataflow-errorprone:jar:3.49.3-eisop1",
         "io.github.java-diff-utils:java-diff-utils:4.12",
         "io.grpc:grpc-api:1.66.0",
         "io.grpc:grpc-auth:1.66.0",
@@ -238,7 +239,7 @@ maven.install(
         "org.apache.commons:commons-compress:1.26.1",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
-        "org.checkerframework:checker-qual:3.42.0",
+        "org.checkerframework:checker-qual:3.49.3",
         "org.commonmark:commonmark:0.25.0",
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
@@ -271,6 +272,14 @@ maven.install(
     ],
     strict_visibility = True,
 )
+maven.override(
+    coordinates = "com.google.api.grpc:proto-google-common-protos",
+    target = "@googleapis//google/rpc:rpc_java_proto",
+)
+maven.override(
+    coordinates = "io.github.eisop:checker-qual",
+    target = "@maven//:org_checkerframework_checker_qual",
+)
 
 # Test only maven dependencies
 [
@@ -289,7 +298,7 @@ maven.install(
         "com.google.truth.extensions:truth-java8-extension:1.4.0",
         "com.google.truth.extensions:truth-liteproto-extension:1.4.0",
         "com.google.truth.extensions:truth-proto-extension:1.4.0",
-        "org.mockito:mockito-core:5.4.0",
+        "org.mockito:mockito-core:5.20.0",
     ]]
 ]
 
@@ -468,6 +477,8 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 # =========================================
 
 register_execution_platforms("//:default_host_platform")
+
+register_toolchains("//:all")
 
 register_toolchains("@rules_python//python:autodetecting_toolchain")
 
