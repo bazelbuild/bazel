@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -199,6 +200,36 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(args).contains("-w /tmp");
     assertThat(args).contains("-e /tmp");
     assertThat(args).doesNotContain("-m /tmp");
+  }
+
+  @Test
+  public void cgroup_createsCgroupIfNotDisabled() throws Exception {
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(createCommandEnvironment());
+    Spawn spawn = new SpawnBuilder("cat", "/proc/self/cgroup").build();
+    Path stdout = testRoot.getChild("stdout");
+    SpawnExecutionContext policy = createSpawnExecutionContext(spawn, stdout);
+
+    SpawnResult spawnResult = runner.exec(spawn, policy);
+
+    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(spawnResult.exitCode()).isEqualTo(0);
+    assertThat(FileSystemUtils.readLines(stdout, UTF_8)).contains("bazel_");
+  }
+
+  @Test
+  public void cgroup_canDisableWithExecReq() throws Exception {
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(createCommandEnvironment());
+    Spawn spawn = new SpawnBuilder("cat", "/proc/self/cgroup")
+        .withExecutionInfo(ExecutionRequirements.NO_SUPPORTS_CGROUPS, "1")
+        .build();
+    Path stdout = testRoot.getChild("stdout");
+    SpawnExecutionContext policy = createSpawnExecutionContext(spawn, stdout);
+
+    SpawnResult spawnResult = runner.exec(spawn, policy);
+
+    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(spawnResult.exitCode()).isEqualTo(0);
+    assertThat(FileSystemUtils.readLines(stdout, UTF_8)).doesNotContain("bazel_");
   }
 
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(
