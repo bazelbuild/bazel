@@ -24,10 +24,9 @@ import java.util.Collection;
 import java.util.Optional;
 
 /** Event that records the fact that a file has been downloaded from a remote registry. */
-public record RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum)
-    implements Postable {
+record RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum) implements Postable {
 
-  public static RegistryFileDownloadEvent create(String uri, Optional<byte[]> content) {
+  static RegistryFileDownloadEvent create(String uri, Optional<byte[]> content) {
     return new RegistryFileDownloadEvent(uri, content.map(RegistryFileDownloadEvent::computeHash));
   }
 
