@@ -2,7 +2,7 @@ name: Feature request
 description: Suggest a new feature
 labels: ["type: feature request", "untriaged"]
 assignees:
-  - sgowroji
+  - bharadwaj08-one
   - iancha1992
   - satyanandak
 body:

@@ -2,7 +2,7 @@ name: Bug report
 description: File a bug report
 labels: ["type: bug", "untriaged"]
 assignees:
-  - sgowroji
+  - bharadwaj08-one
   - iancha1992
   - satyanandak
 body:
