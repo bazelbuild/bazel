@@ -21,9 +21,9 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# should match the java_runtime in `_BASE_TOOLCHAIN_CONFIGURATION` in
-# `@rules_java//toolchains/default_java_toolchain.bzl`
-DEFAULT_JAVA_RUNTIME_VERSION="remotejdk21"
+# should match the java_runtime of the default Java (compilation) toolchains
+# registered by rules_java.
+DEFAULT_JAVA_RUNTIME_VERSION="remotejdk25"
 
 function test_server_javabase() {
   mkdir -p test_server_javabase/bin
