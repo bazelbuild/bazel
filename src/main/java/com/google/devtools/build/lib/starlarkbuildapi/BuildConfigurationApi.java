@@ -75,6 +75,25 @@ public interface BuildConfigurationApi extends StarlarkValue {
               + " function.")
   boolean isCodeCoverageEnabled();
 
+  @StarlarkMethod(
+      name = "short_id",
+      structField = true,
+      doc =
+          """
+          A short identifier for this configuration understood by the <code>config</code> and \
+          </code>query</code> subcommands. \
+
+          <p>Use this to distinguish different configurations for the same target in a way that \
+          is friendly to humans and tool usage, for example in an aspect used by an IDE. \
+          Keep in mind the following caveats: \
+          <ul> \
+            <li>The value may differ across Bazel versions, including patch releases. \
+            <li>The value encodes the value of <b>every</b> flag, including those that aren't \
+                otherwise relevant for the current target and may thus invalidate caches more \
+                frequently.
+          """)
+  String getShortId();
+
   @StarlarkMethod(name = "stamp_binaries", documented = false, useStarlarkThread = true)
   boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException;
 
