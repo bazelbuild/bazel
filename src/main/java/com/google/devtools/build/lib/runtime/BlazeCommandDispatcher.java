@@ -206,7 +206,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     synchronized (commandLock) {
       while (currentClientDescription != null) {
         switch (lockingMode) {
-          case WAIT:
+          case WAIT -> {
             if (!otherClientDescription.equals(currentClientDescription)) {
               String serverDescription =
                   serverPid == UNKNOWN_SERVER_PID ? "" : (" (server_pid=" + serverPid + ")");
@@ -218,9 +218,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               otherClientDescription = currentClientDescription;
             }
             commandLock.wait(500);
-            break;
-
-          case ERROR_OUT:
+          }
+          case ERROR_OUT -> {
             String message =
                 String.format(
                     "Another command (%s) is running. Exiting immediately.",
@@ -228,9 +227,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             outErr.printErrLn(message);
             return createDetailedCommandResult(
                 message, FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
-
-          default:
-            throw new IllegalStateException();
+          }
         }
 
         multipleAttempts = true;
@@ -684,7 +681,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // Parse starlark options.
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
-        earlyExitCode = optionHandler.parseStarlarkOptions(env);
+        earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
       }
       if (!earlyExitCode.isSuccess()) {
         reporter.post(

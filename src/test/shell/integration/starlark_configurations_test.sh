@@ -120,6 +120,18 @@ function test_set_flag() {
   expect_log "type=coffee"
 }
 
+function test_set_flag_with_space_before_value() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  write_build_setting_bzl
+
+  bazel build //$pkg:my_drink --//$pkg:type coffee \
+    > output 2>"$TEST_log" && fail "Expected success"
+
+  expect_log "Expected value after --//$pkg:type. Did you mean --//$pkg:type=coffee?"
+}
+
 function test_starlark_and_native_flag() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -1015,6 +1027,16 @@ EOF
 }
 
 function test_transitions_baseline_options_affect_mnemonic() {
+  rm -rf tools/allowlists/function_transition_allowlist
+  mkdir -p tools/allowlists/function_transition_allowlist
+  cat > tools/allowlists/function_transition_allowlist/BUILD <<EOF
+package_group(
+    name = "function_transition_allowlist",
+    packages = [
+        "//...",
+    ],
+)
+EOF
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p ${pkg}
   cat > "${pkg}/BUILD" <<EOF

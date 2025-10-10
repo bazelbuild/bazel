@@ -335,7 +335,7 @@ public class StarlarkOptionsParser {
           throw new OptionsParsingException(
               "Illegal use of 'no' prefix on non-boolean option: " + name, name);
         }
-        throw new OptionsParsingException("Expected value after " + arg);
+        throw new OptionsParsingException("Expected value after " + arg, arg);
       }
     }
     return true;
