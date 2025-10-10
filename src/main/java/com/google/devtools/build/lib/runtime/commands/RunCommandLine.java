@@ -91,7 +91,7 @@ class RunCommandLine {
    * <p>Arguments from the {@code run} command line are omitted as to avoid possibly leaking
    * sensitive user-provided information in logging, BEP, etc.
    */
-  String getPrettyArgs() {
+  String getPrettyArgs(boolean runOmitRunArgs) {
     StringBuilder result = new StringBuilder();
     if (prettyRunUnderPrefix != null) {
       result.append(prettyRunUnderPrefix).append(" ");
@@ -103,7 +103,7 @@ class RunCommandLine {
       result.append(ShellEscaper.escapeString(prettyArgs.get(i)));
     }
     if (!residue.isEmpty()) {
-      if (false) {
+      if (runOmitRunArgs) {
         result.append(" <args omitted>");
       } else {
         for (int i = 0; i < residue.size(); i++) {
