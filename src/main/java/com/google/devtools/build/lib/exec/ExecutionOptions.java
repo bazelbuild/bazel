@@ -309,11 +309,13 @@ public class ExecutionOptions extends OptionsBase {
               + "types of resources. Bazel will limit concurrently running actions "
               + "based on the available resources and the resources required. "
               + "Tests can declare the amount of resources they need "
-              + "by using a tag of the \"resources:<resource name>:<amount>\" format.",
+              + "by using a tag of the \"resources:<resource name>:<amount>\" format. "
+              + "By default, bazel sets cpu to the number of cpus available on the host "
+              + "and memory to 67% of the host RAM",
       converter = ResourceConverter.AssignmentConverter.class)
   public List<Map.Entry<String, Double>> localResources;
 
-  public ImmutableMap<String, Double> getLocalResource() {
+  public ImmutableMap<String, Double> getLocalResources() {
     ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
     resources.put(ResourceSet.CPU, LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
     resources.put(ResourceSet.MEMORY, .67 * LocalHostCapacity.getLocalHostCapacity().getMemoryMb());

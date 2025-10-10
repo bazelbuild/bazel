@@ -946,7 +946,7 @@ public class ExecutionTool {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
-            options.getLocalResource(),
+            options.getLocalResources(),
             options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
 
     resourceMgr.initializeCpuLoadFunctionality(

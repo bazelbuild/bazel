@@ -153,7 +153,7 @@ public class DynamicExecutionModule extends BlazeModule {
     registerSpawnStrategies(
         registryBuilder,
         options,
-        execOptions.getLocalResource().get(ResourceSet.CPU).intValue(),
+        execOptions.getLocalResources().get(ResourceSet.CPU).intValue(),
         env.getOptions().getOptions(BuildRequestOptions.class).jobs);
   }
 
