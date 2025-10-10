@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import net.starlark.java.eval.StarlarkSemantics;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -67,7 +68,7 @@ public final class Json implements StarlarkValue {
 
   /** An interface for StarlarkValue subclasses to define their own JSON encoding. */
   public interface Encodable {
-    String encodeJSON();
+    Object objectForEncoding(StarlarkSemantics semantics);
   }
 
   /**
@@ -103,9 +104,10 @@ public final class Json implements StarlarkValue {
               + "</ul>\n"
               + "An application-defined type may define its own JSON encoding.\n"
               + "Encoding any other value yields an error.\n",
-      parameters = {@Param(name = "x")})
-  public String encode(Object x) throws EvalException, InterruptedException {
-    Encoder enc = new Encoder();
+      parameters = {@Param(name = "x")},
+      useStarlarkThread = true)
+  public String encode(Object x, StarlarkThread thread) throws EvalException, InterruptedException {
+    Encoder enc = new Encoder(thread.getSemantics());
     try {
       enc.encode(x);
     } catch (StackOverflowError unused) {
@@ -117,8 +119,17 @@ public final class Json implements StarlarkValue {
   private static final class Encoder {
 
     private final StringBuilder out = new StringBuilder();
+    private final StarlarkSemantics semantics;
+
+    private Encoder(StarlarkSemantics semantics) {
+      this.semantics = semantics;
+    }
 
     private void encode(Object x) throws EvalException, InterruptedException {
+      if (x instanceof Encodable) {
+        x = ((Encodable) x).objectForEncoding(semantics);
+      }
+
       if (x == Starlark.NONE) {
         out.append("null");
         return;
@@ -139,13 +150,6 @@ public final class Json implements StarlarkValue {
           throw Starlark.errorf("cannot encode non-finite float %s", x);
         }
         out.append(x.toString()); // always contains a decimal point or exponent
-        return;
-      }
-
-      if (x instanceof Encodable) {
-        // Application-defined Starlark value types
-        // may define their own JSON encoding.
-        out.append(((Encodable) x).encodeJSON());
         return;
       }
 
@@ -204,7 +208,7 @@ public final class Json implements StarlarkValue {
         // Sort keys for determinism.
         List<String> fields =
             Ordering.natural()
-                .sortedCopy(Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, x));
+                .sortedCopy(Starlark.dir(Mutability.IMMUTABLE, semantics, x));
 
         out.append('{');
         String sep = "";
@@ -217,7 +221,7 @@ public final class Json implements StarlarkValue {
             Object v =
                 Starlark.getattr(
                     Mutability.IMMUTABLE,
-                    StarlarkSemantics.DEFAULT,
+                    semantics,
                     x,
                     field,
                     null); // may fail (field not defined)
@@ -691,10 +695,11 @@ public final class Json implements StarlarkValue {
         @Param(name = "x"),
         @Param(name = "prefix", positional = false, named = true, defaultValue = "''"),
         @Param(name = "indent", positional = false, named = true, defaultValue = "'\\t'"),
-      })
-  public String encodeIndent(Object x, String prefix, String indent)
+      },
+      useStarlarkThread = true)
+  public String encodeIndent(Object x, String prefix, String indent, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    return indent(encode(x), prefix, indent);
+    return indent(encode(x, thread), prefix, indent);
   }
 
   private static final class Indenter {
