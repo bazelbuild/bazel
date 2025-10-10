@@ -116,7 +116,7 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//example:custom");
     Provider.Key key =
-        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//example:rule.bzl")), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//example:rule.bzl"), "MyInfo");
     StructImpl myInfo = (StructImpl) target.get(key);
     String firstShortId = (String) myInfo.getValue("short_id");
     assertThat(firstShortId).isEqualTo(target.getConfigurationKey().getOptions().shortId());
