@@ -462,7 +462,7 @@ public class CompactPersistentActionCache implements ActionCache {
           "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
 
       reporterForInitializationErrors.handle(
-          Event.error(
+          Event.warn(
               "Error during action cache initialization: "
                   + e.getMessage()
                   + ". Data may be incomplete, potentially causing rebuilds"));

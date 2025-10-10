@@ -24,9 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Validates corrupted action cache behavior.
- */
+/** Validates corrupted action cache behavior. */
 @RunWith(JUnit4.class)
 public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
 
@@ -55,13 +53,13 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     byte[] content = FileSystemUtils.readContent(corruptedPath);
     FileSystemUtils.writeContent(corruptedPath, Arrays.copyOf(content, content.length - 1));
 
-    // Don't crash when we try to log an error message about the corrupt cache.
+    // Don't crash when we try to log a warning message about the corrupt cache.
     LoggingUtil.installRemoteLoggerForTesting(null);
 
-    // Build should still succeed but there should be an action cache error message.
+    // Build should still succeed but there should be an action cache warning message.
     assertThat(buildTarget("//foo:foo").getSuccess()).isTrue();
-    assertThat(events.errors()).hasSize(1);
-    events.assertContainsError("Error during action cache initialization");
-    events.assertContainsError("Data may be incomplete, potentially causing rebuilds");
+    assertThat(events.warnings()).hasSize(1);
+    events.assertContainsWarning("Error during action cache initialization");
+    events.assertContainsWarning("Data may be incomplete, potentially causing rebuilds");
   }
 }
