@@ -57,7 +57,6 @@ common --jvmopt=--sun-misc-unsafe-memory-access=allow
 
 # Fail if a production classpath contains different versions of the same class
 build --experimental_one_version_enforcement=ERROR
-build --noone_version_enforcement_on_java_tests
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
