@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
-import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
-import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
-import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.naturalOrder;
@@ -45,6 +43,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.TreeMultimap;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
@@ -62,7 +61,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.RxUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
@@ -76,23 +75,21 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Timestamp;
-import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** UploadManifest adds output metadata to a {@link ActionResult}. */
@@ -595,33 +592,83 @@ public class UploadManifest {
       CombinedCache combinedCache,
       ExtendedEventHandler reporter)
       throws IOException, InterruptedException, ExecException {
+    ActionExecutionMetadata action = context.getSpawnOwner();
+    var actionResult = result.build();
+
+    var allCasDigests = new HashSet<>(digestToFile.keySet());
+    allCasDigests.addAll(digestToBlobs.keySet());
+    boolean uploadActionResult = result.getExitCode() == 0 && actionKey != null;
+    // Ensure that every download is only declared finished once.
+    // Note that the action key digest is always distinct from any file or blob digest since it is
+    // derived by hashing all the latter together with additional information.
+    Set<Digest> unfinishedDownloads = ConcurrentHashMap.newKeySet(allCasDigests.size() + 1);
+    unfinishedDownloads.addAll(allCasDigests);
+    if (uploadActionResult) {
+      unfinishedDownloads.add(actionKey.digest());
+    }
+
+    reportUploadStarted(reporter, action, Store.CAS, allCasDigests);
+    if (uploadActionResult) {
+      reportUploadStarted(reporter, action, Store.AC, ImmutableList.of(actionKey.digest()));
+    }
     try {
-      return uploadAsync(context, combinedCache, reporter).blockingGet();
-    } catch (RuntimeException e) {
-      Throwable cause = e.getCause();
-      if (cause != null) {
-        throwIfInstanceOf(cause, InterruptedException.class);
-        throwIfInstanceOf(cause, IOException.class);
-        throwIfInstanceOf(cause, ExecException.class);
+      var uploadFutures = new ArrayList<ListenableFuture<Void>>();
+
+      if (uploadActionResult) {
+        var uploadFuture = combinedCache.uploadActionResult(context, actionKey, actionResult);
+        uploadFuture.addListener(
+            () ->
+                reportUploadFinished(
+                    reporter,
+                    action,
+                    Store.AC,
+                    ImmutableList.of(actionKey.digest()),
+                    unfinishedDownloads),
+            directExecutor());
+        uploadFutures.add(uploadFuture);
       }
-      throw e;
+
+      var missingDigests = getFromFuture(findMissingDigests(context, combinedCache, allCasDigests));
+      var presentDigests =
+          allCasDigests.stream()
+              .filter(digest -> !missingDigests.contains(digest))
+              .collect(toImmutableList());
+      reportUploadFinished(reporter, action, Store.CAS, presentDigests, unfinishedDownloads);
+      for (var digest : missingDigests) {
+        var uploadFuture = uploadSingleDigest(context, combinedCache, digest);
+        uploadFuture.addListener(
+            () ->
+                reportUploadFinished(
+                    reporter, action, Store.CAS, ImmutableList.of(digest), unfinishedDownloads),
+            directExecutor());
+        uploadFutures.add(uploadFuture);
+      }
+
+      getFromFuture(Utils.mergeBulkTransfer(uploadFutures));
+      return actionResult;
+    } finally {
+      reportUploadFinished(reporter, action, Store.CAS, allCasDigests, unfinishedDownloads);
+      if (uploadActionResult) {
+        reportUploadFinished(
+            reporter, action, Store.AC, ImmutableList.of(actionKey.digest()), unfinishedDownloads);
+      }
     }
   }
 
-  private Completable upload(
+  private ListenableFuture<Void> uploadSingleDigest(
       RemoteActionExecutionContext context, CombinedCache combinedCache, Digest digest) {
     Path file = digestToFile.get(digest);
     if (file != null) {
-      return toCompletable(() -> combinedCache.uploadFile(context, digest, file), directExecutor());
+      return combinedCache.uploadFile(context, digest, file);
     }
 
     ByteString blob = digestToBlobs.get(digest);
     if (blob == null) {
-      String message = "FindMissingBlobs call returned an unknown digest: " + digest;
-      return Completable.error(new IOException(message));
+      return Futures.immediateFailedFuture(
+          new IOException("FindMissingBlobs call returned an unknown digest: " + digest));
     }
 
-    return toCompletable(() -> combinedCache.uploadBlob(context, digest, blob), directExecutor());
+    return combinedCache.uploadBlob(context, digest, blob);
   }
 
   private static void reportUploadStarted(
@@ -640,69 +687,15 @@ public class UploadManifest {
       ExtendedEventHandler reporter,
       @Nullable ActionExecutionMetadata action,
       Store store,
-      Iterable<Digest> digests) {
+      Iterable<Digest> digests,
+      Set<Digest> unfinishedDownloads) {
     if (action != null) {
       for (Digest digest : digests) {
-        reporter.post(ActionUploadFinishedEvent.create(action, store, digest));
+        if (unfinishedDownloads.remove(digest)) {
+          reporter.post(ActionUploadFinishedEvent.create(action, store, digest));
+        }
       }
     }
-  }
-
-  /**
-   * Returns a {@link Single} which upon subscription will upload outputs and action result (if exit
-   * code is 0) to remote cache.
-   */
-  public Single<ActionResult> uploadAsync(
-      RemoteActionExecutionContext context,
-      CombinedCache combinedCache,
-      ExtendedEventHandler reporter) {
-    Collection<Digest> digests = new ArrayList<>();
-    digests.addAll(digestToFile.keySet());
-    digests.addAll(digestToBlobs.keySet());
-
-    ActionExecutionMetadata action = context.getSpawnOwner();
-
-    Flowable<RxUtils.TransferResult> bulkTransfers =
-        toSingle(() -> findMissingDigests(context, combinedCache, digests), directExecutor())
-            .doOnSubscribe(d -> reportUploadStarted(reporter, action, Store.CAS, digests))
-            .doOnError(error -> reportUploadFinished(reporter, action, Store.CAS, digests))
-            .doOnDispose(() -> reportUploadFinished(reporter, action, Store.CAS, digests))
-            .doOnSuccess(
-                missingDigests -> {
-                  List<Digest> existedDigests =
-                      digests.stream()
-                          .filter(digest -> !missingDigests.contains(digest))
-                          .collect(Collectors.toList());
-                  reportUploadFinished(reporter, action, Store.CAS, existedDigests);
-                })
-            .flatMapPublisher(Flowable::fromIterable)
-            .flatMapSingle(
-                digest ->
-                    toTransferResult(upload(context, combinedCache, digest))
-                        .doFinally(
-                            () ->
-                                reportUploadFinished(
-                                    reporter, action, Store.CAS, ImmutableList.of(digest))));
-    Completable uploadOutputs = mergeBulkTransfer(bulkTransfers);
-
-    ActionResult actionResult = result.build();
-    Completable uploadActionResult = Completable.complete();
-    if (actionResult.getExitCode() == 0 && actionKey != null) {
-      uploadActionResult =
-          toCompletable(
-                  () -> combinedCache.uploadActionResult(context, actionKey, actionResult),
-                  directExecutor())
-              .doOnSubscribe(
-                  d ->
-                      reportUploadStarted(
-                          reporter, action, Store.AC, ImmutableList.of(actionKey.digest())))
-              .doFinally(
-                  () ->
-                      reportUploadFinished(
-                          reporter, action, Store.AC, ImmutableList.of(actionKey.digest())));
-    }
-
-    return Completable.concatArray(uploadOutputs, uploadActionResult).toSingleDefault(actionResult);
   }
 
   private ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
@@ -720,5 +713,19 @@ public class UploadManifest {
     }
 
     return future;
+  }
+
+  private static <T> T getFromFuture(ListenableFuture<T> future)
+      throws IOException, InterruptedException, ExecException {
+    try {
+      return future.get();
+    } catch (ExecutionException e) {
+      Throwable cause = checkNotNull(e.getCause());
+      throwIfInstanceOf(cause, InterruptedException.class);
+      throwIfInstanceOf(cause, IOException.class);
+      throwIfInstanceOf(cause, ExecException.class);
+      throwIfUnchecked(cause);
+      throw new IllegalStateException("Unexpected exception type: " + cause);
+    }
   }
 }
