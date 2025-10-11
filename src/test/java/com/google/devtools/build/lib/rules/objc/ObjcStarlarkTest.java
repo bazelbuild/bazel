@@ -832,6 +832,7 @@ swift_binary = rule(
         """);
 
     useConfiguration(
+        "--incompatible_avoid_hardcoded_objc_compilation_flags=false",
         "--compilation_mode=opt",
         "--ios_simulator_device='iPhone 6'",
         "--ios_simulator_version=8.4",
