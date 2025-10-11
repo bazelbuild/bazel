@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
@@ -28,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -202,6 +204,12 @@ final class Discovery {
       return nextHorizon.build();
     }
 
+    private static final ImmutableSet<FailureDetails.ExternalDeps.Code> SHOW_DEP_CHAIN =
+        Sets.immutableEnumSet(
+            EnumSet.of(
+                FailureDetails.ExternalDeps.Code.BAD_MODULE,
+                FailureDetails.ExternalDeps.Code.MODULE_NOT_FOUND));
+
     /**
      * When an exception occurs while discovering a new dep, try to add information about the
      * dependency chain that led to that dep.
@@ -209,11 +217,10 @@ final class Discovery {
     private ExternalDepsException maybeReportDependencyChain(
         ExternalDepsException e, ModuleKey depKey) {
       if (e.getDetailedExitCode().getFailureDetail() == null
-          || e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode()
-              != FailureDetails.ExternalDeps.Code.BAD_MODULE) {
-        // This is not due to a bad module, so don't print a dependency chain. This covers cases
-        // such as a parse error in the lockfile or an I/O exception during registry access,
-        // which aren't related to any particular module dep.
+          || !SHOW_DEP_CHAIN.contains(
+              e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode())) {
+        // This covers cases such as a parse error in the lockfile or an I/O exception during
+        // registry access, which aren't related to any particular module dep.
         return e;
       }
       // Trace back a dependency chain to the root module. There can be multiple paths to the
