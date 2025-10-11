@@ -150,7 +150,7 @@ public class HtmlUtils {
     usage.append("</dt>\n");
     usage.append("<dd>\n");
     if (!optionDefinition.getHelpText().isEmpty()) {
-      usage.append(Markdown.renderToHtml(escaper.escape(optionDefinition.getHelpText())));
+      usage.append(Markdown.renderToHtml(optionDefinition.getHelpText()));
       usage.append('\n');
     }
 

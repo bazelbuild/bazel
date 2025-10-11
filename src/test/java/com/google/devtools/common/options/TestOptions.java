@@ -276,6 +276,8 @@ public class TestOptions extends OptionsBase {
 
           paragraph 2
 
+          `<HTML> "syntax" 'within' &codeblocks&` 
+
           [ref]: /url (title)
           [shorthand reference link]: /url (title)
           [`complex` shorthand reference link]: /url (title)
