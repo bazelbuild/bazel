@@ -344,10 +344,10 @@ public class RetrierTest {
     Supplier<Backoff> s = () -> new ZeroBackoff(maxRetries);
     List<Status> retriableGrpcError =
         Arrays.asList(Status.ABORTED, Status.UNKNOWN, Status.DEADLINE_EXCEEDED);
-    List<Status> nonRetriableGrpcError =
-        Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
+    List<Status> nonRetriableGrpcError = Arrays.asList(Status.DATA_LOSS, Status.OUT_OF_RANGE);
     TripAfterNCircuitBreaker cb =
-        new TripAfterNCircuitBreaker(retriableGrpcError.size() * (maxRetries + 1));
+        new TripAfterNCircuitBreaker(
+            retriableGrpcError.size() * (maxRetries + 1) + nonRetriableGrpcError.size());
     Retrier r = new Retrier(s, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService, cb);
 
     int expectedConsecutiveFailures = 0;
@@ -363,7 +363,7 @@ public class RetrierTest {
       assertThat(cb.consecutiveFailures).isEqualTo(expectedConsecutiveFailures);
     }
 
-    assertThat(cb.state).isEqualTo(State.REJECT_CALLS);
+    assertThat(cb.state).isEqualTo(State.ACCEPT_CALLS);
     cb.trialCall();
 
     for (Status status : nonRetriableGrpcError) {
@@ -372,19 +372,20 @@ public class RetrierTest {
               () -> {
                 throw new StatusRuntimeException(status);
               });
-      assertThat(cb.consecutiveFailures).isEqualTo(0);
+      expectedConsecutiveFailures += 1;
       assertThrows(ExecutionException.class, res::get);
+      assertThat(cb.consecutiveFailures).isEqualTo(expectedConsecutiveFailures);
     }
-    assertThat(cb.state).isEqualTo(State.ACCEPT_CALLS);
+    assertThat(cb.state).isEqualTo(State.REJECT_CALLS);
   }
 
   @Test
   public void testCircuitBreakerFailureAndSuccessCallOnNonRetriableGrpcError() {
     Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
     List<Status> nonRetriableFailure =
-        Arrays.asList(Status.PERMISSION_DENIED, Status.UNIMPLEMENTED, Status.DATA_LOSS);
-    List<Status> nonRetriableSuccess =
-        Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
+        Arrays.asList(
+            Status.PERMISSION_DENIED, Status.UNIMPLEMENTED, Status.DATA_LOSS, Status.OUT_OF_RANGE);
+    List<Status> nonRetriableSuccess = Arrays.asList(Status.NOT_FOUND, Status.ALREADY_EXISTS);
     TripAfterNCircuitBreaker cb = new TripAfterNCircuitBreaker(nonRetriableFailure.size());
     Retrier r = new Retrier(s, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService, cb);
 
