@@ -539,8 +539,18 @@ public final class StarlarkRuleContext
               StarlarkAttributesCollection.Builder.convertStringToLabelMap(
                   ruleContext.attributes().get(attr.getName(), BuildType.LABEL_DICT_UNARY),
                   prerequisites);
+        } else if (attr.getType() == BuildType.LABEL_LIST_DICT) {
+          ImmutableList<ConfiguredTarget> prerequisites =
+              splitPrereq.getValue().stream()
+                  .map(ConfiguredTargetAndData::getConfiguredTarget)
+                  .collect(ImmutableList.toImmutableList());
+
+          value =
+              StarlarkAttributesCollection.Builder.convertStringToLabelListMap(
+                  ruleContext.attributes().get(attr.getName(), BuildType.LABEL_LIST_DICT),
+                  prerequisites);
         } else {
-          // BuildType.LABEL_LIST
+          Preconditions.checkState(attr.getType() == BuildType.LABEL_LIST, attr);
           value =
               StarlarkList.immutableCopyOf(
                   splitPrereq.getValue().stream()
