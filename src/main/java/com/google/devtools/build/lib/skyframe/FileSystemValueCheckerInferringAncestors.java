@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -73,6 +74,7 @@ public final class FileSystemValueCheckerInferringAncestors {
   private final SyscallCache syscallCache;
   private final SkyValueDirtinessChecker skyValueDirtinessChecker;
 
+  private final Set<RootedPath> deletedDirectories = Sets.newConcurrentHashSet();
   private final Set<SkyKey> valuesToInvalidate = Sets.newConcurrentHashSet();
   private final ConcurrentMap<SkyKey, Delta> valuesToInject = new ConcurrentHashMap<>();
 
@@ -165,7 +167,7 @@ public final class FileSystemValueCheckerInferringAncestors {
         // list of deleted children and listing. It is possible for the diff to report a deleted
         // directory without listing all of the files under it as deleted.
         if (existingState == null) {
-          state = new NodeVisitState(/*collectMaybeDeletedChildren=*/ path != top);
+          state = new NodeVisitState(/* collectMaybeDeletedChildren= */ !path.equals(top));
           nodeStates.put(path, state);
         } else {
           state = existingState;
@@ -223,11 +225,51 @@ public final class FileSystemValueCheckerInferringAncestors {
       }
     }
 
+    // If any directory was deleted, invalidate all FSVs and DLSVs under it since the diff may only
+    // report the root of the deleted subtree.
+    if (!deletedDirectories.isEmpty()) {
+      var treesToInvalidate = new TreeSet<>(deletedDirectories);
+      // Optimize the walk over all keys below by trimming those trees that are subtrees of other
+      // trees to be invalidated. This allows for O(log r) lookup instead of O(n) for each key
+      // where r is the number of deleted directories that aren't transitive subdirectories of other
+      // deleted directories and n is the number of deleted directories.
+      RootedPath lastTree = null;
+      for (var treeIterator = treesToInvalidate.iterator(); treeIterator.hasNext(); ) {
+        var tree = treeIterator.next();
+        if (lastTree != null && tree.asPath().startsWith(lastTree.asPath())) {
+          treeIterator.remove();
+        } else {
+          lastTree = tree;
+        }
+      }
+
+      // FSVs and DLSVs do not track their parents, so we need to look at all keys.
+      inMemoryGraph.parallelForEach(
+          entry -> {
+            var key = entry.getKey();
+            RootedPath path;
+            if (key instanceof FileStateKey fsk) {
+              path = fsk.argument();
+            } else if (key instanceof DirectoryListingStateValue.Key dlsk) {
+              path = dlsk.argument();
+            } else {
+              return;
+            }
+            var floorPath = treesToInvalidate.floor(path);
+            if (floorPath != null
+                && path.asPath().startsWith(floorPath.asPath())
+                && !valuesToInject.containsKey(key)) {
+              valuesToInvalidate.add(key);
+            }
+          });
+    }
+
     return new ImmutableDiff(valuesToInvalidate, valuesToInject);
   }
 
   private void processEntry(RootedPath path, NodeVisitState state) throws StatFailedException {
-    NodeVisitState rootParentSentinel = new NodeVisitState(/*collectMaybeDeletedChildren=*/ false);
+    NodeVisitState rootParentSentinel =
+        new NodeVisitState(/* collectMaybeDeletedChildren= */ false);
 
     while (state != rootParentSentinel) {
       RootedPath parentPath = path.getParentDirectory();
@@ -299,6 +341,9 @@ public final class FileSystemValueCheckerInferringAncestors {
     boolean typeChanged = newFsv.getType() != oldFsv.getType();
     if (typeChanged) {
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
+      if (oldFsv.getType().isDirectory() && !newFsv.getType().exists()) {
+        deletedDirectories.add(path);
+      }
     }
     return typeChanged;
   }
