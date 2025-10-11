@@ -513,6 +513,71 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
+  // TODO(Silic0nS0ldier): Remove this allowlist once all tests have been fixed.
+  private static final ImmutableList<String> NO_OP_OPTION_ALLOWLIST =
+      ImmutableList.of(
+          "com.google.devtools.build.lib.analysis.AnalysisCachingTest.",
+          "com.google.devtools.build.lib.analysis.config.BuildOptionDetailsTest.",
+          "com.google.devtools.build.lib.analysis.config.BuildOptionsTest.",
+          "com.google.devtools.build.lib.analysis.LateBoundSplitUtil.",
+          "com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducerTest.",
+          "com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyProducerTest.",
+          "com.google.devtools.build.lib.analysis.RequiredConfigFragmentsTest.",
+          "com.google.devtools.build.lib.analysis.starlark.StarlarkTransitionTest.",
+          "com.google.devtools.build.lib.analysis.starlark.StarlarkTransitionTest.",
+          "com.google.devtools.build.lib.analysis.util.ConfigurationTestCase.",
+          "com.google.devtools.build.lib.analysis.util.DummyTestFragment.",
+          "com.google.devtools.build.lib.buildtool.ConvenienceSymlinkTest.",
+          "com.google.devtools.build.lib.rules.config.ConfigSettingTest.",
+          "com.google.devtools.build.lib.runtime.AbstractCommandTest.",
+          "com.google.devtools.build.lib.runtime.BlazeCommandDispatcherRcoptionsTest.",
+          "com.google.devtools.build.lib.runtime.BlazeCommandDispatcherTest.",
+          "com.google.devtools.build.lib.runtime.CommandInterruptionTest.",
+          "com.google.devtools.build.lib.skyframe.config.ParsedFlagsValueTest.",
+          "com.google.devtools.build.lib.skyframe.config.PlatformMappingFunctionTest.",
+          "com.google.devtools.build.lib.skyframe.config.PlatformMappingValueTest.",
+          "com.google.devtools.build.lib.testing.common.FakeOptionsTest.",
+          "com.google.devtools.build.lib.util.OptionsUtilsTest.",
+          "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexerOptions",
+          "com.google.devtools.build.lib.worker.ExampleWorkerOptions",
+          "com.google.devtools.common.options.BoolOrEnumConverterTest.",
+          "com.google.devtools.common.options.EnumConverterTest.",
+          "com.google.devtools.common.options.FieldOptionDefinitionTest.",
+          "com.google.devtools.common.options.OptionsDataTest.",
+          "com.google.devtools.common.options.OptionsMapConversionTest.",
+          "com.google.devtools.common.options.OptionsParserTest.",
+          "com.google.devtools.common.options.OptionsTest.",
+          "com.google.devtools.common.options.processor.OptionProcessorTest.",
+          "com.google.devtools.common.options.testing.OptionsTesterTest.",
+          "com.google.devtools.common.options.TestOptions");
+
+  private static void checkDeprecated(VariableElement optionField)
+      throws OptionProcessorException {
+    Option annotation = optionField.getAnnotation(Option.class);
+    ImmutableList<OptionEffectTag> effectTags = ImmutableList.copyOf(annotation.effectTags());
+    ImmutableList<OptionMetadataTag> metadataTags = ImmutableList.copyOf(annotation.metadataTags());
+    boolean hasDeprecatedAnnotation = optionField.getAnnotation(Deprecated.class) != null;
+    boolean hasDeprecatedMetadataTag = metadataTags.contains(OptionMetadataTag.DEPRECATED);
+    if (effectTags.contains(OptionEffectTag.NO_OP) && !metadataTags.contains(OptionMetadataTag.HIDDEN) && !metadataTags.contains(OptionMetadataTag.INTERNAL) && !hasDeprecatedAnnotation) {
+      // Allowlist for tests - these are in the process of being fixed.
+      String enclosingClassName = optionField.getEnclosingElement().toString();
+      boolean allowlisted = NO_OP_OPTION_ALLOWLIST.stream()
+          .anyMatch(enclosingClassName::startsWith);
+      if (!allowlisted) {
+        throw new OptionProcessorException(
+          optionField,
+          "No-op options must be annotated with @Deprecated, or have metadata tag HIDDEN or INTERNAL. Alternatively add %s to the allowlist.",
+          enclosingClassName);
+      }
+    }
+    if (hasDeprecatedMetadataTag && !hasDeprecatedAnnotation) {
+      throw new OptionProcessorException(optionField, "Options with metadata tag DEPRECATED must be annotated with @Deprecated.");
+    }
+    if (hasDeprecatedAnnotation && !hasDeprecatedMetadataTag) {
+      throw new OptionProcessorException(optionField, "Options annotated with @Deprecated must have metadata tag DEPRECATED.");
+    }
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Option.class)) {
@@ -530,6 +595,7 @@ public final class OptionProcessor extends AbstractProcessor {
         checkEffectTagRationality(optionField);
         checkMetadataTagAndCategoryRationality(optionField);
         checkNoDefaultValueForMultipleOption(optionField);
+        checkDeprecated(optionField);
       } catch (OptionProcessorException e) {
         error(e.getElementInError(), e.getMessage());
       }
