@@ -3836,12 +3836,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (checkOutputFiles) {
         fileTypesToCheck.add(FileType.OUTPUT);
       }
+      ExternalDirtinessChecker externalDirtinessChecker = null;
       if (!fileTypesToCheck.isEmpty()) {
+        externalDirtinessChecker =
+            new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck);
         dirtinessCheckers =
-            Iterables.concat(
-                dirtinessCheckers,
-                ImmutableList.of(
-                    new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck)));
+            Iterables.concat(dirtinessCheckers, ImmutableList.of(externalDirtinessChecker));
       }
       checkArgument(!Iterables.isEmpty(dirtinessCheckers));
 
@@ -3854,6 +3854,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             fsvc.getDirtyKeys(
                 memoizingEvaluator.getValues(),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
+      }
+      if (externalDirtinessChecker != null) {
+        recordingDiffer.invalidate(
+            externalFilesHelper.getExtraKeysToInvalidate(
+                externalDirtinessChecker.getDirtyExternalRepos(), eventHandler));
       }
       handleChangedFiles(
           diffPackageRootsUnderWhichToCheck,

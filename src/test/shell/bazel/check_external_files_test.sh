@@ -101,11 +101,20 @@ test_check_external_files() {
   bazel build @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
   echo "broken file" > bazel-main/external/+http_archive+remote/BUILD
+  bazel build @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "WARNING: Repository '@@+http_archive+remote' will be fetched again since the file 'BUILD' has been modified externally."
+}
+
+test_check_external_files_disabled() {
+  setup_remote
+  bazel build @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
+
+  echo "broken file" > bazel-main/external/+http_archive+remote/BUILD
   # The --noexperimental_check_external_repository_files flag doesn't notice the file is broken
   bazel build --noexperimental_check_external_repository_files @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
-  bazel build @remote//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@@+http_archive+remote//:g'"
+  bazel build @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "WARNING: Repository '@@+http_archive+remote' will be fetched again since the file 'BUILD' has been modified externally."
 }
 
 test_check_all_flags_fast() {
