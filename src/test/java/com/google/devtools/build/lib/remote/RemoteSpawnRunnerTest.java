@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -275,7 +276,8 @@ public class RemoteSpawnRunnerTest {
             tempPathGenerator,
             remoteOutputChecker,
             ActionOutputDirectoryHelper.createForTesting(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            new RunfilesTreeUpdater(execRoot, SyscallCache.NO_CACHE));
 
     var actionFileSystem =
         new RemoteActionFileSystem(

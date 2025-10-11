@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -184,7 +185,8 @@ public interface OutputService {
    * @param symlinkTreeRoot the symlink tree root, relative to the exec root
    * @throws ExecException on failure
    */
-  void createSymlinkTree(Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot)
+  void createSymlinkTree(
+      Supplier<Map<PathFragment, PathFragment>> symlinks, PathFragment symlinkTreeRoot)
       throws ExecException, InterruptedException;
 
   /**
