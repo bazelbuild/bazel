@@ -481,6 +481,7 @@ public final class GsonTypeAdapterUtil {
   public static final Gson LOCKFILE_GSON =
       newGsonBuilder()
           .setPrettyPrinting()
+          .registerTypeAdapter(Facts.class, new FactsAdapter())
           .registerTypeAdapterFactory(new OptionalChecksumTypeAdapterFactory())
           .create();
 
