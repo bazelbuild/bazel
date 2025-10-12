@@ -642,6 +642,40 @@ class ModCommandTest(test_base.TestBase):
         parsed,
     )
 
+  def testShowRepoThrowsConflictingRepoSpecs(self):
+    expected_msg = (
+        "ERROR: the 'show_repo' command requires exactly one of --all_repos, --all_visible_repos, "
+        "or a list of repo arguments. Type 'bazel help mod' for syntax and help."
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+      ['mod', 'show_repo'],
+      rstrip=True, allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, 'no args')
+    self.assertIn(expected_msg, stderr, 'no args')
+
+    exit_code, _, stderr = self.RunBazel(
+      ['mod', 'show_repo', '--all_repos', '@foo1'],
+      rstrip=True, allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, '--all_repos args')
+    self.assertIn(expected_msg, stderr, '--all_repos args')
+
+    exit_code, _, stderr = self.RunBazel(
+      ['mod', 'show_repo', '@foo1', '--all_visible_repos'],
+      rstrip=True, allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, 'args --all_visible_repos')
+    self.assertIn(expected_msg, stderr, 'args --all_visible_repos')
+
+    exit_code, _, stderr = self.RunBazel(
+      ['mod', 'show_repo', '--all_visible_repos', '--all_repos'],
+      rstrip=True, allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, '--all_visible_repos --all_repos')
+    self.assertIn(expected_msg, stderr, '--all_visible_repos --all_repos')
+
   def testShowRepoThrowsUnusedModule(self):
     _, _, stderr = self.RunBazel(
         ['mod', 'show_repo', 'bar@1.0', '--base_module=@foo2'],

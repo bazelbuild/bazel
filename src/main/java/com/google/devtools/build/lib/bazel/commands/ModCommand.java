@@ -152,7 +152,7 @@ public final class ModCommand implements BlazeCommand {
         if (selectedModes != 1) {
           throw new InvalidArgumentException(
               "the 'show_repo' command requires exactly one of --all_repos, --all_visible_repos, or a list of repo arguments",
-              Code.TOO_MANY_ARGUMENTS);
+              selectedModes == 0 ? Code.MISSING_ARGUMENTS : Code.TOO_MANY_ARGUMENTS);
         }
         break;
     }
