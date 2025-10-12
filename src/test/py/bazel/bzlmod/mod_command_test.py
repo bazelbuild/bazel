@@ -536,6 +536,112 @@ class ModCommandTest(test_base.TestBase):
         ' repos',
     )
 
+  def _parseShowRepoOutput(self, stdout: list[str]) -> dict[str, str | list[str]]:
+    key_to_repo: dict[str, str | list[str]] = {}
+    current_key: str | None = None
+    for line in stdout:
+      if line.startswith('## '):
+        current_key = line[3:-1]  # Remove '## ' prefix and ':' suffix.
+
+      elif line.startswith('  name = "'):
+        if current_key is None:
+          self.fail(f'Found repo without key: {line}')
+
+        repo_name = line[len('  name = "'): -2]  # Remove prefix and '",' suffix.
+        if current_key in key_to_repo:
+          if isinstance(key_to_repo[current_key], str):
+            key_to_repo[current_key] = [key_to_repo[current_key], repo_name]
+          else:
+            key_to_repo[current_key].append(repo_name)
+        else:
+          key_to_repo[current_key] = repo_name
+
+    return key_to_repo
+
+  def testShowRepoAllRepos(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_repos'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    # Only has canonical repo names
+    for name in parsed:
+      self.assertTrue(
+          name.startswith('@@'),
+          f'Found non-canonical {name} -> {parsed[name]} in output',
+      )
+      self.assertEqual(
+          name, '@@' + parsed[name],
+          f'Found non-canonical {name} -> {parsed[name]} in output',
+      )
+      self.assertIsInstance(
+          parsed[name], str,
+          f'Found duplicate name in output: {name} -> {parsed[name]}',
+      )
+
+    self.assertContainsSubset(
+        [
+            # Has both versions of direct dependencies
+            '@@foo+1.0',
+            '@@foo+2.0',
+            # Has transitive dependencies
+            '@@bar+',
+            # Has module repos
+            '@@ext++ext+repo1',
+            '@@ext++ext+repo3',
+        ],
+        parsed.keys(),
+    )
+
+    self.assertNoCommonElements(
+        ['@@', '@@<root>', '@@my_project'],
+        parsed.keys(),
+        'Found main repo in output',
+    )
+    self.assertNoCommonElements(
+        ['@@foo1', '@@foo2', '@@myrepo2'],
+        parsed.keys(),
+        'Found apparent repo names in output',
+    )
+
+  def testShowRepoAllVisibleRepos(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    self.assertDictEqual(
+        {
+            '@foo1': 'foo+1.0',
+            '@foo2': 'foo+2.0',
+            '@ext': 'ext+',
+            '@ext2': 'ext2+',
+            '@myrepo': 'ext++ext+repo1',
+            '@myrepo2': 'ext2++ext+repo1',
+        },
+        parsed,
+    )
+
+  def testShowRepoAllVisibleReposFromBaseModule(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos', '--base_module=foo@2.0'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    self.assertDictEqual(
+        {
+            '@foo': 'foo+2.0',
+            '@bar_from_foo2': 'bar+',
+            '@ext_mod': 'ext+',
+            '@my_repo3': 'ext++ext+repo3',
+            '@my_repo4': 'ext++ext+repo4',
+        },
+        parsed,
+    )
+
   def testShowRepoThrowsUnusedModule(self):
     _, _, stderr = self.RunBazel(
         ['mod', 'show_repo', 'bar@1.0', '--base_module=@foo2'],
