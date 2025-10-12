@@ -21,6 +21,7 @@ from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
+from typing import Dict, List, Optional, Union
 
 
 class ModCommandTest(test_base.TestBase):
@@ -536,9 +537,9 @@ class ModCommandTest(test_base.TestBase):
         ' repos',
     )
 
-  def _parseShowRepoOutput(self, stdout: list[str]) -> dict[str, str | list[str]]:
-    key_to_repo: dict[str, str | list[str]] = {}
-    current_key: str | None = None
+  def _parseShowRepoOutput(self, stdout: List[str]) -> Dict[str, Union[str, List[str]]]:
+    key_to_repo: Dict[str, Union[str, List[str]]] = {}
+    current_key: Optional[str] = None
     for line in stdout:
       if line.startswith('## '):
         current_key = line[3:-1]  # Remove '## ' prefix and ':' suffix.
