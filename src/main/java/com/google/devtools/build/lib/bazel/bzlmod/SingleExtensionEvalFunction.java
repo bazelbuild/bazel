@@ -489,8 +489,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             .collect(
                 toImmutableBiMap(
                     e ->
-                        RepositoryName.createUnvalidated(
-                            usagesValue.getExtensionUniqueName() + "+" + e),
+                        SingleExtensionValue.repositoryName(
+                            usagesValue.getExtensionUniqueName(), e),
                     Function.identity())),
         lockFileInfo,
         fixup,
