@@ -83,7 +83,6 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    srcs = ['loweruserlib.py'],",
         "    uses_shared_libraries = True,",
         "    imports = ['loweruserlib_path'],",
-        "    has_py2_only_sources = True,",
         ")",
         "py_library(",
         "    name = 'pylib',",
@@ -109,7 +108,6 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
     assertThat(info.getUsesSharedLibraries()).isTrue();
     assertThat(info.getImportsSet().toList())
         .containsExactly("loweruserlib_path", "upperuserlib_path");
-    assertThat(info.getHasPy2OnlySources()).isTrue();
-    assertThat(info.getHasPy3OnlySources()).isTrue();
+    assertThat(info.getHasPy2OnlySources()).isFalse();
   }
 }
