@@ -70,5 +70,9 @@ message ActionCacheStatistics {
   // action cache has not been loaded in this invocation.
   uint64 load_time_in_ms = 6;
 
-  // NEXT TAG: 7
+  // Time spent waiting for the cache hit semaphore. Reported as 0 if the
+  // semaphore was not used.
+  uint64 cache_check_semaphore_wait_time_in_ms = 7;
+
+  // NEXT TAG: 8
 }

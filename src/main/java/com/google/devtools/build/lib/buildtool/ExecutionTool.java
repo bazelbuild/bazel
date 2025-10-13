@@ -144,6 +144,8 @@ public class ExecutionTool {
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
 
+  @Nullable private ActionCacheChecker actionCacheChecker;
+
   private boolean informedOutputServiceToStartTheBuild = false;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
@@ -305,6 +307,7 @@ public class ExecutionTool {
           (SkyframeBuilder)
               createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
     }
+    actionCacheChecker = skyframeBuilder.getActionCacheChecker();
 
     skyframeExecutor.drainChangedFiles();
 
@@ -986,6 +989,16 @@ public class ExecutionTool {
       Duration duration = actionCache.getLoadTime();
       if (duration != null) {
         builder.setLoadTimeInMs(duration.toMillis());
+      }
+      if (actionCacheChecker != null) {
+        long totalCacheCheckSemaphoreWaitMillis =
+            actionCacheChecker.getTotalCacheCheckSemaphoreWaitMillis();
+        if (totalCacheCheckSemaphoreWaitMillis > 0) {
+          builder.setCacheCheckSemaphoreWaitTimeInMs(totalCacheCheckSemaphoreWaitMillis);
+          logger.atInfo().log(
+              "Total action cache check semaphore wait time: %,d ms",
+              totalCacheCheckSemaphoreWaitMillis);
+        }
       }
 
       AutoProfiler p =

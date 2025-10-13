@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 
 /**
@@ -70,8 +71,10 @@ public class ActionCacheChecker {
   private final ArtifactResolver artifactResolver;
   private final ProxyMetadataFactory proxyMetadataFactory;
   private final CacheConfig cacheConfig;
+  private final AtomicLong totalCacheCheckSemaphoreWaitMillis = new AtomicLong(0);
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
+
 
   /** Cache config parameters for ActionCacheChecker. */
   @AutoValue
@@ -830,6 +833,14 @@ public class ActionCacheChecker {
         remoteDefaultPlatformProperties,
         outputChecker,
         useArchivedTreeArtifacts);
+  }
+
+  public void addCacheCheckSemaphoreWaitTime(long waitTimeMs) {
+    totalCacheCheckSemaphoreWaitMillis.addAndGet(waitTimeMs);
+  }
+
+  public long getTotalCacheCheckSemaphoreWaitMillis() {
+    return totalCacheCheckSemaphoreWaitMillis.get();
   }
 
   /**

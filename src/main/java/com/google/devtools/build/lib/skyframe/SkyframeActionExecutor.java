@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JO
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -744,9 +745,12 @@ public final class SkyframeActionExecutor {
     OutputChecker outputChecker = null;
 
     if (cacheHitSemaphore != null) {
+      Stopwatch stopwatch = Stopwatch.createStarted();
       try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
         cacheHitSemaphore.acquire();
       }
+      stopwatch.stop();
+      actionCacheChecker.addCacheCheckSemaphoreWaitTime(stopwatch.elapsed().toMillis());
     }
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       remoteOptions = this.options.getOptions(RemoteOptions.class);
