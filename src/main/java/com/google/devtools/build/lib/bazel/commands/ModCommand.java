@@ -143,18 +143,29 @@ public final class ModCommand implements BlazeCommand {
 
     // More validations can be added here in the future...
 
-    switch (subcommand) {
-      case SHOW_REPO:
-        int selectedModes = 0;
-        if (modOptions.allRepos) selectedModes++;
-        if (modOptions.allVisibleRepos) selectedModes++;
-        if (!args.isEmpty()) selectedModes++;
-        if (selectedModes != 1) {
-          throw new InvalidArgumentException(
-              "the 'show_repo' command requires exactly one of --all_repos, --all_visible_repos, or a list of repo arguments",
-              selectedModes == 0 ? Code.MISSING_ARGUMENTS : Code.TOO_MANY_ARGUMENTS);
-        }
-        break;
+    if (subcommand == ModSubcommand.SHOW_REPO) {
+      int selectedModes = 0;
+      if (modOptions.allRepos) selectedModes++;
+      if (modOptions.allVisibleRepos) selectedModes++;
+      if (!args.isEmpty()) selectedModes++;
+      if (selectedModes > 1) {
+        throw new InvalidArgumentException(
+            "the 'show_repo' command requires exactly one of --all_repos, --all_visible_repos, or a"
+                + " list of repo arguments",
+            Code.TOO_MANY_ARGUMENTS);
+      }
+    } else {
+      if (modOptions.allRepos) {
+        throw new InvalidArgumentException(
+            String.format("the '%s' command doesn't take the --all_repos option", subcommand),
+            Code.INVALID_ARGUMENTS);
+      }
+      if (modOptions.allVisibleRepos) {
+        throw new InvalidArgumentException(
+            String.format(
+                "the '%s' command doesn't take the --all_visible_repos option", subcommand),
+            Code.INVALID_ARGUMENTS);
+      }
     }
   }
 
@@ -362,7 +373,8 @@ public final class ModCommand implements BlazeCommand {
           }
         }
         case SHOW_REPO -> {
-          argsAsRepos = getReposToShow(modOptions, moduleInspector, depGraphValue, baseModuleMapping, args);
+          argsAsRepos =
+              getReposToShow(modOptions, moduleInspector, depGraphValue, baseModuleMapping, args);
         }
         case SHOW_EXTENSION -> {
           ImmutableSortedSet.Builder<ModuleExtensionId> extensionsBuilder =
@@ -572,7 +584,8 @@ public final class ModCommand implements BlazeCommand {
       BazelModuleInspectorValue moduleInspector,
       BazelDepGraphValue depGraphValue,
       RepositoryMapping baseModuleMapping,
-      List<String> args) throws InvalidArgumentException {
+      List<String> args)
+      throws InvalidArgumentException {
 
     ImmutableMap.Builder<String, RepositoryName> targetToRepoName = new ImmutableMap.Builder<>();
 
@@ -589,10 +602,12 @@ public final class ModCommand implements BlazeCommand {
       // Extension repos.
       for (Map.Entry<ModuleExtensionId, Collection<String>> extensionRepos :
           moduleInspector.extensionToRepoInternalNames().asMap().entrySet()) {
-        String extensionUniqueName = depGraphValue.getExtensionUniqueNames().get(extensionRepos.getKey());
+        String extensionUniqueName =
+            depGraphValue.getExtensionUniqueNames().get(extensionRepos.getKey());
 
         for (String internalName : extensionRepos.getValue()) {
-          RepositoryName repoName = RepositoryName.createUnvalidated(extensionUniqueName + "+" + internalName);
+          RepositoryName repoName =
+              RepositoryName.createUnvalidated(extensionUniqueName + "+" + internalName);
           targetToRepoName.put(repoName.getNameWithAt(), repoName);
         }
       }
@@ -618,11 +633,11 @@ public final class ModCommand implements BlazeCommand {
                       baseModuleMapping));
         } catch (InvalidArgumentException | OptionsParsingException e) {
           throw new InvalidArgumentException(
-                  String.format(
-                          "In repo argument %s: %s (Note that unused modules cannot be used here)",
-                          arg, e.getMessage()),
-                  Code.INVALID_ARGUMENTS,
-                  e);
+              String.format(
+                  "In repo argument %s: %s (Note that unused modules cannot be used here)",
+                  arg, e.getMessage()),
+              Code.INVALID_ARGUMENTS,
+              e);
         }
       }
     }

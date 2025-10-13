@@ -650,13 +650,6 @@ class ModCommandTest(test_base.TestBase):
     )
 
     exit_code, _, stderr = self.RunBazel(
-      ['mod', 'show_repo'],
-      rstrip=True, allow_failure=True,
-    )
-    self.assertEqual(exit_code, 2, 'no args')
-    self.assertIn(expected_msg, stderr, 'no args')
-
-    exit_code, _, stderr = self.RunBazel(
       ['mod', 'show_repo', '--all_repos', '@foo1'],
       rstrip=True, allow_failure=True,
     )

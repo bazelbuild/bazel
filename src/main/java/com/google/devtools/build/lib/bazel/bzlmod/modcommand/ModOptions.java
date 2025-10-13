@@ -182,7 +182,7 @@ public class ModOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           """
-          For `mod show_repo`: display all canonical repos in the entire workspace.
+          For `mod show_repo`: display all repos in the entire workspace.
           """)
   public boolean allRepos;
 
