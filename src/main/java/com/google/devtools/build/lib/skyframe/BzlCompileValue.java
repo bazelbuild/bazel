@@ -21,12 +21,14 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Program;
 
 /**
@@ -47,7 +49,7 @@ import net.starlark.java.syntax.Program;
 // will serve.
 //
 // TODO(adonovan): actually compile the code. The name is a step ahead of the implementation.
-public abstract class BzlCompileValue implements NotComparableSkyValue {
+public abstract sealed class BzlCompileValue implements SkyValue {
 
   public abstract boolean lookupSuccessful();
 
@@ -59,13 +61,19 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
   /** If the file is compiled successfully, this class encapsulates the compiled program. */
   @VisibleForSerialization
-  public static class Success extends BzlCompileValue {
+  public static final class Success extends BzlCompileValue {
     private final Program prog;
     private final byte[] digest;
 
-    private Success(Program prog, byte[] digest) {
+    // Only used in equals/hashCode to track dependencies of Program that the digest doesn't cover.
+    private final StarlarkSemantics semantics;
+    private final Key key;
+
+    private Success(Program prog, byte[] digest, StarlarkSemantics semantics, Key key) {
       this.prog = Preconditions.checkNotNull(prog);
       this.digest = Preconditions.checkNotNull(digest);
+      this.semantics = Preconditions.checkNotNull(semantics);
+      this.key = Preconditions.checkNotNull(key);
     }
 
     @Override
@@ -88,11 +96,26 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       throw new IllegalStateException(
           "attempted to retrieve unsuccessful lookup reason for successful lookup");
     }
+
+    @Override
+    public boolean equals(Object obj) {
+      // Intentionally omit prog from equality check since its contents use reference equality.
+      return this == obj
+          || (obj instanceof Success that
+              && Arrays.equals(this.digest, that.digest)
+              && this.semantics.equals(that.semantics)
+              && this.key.equals(that.key));
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Success.class, Arrays.hashCode(digest), semantics, key);
+    }
   }
 
   /** If the file isn't found or has errors, this class encapsulates a message with the reason. */
   @VisibleForSerialization
-  public static class Failure extends BzlCompileValue {
+  public static final class Failure extends BzlCompileValue {
     private final String errorMsg;
 
     private Failure(String errorMsg) {
@@ -119,6 +142,16 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     public String getError() {
       return this.errorMsg;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+      return this == obj || (obj instanceof Failure that && this.errorMsg.equals(that.errorMsg));
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Failure.class, errorMsg);
+    }
   }
 
   /** Constructs a value from a failure before parsing a file. */
@@ -128,8 +161,9 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a value from a compiled .bzl program. */
-  public static BzlCompileValue withProgram(Program prog, byte[] digest) {
-    return new Success(prog, digest);
+  public static BzlCompileValue withProgram(
+      Program prog, byte[] digest, StarlarkSemantics semantics, Key key) {
+    return new Success(prog, digest, semantics, key);
   }
 
   /** Types of bzl files we may encounter. */
@@ -260,5 +294,6 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
 
   /** The unique SkyKey of EMPTY_PRELUDE kind. */
   @SerializationConstant
-  static final Key EMPTY_PRELUDE_KEY = new Key(/*root=*/ null, /*label=*/ null, Kind.EMPTY_PRELUDE);
+  static final Key EMPTY_PRELUDE_KEY =
+      new Key(/* root= */ null, /* label= */ null, Kind.EMPTY_PRELUDE);
 }

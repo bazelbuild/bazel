@@ -228,7 +228,7 @@ public class BzlCompileFunction implements SkyFunction {
     }
     try {
       Program prog = Program.compileFile(file, module);
-      return BzlCompileValue.withProgram(prog, digest);
+      return BzlCompileValue.withProgram(prog, digest, semantics, key);
     } catch (SyntaxError.Exception ex) {
       Event.replayEventsOn(env.getListener(), ex.errors());
       return BzlCompileValue.noFile(
