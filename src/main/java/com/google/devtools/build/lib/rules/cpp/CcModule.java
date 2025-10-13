@@ -20,22 +20,18 @@ import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
@@ -89,7 +85,6 @@ public abstract class CcModule
     // cl/791606702
     return CcToolchainProvider.BUILTINS_PROVIDER;
   }
-
 
   @Override
   public String getToolForAction(
@@ -463,111 +458,6 @@ public abstract class CcModule
     } catch (IllegalArgumentException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
-  }
-
-  @StarlarkMethod(
-      name = "register_linkstamp_compile_action_internal",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "actions",
-            positional = false,
-            named = true,
-            doc = "<code>actions</code> object."),
-        @Param(
-            name = "cc_toolchain",
-            doc = "<code>CcToolchainInfo</code> provider to be used.",
-            positional = false,
-            named = true),
-        @Param(
-            name = "feature_configuration",
-            doc = "<code>feature_configuration</code> to be queried.",
-            positional = false,
-            named = true),
-        @Param(name = "source_file", documented = false, positional = false, named = true),
-        @Param(name = "output_file", documented = false, positional = false, named = true),
-        @Param(name = "compilation_inputs", documented = false, positional = false, named = true),
-        @Param(
-            name = "inputs_for_validation",
-            documented = false,
-            positional = false,
-            named = true),
-        @Param(name = "label_replacement", documented = false, positional = false, named = true),
-        @Param(name = "output_replacement", documented = false, positional = false, named = true),
-        @Param(
-            name = "needs_pic",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "False"),
-        @Param(
-            name = "stamping",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "None"),
-        @Param(
-            name = "compile_build_variables",
-            positional = false,
-            named = true,
-            documented = false),
-      })
-  public void registerLinkstampCompileAction(
-      StarlarkActionFactory starlarkActionFactoryApi,
-      Info ccToolchainInfo,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Artifact sourceFile,
-      Artifact outputFile,
-      Depset compilationInputs,
-      Depset inputsForValidation,
-      String labelReplacement,
-      String outputReplacement,
-      boolean needsPic,
-      Object stampingObject,
-      CcToolchainVariables compileBuildVariables,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException, TypeException, RuleErrorException {
-    isCalledFromStarlarkCcCommon(thread);
-    RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
-    boolean stamping =
-        stampingObject instanceof Boolean b
-            ? b
-            : AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration());
-    CcToolchainProvider ccToolchain = CcToolchainProvider.wrapOrThrowEvalException(ccToolchainInfo);
-    if (AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())) {
-      // Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
-      // See b/326620485 for more details.
-      var unused =
-          starlarkActionFactoryApi
-              .getRuleContext()
-              .getAnalysisEnvironment()
-              .getVolatileWorkspaceStatusArtifact();
-    }
-    CppSemantics semantics = getSemantics();
-    ImmutableList<Artifact> buildInfoHeaderArtifacts =
-        stamping
-            ? ccToolchain
-                .getCcBuildInfoTranslator()
-                .getOutputGroup("non_redacted_build_info_files")
-                .toList()
-            : ccToolchain
-                .getCcBuildInfoTranslator()
-                .getOutputGroup("redacted_build_info_files")
-                .toList();
-    starlarkActionFactoryApi.registerAction(
-        CppLinkstampCompileHelper.createLinkstampCompileAction(
-            CppLinkActionBuilder.newActionConstruction(ruleContext),
-            sourceFile,
-            outputFile,
-            compilationInputs.getSet(Artifact.class),
-            /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            inputsForValidation.getSet(Artifact.class),
-            buildInfoHeaderArtifacts,
-            ccToolchain,
-            featureConfigurationForStarlark.getFeatureConfiguration(),
-            semantics,
-            compileBuildVariables));
   }
 
   @StarlarkMethod(

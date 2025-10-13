@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.Sta
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -625,6 +626,15 @@ public class CcStarlarkInternal implements StarlarkValue {
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "additional_compilation_inputs_set",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class, generic1 = Artifact.class),
+              @ParamType(type = NoneType.class)
+            },
+            defaultValue = "None"),
+        @Param(
             name = "additional_include_scanning_roots",
             positional = false,
             named = true,
@@ -637,6 +647,42 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "lto_indexing_file", positional = false, named = true, defaultValue = "None"),
         @Param(name = "use_pic", positional = false, named = true, defaultValue = "False"),
         @Param(name = "compile_build_variables", positional = false, named = true),
+        @Param(
+            name = "cache_key_inputs",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class, generic1 = Artifact.class),
+              @ParamType(type = NoneType.class)
+            },
+            defaultValue = "None"),
+        @Param(
+            name = "build_info_header_files",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Artifact.class),
+              @ParamType(type = NoneType.class)
+            },
+            defaultValue = "None"),
+        @Param(
+            name = "action_name",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
+        @Param(
+            name = "should_scan_includes",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
+        @Param(
+            name = "shareable",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None")
       })
   public void createCppCompileAction(
       StarlarkRuleContext starlarkRuleContext,
@@ -648,6 +694,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       CppSemantics semantics,
       Artifact sourceArtifact,
       Sequence<?> additionalCompilationInputs,
+      Object additionalCompilationInputsSet,
       Sequence<?> additionalIncludeScanningRoots,
       Object outputFile,
       Object dotdFile,
@@ -656,8 +703,13 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object dwoFile,
       Object ltoIndexingFile,
       boolean usePic,
-      CcToolchainVariables compileBuildVariables)
-      throws EvalException {
+      CcToolchainVariables compileBuildVariables,
+      Object cacheKeyInputs,
+      Object buildInfoHeaderArtifacts,
+      Object actionName,
+      Object shouldScanIncludes,
+      Object shareable)
+      throws EvalException, TypeException {
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
             starlarkRuleContext,
@@ -677,7 +729,27 @@ public class CcStarlarkInternal implements StarlarkValue {
             dwoFile,
             ltoIndexingFile,
             usePic);
+    if (additionalCompilationInputsSet instanceof Depset additionalCompilationInputsDepset) {
+      builder.addMandatoryInputs(additionalCompilationInputsDepset.getSet(Artifact.class));
+    }
     builder.setVariables(compileBuildVariables);
+    if (cacheKeyInputs != Starlark.NONE) {
+      builder.setCacheKeyInputs(Depset.cast(cacheKeyInputs, Artifact.class, "cache_key_inputs"));
+    }
+    if (buildInfoHeaderArtifacts != Starlark.NONE) {
+      builder.setBuildInfoHeaderArtifacts(
+          Sequence.cast(buildInfoHeaderArtifacts, Artifact.class, "builtin_header_files")
+              .getImmutableList());
+    }
+    if (actionName instanceof String actionNameString) {
+      builder.setActionName(actionNameString);
+    }
+    if (shouldScanIncludes instanceof Boolean bool) {
+      builder.setShouldScanIncludes(bool);
+    }
+    if (shareable instanceof Boolean bool) {
+      builder.setShareable(bool);
+    }
     semantics.finalizeCompileActionBuilder(
         configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
     try {
