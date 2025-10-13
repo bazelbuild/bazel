@@ -109,6 +109,15 @@ class ModCommandTest(test_base.TestBase):
             'my_ext2 = use_extension("@ext2//:ext.bzl", "ext")',
             'my_ext2.dep(name="repo3")',
             'use_repo(my_ext2, my_repo2="repo3")',
+            (
+                'http_file ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_file")'
+            ),
+            (
+                'http_file(name="file", url="https://example.com/",'
+                ' integrity="sha256-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN/20=")'
+            ),
         ],
     )
 
@@ -181,6 +190,12 @@ class ModCommandTest(test_base.TestBase):
             '|   |   |___repo1',
             '|   |___ext@1.0 (*)',
             '|   |___bar@2.0',
+            (
+                '|      '
+                ' |___$@@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file'
+            ),
+            '|       |   |___file',
             '|       |___$@@ext+//:ext.bzl%ext ...',
             '|       |   |___repo3',
             '|       |___$@@ext2+//:ext.bzl%ext ...',
@@ -266,6 +281,12 @@ class ModCommandTest(test_base.TestBase):
             '|   |   |___repo1',
             '|   |___ext@1.0 (*)',
             '|   |___bar@2.0',
+            (
+                '|      '
+                ' |___$@@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file'
+            ),
+            '|       |   |___file',
             '|       |___$@@ext+//:ext.bzl%ext ...',
             '|       |   |___repo3',
             '|       |___$@@ext2+//:ext.bzl%ext ...',
@@ -438,6 +459,48 @@ class ModCommandTest(test_base.TestBase):
     self.assertIn(
         'No extension @@ext+//foo:unknown.bzl%x exists in the dependency graph',
         '\n'.join(stderr),
+    )
+
+  def testShowExtensionUseRepoRule(self):
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_extension',
+            (
+                '@@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file'
+            ),
+        ],
+        rstrip=True,
+    )
+    self.assertRegex(
+        stdout.pop(5),
+        r'^## Usage in bar@2\.0 from .*MODULE\.bazel:15$',
+    )
+    self.assertListEqual(
+        stdout,
+        [
+            (
+                '## @@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file:'
+            ),
+            '',
+            'Fetched repositories:',
+            '  - file (imported by bar@2.0)',
+            '',
+            # pop(5)
+            (
+                'http_file ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_file")'
+            ),
+            (
+                'http_file(name="file",'
+                ' integrity="sha256-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN/20=",'
+                ' url="https://example.com/")'
+            ),
+            '',
+        ],
     )
 
   def testShowModuleAndExtensionReposFromBaseModule(self):
