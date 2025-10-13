@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableMap;
@@ -201,6 +202,11 @@ final class Discovery {
       return nextHorizon.build();
     }
 
+    private static final ImmutableSet<FailureDetails.ExternalDeps.Code> SHOW_DEP_CHAIN =
+        immutableEnumSet(
+            FailureDetails.ExternalDeps.Code.BAD_MODULE,
+            FailureDetails.ExternalDeps.Code.MODULE_NOT_FOUND);
+
     /**
      * When an exception occurs while discovering a new dep, try to add information about the
      * dependency chain that led to that dep.
@@ -208,11 +214,10 @@ final class Discovery {
     private ExternalDepsException maybeReportDependencyChain(
         ExternalDepsException e, ModuleKey depKey) {
       if (e.getDetailedExitCode().getFailureDetail() == null
-          || e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode()
-              != FailureDetails.ExternalDeps.Code.BAD_MODULE) {
-        // This is not due to a bad module, so don't print a dependency chain. This covers cases
-        // such as a parse error in the lockfile or an I/O exception during registry access,
-        // which aren't related to any particular module dep.
+          || !SHOW_DEP_CHAIN.contains(
+              e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode())) {
+        // This covers cases such as a parse error in the lockfile or an I/O exception during
+        // registry access, which aren't related to any particular module dep.
         return e;
       }
       // Trace back a dependency chain to the root module. There can be multiple paths to the
