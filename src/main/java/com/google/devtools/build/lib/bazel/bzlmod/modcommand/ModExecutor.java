@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionUsage;
@@ -565,6 +566,14 @@ public class ModExecutor {
     return options.includeBuiltin || !isBuiltin(key);
   }
 
+  private String tagToFunctionArgs(AttributeValues attributes) {
+    return attributes.attributes().entrySet().stream()
+        // show 'name' first for readability, similar to buildifier
+        .sorted(Map.Entry.comparingByKey(Comparator.comparing(s -> s.equals("name") ? "" : s)))
+        .map(e -> String.format("%s=%s", e.getKey(), Starlark.repr(e.getValue())))
+        .collect(joining(", "));
+  }
+
   /** Helper to display show_extension info. */
   private void displayExtension(ModuleExtensionId extension, ImmutableSet<ModuleKey> fromUsages)
       throws InvalidArgumentException {
@@ -607,27 +616,51 @@ public class ModExecutor {
           module,
           usage.getProxies().getFirst().getLocation().file(),
           usage.getProxies().getFirst().getLocation().line());
-      for (Tag tag : usage.getTags()) {
-        printer.printf(
-            "%s.%s(%s)\n",
-            extension.extensionName(),
-            tag.getTagName(),
-            tag.getAttributeValues().attributes().entrySet().stream()
-                .map(e -> String.format("%s=%s", e.getKey(), Starlark.repr(e.getValue())))
-                .collect(joining(", ")));
-      }
-      printer.printf("use_repo(\n");
-      printer.printf("  %s,\n", extension.extensionName());
-      for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
-        for (Entry<String, String> repo : proxy.getImports().entrySet()) {
-          printer.printf(
-              "  %s,\n",
-              repo.getKey().equals(repo.getValue())
-                  ? String.format("\"%s\"", repo.getKey())
-                  : String.format("%s=\"%s\"", repo.getKey(), repo.getValue()));
+
+      if (extension.isInnate()) {
+        // This is for the special case of "innate" extensions: fake module extensions created by
+        // use_repo_rule(). The name of the extension is of the form "<bzl_file_label> <rule_name>".
+        // Rule names cannot contain spaces, so we can split on the last space.
+        int lastSpace = extension.extensionName().lastIndexOf(' ');
+        String rawLabel = extension.extensionName().substring(0, lastSpace);
+        String ruleName = extension.extensionName().substring(lastSpace + 1);
+
+        printer.printf("%s = use_repo_rule(\"%s\", \"%s\")\n", ruleName, rawLabel, ruleName);
+
+        for (Tag tag : usage.getTags()) {
+          // use_repo_rule creates a fake repo extension with a single tag 'repo'.
+          // However, code defensively and print the tag name if it's not 'repo'.
+          String callee = ruleName;
+          if (!tag.getTagName().equals("repo")) {
+            callee = String.format("%s.%s", ruleName, tag.getTagName());
+          }
+          printer.printf("%s(%s)\n", callee, tagToFunctionArgs(tag.getAttributeValues()));
         }
+
+        // Skip the use_repo part since every call to the repo rule creates a repo that is imported.
+        printer.println();
+
+      } else {
+        for (Tag tag : usage.getTags()) {
+          printer.printf(
+              "%s.%s(%s)\n",
+              extension.extensionName(),
+              tag.getTagName(),
+              tagToFunctionArgs(tag.getAttributeValues()));
+        }
+        printer.printf("use_repo(\n");
+        printer.printf("  %s,\n", extension.extensionName());
+        for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
+          for (Entry<String, String> repo : proxy.getImports().entrySet()) {
+            printer.printf(
+                "  %s,\n",
+                repo.getKey().equals(repo.getValue())
+                    ? String.format("\"%s\"", repo.getKey())
+                    : String.format("%s=\"%s\"", repo.getKey(), repo.getValue()));
+          }
+        }
+        printer.printf(")\n\n");
       }
-      printer.printf(")\n\n");
     }
   }
 
