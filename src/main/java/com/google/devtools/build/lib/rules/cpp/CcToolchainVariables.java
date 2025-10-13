@@ -1036,7 +1036,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       int index = 0;
       for (String key : ImmutableList.sortedCopyOf(variablesMap.keySet())) {
         keyBuilder.put(key, index++);
-        valuesBuilder.add(variablesMap.get(key));
+        Object value = variablesMap.get(key);
+        if (value instanceof Depset dv) { // Unwrap Depsets; needed to prevent memory regression
+          value = dv.getSet();
+        }
+        valuesBuilder.add(value);
       }
       this.keyToIndex = keyInterner.intern(keyBuilder.buildOrThrow());
       this.values = valuesBuilder.build();

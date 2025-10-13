@@ -326,7 +326,7 @@ def get_specific_compile_build_variables(
     if feature_configuration.is_enabled("module_maps") and cpp_module_map:
         result[_VARS.MODULE_NAME] = cpp_module_map.name()
         result[_VARS.MODULE_MAP_FILE] = cpp_module_map.file()
-        result[_VARS.DEPENDENT_MODULE_MAP_FILES] = depset(direct_module_maps)
+        result[_VARS.DEPENDENT_MODULE_MAP_FILES] = direct_module_maps
 
     result[_VARS.USER_COMPILE_FLAGS] = _cc_internal.intern_string_sequence_variable_value(user_compile_flags)
     if source_file:

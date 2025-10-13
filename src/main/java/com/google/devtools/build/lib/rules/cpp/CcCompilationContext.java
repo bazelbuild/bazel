@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.SymbolGenerator;
@@ -754,6 +755,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public StarlarkList<Artifact> getDirectModuleMapsForStarlark() {
     return StarlarkList.immutableCopyOf(getDirectModuleMaps());
+  }
+
+  @StarlarkMethod(name = "_direct_module_maps_set", structField = true, documented = false)
+  public Depset getDirectModuleMapsSetForStarlark() {
+    return Depset.of(
+        Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDirectModuleMaps()));
   }
 
   DerivedArtifact getHeaderModule(boolean usePic) {
