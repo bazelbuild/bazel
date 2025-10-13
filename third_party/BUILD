@@ -483,6 +483,12 @@ java_library(
     exports = ["@maven//:javax_annotation_javax_annotation_api"],
 )
 
+distrib_jar_filegroup(
+    name = "javax_annotations-jars",
+    srcs = ["@maven//:javax_annotation_javax_annotation_api_file"],
+    enable_distributions = ["debian"],
+)
+
 alias(
     name = "rxjava3",
     actual = "@maven//:io_reactivex_rxjava3_rxjava",
