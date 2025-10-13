@@ -54,8 +54,7 @@ public final class InvocationPolicyEnforcer {
 
   // LINT.IfChange
   private static final String INVOCATION_POLICY_SOURCE = "Invocation policy";
-  // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java,
-  // src/main/java/com/google/devtools/common/options/GlobalRcUtils.java
+  // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java, src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
   private final InvocationPolicy invocationPolicy;
   private final Level loglevel;
   @Nullable private final Object conversionContext;
