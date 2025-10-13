@@ -33,10 +33,7 @@ public abstract class BazelCompileContext {
   @Nullable
   public abstract Label label();
 
-  /** Returns the name of the module's .bzl file, as provided to the parser. */
-  public abstract String filename();
-
-  public static BazelCompileContext create(Label label, String filename) {
-    return new AutoValue_BazelCompileContext(label, filename);
+  public static BazelCompileContext create(Label label) {
+    return new AutoValue_BazelCompileContext(label);
   }
 }
