@@ -13,8 +13,8 @@ module(
 # Bazel module dependencies
 # =========================================
 
-bazel_dep(name = "abseil-cpp", version = "20250512.1")
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "abseil-cpp", version = "20250814.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.1")
 bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
@@ -25,7 +25,7 @@ bazel_dep(name = "grpc", version = "1.73.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "protobuf", version = "32.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
-bazel_dep(name = "rules_java", version = "8.15.2")
+bazel_dep(name = "rules_java", version = "8.16.1")
 bazel_dep(name = "rules_jvm_external", version = "6.6")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
@@ -289,7 +289,7 @@ maven.install(
         "com.google.truth.extensions:truth-java8-extension:1.4.0",
         "com.google.truth.extensions:truth-liteproto-extension:1.4.0",
         "com.google.truth.extensions:truth-proto-extension:1.4.0",
-        "org.mockito:mockito-core:5.4.0",
+        "org.mockito:mockito-core:5.20.0",
     ]]
 ]
 

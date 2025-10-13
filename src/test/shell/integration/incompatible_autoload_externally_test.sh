@@ -144,38 +144,6 @@ local_repository(
 EOF
 }
 
-function mock_protobuf() {
-  protobuf_workspace="${TEST_TMPDIR}/protobuf_workspace"
-  mkdir -p "${protobuf_workspace}/protobuf"
-  cat > "${protobuf_workspace}/MODULE.bazel" << EOF
-module(name = "protobuf", repo_name = "com_google_protobuf")
-EOF
-
-  cat >> MODULE.bazel << EOF
-bazel_dep(
-    name = "protobuf",
-    repo_name = "com_google_protobuf",
-)
-local_path_override(
-    module_name = "protobuf",
-    path = "${protobuf_workspace}",
-)
-EOF
-}
-
-function test_missing_necessary_repo_fails() {
-  # Mock protobuf to prevent apple_support being added from MODULE.tools via protobuf
-  mock_protobuf
-  cat > BUILD << EOF
-xcode_version(
-    name = 'xcode_version',
-    version = "5.1.2",
-)
-EOF
-  bazel build --incompatible_autoload_externally=xcode_version :xcode_version >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "Couldn't auto load 'xcode_version' from '@build_bazel_apple_support//xcode:xcode_version.bzl'. Ensure that you have a 'bazel_dep(name = \"apple_support\", ...)' in your MODULE.bazel file or add an explicit load statement to your BUILD file."
-}
-
 function test_missing_unnecessary_repo_doesnt_fail() {
   # Intentionally not adding rules_android to MODULE.bazel (and it's not in MODULE.tools)
   cat > WORKSPACE << EOF

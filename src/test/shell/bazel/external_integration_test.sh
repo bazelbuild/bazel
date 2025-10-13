@@ -380,7 +380,7 @@ public class BallPit {
 }
 EOF
 
-  bazel run //zoo:ball-pit >& $TEST_log || echo "Expected run to succeed"
+  bazel run --java_runtime_version=remotejdk_25 //zoo:ball-pit >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
   output_base=$(bazel info output_base)

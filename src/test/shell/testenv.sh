@@ -599,9 +599,12 @@ function add_zlib() {
 }
 
 function add_protobuf() {
-  version=$(get_version_from_default_lock_file "protobuf")
+  protobuf_version=$(get_version_from_default_lock_file "protobuf")
+  abseil_version=$(get_version_from_default_lock_file "abseil-cpp")
   cat >> "$1" <<EOF
-bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "$protobuf_version", repo_name = "com_google_protobuf")
+# Fixes compilation errors with old C++ compiler versions.
+bazel_dep(name = "abseil-cpp", version = "$abseil_version", repo_name = None)
 EOF
 }
 
