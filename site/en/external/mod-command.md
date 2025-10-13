@@ -32,7 +32,9 @@ The available subcommands and their respective required arguments are:
 *   `all_paths <arg>...`: Displays all dependency paths from the --from modules
     to the target modules. To simplify the output, only the first shortest path
     is shown when multiple paths share the same suffix. For example, A -> B -> X
-    would be shown, but the longer A -> C -> B -> X would be omitted.
+    would be shown, but the longer A -> C -> B -> X would be omitted. In other
+    words, for every module Y that directly depends on the target module X, the
+    output contains only the shortest path going through Y to reach X.
 
 *   `path <arg>...`: Has the same semantics as `all_paths`, but only display a
     single path from one of the `--from` modules to one of the argument modules.
