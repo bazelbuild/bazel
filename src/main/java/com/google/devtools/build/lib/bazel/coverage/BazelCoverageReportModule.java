@@ -109,6 +109,9 @@ public class BazelCoverageReportModule extends BlazeModule {
                 workspaceName,
                 new BazelCoverageHelper(),
                 /* htmlReport= */ null);
+        if (wrapper == null) {
+          return null;
+        }
         eventBus.register(new CoverageReportCollector(wrapper));
         return wrapper;
       }
