@@ -582,8 +582,7 @@ public final class Utils {
   /**
    * Waits for all transfers to finish.
    *
-   * <p>If any transfer fails, throws a {@link BulkTransferException} containing all errors and
-   * cancels any remaining transfers.
+   * <p>If interrupted, all remaining transfers are canceled.
    */
   public static void waitForBulkTransfer(Iterable<? extends ListenableFuture<?>> transfers)
       throws BulkTransferException, InterruptedException {
