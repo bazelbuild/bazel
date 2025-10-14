@@ -57,7 +57,7 @@ common --host_javacopt=-Xlint:-removal
 common --jvmopt=--sun-misc-unsafe-memory-access=allow
 
 # Fail if a production classpath contains different versions of the same class
-build --experimental_one_version_enforcement=ERROR
+common --experimental_one_version_enforcement=ERROR
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
