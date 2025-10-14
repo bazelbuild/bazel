@@ -2696,10 +2696,31 @@ EOF
 
   bazel test \
     --remote_cache=grpc://localhost:${worker_port} \
-    --experimental_remote_cache_async \
+    --remote_cache_async \
     --flaky_test_attempts=2 \
     //a:test >& $TEST_log  && fail "expected failure" || true
   expect_not_log "WARNING: Remote Cache:"
+}
+
+function test_async_upload_reported_in_bes() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar baz\" > $@",
+)
+EOF
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_cache_async \
+    --build_event_json_file=bep.json \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+  expect_not_log "WARNING: Remote Cache:"
+
+  cat bep.json >> "$TEST_log"
+  expect_log '"backgroundTasksCompleted":{}'
 }
 
 function test_missing_outputs_dont_upload_action_result() {
