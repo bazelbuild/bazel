@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -39,8 +38,8 @@ import java.util.Map;
 /** Module which registers the strategy options for Bazel. */
 public class BazelStrategyModule extends BlazeModule {
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(ExecutionOptions.class, RemoteOptions.class)
         : ImmutableList.of();
   }

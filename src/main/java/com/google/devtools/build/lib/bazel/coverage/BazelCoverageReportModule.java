@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.C
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -71,8 +70,8 @@ public class BazelCoverageReportModule extends BlazeModule {
   }
 
   @Override
-  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return command.name().equals("build") ? ImmutableList.of(Options.class) : ImmutableList.of();
+  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build") ? ImmutableList.of(Options.class) : ImmutableList.of();
   }
 
   @Override

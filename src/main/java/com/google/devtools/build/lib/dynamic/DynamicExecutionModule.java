@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code;
@@ -68,8 +67,8 @@ public class DynamicExecutionModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(DynamicExecutionOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }

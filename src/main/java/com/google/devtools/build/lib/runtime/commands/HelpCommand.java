@@ -533,7 +533,7 @@ public final class HelpCommand implements BlazeCommand {
         Set<Class<? extends OptionsBase>> options = new HashSet<>();
         Collections.addAll(options, annotation.options());
         for (BlazeModule blazeModule : runtime.getBlazeModules()) {
-          Iterables.addAll(options, blazeModule.getCommandOptions(annotation));
+          Iterables.addAll(options, blazeModule.getCommandOptions(annotation.name()));
         }
         List<String> optionsToIgnore =
             appendOptionsHtml(result, options, ImmutableList.of(), e.getKey());

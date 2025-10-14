@@ -377,7 +377,7 @@ public class BlazeRuntimeWrapper {
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       Iterables.addAll(options, module.getCommonCommandOptions());
-      Iterables.addAll(options, module.getCommandOptions(commandAnnotation));
+      Iterables.addAll(options, module.getCommandOptions(commandAnnotation.name()));
     }
     options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
     // Because the tests that use this class don't set sources for their options, the normal logic

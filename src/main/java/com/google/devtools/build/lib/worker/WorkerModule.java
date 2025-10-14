@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
@@ -60,10 +59,8 @@ public class WorkerModule extends BlazeModule {
   @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
-        ? ImmutableList.of(WorkerOptions.class)
-        : ImmutableList.of();
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build") ? ImmutableList.of(WorkerOptions.class) : ImmutableList.of();
   }
 
   @Override

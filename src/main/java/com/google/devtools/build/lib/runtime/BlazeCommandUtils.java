@@ -88,7 +88,7 @@ public class BlazeCommandUtils {
     }
 
     for (BlazeModule blazeModule : modules) {
-      Iterables.addAll(options, blazeModule.getCommandOptions(commandAnnotation));
+      Iterables.addAll(options, blazeModule.getCommandOptions(commandAnnotation.name()));
     }
 
     for (Class<? extends BlazeCommand> base : commandAnnotation.inheritsOptionsFrom()) {

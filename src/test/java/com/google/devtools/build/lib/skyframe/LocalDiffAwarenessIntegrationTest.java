@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.SkyframeIntegrationTestBase;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
@@ -70,7 +69,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
               }
 
               @Override
-              public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+              public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
                 return ImmutableList.of(LocalDiffAwareness.Options.class);
               }
             });

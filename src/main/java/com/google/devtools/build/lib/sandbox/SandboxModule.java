@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -104,8 +103,8 @@ public final class SandboxModule extends BlazeModule {
   private boolean shouldCleanupSandboxBase;
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(SandboxOptions.class)
         : ImmutableList.of();
   }

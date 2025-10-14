@@ -246,11 +246,11 @@ public abstract class BlazeModule {
    * added to every command that depends on this command.
    *
    * <p>This method may be called at any time, and the returned value may be cached. Implementations
-   * must be thread-safe and never return different lists for the same command object. Typical
+   * must be thread-safe and never return different lists for the same command name. Typical
    * implementations look like this:
    *
    * <pre>
-   * return "build".equals(command.name())
+   * return commandName.equals("build")
    *     ? ImmutableList.<Class<? extends OptionsBase>>of(MyOptions.class)
    *     : ImmutableList.<Class<? extends OptionsBase>>of();
    * </pre>
@@ -264,9 +264,9 @@ public abstract class BlazeModule {
    * <p>If you want to add options to all commands, override {@link #getCommonCommandOptions}
    * instead.
    *
-   * @param command the command
+   * @param commandName the command name, e.g. "build" or "test".
    */
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
     return ImmutableList.of();
   }
 

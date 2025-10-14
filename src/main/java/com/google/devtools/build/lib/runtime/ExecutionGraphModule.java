@@ -193,8 +193,8 @@ public class ExecutionGraphModule extends BlazeModule {
   private final AtomicBoolean executionStarted = new AtomicBoolean();
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(ExecutionGraphOptions.class)
         : ImmutableList.of();
   }
