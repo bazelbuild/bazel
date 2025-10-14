@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.compression.Brotli;
+import io.netty.handler.codec.compression.Zstd;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -41,6 +43,19 @@ import java.util.Map.Entry;
 
 /** ChannelHandler for downloads. */
 final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
+
+  private static final String ACCEPT_ENCODING;
+  static {
+    StringBuilder acceptEncoding = new StringBuilder(HttpHeaderValues.GZIP);
+    acceptEncoding.append(",").append(HttpHeaderValues.DEFLATE).append(",").append(HttpHeaderValues.SNAPPY);
+    if (Brotli.isAvailable()) {
+      acceptEncoding.append(",").append(HttpHeaderValues.BR);
+    }
+    if (Zstd.isAvailable()) {
+      acceptEncoding.append(",").append(HttpHeaderValues.ZSTD);
+    }
+    ACCEPT_ENCODING = acceptEncoding.toString();
+  }
 
   private OutputStream out;
   private boolean keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
@@ -180,7 +195,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     httpRequest.headers().set(HttpHeaderNames.HOST, host);
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP);
+    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, ACCEPT_ENCODING);
     return httpRequest;
   }
 
