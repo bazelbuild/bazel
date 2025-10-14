@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg.ExtensionArgConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.InvalidArgumentException;
@@ -607,7 +608,7 @@ public final class ModCommand implements BlazeCommand {
 
         for (String internalName : extensionRepos.getValue()) {
           RepositoryName repoName =
-              RepositoryName.createUnvalidated(extensionUniqueName + "+" + internalName);
+              SingleExtensionValue.repositoryName(extensionUniqueName, internalName);
           targetToRepoName.put(repoName.getNameWithAt(), repoName);
         }
       }
