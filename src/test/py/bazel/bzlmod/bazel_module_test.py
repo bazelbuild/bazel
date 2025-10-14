@@ -326,9 +326,7 @@ class BazelModuleTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['run', '//:main'], allow_failure=True)
     self.AssertNotExitCode(exit_code, 0, stderr)
     self.assertIn(
-        "Error in <toplevel>: in call to 'http_archive' repo rule, no"
-        " repository visible as '@bbb' to the root module, but referenced by"
-        " label '@bbb//:aaa.patch' in attribute 'patches'",
+        "Error in archive_override: invalid label in 'patches': only patches in the main repository can be applied, not from '@bbb'",
         '\n'.join(stderr),
     )
 
