@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
@@ -35,13 +34,11 @@ import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /** Provides a remote execution context. */
 final class RemoteActionContextProvider {
 
-  private final Executor executor;
   private final CommandEnvironment env;
   @Nullable private final CombinedCache combinedCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
@@ -56,7 +53,6 @@ final class RemoteActionContextProvider {
   private final Set<Digest> knownMissingCasDigests;
 
   private RemoteActionContextProvider(
-      Executor executor,
       CommandEnvironment env,
       @Nullable CombinedCache combinedCache,
       @Nullable RemoteExecutionClient remoteExecutor,
@@ -66,7 +62,6 @@ final class RemoteActionContextProvider {
       @Nullable RemoteOutputChecker remoteOutputChecker,
       @Nullable OutputService outputService,
       Set<Digest> knownMissingCasDigests) {
-    this.executor = executor;
     this.env = Preconditions.checkNotNull(env, "env");
     this.combinedCache = combinedCache;
     this.remoteExecutor = remoteExecutor;
@@ -84,7 +79,6 @@ final class RemoteActionContextProvider {
       DigestUtil digestUtil,
       Set<Digest> knownMissingCasDigests) {
     return new RemoteActionContextProvider(
-        directExecutor(),
         env,
         /* combinedCache= */ null,
         /* remoteExecutor= */ null,
@@ -97,7 +91,6 @@ final class RemoteActionContextProvider {
   }
 
   public static RemoteActionContextProvider createForRemoteCaching(
-      Executor executor,
       CommandEnvironment env,
       CombinedCache combinedCache,
       ListeningScheduledExecutorService retryScheduler,
@@ -106,7 +99,6 @@ final class RemoteActionContextProvider {
       OutputService outputService,
       Set<Digest> knownMissingCasDigests) {
     return new RemoteActionContextProvider(
-        executor,
         env,
         combinedCache,
         /* remoteExecutor= */ null,
@@ -119,7 +111,6 @@ final class RemoteActionContextProvider {
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
-      Executor executor,
       CommandEnvironment env,
       RemoteExecutionCache remoteCache,
       RemoteExecutionClient remoteExecutor,
@@ -130,7 +121,6 @@ final class RemoteActionContextProvider {
       OutputService outputService,
       Set<Digest> knownMissingCasDigests) {
     return new RemoteActionContextProvider(
-        executor,
         env,
         remoteCache,
         remoteExecutor,
