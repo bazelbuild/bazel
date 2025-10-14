@@ -266,7 +266,6 @@ public final class RemoteModule extends BlazeModule {
             digestUtil);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
-            executorService,
             env,
             combinedCache,
             /* retryScheduler= */ null,
@@ -711,7 +710,6 @@ public final class RemoteModule extends BlazeModule {
               digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
-              executorService,
               env,
               remoteCache,
               remoteExecutor,
@@ -755,7 +753,6 @@ public final class RemoteModule extends BlazeModule {
               digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
-              executorService,
               env,
               combinedCache,
               retryScheduler,
