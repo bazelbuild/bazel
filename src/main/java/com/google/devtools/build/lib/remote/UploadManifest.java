@@ -589,18 +589,27 @@ public class UploadManifest {
       throws IOException, InterruptedException, ExecException {
     ActionExecutionMetadata action = context.getSpawnOwner();
     var allDigests = Sets.union(digestToBlobs.keySet(), digestToFile.keySet()).immutableCopy();
-    var missingDigests = getFromFuture(findMissingDigests(context, combinedCache, allDigests));
-    var uploadFutures = new ArrayList<ListenableFuture<Void>>(missingDigests.size());
-    for (var digest : missingDigests) {
-      uploadFutures.add(
-          decorateUploadFuture(
-              uploadSingleDigest(context, combinedCache, digest),
-              reporter,
-              action,
-              Store.CAS,
-              digest));
+    ImmutableSet<Digest> missingDigests;
+    try (var s = profiler.profile(ProfilerTask.INFO, "findMissingDigests")) {
+      missingDigests = getFromFuture(combinedCache.findMissingDigests(context, allDigests));
     }
-    waitForBulkTransfer(uploadFutures);
+
+    try (var s =
+        profiler.profile(
+            ProfilerTask.UPLOAD_TIME,
+            () -> "upload %d missing blobs".formatted(missingDigests.size()))) {
+      var uploadFutures = new ArrayList<ListenableFuture<Void>>(missingDigests.size());
+      for (var digest : missingDigests) {
+        uploadFutures.add(
+            decorateUploadFuture(
+                uploadSingleDigest(context, combinedCache, digest),
+                reporter,
+                action,
+                Store.CAS,
+                digest));
+      }
+      waitForBulkTransfer(uploadFutures);
+    }
 
     // The action result must be uploaded after the Action and Command protos per the REAPI
     // protocol. We choose to upload it after all other blobs since this has historically been the
@@ -608,13 +617,15 @@ public class UploadManifest {
     // blobs they refer to are present.
     var actionResult = result.build();
     if (actionResult.getExitCode() == 0 && actionKey != null) {
-      getFromFuture(
-          decorateUploadFuture(
-              combinedCache.uploadActionResult(context, actionKey, actionResult),
-              reporter,
-              action,
-              Store.AC,
-              actionKey.digest()));
+      try (var s = profiler.profile(ProfilerTask.UPLOAD_TIME, "upload action result")) {
+        getFromFuture(
+            decorateUploadFuture(
+                combinedCache.uploadActionResult(context, actionKey, actionResult),
+                reporter,
+                action,
+                Store.AC,
+                actionKey.digest()));
+      }
     }
     return actionResult;
   }
@@ -648,23 +659,6 @@ public class UploadManifest {
     future.addListener(
         () -> reporter.post(ActionUploadFinishedEvent.create(action, store, digest)),
         directExecutor());
-    return future;
-  }
-
-  private ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context,
-      CombinedCache combinedCache,
-      Collection<Digest> digests) {
-    long startTime = Profiler.nanoTimeMaybe();
-
-    var future = combinedCache.findMissingDigests(context, digests);
-
-    if (profiler.isActive()) {
-      future.addListener(
-          () -> profiler.logSimpleTask(startTime, ProfilerTask.INFO, "findMissingDigests"),
-          directExecutor());
-    }
-
     return future;
   }
 }

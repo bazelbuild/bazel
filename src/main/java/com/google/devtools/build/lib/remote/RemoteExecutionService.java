@@ -1999,6 +1999,11 @@ public class RemoteExecutionService {
     // Waits for all background tasks to finish and interrupts them if there is another interrupt.
     backgroundTaskExecutor.close();
 
+    // Release the cache only after background tasks are done as they might be using it.
+    if (combinedCache != null) {
+      combinedCache.release();
+    }
+
     if (remoteExecutor != null) {
       remoteExecutor.close();
     }
