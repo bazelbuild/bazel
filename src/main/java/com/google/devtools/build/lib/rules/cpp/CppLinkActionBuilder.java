@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -89,10 +88,6 @@ public class CppLinkActionBuilder {
     public ArtifactRoot getBinDirectory() {
       return config.getBinDirectory(context.getActionOwner().getLabel().getRepository());
     }
-  }
-
-  public static LinkActionConstruction newActionConstruction(RuleContext context) {
-    return new LinkActionConstruction(context, context.getConfiguration(), false);
   }
 
   public static LinkActionConstruction newActionConstruction(

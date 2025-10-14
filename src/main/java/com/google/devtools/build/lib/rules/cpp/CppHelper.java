@@ -26,10 +26,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 
 /**
  * Helper class for functionality shared by cpp related rules.
@@ -85,34 +82,6 @@ public class CppHelper {
 
   // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)
 
-  /** Returns the FDO build subtype. */
-  @Nullable
-  public static String getFdoBuildStamp(
-      CppConfiguration cppConfiguration,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
-    if (branchFdoProfile != null) {
-
-      if (branchFdoProfile.isAutoFdo()) {
-        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
-      }
-      if (branchFdoProfile.isAutoXBinaryFdo()) {
-        return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
-      }
-    }
-    if (fdoContext.getBranchFdoProfile() != null
-        && (fdoContext.getBranchFdoProfile().isLlvmCSFdo()
-            || cppConfiguration.getCSFdoInstrument() != null)) {
-      return "CSFDO";
-    }
-    if (fdoContext.getBranchFdoProfile() != null || cppConfiguration.getFdoInstrument() != null) {
-      return "FDO";
-    }
-    return null;
-  }
-
   static Artifact getCompileOutputArtifact(
       ActionConstructionContext actionConstructionContext,
       Label label,
@@ -121,9 +90,5 @@ public class CppHelper {
     PathFragment objectDir = getObjDirectory(label, config.isSiblingRepositoryLayout());
     return actionConstructionContext.getDerivedArtifact(
         objectDir.getRelative(outputName), config.getBinDirectory(label.getRepository()));
-  }
-
-  static Dict<?, ?> asDict(Object o) {
-    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
   }
 }

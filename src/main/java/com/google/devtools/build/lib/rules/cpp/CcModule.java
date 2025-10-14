@@ -180,17 +180,6 @@ public abstract class CcModule
     return (T) obj; // totally unsafe
   }
 
-  /** Converts an object that can be either Sequence, or None into ImmutableList. */
-  protected ImmutableList<String> asStringImmutableList(Object o) {
-    Sequence<String> starlarkList =
-        convertFromNoneable(o, /* defaultValue= */ (Sequence<String>) null);
-    if (starlarkList != null) {
-      return starlarkList.getImmutableList();
-    } else {
-      return ImmutableList.of();
-    }
-  }
-
   @Override
   public CcCompilationContext createCcCompilationContext(
       Object headers,

@@ -1004,13 +1004,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
-  /**
-   * A group of extra {@code Variable} instances, packaged as logic for adding to a {@code Builder}
-   */
-  public interface VariablesExtension {
-    void addVariables(Builder builder);
-  }
-
   static final class MapVariables extends CcToolchainVariables {
     private static final Interner<ImmutableMap<String, Integer>> keyInterner =
         BlazeInterners.newWeakInterner();
