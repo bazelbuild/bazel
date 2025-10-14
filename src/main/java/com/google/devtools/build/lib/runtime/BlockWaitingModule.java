@@ -17,13 +17,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** A {@link BlazeModule} that waits for submitted tasks to terminate after every command. */
@@ -48,6 +52,7 @@ public class BlockWaitingModule extends BlazeModule {
 
   @Nullable private ExecutorService executorService;
   @Nullable private ArrayList<Future<?>> submittedTasks;
+  private AtomicReference<Optional<BuildEventStreamProtos.BuildEventId>> completionEventId;
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
@@ -59,6 +64,7 @@ public class BlockWaitingModule extends BlazeModule {
             new ThreadFactoryBuilder().setNameFormat("block-waiting-%d").build());
 
     submittedTasks = new ArrayList<>();
+    completionEventId = new AtomicReference<>();
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -75,6 +81,18 @@ public class BlockWaitingModule extends BlazeModule {
                 throw new TaskException(e);
               }
             }));
+  }
+
+  public BuildEventStreamProtos.BuildEventId commitToEvent() {
+    return completionEventId.updateAndGet(committedEventId -> {
+      if (committedEventId != null) {
+        return committedEventId;
+      }
+      if (submittedTasks.isEmpty()) {
+        return Optional.empty();
+      }
+      return BuildEventIdUtilpm
+    });
   }
 
   @Override

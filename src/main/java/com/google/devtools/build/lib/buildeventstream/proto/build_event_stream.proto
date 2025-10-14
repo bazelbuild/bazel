@@ -259,6 +259,9 @@ message BuildEventId {
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
 
+  // Identifier of an event providing information on completed background tasks.
+  message BackgroundTasksCompletedId {}
+
   reserved 27;
 
   oneof id {
@@ -290,6 +293,7 @@ message BuildEventId {
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     ExecRequestId exec_request = 28;
+    BackgroundTasksCompletedId background_tasks_completed = 30;
   }
 }
 
@@ -1443,6 +1447,10 @@ message EnvironmentVariable {
   bytes value = 2;
 }
 
+message BackgroundTasksCompletedEvent {
+  int32 count = 1;
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -1479,5 +1487,6 @@ message BuildEvent {
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
     ExecRequestConstructed exec_request = 29;
+    BackgroundTasksCompletedEvent background_tasks_completed = 31;
   }
 }
