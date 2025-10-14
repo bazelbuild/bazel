@@ -22,6 +22,30 @@ load(":common/paths.bzl", "paths")
 
 cc_common_internal = _builtins.internal.cc_common
 
+def check_private_api():
+    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
+
+def wrap_with_check_private_api(symbol):
+    """
+    Protects the symbol so it can only be used internally.
+
+    Returns:
+      A function. When the function is invoked (without any params), the check
+      is done and if it passes the symbol is returned.
+    """
+
+    def callback():
+        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        return symbol
+
+    return callback
+
+CPP_SOURCE_TYPE_HEADER = "HEADER"
+CPP_SOURCE_TYPE_SOURCE = "SOURCE"
+CPP_SOURCE_TYPE_CLIF_INPUT_PROTO = "CLIF_INPUT_PROTO"
+
+# LINT.IfChange(forked_exports)
+
 CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop"), ("", "third_party/crubit"), ("", "tools/build_defs/clif")]
 
 PRIVATE_STARLARKIFICATION_ALLOWLIST = [
@@ -59,30 +83,6 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     # Python rules
     ("", "third_party/bazel_rules/rules_python/google"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
-
-def check_private_api():
-    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
-
-def wrap_with_check_private_api(symbol):
-    """
-    Protects the symbol so it can only be used internally.
-
-    Returns:
-      A function. When the function is invoked (without any params), the check
-      is done and if it passes the symbol is returned.
-    """
-
-    def callback():
-        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
-        return symbol
-
-    return callback
-
-CPP_SOURCE_TYPE_HEADER = "HEADER"
-CPP_SOURCE_TYPE_SOURCE = "SOURCE"
-CPP_SOURCE_TYPE_CLIF_INPUT_PROTO = "CLIF_INPUT_PROTO"
-
-# LINT.IfChange(forked_exports)
 
 _CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
 _C_SOURCE = [".c"]
