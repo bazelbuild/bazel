@@ -1163,9 +1163,8 @@ public class BuildTool {
           ImmutableList.<BuildEventStreamProtos.BuildEventId>builder()
               .add(BuildEventIdUtil.buildToolLogs())
               .add(BuildEventIdUtil.buildMetrics());
-      runtime
-          .getBlazeModule(BlockWaitingModule.class)
-          .commitToEvent()
+      Optional.ofNullable(runtime.getBlazeModule(BlockWaitingModule.class))
+          .flatMap(BlockWaitingModule::commitToEvent)
           .ifPresent(buildCompleteChildrenEvents::add);
       env.getEventBus().post(new BuildCompleteEvent(result, buildCompleteChildrenEvents.build()));
     }
