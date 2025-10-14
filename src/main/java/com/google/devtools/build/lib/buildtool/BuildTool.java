@@ -1163,7 +1163,10 @@ public class BuildTool {
           ImmutableList.<BuildEventStreamProtos.BuildEventId>builder()
               .add(BuildEventIdUtil.buildToolLogs())
               .add(BuildEventIdUtil.buildMetrics());
-      runtime.getBlazeModule(BlockWaitingModule.class).commitToEvent();
+      runtime
+          .getBlazeModule(BlockWaitingModule.class)
+          .commitToEvent()
+          .ifPresent(buildCompleteChildrenEvents::add);
       env.getEventBus().post(new BuildCompleteEvent(result, buildCompleteChildrenEvents.build()));
     }
     // Post the build tool logs event; the corresponding local files may be contributed from

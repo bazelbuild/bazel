@@ -314,4 +314,10 @@ public final class BuildEventIdUtil {
             BuildEventId.ConvenienceSymlinksIdentifiedId.getDefaultInstance())
         .build();
   }
+
+  public static BuildEventId backgroundTasksCompletedId() {
+    return BuildEventId.newBuilder()
+        .setBackgroundTasksCompleted(BuildEventId.BackgroundTasksCompletedId.getDefaultInstance())
+        .build();
+  }
 }

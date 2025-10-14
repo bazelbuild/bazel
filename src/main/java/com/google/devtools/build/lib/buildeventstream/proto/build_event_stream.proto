@@ -1448,7 +1448,8 @@ message EnvironmentVariable {
 }
 
 message BackgroundTasksCompletedEvent {
-  int32 count = 1;
+  int32 total = 1;
+  int32 succeeded = 2;
 }
 
 // Message describing a build event. Events will have an identifier that
