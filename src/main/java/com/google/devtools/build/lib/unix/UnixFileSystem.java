@@ -13,13 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
-import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
 import com.google.devtools.build.lib.util.OS;
@@ -28,6 +25,7 @@ import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
@@ -39,9 +37,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
@@ -54,31 +50,20 @@ public class UnixFileSystem extends AbstractFileSystem {
     this.hashAttributeName = hashAttributeName;
   }
 
-  public static Dirent.Type getDirentFromMode(int mode) {
-    if (UnixFileStatus.isSpecialFile(mode)) {
-      return Dirent.Type.UNKNOWN;
-    } else if (UnixFileStatus.isFile(mode)) {
-      return Dirent.Type.FILE;
-    } else if (UnixFileStatus.isDirectory(mode)) {
-      return Dirent.Type.DIRECTORY;
-    } else if (UnixFileStatus.isSymbolicLink(mode)) {
-      return Dirent.Type.SYMLINK;
-    } else {
-      return Dirent.Type.UNKNOWN;
-    }
-  }
-
   @Override
   public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     String name = path.getPathString();
-    String[] entries;
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      entries = NativePosixFiles.readdir(name);
+      NativePosixFiles.Dirent[] dirents = NativePosixFiles.readdir(name);
+      ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(dirents.length);
+      for (NativePosixFiles.Dirent dirent : dirents) {
+        builder.add(dirent.name());
+      }
+      return builder.build();
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }
-    return Arrays.asList(entries);
   }
 
   @Override
@@ -89,16 +74,13 @@ public class UnixFileSystem extends AbstractFileSystem {
     return stat(path, false).isSymbolicLink() ? readSymbolicLink(path) : null;
   }
 
-  /**
-   * Converts from {@link com.google.devtools.build.lib.unix.NativePosixFiles.Dirents.Type} to
-   * {@link com.google.devtools.build.lib.vfs.Dirent.Type}.
-   */
-  private static Dirent.Type convertToDirentType(Dirents.Type type) {
+  /** Converts from {@link NativePosixFiles.Dirent.Type} to {@link Dirent.Type}. */
+  private static Dirent.Type convertDirentType(NativePosixFiles.Dirent.Type type) {
     return switch (type) {
       case FILE -> Dirent.Type.FILE;
       case DIRECTORY -> Dirent.Type.DIRECTORY;
       case SYMLINK -> Dirent.Type.SYMLINK;
-      case UNKNOWN -> Dirent.Type.UNKNOWN;
+      default -> Dirent.Type.UNKNOWN;
     };
   }
 
@@ -107,15 +89,26 @@ public class UnixFileSystem extends AbstractFileSystem {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      Dirents unixDirents =
-          NativePosixFiles.readdir(name, followSymlinks ? ReadTypes.FOLLOW : ReadTypes.NOFOLLOW);
-      Preconditions.checkState(unixDirents.hasTypes());
-      List<Dirent> dirents = Lists.newArrayListWithCapacity(unixDirents.size());
-      for (int i = 0; i < unixDirents.size(); i++) {
-        dirents.add(
-            new Dirent(unixDirents.getName(i), convertToDirentType(unixDirents.getType(i))));
+      NativePosixFiles.Dirent[] dirents = NativePosixFiles.readdir(name);
+      ImmutableList.Builder<Dirent> builder = ImmutableList.builderWithExpectedSize(dirents.length);
+      for (NativePosixFiles.Dirent dirent : dirents) {
+        Dirent.Type type;
+        // If the entry type is unknown, or if we're following symlinks and the entry is a symlink,
+        // we need to stat the entry to get the type.
+        if (dirent.type() == NativePosixFiles.Dirent.Type.UNKNOWN
+            || (followSymlinks && dirent.type() == NativePosixFiles.Dirent.Type.SYMLINK)) {
+          try {
+            FileStatus stat = statIfFound(path.getRelative(dirent.name()), followSymlinks);
+            type = stat != null ? ((UnixFileStatus) stat).getDirentType() : Dirent.Type.UNKNOWN;
+          } catch (FileSymlinkLoopException e) {
+            type = Dirent.Type.UNKNOWN;
+          }
+        } else {
+          type = convertDirentType(dirent.type());
+        }
+        builder.add(new Dirent(dirent.name(), type));
       }
-      return dirents;
+      return builder.build();
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }

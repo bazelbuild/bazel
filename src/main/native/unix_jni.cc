@@ -323,23 +323,30 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_symlink(JNIEnv *env,
 
 namespace {
 
-static jclass makeStaticClass(JNIEnv *env, const char *name) {
+static jclass getClass(JNIEnv* env, const char* name) {
   jclass lookup_result = env->FindClass(name);
   BAZEL_CHECK_NE(lookup_result, nullptr);
   return static_cast<jclass>(env->NewGlobalRef(lookup_result));
 }
 
-static jmethodID getConstructorID(JNIEnv *env, jclass clazz,
-                                  const char *parameters) {
-  jmethodID method = env->GetMethodID(clazz, "<init>", parameters);
-  BAZEL_CHECK_NE(method, nullptr);
+static jmethodID getConstructorID(JNIEnv* env, jclass clazz, const char* sig) {
+  jmethodID method = env->GetMethodID(clazz, "<init>", sig);
+  BAZEL_CHECK_NE(method, nullptr) << sig;
   return method;
+}
+
+static jobject getStaticObjectField(JNIEnv* env, jclass clazz, const char* name,
+                                    const char* sig) {
+  jfieldID field = env->GetStaticFieldID(clazz, name, sig);
+  BAZEL_CHECK_NE(field, nullptr);
+  return static_cast<jobject>(
+      env->NewGlobalRef(env->GetStaticObjectField(clazz, field)));
 }
 
 static jobject NewUnixFileStatus(JNIEnv *env,
                                  const portable_stat_struct &stat_ref) {
   static const jclass file_status_class =
-      makeStaticClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
+      getClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
   static const jmethodID file_status_class_ctor =
       getConstructorID(env, file_status_class, "(IJJJJ)V");
   return env->NewObject(
@@ -467,54 +474,83 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
 }
 
 namespace {
-static jobject NewDirents(JNIEnv *env,
-                          jobjectArray names,
-                          jbyteArray types) {
-  static const jclass dirents_class = makeStaticClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirents");
-  static const jmethodID dirents_ctor =
-      getConstructorID(env, dirents_class, "([Ljava/lang/String;[B)V");
-  return env->NewObject(dirents_class, dirents_ctor, names, types);
+
+jobject NewDirent(JNIEnv* env, const struct dirent* e) {
+  static const jclass dirent_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent");
+  static const jmethodID dirent_ctor =
+      getConstructorID(env, dirent_class,
+                       "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
+                       "NativePosixFiles$Dirent$Type;)V");
+  static const jclass type_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent$Type");
+  static const char* field_sig =
+      "Lcom/google/devtools/build/lib/unix/NativePosixFiles$Dirent$Type;";
+  static const jobject type_file =
+      getStaticObjectField(env, type_class, "FILE", field_sig);
+  static const jobject type_directory =
+      getStaticObjectField(env, type_class, "DIRECTORY", field_sig);
+  static const jobject type_symlink =
+      getStaticObjectField(env, type_class, "SYMLINK", field_sig);
+  static const jobject type_char =
+      getStaticObjectField(env, type_class, "CHAR", field_sig);
+  static const jobject type_block =
+      getStaticObjectField(env, type_class, "BLOCK", field_sig);
+  static const jobject type_fifo =
+      getStaticObjectField(env, type_class, "FIFO", field_sig);
+  static const jobject type_socket =
+      getStaticObjectField(env, type_class, "SOCKET", field_sig);
+  static const jobject type_unknown =
+      getStaticObjectField(env, type_class, "UNKNOWN", field_sig);
+
+  jstring name = NewStringLatin1(env, e->d_name);
+  if (name == nullptr && env->ExceptionOccurred()) {
+    return nullptr;
+  }
+
+  jobject type;
+  switch (e->d_type) {
+    case DT_REG:
+      type = type_file;
+      break;
+    case DT_DIR:
+      type = type_directory;
+      break;
+    case DT_LNK:
+      type = type_symlink;
+      break;
+    case DT_CHR:
+      type = type_char;
+      break;
+    case DT_BLK:
+      type = type_block;
+      break;
+    case DT_FIFO:
+      type = type_fifo;
+      break;
+    case DT_SOCK:
+      type = type_socket;
+      break;
+    default:
+      type = type_unknown;
+      break;
+  }
+
+  return env->NewObject(dirent_class, dirent_ctor, name, type);
 }
 
-static char GetDirentType(struct dirent *entry,
-                          int dirfd,
-                          bool follow_symlinks) {
-  switch (entry->d_type) {
-    case DT_REG:
-      return 'f';
-    case DT_DIR:
-      return 'd';
-    case DT_LNK:
-      if (!follow_symlinks) {
-        return 's';
-      }
-      FALLTHROUGH_INTENDED;
-    case DT_UNKNOWN:
-      portable_stat_struct statbuf;
-      if (portable_fstatat(dirfd, entry->d_name, &statbuf, 0) == 0) {
-        if (S_ISREG(statbuf.st_mode)) return 'f';
-        if (S_ISDIR(statbuf.st_mode)) return 'd';
-      }
-      // stat failed or returned something weird; fall through
-      FALLTHROUGH_INTENDED;
-    default:
-      return '?';
-  }
-}
 }  // namespace
 
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    readdir
- * Signature: (Ljava/lang/String;Z)Lcom/google/devtools/build/lib/unix/Dirents;
+ * Signature: (Ljava/lang/String;)Lcom/google/devtools/build/lib/unix/Dirents;
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
-                                                    jclass clazz,
-                                                    jstring path,
-                                                    jchar read_types) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv* env,
+                                                                 jclass clazz,
+                                                                 jstring path) {
   const char *path_chars = GetStringLatin1Chars(env, path);
   DIR *dirh;
   while ((dirh = ::opendir(path_chars)) == nullptr && errno == EINTR) {
@@ -528,10 +564,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
   if (dirh == nullptr) {
     return nullptr;
   }
-  int fd = dirfd(dirh);
 
-  std::vector<std::string> entries;
-  std::vector<jbyte> types;
+  std::vector<jobject> dirents;
   for (;;) {
     // Clear errno beforehand.  Because readdir() is not required to clear it at
     // EOF, this is the only way to reliably distinguish EOF from error.
@@ -553,10 +587,11 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
       if (entry->d_name[1] == '\0') continue;
       if (entry->d_name[1] == '.' && entry->d_name[2] == '\0') continue;
     }
-    entries.push_back(entry->d_name);
-    if (read_types != 'n') {
-      types.push_back(GetDirentType(entry, fd, read_types == 'f'));
+    jobject dirent = NewDirent(env, entry);
+    if (dirent == nullptr && env->ExceptionOccurred()) {
+      return nullptr;
     }
+    dirents.push_back(dirent);
   }
 
   if (::closedir(dirh) < 0 && errno != EINTR) {
@@ -564,32 +599,18 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
     return nullptr;
   }
 
-  size_t len = entries.size();
-  jclass jlStringClass = env->GetObjectClass(path);
-  jobjectArray names_obj = env->NewObjectArray(len, jlStringClass, nullptr);
-  if (names_obj == nullptr && env->ExceptionOccurred()) {
-    return nullptr;  // async exception!
+  static const jclass dirent_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent");
+  jobjectArray dirent_array =
+      env->NewObjectArray(dirents.size(), dirent_class, nullptr);
+  if (dirent_array == nullptr && env->ExceptionOccurred()) {
+    return nullptr;
+  }
+  for (size_t i = 0; i < dirents.size(); i++) {
+    env->SetObjectArrayElement(dirent_array, i, dirents[i]);
   }
 
-  for (size_t ii = 0; ii < len; ++ii) {
-    jstring s = NewStringLatin1(env, entries[ii].c_str());
-    if (s == nullptr && env->ExceptionOccurred()) {
-      return nullptr;  // async exception!
-    }
-    env->SetObjectArrayElement(names_obj, ii, s);
-  }
-
-  jbyteArray types_obj = nullptr;
-  if (read_types != 'n') {
-    BAZEL_CHECK_EQ(len, types.size());
-    types_obj = env->NewByteArray(len);
-    BAZEL_CHECK_NE(types_obj, nullptr);
-    if (len > 0) {
-      env->SetByteArrayRegion(types_obj, 0, len, &types[0]);
-    }
-  }
-
-  return NewDirents(env, names_obj, types_obj);
+  return dirent_array;
 }
 
 /*

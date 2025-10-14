@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 
 /**
@@ -35,6 +36,24 @@ public final class UnixFileStatus implements FileStatus {
     this.ctime = ctime;
     this.size = size;
     this.ino = ino;
+  }
+
+  public static Dirent.Type getDirentTypeFromMode(int mode) {
+    if (isSpecialFile(mode)) {
+      return Dirent.Type.UNKNOWN;
+    } else if (isFile(mode)) {
+      return Dirent.Type.FILE;
+    } else if (isDirectory(mode)) {
+      return Dirent.Type.DIRECTORY;
+    } else if (isSymbolicLink(mode)) {
+      return Dirent.Type.SYMLINK;
+    } else {
+      return Dirent.Type.UNKNOWN;
+    }
+  }
+
+  public Dirent.Type getDirentType() {
+    return getDirentTypeFromMode(mode);
   }
 
   @Override
