@@ -98,6 +98,7 @@ java_test(
         "no_windows",
     ],
     deps = [
+        ":build_event_service_test_utils",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
@@ -122,10 +123,24 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_library(
+    name = "build_event_service_test_utils",
+    srcs = [
+        "DelayingPublishBuildEventService.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:truth",
+        "//third_party/grpc-java:grpc-jar",
         "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/devtools/build/v1:build_java_grpc",
         "@googleapis//google/devtools/build/v1:build_java_proto",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
