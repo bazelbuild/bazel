@@ -412,7 +412,8 @@ public class ExternalFilesHelper {
     dirtyExternalRepos.forEach(
         (repoName, file) -> {
           var fileType = getAndNoteFileType(file);
-          if (!fileType.mayBeModifiedByBazel()) {
+          if (fileType == FileType.EXTERNAL_REPO
+              || fileType == FileType.REPO_CONTENTS_CACHE_ENTRY) {
             eventHandler.handle(
                 Event.warn(
                     """
