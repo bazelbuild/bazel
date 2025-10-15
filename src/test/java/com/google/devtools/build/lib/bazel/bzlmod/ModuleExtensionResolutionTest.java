@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -36,8 +39,14 @@ import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2528,6 +2537,124 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
+  @Test
+  public void facts_supportedTypes() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "one": "string",
+                    "two": 42,
+                    "three": 3.14,
+                    "four": True,
+                    "five": None,
+                    "six": [1, 2, 3],
+                    "seven": {
+                        "c": "v1",
+                        "b": "v2",
+                        "a": "v3",
+                    },
+                    "eight": (4, 5, "foo"),
+                }
+            )\
+            """);
+
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    var facts = Iterables.getOnlyElement(result.values()).facts().value();
+    assertThat((Map<?, ?>) facts)
+        .isEqualTo(
+            Dict.immutableCopyOf(
+                ImmutableMap.of(
+                    "one",
+                    "string",
+                    "two",
+                    StarlarkInt.of(42),
+                    "three",
+                    StarlarkFloat.of(3.14),
+                    "four",
+                    true,
+                    "five",
+                    Starlark.NONE,
+                    "six",
+                    StarlarkList.immutableOf(
+                        StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)),
+                    "seven",
+                    Dict.immutableCopyOf(ImmutableMap.of("a", "v3", "b", "v2", "c", "v1")),
+                    "eight",
+                    StarlarkList.immutableOf(StarlarkInt.of(4), StarlarkInt.of(5), "foo"))));
+    // Validate that keys in a Dict are sorted.
+    assertThat(
+            ((Map<?, ?>) ((Map<?, ?>) facts).get("seven"))
+                .keySet().stream().collect(toImmutableList()))
+        .containsExactly("a", "b", "c")
+        .inOrder();
+  }
+
+  @Test
+  public void facts_unsupportedType() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "unsupported": set([1, 2, 3]),
+                }
+            )\
+            """);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("'set([1, 2, 3])' (set) is not supported in facts");
+  }
+
+  @Test
+  public void facts_nonStringKeys() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "top_level": {
+                        1: "one",
+                    },
+                }
+            )\
+            """);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("Facts keys must be strings, got '1: \"one\"' (int)");
+  }
+
+  @Test
+  public void facts_nestedTooDeeply() throws Exception {
+    var result =
+        evaluateSimpleModuleExtension(
+            """
+            return ctx.extension_metadata(
+                facts = {
+                    "nested": {
+                        "too": {
+                            "deep": {
+                                "to": {
+                                    "be": {
+                                        "considered": {
+                                            "valid": [1, 2, 3]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            )\
+            """);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("Facts cannot be nested more than 7 levels deep");
+  }
+
   private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(
       String returnStatement) throws Exception {
     return evaluateSimpleModuleExtension(returnStatement, /* devDependency= */ false);
@@ -2546,7 +2673,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         "def _ext_impl(ctx):",
         "  repo(name = 'dep1')",
         "  repo(name = 'dep2')",
-        "  " + returnStatement,
+        returnStatement.indent(2),
         "ext = module_extension(implementation=_ext_impl)");
     scratch.overwriteFile("BUILD");
     invalidatePackages(false);

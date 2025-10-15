@@ -125,6 +125,7 @@ java_library(
     srcs = ["BazelLockFileModule.java"],
     deps = [
         ":module_extension",
+        ":module_extension_metadata",
         ":resolution",
         ":resolution_impl",
         ":serialization",
@@ -213,11 +214,13 @@ java_library(
     srcs = [
         "AttributeValuesAdapter.java",
         "DelegateTypeAdapterFactory.java",
+        "FactsAdapter.java",
         "GsonTypeAdapterUtil.java",
     ],
     deps = [
         ":common",
         ":module_extension",
+        ":module_extension_metadata",
         ":resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -225,6 +228,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
         "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",
@@ -435,6 +439,8 @@ java_library(
 java_library(
     name = "module_extension_metadata",
     srcs = [
+        "Facts.java",
+        "LockfileModuleExtensionMetadata.java",
         "ModuleExtensionMetadata.java",
     ],
     deps = [
@@ -443,9 +449,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/types",
         "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",
