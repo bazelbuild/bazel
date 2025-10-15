@@ -29,9 +29,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests {@link AqueryCommandUtils}. */
+/** Tests {@link QueryCommandUtils}. */
 @RunWith(JUnit4.class)
-public class AqueryCommandUtilsTest {
+public class QueryCommandUtilsTest {
   private ImmutableMap<String, QueryFunction> functions;
 
   @Before
@@ -58,7 +58,7 @@ public class AqueryCommandUtilsTest {
         assertThrows(
             QueryException.class,
             () ->
-                AqueryCommandUtils.getTopLevelTargets(
+                QueryCommandUtils.getTopLevelTargets(
                     /* universeScope= */ ImmutableList.of(),
                     expr,
                     /* queryCurrentSkyframeState= */ true));

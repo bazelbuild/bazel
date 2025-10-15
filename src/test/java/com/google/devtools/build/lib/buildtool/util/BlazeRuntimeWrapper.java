@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.AqueryProcessor;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -74,8 +75,10 @@ import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.UiOptions;
+import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
+import com.google.devtools.build.lib.runtime.commands.QueryCommandUtils;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -438,6 +441,23 @@ public class BlazeRuntimeWrapper {
   }
 
   /**
+   * Runs a aquery command with the given target.
+   *
+   * @param target the target to run the aquery against.
+   */
+  public void runAqueryExprCommand(String target) throws Exception {
+    newCommand(AqueryCommand.class);
+    // Resetting the deserialized keys is necessary to avoid aquery using the pruned graph and
+    // missing entries in its output. Since BlazeRuntimeWrapper is written using the method
+    // buildTargets from BuildTool directly and skips going through the entry class
+    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+
+    AqueryProcessor aqueryProcessor =
+        new AqueryProcessor(getQueryExpression(target), TargetPattern.defaultParser());
+    executeBuild(Arrays.asList(target), aqueryProcessor);
+  }
+
+  /**
    * Runs a cquery command with the given expression and target.
    *
    * @param cqueryExpr the cquery expression to evaluate.
@@ -452,7 +472,7 @@ public class BlazeRuntimeWrapper {
     // "deps(//foo)" to work in the integration tests. The alternative is a bigger refactoring
     // rewriting BlazeRuntimeWrapper to use the *Command.java classes with the possibility of
     // increasing overall complexity.
-    CqueryCommand.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
 
     TargetPattern.Parser parser =
         new TargetPattern.Parser(
@@ -461,6 +481,12 @@ public class BlazeRuntimeWrapper {
             RepositoryMapping.create(
                 ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
                 RepositoryName.MAIN));
+    CqueryProcessor cqueryProcessor = new CqueryProcessor(getQueryExpression(cqueryExpr), parser);
+
+    executeBuild(Arrays.asList(target), cqueryProcessor);
+  }
+
+  private QueryExpression getQueryExpression(String cqueryExpr) throws Exception {
     HashMap<String, QueryFunction> functions = new HashMap<>();
     for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
       functions.put(queryFunction.getName(), queryFunction);
@@ -468,10 +494,7 @@ public class BlazeRuntimeWrapper {
     for (QueryFunction queryFunction : getRuntime().getQueryFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);
     }
-    QueryExpression expr = QueryParser.parse(cqueryExpr, functions);
-    CqueryProcessor cqueryProcessor = new CqueryProcessor(expr, parser);
-
-    executeBuild(Arrays.asList(target), cqueryProcessor);
+    return QueryParser.parse(cqueryExpr, functions);
   }
 
   void executeBuild(List<String> targets) throws Exception {
