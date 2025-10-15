@@ -31,48 +31,15 @@ public class AbstractHttpCacheServerHandlerTest {
   public void testValidUri() {
     assertThat(
             AbstractHttpCacheServerHandler.isUriValid(
-                "http://some-path.co.uk:8080/ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "http://127.12.12.0:8080/ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "http://localhost:8080/ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "https://localhost:8080/ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "localhost:8080/ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+                "/ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
         .isTrue();
     assertThat(
             AbstractHttpCacheServerHandler.isUriValid(
                 "ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
         .isTrue();
-
     assertThat(
             AbstractHttpCacheServerHandler.isUriValid(
-                "http://some-path.co.uk:8080/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "http://127.12.12.0:8080/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "http://localhost:8080/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "https://localhost:8080/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
-        .isTrue();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "localhost:8080/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+                "/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
         .isTrue();
     assertThat(
             AbstractHttpCacheServerHandler.isUriValid(
@@ -84,24 +51,26 @@ public class AbstractHttpCacheServerHandlerTest {
   public void testInvalidUri() {
     assertThat(
             AbstractHttpCacheServerHandler.isUriValid(
-                "http://localhost:8080/ac_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+                "/ac_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
         .isFalse();
     assertThat(
             AbstractHttpCacheServerHandler.isUriValid(
-                "http://localhost:8080/cas_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+                "/cas_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+        .isFalse();
+    assertThat(AbstractHttpCacheServerHandler.isUriValid("/ac/111111111111111111111"))
+        .isFalse();
+    assertThat(AbstractHttpCacheServerHandler.isUriValid("/cas/111111111111111111111"))
+        .isFalse();
+    assertThat(AbstractHttpCacheServerHandler.isUriValid("/cas/823rhf&*%OL%_^")).isFalse();
+    assertThat(AbstractHttpCacheServerHandler.isUriValid("/ac/823rhf&*%OL%_^")).isFalse();
+    // URIs with path prefixes should be rejected
+    assertThat(
+            AbstractHttpCacheServerHandler.isUriValid(
+                "/prefix/ac/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
         .isFalse();
     assertThat(
             AbstractHttpCacheServerHandler.isUriValid(
-                "http://localhost:8080/ac/111111111111111111111"))
-        .isFalse();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid(
-                "http://localhost:8080/cas/111111111111111111111"))
-        .isFalse();
-    assertThat(
-            AbstractHttpCacheServerHandler.isUriValid("http://localhost:8080/cas/823rhf&*%OL%_^"))
-        .isFalse();
-    assertThat(AbstractHttpCacheServerHandler.isUriValid("http://localhost:8080/ac/823rhf&*%OL%_^"))
+                "/foo/bar/cas/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
         .isFalse();
   }
 }

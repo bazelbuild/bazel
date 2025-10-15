@@ -43,7 +43,7 @@ public abstract class AbstractHttpCacheServerHandler
     extends SimpleChannelInboundHandler<FullHttpRequest> {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final Pattern URI_PATTERN = Pattern.compile("^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$");
+  private static final Pattern URI_PATTERN = Pattern.compile("^/?(ac/|cas/)([a-f0-9]{64})$");
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
