@@ -96,11 +96,19 @@ public final class Runfiles implements RunfilesApi {
   private static final PathFragment REPO_MAPPING_PATH_FRAGMENT =
       PathFragment.create("_repo_mapping");
 
-  private static final CommandLineItem.ExceptionlessMapFn<SymlinkEntry> SYMLINK_ENTRY_MAP_FN =
-      (symlink, args) -> {
-        args.accept(symlink.getPathString());
-        args.accept(symlink.getArtifact().getExecPathString());
-      };
+  private static final CommandLineItem.ExceptionlessMapFn<SymlinkEntry>
+      SYMLINK_ENTRY_ABSOLUTE_PATH_MAP_FN =
+          (symlink, args) -> {
+            args.accept(symlink.getPathString());
+            args.accept(symlink.getArtifact().getPath().getPathString());
+          };
+
+  private static final CommandLineItem.ExceptionlessMapFn<SymlinkEntry>
+      SYMLINK_ENTRY_EXEC_PATH_MAP_FN =
+          (symlink, args) -> {
+            args.accept(symlink.getPathString());
+            args.accept(symlink.getArtifact().getExecPathString());
+          };
 
   private static final CommandLineItem.ExceptionlessMapFn<Artifact>
       RUNFILES_AND_ABSOLUTE_PATH_MAP_FN =
@@ -879,8 +887,14 @@ public final class Runfiles implements RunfilesApi {
     fp.addInt(conflictPolicy.ordinal());
     fp.addString(prefix);
 
-    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
-    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
+    actionKeyContext.addNestedSetToFingerprint(
+        digestAbsolutePaths ? SYMLINK_ENTRY_ABSOLUTE_PATH_MAP_FN : SYMLINK_ENTRY_EXEC_PATH_MAP_FN,
+        fp,
+        symlinks);
+    actionKeyContext.addNestedSetToFingerprint(
+        digestAbsolutePaths ? SYMLINK_ENTRY_ABSOLUTE_PATH_MAP_FN : SYMLINK_ENTRY_EXEC_PATH_MAP_FN,
+        fp,
+        rootSymlinks);
     actionKeyContext.addNestedSetToFingerprint(
         digestAbsolutePaths ? RUNFILES_AND_ABSOLUTE_PATH_MAP_FN : RUNFILES_AND_EXEC_PATH_MAP_FN,
         fp,
@@ -894,9 +908,19 @@ public final class Runfiles implements RunfilesApi {
     return String.format("conflictPolicy: %s\n", conflictPolicy)
         + String.format("prefix: %s\n", prefix)
         + String.format(
-            "symlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, symlinks))
+            "symlinks: %s\n",
+            describeNestedSetFingerprint(
+                digestAbsolutePaths
+                    ? SYMLINK_ENTRY_ABSOLUTE_PATH_MAP_FN
+                    : SYMLINK_ENTRY_EXEC_PATH_MAP_FN,
+                symlinks))
         + String.format(
-            "rootSymlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, rootSymlinks))
+            "rootSymlinks: %s\n",
+            describeNestedSetFingerprint(
+                digestAbsolutePaths
+                    ? SYMLINK_ENTRY_ABSOLUTE_PATH_MAP_FN
+                    : SYMLINK_ENTRY_EXEC_PATH_MAP_FN,
+                rootSymlinks))
         + String.format(
             "artifacts: %s\n",
             describeNestedSetFingerprint(
