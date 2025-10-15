@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -302,9 +302,9 @@ public class ExternalFilesHelper {
     if (repoContentsCachePath != null && rootedPath.asPath().startsWith(repoContentsCachePath)) {
       // This condition covers the following directories and files:
       // <repo contents cache>
-      // <repo contents cache>/<predeclared-input-hash>-<repo name>
-      // <repo contents cache>/<predeclared-input-hash>-<repo name>/<uuid>
-      // <repo contents cache>/<predeclared-input-hash>-<repo name>/<uuid>.recorded_inputs
+      // <repo contents cache>/<repo name>-<predeclared-input-hash>
+      // <repo contents cache>/<repo name>-<predeclared-input-hash>/<uuid>
+      // <repo contents cache>/<repo name>-<predeclared-input-hash>/<uuid>.recorded_inputs
       return rootedPath.asPath().asFragment().segmentCount()
               <= repoContentsCachePath.asFragment().segmentCount() + 2
           ? FileType.REPO_CONTENTS_CACHE_TOP_LEVEL_DIRECTORIES
@@ -407,17 +407,20 @@ public class ExternalFilesHelper {
   }
 
   Iterable<SkyKey> getExtraKeysToInvalidate(
-      Map<RepositoryName, RootedPath> dirtyExternalRepos, ExtendedEventHandler eventHandler) {
+      ImmutableMap<RepositoryName, RootedPath> dirtyExternalRepos,
+      ExtendedEventHandler eventHandler) {
     dirtyExternalRepos.forEach(
         (repoName, file) -> {
-          eventHandler.handle(
-              Event.warn(
-                  """
+          var fileType = getAndNoteFileType(file);
+          if (!fileType.mayBeModifiedByBazel()) {
+            eventHandler.handle(
+                Event.warn(
+                    """
                   Repository '%s' will be fetched again since the file '%s' has been modified \
                   externally. External modifications can lead to incorrect builds.\
                   """
-                      .formatted(repoName, file.getRootRelativePath())));
-          var fileType = getAndNoteFileType(file);
+                        .formatted(repoName, file.getRootRelativePath())));
+          }
           switch (fileType) {
             case EXTERNAL_REPO -> {
               // Delete the marker file so that invalidating the RepositoryDirectoryValue actually

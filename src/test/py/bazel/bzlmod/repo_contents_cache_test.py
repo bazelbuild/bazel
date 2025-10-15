@@ -300,7 +300,9 @@ class RepoContentsCacheTest(test_base.TestBase):
     # GC'd while server is alive: not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testGc_singleServer_gcAfterCacheMiss(self):
     self.ScratchFile(
@@ -333,7 +335,9 @@ class RepoContentsCacheTest(test_base.TestBase):
     # GC'd while server is alive: not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testGc_multipleServers(self):
     module_bazel_lines = [
@@ -388,13 +392,17 @@ class RepoContentsCacheTest(test_base.TestBase):
         ],
         cwd=dir_a,
     )
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
     # GC'd while B's server is alive (after B's earlier cache hit):
     # not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_b)
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testRepoContentsCacheDeleted(self):
     repo_contents_cache = self.ScratchDir('repo_contents_cache')
