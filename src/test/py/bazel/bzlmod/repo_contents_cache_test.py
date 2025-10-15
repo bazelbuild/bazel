@@ -438,7 +438,9 @@ class RepoContentsCacheTest(test_base.TestBase):
       ['build', '@my_repo//:haha', '--repo_contents_cache=%s' % repo_contents_cache],
       cwd=workspace,
     )
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testEntryCorrupted(self):
     self.ScratchFile(
