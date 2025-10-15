@@ -302,6 +302,8 @@ public final class Project {
    *     sound way to set the desired config and throws an {@link InvalidConfigurationException} if
    *     not.
    * @param sclConfig the {@link CoreOptions.sclConfig} to apply
+   * @param allOptionNames the names of every native option the parser recognizes, in {@code "name"}
+   *     form. Not all entries are {@link BuildOptions}.
    * @param userOptions options that were set by users (vs. global bazelrcs), in name=value form
    * @param configFlagDefinitions definitions of {@code --config=foo} for this build. Null or an
    *     empty string means use the project-default config if set, otherwise no-op.
@@ -317,6 +319,7 @@ public final class Project {
       BuildOptions fromOptions,
       Project.ActiveProjects activeProjects,
       String sclConfig,
+      ImmutableSet<String> allOptionNames,
       ImmutableMap<String, String> userOptions,
       ConfigFlagDefinitions configFlagDefinitions,
       boolean enforceCanonicalConfigs,
@@ -343,6 +346,7 @@ public final class Project {
                         p,
                         sclConfig,
                         fromOptions,
+                        allOptionNames,
                         userOptions,
                         configFlagDefinitions,
                         enforceCanonicalConfigs))

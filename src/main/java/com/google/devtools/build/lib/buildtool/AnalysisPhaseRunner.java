@@ -226,6 +226,7 @@ public final class AnalysisPhaseRunner {
   static ProjectEvaluationResult evaluateProjectFile(
       BuildRequest request,
       BuildOptions buildOptions,
+      ImmutableSet<String> allOptionNames,
       ImmutableMap<String, String> userOptions,
       TargetPatternPhaseValue targetPatternPhaseValue,
       CommandEnvironment env)
@@ -323,6 +324,7 @@ public final class AnalysisPhaseRunner {
               buildOptions,
               activeProjects,
               buildOptions.get(CoreOptions.class).sclConfig,
+              allOptionNames,
               userOptions,
               env.getConfigFlagDefinitions(),
               request.getBuildOptions().enforceProjectConfigs,

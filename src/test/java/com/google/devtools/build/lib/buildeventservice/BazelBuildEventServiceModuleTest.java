@@ -898,7 +898,7 @@ project = project_pb2.Project.create(
   buildable_units = [
       buildable_unit_pb2.BuildableUnit.create(
           name = "default_config",
-          flags = ["--define=foo=bar", "--bad_flag=bar", "--//flag:my_flag=my_value"],
+          flags = ["--define=foo=bar", "--//flag:my_flag=my_value"],
           is_default = True,
       )
   ],

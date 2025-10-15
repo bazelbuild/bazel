@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
@@ -27,22 +28,32 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.ProjectValue.BuildableUnit;
 import com.google.devtools.build.lib.skyframe.ProjectValue.EnforcementPolicy;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.common.options.GlobalRcUtils;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -89,19 +100,26 @@ public final class FlagSetFunction implements SkyFunction {
     // return them in the Skyvalue for the caller to emit.
     ImmutableSet.Builder<Event> persistentMessages = ImmutableSet.builder();
     ImmutableSet<String> sclConfigAsStarlarkList =
-        getSclConfig(key, projectValue, persistentMessages, key.targets());
+        getSclConfig(key, projectValue, persistentMessages, key.targets(), env);
+    if (sclConfigAsStarlarkList == null) {
+      return null;
+    }
     return FlagSetValue.create(sclConfigAsStarlarkList, persistentMessages.build());
   }
 
   /**
    * Given an .scl file and {@code --scl_config} value, returns the flags denoted by that {@code
    * --scl_config}. Flags are a list of strings (not parsed through the options parser).
+   *
+   * <p>Returns null if Skyframe dependencies need to be evaluated
    */
+  @Nullable
   private static ImmutableSet<String> getSclConfig(
       FlagSetValue.Key key,
       ProjectValue sclContent,
       ImmutableSet.Builder<Event> persistentMessages,
-      Set<Label> targets)
+      Set<Label> targets,
+      Environment env)
       throws FlagSetFunctionException {
     Label projectFile = key.projectFile();
     String sclConfigName = key.sclConfig();
@@ -160,10 +178,48 @@ public final class FlagSetFunction implements SkyFunction {
       sclConfigValue = configs.get(sclConfigName).flags();
     }
 
+    ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(key.targetOptions());
+    FlagTypes directlySetFlags =
+        groupFlags(sclConfigValue, key.allOptionNames(), buildOptionsAsStrings);
+
+    // Error on unrecognized native flags.
+    String evalContext =
+        String.format("Applying config '%s' in %s", sclConfigNameForMessage, projectFile);
+    if (!directlySetFlags.unrecognizedFlags().isEmpty()) {
+      throw new FlagSetFunctionException(
+          new UnsupportedConfigException(
+              String.format(
+                  "%s: unrecognized option%s: %s.",
+                  evalContext,
+                  directlySetFlags.unrecognizedFlags().size() == 1 ? "" : "s",
+                  directlySetFlags.unrecognizedFlags().stream()
+                      .map(f -> "--" + f)
+                      .collect(joining(", ")))),
+          Transience.PERSISTENT);
+
+      // Error on native flags that project files don't support, i.e. non-output affecting flags.
+    } else if (!directlySetFlags.unsupportedFlags().isEmpty()) {
+      throw new FlagSetFunctionException(
+          new UnsupportedConfigException(
+              String.format(
+                  "%s: project flags don't support non-output affecting option%s: %s.",
+                  evalContext,
+                  directlySetFlags.unsupportedFlags().size() == 1 ? "" : "s",
+                  directlySetFlags.unsupportedFlags().stream()
+                      .map(f -> "--" + f)
+                      .collect(joining(", ")))),
+          Transience.PERSISTENT);
+    }
+
+    // Check that directly set Starlark flags are valid.
+    if (!validateStarlarkFlags(directlySetFlags.starlarkFlags(), evalContext, env)) {
+      return null;
+    }
+
     // Replace --config=foo entries with their expanded definitions.
     sclConfigValue = expandConfigFlags(sclConfigName, sclConfigValue, key.configFlagDefinitions());
-
-    ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(key.targetOptions());
+    // TODO: b/388289978 - Fail on unrecognized options from --config and warn when ignoring
+    //     recognized options that are filtered out here.
     ImmutableSet<String> optionsToApply = filterOptions(sclConfigValue, buildOptionsAsStrings);
 
     if (optionsToApply.isEmpty()) {
@@ -296,6 +352,144 @@ public final class FlagSetFunction implements SkyFunction {
   }
 
   /**
+   * Groups project-declared flag settings by flag type. All entries use {@code "flag_name"} form.
+   *
+   * @param supportedFlags flags that project files can legitimately set
+   * @param unsupportedFlags valid Bazel flags that project files can't set
+   * @param unrecognizedFlags unrecognized native flags
+   * @param starlarkFlags Starlark flags - not checked for actual existence
+   */
+  private static record FlagTypes(
+      ImmutableSet<String> supportedFlags,
+      ImmutableSet<String> unsupportedFlags,
+      ImmutableSet<String> unrecognizedFlags,
+      ImmutableSet<String> starlarkFlags) {}
+
+  /**
+   * Groups an input of {@code "--flag_name=value"} pairs into {@link FlagTypes} categories.
+   *
+   * @param flagSettings input flag settings
+   * @param allOptionNames all recognizable native Bazel options in {@code "flag_name"} form
+   * @param buildOptionsAsStrings all native Bazel options that are also in {@link BuildOptions}, in
+   *     {@code "flag_name"} form
+   */
+  private static FlagTypes groupFlags(
+      ImmutableList<String> flagSettings,
+      ImmutableSet<String> allOptionNames,
+      ImmutableList<String> buildOptionsAsStrings) {
+    ImmutableSet.Builder<String> supportedFlags = ImmutableSet.builder();
+    ImmutableSet.Builder<String> unsupportedFlags = ImmutableSet.builder();
+    ImmutableSet.Builder<String> unrecognizedFlags = ImmutableSet.builder();
+    ImmutableSet.Builder<String> starlarkFlags = ImmutableSet.builder();
+    for (String flagSetting : flagSettings) {
+      String flagName = Splitter.on("=").splitToList(flagSetting).get(0).replaceFirst("--", "");
+      if (flagName.equals("config")) {
+        supportedFlags.add(flagSetting);
+      } else if (STARLARK_SKIPPED_PREFIXES.stream().anyMatch(flagSetting::startsWith)) {
+        starlarkFlags.add(flagName);
+      } else if (!allOptionNames.contains(flagName)) {
+        unrecognizedFlags.add(flagName);
+      } else if (!buildOptionsAsStrings.contains(flagName)) {
+        unsupportedFlags.add(flagName);
+      } else {
+        supportedFlags.add(flagName);
+      }
+    }
+    return new FlagTypes(
+        supportedFlags.build(),
+        unsupportedFlags.build(),
+        unrecognizedFlags.build(),
+        starlarkFlags.build());
+  }
+
+  /**
+   * Checks that Starlark flags exist, throws a {@link FlagSetFunctionException} if they don't.
+   *
+   * @param starlarkFlags Starlark flags to check, in {@code "//pkg:flag_name"} form
+   * @param evalContext User-friendly description of where the flags are set
+   * @param env Skyframe evaluation environment
+   * @return true if validation completed, false if Skyframe dependencies need to be evaluated.
+   */
+  private static boolean validateStarlarkFlags(
+      ImmutableSet<String> starlarkFlags, String evalContext, Environment env)
+      throws FlagSetFunctionException {
+    // Maps Starlark flag labels to the strings they appear in in in the project file.
+    LinkedHashMap<Label, String> flagLabels = new LinkedHashMap<>();
+    LinkedHashSet<String> badFlags = new LinkedHashSet<>();
+
+    // Get the context we need to properly parse labels that may come from other repos.
+    RepositoryMappingValue mainRepoMapping;
+    try {
+      mainRepoMapping =
+          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    } catch (InterruptedException e) {
+      return true;
+    }
+    if (mainRepoMapping == null) {
+      return false;
+    }
+    RepoContext mainRepoContext =
+        RepoContext.of(RepositoryName.MAIN, mainRepoMapping.repositoryMapping());
+
+    // Parse the flags into repo-aware labels.
+    for (String starlarkFlag : starlarkFlags) {
+      try {
+        Label label = Label.parseWithRepoContext(starlarkFlag, mainRepoContext);
+        flagLabels.put(label, starlarkFlag);
+      } catch (LabelSyntaxException e) {
+        badFlags.add(starlarkFlag);
+      }
+    }
+
+    // Skyframe-load their packages.
+    SkyframeLookupResult evaluated;
+    try {
+      evaluated =
+          env.getValuesAndExceptions(
+              flagLabels.keySet().stream()
+                  .map(Label::getPackageIdentifier)
+                  .collect(toImmutableSet()));
+    } catch (InterruptedException e) {
+      return true;
+    }
+    if (env.valuesMissing()) {
+      return false;
+    }
+
+    // Check that they're real, flag-typed targets.
+    for (var flagLabel : flagLabels.entrySet()) {
+      try {
+        PackageValue pkg =
+            (PackageValue)
+                evaluated.getOrThrow(
+                    flagLabel.getKey().getPackageIdentifier(), NoSuchPackageException.class);
+        var target = pkg.getPackage().getTarget(flagLabel.getKey().getName());
+        if (!target.isRule() || !((Rule) target).isBuildSetting()) {
+          badFlags.add(flagLabel.getValue());
+        }
+      } catch (NoSuchTargetException | NoSuchPackageException e) {
+        badFlags.add(flagLabel.getValue());
+      }
+    }
+
+    // Report bad results.
+    if (!badFlags.isEmpty()) {
+      throw new FlagSetFunctionException(
+          new UnsupportedConfigException(
+              String.format(
+                  "%s: unrecognized Starlark flag%s: %s. %s",
+                  evalContext,
+                  badFlags.size() == 1 ? "" : "s",
+                  badFlags.stream().map(f -> "--" + f).collect(joining(", ")),
+                  badFlags.size() == 1
+                      ? "Check that this is a valid target that can be set as a flag."
+                      : "Check that these are valid targets that can be set as flags.")),
+          Transience.PERSISTENT);
+    }
+    return true;
+  }
+
+  /**
    * In-place expands {@code --config=foo} entries in {@code inputFlags}.
    *
    * <p>Doesn't parse flags or check where they're defined. It's up to callers to determine if flags
@@ -413,9 +607,8 @@ public final class FlagSetFunction implements SkyFunction {
       return;
     }
     switch (enforcementPolicy) {
-      case WARN:
-        break;
-      case COMPATIBLE:
+      case WARN -> {}
+      case COMPATIBLE -> {
         ImmutableSet<String> optionNamesFromSelectedConfig =
             flagsFromSelectedConfig.stream()
                 .map(flag -> Iterables.get(Splitter.on("=").split(flag), 0).replace("'", ""))
@@ -438,17 +631,17 @@ public final class FlagSetFunction implements SkyFunction {
                       projectFile, conflictingOptions)),
               Transience.PERSISTENT);
         }
-        break;
-      case STRICT:
-        throw new FlagSetFunctionException(
-            new UnsupportedConfigException(
-                String.format(
-                    "This build uses a project file (%s) that does not allow output-affecting"
-                        + " flags in the command line or user bazelrc. Found %s. Please remove"
-                        + " these flags or disable project file resolution via"
-                        + " --noenforce_project_configs.",
-                    projectFile, overlap)),
-            Transience.PERSISTENT);
+      }
+      case STRICT ->
+          throw new FlagSetFunctionException(
+              new UnsupportedConfigException(
+                  String.format(
+                      "This build uses a project file (%s) that does not allow output-affecting"
+                          + " flags in the command line or user bazelrc. Found %s. Please remove"
+                          + " these flags or disable project file resolution via"
+                          + " --noenforce_project_configs.",
+                      projectFile, overlap)),
+              Transience.PERSISTENT);
     }
     // This appears in the WARN case, or for a COMPATIBLE project file that doesn't have
     // conflicting flags. We never hit this in the STRICT case, since we've already thrown.

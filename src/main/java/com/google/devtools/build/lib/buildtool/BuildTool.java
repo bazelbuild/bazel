@@ -153,6 +153,7 @@ import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -325,10 +326,17 @@ public class BuildTool {
                   request.shouldRunTests(),
                   validator);
 
+      ImmutableSet<String> allOptionNames =
+          optionsParser.getOptionsSortedByCategory().values().stream()
+              .flatMap(Collection::stream)
+              .map(OptionDefinition::getOptionName)
+              .collect(toImmutableSet());
+
       ProjectEvaluationResult projectEvaluationResult =
           evaluateProjectFile(
               request,
               buildOptions,
+              allOptionNames,
               request.getUserOptions(),
               targetPatternsForProjectResolution,
               env);

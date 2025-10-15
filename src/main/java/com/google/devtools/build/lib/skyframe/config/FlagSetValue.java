@@ -49,6 +49,7 @@ public class FlagSetValue implements SkyValue {
       Label projectFile,
       @Nullable String sclConfig,
       BuildOptions targetOptions,
+      ImmutableSet<String> allOptionNames,
       ImmutableMap<String, String> userOptions,
       ConfigFlagDefinitions configFlagDefinitions,
       boolean enforceCanonical)
@@ -59,6 +60,7 @@ public class FlagSetValue implements SkyValue {
       requireNonNull(projectFile, "projectFile");
       sclConfig = nullToEmpty(sclConfig);
       requireNonNull(targetOptions, "targetOptions");
+      requireNonNull(allOptionNames, "allOptionNames");
       requireNonNull(userOptions, "userOptions");
       requireNonNull(configFlagDefinitions, "configFlagDefinitions");
     }
@@ -75,6 +77,7 @@ public class FlagSetValue implements SkyValue {
         Label projectFile,
         String sclConfig,
         BuildOptions targetOptions,
+        ImmutableSet<String> allOptionNames,
         ImmutableMap<String, String> userOptions,
         ConfigFlagDefinitions configFlagDefinitions,
         boolean enforceCanonical) {
@@ -84,6 +87,7 @@ public class FlagSetValue implements SkyValue {
               projectFile,
               sclConfig,
               targetOptions,
+              allOptionNames,
               userOptions,
               configFlagDefinitions,
               enforceCanonical));

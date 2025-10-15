@@ -37,7 +37,6 @@ import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -49,7 +48,6 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     writeProjectSclDefinition("test/project_proto.scl");
   }
 
@@ -127,7 +125,6 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
         )
         """);
     scratch.file("test/BUILD");
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     // given original BuildOptions and a valid key
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -138,6 +135,7 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("platforms"),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -148,7 +146,7 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void given_unknown_sclConfig_flagSetsFunction_returns_original_buildOptions()
+  public void noEnforceCanonical_unknown_sclConfig_returns_original_buildOptions()
       throws Exception {
     scratch.file(
         "test/PROJECT.scl",
@@ -164,7 +162,6 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
         )
         """);
     scratch.file("test/BUILD");
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     // given valid project file but a nonexistent scl config
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -175,27 +172,7 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
             Label.parseCanonical("//test:PROJECT.scl"),
             "unknown_config",
             buildOptions,
-            /* userOptions= */ ImmutableMap.of(),
-            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
-            /* enforceCanonical= */ false);
-    FlagSetValue flagSetsValue = executeFunction(key);
-
-    // expects the original BuildOptions
-    assertThat(flagSetsValue.getOptionsFromFlagset()).isEmpty();
-  }
-
-  @Test
-  public void flagSetsFunction_returns_original_buildOptions() throws Exception {
-    // given original BuildOptions and an empty scl config name
-    BuildOptions buildOptions =
-        BuildOptions.getDefaultBuildOptionsForFragments(
-            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    FlagSetValue.Key key =
-        FlagSetValue.Key.create(
-            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
-            Label.parseCanonical("//test:PROJECT.scl"),
-            "",
-            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
@@ -222,7 +199,6 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
         )
         """);
     scratch.file("test/BUILD");
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     // given original BuildOptions and a valid key
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -233,6 +209,7 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -249,13 +226,13 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
             ImmutableSet.of(Label.parseCanonical("//test:test_target")),
             Label.parseCanonical("//test:PROJECT.scl"),
             "random_config_name",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
@@ -285,13 +262,13 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
             ImmutableSet.of(Label.parseCanonical("//test:test_target")),
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("define"),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
@@ -310,13 +287,13 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
             ImmutableSet.of(Label.parseCanonical("//test:test_target")),
             Label.parseCanonical("//test:PROJECT.scl"),
             "fake_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
@@ -350,7 +327,6 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -358,6 +334,7 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
             Label.parseCanonical("//test:PROJECT.scl"),
             "other_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -406,7 +383,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
 
     FlagSetValue.Key key =
@@ -415,6 +391,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -457,7 +434,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
 
     FlagSetValue.Key key =
@@ -466,6 +442,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -512,7 +489,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
 
     FlagSetValue.Key key =
@@ -521,6 +497,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -567,7 +544,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
         createBuildOptions("--//test:myflag=other_value", "--//test:other_flag=test_config_value");
 
@@ -577,6 +553,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(
                 "--//test:myflag=other_value", "", "--//test:other_flag=test_config_value", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
@@ -597,7 +574,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           "configs": 1,
         }
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
 
     FlagSetValue.Key key =
@@ -606,6 +582,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -628,7 +605,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           },
         }
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
 
     FlagSetValue.Key key =
@@ -637,6 +613,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -659,7 +636,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           },
         }
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
 
     FlagSetValue.Key key =
@@ -668,6 +644,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -718,7 +695,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -726,6 +702,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             createBuildOptions(), // this is a fake flag so don't add it here.
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of("--bar", "--config=foo"),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -771,7 +748,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--//test:myflag=other_value");
 
     FlagSetValue.Key key =
@@ -780,6 +756,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of("--//test:myflag=other_value", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -823,7 +800,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--//test:myflag=test_config_value");
 
     FlagSetValue.Key key =
@@ -832,6 +808,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of("--//test:myflag=test_config_value", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -884,7 +861,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
         createBuildOptions("--//test:starlark_flags_always_affect_configuration=yes_they_do");
 
@@ -894,6 +870,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(
                 "--//test:starlark_flags_always_affect_configuration=yes_they_do", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
@@ -949,7 +926,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
         createBuildOptions("--test_filter=foo", "--cache_test_results=true", "--test_arg=blah");
 
@@ -959,6 +935,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(
                 "--test_filter=foo", "", "--cache_test_results=true", "", "--test_arg=blah", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
@@ -1001,7 +978,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           ],
         )
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
 
     FlagSetValue.Key key =
@@ -1010,6 +986,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
@@ -1038,7 +1015,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1046,6 +1022,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "non_existent_config",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1079,7 +1056,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1087,6 +1063,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1115,7 +1092,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1123,6 +1099,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1150,7 +1127,6 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1158,6 +1134,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1189,7 +1166,6 @@ project = project_pb2.Project.create(
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1197,6 +1173,7 @@ project = project_pb2.Project.create(
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1212,7 +1189,7 @@ project = project_pb2.Project.create(
   }
 
   @Test
-  public void nonBuildOptions_areIgnored() throws Exception {
+  public void directlySet_nonBuildOptions_fails() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
@@ -1232,7 +1209,6 @@ project = project_pb2.Project.create(
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1240,16 +1216,113 @@ project = project_pb2.Project.create(
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("bazelrc"),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
-    FlagSetValue flagSetsValue = executeFunction(key);
 
-    assertThat(flagSetsValue.getOptionsFromFlagset()).isEmpty();
-    assertDoesNotContainEvent("Applying flags from the config 'test_config'");
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("project flags don't support non-output affecting option: --bazelrc");
   }
 
-  @Ignore("b/415352636")
+  @Test
+  public void directlySet_unrecognizedFlag_fails() throws Exception {
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--not_a_flag=1"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown).hasMessageThat().contains("unrecognized option: --not_a_flag");
+  }
+
+  @Test
+  @TestParameters({
+    "{label: '//test:myflag', expectSuccess: true}",
+    "{label: '//test:not_a_target', expectSuccess: false}",
+    "{label: '//not_a_package:myflag', expectSuccess: false}",
+    "{label: '//other:not_a_flag', expectSuccess: false}",
+  })
+  public void directlySet_starlarkFlag(String label, boolean expectSuccess) throws Exception {
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
+    scratch.file(
+        "other/BUILD",
+        """
+        genrule(name = "not_a_flag", outs = ["out"], cmd = "echo foo > $@")
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--%s=1"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """
+            .formatted(label));
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    if (expectSuccess) {
+      var flagSetsValue = executeFunction(key);
+      assertThat(flagSetsValue.getOptionsFromFlagset())
+          .containsExactly(String.format("--%s=1", label));
+      assertContainsPersistentMessage(
+          flagSetsValue,
+          EventKind.INFO,
+          /* frequency= */ 1,
+          "Applying flags from the config 'test_config'");
+    } else {
+      var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+      assertThat(thrown).hasMessageThat().contains("unrecognized Starlark flag: --" + label);
+    }
+  }
+
+  @Test
   public void basicFlagsetFunctionalityWithTopLevelProjectSchema() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
@@ -1260,7 +1333,7 @@ project = project_pb2.Project.create(
           buildable_units = [
               buildable_unit_pb2.BuildableUnit.create(
                   name = "test_config",
-                  flags = ["--bazelrc=foo"]
+                  flags = ["--//test:myflag=test_config_value"],
                   is_default = True,
                   description = "user-friendly config description",
               ),
@@ -1270,7 +1343,6 @@ project = project_pb2.Project.create(
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1278,6 +1350,7 @@ project = project_pb2.Project.create(
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1316,7 +1389,6 @@ project = project_pb2.Project.create(
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1324,6 +1396,7 @@ project = project_pb2.Project.create(
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ null,
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1372,7 +1445,6 @@ project = project_pb2.Project.create(
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1382,6 +1454,7 @@ project = project_pb2.Project.create(
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ null,
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1418,7 +1491,6 @@ project = project_pb2.Project.create(
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1428,6 +1500,7 @@ project = project_pb2.Project.create(
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ null,
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
@@ -1465,7 +1538,6 @@ project = project_pb2.Project.create(
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
@@ -1475,6 +1547,7 @@ project = project_pb2.Project.create(
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ null,
             buildOptions,
+            /* allOptionNames= */ ImmutableSet.of(),
             /* userOptions= */ ImmutableMap.of(),
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
