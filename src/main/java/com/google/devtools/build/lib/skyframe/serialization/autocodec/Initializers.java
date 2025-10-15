@@ -51,9 +51,10 @@ class Initializers {
                 .addMember("value", "$S", AutoCodecProcessor.class.getCanonicalName())
                 .build())
         .addAnnotation(
-            AnnotationSpec.builder(ClassName.get(SuppressWarnings.class))
+            AnnotationSpec.builder(SuppressWarnings.class)
                 .addMember("value", "$S", "unchecked")
                 .addMember("value", "$S", "rawtypes")
+                .addMember("value", "$S", "removal")
                 .build())
         .addMethod(defineGetEncodedClassMethod(encodedType, env))
         .addMethod(defineAutoRegisterMethod(annotation));
