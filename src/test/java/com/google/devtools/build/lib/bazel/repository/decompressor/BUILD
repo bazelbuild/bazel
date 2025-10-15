@@ -17,6 +17,7 @@ java_library(
     name = "DecompressorTests_lib",
     srcs = glob(["*.java"]),
     data = [
+        "test_decompress_archive.7z",
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",
         "test_files.ar",
@@ -27,6 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
