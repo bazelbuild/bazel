@@ -141,17 +141,16 @@ def _create_fdo_context(
     # If AutoFDO is in effect, a file called proto.profile next to the AutoFDO
     # profile is used, if it exists.
     proto_profile_artifact = None
-    if not cpp_config.proto_profile() and _proto_profile:
-        fail("--proto_profile_path cannot be set if --proto_profile is false")
-    if _proto_profile:
-        proto_profile_artifact = _symlink_to(
-            ctx,
-            name_prefix = "fdo",
-            artifact = _proto_profile,
-            progress_message = "Symlinking protobuf profile %{input}",
-        )
-    elif cpp_config.proto_profile():
-        proto_profile_artifact = getattr(fdo_inputs, "proto_profile_artifact", None)
+    if cpp_config.proto_profile():
+        if _proto_profile:
+            proto_profile_artifact = _symlink_to(
+                ctx,
+                name_prefix = "fdo",
+                artifact = _proto_profile,
+                progress_message = "Symlinking protobuf profile %{input}",
+            )
+        else:
+            proto_profile_artifact = getattr(fdo_inputs, "proto_profile_artifact", None)
 
     branch_fdo_profile = None
     if fdo_inputs:
