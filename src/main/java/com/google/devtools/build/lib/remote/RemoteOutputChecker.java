@@ -40,13 +40,15 @@ import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
- * An {@link RemoteArtifactChecker} that checks the TTL of remote metadata and decides which outputs
- * to download.
+ * An {@link OutputChecker} that decides which outputs to download taking into account the output
+ * mode and the TTL of remote metadata.
  */
 public class RemoteOutputChecker implements RemoteArtifactChecker {
   private enum CommandMode {
@@ -60,10 +62,11 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   private final Clock clock;
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
-  private final ImmutableList<Pattern> patternsToDownload;
   @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
 
+  private final ImmutableList<Pattern> patternsToDownload;
   private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
+  private final Set<PathFragment> pathsToSkip = ConcurrentHashMap.newKeySet();
 
   public RemoteOutputChecker(
       Clock clock,
@@ -249,12 +252,24 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
+  /** Marks a file for download. */
   public void addOutputToDownload(ActionInput file) {
     if (file instanceof Artifact && ((Artifact) file).isTreeArtifact()) {
       pathsToDownload.addPrefix(file.getExecPath());
     } else {
       pathsToDownload.add(file.getExecPath());
     }
+  }
+
+  /**
+   * Marks a file as not for download, regardless of the output mode.
+   *
+   * <p>This is used by {@link RemoteExecutionService} to skip downloading in-memory outputs.
+   *
+   * @param execPath the exec path of the file that is not to be downloaded.
+   */
+  public void skipDownload(PathFragment execPath) {
+    pathsToSkip.add(execPath);
   }
 
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
@@ -296,6 +311,9 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
   public boolean shouldDownloadOutput(PathFragment execPath) {
+    if (pathsToSkip.contains(execPath)) {
+      return false;
+    }
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
         || matchesPattern(execPath);
