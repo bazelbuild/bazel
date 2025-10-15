@@ -42,14 +42,16 @@ import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * An {@link OutputChecker} that checks the TTL of remote metadata and decides which outputs to
- * download.
+ * An {@link OutputChecker} that decides which outputs to download taking into account the output
+ * mode and the TTL of remote metadata.
  */
 public class RemoteOutputChecker implements OutputChecker {
   private enum CommandMode {
@@ -62,12 +64,13 @@ public class RemoteOutputChecker implements OutputChecker {
 
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
-  private final ImmutableList<Predicate<String>> patternsToDownload;
   @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
 
   @Nullable private Clock clock;
 
+  private final ImmutableList<Predicate<String>> patternsToDownload;
   private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
+  private final Set<PathFragment> pathsToSkip = ConcurrentHashMap.newKeySet();
 
   public RemoteOutputChecker(
       String commandName,
@@ -253,8 +256,20 @@ public class RemoteOutputChecker implements OutputChecker {
     }
   }
 
+  /** Marks a file for download. */
   public void addOutputToDownload(ActionInput file) {
     pathsToDownload.add(file);
+  }
+
+  /**
+   * Marks a file as not for download, regardless of the output mode.
+   *
+   * <p>This is used by {@link RemoteExecutionService} to skip downloading in-memory outputs.
+   *
+   * @param execPath the exec path of the file that is not to be downloaded.
+   */
+  public void skipDownload(PathFragment execPath) {
+    pathsToSkip.add(execPath);
   }
 
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
@@ -304,6 +319,9 @@ public class RemoteOutputChecker implements OutputChecker {
    */
   public boolean shouldDownloadOutput(
       PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
+    if (pathsToSkip.contains(execPath)) {
+      return false;
+    }
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
         || matchesPattern(execPath)

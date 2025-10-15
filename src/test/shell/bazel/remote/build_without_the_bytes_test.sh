@@ -1867,6 +1867,90 @@ EOF
   expect_log "START.*: \[.*\] Executing genrule //a:dep"
 }
 
+function test_inmemory_dotd_files() {
+  # Reject multiple downloads of the same digest as a regression test for
+  # https://github.com/bazelbuild/bazel/issues/22387.
+  stop_worker
+  start_worker --error_on_duplicate_downloads
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate remote cache with .d file.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "${TEST_log}" \
+      || fail "Expected success from uploading invocation"
+
+  # Search for alternative .d file names for compatibility across platforms.
+  local -r dotd_file="$(find -L bazel-out -type f -name 'foo*.d' | head -n1)"
+  if [[ -z "$dotd_file" ]]; then
+    fail ".d file not found under bazel-out"
+  fi
+  local -r dotd_hash="$(sha256sum ${dotd_file} | cut -d' ' -f1)"
+
+  # Delete output tree.
+  bazel clean
+
+  # Build while downloading .d file into memory.
+  bazel build \
+      --experimental_inmemory_dotd_files \
+      --remote_download_all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from downloading invocation"
+
+  # The .d file should not have been downloaded to disk.
+  assert_not_exists ${dotd_file}
+}
+
+function test_inmemory_dotd_files_disabled() {
+  # Reject multiple downloads of the same digest as a regression test for
+  # https://github.com/bazelbuild/bazel/issues/22387.
+  stop_worker
+  start_worker --error_on_duplicate_downloads
+
+  add_rules_cc MODULE.bazel
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(name="foo", srcs=["foo.c"])
+EOF
+  touch foo.c
+
+  # Populate remote cache with .d file.
+  bazel build \
+      --remote_upload_local_results \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from uploading invocation"
+
+  # Search for alternative .d file names for compatibility across platforms.
+  local -r dotd_file="$(find -L bazel-bin -type f -name 'foo*.d' | head -n1)"
+  if [[ -z "$dotd_file" ]]; then
+    fail ".d file not found under bazel-out"
+  fi
+  local -r dotd_hash="$(sha256sum ${dotd_file} | cut -d' ' -f1)"
+
+  # Delete output tree.
+  bazel clean
+
+  # Build while downloading .d file onto disk.
+  bazel build \
+      --noexperimental_inmemory_dotd_files \
+      --remote_download_all \
+      --remote_cache=grpc://localhost:"${worker_port}" \
+      //:foo &> "$TEST_log" \
+      || fail "Expected success from downloading invocation"
+
+  # The .d file should have been downloaded to disk.
+  assert_exists ${dotd_file}
+}
+
 function test_remote_download_regex() {
   add_rules_java "MODULE.bazel"
   mkdir -p a
@@ -1925,6 +2009,7 @@ EOF
         --remote_executor=grpc://localhost:${worker_port} \
         --remote_download_minimal \
         --remote_download_regex=".*" \
+        --experimental_inmemory_jdeps_files=false \
         //a:test >& $TEST_log || fail "Failed to build"
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
