@@ -728,6 +728,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               buildRequestId,
               invocationId,
+              env.getWorkspaceName(),
               remoteOptions.remoteInstanceName,
               remoteOptions.remoteAcceptCached));
     } else {

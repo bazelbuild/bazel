@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -192,11 +193,6 @@ public class RemoteSpawnCacheTest {
       }
 
       @Override
-      public SpawnInputExpander getSpawnInputExpander() {
-        return new SpawnInputExpander();
-      }
-
-      @Override
       public Duration getTimeout() {
         return Duration.ZERO;
       }
@@ -209,7 +205,7 @@ public class RemoteSpawnCacheTest {
       @Override
       public SortedMap<PathFragment, ActionInput> getInputMapping(
           PathFragment baseDirectory, boolean willAccessRepeatedly) {
-        return getSpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
+        return new SpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
       }
 
       @Override
@@ -299,6 +295,7 @@ public class RemoteSpawnCacheTest {
                 remotePathResolver,
                 BUILD_REQUEST_ID,
                 COMMAND_ID,
+                TestConstants.WORKSPACE_NAME,
                 digestUtil,
                 options,
                 executionOptions,

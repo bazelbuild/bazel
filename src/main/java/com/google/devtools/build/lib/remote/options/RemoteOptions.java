@@ -591,30 +591,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean remoteVerifyDownloads;
 
   @Option(
-      name = "experimental_remote_merkle_tree_cache",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If set to true, Merkle tree calculations will be memoized to improve the remote cache "
-              + "hit checking speed. The memory foot print of the cache is controlled by "
-              + "--experimental_remote_merkle_tree_cache_size.")
-  public boolean remoteMerkleTreeCache;
-
-  @Option(
-      name = "experimental_remote_merkle_tree_cache_size",
-      defaultValue = "1000",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "The number of Merkle trees to memoize to improve the remote cache hit checking speed. "
-              + "Even though the cache is automatically pruned according to Java's handling of "
-              + "soft references, out-of-memory errors can occur if set too high. If set to 0 "
-              + " the cache size is unlimited. Optimal value varies depending on project's size. "
-              + "Default to 1000.")
-  public long remoteMerkleTreeCacheSize;
-
-  @Option(
       name = "remote_download_symlink_template",
       defaultValue = "",
       category = "remote",

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.Protos.Digest;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
@@ -113,11 +112,6 @@ public final class SpawnRunnerTestUtil {
     @Override
     public InputMetadataProvider getInputMetadataProvider() {
       return mock(InputMetadataProvider.class);
-    }
-
-    @Override
-    public SpawnInputExpander getSpawnInputExpander() {
-      throw new UnsupportedOperationException();
     }
 
     @Override

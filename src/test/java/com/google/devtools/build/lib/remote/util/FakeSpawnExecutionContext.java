@@ -104,11 +104,6 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public SpawnInputExpander getSpawnInputExpander() {
-    return new SpawnInputExpander();
-  }
-
-  @Override
   public ArtifactPathResolver getPathResolver() {
     return ArtifactPathResolver.forExecRoot(execRoot);
   }
@@ -126,7 +121,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   @Override
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       PathFragment baseDirectory, boolean willAccessRepeatedly) {
-    return getSpawnInputExpander().getInputMapping(spawn, inputMetadataProvider, baseDirectory);
+    return new SpawnInputExpander().getInputMapping(spawn, inputMetadataProvider, baseDirectory);
   }
 
   @Override

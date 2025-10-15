@@ -17,7 +17,6 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/remote/grpc:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
-        "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/zstd:srcs",
@@ -195,6 +194,7 @@ java_library(
 
 java_test(
     name = "RemoteTests",
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":RemoteTests_lib",
@@ -231,6 +231,7 @@ java_test(
     name = "BuildWithoutTheBytesIntegrationTest",
     size = "large",
     srcs = ["BuildWithoutTheBytesIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     shard_count = 5,
     tags = ["requires-network"],
     runtime_deps = [

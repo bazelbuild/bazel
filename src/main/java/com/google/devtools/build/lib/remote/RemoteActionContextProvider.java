@@ -181,6 +181,7 @@ final class RemoteActionContextProvider {
               createRemotePathResolver(),
               env.getBuildRequestId(),
               env.getCommandId().toString(),
+              env.getWorkspaceName(),
               digestUtil,
               checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
               checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)),

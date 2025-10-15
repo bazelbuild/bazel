@@ -26,6 +26,7 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
   private final DigestUtil digestUtil;
   private final String buildRequestId;
   private final String commandId;
+  private final String workspaceName;
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
@@ -36,6 +37,7 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
       DigestUtil digestUtil,
       String buildRequestId,
       String commandId,
+      String workspaceName,
       String remoteInstanceName,
       boolean acceptCached) {
     this.remoteExecutionCache = remoteExecutionCache;
@@ -43,6 +45,7 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
     this.digestUtil = digestUtil;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
+    this.workspaceName = workspaceName;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
   }
@@ -55,6 +58,7 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
         digestUtil,
         buildRequestId,
         commandId,
+        workspaceName,
         remoteInstanceName,
         acceptCached);
   }
