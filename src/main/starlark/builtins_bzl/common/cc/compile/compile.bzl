@@ -692,7 +692,7 @@ def _create_cc_compile_actions(
                 output_name = output_name_base,
             ),
         ) if (
-            dotd_files_enabled(native_cc_semantics, configuration, feature_configuration) and
+            dotd_files_enabled(language, cpp_configuration, feature_configuration) and
             _use_dotd_file(feature_configuration, source_artifact)
         ) else None
         diagnostics_file = _get_compile_output_file(
@@ -914,7 +914,7 @@ def _create_compile_source_action(
         category = output_category,
         output_name = output_pic_nopic_name,
         cc_toolchain = cc_toolchain,
-        cpp_semantics = native_cc_semantics,
+        language = language,
         configuration = configuration,
         feature_configuration = feature_configuration,
     )
@@ -998,6 +998,7 @@ def _create_compile_source_action(
         configuration = configuration,
         cpp_configuration = cpp_configuration,
         cpp_semantics = native_cc_semantics,
+        language = language,
         copts = complete_copts,
         copts_filter = copts_filter,
         common_compile_variables = common_compile_variables,
@@ -1074,6 +1075,7 @@ def _create_temps_action(
         configuration,
         cpp_configuration,
         cpp_semantics,
+        language,
         copts,
         copts_filter,
         common_compile_variables,
@@ -1132,7 +1134,7 @@ def _create_temps_action(
         source_artifact = source_artifact,
         category = category,
         cc_toolchain = cc_toolchain,
-        cpp_semantics = cpp_semantics,
+        language = language,
         configuration = configuration,
         feature_configuration = feature_configuration,
     )
@@ -1143,7 +1145,7 @@ def _create_temps_action(
         source_artifact = source_artifact,
         category = artifact_category.GENERATED_ASSEMBLY,
         cc_toolchain = cc_toolchain,
-        cpp_semantics = cpp_semantics,
+        language = language,
         configuration = configuration,
         feature_configuration = feature_configuration,
     )
@@ -1311,7 +1313,7 @@ def _create_module_codegen_action(
     )
 
     dotd_file = None
-    if (dotd_files_enabled(cpp_semantics, configuration, feature_configuration) and
+    if (dotd_files_enabled(language, cpp_configuration, feature_configuration) and
         _use_dotd_file(feature_configuration, module)):
         dotd_file = _get_compile_output_file(
             ctx = action_construction_context,
@@ -1543,11 +1545,11 @@ def _maybe_declare_dotd_file(
         category,
         output_name,
         cc_toolchain,
-        cpp_semantics,
+        language,
         configuration,
         feature_configuration):
     dotd_file = None
-    if (dotd_files_enabled(cpp_semantics, configuration, feature_configuration) and
+    if (dotd_files_enabled(language, ctx.fragments.cpp, feature_configuration) and
         _use_dotd_file(feature_configuration, source_artifact)):
         dotd_base_name = output_name
         if category != artifact_category.OBJECT_FILE and category != artifact_category.PROCESSED_HEADER:

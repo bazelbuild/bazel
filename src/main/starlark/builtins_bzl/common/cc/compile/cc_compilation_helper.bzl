@@ -611,10 +611,13 @@ def _init_cc_compilation_context(
     return main_context, implementation_deps_context
 
 # buildifier: disable=function-docstring
-def dotd_files_enabled(cpp_semantics, configuration, feature_configuration):
+def dotd_files_enabled(language, cpp_configuration, feature_configuration):
     # TODO: b/396122076 - migrate callers of cc_common.compile() to request the
     #  right fragment(s) and drop this API from cpp_semantics
-    enabled_in_config = cpp_semantics.needs_dotd_input_pruning(configuration)
+    if language == None or language == "cpp":
+        enabled_in_config = cpp_configuration.should_generate_dotd_files()
+    else:  # objc
+        enabled_in_config = cpp_configuration.objc_should_generate_dotd_files()
     return (
         enabled_in_config and
         not feature_configuration.is_enabled("parse_showincludes") and

@@ -58,13 +58,6 @@ public interface CppSemantics extends StarlarkValue {
    */
   boolean allowIncludeScanning();
 
-  /** Returns true iff this build should perform .d input pruning. */
-  @StarlarkMethod(
-      name = "needs_dotd_input_pruning",
-      documented = false,
-      parameters = {@Param(name = "config")})
-  boolean needsDotdInputPruning(BuildConfigurationValue configuration);
-
   /** Returns true iff this build requires include validation. */
   boolean needsIncludeValidation();
 

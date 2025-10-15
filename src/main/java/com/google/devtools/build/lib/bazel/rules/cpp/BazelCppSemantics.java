@@ -121,15 +121,6 @@ public class BazelCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning(BuildConfigurationValue configuration) {
-    if (language == Language.CPP) {
-      return true;
-    } else {
-      return configuration.getFragment(CppConfiguration.class).objcShouldGenerateDotdFiles();
-    }
-  }
-
-  @Override
   public boolean needsIncludeValidation() {
     return language != Language.OBJC;
   }

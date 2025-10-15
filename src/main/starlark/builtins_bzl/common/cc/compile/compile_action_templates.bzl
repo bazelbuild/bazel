@@ -95,7 +95,7 @@ def create_compile_action_templates(
             action_construction_context,
             configuration,
             feature_configuration,
-            native_cc_semantics,
+            language,
             label,
             output_name,
             generate_pic_action,
@@ -153,7 +153,7 @@ def create_compile_action_templates(
                 action_construction_context,
                 configuration,
                 feature_configuration,
-                native_cc_semantics,
+                language,
                 label,
                 output_name,
                 generate_pic_action = False,
@@ -210,7 +210,7 @@ def create_compile_action_templates(
                 action_construction_context,
                 configuration,
                 feature_configuration,
-                native_cc_semantics,
+                language,
                 label,
                 output_name,
                 generate_pic_action = True,
@@ -263,11 +263,11 @@ def _maybe_declare_dotd_tree_artifact(
         ctx,
         configuration,
         feature_configuration,
-        native_cc_semantics,
+        language,
         label,
         output_name,
         generate_pic_action):
-    if not dotd_files_enabled(native_cc_semantics, configuration, feature_configuration):
+    if not dotd_files_enabled(language, ctx.fragments.cpp, feature_configuration):
         return None
     return ctx.actions.declare_directory(paths.join(
         "_pic_dotd" if generate_pic_action else "_dotd",

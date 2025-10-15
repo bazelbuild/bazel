@@ -924,6 +924,18 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalIncludeScanning;
 
   @Option(
+      name = "cc_dotd_files",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      defaultValue = "true",
+      help = "Whether to generate and analyze .d files.")
+  public boolean generateDotdFiles;
+
+  @Option(
       name = "objc_use_dotd_pruning",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,

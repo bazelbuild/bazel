@@ -823,16 +823,18 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalIncludeScanning;
   }
 
+  @StarlarkMethod(name = "should_generate_dotd_files", documented = false, useStarlarkThread = true)
+  public boolean shouldGenerateDotdFilesStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.generateDotdFiles;
+  }
+
   @StarlarkMethod(
       name = "objc_should_generate_dotd_files",
       documented = false,
       useStarlarkThread = true)
   public boolean objcShouldGenerateDotdFilesStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return objcShouldGenerateDotdFiles();
-  }
-
-  public boolean objcShouldGenerateDotdFiles() {
     return cppOptions.objcGenerateDotdFiles;
   }
 

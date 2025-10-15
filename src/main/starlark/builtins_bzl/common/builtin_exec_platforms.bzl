@@ -289,6 +289,8 @@ bazel_fragments["CoreOptions"] = fragment(
 
 bazel_fragments["CppOptions"] = fragment(
     propagate = [
+        "//command_line_option:cc_dotd_files",
+        "//command_line_option:objc_use_dotd_pruning",
         "//command_line_option:host_copt",
         "//command_line_option:host_conlyopt",
         "//command_line_option:host_compiler",

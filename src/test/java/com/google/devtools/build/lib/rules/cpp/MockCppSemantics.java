@@ -59,11 +59,6 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning(BuildConfigurationValue configuration) {
-    return true;
-  }
-
-  @Override
   public boolean needsIncludeValidation() {
     return true;
   }
