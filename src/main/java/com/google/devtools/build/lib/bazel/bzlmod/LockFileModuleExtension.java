@@ -52,13 +52,15 @@ public abstract class LockFileModuleExtension {
 
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
-  public abstract Optional<ModuleExtensionMetadata> getModuleExtensionMetadata();
+  public abstract Optional<LockfileModuleExtensionMetadata> getModuleExtensionMetadata();
 
   public abstract ImmutableTable<RepositoryName, String, RepositoryName>
       getRecordedRepoMappingEntries();
 
   public boolean isReproducible() {
-    return getModuleExtensionMetadata().map(ModuleExtensionMetadata::getReproducible).orElse(false);
+    return getModuleExtensionMetadata()
+        .map(LockfileModuleExtensionMetadata::getReproducible)
+        .orElse(false);
   }
 
   /** Builder type for {@link LockFileModuleExtension}. */
@@ -80,7 +82,8 @@ public abstract class LockFileModuleExtension {
 
     public abstract Builder setGeneratedRepoSpecs(ImmutableMap<String, RepoSpec> value);
 
-    public abstract Builder setModuleExtensionMetadata(Optional<ModuleExtensionMetadata> value);
+    public abstract Builder setModuleExtensionMetadata(
+        Optional<LockfileModuleExtensionMetadata> value);
 
     public abstract Builder setRecordedRepoMappingEntries(
         ImmutableTable<RepositoryName, String, RepositoryName> value);

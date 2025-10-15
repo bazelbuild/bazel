@@ -111,7 +111,8 @@ public abstract class BazelLockFileValue implements SkyValue {
         .setLockFileVersion(LOCK_FILE_VERSION)
         .setRegistryFileHashes(ImmutableMap.of())
         .setSelectedYankedVersions(ImmutableMap.of())
-        .setModuleExtensions(ImmutableMap.of());
+        .setModuleExtensions(ImmutableMap.of())
+        .setFacts(ImmutableMap.of());
   }
 
   /** Current version of the lock file */
@@ -131,6 +132,8 @@ public abstract class BazelLockFileValue implements SkyValue {
           ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
       getModuleExtensions();
 
+  public abstract ImmutableMap<ModuleExtensionId, Facts> getFacts();
+
   public abstract Builder toBuilder();
 
   /** Builder type for {@link BazelLockFileValue}. */
@@ -147,6 +150,8 @@ public abstract class BazelLockFileValue implements SkyValue {
                 ModuleExtensionId,
                 ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
             value);
+
+    public abstract Builder setFacts(ImmutableMap<ModuleExtensionId, Facts> value);
 
     public abstract BazelLockFileValue build();
   }
