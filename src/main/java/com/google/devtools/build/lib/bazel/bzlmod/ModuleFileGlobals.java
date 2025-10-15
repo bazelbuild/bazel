@@ -47,6 +47,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
@@ -1089,6 +1090,12 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "archive_override()");
     context.setNonModuleCalled();
     validateModuleName(moduleName);
+    var patches =
+        Sequence.cast(
+            kwargs.getOrDefault("patches", StarlarkList.empty()), String.class, "patches");
+    for (String patch : patches) {
+      var unused = convertAndValidatePatchLabel(context.getModuleBuilder(), patch);
+    }
     context.addOverride(
         moduleName,
         new NonRegistryOverride(
@@ -1128,6 +1135,12 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "git_override()");
     context.setNonModuleCalled();
     validateModuleName(moduleName);
+    var patches =
+        Sequence.cast(
+            kwargs.getOrDefault("patches", StarlarkList.empty()), String.class, "patches");
+    for (String patch : patches) {
+      var unused = convertAndValidatePatchLabel(context.getModuleBuilder(), patch);
+    }
     context.addOverride(
         moduleName,
         new NonRegistryOverride(

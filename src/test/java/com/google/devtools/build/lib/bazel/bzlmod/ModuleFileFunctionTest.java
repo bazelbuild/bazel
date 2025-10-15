@@ -1715,7 +1715,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testInvalidRepoInPatches() throws Exception {
+  public void testInvalidRepoInSingleVersionOverridePatches() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
@@ -1733,6 +1733,51 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     assertContainsEvent(
         "Error in single_version_override: invalid label in 'patches': only patches in the main"
+            + " repository can be applied, not from '@unknown_repo'");
+  }
+
+  @Test
+  public void testInvalidRepoInArchiveOverridePatches() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "archive_override(",
+        "    module_name = 'bbb',",
+        "    urls = ['https://example.com'],",
+        "    patches = ['@unknown_repo//:patch.bzl'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in archive_override: invalid label in 'patches': only patches in the main"
+            + " repository can be applied, not from '@unknown_repo'");
+  }
+
+  @Test
+  public void testInvalidRepoInGitOverridePatches() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "git_override(",
+        "    module_name = 'bbb',",
+        "    remote = 'https://example.com',",
+        "    commit = 'abcd1234',",
+        "    patches = ['@unknown_repo//:patch.bzl'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in git_override: invalid label in 'patches': only patches in the main"
             + " repository can be applied, not from '@unknown_repo'");
   }
 
