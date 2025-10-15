@@ -83,20 +83,24 @@ public final class ProjectValue implements SkyValue {
     /**
      * Creates a buildable unit.
      *
+     * @param name the buildable unit's name
      * @param targetPatterns the buildable unit's target patterns, or empty if they weren't set
      * @param description the buildable unit's user-friendly description, or empty if not set
      * @param flags the buildable unit's flags
      * @param isDefault whether this is the default buildable unit
      */
     public static BuildableUnit create(
+        String name,
         ImmutableList<String> targetPatterns,
         String description,
         ImmutableList<String> flags,
         boolean isDefault)
         throws LabelSyntaxException {
       return new AutoValue_ProjectValue_BuildableUnit(
-          SimpleTargetPatternMatcher.create(targetPatterns), description, flags, isDefault);
+          name, SimpleTargetPatternMatcher.create(targetPatterns), description, flags, isDefault);
     }
+
+    public abstract String name();
 
     public abstract SimpleTargetPatternMatcher targetPatternMatcher();
 

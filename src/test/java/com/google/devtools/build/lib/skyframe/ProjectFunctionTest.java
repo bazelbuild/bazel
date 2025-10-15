@@ -281,6 +281,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(value.getBuildableUnits().get("default"))
         .isEqualTo(
             ProjectValue.BuildableUnit.create(
+                "default",
                 ImmutableList.of("//test/..."),
                 "default",
                 ImmutableList.of("--define=foo=bar"),
@@ -291,6 +292,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(value.getBuildableUnits().get("non_default"))
         .isEqualTo(
             ProjectValue.BuildableUnit.create(
+                "non_default",
                 ImmutableList.of("//test/..."),
                 "non default",
                 ImmutableList.of("--define=bar=baz"),

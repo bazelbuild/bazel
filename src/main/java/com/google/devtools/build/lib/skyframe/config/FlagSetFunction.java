@@ -146,7 +146,7 @@ public final class FlagSetFunction implements SkyFunction {
       }
       ProjectValue.BuildableUnit buildableUnit = resolvedDefaultBuildableUnit.iterator().next();
       sclConfigValue = buildableUnit.flags();
-      sclConfigNameForMessage = buildableUnit.description();
+      sclConfigNameForMessage = buildableUnit.name();
     } else {
       if (!configs.containsKey(sclConfigName)) {
         // The user set --scl_config to an unknown config.

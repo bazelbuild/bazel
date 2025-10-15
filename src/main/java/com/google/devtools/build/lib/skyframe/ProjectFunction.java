@@ -181,6 +181,7 @@ public class ProjectFunction implements SkyFunction {
       try {
         buildableUnit =
             BuildableUnit.create(
+                buildableUnitName,
                 targetPatternsBuilder.build(),
                 buildableUnitDescription,
                 flagsBuilder.build(),
@@ -248,6 +249,7 @@ public class ProjectFunction implements SkyFunction {
         try {
           buildableUnit =
               BuildableUnit.create(
+                  /* name= */ config,
                   /* targetPatterns= */ ImmutableList.of(),
                   /* description= */ "",
                   ImmutableList.copyOf(configs.get(config)),

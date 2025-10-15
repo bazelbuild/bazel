@@ -341,7 +341,8 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
               ),
               buildable_unit_pb2.BuildableUnit.create(
                   name = "other_config",
-                  flags = ["--//test:myflag=other_config_value"]
+                  flags = ["--//test:myflag=other_config_value"],
+                  description = "user-friendly config description",
               ),
           ],
         )
@@ -1180,6 +1181,7 @@ project = project_pb2.Project.create(
           name = "test_config",
           flags = ["--//test:myflag=test_config_value"],
           is_default = True,
+          description = "user-friendly config description",
       ),
   ],
 )
@@ -1222,7 +1224,8 @@ project = project_pb2.Project.create(
                   name = "test_config",
                   flags = ["--bazelrc=foo"],
                   is_default = True,
-              ),
+                  description = "user-friendly config description",
+           ),
           ],
         )
         """);
@@ -1259,6 +1262,7 @@ project = project_pb2.Project.create(
                   name = "test_config",
                   flags = ["--bazelrc=foo"]
                   is_default = True,
+                  description = "user-friendly config description",
               ),
           ],
         )
@@ -1509,7 +1513,7 @@ project = project_pb2.Project.create(
       String name = String.format("%s-%s-%s", included ? "included" : "excluded", patterns, label);
       BuildableUnit buildableUnit =
           BuildableUnit.create(
-              patterns, "Test Unit", ImmutableList.of("--flag"), /* isDefault= */ true);
+              "test", patterns, "Test Unit", ImmutableList.of("--flag"), /* isDefault= */ true);
       return TestParametersValues.builder()
           .name(name)
           .addParameter("included", included)
