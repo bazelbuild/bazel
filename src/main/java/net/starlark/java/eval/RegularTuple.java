@@ -89,7 +89,7 @@ final class RegularTuple extends Tuple {
   /** Returns a new array of class Object[] containing the tuple elements. */
   @Override
   public Object[] toArray() {
-    return elems.length != 0 ? Arrays.copyOf(elems, elems.length, Object[].class) : elems;
+    return Arrays.copyOf(elems, elems.length, Object[].class);
   }
 
   @SuppressWarnings("unchecked")

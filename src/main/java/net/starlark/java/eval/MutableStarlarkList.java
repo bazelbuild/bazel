@@ -195,7 +195,7 @@ final class MutableStarlarkList<E> extends StarlarkList<E> {
   /** Returns a new array of class Object[] containing the list elements. */
   @Override
   public Object[] toArray() {
-    return size != 0 ? Arrays.copyOf(elems, size, Object[].class) : EMPTY_ARRAY;
+    return Arrays.copyOf(elems, size, Object[].class);
   }
 
   @SuppressWarnings("unchecked")
