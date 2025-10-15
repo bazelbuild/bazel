@@ -8,7 +8,7 @@ licenses(["notice"])  # Apache 2.0
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/net/starlark/java:bazel"],
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )
 
 # The Starlark evaluator

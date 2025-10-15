@@ -70,9 +70,6 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/view/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/windows:srcs",
         "//src/test/java/com/google/devtools/build/lib/worker:srcs",
-        "//src/test/java/net/starlark/java/annot/processor:srcs",
-        "//src/test/java/net/starlark/java/eval:srcs",
-        "//src/test/java/net/starlark/java/syntax:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )

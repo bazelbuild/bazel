@@ -6,7 +6,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/net/starlark/java:bazel"],
+    visibility = ["//src/test/java/net/starlark/java:__pkg__"],
 )
 
 # EvalTests test the Starlark interpreter.

@@ -102,12 +102,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
-        "//src/main/java/net/starlark/java:srcs",
-        "//src/main/java/net/starlark/java/annot:srcs",
-        "//src/main/java/net/starlark/java/annot/processor:srcs",
-        "//src/main/java/net/starlark/java/eval:srcs",
-        "//src/main/java/net/starlark/java/syntax:srcs",
-        "//src/main/java/net/starlark/java/types:srcs",
     ],
     visibility = [
         "//src:__pkg__",
