@@ -16,7 +16,6 @@ package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Joiner;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,10 +44,6 @@ public final class NodePrinterTest {
 
   private Expression parseExpression(String... lines) throws SyntaxError.Exception {
     return Expression.parse(ParserInput.fromLines(lines), fileOptions);
-  }
-
-  private static String join(String... lines) {
-    return Joiner.on("\n").join(lines);
   }
 
   /**
@@ -263,42 +258,88 @@ public final class NodePrinterTest {
   @Test
   public void defStatement() throws SyntaxError.Exception {
     assertStmtIndentedPrettyMatches(
-        join("def f(x):",
-             "  print(x)"),
-        join("  def f(x):",
-             "    print(x)",
-             ""));
+        """
+        def f(x):
+          print(x)\
+        """,
+        """
+          def f(x):
+            print(x)
+        """);
     assertStmtTostringMatches(
-        join("def f(x):",
-             "  print(x)"),
+        """
+        def f(x):
+          print(x)\
+        """,
         "def f(x): ...\n");
 
     assertStmtIndentedPrettyMatches(
-        join("def f(a, b=B, *c, d=D, **e):",
-             "  print(x)"),
-        join("  def f(a, b=B, *c, d=D, **e):",
-             "    print(x)",
-             ""));
+        """
+        def f(a, b=B, *c, d=D, **e):
+          print(x)\
+        """,
+        """
+          def f(a, b=B, *c, d=D, **e):
+            print(x)
+        """);
     assertStmtTostringMatches(
-        join(
-            "def f(a, b=B, *c, d=D, **e):", //
-            "  print(x)"),
+        """
+        def f(a, b=B, *c, d=D, **e):
+          print(x)\
+        """,
         "def f(a, b=B, *c, d=D, **e): ...\n");
 
-    assertStmtIndentedPrettyMatches(join("def f():", "  pass"), join("  def f():", "    pass", ""));
-    assertStmtTostringMatches(join("def f():", "  pass"), "def f(): ...\n");
+    assertStmtIndentedPrettyMatches(
+        """
+        def f():
+          pass\
+        """,
+        """
+          def f():
+            pass
+        """);
+    assertStmtTostringMatches(
+        """
+        def f():
+          pass\
+        """,
+        "def f(): ...\n");
   }
 
   @Test
   public void defStatementWithTypeAnnotations() throws SyntaxError.Exception {
     setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
     assertStmtIndentedPrettyMatches(
-        join("def f(x:int):", "  print(x)"), join("  def f(x: int):", "    print(x)", ""));
-    assertStmtTostringMatches(join("def f(x:bool):", "  print(x)"), "def f(x: bool): ...\n");
+        """
+        def f(x:int):
+          print(x)\
+        """,
+        """
+          def f(x: int):
+            print(x)
+        """);
+    assertStmtTostringMatches(
+        """
+        def f(x:bool):
+          print(x)\
+        """,
+        "def f(x: bool): ...\n");
 
     assertStmtIndentedPrettyMatches(
-        join("def f()->int:", "  print(x)"), join("  def f() -> int:", "    print(x)", ""));
-    assertStmtTostringMatches(join("def f() -> bool:", "  print(x)"), "def f() -> bool: ...\n");
+        """
+        def f()->int:
+          print(x)\
+        """,
+        """
+          def f() -> int:
+            print(x)
+        """);
+    assertStmtTostringMatches(
+        """
+        def f() -> bool:
+          print(x)
+        """,
+        "def f() -> bool: ...\n");
   }
 
   @Test
@@ -321,69 +362,99 @@ public final class NodePrinterTest {
   @Test
   public void flowStatement() throws SyntaxError.Exception {
     assertStmtIndentedPrettyMatches(
-        join("def f():", "     pass", "     continue", "     break"),
-        join("  def f():", "    pass", "    continue", "    break", ""));
+        """
+        def f():
+             pass
+             continue
+             break\
+        """,
+        """
+          def f():
+            pass
+            continue
+            break
+        """);
   }
 
   @Test
   public void forStatement() throws SyntaxError.Exception {
     assertStmtIndentedPrettyMatches(
-        join("for x in y:",
-             "  print(x)"),
-        join("  for x in y:",
-             "    print(x)",
-             ""));
+        """
+        for x in y:
+          print(x)\
+        """,
+        """
+          for x in y:
+            print(x)
+        """);
     assertStmtTostringMatches(
-        join("for x in y:",
-             "  print(x)"),
+        """
+        for x in y:
+          print(x)\
+        """,
         "for x in y: ...\n");
 
     assertStmtIndentedPrettyMatches(
-        join("for x in y:",
-             "  pass"),
-        join("  for x in y:",
-             "    pass",
-             ""));
+        """
+        for x in y:
+          pass\
+        """,
+        """
+          for x in y:
+            pass
+        """);
     assertStmtTostringMatches(
-        join("for x in y:",
-             "  pass"),
+        """
+        for x in y:
+          pass\
+        """,
         "for x in y: ...\n");
   }
 
   @Test
   public void ifStatement() throws SyntaxError.Exception {
     assertStmtIndentedPrettyMatches(
-        join("if True:",
-             "  print(x)"),
-        join("  if True:",
-             "    print(x)",
-             ""));
+        """
+        if True:
+          print(x)\
+        """,
+        """
+          if True:
+            print(x)
+        """);
     assertStmtTostringMatches(
-        join("if True:",
-             "  print(x)"),
+        """
+        if True:
+          print(x)\
+        """,
         "if True: ...\n");
 
     assertStmtIndentedPrettyMatches(
-        join("if True:",
-             "  print(x)",
-             "elif False:",
-             "  print(y)",
-             "else:",
-             "  print(z)"),
-        join("  if True:",
-             "    print(x)",
-             "  elif False:",
-             "    print(y)",
-             "  else:",
-             "    print(z)",
-             ""));
+        """
+        if True:
+          print(x)
+        elif False:
+          print(y)
+        else:
+          print(z)\
+        """,
+        """
+          if True:
+            print(x)
+          elif False:
+            print(y)
+          else:
+            print(z)
+        """);
     assertStmtTostringMatches(
-        join("if True:",
-            "  print(x)",
-            "elif False:",
-            "  print(y)",
-            "else:",
-            "  print(z)"),
+        """
+        if True:
+          print(x)
+        elif False:
+          print(y)
+        else:
+          print(z)\
+        """,
         "if True: ...\n");
   }
 
@@ -414,9 +485,10 @@ public final class NodePrinterTest {
     Node node = parseFile("print(x)\nprint(y)");
     assertIndentedPrettyMatches(
         node,
-        join("  print(x)",
-             "  print(y)",
-             ""));
+        """
+          print(x)
+          print(y)
+        """);
     assertTostringMatches(node, "<StarlarkFile with 2 statements>");
   }
 
