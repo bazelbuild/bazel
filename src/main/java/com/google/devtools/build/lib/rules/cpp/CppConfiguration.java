@@ -819,8 +819,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.generateLlvmLcov;
   }
 
-  public boolean experimentalIncludeScanning() {
-    return cppOptions.experimentalIncludeScanning;
+  /** Returns true iff we should do "include scanning" during this build. */
+  public boolean shouldScanIncludes() {
+    return cppOptions.includeScanning;
+  }
+
+  @StarlarkMethod(name = "include_scanning", documented = false, useStarlarkThread = true)
+  public boolean shouldScanIncludesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return shouldScanIncludes();
   }
 
   @StarlarkMethod(name = "should_generate_dotd_files", documented = false, useStarlarkThread = true)

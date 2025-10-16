@@ -236,9 +236,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
    * Consumer} to collect validation errors.
    */
   public CppCompileAction buildAndVerify() throws UnconfiguredActionConfigException, EvalException {
-    // This must be set either to false or true by CppSemantics, otherwise someone forgot to call
-    // finalizeCompileActionBuilder on this builder.
-    Preconditions.checkNotNull(shouldScanIncludes);
     Preconditions.checkNotNull(featureConfiguration);
     boolean useHeaderModules = useHeaderModules();
 
@@ -251,6 +248,26 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     } else {
       throw new UnconfiguredActionConfigException(actionName);
     }
+
+    // If include scanning is enabled, we can use the filegroup without header files - they are
+    // found by include scanning.  We still need the system framework headers since they are not
+    // being scanned right now, but those are placed in the "compile" file group.
+    // TODO(djasper): When not include scanning, getCompilerFiles() should be enough here, but that
+    // doesn't currently include GRTE headers.
+    NestedSet<Artifact> compilerFilesWithoutIncludes =
+        ccToolchain.getCompilerFilesWithoutIncludes();
+    if (compilerFilesWithoutIncludes.isEmpty()) {
+      compilerFilesWithoutIncludes = ccToolchain.getCompilerFiles();
+    }
+    addTransitiveMandatoryInputs(
+        getShouldScanIncludes()
+            ? compilerFilesWithoutIncludes
+            : configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
+                    && !getSourceFile().isTreeArtifact()
+                ? (getActionName().equals(CppActionNames.ASSEMBLE)
+                    ? ccToolchain.getAsFiles()
+                    : ccToolchain.getCompilerFiles())
+                : ccToolchain.getAllFiles());
 
     NestedSet<Artifact> realMandatorySpawnInputs = buildMandatoryInputs();
     NestedSet<Artifact> realMandatoryInputs =
@@ -321,7 +338,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    if (useHeaderModules() && !shouldScanIncludes) {
+    if (useHeaderModules() && !getShouldScanIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
     }
     ccCompilationContext.addAdditionalInputs(realMandatoryInputsBuilder);
@@ -329,7 +346,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     if (ccToolchain.getGrepIncludes() != null) {
       realMandatoryInputsBuilder.add(ccToolchain.getGrepIncludes());
     }
-    if (!shouldScanIncludes && dotdFile == null && !shouldParseShowIncludes()) {
+    if (!getShouldScanIncludes() && dotdFile == null && !shouldParseShowIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
       realMandatoryInputsBuilder.addTransitive(additionalPrunableHeaders);
     }
@@ -494,6 +511,27 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   }
 
   public boolean getShouldScanIncludes() {
+    if (shouldScanIncludes != null) {
+      return shouldScanIncludes;
+    }
+
+    // Three things have to be true to perform #include scanning:
+    //  1. The toolchain configuration has to generally enable it.
+    //     This is the default unless the --nocc_include_scanning flag was specified.
+    //  2. The rule or package must not disable it via 'features = ["-cc_include_scanning"]'.
+    //     Normally the scanner is enabled, but rules with precisely specified
+    //     dependencies not understood by the scanner can selectively disable it.
+    //  3. The file must not be a not-for-preprocessing assembler source file.
+    //     Assembler without C preprocessing can use the '.include' pseudo-op which is not
+    //     understood by the include scanner, so we'll disable scanning, and instead require
+    //     the declared sources to state (possibly overapproximate) the dependencies.
+    //     Assembler with preprocessing can also use '.include', but supporting both kinds
+    //     of inclusion for that use-case is ridiculous.
+    shouldScanIncludes =
+        configuration.getFragment(CppConfiguration.class).shouldScanIncludes()
+            && featureConfiguration.getRequestedFeatures().contains("cc_include_scanning")
+            && !sourceFile.isFileType(CppFileTypes.ASSEMBLER)
+            && !sourceFile.isFileType(CppFileTypes.CPP_MODULE);
     return shouldScanIncludes;
   }
 

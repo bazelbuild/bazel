@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -127,11 +125,6 @@ public class IncludeScanningModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
-    if (cppOptions != null && cppOptions.experimentalIncludeScanning) {
-      env.getReporter()
-          .handle(Event.warn("Include scanning enabled. This feature is unsupported."));
-    }
     artifactFactory.set(env.getSkyframeBuildView().getArtifactFactory());
   }
 

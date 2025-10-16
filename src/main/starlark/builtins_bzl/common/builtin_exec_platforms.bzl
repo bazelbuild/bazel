@@ -314,7 +314,7 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:incompatible_validate_top_level_header_inclusions",
         "//command_line_option:strict_system_includes",
         "//command_line_option:experimental_use_cpp_compile_action_args_params_file",
-        "//command_line_option:experimental_unsupported_and_brittle_include_scanning",
+        "//command_line_option:cc_include_scanning",
         "//command_line_option:incompatible_use_cpp_compile_header_mnemonic",
         "//command_line_option:experimental_cpp_compile_resource_estimation",
         "//command_line_option:experimental_generate_llvm_lcov",

@@ -750,8 +750,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     if (shareable instanceof Boolean bool) {
       builder.setShareable(bool);
     }
-    semantics.finalizeCompileActionBuilder(
-        configuration, featureConfigurationForStarlark.getFeatureConfiguration(), builder);
     try {
       CppCompileAction compileAction = builder.buildAndVerify();
       starlarkRuleContext.getRuleContext().registerAction(compileAction);
@@ -853,11 +851,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             /* ltoIndexingFile= */ null,
             usePic);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    FeatureConfiguration featureConfiguration =
-        featureConfigurationForStarlark.getFeatureConfiguration();
     SpecialArtifact sourceArtifact = (SpecialArtifact) source;
     builder.setVariables(compileBuildVariables);
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
 
     ActionOwner actionOwner = null;
     if (ruleContext.useAutoExecGroups()) {

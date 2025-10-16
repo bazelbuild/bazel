@@ -282,7 +282,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.mandatoryInputs = mandatoryInputs;
     this.mandatorySpawnInputs = mandatorySpawnInputs;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
-    this.shouldScanIncludes = shouldScanIncludes && cppSemantics.allowIncludeScanning();
+    this.shouldScanIncludes = shouldScanIncludes;
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.ccCompilationContext = ccCompilationContext;

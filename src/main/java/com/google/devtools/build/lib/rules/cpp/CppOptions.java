@@ -904,7 +904,9 @@ public class CppOptions extends FragmentOptions {
   public boolean useArgsParamsFile;
 
   @Option(
-      name = "experimental_unsupported_and_brittle_include_scanning",
+      name = "cc_include_scanning",
+      oldName = "experimental_unsupported_and_brittle_include_scanning",
+      oldNameWarning = false,
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
@@ -920,8 +922,9 @@ public class CppOptions extends FragmentOptions {
               + " scanner does not fully implement C preprocessor semantics. In particular, it does"
               + " not understand dynamic #include directives and ignores preprocessor conditional"
               + " logic. Use at your own risk. Any issues relating to this flag that are filed will"
-              + " be closed.")
-  public boolean experimentalIncludeScanning;
+              + " be closed."
+              + " At Google without this flag your build will most likely fail.")
+  public boolean includeScanning;
 
   @Option(
       name = "cc_dotd_files",
