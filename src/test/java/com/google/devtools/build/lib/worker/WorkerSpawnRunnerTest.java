@@ -151,7 +151,7 @@ public class WorkerSpawnRunnerTest {
             localEnvProvider,
             /* binTools= */ null,
             resourceManager,
-            /* runfilesTreeUpdater= */ null,
+            /* runfilesTreeUpdater= */
             new WorkerOptions(),
             metricsCollector,
             new JavaClock());
@@ -541,7 +541,7 @@ public class WorkerSpawnRunnerTest {
         localEnvProvider,
         /* binTools= */ null,
         resourceManager,
-        /* runfilesTreeUpdater= */ null,
+        /* runfilesTreeUpdater= */
         workerOptions,
         metricsCollector,
         new JavaClock());
