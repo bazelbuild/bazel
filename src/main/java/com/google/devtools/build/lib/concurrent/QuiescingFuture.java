@@ -55,14 +55,10 @@ public abstract class QuiescingFuture<T> extends AbstractFuture<T> implements Ru
   /**
    * Count of in-flight tasks.
    *
-   * <p>Pre-incremented to 1 to guarantee completion, even if there are 0 increments or if counts
-   * transiently reach 0 during initialization. Clients must call {@link #decrement} one additional
-   * time after setup.
-   *
    * <p>Use {@link #TASK_COUNT_HANDLE} for atomic operations.
    */
   @Keep // used via TASK_COUNT_HANDLE
-  private volatile int taskCount = 1;
+  private volatile int taskCount;
 
   @Keep // used via ERROR_COUNT_HANDLE
   private volatile int errorCount = 0;
@@ -70,10 +66,27 @@ public abstract class QuiescingFuture<T> extends AbstractFuture<T> implements Ru
   /**
    * Constructor.
    *
+   * <p>This constructor pre-increments {@link #taskCount} to 1 to guarantee completion, even if
+   * there are 0 increments or if counts transiently reach 0 during initialization. Clients must
+   * call {@link #decrement} one additional time, after setup.
+   *
    * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
    */
   public QuiescingFuture(Executor getValueExecutor) {
+    this(getValueExecutor, 1);
+  }
+
+  /**
+   * Direct constructor.
+   *
+   * <p>This is useful when the total number of tasks is known in advance.
+   *
+   * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
+   * @param taskCount initial task count, <i>no pre-increment</i> is applied
+   */
+  public QuiescingFuture(Executor getValueExecutor, int taskCount) {
     this.getValueExecutor = getValueExecutor;
+    this.taskCount = taskCount;
   }
 
   /** Increments the task count. */
