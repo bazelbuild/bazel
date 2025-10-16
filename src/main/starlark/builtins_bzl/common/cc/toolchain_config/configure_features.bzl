@@ -15,7 +15,7 @@
 
 load(":common/cc/action_names.bzl", "ACTION_NAMES")
 
-cc_common_internal = _builtins.internal.cc_common
+_cc_common_internal = _builtins.internal.cc_common
 
 ALL_COMPILE_ACTIONS = [
     ACTION_NAMES.c_compile,
@@ -102,7 +102,7 @@ def configure_features(
 
     cpp_configuration = ctx.fragments.cpp
 
-    native_cc_semantics = cc_common_internal.get_cc_semantics(language = language)
+    native_cc_semantics = _cc_common_internal.get_cc_semantics(language = language)
     native_cc_semantics.validate_layering_check_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,

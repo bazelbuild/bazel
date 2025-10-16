@@ -20,8 +20,8 @@ load(":common/cc/link/link_build_variables.bzl", "setup_common_linking_variables
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
 load(":common/cc/semantics.bzl", "semantics")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 def finalize_link_action(
         actions,
@@ -159,7 +159,7 @@ def finalize_link_action(
 
     # Interning is necessary because the values are repeated so often.
     # Without it, this causes a very large regression.
-    libraries_to_link_values = cc_internal.intern_seq(libraries_to_link_values)
+    libraries_to_link_values = _cc_internal.intern_seq(libraries_to_link_values)
 
     if lto_map:
         fail("Still have LTO objects left: %s" % lto_map)
@@ -181,7 +181,7 @@ def finalize_link_action(
         solib_dir,
         toolchain_libraries_solib_dir,
         # TODO(b/338618120): remove cheat using semantic or simplifying collect_libraries_to_link
-        cc_internal.actions2ctx_cheat(actions).workspace_name,
+        _cc_internal.actions2ctx_cheat(actions).workspace_name,
     )
 
     #  Add build variables necessary to template link args into the crosstool.
@@ -226,7 +226,7 @@ def finalize_link_action(
     if should_use_link_dynamic_library_tool:
         tool_path = cc_toolchain._link_dynamic_library_tool.path
     else:
-        tool_path = cc_common_internal.get_tool_for_action(
+        tool_path = _cc_common_internal.get_tool_for_action(
             feature_configuration = feature_configuration,
             action_name = link_type.action_name,
         )
@@ -345,17 +345,17 @@ def _create_action(
     # from there, otherwise, use no execution info.
     # TODO(b/27903698): Assert that the crosstool has an action_config for this action.
     execution_info = {}
-    for req in cc_common_internal.get_execution_requirements(feature_configuration = feature_configuration, action_name = action_name):
+    for req in _cc_common_internal.get_execution_requirements(feature_configuration = feature_configuration, action_name = action_name):
         execution_info[req] = ""
 
-    build_variables = cc_internal.cc_toolchain_variables(vars = build_variables)
-    link_args = cc_internal.get_link_args(
+    build_variables = _cc_internal.cc_toolchain_variables(vars = build_variables)
+    link_args = _cc_internal.get_link_args(
         feature_configuration = feature_configuration,
         action_name = action_name,
         build_variables = build_variables,
         parameter_file_type = parameter_file_type,
     )
-    env = cc_common_internal.get_environment_variables(
+    env = _cc_common_internal.get_environment_variables(
         feature_configuration = feature_configuration,
         action_name = action_name,
         variables = build_variables,
@@ -367,10 +367,10 @@ def _create_action(
     exec_group = None
     toolchain = None
 
-    if "cpp_link" in cc_internal.actions2ctx_cheat(actions).exec_groups:
+    if "cpp_link" in _cc_internal.actions2ctx_cheat(actions).exec_groups:
         # TODO(b/338618120): ^ remove cheat, no idea how though, maybe always use cpp_link exec group?
         exec_group = "cpp_link"
-    elif "@//tools/cpp:toolchain_type" in cc_internal.actions2ctx_cheat(actions).toolchains:
+    elif "@//tools/cpp:toolchain_type" in _cc_internal.actions2ctx_cheat(actions).toolchains:
         # TODO(b/338618120): ^ remove cheat, needs depot cleanup, always use a toolchain
         toolchain = semantics.toolchain
 

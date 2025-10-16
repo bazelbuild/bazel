@@ -33,8 +33,8 @@ step process:
 load(":common/cc/cc_helper_internal.bzl", "should_create_per_object_debug_info")
 load(":common/paths.bzl", "paths")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 LtoBackendArtifactsInfo = provider(
     doc = "LtoBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.",
@@ -151,7 +151,7 @@ def create_lto_backends(
             # that will be fed the results of the indexing step, or a dummy LTO backend
             # that simply compiles the bitcode into native code without any index-based
             # cross module optimization.
-            actions = cc_internal.wrap_link_actions(actions, None, True)
+            actions = _cc_internal.wrap_link_actions(actions, None, True)
         lto_outputs.append(create_lto_backend_artifacts(
             actions = actions,
             lto_output_root_prefix = lto_output_root_prefix,
@@ -172,7 +172,7 @@ def _backend_user_compile_flags(cpp_config, obj, context):
     if obj in lto_bitcode_files:
         argv.extend(lto_bitcode_files[obj].copts)
     argv.extend(cpp_config.lto_backend_options)
-    argv.extend(cc_internal.collect_per_file_lto_backend_opts(cpp_config, obj))
+    argv.extend(_cc_internal.collect_per_file_lto_backend_opts(cpp_config, obj))
     return argv
 
 def create_shared_non_lto_artifacts(
@@ -202,7 +202,7 @@ def create_shared_non_lto_artifacts(
 
         backend_user_compile_flags = _backend_user_compile_flags(cpp_config, obj, lto_compilation_context)
         shared_non_lto_backends[obj] = create_lto_backend_artifacts(
-            actions = cc_internal.wrap_link_actions(actions, None, True),
+            actions = _cc_internal.wrap_link_actions(actions, None, True),
             lto_output_root_prefix = lto_output_root_prefix,
             lto_obj_root_prefix = lto_obj_root_prefix,
             bitcode_file = obj,
@@ -266,9 +266,9 @@ def create_lto_backend_artifacts(
         argv,
     )
 
-    build_variables = cc_internal.cc_toolchain_variables(vars = build_variables)
-    build_variables = cc_internal.combine_cc_toolchain_variables(cc_toolchain._build_variables, build_variables)
-    env = cc_common_internal.get_environment_variables(
+    build_variables = _cc_internal.cc_toolchain_variables(vars = build_variables)
+    build_variables = _cc_internal.combine_cc_toolchain_variables(cc_toolchain._build_variables, build_variables)
+    env = _cc_common_internal.get_environment_variables(
         feature_configuration = feature_configuration,
         action_name = "lto-backend",
         variables = build_variables,
@@ -294,7 +294,7 @@ def create_lto_backend_artifacts(
         # irrecoverable exception because we can still generate dwo files for the other artifacts.
         # TODO(b/289089713): Add support for dwo files for tree artifacts.
 
-        cc_internal.create_lto_backend_action_template(
+        _cc_internal.create_lto_backend_action_template(
             actions = actions,
             feature_configuration = feature_configuration,
             additional_inputs = additional_inputs,
@@ -354,9 +354,9 @@ def _initialize_build_variables(build_variables, additional_inputs, cc_toolchain
     if feature_configuration.is_enabled("cs_fdo_instrument"):
         build_variables["cs_fdo_instrument_path"] = cc_toolchain._cpp_configuration.cs_fdo_instrument()
 
-    build_variables["user_compile_flags"] = cc_internal.intern_string_sequence_variable_value(user_compile_flags)
+    build_variables["user_compile_flags"] = _cc_internal.intern_string_sequence_variable_value(user_compile_flags)
 
-    if not cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = "lto-backend"):
+    if not _cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = "lto-backend"):
         fail("Thinlto build is requested, but the C++ toolchain doesn't define an action_config for 'lto-backend' action.")
 
 def _add_profile_for_lto_backend(additional_inputs, fdo_context, feature_configuration, build_variables):
@@ -421,10 +421,10 @@ def _create_lto_backend_action(
         dwo_file,
         bitcode_file_path if bitcode_file_path != None else bitcode_artifact,
     )
-    _path_variables = cc_internal.cc_toolchain_variables(vars = _path_variables)
-    build_variables = cc_internal.combine_cc_toolchain_variables(build_variables, _path_variables)
+    _path_variables = _cc_internal.cc_toolchain_variables(vars = _path_variables)
+    build_variables = _cc_internal.combine_cc_toolchain_variables(build_variables, _path_variables)
 
-    cc_internal.create_lto_backend_action(
+    _cc_internal.create_lto_backend_action(
         actions = actions,
         feature_configuration = feature_configuration,
         build_variables = build_variables,

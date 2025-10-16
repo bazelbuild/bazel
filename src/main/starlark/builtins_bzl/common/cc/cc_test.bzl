@@ -22,7 +22,6 @@ load(":common/cc/cc_shared_library.bzl", "dynamic_deps_initializer")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
 config_common = _builtins.toplevel.config_common
 platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing

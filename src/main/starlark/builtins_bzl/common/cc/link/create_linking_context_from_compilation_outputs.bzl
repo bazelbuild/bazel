@@ -22,7 +22,7 @@ load(":common/cc/link/cc_linking_helper.bzl", "create_cc_link_actions")
 load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 # LINT.IfChange
 
@@ -96,7 +96,7 @@ def create_linking_context_from_compilation_outputs(
 
     # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcModuleApi.java)
     # TODO(b/202252560): Fix for swift_library's implicit output, remove rule_kind_cheat.
-    if alwayslink and cc_internal.rule_kind_cheat(actions) != "swift_library rule":
+    if alwayslink and _cc_internal.rule_kind_cheat(actions) != "swift_library rule":
         static_link_type = LINK_TARGET_TYPE.ALWAYS_LINK_STATIC_LIBRARY
     else:
         static_link_type = LINK_TARGET_TYPE.STATIC_LIBRARY
@@ -104,7 +104,7 @@ def create_linking_context_from_compilation_outputs(
         additional_inputs = depset(additional_inputs)
 
     cc_linking_outputs = create_cc_link_actions(
-        cc_internal.wrap_link_actions(actions),
+        _cc_internal.wrap_link_actions(actions),
         name,
         None if disallow_static_libraries else static_link_type,
         None if disallow_dynamic_library else LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY,
@@ -125,7 +125,7 @@ def create_linking_context_from_compilation_outputs(
 
     linker_input = create_linker_input(
         # TODO(b/331164666): remove cheat, we always produce a file, file.owner gives us a label
-        owner = cc_internal.actions2ctx_cheat(actions).label.same_package_label(name),
+        owner = _cc_internal.actions2ctx_cheat(actions).label.same_package_label(name),
         libraries = depset([cc_linking_outputs.library_to_link]) if cc_linking_outputs.library_to_link else None,
         user_link_flags = user_link_flags,
         additional_inputs = additional_inputs,

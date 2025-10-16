@@ -22,8 +22,8 @@ load(
 load(":common/cc/semantics.bzl", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
 load(":common/paths.bzl", "paths")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 _VIRTUAL_INCLUDES_DIR = "_virtual_includes"
 
@@ -314,11 +314,11 @@ def _create_module_map_action(
     content.set_param_file_format("multiline")
     segments_to_exec_path = module_map.file().path.count("/")
     leading_periods = "" if module_map_home_is_cwd else "../" * segments_to_exec_path
-    public_headers = cc_internal.freeze(public_headers)
-    private_headers = cc_internal.freeze(private_headers)
-    dependency_module_maps = cc_internal.freeze(dependency_module_maps)
-    additional_exported_headers = cc_internal.freeze(additional_exported_headers)
-    separate_module_headers = cc_internal.freeze(separate_module_headers)
+    public_headers = _cc_internal.freeze(public_headers)
+    private_headers = _cc_internal.freeze(private_headers)
+    dependency_module_maps = _cc_internal.freeze(dependency_module_maps)
+    additional_exported_headers = _cc_internal.freeze(additional_exported_headers)
+    separate_module_headers = _cc_internal.freeze(separate_module_headers)
     data_struct = _ModuleMapInfo(
         module_map = module_map,
         public_headers = public_headers,
@@ -472,7 +472,7 @@ def _init_cc_compilation_context(
     header_module = None
     if _enabled(feature_configuration, "module_maps"):
         if not module_map:
-            module_map = cc_common_internal.create_module_map(
+            module_map = _cc_common_internal.create_module_map(
                 file = actions.declare_file(label.name + ".cppmap"),
                 name = label.workspace_name + "//" + label.package + ":" + label.name,
             )
@@ -553,7 +553,7 @@ def _init_cc_compilation_context(
         dependent_cc_compilation_contexts.append(cc_toolchain_compilation_context)
     dependent_cc_compilation_contexts.extend(deps)
 
-    main_context = cc_common_internal.create_compilation_context(
+    main_context = _cc_common_internal.create_compilation_context(
         quote_includes = depset(quote_include_dirs_for_context),
         framework_includes = depset(framework_include_dirs),
         external_includes = depset(external_include_dirs),
@@ -581,7 +581,7 @@ def _init_cc_compilation_context(
     )
     implementation_deps_context = None
     if implementation_deps:
-        implementation_deps_context = cc_common_internal.create_compilation_context(
+        implementation_deps_context = _cc_common_internal.create_compilation_context(
             quote_includes = depset(quote_include_dirs_for_context),
             framework_includes = depset(framework_include_dirs),
             external_includes = depset(external_include_dirs),

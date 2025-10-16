@@ -40,8 +40,8 @@ load(":common/cc/compile/lto_compilation_context.bzl", "create_lto_compilation_c
 load(":common/cc/semantics.bzl", _starlark_cc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 _VALID_CPP_SOURCE_TYPES = set([CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER, CPP_SOURCE_TYPE_CLIF_INPUT_PROTO])
 
@@ -201,7 +201,7 @@ def compile(
     """
 
     # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcModuleApi.java:compile_api)
-    ctx = cc_internal.actions2ctx_cheat(actions)
+    ctx = _cc_internal.actions2ctx_cheat(actions)
     _starlark_cc_semantics.validate_cc_compile_call(
         label = ctx.label,
         include_prefix = include_prefix,
@@ -212,8 +212,8 @@ def compile(
     cpp_configuration = cc_toolchain._cpp_configuration
     if additional_module_maps == None:
         additional_module_maps = []
-    copts_filter_object = cc_internal.create_copts_filter(copts_filter)
-    label = cc_internal.actions2ctx_cheat(actions).label.same_package_label(name)
+    copts_filter_object = _cc_internal.create_copts_filter(copts_filter)
+    label = _cc_internal.actions2ctx_cheat(actions).label.same_package_label(name)
     fdo_context = cc_toolchain._fdo_context
 
     use_pic_for_dynamic_libraries = cpp_configuration.force_pic() or feature_configuration.is_enabled("supports_pic")
@@ -237,7 +237,7 @@ def compile(
     language_normalized = "c++" if language == None else language
     language_normalized = language_normalized.replace("+", "p").upper()
     source_category = SOURCE_CATEGORY_CC if language_normalized == "CPP" else SOURCE_CATEGORY_CC_AND_OBJC
-    ctx = cc_internal.actions2ctx_cheat(actions)
+    ctx = _cc_internal.actions2ctx_cheat(actions)
     if type(includes) == "depset":
         includes = includes.to_list()
     textual_hdrs_list = textual_hdrs.to_list() if type(textual_hdrs) == "depset" else textual_hdrs
@@ -369,7 +369,7 @@ def compile(
     compilation_outputs = create_compilation_outputs_internal(**compilation_outputs_dict)
 
     if cpp_configuration.process_headers_in_dependencies():
-        compilation_context = cc_internal.create_cc_compilation_context_with_extra_header_tokens(
+        compilation_context = _cc_internal.create_cc_compilation_context_with_extra_header_tokens(
             cc_compilation_context = public_compilation_context,
             extra_header_tokens = compilation_outputs._header_tokens,
         )
@@ -388,7 +388,7 @@ def _add_suitable_headers_to_compilation_unit_sources(
         headers_with_labels: A list of (File, Label) tuples of header files.
     """
     for header, label in headers_with_labels:
-        is_header = "." + header.extension in extensions.CC_HEADER or cc_internal.is_tree_artifact(header)
+        is_header = "." + header.extension in extensions.CC_HEADER or _cc_internal.is_tree_artifact(header)
         is_textual_include = "." + header.extension in extensions.CC_TEXTUAL_INCLUDE
         if is_header and not is_textual_include:
             compilation_unit_sources[header] = _CppSourceInfo(
@@ -409,7 +409,7 @@ def _add_suitable_srcs_to_compilation_unit_sources(
         # TODO(b/413333884): If it's a non-source file we ignore it. This is only the case for
         # precompiled files which should be forbidden in srcs of cc_library|binary and instead be
         # migrated to cc_import rules.
-        if "." + source.extension in source_category or cc_internal.is_tree_artifact(source):
+        if "." + source.extension in source_category or _cc_internal.is_tree_artifact(source):
             compilation_unit_sources[source] = _CppSourceInfo(
                 label = label,
                 source = source,
@@ -501,7 +501,7 @@ def _create_cc_compile_actions(
         fail("PIC compilation is requested but the toolchain does not support it " +
              "(feature named 'supports_pic' is not enabled)")
 
-    native_cc_semantics = cc_common_internal.get_cc_semantics(language = language)
+    native_cc_semantics = _cc_common_internal.get_cc_semantics(language = language)
 
     if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
         cpp_module_map = cc_compilation_context._module_map
@@ -585,20 +585,20 @@ def _create_cc_compile_actions(
                     module = module,
                 )
 
-    output_name_prefix_dir = cc_internal.compute_output_name_prefix_dir(configuration = configuration, purpose = purpose)
+    output_name_prefix_dir = _cc_internal.compute_output_name_prefix_dir(configuration = configuration, purpose = purpose)
     output_name_map = _calculate_output_name_map_by_type(compilation_unit_sources, output_name_prefix_dir)
 
     compiled_basenames = set()
     for cpp_source in compilation_unit_sources.values():
         source_artifact = cpp_source.file
-        if not cc_internal.is_tree_artifact(source_artifact) and cpp_source.type == CPP_SOURCE_TYPE_HEADER:
+        if not _cc_internal.is_tree_artifact(source_artifact) and cpp_source.type == CPP_SOURCE_TYPE_HEADER:
             continue
 
         output_name = output_name_map[source_artifact]
         source_label = cpp_source.label
         bitcode_output = feature_configuration.is_enabled("thin_lto") and (("." + source_artifact.extension) in LTO_SOURCE_EXTENSIONS)
 
-        if not cc_internal.is_tree_artifact(source_artifact):
+        if not _cc_internal.is_tree_artifact(source_artifact):
             compiled_basenames.add(_basename_without_extension(source_artifact))
             _create_pic_nopic_compile_source_actions(
                 action_construction_context = action_construction_context,
@@ -661,13 +661,13 @@ def _create_cc_compile_actions(
             )
     for cpp_source in compilation_unit_sources.values():
         source_artifact = cpp_source.file
-        if cpp_source.type != CPP_SOURCE_TYPE_HEADER or cc_internal.is_tree_artifact(source_artifact):
+        if cpp_source.type != CPP_SOURCE_TYPE_HEADER or _cc_internal.is_tree_artifact(source_artifact):
             continue
         if (feature_configuration.is_enabled("validates_layering_check_in_textual_hdrs") and
             _basename_without_extension(source_artifact) in compiled_basenames):
             continue
 
-        output_name_base = cc_internal.get_artifact_name_for_category(
+        output_name_base = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.GENERATED_HEADER,
             output_name = output_name_map[source_artifact],
@@ -676,7 +676,7 @@ def _create_cc_compile_actions(
             action_construction_context,
             label,
             configuration = configuration,
-            output_name = cc_internal.get_artifact_name_for_category(
+            output_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.PROCESSED_HEADER,
                 output_name = output_name_base,
@@ -686,7 +686,7 @@ def _create_cc_compile_actions(
             action_construction_context,
             label,
             configuration = configuration,
-            output_name = cc_internal.get_artifact_name_for_category(
+            output_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.INCLUDED_FILE_LIST,
                 output_name = output_name_base,
@@ -699,7 +699,7 @@ def _create_cc_compile_actions(
             action_construction_context,
             label,
             configuration = configuration,
-            output_name = cc_internal.get_artifact_name_for_category(
+            output_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.SERIALIZED_DIAGNOSTICS_FILE,
                 output_name = output_name_base,
@@ -724,14 +724,14 @@ def _create_cc_compile_actions(
                 label = cpp_source.label,
             ),
         )
-        compile_variables = cc_internal.combine_cc_toolchain_variables(
+        compile_variables = _cc_internal.combine_cc_toolchain_variables(
             common_compile_build_variables,
             specific_compile_build_variables,
         )
 
         # This creates the action to parse a header file.
         # If we generate pic actions, we prefer the header actions to use the pic artifacts.
-        cc_internal.create_cc_compile_action(
+        _cc_internal.create_cc_compile_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
@@ -892,7 +892,7 @@ def _create_compile_source_action(
         use_pic):
     output_pic_nopic_name = output_name
     if use_pic:
-        output_pic_nopic_name = cc_internal.get_artifact_name_for_category(
+        output_pic_nopic_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.PIC_FILE,
             output_name = output_name,
@@ -901,7 +901,7 @@ def _create_compile_source_action(
         ctx = action_construction_context,
         label = label,
         configuration = configuration,
-        output_name = cc_internal.get_artifact_name_for_category(
+        output_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = output_category,
             output_name = output_pic_nopic_name,
@@ -941,7 +941,7 @@ def _create_compile_source_action(
     if generate_dwo and not bitcode_output:
         dwo_file_name = paths.replace_extension(paths.basename(object_file.path), ".dwo")
 
-        dwo_file = cc_internal.declare_other_output_file(
+        dwo_file = _cc_internal.declare_other_output_file(
             ctx = action_construction_context,
             output_name = dwo_file_name,
             object_file = object_file,
@@ -953,7 +953,7 @@ def _create_compile_source_action(
             paths.basename(object_file.path),
             extensions.LTO_INDEXING_OBJECT_FILE[0],
         )
-        lto_indexing_file = cc_internal.declare_other_output_file(
+        lto_indexing_file = _cc_internal.declare_other_output_file(
             ctx = action_construction_context,
             output_name = lto_indexing_file_name,
             object_file = object_file,
@@ -1021,7 +1021,7 @@ def _create_compile_source_action(
     if add_object and fdo_context_has_artifacts:
         additional_inputs = additional_compilation_inputs + auxiliary_fdo_inputs.to_list()
 
-    cc_internal.create_cc_compile_action(
+    _cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
@@ -1039,7 +1039,7 @@ def _create_compile_source_action(
         dwo_file = dwo_file,
         use_pic = use_pic,
         lto_indexing_file = lto_indexing_file,
-        compile_build_variables = cc_internal.combine_cc_toolchain_variables(
+        compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
             common_compile_variables,
             compile_variables,
         ),
@@ -1111,7 +1111,7 @@ def _create_temps_action(
         ctx = action_construction_context,
         label = label,
         configuration = configuration,
-        output_name = cc_internal.get_artifact_name_for_category(
+        output_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = category,
             output_name = output_name,
@@ -1121,7 +1121,7 @@ def _create_temps_action(
         ctx = action_construction_context,
         label = label,
         configuration = configuration,
-        output_name = cc_internal.get_artifact_name_for_category(
+        output_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.GENERATED_ASSEMBLY,
             output_name = output_name,
@@ -1204,7 +1204,7 @@ def _create_temps_action(
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {"output_assembly_file": assembly_object_file.path},
     )
-    cc_internal.create_cc_compile_action(
+    _cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
@@ -1219,12 +1219,12 @@ def _create_temps_action(
         dotd_file = preprocess_dotd_file,
         diagnostics_file = preprocess_diagnostics_file,
         use_pic = use_pic,
-        compile_build_variables = cc_internal.combine_cc_toolchain_variables(
+        compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
             common_compile_variables,
             preprocess_compile_variables,
         ),
     )
-    cc_internal.create_cc_compile_action(
+    _cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
@@ -1239,7 +1239,7 @@ def _create_temps_action(
         dotd_file = assembly_dotd_file,
         diagnostics_file = assembly_diagnostics_file,
         use_pic = use_pic,
-        compile_build_variables = cc_internal.combine_cc_toolchain_variables(
+        compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
             common_compile_variables,
             assembly_compile_variables,
         ),
@@ -1277,7 +1277,7 @@ def _create_module_codegen_action(
             ctx = action_construction_context,
             label = label,
             configuration = configuration,
-            output_name = cc_internal.get_artifact_name_for_category(
+            output_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.COVERAGE_DATA_FILE,
                 output_name = output_name,
@@ -1305,7 +1305,7 @@ def _create_module_codegen_action(
         ctx = action_construction_context,
         label = label,
         configuration = configuration,
-        output_name = cc_internal.get_artifact_name_for_category(
+        output_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.OBJECT_FILE,
             output_name = output_name,
@@ -1319,7 +1319,7 @@ def _create_module_codegen_action(
             ctx = action_construction_context,
             label = label,
             configuration = configuration,
-            output_name = cc_internal.get_artifact_name_for_category(
+            output_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.INCLUDED_FILE_LIST,
                 output_name = output_name,
@@ -1332,7 +1332,7 @@ def _create_module_codegen_action(
             ctx = action_construction_context,
             label = label,
             configuration = configuration,
-            output_name = cc_internal.get_artifact_name_for_category(
+            output_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.SERIALIZED_DIAGNOSTICS_FILE,
                 output_name = output_name,
@@ -1366,7 +1366,7 @@ def _create_module_codegen_action(
         fdo_build_variables = fdo_build_variables,
         additional_build_variables = {},
     )
-    compile_variables = cc_internal.combine_cc_toolchain_variables(
+    compile_variables = _cc_internal.combine_cc_toolchain_variables(
         common_toolchain_variables,
         specific_compile_build_variables,
     )
@@ -1387,7 +1387,7 @@ def _create_module_codegen_action(
     if fdo_context_has_artifacts:
         additional_inputs = auxiliary_fdo_inputs.to_list()
 
-    cc_internal.create_cc_compile_action(
+    _cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
         cc_toolchain = cc_toolchain,
@@ -1469,7 +1469,7 @@ def _create_module_action(
     )
 
 def _get_compile_output_file(ctx, label, *, output_name, configuration):
-    file = cc_internal.declare_compile_output_file(
+    file = _cc_internal.declare_compile_output_file(
         ctx = ctx,
         label = label,
         output_name = output_name,
@@ -1553,12 +1553,12 @@ def _maybe_declare_dotd_file(
         _use_dotd_file(feature_configuration, source_artifact)):
         dotd_base_name = output_name
         if category != artifact_category.OBJECT_FILE and category != artifact_category.PROCESSED_HEADER:
-            dotd_base_name = cc_internal.get_artifact_name_for_category(
+            dotd_base_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = category,
                 output_name = output_name,
             )
-        dotd_name = cc_internal.get_artifact_name_for_category(
+        dotd_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.INCLUDED_FILE_LIST,
             output_name = dotd_base_name,
@@ -1583,12 +1583,12 @@ def _maybe_declare_diagnostics_file(
     if feature_configuration.is_enabled("serialized_diagnostics_file"):
         base_name = output_name
         if category != artifact_category.OBJECT_FILE and category != artifact_category.PROCESSED_HEADER:
-            base_name = cc_internal.get_artifact_name_for_category(
+            base_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = category,
                 output_name = output_name,
             )
-        diagnostics_file_name = cc_internal.get_artifact_name_for_category(
+        diagnostics_file_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.SERIALIZED_DIAGNOSTICS_FILE,
             output_name = base_name,
@@ -1615,7 +1615,7 @@ def _maybe_declare_gcno_file(
             ctx = ctx,
             label = label,
             configuration = configuration,
-            output_name = cc_internal.get_artifact_name_for_category(
+            output_name = _cc_internal.get_artifact_name_for_category(
                 cc_toolchain = cc_toolchain,
                 category = artifact_category.COVERAGE_DATA_FILE,
                 output_name = output_name,

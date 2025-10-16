@@ -18,8 +18,6 @@ Definition of CcToolchainInfo provider.
 
 load(":common/cc/cc_common.bzl", "cc_common")
 
-cc_internal = _builtins.internal.cc_internal
-
 def _needs_pic_for_dynamic_libraries(*, feature_configuration):
     return cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "supports_pic")
 

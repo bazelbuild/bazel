@@ -29,7 +29,7 @@ load(":common/cc/link/lto_indexing_action.bzl", "create_lto_artifacts_and_lto_in
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "USE_ARCHIVER", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 # TODO(b/331164666): remove alwayslink
 # This is only set here for naming always to link static libraries with the *.lo
@@ -300,7 +300,7 @@ def _create_dynamic_link_actions(
 
         # TODO(b/28946988): Remove this hard-coded flag.
         if not feature_configuration.is_enabled("targets_windows"):
-            link_action_kwargs["linkopts"].append("-Wl,-soname=" + cc_internal.dynamic_library_soname(
+            link_action_kwargs["linkopts"].append("-Wl,-soname=" + _cc_internal.dynamic_library_soname(
                 actions,
                 linker_output.short_path,
                 False,
@@ -345,7 +345,7 @@ def _create_dynamic_link_actions(
     impl_library_link_artifact = None
     if dynamic_link_type == LINK_TARGET_TYPE.DYNAMIC_LIBRARY and not neverlink and \
        not feature_configuration.is_enabled("copy_dynamic_libraries_to_binary"):
-        impl_library_link_artifact = cc_internal.dynamic_library_symlink(
+        impl_library_link_artifact = _cc_internal.dynamic_library_symlink(
             actions,
             linker_output,
             cc_toolchain._solib_dir,
@@ -495,7 +495,7 @@ def _construct_dynamic_library_to_link(
 
         else:
             if dynamic_link_type == LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY:
-                impl_library_link_artifact = cc_internal.dynamic_library_symlink(
+                impl_library_link_artifact = _cc_internal.dynamic_library_symlink(
                     actions,
                     dynamic_library.file,
                     cc_toolchain._solib_dir,
@@ -506,7 +506,7 @@ def _construct_dynamic_library_to_link(
             library_to_link["resolved_symlink_dynamic_library"] = dynamic_library.file
 
             if interface_library:
-                library_link_artifact = cc_internal.dynamic_library_symlink(
+                library_link_artifact = _cc_internal.dynamic_library_symlink(
                     actions,
                     interface_library.file,
                     cc_toolchain._solib_dir,
@@ -521,7 +521,7 @@ def _construct_dynamic_library_to_link(
 def _get_linked_artifact(actions, name, link_target_type, cc_toolchain, link_artifact_name_suffix, linked_dll_name_suffix = ""):
     maybe_pic_name = name + link_artifact_name_suffix
     if link_target_type.is_pic:
-        maybe_pic_name = cc_internal.get_artifact_name_for_category(
+        maybe_pic_name = _cc_internal.get_artifact_name_for_category(
             cc_toolchain = cc_toolchain,
             category = artifact_category.PIC_FILE,
             output_name = maybe_pic_name,
@@ -530,7 +530,7 @@ def _get_linked_artifact(actions, name, link_target_type, cc_toolchain, link_art
     linked_name = maybe_pic_name
     if link_target_type == LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY:
         linked_name += linked_dll_name_suffix
-    linked_name = cc_internal.get_artifact_name_for_category(
+    linked_name = _cc_internal.get_artifact_name_for_category(
         cc_toolchain = cc_toolchain,
         category = link_target_type.linker_output,
         output_name = linked_name,

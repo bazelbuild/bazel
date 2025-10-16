@@ -18,8 +18,8 @@ The CcCompilationOutputs provider.
 load(":common/cc/cc_helper_internal.bzl", "wrap_with_check_private_api", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
 load(":common/cc/compile/lto_compilation_context.bzl", "EMPTY_LTO_COMPILATION_CONTEXT", "merge_lto_compilation_contexts")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 # buildifier: disable=name-conventions
 _UnboundValueProviderDoNotUse = provider("This provider is used as an unique symbol to distinguish between bound and unbound Starlark values, to avoid using kwargs.", fields = [])
@@ -73,16 +73,16 @@ def create_compilation_outputs_internal(
     if lto_compilation_context == None:
         lto_compilation_context = EMPTY_LTO_COMPILATION_CONTEXT
     return CcCompilationOutputsInfo(
-        objects = cc_internal.freeze(objects),
-        pic_objects = cc_internal.freeze(pic_objects),
+        objects = _cc_internal.freeze(objects),
+        pic_objects = _cc_internal.freeze(pic_objects),
         temps = wrap_with_check_private_api(depset(temps)),
-        _header_tokens = cc_internal.freeze(header_tokens),
-        _module_files = cc_internal.freeze(module_files),
+        _header_tokens = _cc_internal.freeze(header_tokens),
+        _module_files = _cc_internal.freeze(module_files),
         _lto_compilation_context = lto_compilation_context,
-        _gcno_files = cc_internal.freeze(gcno_files),
-        _pic_gcno_files = cc_internal.freeze(pic_gcno_files),
-        _dwo_files = cc_internal.freeze(dwo_files),
-        _pic_dwo_files = cc_internal.freeze(pic_dwo_files),
+        _gcno_files = _cc_internal.freeze(gcno_files),
+        _pic_gcno_files = _cc_internal.freeze(pic_gcno_files),
+        _dwo_files = _cc_internal.freeze(dwo_files),
+        _pic_dwo_files = _cc_internal.freeze(pic_dwo_files),
     )
 
 EMPTY_COMPILATION_OUTPUTS = create_compilation_outputs_internal()
@@ -139,7 +139,7 @@ def create_compilation_outputs(
         A CcCompilationOutputsInfo provider.
     """
     if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if lto_compilation_context == _UNBOUND:
         lto_compilation_context = None
     if dwo_objects == _UNBOUND:

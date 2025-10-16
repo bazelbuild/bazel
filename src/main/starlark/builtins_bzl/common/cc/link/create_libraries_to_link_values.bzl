@@ -15,8 +15,6 @@
 
 load(":common/cc/cc_helper_internal.bzl", "is_shared_library", "is_versioned_shared_library")
 
-cc_internal = _builtins.internal.cc_internal
-
 # Types of LibraryToLinkValues
 _TYPE = struct(
     STATIC_LIBRARY = "static_library",

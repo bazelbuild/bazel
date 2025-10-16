@@ -29,7 +29,7 @@ see `unix_cc_toolchain_config.bzl`
 load(":common/cc/cc_helper_internal.bzl", "should_create_per_object_debug_info", artifact_category = "artifact_category_names")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 # Enum covering all build variables we create for all various C++ linking actions
 LINK_BUILD_VARIABLES = struct(
@@ -173,7 +173,7 @@ def create_link_variables(
         if type(output_file) != type(""):
             fail("Parameter 'output_file' expected String, got '%s'" % type(output_file))
         vars["output_execpath"] = output_file
-    return cc_internal.cc_toolchain_variables(vars = vars)
+    return _cc_internal.cc_toolchain_variables(vars = vars)
 
 def setup_common_linking_variables(
         cc_toolchain,
@@ -379,7 +379,7 @@ def setup_lto_indexing_variables(
         )
 
     if not feature_configuration.is_enabled("no_use_lto_indexing_bitcode_file"):
-        object_file_extension = cc_internal.get_artifact_name_extension_for_category(
+        object_file_extension = _cc_internal.get_artifact_name_extension_for_category(
             cc_toolchain,
             artifact_category.OBJECT_FILE,
         )

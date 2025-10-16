@@ -20,8 +20,8 @@ load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")
 load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 def link_action(
         *,
@@ -118,7 +118,7 @@ def link_action(
         fail("Executables can't have library identifier", library_identifier, link_type.executable)
     if interface_output and not is_dynamic_library(link_type):
         fail("Interface output can only be used with DYNAMIC_LIBRARY targets")
-    if not cc_common_internal.action_is_enabled(
+    if not _cc_common_internal.action_is_enabled(
         feature_configuration = feature_configuration,
         action_name = link_type.action_name,
     ):
@@ -191,7 +191,7 @@ def link_action(
         cc_toolchain,
         feature_configuration,
         output,
-        cc_internal.dynamic_library_soname(
+        _cc_internal.dynamic_library_soname(
             actions,
             output.short_path,
             link_type != LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY,

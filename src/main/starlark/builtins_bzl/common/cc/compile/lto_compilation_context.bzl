@@ -17,8 +17,8 @@ Holds information collected for .o bitcode files coming from a ThinLTO C(++) com
 
 load(":common/cc/cc_helper_internal.bzl", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
 
-cc_internal = _builtins.internal.cc_internal
-cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
 
 LtoCompilationContextInfo = provider(
     doc = """
@@ -51,7 +51,7 @@ def create_lto_compilation_context(*, objects = {}):
     Returns:
         An LtoCompilationContextInfo provider.
     """
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     bitcode_infos = {}
     for k, (minimized_bitcode, copts) in objects.items():
         if type(minimized_bitcode) != "File" and minimized_bitcode != None:
@@ -61,7 +61,7 @@ def create_lto_compilation_context(*, objects = {}):
         bitcode_infos[k] = BitcodeInfo(minimized_bitcode = minimized_bitcode, copts = copts)
     if not bitcode_infos:
         return EMPTY_LTO_COMPILATION_CONTEXT
-    return LtoCompilationContextInfo(lto_bitcode_inputs = cc_internal.freeze(bitcode_infos))
+    return LtoCompilationContextInfo(lto_bitcode_inputs = _cc_internal.freeze(bitcode_infos))
 
 def merge_lto_compilation_contexts(*, lto_compilation_contexts):
     """Merges a list of LtoCompilationContextInfo providers.
@@ -79,7 +79,7 @@ def merge_lto_compilation_contexts(*, lto_compilation_contexts):
     bitcode_infos = {}
     for lto_compilation_context in lto_compilation_contexts:
         bitcode_infos.update(lto_compilation_context.lto_bitcode_inputs)
-    return LtoCompilationContextInfo(lto_bitcode_inputs = cc_internal.freeze(bitcode_infos))
+    return LtoCompilationContextInfo(lto_bitcode_inputs = _cc_internal.freeze(bitcode_infos))
 
 def get_minimized_bitcode_or_self(lto_compilation_context, full_bitcode):
     """Gets the minimized bitcode corresponding to the full bitcode file, or returns full bitcode if it doesn't exist.

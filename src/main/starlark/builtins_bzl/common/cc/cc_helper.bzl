@@ -30,7 +30,7 @@ load(":common/cc/semantics.bzl", "semantics")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
@@ -154,7 +154,7 @@ def _get_artifact_name_for_category(cc_toolchain, is_dynamic_link_type, output_n
     else:
         linked_artifact_category = artifact_category.EXECUTABLE
 
-    return cc_internal.get_artifact_name_for_category(cc_toolchain = cc_toolchain, category = linked_artifact_category, output_name = output_name)
+    return _cc_internal.get_artifact_name_for_category(cc_toolchain = cc_toolchain, category = linked_artifact_category, output_name = output_name)
 
 def _get_linked_artifact(ctx, cc_toolchain, is_dynamic_link_type):
     name = ctx.label.name

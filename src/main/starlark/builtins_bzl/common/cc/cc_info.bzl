@@ -18,8 +18,8 @@ Definition of CcInfo provider.
 load(":common/cc/cc_helper_internal.bzl", "check_private_api")
 load(":common/cc/link/create_extra_link_time_library.bzl", "create_extra_link_time_libraries", "merge_extra_link_time_libraries")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 CcLinkingContextInfo = provider(
     "CcLinkingContextInfo",
@@ -138,7 +138,7 @@ def _create_cc_info(
         debug_context = None,
         cc_native_library_info = None):
     return dict(
-        compilation_context = compilation_context or cc_internal.empty_compilation_context(),
+        compilation_context = compilation_context or _cc_internal.empty_compilation_context(),
         linking_context = linking_context or _EMPTY_LINKING_CONTEXT,
         _debug_context = debug_context or _EMPTY_DEBUG_CONTEXT,
         _legacy_transitive_native_libraries = cc_native_library_info.libraries_to_link if cc_native_library_info else depset(),
@@ -187,7 +187,7 @@ def merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
         transitive_native_cc_libraries.append(cc_info._legacy_transitive_native_libraries)
 
     return CcInfo(
-        compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
+        compilation_context = _cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
         linking_context = merge_linking_contexts(linking_contexts = cc_linking_contexts),
         debug_context = merge_debug_context(cc_debug_info_contexts),
         cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(order = "topological", transitive = transitive_native_cc_libraries)),

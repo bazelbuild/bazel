@@ -23,11 +23,11 @@ load(":common/cc/cc_helper.bzl", "artifact_category", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 def _declare_static_library(*, name, actions, cc_toolchain):
     basename = paths.basename(name)
-    new_basename = cc_internal.get_artifact_name_for_category(
+    new_basename = _cc_internal.get_artifact_name_for_category(
         cc_toolchain = cc_toolchain,
         category = artifact_category.STATIC_LIBRARY,
         output_name = basename,

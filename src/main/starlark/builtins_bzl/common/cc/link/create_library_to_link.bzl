@@ -20,8 +20,7 @@ load(":common/cc/compile/lto_compilation_context.bzl", _EMPTY_LTO = "EMPTY_LTO_C
 load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")
 load(":common/paths.bzl", "paths")
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 _warning = """ Don't use this field. It's intended for internal use and will be changed or removed
     without warning."""
@@ -100,20 +99,20 @@ def make_library_to_link(
         dynamic_library = dynamic_library,
         resolved_symlink_dynamic_library = resolved_symlink_dynamic_library,
         resolved_symlink_interface_library = resolved_symlink_interface_library,
-        objects = cc_internal.freeze(objects),
-        pic_objects = cc_internal.freeze(pic_objects),
+        objects = _cc_internal.freeze(objects),
+        pic_objects = _cc_internal.freeze(pic_objects),
         alwayslink = alwayslink,
         # LTO data duplication is forced by public APIs
-        lto_bitcode_files = cc_internal.freeze(_lto_compilation_context.lto_bitcode_inputs.keys() if _lto_compilation_context else []),
-        pic_lto_bitcode_files = cc_internal.freeze(_pic_lto_compilation_context.lto_bitcode_inputs.keys() if _pic_lto_compilation_context else []),
+        lto_bitcode_files = _cc_internal.freeze(_lto_compilation_context.lto_bitcode_inputs.keys() if _lto_compilation_context else []),
+        pic_lto_bitcode_files = _cc_internal.freeze(_pic_lto_compilation_context.lto_bitcode_inputs.keys() if _pic_lto_compilation_context else []),
         _library_identifier = _library_identifier,
         _contains_objects = _contains_objects,
         _must_keep_debug = _must_keep_debug,
         _disable_whole_archive = _disable_whole_archive,
         _lto_compilation_context = _lto_compilation_context,
         _pic_lto_compilation_context = _pic_lto_compilation_context,
-        _shared_non_lto_backends = cc_internal.freeze(_shared_non_lto_backends),
-        _pic_shared_non_lto_backends = cc_internal.freeze(_pic_shared_non_lto_backends),
+        _shared_non_lto_backends = _cc_internal.freeze(_shared_non_lto_backends),
+        _pic_shared_non_lto_backends = _cc_internal.freeze(_pic_shared_non_lto_backends),
     )
 
 def create_library_to_link(
@@ -203,9 +202,9 @@ def create_library_to_link(
             if dynamic_library_symlink_path:
                 if dynamic_library.short_path.startswith("_solib_"):
                     fail("dynamic_library must not be a symbolic link in the solib directory. Got '%s'" % dynamic_library.short_path)
-                dynamic_library = cc_internal.dynamic_library_symlink2(actions, dynamic_library, cc_toolchain._solib_dir, dynamic_library_symlink_path)
+                dynamic_library = _cc_internal.dynamic_library_symlink2(actions, dynamic_library, cc_toolchain._solib_dir, dynamic_library_symlink_path)
             else:
-                dynamic_library = cc_internal.dynamic_library_symlink(actions, dynamic_library, cc_toolchain._solib_dir, True, True)
+                dynamic_library = _cc_internal.dynamic_library_symlink(actions, dynamic_library, cc_toolchain._solib_dir, True, True)
 
     resolved_symlink_interface_library = None
     if interface_library:
@@ -219,9 +218,9 @@ def create_library_to_link(
             if interface_library_symlink_path:
                 if interface_library.short_path.startswith("_solib_"):
                     fail("dynamic_library must not be a symbolic link in the solib directory. Got '%s'" % dynamic_library.short_path)
-                interface_library = cc_internal.dynamic_library_symlink2(actions, interface_library, cc_toolchain._solib_dir, interface_library_symlink_path)
+                interface_library = _cc_internal.dynamic_library_symlink2(actions, interface_library, cc_toolchain._solib_dir, interface_library_symlink_path)
             else:
-                interface_library = cc_internal.dynamic_library_symlink(actions, interface_library, cc_toolchain._solib_dir, True, True)
+                interface_library = _cc_internal.dynamic_library_symlink(actions, interface_library, cc_toolchain._solib_dir, True, True)
 
     if errors:
         fail("\n".join(errors))

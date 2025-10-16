@@ -15,7 +15,7 @@
 This module contains functionality for creating linker inputs for C++ rules.
 """
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 _LinkerInputInfo = provider(
     "LinkerInputInfo",
@@ -62,8 +62,8 @@ def create_linker_input(
 
     return _LinkerInputInfo(
         owner = owner,
-        libraries = cc_internal.freeze(libraries.to_list()),
-        user_link_flags = cc_internal.freeze(options),
-        additional_inputs = cc_internal.freeze(additional_inputs.to_list()),
-        linkstamps = cc_internal.freeze(linkstamps.to_list()),
+        libraries = _cc_internal.freeze(libraries.to_list()),
+        user_link_flags = _cc_internal.freeze(options),
+        additional_inputs = _cc_internal.freeze(additional_inputs.to_list()),
+        linkstamps = _cc_internal.freeze(linkstamps.to_list()),
     )

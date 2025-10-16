@@ -20,8 +20,6 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
-cc_internal = _builtins.internal.cc_internal
-
 def _cc_library_impl(ctx):
     semantics.validate(ctx, "cc_library")
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)

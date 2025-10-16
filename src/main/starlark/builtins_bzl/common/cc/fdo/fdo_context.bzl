@@ -19,7 +19,7 @@ load(":common/cc/fdo/memprof_profile.bzl", "MemProfProfileInfo")
 load(":common/cc/fdo/propeller_optimize.bzl", "PropellerOptimizeInfo")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 def _create_fdo_context(
         ctx,
@@ -375,7 +375,7 @@ def _symlink_to(ctx, name_prefix, progress_message, artifact = None, absolute_pa
             basename = paths.basename(absolute_path)
         name = name_prefix + "/" + ctx.label.name + "/" + basename
         output = ctx.actions.declare_file(name)
-        cc_internal.absolute_symlink(
+        _cc_internal.absolute_symlink(
             ctx = ctx,
             output = output,
             target_path = absolute_path,

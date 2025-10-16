@@ -18,7 +18,7 @@ All build variables we create for various `CppCompileAction`s
 load(":common/cc/cc_helper_internal.bzl", "extensions", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
 
 _cc_internal = _builtins.internal.cc_internal
-cc_common_internal = _builtins.internal.cc_common
+_cc_common_internal = _builtins.internal.cc_common
 
 # deliberately short name for less clutter while using in this file, we can have
 # a different symbol with a more descriptive name if we ever export this
@@ -139,7 +139,7 @@ def create_compile_variables(
       (CcToolchainVariables) common compile build variables
     """
     if strip_opts != _UNBOUND or input_file != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if strip_opts == _UNBOUND:
         strip_opts = []
     if input_file == _UNBOUND:
@@ -562,7 +562,7 @@ def get_linkstamp_compile_variables(
         CcToolchainVariables for linkstamp compilation.
     """
 
-    if not cc_common_internal.action_is_enabled(
+    if not _cc_common_internal.action_is_enabled(
         feature_configuration = feature_configuration,
         action_name = "linkstamp-compile",
     ):

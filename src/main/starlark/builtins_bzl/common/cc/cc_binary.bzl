@@ -24,8 +24,6 @@ load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_de
 load(":common/cc/debug_package_info.bzl", "DebugPackageInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
-cc_internal = _builtins.internal.cc_internal
-
 # TODO(blaze-team): cleanup lint target types
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"

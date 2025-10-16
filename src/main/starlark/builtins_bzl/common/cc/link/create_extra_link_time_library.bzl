@@ -21,7 +21,7 @@ coordinate, so each one will add an ExtraLinkTimeLibrary to its CcLinkingContext
 
 load(":common/cc/cc_helper_internal.bzl", "check_private_api")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 # An implementation of ExtraLinkTimeLibrary that uses functions and data passed in from Starlark.
 
@@ -57,7 +57,7 @@ def create_extra_link_time_library(*, build_library_func, **kwargs):
     Returns:
       ExtraLinkTimeLibraryInfo.
     """
-    cc_internal.check_toplevel(build_library_func)
+    _cc_internal.check_toplevel(build_library_func)
     return ExtraLinkTimeLibraryInfo(
         build_library_func = build_library_func,
         # Key to identify the "class" of a StarlarkDefinedLinkTimeLibrary. Uses the build function and
@@ -65,8 +65,8 @@ def create_extra_link_time_library(*, build_library_func, **kwargs):
         _key = _KeyInfo(
             build_library_func = build_library_func,
             # _KeyInfo is used in a dict, so all of its fields must be frozen/hashable.
-            constant_fields = cc_internal.freeze([k for k, v in kwargs.items() if type(v) != "depset"]),
-            depset_fields = cc_internal.freeze([k for k, v in kwargs.items() if type(v) == "depset"]),
+            constant_fields = _cc_internal.freeze([k for k, v in kwargs.items() if type(v) != "depset"]),
+            depset_fields = _cc_internal.freeze([k for k, v in kwargs.items() if type(v) == "depset"]),
         ),
         **kwargs
     )
@@ -93,7 +93,7 @@ def create_extra_link_time_libraries(library):
     """
     if library == None:
         return _EMPTY
-    libraries = cc_internal.freeze([library])
+    libraries = _cc_internal.freeze([library])
     return ExtraLinkTimeLibrariesInfo(
         libraries = libraries,
     )
@@ -144,7 +144,7 @@ def merge_extra_link_time_libraries(libraries):
 
         result.append(ExtraLinkTimeLibraryInfo(**merged_fields))
     return ExtraLinkTimeLibrariesInfo(
-        libraries = cc_internal.freeze(result),
+        libraries = _cc_internal.freeze(result),
     )
 
 def build_libraries(extra_libraries, ctx, static_mode, for_dynamic_library):

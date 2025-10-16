@@ -19,7 +19,7 @@ load(":common/cc/link/link_build_variables.bzl", "setup_lto_indexing_variables")
 load(":common/cc/link/lto_backends.bzl", "create_lto_backends")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "is_dynamic_library")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 def create_lto_artifacts_and_lto_indexing_action(
         actions,
@@ -233,7 +233,7 @@ def _lto_indexing_action(
         cc_toolchain,
         feature_configuration,
         # TODO(b/338618120): remove cheat using the root of one of the created outputs
-        cc_internal.actions2ctx_cheat(actions).bin_dir.path,
+        _cc_internal.actions2ctx_cheat(actions).bin_dir.path,
         thinlto_param_file.path,
         thinlto_merged_object_file.path,
         lto_output_root_prefix,

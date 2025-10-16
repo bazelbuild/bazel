@@ -27,8 +27,8 @@ load(
     "get_linkstamp_compile_variables",
 )
 
-cc_common_internal = _builtins.internal.cc_common
-cc_internal = _builtins.internal.cc_internal
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 def register_linkstamp_compile_action(
         *,
@@ -60,7 +60,7 @@ def register_linkstamp_compile_action(
         stamping: Whether stamping is enabled. If None, it's computed based on configuration.
         additional_linkstamp_defines: A list of additional defines for linkstamp compilation.
     """
-    ctx = cc_internal.actions2ctx_cheat(actions)
+    ctx = _cc_internal.actions2ctx_cheat(actions)
 
     if stamping == None:
         stamping_tri_state = is_stamping_enabled(ctx)
@@ -93,14 +93,14 @@ def register_linkstamp_compile_action(
 
     # TODO(b/447325425): Consider if inputs_for_validation could (and should?) be passed in via
     # cc_compilation_context instead of via cache_key_inputs - a param that is used only here.
-    cc_internal.create_cc_compile_action(
+    _cc_internal.create_cc_compile_action(
         action_construction_context = ctx,
-        cc_compilation_context = cc_internal.empty_compilation_context(),
+        cc_compilation_context = _cc_internal.empty_compilation_context(),
         cc_toolchain = cc_toolchain,
         configuration = ctx.configuration,
-        copts_filter = cc_internal.create_copts_filter(),
+        copts_filter = _cc_internal.create_copts_filter(),
         feature_configuration = feature_configuration,
-        cc_semantics = cc_common_internal.get_cc_semantics(language = "c++"),
+        cc_semantics = _cc_common_internal.get_cc_semantics(language = "c++"),
         source = source_file,
         additional_compilation_inputs_set = compilation_inputs,
         output_file = output_file,

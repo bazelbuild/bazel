@@ -20,10 +20,10 @@ Only use those within C++ implementation. The others need to go through cc_commo
 
 load(":common/paths.bzl", "paths")
 
-cc_common_internal = _builtins.internal.cc_common
+_cc_common_internal = _builtins.internal.cc_common
 
 def check_private_api():
-    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
+    _cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
 
 def wrap_with_check_private_api(symbol):
     """
@@ -35,7 +35,7 @@ def wrap_with_check_private_api(symbol):
     """
 
     def callback():
-        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
         return symbol
 
     return callback

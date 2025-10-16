@@ -37,7 +37,8 @@ load(":common/cc/link/lto_backends.bzl", "create_lto_backend_artifacts")
 load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "create_cc_toolchain_config_info")
 load(":common/cc/toolchain_config/configure_features.bzl", "configure_features")
 
-cc_common_internal = _builtins.internal.cc_common
+_cc_common_internal = _builtins.internal.cc_common
+_cc_internal = _builtins.internal.cc_internal
 
 # buildifier: disable=name-conventions
 _UnboundValueProviderDoNotUse = provider("This provider is used as an unique symbol to distinguish between bound and unbound Starlark values, to avoid using kwargs.", fields = [])
@@ -91,7 +92,7 @@ def _link(
         build_config = _UNBOUND,
         emit_interface_shared_library = _UNBOUND):
     if output_type == "archive":
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     # TODO(b/205690414): Keep linkedArtifactNameSuffixObject protected. Use cases that are
     #  passing the suffix should be migrated to using mainOutput instead where the suffix is
@@ -108,7 +109,7 @@ def _link(
        use_shareable_artifact_factory != _UNBOUND or \
        build_config != _UNBOUND or \
        emit_interface_shared_library != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     if use_test_only_flags == _UNBOUND:
         use_test_only_flags = False
@@ -165,25 +166,25 @@ def _link(
     )
 
 def _get_tool_for_action(*, feature_configuration, action_name):
-    return cc_common_internal.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
+    return _cc_common_internal.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
 
 def _get_execution_requirements(*, feature_configuration, action_name):
-    return cc_common_internal.get_execution_requirements(feature_configuration = feature_configuration, action_name = action_name)
+    return _cc_common_internal.get_execution_requirements(feature_configuration = feature_configuration, action_name = action_name)
 
 def _is_enabled(*, feature_configuration, feature_name):
     return feature_configuration.is_enabled(feature_name)
 
 def _action_is_enabled(*, feature_configuration, action_name):
-    return cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name)
+    return _cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name)
 
 def _get_memory_inefficient_command_line(*, feature_configuration, action_name, variables):
-    return cc_common_internal.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
+    return _cc_common_internal.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
 
 def _get_environment_variables(*, feature_configuration, action_name, variables):
-    return cc_common_internal.get_environment_variables(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
+    return _cc_common_internal.get_environment_variables(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
 
 def _empty_variables():
-    return cc_common_internal.empty_variables()
+    return _cc_common_internal.empty_variables()
 
 def _create_library_to_link(
         *,
@@ -202,17 +203,17 @@ def _create_library_to_link(
         interface_library_symlink_path = "",
         must_keep_debug = _UNBOUND):
     if lto_compilation_context != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     else:  # lto_compilation_context == _UNBOUND
         lto_compilation_context = None
     if must_keep_debug != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     else:
         must_keep_debug = False
     if objects != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if pic_objects != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     # We cannot check if experimental_starlark_cc_import is set or not here,
     # since there is not ctx. So for a native code to perform the check
@@ -244,7 +245,7 @@ def _create_linking_context(
         linker_inputs,
         extra_link_time_library = _UNBOUND):
     if extra_link_time_library != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     else:  # extra_link_time_library == _UNBOUND:
         extra_link_time_library = None
     return create_linking_context(
@@ -289,7 +290,7 @@ def _create_compilation_context(
        separate_module != _UNBOUND or \
        separate_pic_module != _UNBOUND or \
        add_public_headers_to_modular_headers != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if module_map == _UNBOUND:
         module_map = None
     if external_includes == _UNBOUND:
@@ -316,7 +317,7 @@ def _create_compilation_context(
         separate_pic_module = None
     if add_public_headers_to_modular_headers == _UNBOUND:
         add_public_headers_to_modular_headers = True
-    return cc_common_internal.create_compilation_context(
+    return _cc_common_internal.create_compilation_context(
         headers = headers,
         system_includes = system_includes,
         includes = includes,
@@ -344,7 +345,7 @@ def _create_compilation_context(
     )
 
 def _legacy_cc_flags_make_variable_do_not_use(*, cc_toolchain):
-    return cc_common_internal.legacy_cc_flags_make_variable_do_not_use(cc_toolchain = cc_toolchain)
+    return _cc_common_internal.legacy_cc_flags_make_variable_do_not_use(cc_toolchain = cc_toolchain)
 
 def _is_cc_toolchain_resolution_enabled_do_not_use(*, ctx):
     # Supports public is_cc_toolchain_resolution_enabled_do_not_use
@@ -372,7 +373,7 @@ def _create_linking_context_from_compilation_outputs(
     if stamp != _UNBOUND or \
        linked_dll_name_suffix != _UNBOUND or \
        test_only_target != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     if stamp == _UNBOUND:
         stamp = 0
@@ -401,33 +402,33 @@ def _create_linking_context_from_compilation_outputs(
     )
 
 def _merge_compilation_contexts(*, compilation_contexts = []):
-    return cc_common_internal.merge_compilation_contexts(compilation_contexts = compilation_contexts)
+    return _cc_common_internal.merge_compilation_contexts(compilation_contexts = compilation_contexts)
 
 def _check_experimental_cc_shared_library():
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.check_experimental_cc_shared_library()
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.check_experimental_cc_shared_library()
 
 def _incompatible_disable_objc_library_transition():
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.incompatible_disable_objc_library_transition()
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.incompatible_disable_objc_library_transition()
 
 def _add_go_exec_groups_to_binary_rules():
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.add_go_exec_groups_to_binary_rules()
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.add_go_exec_groups_to_binary_rules()
 
 def _create_module_map(*, file, name):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.create_module_map(
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.create_module_map(
         file = file,
         name = name,
     )
 
 def _get_tool_requirement_for_action(*, feature_configuration, action_name):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
 
 def _create_extra_link_time_library(*, build_library_func, **kwargs):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
 
 def _register_linkstamp_compile_action(
@@ -441,7 +442,7 @@ def _register_linkstamp_compile_action(
         inputs_for_validation,
         label_replacement,
         output_replacement):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return register_linkstamp_compile_action(
         actions = actions,
         cc_toolchain = cc_toolchain,
@@ -508,7 +509,7 @@ def _compile(
        separate_module_headers != _UNBOUND or \
        module_interfaces != _UNBOUND or \
        non_compilation_additional_inputs != _UNBOUND:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     if module_map == _UNBOUND:
         module_map = None
@@ -537,7 +538,7 @@ def _compile(
 
     has_tuple = _check_all_sources_contain_tuples_or_none_of_them([srcs, module_interfaces, private_hdrs, public_hdrs])
     if has_tuple:
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     return compile(
         actions = actions,
@@ -593,7 +594,7 @@ def _create_lto_backend_artifacts(
         use_pic,
         should_create_per_object_debug_info,
         argv):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return create_lto_backend_artifacts(
         actions = actions or ctx.actions,
         bitcode_file = bitcode_file,
@@ -610,15 +611,15 @@ def _create_cc_launcher_info(*, cc_info, compilation_outputs):
     return CcLauncherInfo(cc_info = cc_info, compilation_outputs = compilation_outputs)
 
 def _objcopy(*, ctx, cc_toolchain):
-    cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
+    _cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
     return cc_toolchain._objcopy_files
 
 def _objcopy_tool_path(*, ctx, cc_toolchain):
-    cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
+    _cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
     return cc_toolchain._tool_paths.get("objcopy", None)
 
 def _ld_tool_path(*, ctx, cc_toolchain):
-    cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
+    _cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
     return cc_toolchain._tool_paths.get("ld", None)
 
 def _create_compile_action(
@@ -633,8 +634,8 @@ def _create_compile_action(
         compilation_context,
         additional_inputs = None,
         additional_outputs = []):
-    cc_common_internal.check_private_api(allowlist = _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES)
-    return cc_common_internal.create_compile_action(
+    _cc_common_internal.check_private_api(allowlist = _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES)
+    return _cc_common_internal.create_compile_action(
         actions = actions,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
@@ -648,24 +649,24 @@ def _create_compile_action(
     )
 
 def _implementation_deps_allowed_by_allowlist(*, ctx):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
 
 def _get_cc_native_library_info_provider():
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return CcNativeLibraryInfo
 
 def _get_artifact_name_for_category(*, cc_toolchain, category, output_name):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _builtins.internal.cc_internal.get_artifact_name_for_category(
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_internal.get_artifact_name_for_category(
         cc_toolchain = cc_toolchain,
         category = category,
         output_name = output_name,
     )
 
 def _absolute_symlink(*, ctx, output, target_path, progress_message):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    _builtins.internal.cc_internal.absolute_symlink(
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_internal.absolute_symlink(
         ctx = ctx,
         output = output,
         target_path = target_path,
@@ -673,27 +674,27 @@ def _absolute_symlink(*, ctx, output, target_path, progress_message):
     )
 
 def _objc_expand_and_tokenize(**kwargs):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _builtins.internal.objc_internal.expand_and_tokenize(**kwargs)
 
 def _create_linkstamp(linkstamp, headers):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return create_linkstamp(linkstamp, headers)
 
 def _escape_label(*, label):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _builtins.internal.cc_internal.escape_label(label = label)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_internal.escape_label(label = label)
 
 def _cc_toolchain_features(*, toolchain_config_info, tools_directory):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _builtins.internal.cc_internal.cc_toolchain_features(
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_internal.cc_toolchain_features(
         toolchain_config_info = toolchain_config_info,
         tools_directory = tools_directory,
     )
 
 def _solib_symlink_action(*, ctx, artifact, solib_directory, runtime_solib_dir_base):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _builtins.internal.cc_internal.solib_symlink_action(
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_internal.solib_symlink_action(
         ctx = ctx,
         artifact = artifact,
         solib_directory = solib_directory,
@@ -701,8 +702,8 @@ def _solib_symlink_action(*, ctx, artifact, solib_directory, runtime_solib_dir_b
     )
 
 def _cc_toolchain_variables(*, vars):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _builtins.internal.cc_internal.cc_toolchain_variables(vars = vars)
+    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _cc_internal.cc_toolchain_variables(vars = vars)
 
 cc_common = struct(
     link = _link,
@@ -711,8 +712,8 @@ cc_common = struct(
     merge_compilation_outputs = merge_compilation_outputs,
     # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.
     # And also deprecate this public API.
-    CcToolchainInfo = cc_common_internal.CcToolchainInfo,
-    do_not_use_tools_cpp_compiler_present = cc_common_internal.do_not_use_tools_cpp_compiler_present,
+    CcToolchainInfo = _cc_common_internal.CcToolchainInfo,
+    do_not_use_tools_cpp_compiler_present = _cc_common_internal.do_not_use_tools_cpp_compiler_present,
     configure_features = configure_features,
     get_tool_for_action = _get_tool_for_action,
     get_execution_requirements = _get_execution_requirements,

@@ -21,7 +21,7 @@ load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS
 load(":common/cc/link/cc_linking_helper.bzl", "create_cc_link_actions")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE")
 
-cc_internal = _builtins.internal.cc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 # Translation table from language and output type to static and dynamic target type.
 _TARGET_TYPE = {
@@ -164,7 +164,7 @@ def link(
 
     # TODO(b/338618120): Migrate Apple and Android rules, so they don't need to use build_config
     # when calling link. This happens because they are using deps with split configuration
-    actions = cc_internal.wrap_link_actions(actions, build_config, use_shareable_artifact_factory)
+    actions = _cc_internal.wrap_link_actions(actions, build_config, use_shareable_artifact_factory)
 
     return create_cc_link_actions(
         actions,

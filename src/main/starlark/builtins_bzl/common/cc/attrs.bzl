@@ -19,8 +19,6 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library.bzl", "dynamic_deps_attrs")
 load(":common/cc/semantics.bzl", "semantics")
 
-cc_internal = _builtins.internal.cc_internal
-
 common_attrs = {
     "srcs": attr.label_list(
         allow_files = True,
