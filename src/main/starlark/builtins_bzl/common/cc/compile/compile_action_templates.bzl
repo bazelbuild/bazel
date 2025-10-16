@@ -21,6 +21,7 @@ load(
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "dotd_files_enabled", "serialized_diagnostics_file_enabled")
 load(":common/cc/compile/compile_build_variables.bzl", "get_copts", "get_specific_compile_build_variables")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
 _cc_internal = _builtins.internal.cc_internal
@@ -34,7 +35,6 @@ def create_compile_action_templates(
         configuration,
         cpp_configuration,
         feature_configuration,
-        native_cc_semantics,
         language,
         common_compile_build_variables,
         cpp_source,
@@ -120,7 +120,6 @@ def create_compile_action_templates(
                 common_compile_build_variables,
                 specific_compile_build_variables,
             ),
-            cc_semantics = native_cc_semantics,
             source = cpp_source.file,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
@@ -130,6 +129,8 @@ def create_compile_action_templates(
             dotd_tree_artifact = dotd_tree_artifact,
             diagnostics_tree_artifact = diagnostics_tree_artifact,
             lto_indexing_tree_artifact = lto_index_tree_artifact,
+            needs_include_validation = cc_semantics.needs_include_validation(language),
+            toolchain_type = cc_semantics.toolchain,
         )
         outputs["header_tokens"].append(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
@@ -178,7 +179,6 @@ def create_compile_action_templates(
                     common_compile_build_variables,
                     specific_compile_build_variables,
                 ),
-                cc_semantics = native_cc_semantics,
                 source = cpp_source.file,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
@@ -188,6 +188,8 @@ def create_compile_action_templates(
                 dotd_tree_artifact = dotd_tree_artifact,
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
                 lto_indexing_tree_artifact = lto_index_tree_artifact,
+                needs_include_validation = cc_semantics.needs_include_validation(language),
+                toolchain_type = cc_semantics.toolchain,
             )
             outputs["objects"].append(object_file)
         if generate_pic_action:
@@ -235,7 +237,6 @@ def create_compile_action_templates(
                     common_compile_build_variables,
                     specific_compile_build_variables,
                 ),
-                cc_semantics = native_cc_semantics,
                 source = cpp_source.file,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
@@ -245,6 +246,8 @@ def create_compile_action_templates(
                 dotd_tree_artifact = dotd_tree_artifact,
                 diagnostics_tree_artifact = diagnostics_tree_artifact,
                 lto_indexing_tree_artifact = lto_index_tree_artifact,
+                needs_include_validation = cc_semantics.needs_include_validation(language),
+                toolchain_type = cc_semantics.toolchain,
             )
             outputs["pic_objects"].append(pic_object_file)
 

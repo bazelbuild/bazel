@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -65,7 +66,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private final ArrayList<Artifact> additionalIncludeScanningRoots;
   private Boolean shouldScanIncludes;
   private Map<String, String> executionInfo = new LinkedHashMap<>();
-  private final CppSemantics cppSemantics;
   private final CcToolchainProvider ccToolchain;
   @Nullable private String actionName;
   private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
@@ -73,6 +73,8 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private NestedSet<Artifact> additionalPrunableHeaders =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<Artifact> additionalOutputs = ImmutableList.of();
+  private boolean needsIncludeValidation;
+
   // New fields need to be added to the copy constructor.
 
   /** Creates a builder from a rule and configuration. */
@@ -80,13 +82,14 @@ public final class CppCompileActionBuilder implements StarlarkValue {
       ActionConstructionContext actionConstructionContext,
       CcToolchainProvider ccToolchain,
       BuildConfigurationValue configuration,
-      CppSemantics cppSemantics) {
+      String cppToolchainType) {
 
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext
         && ruleContext.useAutoExecGroups()) {
       actionOwner =
-          actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType().toString());
+          actionConstructionContext.getActionOwner(
+              Label.parseCanonicalUnchecked(cppToolchainType).toString());
     }
 
     this.owner = actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
@@ -96,7 +99,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.additionalIncludeScanningRoots = new ArrayList<>();
     this.ccToolchain = ccToolchain;
-    this.cppSemantics = cppSemantics;
   }
 
   /**
@@ -125,10 +127,10 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.usePic = other.usePic;
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
-    this.cppSemantics = other.cppSemantics;
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
     this.additionalOutputs = other.additionalOutputs;
+    this.needsIncludeValidation = other.needsIncludeValidation;
   }
 
   @CanIgnoreReturnValue
@@ -161,6 +163,16 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   public CppCompileActionBuilder setAdditionalOutputs(ImmutableList<Artifact> additionalOutputs) {
     this.additionalOutputs = additionalOutputs;
     return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setNeedsIncludeValidation(boolean needsIncludeValidation) {
+    this.needsIncludeValidation = needsIncludeValidation;
+    return this;
+  }
+
+  public ActionOwner getOwner() {
+    return owner;
   }
 
   public Artifact getSourceFile() {
@@ -308,7 +320,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         ImmutableMap.copyOf(executionInfo),
         actionName,
-        cppSemantics,
+        needsIncludeValidation,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
         additionalOutputs);

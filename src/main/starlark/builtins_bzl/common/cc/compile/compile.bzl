@@ -501,8 +501,6 @@ def _create_cc_compile_actions(
         fail("PIC compilation is requested but the toolchain does not support it " +
              "(feature named 'supports_pic' is not enabled)")
 
-    native_cc_semantics = _cc_common_internal.get_cc_semantics(language = language)
-
     if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
         cpp_module_map = cc_compilation_context._module_map
         module_map_label = Label(cpp_module_map.name())
@@ -524,7 +522,6 @@ def _create_cc_compile_actions(
             label = label,
             common_compile_build_variables = common_compile_build_variables,
             fdo_build_variables = fdo_build_variables,
-            native_cc_semantics = native_cc_semantics,
             outputs = outputs,
             cpp_module_map = cpp_module_map,
             language = language,
@@ -551,7 +548,6 @@ def _create_cc_compile_actions(
                 label = label,
                 common_compile_build_variables = common_compile_build_variables,
                 fdo_build_variables = fdo_build_variables,
-                native_cc_semantics = native_cc_semantics,
                 outputs = outputs,
                 cpp_module_map = separate_cpp_module_map,
                 language = language,
@@ -578,7 +574,6 @@ def _create_cc_compile_actions(
                     label = label,
                     common_toolchain_variables = common_compile_build_variables,
                     fdo_build_variables = fdo_build_variables,
-                    cpp_semantics = native_cc_semantics,
                     language = language,
                     outputs = outputs,
                     source_label = module_map_label,
@@ -612,7 +607,6 @@ def _create_cc_compile_actions(
                 feature_configuration = feature_configuration,
                 configuration = configuration,
                 cpp_configuration = cpp_configuration,
-                native_cc_semantics = native_cc_semantics,
                 language = language,
                 conlyopts = conlyopts,
                 cxxopts = cxxopts,
@@ -641,7 +635,6 @@ def _create_cc_compile_actions(
                 configuration = configuration,
                 cpp_configuration = cpp_configuration,
                 feature_configuration = feature_configuration,
-                native_cc_semantics = native_cc_semantics,
                 language = language,
                 common_compile_build_variables = common_compile_build_variables,
                 cpp_source = cpp_source,
@@ -738,7 +731,6 @@ def _create_cc_compile_actions(
             configuration = configuration,
             copts_filter = copts_filter,
             feature_configuration = feature_configuration,
-            cc_semantics = native_cc_semantics,
             source = source_artifact,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
@@ -747,6 +739,8 @@ def _create_cc_compile_actions(
             diagnostics_file = diagnostics_file,
             use_pic = generate_pic_action,
             compile_build_variables = compile_variables,
+            needs_include_validation = _starlark_cc_semantics.needs_include_validation(language),
+            toolchain_type = _starlark_cc_semantics.toolchain,
         )
         outputs["header_tokens"].append(output_file)
 
@@ -762,7 +756,6 @@ def _create_pic_nopic_compile_source_actions(
         feature_configuration,
         configuration,
         cpp_configuration,
-        native_cc_semantics,
         language,
         conlyopts,
         copts,
@@ -796,7 +789,6 @@ def _create_pic_nopic_compile_source_actions(
             feature_configuration = feature_configuration,
             configuration = configuration,
             cpp_configuration = cpp_configuration,
-            native_cc_semantics = native_cc_semantics,
             language = language,
             conlyopts = conlyopts,
             copts = copts,
@@ -833,7 +825,6 @@ def _create_pic_nopic_compile_source_actions(
             feature_configuration = feature_configuration,
             configuration = configuration,
             cpp_configuration = cpp_configuration,
-            native_cc_semantics = native_cc_semantics,
             language = language,
             conlyopts = conlyopts,
             copts = copts,
@@ -871,7 +862,6 @@ def _create_compile_source_action(
         feature_configuration,
         configuration,
         cpp_configuration,
-        native_cc_semantics,
         language,
         conlyopts,
         copts,
@@ -997,7 +987,6 @@ def _create_compile_source_action(
         cc_toolchain = cc_toolchain,
         configuration = configuration,
         cpp_configuration = cpp_configuration,
-        cpp_semantics = native_cc_semantics,
         language = language,
         copts = complete_copts,
         copts_filter = copts_filter,
@@ -1028,7 +1017,6 @@ def _create_compile_source_action(
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cc_semantics = native_cc_semantics,
         additional_compilation_inputs = additional_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
         source = source_artifact,
@@ -1043,6 +1031,8 @@ def _create_compile_source_action(
             common_compile_variables,
             compile_variables,
         ),
+        needs_include_validation = _starlark_cc_semantics.needs_include_validation(language),
+        toolchain_type = _starlark_cc_semantics.toolchain,
     )
 
     outputs["temps"].extend(temp_action_outputs)
@@ -1074,7 +1064,6 @@ def _create_temps_action(
         cc_toolchain,
         configuration,
         cpp_configuration,
-        cpp_semantics,
         language,
         copts,
         copts_filter,
@@ -1211,7 +1200,6 @@ def _create_temps_action(
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cc_semantics = cpp_semantics,
         source = source_artifact,
         additional_compilation_inputs = additional_compilation_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
@@ -1223,6 +1211,8 @@ def _create_temps_action(
             common_compile_variables,
             preprocess_compile_variables,
         ),
+        needs_include_validation = _starlark_cc_semantics.needs_include_validation(language),
+        toolchain_type = _starlark_cc_semantics.toolchain,
     )
     _cc_internal.create_cc_compile_action(
         action_construction_context = action_construction_context,
@@ -1231,7 +1221,6 @@ def _create_temps_action(
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cc_semantics = cpp_semantics,
         source = source_artifact,
         additional_compilation_inputs = additional_compilation_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
@@ -1243,6 +1232,8 @@ def _create_temps_action(
             common_compile_variables,
             assembly_compile_variables,
         ),
+        needs_include_validation = _starlark_cc_semantics.needs_include_validation(language),
+        toolchain_type = _starlark_cc_semantics.toolchain,
     )
     return [preprocess_object_file, assembly_object_file]
 
@@ -1263,7 +1254,6 @@ def _create_module_codegen_action(
         label,
         common_toolchain_variables,
         fdo_build_variables,
-        cpp_semantics,
         language,
         source_label,
         module,
@@ -1394,7 +1384,6 @@ def _create_module_codegen_action(
         configuration = configuration,
         copts_filter = copts_filter,
         feature_configuration = feature_configuration,
-        cc_semantics = cpp_semantics,
         source = module,
         additional_compilation_inputs = additional_inputs,
         output_file = object_file,
@@ -1403,6 +1392,8 @@ def _create_module_codegen_action(
         gcno_file = gcno_file,
         dwo_file = dwo_file,
         compile_build_variables = compile_variables,
+        needs_include_validation = _starlark_cc_semantics.needs_include_validation(language),
+        toolchain_type = _starlark_cc_semantics.toolchain,
     )
     if use_pic:
         outputs["pic_objects"].append(object_file)
@@ -1427,7 +1418,6 @@ def _create_module_action(
         label,
         common_compile_build_variables,
         fdo_build_variables,
-        native_cc_semantics,
         language,
         cpp_module_map,
         additional_compilation_inputs,
@@ -1451,7 +1441,6 @@ def _create_module_action(
         label = label,
         common_compile_variables = common_compile_build_variables,
         fdo_build_variables = fdo_build_variables,
-        native_cc_semantics = native_cc_semantics,
         source_label = module_map_label,
         output_name = paths.basename(module_map_label.name),
         outputs = outputs,

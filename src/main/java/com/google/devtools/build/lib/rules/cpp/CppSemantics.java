@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -30,16 +28,6 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
 public interface CppSemantics extends StarlarkValue {
-
-  /** Returns cpp toolchain type. */
-  Label getCppToolchainType();
-
-  /** What language to treat the headers. */
-  Language language();
-
-  /** Returns true iff this build requires include validation. */
-  boolean needsIncludeValidation();
-
   /** No-op in Bazel */
   @StarlarkMethod(
       name = "validate_layering_check_features",

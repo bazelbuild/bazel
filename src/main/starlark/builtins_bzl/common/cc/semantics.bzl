@@ -156,6 +156,9 @@ def _validate_cc_compile_call(
         fail("The 'additional_include_scanning_roots' parameter doesn't do anything useful. " +
              "This is only used internally for a mechanism we'd like to get rid of.")
 
+def _needs_include_validation(language):
+    return language == "c++" or language == "cpp" or language == None
+
 semantics = struct(
     toolchain = "@bazel_tools//tools/cpp:toolchain_type",
     validate = _validate,
@@ -200,6 +203,7 @@ semantics = struct(
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
     is_bazel = True,
     validate_cc_compile_call = _validate_cc_compile_call,
+    needs_include_validation = _needs_include_validation,
     extra_exec_groups = {},
     stamp_extra_docs = "",
     malloc_docs = """

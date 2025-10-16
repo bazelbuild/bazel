@@ -16,44 +16,16 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements CppSemantics {
-  @SerializationConstant
-  public static final BazelCppSemantics CPP = new BazelCppSemantics(Language.CPP);
+  @SerializationConstant public static final BazelCppSemantics INSTANCE = new BazelCppSemantics();
 
-  @SerializationConstant
-  public static final BazelCppSemantics OBJC = new BazelCppSemantics(Language.OBJC);
-
-  private final Language language;
-
-  private BazelCppSemantics(Language language) {
-    this.language = language;
-  }
-
-  private static final Label CPP_TOOLCHAIN_TYPE =
-      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type");
-
-  @Override
-  public Label getCppToolchainType() {
-    return CPP_TOOLCHAIN_TYPE;
-  }
-
-  @Override
-  public Language language() {
-    return language;
-  }
-
-  @Override
-  public boolean needsIncludeValidation() {
-    return language != Language.OBJC;
-  }
+  private BazelCppSemantics() {}
 
   @Override
   public void validateLayeringCheckFeatures(

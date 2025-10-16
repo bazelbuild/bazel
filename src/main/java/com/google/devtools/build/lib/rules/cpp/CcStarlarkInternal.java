@@ -25,7 +25,6 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -618,7 +617,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "configuration", positional = false, named = true),
         @Param(name = "copts_filter", positional = false, named = true),
         @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "cc_semantics", positional = false, named = true),
         @Param(name = "source", positional = false, named = true),
         @Param(
             name = "additional_compilation_inputs",
@@ -682,7 +680,13 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Boolean.class), @ParamType(type = NoneType.class)},
-            defaultValue = "None")
+            defaultValue = "None"),
+        @Param(
+            name = "needs_include_validation",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(name = "toolchain_type", positional = false, named = true)
       })
   public void createCppCompileAction(
       StarlarkRuleContext starlarkRuleContext,
@@ -691,7 +695,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       BuildConfigurationValue configuration,
       CoptsFilter coptsFilter,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      CppSemantics semantics,
       Artifact sourceArtifact,
       Sequence<?> additionalCompilationInputs,
       Object additionalCompilationInputsSet,
@@ -708,17 +711,19 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object buildInfoHeaderArtifacts,
       Object actionName,
       Object shouldScanIncludes,
-      Object shareable)
+      Object shareable,
+      boolean needsIncludeValidation,
+      String toolchainType)
       throws EvalException, TypeException {
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
             starlarkRuleContext,
+            toolchainType,
             ccCompilationContext,
             ccToolchain,
             configuration,
             coptsFilter,
             featureConfigurationForStarlark,
-            semantics,
             sourceArtifact,
             additionalCompilationInputs,
             additionalIncludeScanningRoots,
@@ -728,7 +733,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             gcnoFile,
             dwoFile,
             ltoIndexingFile,
-            usePic);
+            usePic,
+            needsIncludeValidation);
     if (additionalCompilationInputsSet instanceof Depset additionalCompilationInputsDepset) {
       builder.addMandatoryInputs(additionalCompilationInputsDepset.getSet(Artifact.class));
     }
@@ -774,7 +780,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true), // FeatureConfigurationForStarlark
         @Param(name = "compile_build_variables", positional = false, named = true),
-        @Param(name = "cc_semantics", positional = false, named = true),
         @Param(name = "source", positional = false, named = true),
         @Param(
             name = "additional_compilation_inputs",
@@ -793,6 +798,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "diagnostics_tree_artifact", positional = false, named = true),
         @Param(name = "lto_indexing_tree_artifact", positional = false, named = true),
         @Param(name = "copts_filter", positional = false, named = true),
+        @Param(name = "needs_include_validation", positional = false, named = true),
+        @Param(name = "toolchain_type", positional = false, named = true)
       })
   public void createCppCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
@@ -801,7 +808,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       BuildConfigurationValue configuration,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       CcToolchainVariables compileBuildVariables,
-      CppSemantics semantics,
       Artifact source,
       Sequence<?> additionalCompilationInputs,
       Sequence<?> additionalIncludeScanningRoots,
@@ -811,7 +817,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object dotdTreeArtifact,
       Object diagnosticsTreeArtifact,
       Object ltoIndexingTreeArtifact,
-      CoptsFilter coptsFilter)
+      CoptsFilter coptsFilter,
+      boolean needsIncludeValidation,
+      String toolchainType)
       throws RuleErrorException, EvalException {
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
@@ -834,12 +842,12 @@ public class CcStarlarkInternal implements StarlarkValue {
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
             starlarkRuleContext,
+            toolchainType,
             ccCompilationContext,
             ccToolchain,
             configuration,
             coptsFilter,
             featureConfigurationForStarlark,
-            semantics,
             source,
             additionalCompilationInputs,
             additionalIncludeScanningRoots,
@@ -849,15 +857,12 @@ public class CcStarlarkInternal implements StarlarkValue {
             /* gcnoFile= */ null,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
-            usePic);
+            usePic,
+            needsIncludeValidation);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     SpecialArtifact sourceArtifact = (SpecialArtifact) source;
     builder.setVariables(compileBuildVariables);
 
-    ActionOwner actionOwner = null;
-    if (ruleContext.useAutoExecGroups()) {
-      actionOwner = ruleContext.getActionOwner(semantics.getCppToolchainType().toString());
-    }
     try {
       CppCompileActionTemplate actionTemplate =
           new CppCompileActionTemplate(
@@ -868,8 +873,7 @@ public class CcStarlarkInternal implements StarlarkValue {
               CcModule.nullIfNone(ltoIndexingTreeArtifact, SpecialArtifact.class),
               builder,
               CcToolchainProvider.create(ccToolchain),
-              outputCategories.build(),
-              actionOwner == null ? ruleContext.getActionOwner() : actionOwner);
+              outputCategories.build());
       ruleContext.registerAction(actionTemplate);
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
@@ -878,12 +882,12 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   private static CppCompileActionBuilder createCppCompileActionBuilder(
       StarlarkRuleContext starlarkRuleContext,
+      String toolchainType,
       CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
       CoptsFilter coptsFilter,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      CppSemantics semantics,
       Artifact sourceArtifact,
       Sequence<?> additionalCompilationInputs,
       Sequence<?> additionalIncludeScanningRoots,
@@ -893,14 +897,15 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object gcnoFile,
       Object dwoFile,
       Object ltoIndexingFile,
-      boolean usePic)
+      boolean usePic,
+      boolean needsIncludeValidation)
       throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
                 starlarkRuleContext.getRuleContext(),
                 CcToolchainProvider.create(ccToolchain),
                 configuration,
-                semantics)
+                toolchainType)
             .setSourceFile(sourceArtifact)
             .setCcCompilationContext(ccCompilationContext)
             .setCoptsFilter(coptsFilter)
@@ -927,6 +932,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         nullIfNone(dotdFile, Artifact.class),
         nullIfNone(diagnosticsFile, Artifact.class));
     builder.setPicMode(usePic);
+    builder.setNeedsIncludeValidation(needsIncludeValidation);
     return builder;
   }
 

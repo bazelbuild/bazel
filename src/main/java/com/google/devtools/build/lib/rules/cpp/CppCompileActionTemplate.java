@@ -84,8 +84,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
       SpecialArtifact ltoIndexTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
-      ImmutableList<ArtifactCategory> categories,
-      ActionOwner actionOwner)
+      ImmutableList<ArtifactCategory> categories)
       throws EvalException {
     this.cppCompileActionBuilder = cppCompileActionBuilder;
     this.sourceTreeArtifact = sourceTreeArtifact;
@@ -95,7 +94,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
     this.diagnosticsTreeArtifact = diagnosticsTreeArtifact;
     this.toolchain = toolchain;
     this.categories = categories;
-    this.actionOwner = checkNotNull(actionOwner, outputTreeArtifact);
+    this.actionOwner = checkNotNull(cppCompileActionBuilder.getOwner());
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
     this.allInputs =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)

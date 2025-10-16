@@ -22,15 +22,9 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 
 /** A module that contains Starlark utilities for C++ support. */
 public class BazelCcModule extends CcModule {
-
-  @Override
-  public CppSemantics getSemantics() {
-    return BazelCppSemantics.CPP;
-  }
-
   @Override
   public CppSemantics getSemantics(Language language) {
-    return (language == Language.CPP) ? BazelCppSemantics.CPP : BazelCppSemantics.OBJC;
+    return BazelCppSemantics.INSTANCE;
   }
 
   @Override

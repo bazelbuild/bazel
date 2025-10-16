@@ -26,6 +26,7 @@ load(
     ":common/cc/compile/compile_build_variables.bzl",
     "get_linkstamp_compile_variables",
 )
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
 _cc_common_internal = _builtins.internal.cc_common
 _cc_internal = _builtins.internal.cc_internal
@@ -100,7 +101,6 @@ def register_linkstamp_compile_action(
         configuration = ctx.configuration,
         copts_filter = _cc_internal.create_copts_filter(),
         feature_configuration = feature_configuration,
-        cc_semantics = _cc_common_internal.get_cc_semantics(language = "c++"),
         source = source_file,
         additional_compilation_inputs_set = compilation_inputs,
         output_file = output_file,
@@ -111,4 +111,6 @@ def register_linkstamp_compile_action(
         action_name = LINKSTAMP_COMPILE_ACTION_NAME,
         should_scan_includes = False,
         shareable = True,
+        needs_include_validation = cc_semantics.needs_include_validation(language = "c++"),
+        toolchain_type = cc_semantics.toolchain,
     )

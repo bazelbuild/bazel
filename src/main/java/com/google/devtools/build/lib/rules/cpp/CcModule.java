@@ -75,8 +75,6 @@ public abstract class CcModule
         StarlarkRuleContext,
         CppModuleMap> {
 
-  public abstract CppSemantics getSemantics();
-
   public abstract CppSemantics getSemantics(Language language);
 
   @Override
