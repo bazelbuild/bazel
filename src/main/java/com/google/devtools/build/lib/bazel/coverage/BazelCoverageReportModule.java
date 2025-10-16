@@ -113,6 +113,9 @@ public class BazelCoverageReportModule extends BlazeModule {
                 this::getArgs,
                 this::getLocationMessage,
                 /* htmlReport= */ false);
+        if (wrapper == null) {
+          return null;
+        }
         eventBus.register(new CoverageReportCollector(wrapper));
         return wrapper;
       }
