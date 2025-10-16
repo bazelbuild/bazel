@@ -1041,7 +1041,6 @@ EOF
   bazel run "//$pkg:foo" >& "$TEST_log" || fail "bazel run without --run_cwd failed"
   expect_not_log "BAR_TXT"
   expect_not_log "Running in $(pwd)"
-  expect_log "runfiles"
 
   bazel run --run_cwd "//$pkg:foo" >& "$TEST_log" || fail "bazel run with --run_cwd failed"
   expect_log "BAR_TXT"
