@@ -179,6 +179,17 @@ public class RunCommand implements BlazeCommand {
                 + " will generally see the full environment of the host except for those variables"
                 + " that have been explicitly unset.")
     public List<Converters.EnvVar> runEnvironment;
+ 
+    @Option(
+        name = "omit_run_args",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help =
+            "Specifies whether the arguments passed to the runable target will be omitted from the output"
+                + " for privacy reasons. If set to true, the output will not contain the arguments passed to"
+                + " the target. If set to false, the output will contain the arguments passed to the target.")
+    public boolean runOmitRunArgs;   
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -316,10 +327,10 @@ public class RunCommand implements BlazeCommand {
     }
     if (runOptions.runBuiltTarget) {
       env.getReporter()
-          .handle(Event.info(null, "Running command line: " + runCommandLine.getPrettyArgs()));
+          .handle(Event.info(null, "Running command line: " + runCommandLine.getPrettyArgs(runOptions.runOmitRunArgs)));
     } else {
       env.getReporter()
-          .handle(Event.info(null, "Runnable command line: " + runCommandLine.getPrettyArgs()));
+          .handle(Event.info(null, "Runnable command line: " + runCommandLine.getPrettyArgs(runOptions.runOmitRunArgs)));
     }
 
     try {
