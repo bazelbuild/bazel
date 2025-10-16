@@ -1029,7 +1029,9 @@ EOF
 set -euo pipefail
 
 echo "Running in $(pwd)"
-[ -f "bar.txt" ] && echo "BAR_TXT"
+if [ -f "bar.txt" ]; then
+  echo "BAR_TXT"
+fi
 EOF
 
   cd "$pkg" || fail "cd $pkg failed"
