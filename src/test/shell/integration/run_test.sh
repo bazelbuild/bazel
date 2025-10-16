@@ -1011,7 +1011,7 @@ EOF
   expect_log "RUN_ENV_ONLY: 'BAR'"
 }
 
-function test_run_cwd() {
+function test_run_in_cwd() {
   add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
@@ -1038,11 +1038,11 @@ EOF
   chmod +x "foo.sh"
   touch "bar.txt"
 
-  bazel run "//$pkg:foo" >& "$TEST_log" || fail "bazel run without --run_cwd failed"
+  bazel run "//$pkg:foo" >& "$TEST_log" || fail "bazel run without --run_in_cwd failed"
   expect_not_log "BAR_TXT"
   expect_not_log "Running in $(pwd)"
 
-  bazel run --run_cwd "//$pkg:foo" >& "$TEST_log" || fail "bazel run with --run_cwd failed"
+  bazel run --run_in_cwd "//$pkg:foo" >& "$TEST_log" || fail "bazel run with --run_in_cwd failed"
   expect_log "BAR_TXT"
   expect_log "Running in $(pwd)"
 }

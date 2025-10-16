@@ -181,14 +181,14 @@ public class RunCommand implements BlazeCommand {
     public List<Converters.EnvVar> runEnvironment;
 
     @Option(
-        name = "run_cwd",
+        name = "run_in_cwd",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help =
             "If true, runs the target in the current working directory instead of the runfile"
                 + " tree.")
-    public boolean runCwd;
+    public boolean runInCwd;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -835,7 +835,7 @@ public class RunCommand implements BlazeCommand {
         new RunCommandLine.Builder(
             runEnvironment,
             envVariablesToClear,
-            /* workingDir= */ !runOptions.runCwd && builtTargets.targetToRunRunfilesDir != null
+            /* workingDir= */ !runOptions.runInCwd && builtTargets.targetToRunRunfilesDir != null
                 ? builtTargets.targetToRunRunfilesDir
                 : env.getWorkingDirectory(),
             /* isTestTarget= */ false);
