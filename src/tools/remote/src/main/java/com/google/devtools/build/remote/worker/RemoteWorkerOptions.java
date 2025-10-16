@@ -198,6 +198,16 @@ public class RemoteWorkerOptions extends OptionsBase {
               + " testing only.")
   public boolean unavailable;
 
+  @Option(
+      name = "error_on_duplicate_downloads",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, each individual digest is allowed to be downloaded at most once per tool"
+              + " invocation id. This is useful for testing only.")
+  public boolean errorOnDuplicateDownloads;
+
   private static final int MAX_JOBS = 16384;
 
   /**
