@@ -642,6 +642,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         providesArg,
         dependencyResolutionRule,
         /* isMaterializerRule= */ false,
+        /* allowMaterializerRuleRealDeps= */ false,
         execCompatibleWith,
         analysisTest,
         buildSetting,
@@ -652,7 +653,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
   @Override
   public StarlarkRuleFunction materializerRule(
-      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      Object doc,
+      boolean allowRealDeps,
+      StarlarkThread thread)
       throws EvalException {
 
     // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
@@ -684,6 +689,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         /* providesArg= */ StarlarkList.empty(),
         /* dependencyResolutionRule= */ false,
         /* isMaterializerRule= */ true,
+        /* allowMaterializerRuleRealDeps= */ allowRealDeps,
         /* execCompatibleWith= */ StarlarkList.empty(),
         /* analysisTest= */ false,
         /* buildSetting= */ Starlark.NONE,
@@ -727,6 +733,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> providesArg,
       boolean dependencyResolutionRule,
       boolean isMaterializerRule,
+      boolean allowMaterializerRuleRealDeps,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
@@ -746,6 +753,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         throw Starlark.errorf("materializer rules cannot have a parent");
       }
       builder = new RuleClass.Builder("", type, true, materializerBaseRule);
+      builder.setMaterializerRuleAllowsRealDeps(allowMaterializerRuleRealDeps);
     } else if (dependencyResolutionRule) {
       if (parent != null) {
         throw Starlark.errorf("rules used in dependency resolution cannot have a parent");
@@ -876,6 +884,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                     ruleDefinitionEnvironment.getToolsLabel(
                         "//tools/allowlists/materializer_rule_allowlist"));
         builder.add(allowlistAttr);
+      }
+
+      if (allowMaterializerRuleRealDeps) {
+        builder.addAllowlistChecker(MATERIALIZER_RULE_REAL_DEPS_ALLOWLIST_CHECKER);
+        if (!builder.contains("$allowlist_materializer_rule_real_deps")) {
+          // the allowlist already exists if this is an extended rule
+          Attribute.Builder<Label> allowlistAttr =
+              attr("$allowlist_materializer_rule_real_deps", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                  .value(
+                      ruleDefinitionEnvironment.getToolsLabel(
+                          "//tools/allowlists/materializer_rule_allowlist"
+                              + ":materializer_rule_real_deps_allowlist"));
+          builder.add(allowlistAttr);
+        }
       }
     }
 
@@ -2073,6 +2097,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       AllowlistChecker.builder()
           .setAllowlistAttr("materializer_rule")
           .setErrorMessage("Non-allowlisted use of materializer rule")
+          .setLocationCheck(LocationCheck.DEFINITION)
+          .build();
+
+  @SerializationConstant
+  static final AllowlistChecker MATERIALIZER_RULE_REAL_DEPS_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr("materializer_rule_real_deps")
+          .setErrorMessage("Non-allowlisted use of real deps in materializer target")
           .setLocationCheck(LocationCheck.DEFINITION)
           .build();
 

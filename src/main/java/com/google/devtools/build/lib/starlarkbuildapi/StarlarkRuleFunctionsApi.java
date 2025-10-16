@@ -1207,9 +1207,24 @@ declared.
             doc =
                 "A description of the rule that can be extracted by documentation generating "
                     + "tools."),
+        @Param(
+            name = "allow_real_deps",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+            },
+            defaultValue = "False",
+            doc =
+                "Whether to allow instances of this materializer rule to have real dependencies "
+                    + "(non-dormant deps / non-for_dependency_resolution). Subject to allowlist."),
       },
       useStarlarkThread = true)
   StarlarkCallable materializerRule(
-      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      Object doc,
+      boolean allowRealDeps,
+      StarlarkThread thread)
       throws EvalException;
 }

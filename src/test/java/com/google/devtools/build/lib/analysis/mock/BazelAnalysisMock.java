@@ -693,6 +693,10 @@ launcher_flag_alias(
             name = "materializer_rule_allowlist",
             packages = ["public"],
         )
+        package_group(
+          name = 'materializer_rule_real_deps_allowlist',
+          packages = ["public"],
+        )
         """);
 
     MockProtoSupport.setupWorkspace(config);

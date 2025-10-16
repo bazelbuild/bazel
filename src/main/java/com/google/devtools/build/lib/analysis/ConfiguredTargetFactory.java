@@ -405,6 +405,7 @@ public final class ConfiguredTargetFactory {
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .setConflictFinder(conflictFinder)
+            .setAllowMaterializerRuleRealDeps(ruleClass.materializerRuleAllowsRealDeps())
             .build();
 
     ImmutableList<NestedSet<AnalysisFailure>> analysisFailures =

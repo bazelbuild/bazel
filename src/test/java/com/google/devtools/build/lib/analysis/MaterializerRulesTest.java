@@ -40,15 +40,28 @@ public final class MaterializerRulesTest extends AnalysisTestCase {
 
   @Before
   public void writeMaterializerRulesAllowlist() throws Exception {
+    writeMaterializerRulesAllowlist(true, false);
+  }
+
+  public void writeMaterializerRulesAllowlist(
+      boolean materializerRuleAllowed, boolean allowRealDeps) throws Exception {
+
     scratch.overwriteFile(
         TestConstants.TOOLS_REPOSITORY_SCRATCH
             + "tools/allowlists/materializer_rule_allowlist/BUILD",
         """
         package_group(
-          name = 'materializer_rule_allowlist',
-          packages = ["public"],
+            name = 'materializer_rule_allowlist',
+            packages = [%s],
         )
-        """);
+
+        package_group(
+            name = 'materializer_rule_real_deps_allowlist',
+            packages = [%s],
+        )
+        """
+            .formatted(
+                materializerRuleAllowed ? "\"public\"" : "", allowRealDeps ? "\"public\"" : ""));
   }
 
   /** Tests materializing dormant deps through materializer rules. */
@@ -62,9 +75,9 @@ public final class MaterializerRulesTest extends AnalysisTestCase {
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -151,9 +164,9 @@ component(name = "zzz")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -254,9 +267,9 @@ component(name = "zzz")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -359,9 +372,9 @@ component(name = "zzz")
 ModuleImplementationInfo = provider(fields = ["output"])
 
 def _module_implementation_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ModuleImplementationInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ModuleImplementationInfo(output = f)
 
 module_implementation = rule(
     implementation = _module_implementation_impl,
@@ -481,9 +494,9 @@ module_implementation(name = "baz_b_impl")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -659,7 +672,7 @@ fail_component(name = "c_fail")
 ComponentInfo = provider()
 
 def _component_impl(ctx):
-   return ComponentInfo()
+    return ComponentInfo()
 
 component = rule(
     implementation = _component_impl,
@@ -776,6 +789,83 @@ genrule(
     scratch.file(
         "defs.bzl",
 """
+
+#################################################
+# Component impl
+
+ComponentImplInfo = provider()
+
+def _component_impl_impl(ctx):
+    return ComponentImplInfo()
+
+component_impl = rule(
+    implementation = _component_impl_impl,
+)
+
+#################################################
+# Component selector
+
+def _component_selector_impl(ctx):
+    return MaterializedDepsInfo(deps = ctx.attr.all_components)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components": attr.dormant_label_list(),
+    },
+)
+
+#################################################
+# Binary
+
+def _binary_impl(ctx):
+    return DefaultInfo()
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentImplInfo]),
+    },
+)
+""");
+
+    scratch.file(
+        "BUILD",
+"""
+load(":defs.bzl", "component_impl", "component_selector", "binary")
+
+binary(
+    name = "bin",
+    deps = [":component_selector"],
+)
+
+component_selector(
+    name = "component_selector",
+    all_components = [":impl_selector"],
+)
+
+component_selector(
+    name = "impl_selector",
+    all_components = [":a_impl"],
+)
+
+component_impl(name="a_impl")
+""");
+
+    this.reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//:bin"));
+    assertContainsEvent(
+        "Error while evaluating materializer target in attribute 'deps' of target '//:bin': "
+            + "Materializer target //:component_selector depends on another materializer target "
+            + "//:impl_selector, which is not supported.");
+  }
+
+  @Test
+  public void materializerToMaterializerToMaterializer_throwsError() throws Exception {
+
+    scratch.file(
+        "defs.bzl",
+"""
 #################################################
 # Component
 
@@ -795,17 +885,17 @@ component = rule(
 # Component selector
 
 def _component_selector_impl(ctx):
-  selected = []
-  for c in ctx.attr.all_components:
-    if "yes" in str(c.label):
-      selected.append(c)
-  return MaterializedDepsInfo(deps = selected)
+    selected = []
+    for c in ctx.attr.all_components:
+        if "yes" in str(c.label):
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
 
 component_selector = materializer_rule(
-  implementation = _component_selector_impl,
-  attrs = {
-    "all_components": attr.dormant_label_list(),
-  },
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components": attr.dormant_label_list(),
+    },
 )
 
 #################################################
@@ -816,10 +906,10 @@ def _binary_impl(ctx):
     return DefaultInfo(files = depset(direct = files))
 
 binary = rule(
-  implementation = _binary_impl,
-  attrs = {
-    "deps": attr.label_list(providers = [ComponentInfo]),
-  },
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
 )
 """);
 
@@ -829,28 +919,28 @@ binary = rule(
 load(":defs.bzl", "component", "component_selector", "binary")
 
 binary(
-  name = "bin",
-  deps = [":component_selector"],
+    name = "bin",
+    deps = [":component_selector"],
 )
 
 component_selector(
-  name = "component_selector",
-  all_components = [":component_selector2_yes", ":a_yes"],
+    name = "component_selector",
+    all_components = [":component_selector2_yes", ":a_yes"],
 )
 
 component_selector(
-  name = "component_selector2_yes",
-  all_components = [":component_selector3_yes", ":b_yes", ":component_selector4_yes", ":x_no"],
+    name = "component_selector2_yes",
+    all_components = [":component_selector3_yes", ":b_yes", ":component_selector4_yes", ":x_no"],
 )
 
 component_selector(
-  name = "component_selector3_yes",
-  all_components = [":c_yes", ":d_yes", "e_yes", ":f_yes", ":y_no"],
+    name = "component_selector3_yes",
+    all_components = [":c_yes", ":d_yes", "e_yes", ":f_yes", ":y_no"],
 )
 
 component_selector(
-  name = "component_selector4_yes",
-  all_components = [":g_yes", ":h_yes", ":z_no"],
+    name = "component_selector4_yes",
+    all_components = [":g_yes", ":h_yes", ":z_no"],
 )
 
 component(name = "a_yes")
@@ -890,7 +980,7 @@ component(name = "z_no")
 ComponentInfo = provider()
 
 def _component_impl(ctx):
-   return ComponentInfo()
+    return ComponentInfo()
 
 component = rule(
     implementation = _component_impl,
@@ -1034,9 +1124,9 @@ component(name = "zzz")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -1131,9 +1221,9 @@ component(name = "zzz")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -1253,9 +1343,9 @@ component_transition = transition(
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -1265,17 +1355,17 @@ component = rule(
 # Component selector ###################################################
 
 def _component_selector_impl(ctx):
-  selected = []
-  for c in ctx.attr.all_components:
-    if "yes" in str(c.label):
-      selected.append(c)
-  return MaterializedDepsInfo(deps = selected)
+    selected = []
+    for c in ctx.attr.all_components:
+        if "yes" in str(c.label):
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
 
 component_selector = materializer_rule(
-  implementation = _component_selector_impl,
-  attrs = {
-    "all_components": attr.dormant_label_list(),
-  },
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components": attr.dormant_label_list(),
+    },
 )
 
 # Binary ###############################################################
@@ -1285,10 +1375,10 @@ def _binary_impl(ctx):
     return DefaultInfo(files = depset(direct = files))
 
 binary = rule(
-  implementation = _binary_impl,
-  attrs = {
-    "deps": attr.label_list(providers = [ComponentInfo], cfg = component_transition),
-  },
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo], cfg = component_transition),
+    },
 )
 """);
   }
@@ -1305,24 +1395,24 @@ binary = rule(
 load(":defs.bzl", "component", "component_selector", "binary", "component_selector_setting")
 
 component_selector_setting(
-  name = "component_selector_setting",
-  build_setting_default = "foo",
+    name = "component_selector_setting",
+    build_setting_default = "foo",
 )
 
 binary(
-  name = "bin",
-  # has a split transition!
-  deps = [":component_selector"],
+    name = "bin",
+    # has a split transition!
+    deps = [":component_selector"],
 )
 
 component_selector(
-  name = "component_selector",
-  all_components = [
-    ":yes_a",
-    ":yes_b",
-    ":no_c",
-    ":no_d",
-  ],
+    name = "component_selector",
+    all_components = [
+        ":yes_a",
+        ":yes_b",
+        ":no_c",
+        ":no_d",
+    ],
 )
 
 component(name = "yes_a")
@@ -1353,43 +1443,43 @@ component(name = "no_d")
 load(":defs.bzl", "component", "component_selector", "binary", "component_selector_setting")
 
 component_selector_setting(
-  name = "component_selector_setting",
-  build_setting_default = "foo",
+    name = "component_selector_setting",
+    build_setting_default = "foo",
 )
 
 config_setting(
-  name = "config_setting_foo",
-  flag_values = {"//:component_selector_setting": "foo"},
+    name = "config_setting_foo",
+    flag_values = {"//:component_selector_setting": "foo"},
 )
 
 config_setting(
-  name = "config_setting_bar",
-  flag_values = {"//:component_selector_setting": "bar"},
+    name = "config_setting_bar",
+    flag_values = {"//:component_selector_setting": "bar"},
 )
 
 binary(
-  name = "bin",
-  # has a split transition!
-  deps = [":component_selector"],
+    name = "bin",
+    # has a split transition!
+    deps = [":component_selector"],
 )
 
 component_selector(
-  name = "component_selector",
-  all_components = select({
-    ":config_setting_foo": [
-        ":yes_a",
-        ":yes_b",
-        ":no_f",
-        ":no_g",
-    ],
-    ":config_setting_bar": [
-        ":yes_c",
-        ":yes_d",
-        ":yes_e",
-        ":no_f",
-        ":no_g",
-    ],
-  }),
+    name = "component_selector",
+    all_components = select({
+        ":config_setting_foo": [
+            ":yes_a",
+            ":yes_b",
+            ":no_f",
+            ":no_g",
+        ],
+        ":config_setting_bar": [
+            ":yes_c",
+            ":yes_d",
+            ":yes_e",
+            ":no_f",
+            ":no_g",
+        ],
+    }),
 )
 
 component(name = "yes_a")
@@ -1526,20 +1616,20 @@ component(name = "zzz")
 ComponentInfo = provider(fields = ["components"])
 
 def _component_impl(ctx):
-  current = struct(label=ctx.label, impl = ctx.attr.impl)
-  transitive = [d[ComponentInfo].components for d in ctx.attr.deps]
-  return [
-    ComponentInfo(components = depset(direct = [current], transitive = transitive)),
-  ]
+    current = struct(label=ctx.label, impl = ctx.attr.impl)
+    transitive = [d[ComponentInfo].components for d in ctx.attr.deps]
+    return [
+        ComponentInfo(components = depset(direct = [current], transitive = transitive)),
+    ]
 
 component = rule(
-  implementation = _component_impl,
-  attrs = {
-    "deps": attr.label_list(providers = [ComponentInfo]),
-    "impl": attr.dormant_label(),
-  },
-  provides = [ComponentInfo],
-  dependency_resolution_rule = True,
+    implementation = _component_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+        "impl": attr.dormant_label(),
+    },
+    provides = [ComponentInfo],
+    dependency_resolution_rule = True,
 )
 
 ######################################
@@ -1561,19 +1651,19 @@ component_selector = materializer_rule(
 ######################################
 
 def _binary_impl(ctx):
-  return [DefaultInfo(files=depset(ctx.files._impls))]
+    return [DefaultInfo(files=depset(ctx.files._impls))]
 
 def _materializer(ctx):
-  for c in ctx.attr.components:
-    print(c)
-  return []
+    for c in ctx.attr.components:
+        print(c)
+    return []
 
 binary = rule(
-  implementation = _binary_impl,
-  attrs = {
-      "components": attr.label_list(for_dependency_resolution = True),
-      "_impls": attr.label_list(materializer = _materializer),
-  }
+    implementation = _binary_impl,
+    attrs = {
+        "components": attr.label_list(for_dependency_resolution = True),
+        "_impls": attr.label_list(materializer = _materializer),
+    }
 )
 """);
 
@@ -1590,8 +1680,8 @@ binary(
 component_selector(
     name = "component_selector",
     all_components = [
-      ":c_yes",
-      ":d_no",
+        ":c_yes",
+        ":d_no",
     ],
 )
 
@@ -1621,9 +1711,9 @@ component(name="d_no")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -1760,15 +1850,7 @@ mr(
   @Test
   public void materializerAllowList_nonAllowedThrowsError() throws Exception {
 
-    scratch.overwriteFile(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH
-            + "tools/allowlists/materializer_rule_allowlist/BUILD",
-        """
-        package_group(
-        name = 'materializer_rule_allowlist',
-          packages = [],
-        )
-        """);
+    writeMaterializerRulesAllowlist(false, false);
 
     scratch.file(
         "defs.bzl",
@@ -1778,9 +1860,9 @@ mr(
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -1865,9 +1947,9 @@ component(name = "zzz")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -1907,15 +1989,17 @@ binary = rule(
     scratch.file(
         "BUILD",
 """
-load(":defs.bzl",
-     "component",
-     "binary",
-     "materializer_wrong_object_DefaultInfo",
-     "materializer_wrong_object_int",
-     "materializer_wrong_object_in_list",
-     "materializer_wrong_object_in_list_int",
-     "materializer_wrong_list_size",
-     "materializer_wrong_list_size_DefaultInfo_int")
+load(
+    ":defs.bzl",
+    "component",
+    "binary",
+    "materializer_wrong_object_DefaultInfo",
+    "materializer_wrong_object_int",
+    "materializer_wrong_object_in_list",
+    "materializer_wrong_object_in_list_int",
+    "materializer_wrong_list_size",
+    "materializer_wrong_list_size_DefaultInfo_int",
+)
 
 binary(name = "bin_materializer_wrong_object_DefaultInfo", deps = [":materializer_wrong_object_DefaultInfo"])
 materializer_wrong_object_DefaultInfo(name = "materializer_wrong_object_DefaultInfo", all_components = [":a_yes", ":b_yes"])
@@ -1995,9 +2079,9 @@ component(name = "b_yes")
 ComponentInfo = provider(fields = ["output"])
 
 def _component_impl(ctx):
-   f = ctx.actions.declare_file(ctx.label.name + ".txt")
-   ctx.actions.write(f, ctx.label.name)
-   return ComponentInfo(output = f)
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f)
 
 component = rule(
     implementation = _component_impl,
@@ -2099,7 +2183,7 @@ component_selector(
         "defs.bzl",
 """
 def _component_impl(ctx):
-   return []
+    return []
 
 component = rule(
     implementation = _component_impl,
@@ -2149,7 +2233,7 @@ component(name = "b")
 ComponentInfo = provider()
 
 def _component_impl(ctx):
-   return DefaultInfo()
+    return DefaultInfo()
 
 component = rule(
     implementation = _component_impl,
@@ -2222,7 +2306,7 @@ component(name = "b_yes")
 ComponentInfo = provider()
 
 def _component_impl(ctx):
-   return ComponentInfo()
+    return ComponentInfo()
 
 component = rule(
     implementation = _component_impl,

@@ -1452,6 +1452,7 @@ public class RuleContext extends TargetContext
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap;
+    private boolean allowMaterializerRuleRealDeps;
 
     @Nullable
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
@@ -1586,6 +1587,12 @@ public class RuleContext extends TargetContext
     @CanIgnoreReturnValue
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
       this.ruleClassProvider = ruleClassProvider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setAllowMaterializerRuleRealDeps(boolean allowMaterializerRuleRealDeps) {
+      this.allowMaterializerRuleRealDeps = allowMaterializerRuleRealDeps;
       return this;
     }
 
@@ -1762,9 +1769,9 @@ public class RuleContext extends TargetContext
           }
 
           // Run materializer attribute validation only when constructing a context for rules and
-          // not for aspects because aspects aren't materializers. In particular doing this would
-          // break any aspect that has dependencies when it encounters a materializer rule.
-          if (!forAspect()) {
+          // not for aspects because aspects aren't materializer rules. In particular doing this
+          // would break any aspect that has dependencies when it encounters a materializer rule.
+          if (!forAspect() && !allowMaterializerRuleRealDeps) {
             // Materializer rules can depend only on dependency resolution rules via "normal" /
             // non-dormant attributes, and everything else only via dormant attributes, except
             // for PackageGroupConfiguredTargets and build settings.

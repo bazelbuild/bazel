@@ -138,6 +138,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /* providesArg= */ StarlarkList.empty(),
             /* dependencyResolutionRule= */ false,
             /* isMaterializerRule= */ false,
+            /* allowMaterializerRuleRealDeps= */ false,
             /* execCompatibleWith= */ StarlarkList.empty(),
             /* analysisTest= */ Boolean.TRUE,
             /* buildSetting= */ Starlark.NONE,

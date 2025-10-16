@@ -1071,6 +1071,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         binaryOutput,
         /* dependencyResolutionRule= */ false,
         /* isMaterializerRule= */ false,
+        /* materializerRuleAllowsRealDeps= */ false,
         outputsDefaultExecutable,
         isAnalysisTest,
         /* hasAnalysisTestTransition= */ false,

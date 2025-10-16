@@ -1259,7 +1259,6 @@ component = rule(
 
 def _component_selector_impl(ctx):
     selected = []
-    # interleave these to make it more interesting
     for cd in ctx.attr.all_components_dormant:
         if "yes" in str(cd.label):
             selected.append(cd)
@@ -1330,5 +1329,104 @@ component(name = "zzz")
     ImmutableList<String> componentSelectorDeps =
         evalToListOfStrings("deps('//:component_selector', 1)");
     assertThat(componentSelectorDeps).containsNoneOf("//:a_yes", "//:b_yes", "//:c_no", "//:d_no");
+  }
+
+  @Test
+  public void testMaterializerRuleRealDepsQuery() throws Exception {
+    writeFile(
+        "defs.bzl",
+"""
+# Component ######################################
+
+ComponentInfo = provider(fields = ["output", "info"])
+
+def _component_impl(ctx):
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f, info = ctx.attr.info)
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+    attrs = {
+        "info": attr.string(),
+    }
+)
+
+# Component selector #############################
+
+def _component_selector_impl(ctx):
+    selected = []
+    for c in ctx.attr.all_components:
+        if "yes" in c[ComponentInfo].info:
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    allow_real_deps = True,
+    attrs = {
+        "all_components": attr.label_list(),
+    },
+)
+
+# Binary #########################################
+
+def _binary_impl(ctx):
+    return DefaultInfo()
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
+)
+""");
+
+    writeFile(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector", "binary")
+
+binary(
+    name = "bin",
+    deps = [
+        ":aaa",
+        ":component_selector",
+        ":zzz",
+    ],
+)
+
+component_selector(
+    name = "component_selector",
+    all_components = [":a", ":b", ":c", ":d"],
+)
+
+component(name = "aaa")
+component(name = "a", info = "yes")
+component(name = "b", info = "yes")
+component(name = "c", info = "no")
+component(name = "d", info = "no")
+component(name = "zzz")
+""");
+
+    ((PostAnalysisQueryHelper<CqueryNode>) helper).useConfiguration("--experimental_dormant_deps");
+    ImmutableList<String> directDeps = evalToListOfStrings("deps('//:bin', 1)");
+    // The direct deps of bin should not contain the non-selected deps.
+    // cquery should also include the materializer rule in the direct deps, even though it
+    // "disappears" from the perspective of the depending target, since changing the materializer
+    // rule (e.g. its implementation function) could change the depending target.
+    assertThat(directDeps).containsAtLeast("//:a", "//:b", "//:component_selector");
+    assertThat(directDeps).containsNoneOf("//:c", "//:d");
+
+    // All deps will contain the non-selected deps because they're non-dormant ("real") deps of the
+    // materializer rule.
+    ImmutableList<String> allDeps = evalToListOfStrings("deps('//:bin')");
+    assertThat(allDeps).containsAtLeast("//:a", "//:b", "//:c", "//:d", "//:component_selector");
+
+    // component_selector all the deps because they're all through a label_list.
+    ImmutableList<String> componentSelectorDeps =
+        evalToListOfStrings("deps('//:component_selector', 1)");
+    assertThat(componentSelectorDeps).containsAtLeast("//:a", "//:b", "//:c", "//:d");
   }
 }

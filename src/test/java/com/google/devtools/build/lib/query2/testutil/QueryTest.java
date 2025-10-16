@@ -937,6 +937,101 @@ component(name = "zzz")
     assertThat(directDeps).containsNoneOf("//:a_yes", "//:b_yes", "//:c_no", "//:d_no");
   }
 
+  @Test
+  public void testMaterializerRuleRealDepsQuery() throws Exception {
+
+    writeFile(
+        "defs.bzl",
+"""
+# Component ######################################
+
+ComponentInfo = provider(fields = ["output", "info"])
+
+def _component_impl(ctx):
+    f = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(f, ctx.label.name)
+    return ComponentInfo(output = f, info = ctx.attr.info)
+
+component = rule(
+    implementation = _component_impl,
+    provides = [ComponentInfo],
+    attrs = {
+        "info": attr.string(),
+    }
+)
+
+# Component selector #############################
+
+def _component_selector_impl(ctx):
+    selected = []
+    for c in ctx.attr.all_components:
+        if "yes" in c[ComponentInfo].info:
+            selected.append(c)
+    return MaterializedDepsInfo(deps = selected)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components": attr.label_list(),
+    },
+)
+
+# Binary #########################################
+
+def _binary_impl(ctx):
+    files = [dep[ComponentInfo].output for dep in ctx.attr.deps]
+    return DefaultInfo(files = depset(direct = files))
+
+binary = rule(
+    implementation = _binary_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [ComponentInfo]),
+    },
+)
+""");
+
+    writeFile(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector", "binary")
+
+binary(
+    name = "bin",
+    deps = [
+        ":aaa",
+        ":component_selector",
+        ":zzz",
+    ],
+)
+
+component_selector(
+    name = "component_selector",
+    all_components = [":a", ":b", ":c", ":d"],
+)
+
+component(name = "aaa")
+component(name = "a", info = "yes")
+component(name = "b", info = "yes")
+component(name = "c", info = "no")
+component(name = "d", info = "no")
+component(name = "zzz")
+""");
+
+    // The transitive deps should return all the possible deps, as opposed to just the selected
+    // deps because the materialize rule will have all the deps.
+    ImmutableList<String> allDeps = evalToListOfStrings("deps('//:bin')");
+    assertThat(allDeps)
+        .containsAtLeast(
+            "//:aaa", "//:a", "//:b", "//:c", "//:d", "//:zzz", "//:component_selector");
+
+    ImmutableList<String> directDeps = evalToListOfStrings("deps('//:bin', 1)");
+    assertThat(directDeps).containsAtLeast("//:aaa", "//:component_selector", "//:zzz");
+    // The selected deps materialized from the materializer rule can't be known until
+    // analysis time, so they should not be included in the direct deps. After analysis, a and b
+    // would be direct depds of bin.
+    assertThat(directDeps).containsNoneOf("//:a", "//:b", "//:c", "//:d");
+  }
+
   protected Iterable<String> targetLabels(Set<Target> targets) {
     return Iterables.transform(targets, new Function<Target, String>() {
       @Override

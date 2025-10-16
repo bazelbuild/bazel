@@ -693,7 +693,8 @@ public class RuleClass implements RuleClassData {
     private boolean documented;
     private boolean outputsToBindir = true;
     private boolean dependencyResolutionRule = false;
-    private boolean isMaterializerRule;
+    private boolean isMaterializerRule = false;
+    private boolean materializerRuleAllowsRealDeps = false;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
@@ -772,6 +773,9 @@ public class RuleClass implements RuleClassData {
 
         if (parent.isMaterializerRule()) {
           isMaterializerRule = true;
+          if (parent.materializerRuleAllowsRealDeps) {
+            materializerRuleAllowsRealDeps = true;
+          }
         } else if (isMaterializerRule) {
           throw new IllegalArgumentException(
               "Inconsistent value of isMaterializerRule among parents");
@@ -941,6 +945,7 @@ public class RuleClass implements RuleClassData {
           outputsToBindir,
           dependencyResolutionRule,
           isMaterializerRule,
+          materializerRuleAllowsRealDeps,
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
@@ -1435,6 +1440,13 @@ public class RuleClass implements RuleClassData {
       return this;
     }
 
+    /** Mark the rule as a materializer rule that allows real deps. */
+    @CanIgnoreReturnValue
+    public Builder setMaterializerRuleAllowsRealDeps(boolean allowRealDeps) {
+      this.materializerRuleAllowsRealDeps = allowRealDeps;
+      return this;
+    }
+
     /**
      * This rule class outputs a default executable for every rule with the same name as the
      * rules's. Only works for Starlark.
@@ -1698,6 +1710,7 @@ public class RuleClass implements RuleClassData {
   private final boolean outputsToBindir;
   private final boolean dependencyResolutionRule;
   private final boolean isMaterializerRule;
+  private final boolean materializerRuleAllowsRealDeps;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
@@ -1809,6 +1822,7 @@ public class RuleClass implements RuleClassData {
       boolean outputsToBindir,
       boolean dependencyResolutionRule,
       boolean isMaterializerRule,
+      boolean materializerRuleAllowsRealDeps,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
@@ -1859,6 +1873,7 @@ public class RuleClass implements RuleClassData {
     this.outputFileKind = outputFileKind;
     this.dependencyResolutionRule = dependencyResolutionRule;
     this.isMaterializerRule = isMaterializerRule;
+    this.materializerRuleAllowsRealDeps = materializerRuleAllowsRealDeps;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
@@ -2296,6 +2311,12 @@ public class RuleClass implements RuleClassData {
   @Override
   public boolean isMaterializerRule() {
     return isMaterializerRule;
+  }
+
+  /** Whether this materializer rule allows real deps. */
+  @Override
+  public boolean materializerRuleAllowsRealDeps() {
+    return materializerRuleAllowsRealDeps;
   }
 
   /** Returns true if this rule class outputs a default executable for every rule. */
