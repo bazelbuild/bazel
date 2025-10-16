@@ -1430,9 +1430,7 @@ public class CcToolchainFeatures implements StarlarkValue {
    * @param ccToolchainPath location of the cc_toolchain.
    * @throws EvalException if the configuration has logical errors.
    */
-  @VisibleForTesting
-  public CcToolchainFeatures(
-      CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment ccToolchainPath)
+  CcToolchainFeatures(CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment ccToolchainPath)
       throws EvalException {
     // Build up the feature/action config graph.  We refer to features/action configs as
     // 'selectables'.

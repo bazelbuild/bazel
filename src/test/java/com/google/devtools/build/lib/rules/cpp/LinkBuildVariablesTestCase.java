@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -194,15 +193,27 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
         "",
         "cc_toolchain_config_rule = rule(implementation = _impl, provides ="
             + " [CcToolchainConfigInfo])");
-
+    scratch.overwriteFile("bazel_internal/test_rules/cc/BUILD");
+    scratch.overwriteFile(
+        "bazel_internal/test_rules/cc/ctf_rule.bzl",
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+          return [MyInfo(f = cc_common.cc_toolchain_features(
+                    toolchain_config_info = ctx.attr.config[CcToolchainConfigInfo],
+                    tools_directory = "crosstool",
+                  ))]
+        cc_toolchain_features = rule(_impl, attrs = {"config":attr.label()})
+        """);
     scratch.overwriteFile(
         packageName + "/BUILD",
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "load('//bazel_internal/test_rules/cc:ctf_rule.bzl', 'cc_toolchain_features')",
+        "cc_toolchain_features(name = 'f', config = ':r')",
         "cc_toolchain_config_rule(name = 'r')");
 
-    ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":r");
+    ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":f");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo configInfo = target.get(CcToolchainConfigInfo.PROVIDER);
-    return new CcToolchainFeatures(configInfo, PathFragment.create("crosstool"));
+    return (CcToolchainFeatures) getStarlarkProvider(target, "MyInfo").getValue("f");
   }
 }

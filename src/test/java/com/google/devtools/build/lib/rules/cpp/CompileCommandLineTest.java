@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -54,7 +53,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
   }
 
-  private CcToolchainConfigInfo getCcToolchainConfigInfo(String... starlark) throws Exception {
+  private CcToolchainFeatures getCcToolchainFeatures(String... starlark) throws Exception {
     loadCcToolchainConfigLib();
     scratch.overwriteFile(
         "mock_crosstool/crosstool.bzl",
@@ -79,20 +78,33 @@ public class CompileCommandLineTest extends BuildViewTestCase {
         "    )",
         "cc_toolchain_config_rule = rule(implementation = _impl, provides ="
             + " [CcToolchainConfigInfo])");
-
+    scratch.overwriteFile("bazel_internal/test_rules/cc/BUILD");
+    scratch.overwriteFile(
+        "bazel_internal/test_rules/cc/ctf_rule.bzl",
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+          return [MyInfo(f = cc_common.cc_toolchain_features(
+                    toolchain_config_info = ctx.attr.config[CcToolchainConfigInfo],
+                    tools_directory = "",
+                  ))]
+        cc_toolchain_features = rule(_impl, attrs = {"config":attr.label()})
+        """);
     scratch.overwriteFile(
         "mock_crosstool/BUILD",
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "load('//bazel_internal/test_rules/cc:ctf_rule.bzl', 'cc_toolchain_features')",
+        "cc_toolchain_features(name = 'f', config = ':r')",
         "cc_toolchain_config_rule(name = 'r')");
 
-    ConfiguredTarget target = getConfiguredTarget("//mock_crosstool:r");
+    ConfiguredTarget target = getConfiguredTarget("//mock_crosstool:f");
     assertThat(target).isNotNull();
-    return target.get(CcToolchainConfigInfo.PROVIDER);
+    return (CcToolchainFeatures) getStarlarkProvider(target, "MyInfo").getValue("f");
   }
 
   private FeatureConfiguration getMockFeatureConfigurationFromStarlark(String... starlark)
       throws Exception {
-    return new CcToolchainFeatures(getCcToolchainConfigInfo(starlark), PathFragment.EMPTY_FRAGMENT)
+    return getCcToolchainFeatures(starlark)
         .getFeatureConfiguration(
             ImmutableSet.of(
                 CppActionNames.ASSEMBLE,

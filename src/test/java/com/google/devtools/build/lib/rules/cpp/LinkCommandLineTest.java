@@ -90,12 +90,25 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     scratch.overwriteFile(
         "BUILD",
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "load('//bazel_internal/test_rules/cc:ctf_rule.bzl', 'cc_toolchain_features')",
+        "cc_toolchain_features(name = 'f', config = ':r')",
         "cc_toolchain_config_rule(name = 'r')");
 
-    ConfiguredTarget target = getConfiguredTarget("//:r");
+    scratch.overwriteFile("bazel_internal/test_rules/cc/BUILD");
+    scratch.overwriteFile(
+        "bazel_internal/test_rules/cc/ctf_rule.bzl",
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+          return [MyInfo(f = cc_common.cc_toolchain_features(
+                    toolchain_config_info = ctx.attr.config[CcToolchainConfigInfo],
+                    tools_directory = "",
+                  ))]
+        cc_toolchain_features = rule(_impl, attrs = {"config":attr.label()})
+        """);
+    ConfiguredTarget target = getConfiguredTarget("//:f");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo configInfo = target.get(CcToolchainConfigInfo.PROVIDER);
-    return new CcToolchainFeatures(configInfo, PathFragment.create(""));
+    return (CcToolchainFeatures) getStarlarkProvider(target, "MyInfo").getValue("f");
   }
 
   private FeatureConfiguration getMockFeatureConfiguration() throws Exception {

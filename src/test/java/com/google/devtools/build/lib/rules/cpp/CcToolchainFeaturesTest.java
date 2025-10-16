@@ -39,13 +39,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValu
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -98,16 +96,28 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         "",
         "cc_toolchain_config_rule = rule(implementation = _impl, provides ="
             + " [CcToolchainConfigInfo])");
-
+    scratch.overwriteFile("bazel_internal/test_rules/cc/BUILD");
+    scratch.overwriteFile(
+        "bazel_internal/test_rules/cc/ctf_rule.bzl",
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+          return [MyInfo(f = cc_common.cc_toolchain_features(
+                    toolchain_config_info = ctx.attr.config[CcToolchainConfigInfo],
+                    tools_directory = "crosstool",
+                  ))]
+        cc_toolchain_features = rule(_impl, attrs = {"config":attr.label()})
+        """);
     scratch.overwriteFile(
         packageName + "/BUILD",
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "load('//bazel_internal/test_rules/cc:ctf_rule.bzl', 'cc_toolchain_features')",
+        "cc_toolchain_features(name = 'f', config = ':r')",
         "cc_toolchain_config_rule(name = 'r')");
 
-    ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":r");
+    ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":f");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo configInfo = target.get(CcToolchainConfigInfo.PROVIDER);
-    return new CcToolchainFeatures(configInfo, PathFragment.create("crosstool"));
+    return (CcToolchainFeatures) getStarlarkProvider(target, "MyInfo").getValue("f");
   }
 
   /**
@@ -475,7 +485,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   private String getFlagParsingError(String value) {
-    return assertThrows(EvalException.class, () -> getExpansionOfFlag(value)).getMessage();
+    return assertThrows(AssertionError.class, () -> getExpansionOfFlag(value)).getMessage();
   }
 
   private String getFlagExpansionError(String value, CcToolchainVariables variables) {
@@ -1231,9 +1241,9 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   @Test
   public void testFeatureNameCollision() {
-    EvalException e =
+    AssertionError e =
         assertThrows(
-            EvalException.class,
+            AssertionError.class,
             () ->
                 buildFeatures(
                     "features = [",
@@ -1247,9 +1257,9 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   @Test
   public void testReferenceToUndefinedFeature() {
-    EvalException e =
+    AssertionError e =
         assertThrows(
-            EvalException.class,
+            AssertionError.class,
             () -> buildFeatures("features = [feature(name = 'a', implies = ['<<<undefined>>>'])]"));
     assertThat(e)
         .hasMessageThat()
@@ -1918,9 +1928,9 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidActionConfigurationMultipleActionConfigsForAction() {
-    EvalException e =
+    AssertionError e =
         assertThrows(
-            EvalException.class,
+            AssertionError.class,
             () ->
                 buildFeatures(
                     "action_configs = [",
@@ -1948,9 +1958,9 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   @Test
   public void testErrorForFlagFromActionConfigWithSpecifiedAction() {
-    EvalException e =
+    AssertionError e =
         assertThrows(
-            EvalException.class,
+            AssertionError.class,
             () ->
                 buildFeatures(
                         "action_configs = [",
