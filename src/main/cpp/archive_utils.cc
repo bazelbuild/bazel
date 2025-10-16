@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "src/main/cpp/archive_utils.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -117,90 +118,109 @@ std::optional<DurationMillis> ExtractData(
     const string &expected_install_md5, const StartupOptions &startup_options,
     LoggingInfo *logging_info) {
   const blaze_util::Path &install_base = startup_options.install_base;
-  // If the install dir doesn't exist, create it, if it does, we know it's good.
-  if (!blaze_util::PathExists(install_base)) {
-    uint64_t st = GetMillisecondsMonotonic();
-    // Work in a sibling temporary directory to avoid races.
-    blaze_util::Path tmp_install =
-        blaze_util::CreateSiblingTempDir(install_base);
-    ExtractArchiveOrDie(self_path, startup_options.product_name,
-                        expected_install_md5, tmp_install);
-    BlessFiles(tmp_install);
 
-    uint64_t et = GetMillisecondsMonotonic();
-    const DurationMillis extract_data_duration(st, et);
-
-    // Now rename the completed installation to its final name.
-    int attempts = 0;
-    while (attempts < 120) {
-      int result = blaze_util::RenameDirectory(tmp_install, install_base);
-      if (result == blaze_util::kRenameDirectorySuccess ||
-          result == blaze_util::kRenameDirectoryFailureNotEmpty) {
-        // If renaming fails because the directory already exists and is not
-        // empty, then we assume another good installation snuck in before us.
-        blaze_util::RemoveRecursively(tmp_install);
-        break;
-      } else {
-        // Otherwise the install directory may still be scanned by the antivirus
-        // (in case we're running on Windows) so we need to wait for that to
-        // finish and try renaming again.
-        ++attempts;
-        BAZEL_LOG(USER) << "install base directory '"
-                        << tmp_install.AsPrintablePath()
-                        << "' could not be renamed into place after "
-                        << attempts << " second(s), trying again\r";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-      }
-    }
-
-    // Give up renaming after 120 failed attempts / 2 minutes.
-    if (attempts == 120) {
-      blaze_util::RemoveRecursively(tmp_install);
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "install base directory '" << tmp_install.AsPrintablePath()
-          << "' could not be renamed into place: "
-          << blaze_util::GetLastErrorString();
-    }
-    return extract_data_duration;
-  } else {
+  if (blaze_util::PathExists(install_base)) {
     // This would be detected implicitly below, but checking explicitly lets
     // us give a better error message.
     if (!blaze_util::IsDirectory(install_base)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "install base directory '" << install_base.AsPrintablePath()
-          << "' could not be created. It exists but is not a directory.";
-    }
-    blaze_util::Path install_dir(install_base);
-    // Check that all files are present and have timestamps from BlessFiles().
-    for (const auto &it : archive_contents) {
-      blaze_util::Path path = install_dir.GetRelative(it);
-      if (!IsUntampered(path)) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "corrupt installation: file '" << path.AsPrintablePath()
-            << "' is missing or modified.  Please remove '"
-            << install_base.AsPrintablePath() << "' and try again.";
+      BAZEL_LOG(USER) << "Install base ('" << install_base.AsPrintablePath()
+                      << "') exists but is not a directory; removing.";
+    } else {
+      blaze_util::Path install_dir(install_base);
+      bool all_files_ok = true;
+      // Check that all files are present and have timestamps from BlessFiles().
+      for (const auto &it : archive_contents) {
+        blaze_util::Path path = install_dir.GetRelative(it);
+        if (!IsUntampered(path)) {
+          BAZEL_LOG(USER) << "Corrupt installation: file '"
+                          << path.AsPrintablePath()
+                          << "' is missing or modified (this is expected if"
+                             " the installation is too old).";
+          all_files_ok = false;
+          break;
+        }
+      }
+
+      if (all_files_ok) {
+        // Also check that the installed files claim to match this binary.
+        // We check this afterward because the above diagnostic is better
+        // for a missing install_base_key file.
+        blaze_util::Path key_path =
+            install_dir.GetRelative("install_base_key");
+        string on_disk_key;
+        if (!blaze_util::ReadFile(key_path, &on_disk_key)) {
+          BAZEL_LOG(USER) << "Cannot read '" << key_path.AsPrintablePath()
+                          << "'.";
+        } else if (on_disk_key != expected_install_md5) {
+          BAZEL_LOG(USER)
+              << "The install_base directory '"
+              << install_base.AsPrintablePath() << "' contains a different "
+              << startup_options.product_name << " version (found "
+              << on_disk_key << " but this binary is " << expected_install_md5
+              << ").";
+        } else {
+          // All good.
+          return std::nullopt;
+        }
       }
     }
-    // Also check that the installed files claim to match this binary.
-    // We check this afterward because the above diagnostic is better
-    // for a missing install_base_key file.
-    blaze_util::Path key_path = install_dir.GetRelative("install_base_key");
-    string on_disk_key;
-    if (!blaze_util::ReadFile(key_path, &on_disk_key)) {
+    // If we get here, the installation is bad. Remove it.
+    BAZEL_LOG(USER) << "Removing previous installation at '"
+          << install_base.AsPrintablePath()
+          << "' because it is corrupted or matches a different version";
+    if (!blaze_util::RemoveRecursively(install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "cannot read '" << key_path.AsPrintablePath()
+          << "Failed to remove previous installation at '"
+          << install_base.AsPrintablePath()
           << "': " << blaze_util::GetLastErrorString();
     }
-    if (on_disk_key != expected_install_md5) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "The install_base directory '" << install_base.AsPrintablePath()
-          << "' contains a different " << startup_options.product_name
-          << " version (found " << on_disk_key << " but this binary is "
-          << expected_install_md5
-          << ").  Remove it or specify a different --install_base.";
-    }
-    return std::nullopt;
   }
+
+  // If we get here, the installation directory does not exist or was removed.
+  // Time to install.
+  uint64_t st = GetMillisecondsMonotonic();
+  // Work in a sibling temporary directory to avoid races.
+  blaze_util::Path tmp_install =
+      blaze_util::CreateSiblingTempDir(install_base);
+  ExtractArchiveOrDie(self_path, startup_options.product_name,
+                      expected_install_md5, tmp_install);
+  BlessFiles(tmp_install);
+
+  uint64_t et = GetMillisecondsMonotonic();
+  const DurationMillis extract_data_duration(st, et);
+
+  // Now rename the completed installation to its final name.
+  int attempts = 0;
+  while (attempts < 120) {
+    int result = blaze_util::RenameDirectory(tmp_install, install_base);
+    if (result == blaze_util::kRenameDirectorySuccess ||
+        result == blaze_util::kRenameDirectoryFailureNotEmpty) {
+      // If renaming fails because the directory already exists and is not
+      // empty, then we assume another good installation snuck in before us.
+      blaze_util::RemoveRecursively(tmp_install);
+      break;
+    } else {
+      // Otherwise the install directory may still be scanned by the antivirus
+      // (in case we're running on Windows) so we need to wait for that to
+      // finish and try renaming again.
+      ++attempts;
+      BAZEL_LOG(USER) << "install base directory '"
+                      << tmp_install.AsPrintablePath()
+                      << "' could not be renamed into place after " << attempts
+                      << " second(s), trying again\r";
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+  }
+
+  // Give up renaming after 120 failed attempts / 2 minutes.
+  if (attempts == 120) {
+    blaze_util::RemoveRecursively(tmp_install);
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "install base directory '" << tmp_install.AsPrintablePath()
+        << "' could not be renamed into place: "
+        << blaze_util::GetLastErrorString();
+  }
+  return extract_data_duration;
 }
 
 void DetermineArchiveContents(const string &archive_path, vector<string> *files,

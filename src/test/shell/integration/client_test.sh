@@ -231,12 +231,11 @@ function test_install_base_corrupted_by_deleted_file() {
 
   rm "$install_base/process-wrapper"
 
-  bazel --install_base="$install_base" >& $TEST_log && fail "Expected failure"
-  expect_log "FATAL.* corrupt installation: file '.*process-wrapper' is missing or modified"
-  expect_log "Please remove '$install_base' and try again."  # uh-oh.
-
-  rm -rf "$install_base"
   bazel --install_base="$install_base" >& $TEST_log || fail "Expected success"
+  expect_log "Corrupt installation: file '.*process-wrapper' is missing or modified."
+  expect_log "Removing previous installation."
+  local capitalized_product_name="$(echo "$PRODUCT_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+  expect_log "Extracting $capitalized_product_name installation..."
   expect_log "Usage: $PRODUCT_NAME"  # phew
 }
 
@@ -247,12 +246,11 @@ function test_install_base_corrupted_by_touched_file() {
 
   touch "$install_base/process-wrapper"
 
-  bazel --install_base="$install_base" >&$TEST_log && fail "Expected failure"
-  expect_log "FATAL.* corrupt installation: file '.*process-wrapper' is missing or modified"
-  expect_log "Please remove '$install_base' and try again."  # uh-oh.
-
-  rm -rf "$install_base"
   bazel --install_base="$install_base" >&$TEST_log || fail "Expected success"
+  expect_log "Corrupt installation: file '.*process-wrapper' is missing or modified."
+  expect_log "Removing previous installation."
+  local capitalized_product_name="$(echo "$PRODUCT_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+  expect_log "Extracting $capitalized_product_name installation..."
   expect_log "Usage: $PRODUCT_NAME"  # phew
 }
 
