@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Optional;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
@@ -58,9 +59,12 @@ public class BazelLockFileModuleTest {
             .setEnvVariables(ImmutableMap.of())
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .setModuleExtensionMetadata(
-                Optional.of(
+                LockfileModuleExtensionMetadata.of(
                     ModuleExtensionMetadata.create(
-                        Starlark.NONE, Starlark.NONE, /* reproducible= */ true)))
+                        Starlark.NONE,
+                        Starlark.NONE,
+                        /* reproducible= */ true,
+                        /* factsObj= */ Dict.empty())))
             .build();
     evalFactors = ModuleExtensionEvalFactors.create("linux", "x86_64");
     otherEvalFactors = ModuleExtensionEvalFactors.create("linux", "aarch64");

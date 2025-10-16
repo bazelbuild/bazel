@@ -217,7 +217,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
@@ -228,7 +229,12 @@ final class RegularRunnableExtension implements RunnableExtension {
             "module-extension-" + extensionId,
             (workerEnv) ->
                 runInternal(
-                    workerEnv, usagesValue, starlarkSemantics, extensionId, mainRepositoryMapping));
+                    workerEnv,
+                    usagesValue,
+                    starlarkSemantics,
+                    extensionId,
+                    mainRepositoryMapping,
+                    facts));
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExternalDepsException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
@@ -248,7 +254,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException {
     env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     ModuleExtensionEvalStarlarkThreadContext threadContext =
@@ -261,13 +268,14 @@ final class RegularRunnableExtension implements RunnableExtension {
             mainRepositoryMapping,
             directories,
             env.getListener());
-    Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
+    ModuleExtensionMetadata moduleExtensionMetadata;
     var repoMappingRecorder = new Label.RepoMappingRecorder();
     repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
     try (Mutability mu =
             Mutability.create("module extension", usagesValue.getExtensionUniqueName());
         ModuleExtensionContext moduleContext =
-            createContext(env, usagesValue, starlarkSemantics, extensionId, repoMappingRecorder)) {
+            createContext(
+                env, usagesValue, starlarkSemantics, extensionId, repoMappingRecorder, facts)) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu,
@@ -293,9 +301,9 @@ final class RegularRunnableExtension implements RunnableExtension {
               Starlark.type(returnValue));
         }
         if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
-          moduleExtensionMetadata = Optional.of(retMetadata);
+          moduleExtensionMetadata = retMetadata;
         } else {
-          moduleExtensionMetadata = Optional.empty();
+          moduleExtensionMetadata = ModuleExtensionMetadata.DEFAULT;
         }
       } catch (NeedsSkyframeRestartException e) {
         // Restart by returning null.
@@ -327,7 +335,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      Label.RepoMappingRecorder repoMappingRecorder)
+      Label.RepoMappingRecorder repoMappingRecorder,
+      Facts facts)
       throws ExternalDepsException {
     Path workingDirectory =
         directories
@@ -360,6 +369,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         repositoryRemoteExecutor,
         extensionId,
         StarlarkList.immutableCopyOf(modules),
+        facts,
         rootModuleHasNonDevDependency);
   }
 }

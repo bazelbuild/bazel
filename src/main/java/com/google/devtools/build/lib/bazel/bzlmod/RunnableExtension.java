@@ -50,7 +50,8 @@ interface RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException;
 
   /* Holds the result data from running a module extension */
@@ -59,6 +60,6 @@ interface RunnableExtension {
       ImmutableMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs,
       ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> recordedEnvVarInputs,
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
-      Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
+      ModuleExtensionMetadata moduleExtensionMetadata,
       ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {}
 }
