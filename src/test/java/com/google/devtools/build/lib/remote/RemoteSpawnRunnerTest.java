@@ -42,6 +42,7 @@ import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
+import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -472,6 +474,107 @@ public class RemoteSpawnRunnerTest {
 
     runner.exec(spawn, policy);
 
+    verify(service).executeRemotely(any(), eq(false), any());
+  }
+
+  @Test
+  public void treatCachedActionWithMissingOutputAsCacheMiss_duringRemoteCacheCheck()
+      throws Exception {
+    // Test that bazel treats a cached action with missing mandatory outputs as a cache miss and
+    // attempts to execute the action remotely.
+
+    var runner = newSpawnRunner();
+    var service = runner.getRemoteExecutionService();
+    var actionWithoutOutputs = CachedActionResult.remote(ActionResult.getDefaultInstance());
+    doReturn(RemoteActionResult.createFromCache(actionWithoutOutputs))
+        .when(service)
+        .lookupCache(any(RemoteAction.class));
+
+    var output =
+        ActionsTestUtil.createArtifactWithExecPath(
+            artifactRoot, PathFragment.create("outputs/out"));
+    var successfulResponse =
+        ExecuteResponse.newBuilder()
+            .setResult(
+                ActionResult.newBuilder()
+                    .setExitCode(0)
+                    .addOutputFiles(
+                        OutputFile.newBuilder()
+                            .setPath(output.getExecPathString())
+                            .setDigest(digestUtil.computeAsUtf8("content")))
+                    .build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenReturn(successfulResponse);
+    var spawn = newSimpleSpawn(output);
+    var spawnExecutionContext = getSpawnContext(spawn);
+
+    var result = runner.exec(spawn, spawnExecutionContext);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+
+    verify(service).executeRemotely(any(), eq(false), any());
+  }
+
+  @Test
+  public void treatCachedActionWithMissingOutputAsCacheMiss_duringRemoteExecution()
+      throws Exception {
+    // Test that bazel treats a cached execute result with missing mandatory outputs as a cache miss
+    // and reattempts to execute the action remotely, this time ignoring cached results.
+
+    var runner = newSpawnRunner();
+    var service = runner.getRemoteExecutionService();
+    // Ensure that the initial cache lookup doesn't already return a result with missing outputs -
+    // this case is covered by the previous test.
+    doReturn(null).when(service).lookupCache(any(RemoteAction.class));
+
+    var actionWithoutOutputs = CachedActionResult.remote(ActionResult.getDefaultInstance());
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
+        .thenReturn(actionWithoutOutputs);
+
+    var output =
+        ActionsTestUtil.createArtifactWithExecPath(
+            artifactRoot, PathFragment.create("outputs/out"));
+    var responseWithoutOutput =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .setCachedResult(true)
+            .build();
+    var responseWithOutput =
+        ExecuteResponse.newBuilder()
+            .setResult(
+                ActionResult.newBuilder()
+                    .setExitCode(0)
+                    .addOutputFiles(
+                        OutputFile.newBuilder()
+                            .setPath(output.getExecPathString())
+                            .setDigest(digestUtil.computeAsUtf8("content")))
+                    .build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenAnswer(
+            answer ->
+                answer.getArgument(1, ExecuteRequest.class).getSkipCacheLookup()
+                    ? responseWithOutput
+                    : responseWithoutOutput);
+    var spawn = newSimpleSpawn(output);
+    var spawnExecutionContext = getSpawnContext(spawn);
+
+    var result = runner.exec(spawn, spawnExecutionContext);
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+
+    // The first execution attempt hits the cache and returns the result with missing outputs, the
+    // second attempt forcibly re-executes the action.
+    verify(service).executeRemotely(any(), eq(true), any());
     verify(service).executeRemotely(any(), eq(false), any());
   }
 
