@@ -16,10 +16,14 @@ package com.google.devtools.build.lib.remote.http;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auth.Credentials;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.compression.Brotli;
+import io.netty.handler.codec.compression.Zstd;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -33,14 +37,18 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.timeout.ReadTimeoutException;
+import io.netty.util.AsciiString;
 import io.netty.util.internal.StringUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Map.Entry;
 
 /** ChannelHandler for downloads. */
 final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
+
+  private static final String ACCEPT_ENCODING = getAcceptEncoding();
 
   private OutputStream out;
   private boolean keepAlive = HttpVersion.HTTP_1_1.isKeepAliveDefault();
@@ -180,7 +188,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     httpRequest.headers().set(HttpHeaderNames.HOST, host);
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP);
+    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, ACCEPT_ENCODING);
     return httpRequest;
   }
 
@@ -231,5 +239,16 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       downloadSucceeded = false;
       response = null;
     }
+  }
+
+  private static String getAcceptEncoding() {
+    ArrayList<AsciiString> acceptEncoding = Lists.newArrayList(HttpHeaderValues.GZIP, HttpHeaderValues.DEFLATE, HttpHeaderValues.SNAPPY);
+    if (Brotli.isAvailable()) {
+      acceptEncoding.add(HttpHeaderValues.BR);
+    }
+    if (Zstd.isAvailable()) {
+      acceptEncoding.add(HttpHeaderValues.ZSTD);
+    }
+    return Joiner.on(",").join(acceptEncoding);
   }
 }
