@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -250,6 +251,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       FileApi output,
       Object /* Artifact or None */ targetFile,
       Object /* String or None */ targetPath,
+      Object /* String or None */ targetType,
       Boolean isExecutable,
       Object /* String or None */ progressMessageUnchecked,
       Object useExecRootForSourceObject,
@@ -277,6 +279,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     Action action;
     if (targetFile != Starlark.NONE) {
+      if (targetType != Starlark.NONE) {
+        throw Starlark.errorf("\"target_type\" cannot be used with \"target_file\"");
+      }
+
       Artifact inputArtifact = (Artifact) targetFile;
       if (outputArtifact.isSymlink()) {
         throw Starlark.errorf(
@@ -322,9 +328,24 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf("\"is_executable\" cannot be True when using \"target_path\"");
       }
 
+      SymlinkTargetType symlinkTargetType = SymlinkTargetType.UNSPECIFIED;
+      if (targetType instanceof String targetTypeStr) {
+        symlinkTargetType =
+            switch (targetTypeStr) {
+              case "file" -> SymlinkTargetType.FILE;
+              case "directory" -> SymlinkTargetType.DIRECTORY;
+              default ->
+                  throw Starlark.errorf("\"target_type\" must be one of \"file\" or \"directory\"");
+            };
+      }
+
       action =
           UnresolvedSymlinkAction.create(
-              ruleContext.getActionOwner(), outputArtifact, (String) targetPath, progressMessage);
+              ruleContext.getActionOwner(),
+              outputArtifact,
+              (String) targetPath,
+              symlinkTargetType,
+              progressMessage);
     }
     registerAction(action);
   }

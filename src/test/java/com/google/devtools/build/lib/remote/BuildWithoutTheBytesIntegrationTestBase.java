@@ -34,12 +34,15 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -1032,29 +1035,55 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void downloadToplevel_unresolvedSymlink() throws Exception {
-    // Dangling symlink would require developer mode to be enabled in the CI environment.
+  public void downloadToplevel_unresolvedSymlink(@TestParameter SymlinkTargetType targetType)
+      throws Exception {
     assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    Path targetPath = TestUtils.createUniqueTmpDir(null).getChild("target");
+
+    String targetPathArg = targetPath.getPathString();
+    String targetTypeArg =
+        switch (targetType) {
+          case FILE -> "file";
+          case DIRECTORY -> "directory";
+          case UNSPECIFIED -> "";
+        };
 
     setDownloadToplevel();
     writeSymlinkRule();
     write(
         "BUILD",
-        "load(':symlink.bzl', 'symlink')",
-        "symlink(",
-        "  name = 'foo-link',",
-        "  target_path = '/some/path',",
-        ")");
+        """
+        load(':symlink.bzl', 'symlink')
+        symlink(
+          name = 'foo-link',
+          target_path = '%s',
+          target_type = '%s',
+        )
+        """
+            .formatted(targetPathArg, targetTypeArg));
 
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath.asFragment());
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath.asFragment());
+
+    // Assert that the symlink works after planting the target.
+    if (targetType == SymlinkTargetType.FILE) {
+      FileSystemUtils.writeContent(targetPath, UTF_8, "hello world");
+      assertThat(FileSystemUtils.readContent(getOutputPath("foo-link"), UTF_8))
+          .isEqualTo("hello world");
+    } else if (targetType == SymlinkTargetType.DIRECTORY) {
+      targetPath.createDirectory();
+      FileSystemUtils.writeContent(targetPath.getChild("file.txt"), UTF_8, "hello world");
+      assertThat(FileSystemUtils.readContent(getOutputPath("foo-link/file.txt"), UTF_8))
+          .isEqualTo("hello world");
+    }
   }
 
   @Test
@@ -2043,7 +2072,11 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
                 ctx.actions.symlink(output = link, target_file = ctx.file.target_artifact)
             elif ctx.attr.target_path and not ctx.file.target_artifact:
                 link = ctx.actions.declare_symlink(ctx.attr.name)
-                ctx.actions.symlink(output = link, target_path = ctx.attr.target_path)
+                ctx.actions.symlink(
+                    output = link,
+                    target_path = ctx.attr.target_path,
+                    target_type = ctx.attr.target_type or None,
+                )
             else:
                 fail("exactly one of target_artifact or target_path must be set")
 
@@ -2054,6 +2087,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
             attrs = {
                 "target_artifact": attr.label(allow_single_file = True),
                 "target_path": attr.string(),
+                "target_type": attr.string(),
             },
         )
         """);
