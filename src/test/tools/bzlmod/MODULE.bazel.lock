@@ -181,7 +181,7 @@
   "moduleExtensions": {
     "@@pybind11_bazel+//:internal_configure.bzl%internal_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "jLp6l9wb9jlGqTRAfZaf1n+yOu/Lh64vzVRBMg3xiX8=",
+        "bzlTransitiveDigest": "hEnO+JFMughEBV41KUP5nnAGSjrKGBNIBOgawEIu8E4=",
         "usagesDigest": "D1r3lfzMuUBFxgG8V6o0bQTLMk3GkaGOaPzw53wrwyw=",
         "recordedFileInputs": {
           "@@pybind11_bazel+//MODULE.bazel": "e6f4c20442eaa7c90d7190d8dc539d0ab422f95c65a57cc59562170c58ae3d34"
@@ -211,7 +211,7 @@
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "jzbq/qMpM8xW1zVnA2SSSZvRDl5COpD09LbqXgCxvrY=",
+        "bzlTransitiveDigest": "BYf3iMGgP6Zifb+qCsbW6lNqr/bQ4RVZSR+nuKG2eX0=",
         "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
