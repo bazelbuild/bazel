@@ -18,7 +18,6 @@ Holds information collected for .o bitcode files coming from a ThinLTO C(++) com
 load(":common/cc/cc_helper_internal.bzl", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
 
 _cc_internal = _builtins.internal.cc_internal
-_cc_common_internal = _builtins.internal.cc_common
 
 LtoCompilationContextInfo = provider(
     doc = """
@@ -51,7 +50,7 @@ def create_lto_compilation_context(*, objects = {}):
     Returns:
         An LtoCompilationContextInfo provider.
     """
-    _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     bitcode_infos = {}
     for k, (minimized_bitcode, copts) in objects.items():
         if type(minimized_bitcode) != "File" and minimized_bitcode != None:

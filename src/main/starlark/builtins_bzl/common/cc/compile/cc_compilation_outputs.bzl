@@ -18,7 +18,6 @@ The CcCompilationOutputs provider.
 load(":common/cc/cc_helper_internal.bzl", "wrap_with_check_private_api", _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST")
 load(":common/cc/compile/lto_compilation_context.bzl", "EMPTY_LTO_COMPILATION_CONTEXT", "merge_lto_compilation_contexts")
 
-_cc_common_internal = _builtins.internal.cc_common
 _cc_internal = _builtins.internal.cc_internal
 
 # buildifier: disable=name-conventions
@@ -139,7 +138,7 @@ def create_compilation_outputs(
         A CcCompilationOutputsInfo provider.
     """
     if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
-        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if lto_compilation_context == _UNBOUND:
         lto_compilation_context = None
     if dwo_objects == _UNBOUND:

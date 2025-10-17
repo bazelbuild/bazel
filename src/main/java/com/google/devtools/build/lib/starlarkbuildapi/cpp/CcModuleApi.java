@@ -33,6 +33,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -2118,4 +2119,24 @@ public interface CcModuleApi<
   Sequence<String> getToolRequirementForAction(
       FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "create_extra_link_time_library",
+      documented = false,
+      doc =
+          "Creates a custom ExtraLinkTimeLibrary object. Extra keyword arguments are passed to the"
+              + " provided build function when build_libraries is called. Arguments that are"
+              + " depsets will be added transitively when these are combined via"
+              + " cc_common.merge_cc_infos. For arguments that are not depsets, only one copy will"
+              + " be maintained.",
+      parameters = {
+        @Param(name = "build_library_func", positional = false, named = true),
+      },
+      extraKeywords = @Param(name = "data"),
+      useStarlarkThread = true)
+  default Object createExtraLinkTimeLibrary(
+      StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 }

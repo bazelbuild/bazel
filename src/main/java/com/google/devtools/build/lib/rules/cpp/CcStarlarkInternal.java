@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -67,10 +69,12 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -81,6 +85,48 @@ import net.starlark.java.eval.Tuple;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
+
+  @StarlarkMethod(
+      name = "check_private_api",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "allowlist",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Tuple.class),
+            }),
+        @Param(
+            name = "depth",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "1"),
+      })
+  public void checkPrivateApi(Object allowlistObject, Object depth, StarlarkThread thread)
+      throws EvalException {
+    // This method may be called anywhere from builtins, but not outside (because it's not exposed
+    // in cc_common.bzl
+    Module module =
+        Module.ofInnermostEnclosingStarlarkFunction(
+            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
+    if (module == null) {
+      // The module is null when the call is coming from one of the callbacks passed to execution
+      // phase
+      return;
+    }
+    BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
+    ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
+        Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
+            // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
+            // Starlark, even though it is allowlisted.
+            .map(p -> BuiltinRestriction.allowlistEntry((String) p.get(0), (String) p.get(1)))
+            .collect(toImmutableList());
+    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
+  }
 
   /** Wraps a dictionary of build variables into CcToolchainVariables. */
   @StarlarkMethod(

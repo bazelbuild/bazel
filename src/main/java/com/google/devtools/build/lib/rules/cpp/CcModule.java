@@ -47,8 +47,6 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
@@ -393,74 +391,12 @@ public abstract class CcModule
     }
   }
 
-  @StarlarkMethod(
-      name = "check_private_api",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "allowlist",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = Tuple.class),
-            }),
-        @Param(
-            name = "depth",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "1"),
-      })
-  public void checkPrivateApi(Object allowlistObject, Object depth, StarlarkThread thread)
-      throws EvalException {
-    // This method may be called anywhere from builtins, but not outside (because it's not exposed
-    // in cc_common.bzl
-    Module module =
-        Module.ofInnermostEnclosingStarlarkFunction(
-            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
-    if (module == null) {
-      // The module is null when the call is coming from one of the callbacks passed to execution
-      // phase
-      return;
-    }
-    BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
-    ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
-        Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
-            // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
-            // Starlark, even though it is allowlisted.
-            .map(p -> BuiltinRestriction.allowlistEntry((String) p.get(0), (String) p.get(1)))
-            .collect(toImmutableList());
-    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
-  }
-
   protected Language parseLanguage(String string) throws EvalException {
     try {
       return Language.valueOf(Ascii.toUpperCase(string.replace('+', 'p')));
     } catch (IllegalArgumentException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
-  }
-
-  @StarlarkMethod(
-      name = "create_extra_link_time_library",
-      documented = false,
-      doc =
-          "Creates a custom ExtraLinkTimeLibrary object. Extra keyword arguments are passed to the"
-              + " provided build function when build_libraries is called. Arguments that are"
-              + " depsets will be added transitively when these are combined via"
-              + " cc_common.merge_cc_infos. For arguments that are not depsets, only one copy will"
-              + " be maintained.",
-      parameters = {
-        @Param(name = "build_library_func", positional = false, named = true),
-      },
-      extraKeywords = @Param(name = "data"),
-      useStarlarkThread = true)
-  public Object createExtraLinkTimeLibrary(
-      StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
-      throws EvalException {
-    throw new UnsupportedOperationException();
   }
 
   @StarlarkMethod(

@@ -139,7 +139,7 @@ def create_compile_variables(
       (CcToolchainVariables) common compile build variables
     """
     if strip_opts != _UNBOUND or input_file != _UNBOUND:
-        _cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if strip_opts == _UNBOUND:
         strip_opts = []
     if input_file == _UNBOUND:

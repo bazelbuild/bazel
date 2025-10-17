@@ -17,7 +17,7 @@
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 def _internal_exports():
-    _builtins.internal.cc_common.check_private_api(allowlist = [
+    _builtins.internal.cc_internal.check_private_api(allowlist = [
         ("", "javatests/com/google/devtools/grok/kythe/analyzers/build/testdata/pkg"),
         ("", "third_party/bazel_rules/rules_java"),
         ("rules_java", ""),
