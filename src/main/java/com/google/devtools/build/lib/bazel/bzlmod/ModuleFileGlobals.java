@@ -1253,7 +1253,7 @@ public class ModuleFileGlobals {
       name = "flag_alias",
       doc =
           """
-            No-op for pre-Bazel 9.0 backward compatibility. Seee Bazel 9.0 docs for real functionality.
+            No-op for pre-Bazel 9.0 backward compatibility. See Bazel 9.0 docs for real functionality.
           """,
       parameters = {
         @Param(name = "name", doc = "The name of the flag.", named = true, positional = false),
