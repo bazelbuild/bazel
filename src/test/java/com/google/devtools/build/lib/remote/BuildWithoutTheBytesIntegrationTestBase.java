@@ -2043,7 +2043,11 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
                 ctx.actions.symlink(output = link, target_file = ctx.file.target_artifact)
             elif ctx.attr.target_path and not ctx.file.target_artifact:
                 link = ctx.actions.declare_symlink(ctx.attr.name)
-                ctx.actions.symlink(output = link, target_path = ctx.attr.target_path)
+                ctx.actions.symlink(
+                    output = link,
+                    target_path = ctx.attr.target_path,
+                    target_type = ctx.attr.target_type or None,
+                )
             else:
                 fail("exactly one of target_artifact or target_path must be set")
 
@@ -2054,6 +2058,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
             attrs = {
                 "target_artifact": attr.label(allow_single_file = True),
                 "target_path": attr.string(),
+                "target_type": attr.string(),
             },
         )
         """);
