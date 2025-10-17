@@ -26,7 +26,7 @@ set PATH=C:\python37;%PATH%
 mkdir output
 copy bazel-bin\src\bazel.exe output\bazel.exe
 
-output\bazel build -c opt --copt=-w --host_copt=-w --stamp --embed_label %RELEASE_NAME% src/bazel scripts/packages/bazel.zip
+output\bazel build --config=release --copt=-w --host_copt=-w --stamp --embed_label %RELEASE_NAME% src/bazel scripts/packages/bazel.zip
 
 mkdir artifacts
 move bazel-bin\src\bazel artifacts\bazel-%RELEASE_NAME%-windows-x86_64.exe

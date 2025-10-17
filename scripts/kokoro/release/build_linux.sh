@@ -37,7 +37,7 @@ mkdir output
 cp bazel-bin/src/bazel output/bazel
 
 output/bazel build \
-    -c opt \
+    --config=release \
     --stamp \
     --sandbox_tmpfs_path=/tmp \
     --embed_label "${RELEASE_NAME}" \
@@ -59,4 +59,3 @@ if [ $ARCHITECTURE = "x86_64" ]; then
     cp "bazel-bin/scripts/packages/debian/bazel.tar.gz" "artifacts/bazel_${RELEASE_NAME}.tar.gz"
     cp "bazel-bin/bazel-distfile.zip" "artifacts/bazel-${RELEASE_NAME}-dist.zip"
 fi
-
