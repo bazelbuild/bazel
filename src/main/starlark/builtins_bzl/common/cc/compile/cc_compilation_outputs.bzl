@@ -151,7 +151,7 @@ def create_compilation_outputs(
     dwo_objects = _to_list(dwo_objects)
     pic_dwo_objects = _to_list(pic_dwo_objects)
 
-    obj_extensions = ["o", "obj", ".opb", ".bc"]
+    obj_extensions = ["o", "obj", "opb", "bc"]
     _validate_extensions("objects", objects, obj_extensions)
     _validate_extensions("pic_objects", pic_objects, obj_extensions)
 
