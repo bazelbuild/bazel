@@ -27,6 +27,7 @@ filegroup(
         "//tools/mini_tar:srcs",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
+        "//tools/postmark:srcs",
         "//tools/proto:srcs",
         "//tools/python:srcs",
         "//tools/sh:srcs",
