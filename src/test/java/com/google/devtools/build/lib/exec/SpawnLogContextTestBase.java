@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -117,6 +118,7 @@ public abstract class SpawnLogContextTestBase {
   protected ArtifactRoot externalSourceRoot;
   protected ArtifactRoot externalOutputDir;
   protected BuildConfigurationValue configuration;
+  protected StoredEventHandler storedEventHandler;
 
   @TestParameter public boolean siblingRepositoryLayout;
 
@@ -164,6 +166,7 @@ public abstract class SpawnLogContextTestBase {
         ArtifactRoot.asExternalSourceRoot(
             Root.fromPath(externalRoot.getChild(externalRepo.getName())));
     externalOutputDir = configuration.getBinDirectory(externalRepo);
+    storedEventHandler = new StoredEventHandler();
   }
 
   // A fake action filesystem that provides a fast digest, but refuses to compute it from the
@@ -814,8 +817,7 @@ public abstract class SpawnLogContextTestBase {
 
   @Test
   public void testRunfilesExternalOnly(
-      @TestParameter boolean symlinkUnderMain,
-      @TestParameter boolean rootSymlinkUnderMain)
+      @TestParameter boolean symlinkUnderMain, @TestParameter boolean rootSymlinkUnderMain)
       throws Exception {
     PackageIdentifier someRepoPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
@@ -1245,11 +1247,7 @@ public abstract class SpawnLogContextTestBase {
     }
 
     RunfilesTree runfilesTree =
-        createRunfilesTree(
-            runfilesRoot,
-            ImmutableMap.of(),
-            ImmutableMap.of(),
-            artifacts);
+        createRunfilesTree(runfilesRoot, ImmutableMap.of(), ImmutableMap.of(), artifacts);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesArtifact).build();
 
@@ -1308,11 +1306,7 @@ public abstract class SpawnLogContextTestBase {
     assertThat(artifacts.getNonLeaves()).hasSize(1);
 
     RunfilesTree runfilesTree =
-        createRunfilesTree(
-            runfilesRoot,
-            ImmutableMap.of(),
-            ImmutableMap.of(),
-            artifacts);
+        createRunfilesTree(runfilesRoot, ImmutableMap.of(), ImmutableMap.of(), artifacts);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesTreeArtifact).build();
 
@@ -1630,10 +1624,7 @@ public abstract class SpawnLogContextTestBase {
           .createSymbolicLink(PathFragment.create("/file.txt"));
     }
 
-    Spawn spawn =
-        defaultSpawnBuilder()
-            .withInput(filesetInput)
-            .build();
+    Spawn spawn = defaultSpawnBuilder().withInput(filesetInput).build();
 
     SpawnLogContext context = createSpawnLogContext();
 
