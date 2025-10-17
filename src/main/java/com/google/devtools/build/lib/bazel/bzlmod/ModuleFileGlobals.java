@@ -1248,4 +1248,26 @@ public class ModuleFileGlobals {
     validateModuleName(moduleName);
     context.addOverride(moduleName, LocalPathOverride.create(path));
   }
+
+  @StarlarkMethod(
+      name = "flag_alias",
+      doc =
+          """
+            No-op for pre-Bazel 9.0 backward compatibility. See Bazel 9.0 docs for real functionality.
+          """,
+      parameters = {
+        @Param(name = "name", doc = "The name of the flag.", named = true, positional = false),
+        @Param(
+            name = "starlark_flag",
+            doc = "The label of the Starlark flag to alias to.",
+            named = true,
+            positional = false),
+      },
+      useStarlarkThread = true)
+  public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
+      throws EvalException, LabelSyntaxException {
+    ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "flag_alias()");
+    // No-op until Bazel 9.0.
+    context.setNonModuleCalled();
+  }
 }
