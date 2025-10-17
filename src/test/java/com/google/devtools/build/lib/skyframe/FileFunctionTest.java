@@ -184,7 +184,7 @@ public class FileFunctionTest {
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
-                        ImmutableMap::of, directories, new RepoContentsCache()))
+                        ImmutableMap::of, ImmutableMap::of, directories, new RepoContentsCache()))
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,
                     new SkyFunction() {

@@ -135,7 +135,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
 
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
-        new RepositoryFetchFunction(ImmutableMap::of, directories, new RepoContentsCache()));
+        new RepositoryFetchFunction(ImmutableMap::of, ImmutableMap::of, directories, new RepoContentsCache()));
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {
