@@ -14,6 +14,8 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import com.google.devtools.build.lib.skyframe.serialization.EnumCodec;
+
 /**
  * Indicates the file type at the other end of a symlink.
  *
@@ -27,5 +29,19 @@ public enum SymlinkTargetType {
   /** The target is a regular file. */
   FILE,
   /** The target is a directory. */
-  DIRECTORY,
+  DIRECTORY;
+
+  /**
+   * Codec for {@link SymlinkTargetType}.
+   *
+   * <p>{@link com.google.devtools.build.lib.skyframe.serialization.AutoRegistry} excludes the
+   * entire com.google.devtools.build.lib.vfs java package from having DynamicCodec support.
+   * Therefore, we need to provide our own codec.
+   */
+  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
+  private static final class Codec extends EnumCodec<SymlinkTargetType> {
+    Codec() {
+      super(SymlinkTargetType.class);
+    }
+  }
 }

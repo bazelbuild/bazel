@@ -282,6 +282,21 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "The exact path that the output symlink will point to. No normalization or other "
                     + "processing is applied."),
         @Param(
+            name = "target_type",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "May only be used with <code>target_path</code>, not <code>target_file</code>. If"
+                    + " specified, it must be one of 'file' or 'directory', indicating the target"
+                    + " path's expected type.<p>On Windows, this determines which kind of"
+                    + " filesystem object to create (junction for a directory, symlink for a file)."
+                    + " It has no effect on other operating systems."),
+        @Param(
             name = "is_executable",
             named = true,
             positional = false,
@@ -316,6 +331,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       FileApi output,
       Object targetFile,
       Object targetPath,
+      Object targetType,
       Boolean isExecutable,
       Object progressMessage,
       Object useExecRootForSourceObject,
