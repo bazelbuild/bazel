@@ -1713,7 +1713,7 @@ public class ByteStreamUploaderTest {
               context, chunkerEntry.getKey(), chunkerEntry.getValue()));
     }
 
-    waitForBulkTransfer(uploads, /* cancelRemainingOnInterrupt= */ true);
+    waitForBulkTransfer(uploads);
   }
 
   private static class NoopStreamObserver implements StreamObserver<WriteRequest> {
