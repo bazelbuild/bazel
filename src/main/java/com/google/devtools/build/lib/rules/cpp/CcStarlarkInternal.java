@@ -510,18 +510,29 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "rule_kind_cheat",
+      name = "rule_class",
       documented = false,
-      parameters = {
-        @Param(name = "actions"),
-      })
-  public String getTargetKind(StarlarkActionFactory actions) {
-    return actions
-        .getRuleContext()
-        .getStarlarkRuleContext()
-        .getRuleContext()
-        .getRule()
-        .getTargetKind();
+      parameters = {@Param(name = "ctx")})
+  public String getRuleClass(StarlarkRuleContext ctx) {
+    return ctx.getRuleContext().getRule().getRuleClass();
+  }
+
+  @StarlarkMethod(
+      name = "aspect_class",
+      documented = false,
+      parameters = {@Param(name = "ctx")},
+      allowReturnNones = true)
+  @Nullable
+  public String getAspectClass(StarlarkRuleContext ctx) {
+    if (ctx.getAspectDescriptor() == null) {
+      return null;
+    }
+    String aspectName = ctx.getAspectDescriptor().getAspectClass().getName();
+    // Starlark aspects names are of the form //my/aspect.bzl%aspect
+    if (aspectName.contains("%")) {
+      aspectName = aspectName.split("%", -1)[1];
+    }
+    return aspectName;
   }
 
   @StarlarkMethod(

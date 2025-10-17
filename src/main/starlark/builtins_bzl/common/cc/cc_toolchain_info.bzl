@@ -11,19 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """
 Definition of CcToolchainInfo provider.
 """
 
-load(":common/cc/cc_common.bzl", "cc_common")
-
 def _needs_pic_for_dynamic_libraries(*, feature_configuration):
-    return cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "supports_pic")
+    return feature_configuration.is_enabled("supports_pic")
 
 def _static_runtime_lib(static_runtime_lib):
     def static_runtime_lib_func(*, feature_configuration):
-        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
+        if feature_configuration.is_enabled("static_link_cpp_runtimes"):
             if static_runtime_lib == None:
                 fail("Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.")
             return static_runtime_lib
@@ -33,7 +30,7 @@ def _static_runtime_lib(static_runtime_lib):
 
 def _dynamic_runtime_lib(dynamic_runtime_lib):
     def dynamic_runtime_lib_func(*, feature_configuration):
-        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
+        if feature_configuration.is_enabled("static_link_cpp_runtimes"):
             if dynamic_runtime_lib == None:
                 fail("Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.")
             return dynamic_runtime_lib
@@ -93,7 +90,8 @@ def _create_cc_toolchain_info(
         build_info_files,
         objcopy_files,
         aggregate_ddi,
-        generate_modmap):
+        generate_modmap,
+        extra_cpp_configuration = None):
     cc_toolchain_info = dict(
         needs_pic_for_dynamic_libraries = (lambda *, feature_configuration: True) if cpp_configuration.force_pic() else _needs_pic_for_dynamic_libraries,
         built_in_include_directories = built_in_include_directories,
@@ -155,6 +153,10 @@ def _create_cc_toolchain_info(
         _cc_info = cc_info,
         _objcopy_files = objcopy_files,
         _aggregate_ddi = aggregate_ddi,
+        _extra_allowlisted_feature_layering_check_macros =
+            extra_cpp_configuration.extra_allowlisted_feature_layering_check_macros() if extra_cpp_configuration else [],
+        _force_layering_check_features =
+            extra_cpp_configuration.force_layering_check_features() if extra_cpp_configuration else False,
     )
     return cc_toolchain_info
 
@@ -244,6 +246,8 @@ CcToolchainInfo, _ = provider(
         "_cc_info": "INTERNAL API, DO NOT USE!",
         "_objcopy_files": "INTERNAL API, DO NOT USE!",
         "_aggregate_ddi": "INTERNAL API, DO NOT USE!",
+        "_extra_allowlisted_feature_layering_check_macros": "INTERNAL API, DO NOT USE!",
+        "_force_layering_check_features": "INTERNAL API, DO NOT USE!",
     },
     init = _create_cc_toolchain_info,
 )

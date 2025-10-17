@@ -149,7 +149,7 @@ def _cc_toolchain_impl(ctx):
 
 cc_toolchain = rule(
     implementation = _cc_toolchain_impl,
-    fragments = ["cpp"],
+    fragments = ["cpp"] + semantics.additional_fragments(),
     doc = """
 <p>Represents a C++ toolchain.</p>
 
