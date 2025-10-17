@@ -52,13 +52,16 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.lib.json.Json;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source file or a derived
@@ -120,7 +123,8 @@ public abstract sealed class Artifact
         FileApi,
         Comparable<Artifact>,
         CommandLineItem,
-        ExecutionPhaseSkyKey
+        ExecutionPhaseSkyKey,
+        Json.Encodable
     permits SourceArtifact, DerivedArtifact {
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
@@ -702,6 +706,15 @@ public abstract sealed class Artifact
   @Override
   public final String toString() {
     return "File:" + toDetailString();
+  }
+
+  @Override
+  public Object objectForEncoding(StarlarkSemantics semantics) {
+    Map<String, String> map = new LinkedHashMap<>();
+    map.put("path", getExecPathStringForStarlark(semantics));
+    map.put("root", getRootForStarlark(semantics).getExecPathString());
+    map.put("short_path", getRunfilesPathString());
+    return map;
   }
 
   /** Returns a string representing the complete artifact path information. */
