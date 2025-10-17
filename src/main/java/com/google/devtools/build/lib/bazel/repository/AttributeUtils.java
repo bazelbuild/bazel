@@ -14,7 +14,6 @@
 //
 package com.google.devtools.build.lib.bazel.repository;
 
-import static java.util.Collections.singletonList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,11 +23,10 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.annotation.Nullable;
+import java.util.stream.Stream;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.spelling.SpellChecker;
@@ -117,8 +115,9 @@ public class AttributeUtils {
       if (attrValues[i] == null) {
         attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
       }
-      Label firstNonVisibleLabel = getFirstNonVisibleLabel(attrValues[i]);
-      if (firstNonVisibleLabel != null) {
+      var maybeFirstNonVisibleLabel = nonVisibleLabelsIn(attrValues[i]).findFirst();
+      if (maybeFirstNonVisibleLabel.isPresent()) {
+        var firstNonVisibleLabel = maybeFirstNonVisibleLabel.get();
         throw ExternalDepsException.withCallStackAndMessage(
             errorCode,
             callStack,
@@ -136,19 +135,15 @@ public class AttributeUtils {
     return ImmutableList.copyOf(attrValues);
   }
 
-  @Nullable
-  private static Label getFirstNonVisibleLabel(Object nativeAttrValue) {
-    Collection<?> toValidate =
-        switch (nativeAttrValue) {
-          case List<?> list -> list;
-          case Map<?, ?> map -> map.keySet();
-          case null, default -> singletonList(nativeAttrValue);
-        };
-    for (var item : toValidate) {
-      if (item instanceof Label label && !label.getRepository().isVisible()) {
-        return label;
-      }
-    }
-    return null;
+  private static Stream<Label> nonVisibleLabelsIn(Object nativeAttrValue) {
+    return switch (nativeAttrValue) {
+      case Label label when !label.getRepository().isVisible() -> Stream.of(label);
+      case List<?> list ->
+          list.stream()
+              .flatMap(AttributeUtils::nonVisibleLabelsIn);
+      case Map<?, ?> map ->
+          Stream.concat(map.keySet().stream(), map.values().stream()).flatMap(AttributeUtils::nonVisibleLabelsIn);
+      case null, default -> Stream.of();
+    };
   }
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -200,20 +201,38 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       this.prerequisites = prerequisitesCollection;
     }
 
-    static Dict<String, TransitiveInfoCollection> convertStringToLabelMap(
-        Map<String, Label> unconfiguredValue,
+    private static Map<Label, TransitiveInfoCollection> buildPrequisiteMap(
         List<? extends TransitiveInfoCollection> prerequisites) {
-      Map<Label, TransitiveInfoCollection> prerequisiteMap = Maps.newHashMap();
+      Map<Label, TransitiveInfoCollection> prerequisiteMap =
+          Maps.newHashMapWithExpectedSize(prerequisites.size());
       for (TransitiveInfoCollection prereq : prerequisites) {
         prerequisiteMap.put(AliasProvider.getDependencyLabel(prereq), prereq);
       }
+      return prerequisiteMap;
+    }
 
-      Dict.Builder<String, TransitiveInfoCollection> builder = Dict.builder();
-      for (var entry : unconfiguredValue.entrySet()) {
-        builder.put(entry.getKey(), prerequisiteMap.get(entry.getValue()));
-      }
+    static Dict<String, TransitiveInfoCollection> convertStringToLabelMap(
+        Map<String, Label> unconfiguredValue,
+        List<? extends TransitiveInfoCollection> prerequisites) {
+      var prerequisiteMap = buildPrequisiteMap(prerequisites);
+      ImmutableMap.Builder<String, TransitiveInfoCollection> builder =
+          ImmutableMap.builderWithExpectedSize(unconfiguredValue.size());
+      unconfiguredValue.forEach((key, label) -> builder.put(key, prerequisiteMap.get(label)));
+      return Dict.immutableCopyOf(builder.buildOrThrow());
+    }
 
-      return builder.buildImmutable();
+    static Dict<String, StarlarkList<TransitiveInfoCollection>> convertStringToLabelListMap(
+        Map<String, List<Label>> unconfiguredValue,
+        List<? extends TransitiveInfoCollection> prerequisites) {
+      var prerequisiteMap = buildPrequisiteMap(prerequisites);
+      ImmutableMap.Builder<String, StarlarkList<TransitiveInfoCollection>> builder =
+          ImmutableMap.builderWithExpectedSize(unconfiguredValue.size());
+      unconfiguredValue.forEach(
+          (key, labels) ->
+              builder.put(
+                  key,
+                  StarlarkList.immutableCopyOf(Lists.transform(labels, prerequisiteMap::get))));
+      return Dict.immutableCopyOf(builder.buildOrThrow());
     }
 
     private static boolean shouldIgnore(Attribute a) {
@@ -298,6 +317,11 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return StarlarkList.immutableCopyOf(prerequisites);
       } else if (type == BuildType.LABEL_DICT_UNARY || type == BuildType.LABEL_KEYED_STRING_DICT) {
         return val; // return the same map as the labels are not configured to targets
+      } else if (type == BuildType.LABEL_LIST_DICT) {
+        // The type of the inner lists has to be converted to Starlark.
+        return Dict.immutableCopyOf(
+            Maps.transformValues(
+                BuildType.LABEL_LIST_DICT.cast(val), StarlarkList::immutableCopyOf));
       } else {
         throw new IllegalArgumentException(
             "Can't transform attribute "
@@ -335,13 +359,17 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return convertStringToLabelMap(
             BuildType.LABEL_DICT_UNARY.cast(val), prerequisiteSupplier.get());
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
-        Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
+        ImmutableMap.Builder<TransitiveInfoCollection, String> builder =
+            ImmutableMap.builderWithExpectedSize(original.size());
         List<? extends TransitiveInfoCollection> allPrereq = prerequisiteSupplier.get();
         for (TransitiveInfoCollection prereq : allPrereq) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
-        return builder.buildImmutable();
+        return Dict.immutableCopyOf(builder.buildOrThrow());
+      } else if (type == BuildType.LABEL_LIST_DICT) {
+        return convertStringToLabelListMap(
+            BuildType.LABEL_LIST_DICT.cast(val), prerequisiteSupplier.get());
       } else {
         throw new IllegalArgumentException(
             "Can't transform attribute "
