@@ -19,10 +19,11 @@ import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -57,11 +58,15 @@ public class RepositoryMappingFunction implements SkyFunction {
     if (repositoryMappingValue == RepositoryMappingValue.NOT_FOUND_VALUE
         && REPOSITORY_OVERRIDES.get(env).containsKey(key.repoName())) {
       throw new RepositoryMappingFunctionException(
-          String.format(
-              "the repository %s does not exist, but has been specified as overridden with"
-                  + " --override_repository. Use --inject_repository instead to add a new"
-                  + " repository.",
-              key.repoName()));
+          // Use this rather than NoSuchThingException so that the error mentions the requested
+          // target.
+          new NoSuchPackageException(
+              PackageIdentifier.create(key.repoName(), PathFragment.EMPTY_FRAGMENT),
+              String.format(
+                  "the repository %s does not exist, but has been specified as overridden with"
+                      + " --override_repository. Use --inject_repository instead to add a new"
+                      + " repository.",
+                  key.repoName())));
     }
     return repositoryMappingValue;
   }
@@ -158,10 +163,8 @@ public class RepositoryMappingFunction implements SkyFunction {
   }
 
   private static class RepositoryMappingFunctionException extends SkyFunctionException {
-    RepositoryMappingFunctionException(String message) {
-      super(
-          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message),
-          Transience.PERSISTENT);
+    RepositoryMappingFunctionException(NoSuchThingException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }
