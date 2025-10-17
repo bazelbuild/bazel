@@ -296,12 +296,6 @@ build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
 
-# Enable Bzlmod in all shell integration tests
-common --enable_bzlmod
-
-# Disable WORKSPACE in all shell integration tests
-common --noenable_workspace
-
 # Support JDK 21, data dependencies that get compiled and used tools need to be
 # run with 21 runtime.
 build --java_runtime_version=21
