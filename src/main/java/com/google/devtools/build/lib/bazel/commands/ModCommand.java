@@ -137,6 +137,50 @@ public final class ModCommand implements BlazeCommand {
     return result;
   }
 
+  private void validateArgs(ModSubcommand subcommand, ModOptions modOptions, List<String> args)
+      throws InvalidArgumentException {
+
+    // Validate output format.
+    switch (subcommand) {
+      case SHOW_REPO -> {
+        switch (modOptions.outputFormat) {
+          case TEXT, STREAMED_JSONPROTO, STREAMED_PROTO -> {} // supported
+          default ->
+              throw new InvalidArgumentException(
+                  String.format(
+                      "Invalid --output '%s' for the 'show_repo' subcommand. Only 'text',"
+                          + " 'streamed_jsonproto', and 'streamed_proto' are supported.",
+                      modOptions.outputFormat),
+                  Code.INVALID_ARGUMENTS);
+        }
+      }
+      case SHOW_EXTENSION -> {
+        if (modOptions.outputFormat != ModOptions.OutputFormat.TEXT) {
+          throw new InvalidArgumentException(
+              String.format(
+                  "Invalid --output '%s' for the 'show_extension' subcommand. Only 'text' is"
+                      + " supported.",
+                  modOptions.outputFormat),
+              Code.INVALID_ARGUMENTS);
+        }
+      }
+      case ModSubcommand sub when sub.isGraph() -> {
+        switch (modOptions.outputFormat) {
+          case TEXT, JSON, GRAPH -> {} // supported
+          default ->
+              throw new InvalidArgumentException(
+                  String.format(
+                      "Invalid --output '%s' for the '%s' subcommand. "
+                          + "Only 'text', 'json', and 'graph' are supported.",
+                      modOptions.outputFormat, sub),
+                  Code.INVALID_ARGUMENTS);
+        }
+      }
+      // We don't validate other subcommands yet since they are less confusing.
+      default -> {}
+    }
+  }
+
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
     ModOptions modOptions = options.getOptions(ModOptions.class);
     Preconditions.checkArgument(modOptions != null);
@@ -159,6 +203,14 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
     }
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
+
+    // Validate and parse args as early as possible, so we don't have to
+    // wait for Skyframe evaluations to happen before failing due to a simple error.
+    try {
+      validateArgs(subcommand, modOptions, args);
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
+    }
 
     ImmutableList.Builder<RepositoryMappingValue.Key> repositoryMappingKeysBuilder =
         ImmutableList.builder();
@@ -528,9 +580,7 @@ public final class ModCommand implements BlazeCommand {
             moduleInspector.extensionToRepoInternalNames(),
             filterExtensions,
             modOptions,
-            new OutputStreamWriter(
-                env.getReporter().getOutErr().getOutputStream(),
-                modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
+            env.getReporter().getOutErr().getOutputStream());
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
