@@ -142,7 +142,8 @@ public class PsInfoCollector {
       logger.atWarning().withCause(e).log("Error while parsing psOutput: %s", psOutput);
     }
 
-    return psInfos.buildOrThrow();
+    // In rare cases a PID might get reused while `ps` is scanning `/proc`. Avoid a crash.
+    return psInfos.buildKeepingLast();
   }
 
   private static Process buildPsProcess() throws IOException {
