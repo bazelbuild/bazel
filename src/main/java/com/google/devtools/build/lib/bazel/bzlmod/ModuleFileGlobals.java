@@ -1256,11 +1256,12 @@ public class ModuleFileGlobals {
             No-op for pre-Bazel 9.0 backward compatibility. Seee Bazel 9.0 docs for real functionality.
           """,
       parameters = {
-        @Param(name = "name", doc = "The name of the flag.", positional = true),
+        @Param(name = "name", doc = "The name of the flag.", named = true, positional = false),
         @Param(
             name = "starlark_flag",
             doc = "The label of the Starlark flag to alias to.",
-            positional = true),
+            named = true,
+            positional = false),
       },
       useStarlarkThread = true)
   public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
