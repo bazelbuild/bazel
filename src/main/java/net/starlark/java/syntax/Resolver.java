@@ -504,7 +504,7 @@ public final class Resolver extends NodeVisitor {
         break;
       case DEF:
         DefStatement def = (DefStatement) stmt;
-        bind(def.getIdentifier(), /*isLoad=*/ false);
+        bind(def.getIdentifier(), /* isLoad= */ false);
         break;
       case LOAD:
         LoadStatement load = (LoadStatement) stmt;
@@ -520,7 +520,7 @@ public final class Resolver extends NodeVisitor {
           // even if options.allowToplevelRebinding.
           Identifier local = b.getLocalName();
           if (names.add(local.getName())) {
-            bind(local, /*isLoad=*/ true);
+            bind(local, /* isLoad= */ true);
           } else {
             errorf(local, "load statement defines '%s' more than once", local.getName());
           }
@@ -843,14 +843,14 @@ public final class Resolver extends NodeVisitor {
     return bind;
   }
 
-  public Object resolveTypeOrArg(Resolver.Module module, Expression expr) {
+  public Object resolveTypeOrArg(Expression expr) {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
         BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
         if (binop.getOperator() == TokenKind.PIPE) {
-          StarlarkType x = resolveType(module, binop.getX());
-          StarlarkType y = resolveType(module, binop.getY());
+          StarlarkType x = resolveType(binop.getX());
+          StarlarkType y = resolveType(binop.getY());
           return Types.union(x, y);
         }
         errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
@@ -873,9 +873,7 @@ public final class Resolver extends NodeVisitor {
           return Types.ANY;
         }
         ImmutableList<Object> arguments =
-            app.getArguments().stream()
-                .map(arg -> resolveTypeOrArg(module, arg))
-                .collect(toImmutableList());
+            app.getArguments().stream().map(this::resolveTypeOrArg).collect(toImmutableList());
 
         try {
           return constructor.invoke(arguments);
@@ -900,8 +898,8 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
-  public StarlarkType resolveType(Resolver.Module module, Expression expr) {
-    Object typeOrArg = resolveTypeOrArg(module, expr);
+  public StarlarkType resolveType(Expression expr) {
+    Object typeOrArg = resolveTypeOrArg(expr);
     if (!(typeOrArg instanceof StarlarkType type)) {
       if (typeOrArg instanceof Types.TypeConstructorProxy) {
         errorf(expr, "expected type arguments after the type constructor '%s'", expr);
@@ -927,7 +925,7 @@ public final class Resolver extends NodeVisitor {
       Expression expr, Resolver.Module module, FileOptions options) throws SyntaxError.Exception {
     ArrayList<SyntaxError> errors = new ArrayList<>();
     Resolver r = new Resolver(errors, module, options, /* docCommentsMap= */ null);
-    StarlarkType result = r.resolveType(module, expr);
+    StarlarkType result = r.resolveType(expr);
     if (!errors.isEmpty()) {
       throw new SyntaxError.Exception(errors);
     }
@@ -935,9 +933,7 @@ public final class Resolver extends NodeVisitor {
   }
 
   public Types.CallableType resolveFunctionType(
-      Resolver.Module module,
-      ImmutableList<Parameter> parameters,
-      @Nullable Expression returnTypeExpr) {
+      ImmutableList<Parameter> parameters, @Nullable Expression returnTypeExpr) {
     ImmutableList.Builder<String> names = ImmutableList.builder();
     ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
     ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
@@ -964,7 +960,7 @@ public final class Resolver extends NodeVisitor {
       Expression typeExpr = param.getType();
 
       names.add(name);
-      types.add(typeExpr == null ? Types.ANY : resolveType(module, typeExpr));
+      types.add(typeExpr == null ? Types.ANY : resolveType(typeExpr));
       if (param instanceof Parameter.Mandatory) {
         mandatoryParameters.add(name);
       }
@@ -973,18 +969,18 @@ public final class Resolver extends NodeVisitor {
     StarlarkType varargsType = Types.NONE;
     if (star != null && star.getIdentifier() != null) {
       Expression typeExpr = star.getType();
-      varargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
+      varargsType = typeExpr == null ? Types.ANY : resolveType(typeExpr);
     }
 
     StarlarkType kwargsType = Types.NONE;
     if (starStar != null) {
       Expression typeExpr = starStar.getType();
-      kwargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
+      kwargsType = typeExpr == null ? Types.ANY : resolveType(typeExpr);
     }
 
     StarlarkType returnType = Types.ANY;
     if (returnTypeExpr != null) {
-      returnType = resolveType(module, returnTypeExpr);
+      returnType = resolveType(returnTypeExpr);
     }
 
     return Types.callable(
@@ -1096,10 +1092,9 @@ public final class Resolver extends NodeVisitor {
 
     Types.CallableType functionType = null;
     if (syntax instanceof DefStatement def) {
-      functionType = resolveFunctionType(module, def.getParameters(), def.getReturnType());
+      functionType = resolveFunctionType(def.getParameters(), def.getReturnType());
     } else if (syntax instanceof LambdaExpression lambda) {
-      functionType =
-          resolveFunctionType(module, lambda.getParameters(), /* returnTypeExpr= */ null);
+      functionType = resolveFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
     }
 
     return new Function(
@@ -1117,7 +1112,7 @@ public final class Resolver extends NodeVisitor {
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
-    if (bind(param.getIdentifier(), /*isLoad=*/ false)) {
+    if (bind(param.getIdentifier(), /* isLoad= */ false)) {
       errorf(param, "duplicate parameter: %s", param.getName());
     }
     params.add(param);
@@ -1276,7 +1271,7 @@ public final class Resolver extends NodeVisitor {
     }
 
     ArrayList<Binding> frame = new ArrayList<>();
-    r.pushLocalBlock(file, frame, /*freevars=*/ null);
+    r.pushLocalBlock(file, frame, /* freevars= */ null);
 
     // First pass: creating bindings for statements in this block.
     r.createBindingsForBlock(stmts);
@@ -1329,7 +1324,7 @@ public final class Resolver extends NodeVisitor {
     Resolver r = new Resolver(errors, module, options, /* docCommentsMap= */ null);
 
     ArrayList<Binding> frame = new ArrayList<>();
-    r.pushLocalBlock(null, frame, /*freevars=*/ null); // for bindings in list comprehensions
+    r.pushLocalBlock(null, frame, /* freevars= */ null); // for bindings in list comprehensions
     r.visit(expr);
     r.popLocalBlock();
 
