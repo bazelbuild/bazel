@@ -34,7 +34,7 @@ cp bazel-bin/src/bazel output/bazel
 
 output/bazel build \
     --define IPHONE_SDK=1 \
-    -c opt \
+    --config=release \
     --stamp \
     --embed_label "${RELEASE_NAME}" \
     --workspace_status_command=scripts/ci/build_status_command.sh \

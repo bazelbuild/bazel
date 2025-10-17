@@ -61,6 +61,16 @@ try-import %workspace%/user.bazelrc
 
 common:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
 
+# Flags for release builds
+common:release --compilation_mode opt
+common:release-linux --config=release
+common:release-linux --extra_toolchains=@llvm_toolchain//:cc-toolchain-x86_64-linux
+common:release-linux --extra_toolchains=@llvm_toolchain//:cc-toolchain-aarch64-linux
+common:release-linux --features=thin_lto
+
+# TMP
+common:linux --config=release-linux
+
 # Flags for CI builds
 ## Common
 common:ci-common --lockfile_mode=error

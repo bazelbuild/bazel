@@ -33,6 +33,7 @@ bazel_dep(name = "rules_python", version = "1.4.1")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
+bazel_dep(name = "toolchains_llvm", version = "1.5.0")
 bazel_dep(name = "with_cfg.bzl", version = "0.10.3")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
@@ -157,9 +158,9 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
+        "com.dylibso.chicory:log:1.5.2",
         "com.dylibso.chicory:runtime:1.5.2",
         "com.dylibso.chicory:wasm:1.5.2",
-        "com.dylibso.chicory:log:1.5.2",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
@@ -346,6 +347,56 @@ pip.parse(
 use_repo(pip, "bazel_pip_dev_deps")
 
 # =========================================
+# C++ dependencies
+# =========================================
+
+# Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+SYSROOT_BUILD_FILE = """
+filegroup(
+    name = "sysroot",
+    srcs = glob(["*/**"]),
+    visibility = ["//visibility:public"],
+)
+"""
+
+http_archive(
+    name = "chromium_sysroot_linux_x64",
+    build_file_content = SYSROOT_BUILD_FILE,
+    sha256 = "84656a6df544ecef62169cfe3ab6e41bb4346a62d3ba2a045dc5a0a2ecea94a3",
+    urls = [
+        "https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/2202c161310ffde63729f29d27fe7bb24a0bc540/debian_stretch_amd64_sysroot.tar.xz",
+    ],
+)
+
+http_archive(
+    name = "chromium_sysroot_linux_aarch64",
+    build_file_content = SYSROOT_BUILD_FILE,
+    sha256 = "e39b700d8858d18868544c8c84922f6adfa8419f3f42471b92024ba38eff7aca",
+    urls = [
+        "https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/2202c161310ffde63729f29d27fe7bb24a0bc540/debian_stretch_arm64_sysroot.tar.xz",
+    ],
+)
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+
+# Use a version that still runs on Rocky Linux 8.
+llvm.toolchain(llvm_version = "17.0.6")
+llvm.sysroot(
+    label = "@chromium_sysroot_linux_x64//:sysroot",
+    targets = ["linux-x86_64"],
+)
+llvm.sysroot(
+    label = "@chromium_sysroot_linux_aarch64//:sysroot",
+    targets = ["linux-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain")
+
+# =========================================
 # Other Bazel build dependencies
 # =========================================
 
@@ -370,10 +421,6 @@ use_repo(
     "openjdk_win_arm64_vanilla",
     "openjdk_win_vanilla",
 )
-
-# Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
-cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
-use_repo(cc_configure, "local_config_cc")
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 

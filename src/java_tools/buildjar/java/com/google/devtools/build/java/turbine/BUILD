@@ -122,8 +122,6 @@ native_image(
         ":do_use_oracle_graalvm": ["profile.iprof"],
         "//conditions:default": [],
     }),
-    # This provides libz.a on Linux instead of the host system.
-    static_zlib = "@zlib",
     deps = [":turbine_deps"],
 )
 
