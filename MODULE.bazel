@@ -383,7 +383,9 @@ http_archive(
 )
 
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
-llvm.toolchain(llvm_version = "19.1.7")
+
+# Use a version that still runs on Rocky Linux 8.
+llvm.toolchain(llvm_version = "17.0.6")
 llvm.sysroot(
     label = "@chromium_sysroot_linux_x64//:sysroot",
     targets = ["linux-x86_64"],
