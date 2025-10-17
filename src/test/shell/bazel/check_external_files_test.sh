@@ -121,7 +121,8 @@ test_check_all_flags_fast() {
   setup_remote
   msg="About to scan skyframe graph checking for filesystem nodes"
 
-  bazel build --watchfs @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
+  bazel build --watchfs --repo_contents_cache= @remote//:g \
+    >& "$TEST_log" || fail "Expected build to succeed"
   instances=$(grep -c "$msg" "$(bazel info server_log)")
   [[ $instances -eq 1 ]] || fail "Should have only been 1 instance, got $instances"
 
@@ -130,6 +131,7 @@ test_check_all_flags_fast() {
   bazel build \
     --noexperimental_check_external_repository_files \
     --noexperimental_check_output_files \
+    --repo_contents_cache= \
     --watchfs \
     @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
