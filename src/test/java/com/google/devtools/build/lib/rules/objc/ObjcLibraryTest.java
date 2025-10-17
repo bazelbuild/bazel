@@ -1132,8 +1132,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testCompilationActionsForDebugLegacyFlags() throws Exception {
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG, true);
+  }
+
+  @Test
   public void testCompilationActionsForDebug() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG, false);
   }
 
   @Test
@@ -1170,8 +1175,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testCompilationActionsForOptimizedLegacyFlags() throws Exception {
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, true);
+  }
+
+  @Test
   public void testCompilationActionsForOptimized() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, false);
   }
 
   @Test
