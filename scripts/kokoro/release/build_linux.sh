@@ -37,7 +37,7 @@ mkdir output
 cp bazel-bin/src/bazel output/bazel
 
 output/bazel build \
-    --config=release \
+    --config=release-linux \
     --stamp \
     --sandbox_tmpfs_path=/tmp \
     --embed_label "${RELEASE_NAME}" \

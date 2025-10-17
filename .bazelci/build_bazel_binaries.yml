@@ -5,25 +5,25 @@ platforms:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "--config=release"
+      - "--config=release-linux"
   rockylinux8_arm64:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "--config=release"
+      - "--config=release-linux"
   ubuntu2004:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "--config=release"
+      - "--config=release-linux"
   ubuntu2004_arm64:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "--config=release"
+      - "--config=release-linux"
       # https://github.com/bazelbuild/continuous-integration/issues/2353
       - "--linkopt=-Wl,--no-fix-cortex-a53-843419"
       - "--host_linkopt=-Wl,--no-fix-cortex-a53-843419"
@@ -32,7 +32,7 @@ platforms:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
-      - "--config=release"
+      - "--config=release-linux"
   macos:
     build_targets:
       - "//src:bazel"

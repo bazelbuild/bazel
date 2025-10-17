@@ -58,7 +58,11 @@ commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
+if [[ "$platform" == "linux" ]]; then
+RELEASE_BUILD_OPTS="--config=release-linux"
+else
 RELEASE_BUILD_OPTS="--config=release"
+fi
 
 # Check that the build machine is set up for Unicode.
 bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
