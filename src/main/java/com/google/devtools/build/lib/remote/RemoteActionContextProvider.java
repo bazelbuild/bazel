@@ -159,6 +159,10 @@ final class RemoteActionContextProvider {
     this.actionInputFetcher = actionInputFetcher;
   }
 
+  public RemoteActionInputFetcher getActionInputFetcher() {
+    return checkNotNull(actionInputFetcher);
+  }
+
   private RemoteExecutionService getRemoteExecutionService() {
     if (remoteExecutionService == null) {
       Path workingDirectory = env.getWorkingDirectory();
