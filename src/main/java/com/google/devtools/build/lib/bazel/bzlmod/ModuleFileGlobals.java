@@ -1170,8 +1170,7 @@ public class ModuleFileGlobals {
       name = "flag_alias",
       doc =
           """
-            Maps a command-line flag --foo to a Starlark flag --@repo//defs:foo. Bazel translates all
-            instances of $ bazel build //target --foo to $ bazel build //target --@repo//defs:foo.
+            No-op for pre-Bazel 9.0 backward compatibility. Seee Bazel 9.0 docs for real functionality.
           """,
       parameters = {
         @Param(name = "name", doc = "The name of the flag.", positional = true),
@@ -1184,8 +1183,7 @@ public class ModuleFileGlobals {
   public void flagAlias(String nativeName, String starlarkLabel, StarlarkThread thread)
       throws EvalException, LabelSyntaxException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "flag_alias()");
-    // TODO: add input validation for stalark flag label
+    // No-op until Bazel 9.0.
     context.setNonModuleCalled();
-    context.getModuleBuilder().addFlagAlias(nativeName, starlarkLabel);
   }
 }
