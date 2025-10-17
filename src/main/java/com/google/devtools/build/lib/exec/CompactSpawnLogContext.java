@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
@@ -40,6 +41,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.Platform;
@@ -149,6 +152,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
   private final UUID invocationId;
+  private final ExtendedEventHandler reporter;
+  private final boolean verboseFailures;
 
   // Maps a key identifying an entry into its ID.
   // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
@@ -173,7 +178,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
-      UUID invocationId)
+      UUID invocationId,
+      ExtendedEventHandler reporter,
+      boolean verboseFailures)
       throws IOException, InterruptedException {
     this.execRoot = execRoot;
     this.workspaceName = workspaceName;
@@ -182,6 +189,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
     this.invocationId = invocationId;
+    this.reporter = reporter;
+    this.verboseFailures = verboseFailures;
     this.outputStream = getOutputStream(outputPath);
 
     logInvocation();
@@ -239,25 +248,39 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       }
       builder.setMnemonic(internalToUnicode(spawn.getMnemonic()));
 
+      boolean warned = false;
       for (ActionInput output : spawn.getOutputFiles()) {
-        Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
-        if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
-          builder
-              .addOutputsBuilder()
-              .setOutputId(logFile(output, path, /* inputMetadataProvider= */ null));
-        } else if (output.isDirectory() && path.isDirectory()) {
-          builder
-              .addOutputsBuilder()
-              .setOutputId(logDirectory(output, path, /* inputMetadataProvider= */ null));
-        } else if (output.isSymlink() && path.isSymbolicLink()) {
-          builder
-              .addOutputsBuilder()
-              .setOutputId(logUnresolvedSymlink(output, path, /* inputMetadataProvider= */ null));
-        } else {
-          builder
-              .addOutputsBuilder()
-              .setInvalidOutputPath(internalToUnicode(output.getExecPathString()));
+        var path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
+        var outputBuilder = ExecLogEntry.Output.newBuilder();
+        try {
+          if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
+            outputBuilder.setOutputId(logFile(output, path, /* inputMetadataProvider= */ null));
+          } else if (output.isDirectory() && path.isDirectory()) {
+            outputBuilder.setOutputId(
+                logDirectory(output, path, /* inputMetadataProvider= */ null));
+          } else if (output.isSymlink() && path.isSymbolicLink()) {
+            outputBuilder.setOutputId(
+                logUnresolvedSymlink(output, path, /* inputMetadataProvider= */ null));
+          } else {
+            outputBuilder.setInvalidOutputPath(internalToUnicode(output.getExecPathString()));
+          }
+        } catch (IOException e) {
+          if (!warned) {
+            warned = true;
+            var message =
+                "Failed to log outputs of %s %s: %s"
+                    .formatted(
+                        spawn.getMnemonic(),
+                        spawn.getOutputFiles().iterator().next().getExecPathString(),
+                        e.getMessage());
+            if (verboseFailures) {
+              message += "\n" + getStackTraceAsString(e);
+            }
+            reporter.handle(Event.warn(message));
+          }
+          outputBuilder.setInvalidOutputPath(internalToUnicode(output.getExecPathString()));
         }
+        builder.addOutputs(outputBuilder);
       }
 
       builder.setExitCode(result.exitCode());

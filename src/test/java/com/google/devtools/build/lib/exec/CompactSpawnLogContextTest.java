@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
 import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 
@@ -233,6 +234,54 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             .build());
   }
 
+  @Test
+  public void testUnreadableOutputs(@TestParameter OutputsMode outputsMode) throws Exception {
+    Artifact readableFile = ActionsTestUtil.createArtifact(outputDir, "readable");
+    Artifact unreadableFile = ActionsTestUtil.createArtifact(outputDir, "unreadable");
+    Artifact unreadableFileDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "unreadableFileDir");
+
+    writeFile(readableFile.getPath(), "xyz");
+    // Make the files unreadable.
+    writeFile(unreadableFile.getPath(), "abc");
+    unreadableFile.getPath().setReadable(false);
+    writeFile(unreadableFileDir.getPath().getChild("file"), "def");
+    unreadableFileDir.getPath().getChild("file").setReadable(false);
+
+    SpawnBuilder spawn =
+        defaultSpawnBuilder().withOutputs(readableFile, unreadableFile, unreadableFileDir);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        outputsMode.getActionFileSystem(fs),
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    assertContainsEvent(
+        storedEventHandler.getEvents(),
+        "Failed to log outputs of Mnemonic %s: %s (Permission denied)"
+            .formatted(readableFile.getExecPathString(), unreadableFile.getPath().getPathString()));
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThat(storedEventHandler.getPosts()).isEmpty();
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addActualOutputs(
+                File.newBuilder()
+                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/readable")
+                    .setDigest(getDigest("xyz"))
+                    .setIsTool(false))
+            .addListedOutputs(PRODUCT_NAME + "-out/k8-fastbuild/bin/readable")
+            .addListedOutputs(PRODUCT_NAME + "-out/k8-fastbuild/bin/unreadable")
+            .addListedOutputs(PRODUCT_NAME + "-out/k8-fastbuild/bin/unreadableFileDir")
+            .build());
+  }
+
   @Override
   protected SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
       throws IOException, InterruptedException {
@@ -247,7 +296,9 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE,
-        UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        UUID.fromString("00000000-0000-0000-0000-000000000000"),
+        storedEventHandler,
+        /* verboseFailures= */ false);
   }
 
   @Override
