@@ -2702,6 +2702,28 @@ EOF
   expect_not_log "WARNING: Remote Cache:"
 }
 
+function test_async_upload_reported_in_bes() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = "foo",
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_cache_async \
+    --build_event_json_file=bep.json \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+  expect_not_log "WARNING: Remote Cache:"
+
+  cat bep.json >> "$TEST_log"
+  expect_log 'backgroundTasksCompleted'
+  expect_log 'foo'
+}
+
 function test_missing_outputs_dont_upload_action_result() {
   # Test that if declared outputs are not created, even the exit code of action
   # is 0, we treat this as failed and don't upload action result.

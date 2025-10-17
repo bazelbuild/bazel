@@ -16,14 +16,20 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildtool.buildevent.BackgroundTasksCompletedEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** A {@link BlazeModule} that waits for submitted tasks to terminate after every command. */
@@ -46,19 +52,24 @@ public class BlockWaitingModule extends BlazeModule {
     }
   }
 
+  @Nullable private EventBus eventBus;
   @Nullable private ExecutorService executorService;
   @Nullable private ArrayList<Future<?>> submittedTasks;
+  private AtomicReference<Optional<BuildEventStreamProtos.BuildEventId>> completionEventId;
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     checkState(executorService == null, "executorService must be null");
     checkState(submittedTasks == null, "submittedTasks must be null");
+    checkState(completionEventId == null, "completionEventId must be null");
 
+    eventBus = env.getEventBus();
     executorService =
         Executors.newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("block-waiting-%d").build());
 
     submittedTasks = new ArrayList<>();
+    completionEventId = new AtomicReference<>();
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -77,6 +88,18 @@ public class BlockWaitingModule extends BlazeModule {
             }));
   }
 
+  public Optional<BuildEventStreamProtos.BuildEventId> commitToEvent() {
+    return completionEventId.updateAndGet(
+        committedEventId -> {
+          if (committedEventId != null) {
+            return committedEventId;
+          }
+          return submittedTasks.isEmpty()
+              ? Optional.empty()
+              : Optional.of(BuildEventIdUtil.backgroundTasksCompletedId());
+        });
+  }
+
   @Override
   public void afterCommand() throws AbruptExitException {
     checkNotNull(executorService, "executorService must not be null");
@@ -85,20 +108,29 @@ public class BlockWaitingModule extends BlazeModule {
       Thread.currentThread().interrupt();
     }
 
-    for (Future<?> f : submittedTasks) {
-      try {
-        f.get(); // guaranteed to have completed.
-      } catch (InterruptedException e) {
-        throw new AssertionError("task should not have been interrupted");
-      } catch (ExecutionException e) {
-        Throwable cause = e.getCause();
-        if (cause instanceof TaskException) {
-          checkState(cause.getCause() instanceof AbruptExitException);
-          throw (AbruptExitException) cause.getCause();
+    int succeeded = 0;
+    try {
+      for (Future<?> f : submittedTasks) {
+        try {
+          f.get(); // guaranteed to have completed.
+          succeeded++;
+        } catch (InterruptedException e) {
+          throw new AssertionError("task should not have been interrupted");
+        } catch (ExecutionException e) {
+          Throwable cause = e.getCause();
+          if (cause instanceof TaskException) {
+            checkState(cause.getCause() instanceof AbruptExitException);
+            throw (AbruptExitException) cause.getCause();
+          }
+          throw new RuntimeException(e);
         }
-        throw new RuntimeException(e);
+      }
+    } finally {
+      if (commitToEvent().isPresent()) {
+        eventBus.post(new BackgroundTasksCompletedEvent(submittedTasks.size(), succeeded));
       }
     }
+    completionEventId = null;
 
     executorService = null;
     submittedTasks = null;
