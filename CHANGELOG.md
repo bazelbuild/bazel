@@ -16,7 +16,7 @@ New features:
 
 Important changes:
 
-  - With the new `--incompatible_eagerly_resolve_select_keys` flag,
+  - With the new `--incompatible_resolve_select_keys_eagerly` flag,
     the label string keys of `select` dicts in `.bzl` files are
     resolved relative to the containing file instead of relative to
     the BUILD file that ends up using the `select`. Use
