@@ -1000,14 +1000,15 @@ public final class Profiler {
     private final Map<String, LaneGenerator> laneGenerators = Maps.newConcurrentMap();
 
     private Lane acquire(String prefix) {
-      checkState(isActive());
+      if (!isActive()) {
+        return null;
+      }
       var laneGenerator =
           laneGenerators.computeIfAbsent(prefix, unused -> new LaneGenerator(prefix));
       return laneGenerator.acquire();
     }
 
     private void release(Lane lane) {
-      checkState(isActive());
       var laneGenerator = lane.laneGenerator;
       laneGenerator.release(lane);
     }
@@ -1078,6 +1079,9 @@ public final class Profiler {
           () -> {
             var prefix = virtualThreadPrefix.get();
             var lane = multiLaneGenerator.acquire(prefix);
+            if (lane == null) {
+              return null;
+            }
             checkState(lane.refCount == 0);
             return lane;
           });
@@ -1089,6 +1093,9 @@ public final class Profiler {
     }
 
     var lane = borrowedLane.get();
+    if (lane == null) {
+      return null;
+    }
     lane.refCount += 1;
     return lane;
   }
