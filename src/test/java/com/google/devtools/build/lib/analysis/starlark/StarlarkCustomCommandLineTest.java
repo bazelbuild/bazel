@@ -654,6 +654,115 @@ public final class StarlarkCustomCommandLineTest {
         .isNotEqualTo(fingerprintAfter.hexDigestAndReset());
   }
 
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesDisabled_noMapEach_expansionDoesNotAffectActionKey(
+          @TestParameter boolean useNestedSet) throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValueBefore =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    TreeArtifactValue treeArtifactValueAfter =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    var vectorArg =
+        useNestedSet
+            ? new VectorArg.Builder(
+                NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.of(tree)), Artifact.class)
+            : new VectorArg.Builder(Tuple.of(tree));
+    CommandLine commandLine =
+        builder
+            .add(vectorArg.setExpandDirectories(false).setLocation(Location.BUILTIN))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+
+    var expanderBefore =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueBefore.getChildren()), ImmutableMap.of());
+    var argumentsBefore = commandLine.arguments(expanderBefore, PathMapper.NOOP);
+    var fingerprintBefore = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(), expanderBefore, CoreOptions.OutputPathsMode.OFF, fingerprintBefore);
+    assertThat(argumentsBefore).containsExactly("bin/tree");
+
+    var expanderAfter =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueAfter.getChildren()), ImmutableMap.of());
+    var argumentsAfter = commandLine.arguments(expanderAfter, PathMapper.NOOP);
+    var fingerprintAfter = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(), expanderAfter, CoreOptions.OutputPathsMode.OFF, fingerprintAfter);
+    assertThat(argumentsAfter).containsExactly("bin/tree");
+
+    assertThat(fingerprintBefore.hexDigestAndReset())
+        .isEqualTo(fingerprintAfter.hexDigestAndReset());
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesDisabled_noManualExpansion_expansionDoesNotAffectActionKey(
+          @TestParameter boolean useNestedSet) throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValueBefore =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    TreeArtifactValue treeArtifactValueAfter =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    var vectorArg =
+        useNestedSet
+            ? new VectorArg.Builder(
+                NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.of(tree)), Artifact.class)
+            : new VectorArg.Builder(Tuple.of(tree));
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg
+                    .setExpandDirectories(false)
+                    .setLocation(Location.BUILTIN)
+                    .setMapEach(
+                        (StarlarkFunction)
+                            execStarlark(
+                                """
+                                def map_each(x):
+                                  return x.path
+                                map_each
+                                """)))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+
+    var expanderBefore =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueBefore.getChildren()), ImmutableMap.of());
+    var argumentsBefore = commandLine.arguments(expanderBefore, PathMapper.NOOP);
+    var fingerprintBefore = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(), expanderBefore, CoreOptions.OutputPathsMode.OFF, fingerprintBefore);
+    assertThat(argumentsBefore).containsExactly("bin/tree");
+
+    var expanderAfter =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueAfter.getChildren()), ImmutableMap.of());
+    var argumentsAfter = commandLine.arguments(expanderAfter, PathMapper.NOOP);
+    var fingerprintAfter = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(), expanderAfter, CoreOptions.OutputPathsMode.OFF, fingerprintAfter);
+    assertThat(argumentsAfter).containsExactly("bin/tree");
+
+    assertThat(fingerprintBefore.hexDigestAndReset())
+        .isEqualTo(fingerprintAfter.hexDigestAndReset());
+  }
+
   private static VectorArg.Builder vectorArg(Object... elems) {
     return new VectorArg.Builder(Tuple.of(elems)).setLocation(Location.BUILTIN);
   }
