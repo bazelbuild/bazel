@@ -4,8 +4,9 @@ import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -20,6 +21,8 @@ import static com.google.devtools.build.lib.bazel.repository.decompressor.TestAr
 /** Tests .7z decompression. */
 @RunWith(JUnit4.class)
 public class SevenZDecompressorTest {
+  @Rule public TestName name = new TestName();
+
   /**
    * .7z file, created with two files:
    *
@@ -35,21 +38,18 @@ public class SevenZDecompressorTest {
   private static final String REGULAR_FILENAME = "regularFile";
   private static final String UNICODE_FILENAME = "ünïcödëFïlë.txt";
 
-  private TestArchiveDescriptor archiveDescriptor;
-
-  @Before
-  public void setUpFs() throws Exception {
-    archiveDescriptor =
-        new TestArchiveDescriptor(
-            ARCHIVE_NAME,
-            /* outDirName= */ this.getClass().getSimpleName(),
-            /* withHardLinks= */ false);
+  /** Provides a test filesystem descriptor for a test. NOTE: unique per individual test ONLY. */
+  private TestArchiveDescriptor archiveDescriptor() throws Exception {
+    return new TestArchiveDescriptor(
+        ARCHIVE_NAME,
+        /* outDirName= */ this.getClass().getSimpleName() + "_" + name.getMethodName(),
+        /* withHardLinks= */ false);
   }
 
   /** Test decompressing a .7z file without stripping a prefix */
   @Test
   public void testDecompressWithoutPrefix() throws Exception {
-    Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder().build());
+    Path outputDir = decompress(archiveDescriptor().createDescriptorBuilder().build());
 
     Path fileDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
     List<String> files =
@@ -64,7 +64,7 @@ public class SevenZDecompressorTest {
   @Test
   public void testDecompressWithPrefix() throws Exception {
     DecompressorDescriptor.Builder descriptorBuilder =
-        archiveDescriptor.createDescriptorBuilder().setPrefix(ROOT_FOLDER_NAME);
+        archiveDescriptor().createDescriptorBuilder().setPrefix(ROOT_FOLDER_NAME);
     Path outputDir = decompress(descriptorBuilder.build());
     Path fileDir = outputDir.getRelative(INNER_FOLDER_NAME);
 
@@ -83,7 +83,7 @@ public class SevenZDecompressorTest {
     HashMap<String, String> renameFiles = new HashMap<>();
     renameFiles.put(innerDirName + "/" + REGULAR_FILENAME, innerDirName + "/renamedFile");
     DecompressorDescriptor.Builder descriptorBuilder =
-        archiveDescriptor.createDescriptorBuilder().setRenameFiles(renameFiles);
+        archiveDescriptor().createDescriptorBuilder().setRenameFiles(renameFiles);
     Path outputDir = decompress(descriptorBuilder.build());
 
     Path fileDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
@@ -103,7 +103,7 @@ public class SevenZDecompressorTest {
     HashMap<String, String> renameFiles = new HashMap<>();
     renameFiles.put(innerDirName + "/" + REGULAR_FILENAME, innerDirName + "/renamedFile");
     DecompressorDescriptor.Builder descriptorBuilder =
-        archiveDescriptor
+        archiveDescriptor()
             .createDescriptorBuilder()
             .setPrefix(ROOT_FOLDER_NAME)
             .setRenameFiles(renameFiles);
@@ -121,7 +121,7 @@ public class SevenZDecompressorTest {
   /** Test that Unicode filenames are handled. **/
   @Test
   public void testUnicodeFilename() throws Exception {
-    Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder().build());
+    Path outputDir = decompress(archiveDescriptor().createDescriptorBuilder().build());
 
     Path path = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
     List<String> filenames =
