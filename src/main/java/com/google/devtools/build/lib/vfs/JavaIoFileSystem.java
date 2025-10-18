@@ -279,10 +279,12 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     java.nio.file.Path nioPath = getNioPath(linkPath);
     try {
+      // Files.createSymbolicLink does not let us specify the target type.
       Files.createSymbolicLink(
           nioPath,
           Paths.get(StringEncoding.internalToPlatform(targetFragment.getSafePathString())));

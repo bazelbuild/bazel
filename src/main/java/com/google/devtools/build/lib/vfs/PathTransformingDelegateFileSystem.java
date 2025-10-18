@@ -119,9 +119,10 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
-    delegateFs.createSymbolicLink(toDelegatePath(linkPath), targetFragment);
+    delegateFs.createSymbolicLink(toDelegatePath(linkPath), targetFragment, type);
   }
 
   @Override
