@@ -1,13 +1,17 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
@@ -20,7 +24,7 @@ public class SevenZDecompressorTest {
    * .7z file, created with two files:
    *
    * <ul>
-   *   <li>root_folder/another_folder/regular_file
+   *   <li>root_folder/another_folder/regularFile
    *   <li>root_folder/another_folder/ünïcödëFïlë.txt
    * </ul>
    *
@@ -28,6 +32,7 @@ public class SevenZDecompressorTest {
    */
   private static final String ARCHIVE_NAME = "test_decompress_archive.7z";
 
+  private static final String REGULAR_FILENAME = "regularFile";
   private static final String UNICODE_FILENAME = "ünïcödëFïlë.txt";
 
   private TestArchiveDescriptor archiveDescriptor;
@@ -36,7 +41,9 @@ public class SevenZDecompressorTest {
   public void setUpFs() throws Exception {
     archiveDescriptor =
         new TestArchiveDescriptor(
-            ARCHIVE_NAME, /* outDirName= */ "out", /* withHardLinks= */ false);
+            ARCHIVE_NAME,
+            /* outDirName= */ this.getClass().getSimpleName(),
+            /* withHardLinks= */ false);
   }
 
   /** Test decompressing a .7z file without stripping a prefix */
@@ -44,7 +51,13 @@ public class SevenZDecompressorTest {
   public void testDecompressWithoutPrefix() throws Exception {
     Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder().build());
 
-    archiveDescriptor.assertOutputFiles(outputDir, ROOT_FOLDER_NAME, INNER_FOLDER_NAME);
+    Path fileDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
+    List<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream()
+            .map(Dirent::getName)
+            .collect(Collectors.toList());
+    assertThat(files).contains(REGULAR_FILENAME);
+    assertThat(fileDir.getRelative(REGULAR_FILENAME).getFileSize()).isNotEqualTo(0);
   }
 
   /** Test decompressing a .7z file and stripping a prefix. */
@@ -53,8 +66,13 @@ public class SevenZDecompressorTest {
     DecompressorDescriptor.Builder descriptorBuilder =
         archiveDescriptor.createDescriptorBuilder().setPrefix(ROOT_FOLDER_NAME);
     Path outputDir = decompress(descriptorBuilder.build());
+    Path fileDir = outputDir.getRelative(INNER_FOLDER_NAME);
 
-    archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
+    List<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream()
+            .map(Dirent::getName)
+            .collect(Collectors.toList());
+    assertThat(files).contains(REGULAR_FILENAME);
   }
 
   /** Test decompressing a .7z with entries being renamed during the extraction process. */
@@ -63,13 +81,18 @@ public class SevenZDecompressorTest {
     String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
 
     HashMap<String, String> renameFiles = new HashMap<>();
-    renameFiles.put(innerDirName + "/regular_file", innerDirName + "/renamedFile");
+    renameFiles.put(innerDirName + "/" + REGULAR_FILENAME, innerDirName + "/renamedFile");
     DecompressorDescriptor.Builder descriptorBuilder =
         archiveDescriptor.createDescriptorBuilder().setRenameFiles(renameFiles);
     Path outputDir = decompress(descriptorBuilder.build());
 
-    Path innerDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
-    assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
+    Path fileDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
+    List<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream()
+            .map((Dirent::getName))
+            .collect(Collectors.toList());
+    assertThat(files).contains("renamedFile");
+    assertThat(fileDir.getRelative("renamedFile").getFileSize()).isNotEqualTo(0);
   }
 
   /** Test that entry renaming is applied prior to prefix stripping. */
@@ -78,7 +101,7 @@ public class SevenZDecompressorTest {
     String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
 
     HashMap<String, String> renameFiles = new HashMap<>();
-    renameFiles.put(innerDirName + "/regular_file", innerDirName + "/renamedFile");
+    renameFiles.put(innerDirName + "/" + REGULAR_FILENAME, innerDirName + "/renamedFile");
     DecompressorDescriptor.Builder descriptorBuilder =
         archiveDescriptor
             .createDescriptorBuilder()
@@ -86,8 +109,13 @@ public class SevenZDecompressorTest {
             .setRenameFiles(renameFiles);
     Path outputDir = decompress(descriptorBuilder.build());
 
-    Path innerDir = outputDir.getRelative(INNER_FOLDER_NAME);
-    assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
+    Path fileDir = outputDir.getRelative(INNER_FOLDER_NAME);
+    List<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream()
+            .map((Dirent::getName))
+            .collect(Collectors.toList());
+    assertThat(files).contains("renamedFile");
+    assertThat(fileDir.getRelative("renamedFile").getFileSize()).isNotEqualTo(0);
   }
 
   /** Test that Unicode filenames are handled. **/
@@ -95,11 +123,15 @@ public class SevenZDecompressorTest {
   public void testUnicodeFilename() throws Exception {
     Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder().build());
 
-    Path unicodeFile =
-        outputDir
-            .getRelative(ROOT_FOLDER_NAME)
-            .getRelative(INNER_FOLDER_NAME)
-            .getRelative(StringEncoding.unicodeToInternal(UNICODE_FILENAME));
+    Path path = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
+    List<String> filenames =
+        path.readdir(Symlinks.NOFOLLOW).stream()
+            .map((Dirent::getName))
+            .map(StringEncoding::internalToUnicode)
+            .collect(Collectors.toList());
+    assertThat(filenames).contains(UNICODE_FILENAME);
+
+    Path unicodeFile = path.getRelative(StringEncoding.unicodeToInternal(UNICODE_FILENAME));
     assertThat(unicodeFile.exists()).isTrue();
     assertThat(unicodeFile.getFileSize()).isNotEqualTo(0);
   }
