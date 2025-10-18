@@ -127,11 +127,11 @@ public class SevenZDecompressorTest {
     List<String> filenames =
         path.readdir(Symlinks.NOFOLLOW).stream()
             .map((Dirent::getName))
-            .map(StringEncoding::internalToUnicode)
+            .map(StringEncoding::internalToPlatform)
             .collect(Collectors.toList());
     assertThat(filenames).contains(UNICODE_FILENAME);
 
-    Path unicodeFile = path.getRelative(StringEncoding.unicodeToInternal(UNICODE_FILENAME));
+    Path unicodeFile = path.getRelative(StringEncoding.platformToInternal(UNICODE_FILENAME));
     assertThat(unicodeFile.exists()).isTrue();
     assertThat(unicodeFile.getFileSize()).isNotEqualTo(0);
   }
