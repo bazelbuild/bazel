@@ -337,7 +337,8 @@ repository. Files are symlinked after remote files are downloaded and patches (`
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
 following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `"tar.bz2"`, `"ar"`, or `"deb"`.""",
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `"tar.bz2"`, `"ar"`, `"deb"`, or
+`"7z"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -450,7 +451,7 @@ and makes its targets available for binding.
 
 It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
 `"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
-or `"deb"`.
+`"deb"`, or `"7z"`.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,
