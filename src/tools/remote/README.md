@@ -8,7 +8,7 @@ The simplest setup is as follows:
 
         bazel build src/tools/remote:all
 
-        mkdir --parents /tmp/worker/work /tmp/worker/cas
+        mkdir -p /tmp/worker/work /tmp/worker/cas
 
         bazel-bin/src/tools/remote/worker \
             --work_path=/tmp/worker/work \
