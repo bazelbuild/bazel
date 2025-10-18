@@ -33,8 +33,7 @@ java_library(
     srcs = OS_PATH_POLICY_SOURCES,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/windows:file",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//third_party:guava",
     ],
 )

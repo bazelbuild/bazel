@@ -85,29 +85,6 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetChange
   return static_cast<jint>(result);
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPath(
-    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
-    jobjectArray error_msg_holder) {
-  std::unique_ptr<WCHAR[]> result;
-  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
-  std::wstring error(bazel::windows::GetLongPath(wpath.c_str(), &result));
-  if (!error.empty()) {
-    if (CanReportError(env, error_msg_holder)) {
-      ReportLastError(
-          bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                           L"nativeGetLongPath", wpath, error),
-          env, error_msg_holder);
-    }
-    return JNI_FALSE;
-  }
-  env->SetObjectArrayElement(
-      result_holder, 0,
-      env->NewString(reinterpret_cast<const jchar*>(result.get()),
-                     wcslen(result.get())));
-  return JNI_TRUE;
-}
-
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeCreateJunction(
     JNIEnv* env, jclass clazz, jstring name, jstring target,
@@ -181,4 +158,27 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeDeletePat
         env, error_msg_holder);
   }
   return result;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsPathOperations_nativeGetLongPath(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
+    jobjectArray error_msg_holder) {
+  std::unique_ptr<WCHAR[]> result;
+  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
+  std::wstring error(bazel::windows::GetLongPath(wpath.c_str(), &result));
+  if (!error.empty()) {
+    if (CanReportError(env, error_msg_holder)) {
+      ReportLastError(
+          bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                           L"nativeGetLongPath", wpath, error),
+          env, error_msg_holder);
+    }
+    return JNI_FALSE;
+  }
+  env->SetObjectArrayElement(
+      result_holder, 0,
+      env->NewString(reinterpret_cast<const jchar*>(result.get()),
+                     wcslen(result.get())));
+  return JNI_TRUE;
 }
