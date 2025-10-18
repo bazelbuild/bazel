@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -138,7 +139,10 @@ public final class MerkleTreeComputer {
   // TODO: Source directories are also visited on this pool in a single-threaded manner.
   private static final ExecutorService MERKLE_TREE_BUILD_POOL =
       Executors.newFixedThreadPool(
-          Runtime.getRuntime().availableProcessors(),
+          // Run with reduced parallelism in tests to reproduce potential deadlocks more easily.
+          Math.min(
+              TestType.isInTest() ? 4 : Integer.MAX_VALUE,
+              Runtime.getRuntime().availableProcessors()),
           Thread.ofPlatform().name("merkle-tree-build-", 0).factory());
 
   // Uploading Merkle trees mostly involves waiting on networking futures, for which virtual threads
