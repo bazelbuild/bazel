@@ -417,12 +417,31 @@ public final class MerkleTreeComputer {
 
     PathFragment currentParent = PathFragment.EMPTY_FRAGMENT;
     PathFragment lastSourceDirPath = null;
+    Map.Entry<PathFragment, ? extends ActionInput> lastEntry = null;
     for (var entry : Iterables.concat(sortedInputs, END_OF_INPUTS_SENTINEL)) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
 
       PathFragment path = entry.getKey();
+      // The same path may appear multiple times if the inputs are outputs of shared actions. Only
+      // stage the first one.
+      if (lastEntry != null && path.equals(lastEntry.getKey())) {
+        var previousInput = lastEntry.getValue();
+        var currentInput = entry.getValue();
+        checkState(
+            previousInput instanceof Artifact previousArtifact
+                && currentInput instanceof Artifact currentArtifact
+                && !(previousInput.equals(currentInput))
+                && new Artifact.OwnerlessArtifactWrapper(previousArtifact)
+                    .equals(new Artifact.OwnerlessArtifactWrapper(currentArtifact)),
+            "Duplicate paths are only allowed for distinct shared artifacts, got: %s and %s at %s",
+            previousInput,
+            currentInput,
+            path);
+        continue;
+      }
+      lastEntry = entry;
       if (spawnScrubber != null && spawnScrubber.shouldOmitInput(path)) {
         continue;
       }

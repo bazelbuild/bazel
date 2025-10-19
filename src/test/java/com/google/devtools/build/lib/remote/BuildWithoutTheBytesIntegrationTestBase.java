@@ -1797,6 +1797,42 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertValidOutputFile("actual/file-3", "3");
   }
 
+  @Test
+  public void testShareableActionOutputsAsInputs() throws Exception {
+    write(
+        "defs.bzl",
+        """
+        def _generate_shared_file(ctx):
+            output = ctx.actions.declare_file("shared.txt")
+            ctx.actions.run_shell(
+                outputs = [output],
+                command = "echo -n 'shared content' > %s" % output.path,
+            )
+            return [DefaultInfo(files=depset([output]))]
+        generate_shared_file = rule(_generate_shared_file)
+        """);
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "generate_shared_file")
+        generate_shared_file(name = "gen1")
+        generate_shared_file(name = "gen2")
+        genrule(
+            name = "consume_outputs",
+            srcs = [":gen1", ":gen2"],
+            outs = ["combined_output.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//:consume_outputs");
+
+    assertOnlyOutputRemoteContent(
+        "//:consume_outputs", "combined_output.txt", "shared contentshared content");
+    assertOnlyOutputRemoteContent("//:gen1", "shared.txt", "shared content");
+    assertOnlyOutputRemoteContent("//:gen2", "shared.txt", "shared content");
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
