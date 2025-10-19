@@ -432,7 +432,7 @@ public final class MerkleTreeComputer {
         checkState(
             previousInput instanceof Artifact previousArtifact
                 && currentInput instanceof Artifact currentArtifact
-                && !(previousInput.equals(currentInput))
+                && !previousInput.equals(currentInput)
                 && new Artifact.OwnerlessArtifactWrapper(previousArtifact)
                     .equals(new Artifact.OwnerlessArtifactWrapper(currentArtifact)),
             "Duplicate paths are only allowed for distinct shared artifacts, got: %s and %s at %s",
