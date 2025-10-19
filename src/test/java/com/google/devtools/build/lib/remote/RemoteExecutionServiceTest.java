@@ -498,6 +498,21 @@ public class RemoteExecutionServiceTest {
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "empty_dir");
     fakeFileCache.addTreeArtifact(emptyDir, TreeArtifactValue.newBuilder(emptyDir).build());
     inputs.add(emptyDir);
+    // Add an artifact with the same path but different owner to verify that the directory isn't
+    // duplicated in the Merkle tree.
+    PathFragment execPath = artifactRoot.getExecPath().getRelative("empty_dir");
+    var emptyDirWithDifferentOwner =
+        Artifact.SpecialArtifact.create(
+            artifactRoot,
+            execPath,
+            ActionsTestUtil.YET_ANOTHER_NULL_ARTIFACT_OWNER,
+            Artifact.SpecialArtifactType.TREE);
+    emptyDirWithDifferentOwner.setGeneratingActionKey(
+        ActionsTestUtil.YET_ANOTHER_NULL_ACTION_LOOKUP_DATA);
+    fakeFileCache.addTreeArtifact(
+        emptyDirWithDifferentOwner,
+        TreeArtifactValue.newBuilder(emptyDirWithDifferentOwner).build());
+    inputs.add(emptyDirWithDifferentOwner);
 
     var runfilesTreeRoot = artifactRoot.getExecPath().getRelative("dir/my_tool.runfiles");
     var runfilesTree =
@@ -3024,7 +3039,8 @@ public class RemoteExecutionServiceTest {
                     artifact ->
                         PathFragment.create(TestConstants.WORKSPACE_NAME)
                             .getRelative(artifact.getRunfilesPath()),
-                    identity()));
+                    identity(),
+                    (a, b) -> b));
       }
 
       @Override

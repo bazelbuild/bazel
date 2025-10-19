@@ -126,6 +126,9 @@ public final class ActionsTestUtil {
 
   public static final Label NULL_LABEL = Label.parseCanonicalUnchecked("//null/action:owner");
 
+  public static final Label YET_ANOTHER_NULL_LABEL =
+      Label.parseCanonicalUnchecked("//yet/another/null/action:owner");
+
   public static ActionExecutionContext createContext(
       Executor executor,
       ExtendedEventHandler eventHandler,
@@ -376,6 +379,32 @@ public final class ActionsTestUtil {
         }
       };
 
+  @SerializationConstant
+  public static final ActionLookupKey YET_ANOTHER_NULL_ARTIFACT_OWNER =
+      new ActionLookupKey() {
+
+        @Override
+        public SkyFunctionName functionName() {
+          return null;
+        }
+
+        @Override
+        public Label getLabel() {
+          return YET_ANOTHER_NULL_LABEL;
+        }
+
+        @Nullable
+        @Override
+        public BuildConfigurationKey getConfigurationKey() {
+          return null;
+        }
+
+        @Override
+        public String toString() {
+          return "YET_ANOTHER_NULL_ARTIFACT_OWNER";
+        }
+      };
+
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
       ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /* actionIndex= */ 0);
 
@@ -407,6 +436,10 @@ public final class ActionsTestUtil {
   @SerializationConstant
   public static final ActionLookupData NULL_ACTION_LOOKUP_DATA =
       ActionLookupData.create(NULL_ARTIFACT_OWNER, 0);
+
+  @SerializationConstant
+  public static final ActionLookupData YET_ANOTHER_NULL_ACTION_LOOKUP_DATA =
+      ActionLookupData.create(YET_ANOTHER_NULL_ARTIFACT_OWNER, 0);
 
   /** An unchecked exception class for action conflicts. */
   public static class UncheckedActionConflictException extends RuntimeException {
