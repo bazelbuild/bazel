@@ -751,7 +751,7 @@ public class RemoteExecutionServiceTest {
 
     // Verify that multiple concurrent Merkle tree builds all produce the same result and don't
     // interfere with each other.
-    var exceptions = new ConcurrentLinkedDeque<Exception>();
+    var exceptions = new ConcurrentLinkedDeque<Throwable>();
     try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
       for (int i = 0; i < 16; i++) {
         executor.execute(
@@ -759,7 +759,7 @@ public class RemoteExecutionServiceTest {
               try {
                 assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().digest())
                     .isEqualTo(expectedDigest);
-              } catch (Exception e) {
+              } catch (Throwable e) {
                 exceptions.add(e);
               }
             });
