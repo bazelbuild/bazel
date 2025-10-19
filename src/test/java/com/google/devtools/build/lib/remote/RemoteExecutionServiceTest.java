@@ -3044,7 +3044,7 @@ public class RemoteExecutionServiceTest {
 
       @Override
       public String getWorkspaceName() {
-        return "__main__";
+        return TestConstants.WORKSPACE_NAME;
       }
 
       @Override

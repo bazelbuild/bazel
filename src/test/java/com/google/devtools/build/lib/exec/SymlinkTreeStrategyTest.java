@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -67,7 +68,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, "__main__"));
+        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
     when(context.getEventHandler()).thenReturn(eventHandler);
@@ -130,7 +131,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, "__main__"));
+        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getEventHandler()).thenReturn(eventHandler);
     when(outputService.canCreateSymlinkTree()).thenReturn(false);
