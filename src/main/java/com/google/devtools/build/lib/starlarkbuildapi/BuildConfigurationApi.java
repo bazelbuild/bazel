@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkSet;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -114,4 +115,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "runfiles_enabled", documented = false, useStarlarkThread = true)
   boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "disabled_features", documented = false, useStarlarkThread = true)
+  StarlarkSet<String> getDisabledFeatures(StarlarkThread thread) throws EvalException;
 }

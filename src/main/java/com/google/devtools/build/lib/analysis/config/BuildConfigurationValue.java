@@ -60,6 +60,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkSet;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -924,6 +925,12 @@ public class BuildConfigurationValue
   /** Returns the list of default features used for all packages. */
   public FeatureSet getDefaultFeatures() {
     return defaultFeatures;
+  }
+
+  @Override
+  public StarlarkSet<String> getDisabledFeatures(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    return StarlarkSet.immutableCopyOf(getDefaultFeatures().off());
   }
 
   /**

@@ -96,7 +96,7 @@ def create_linking_context_from_compilation_outputs(
 
     # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcModuleApi.java)
     # TODO(b/202252560): Fix for swift_library's implicit output, remove rule_kind_cheat.
-    if alwayslink and _cc_internal.rule_kind_cheat(actions) != "swift_library rule":
+    if alwayslink and _cc_internal.rule_class(_cc_internal.actions2ctx_cheat(actions)) != "swift_library":
         static_link_type = LINK_TARGET_TYPE.ALWAYS_LINK_STATIC_LIBRARY
     else:
         static_link_type = LINK_TARGET_TYPE.STATIC_LIBRARY

@@ -14,6 +14,7 @@
 """Helper functions for C++ feature configuration."""
 
 load(":common/cc/action_names.bzl", "ACTION_NAMES")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
 _cc_common_internal = _builtins.internal.cc_common
 
@@ -102,12 +103,12 @@ def configure_features(
 
     cpp_configuration = ctx.fragments.cpp
 
-    native_cc_semantics = _cc_common_internal.get_cc_semantics(language = language)
-    native_cc_semantics.validate_layering_check_features(
-        ctx = ctx,
-        cc_toolchain = cc_toolchain,
-        unsupported_features = unsupported_features,
-    )
+    if language == "cpp":
+        cc_semantics.validate_layering_check_features(
+            ctx = ctx,
+            cc_toolchain = cc_toolchain,
+            unsupported_features = unsupported_features,
+        )
 
     all_requested_features_set = set()
     all_unsupported_features_set = set(unsupported_features)

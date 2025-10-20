@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -33,18 +32,13 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -72,8 +66,6 @@ public abstract class CcModule
         ConstraintValueInfo,
         StarlarkRuleContext,
         CppModuleMap> {
-
-  public abstract CppSemantics getSemantics(Language language);
 
   @Override
   public Provider getCcToolchainProvider() {
@@ -389,41 +381,5 @@ public abstract class CcModule
           "cc_common_internal can only be used by cc_common.bzl in builtins, "
               + "please use cc_common instead.");
     }
-  }
-
-  protected Language parseLanguage(String string) throws EvalException {
-    try {
-      return Language.valueOf(Ascii.toUpperCase(string.replace('+', 'p')));
-    } catch (IllegalArgumentException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-  }
-
-  @StarlarkMethod(
-      name = "get_cc_semantics",
-      doc = "Gets a native cc_semantics object from a language string, for creating cc actions.",
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "language",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            defaultValue = "unbound"),
-      })
-  public CppSemantics getCppSemanticsFromStarlark(Object languageUnchecked, StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    checkPrivateStarlarkificationAllowlist(thread);
-    return getCppSemanticsFromUncheckedLanguage(languageUnchecked);
-  }
-
-  private CppSemantics getCppSemanticsFromUncheckedLanguage(Object languageUnchecked)
-      throws EvalException {
-    String languageString =
-        convertFromNoneable(languageUnchecked, Language.CPP.getRepresentation());
-    Language language = parseLanguage(languageString);
-    return getSemantics(language);
   }
 }
