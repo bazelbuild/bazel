@@ -250,6 +250,15 @@ public class TestOptions extends OptionsBase {
   public String testDeprecated;
 
   @Option(
+      name = "test_new_and_old_name",
+      oldName = "test_old_name",
+      defaultValue = "default",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "A test option with both a new name and an old name.")
+  public String testNewAndOldName;
+
+  @Option(
       name = "markdown_in_help",
       defaultValue = "default",
       help =

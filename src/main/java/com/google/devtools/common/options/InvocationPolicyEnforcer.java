@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.flogger.GoogleLogger;
@@ -35,10 +36,8 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
@@ -288,13 +287,13 @@ public final class InvocationPolicyEnforcer {
     }
 
     // Only keep that last policy for each flag.
-    Map<String, FlagPolicyWithContext> effectivePolicy = new HashMap<>();
+    ImmutableMap.Builder<String, FlagPolicyWithContext> effectivePolicy = ImmutableMap.builder();
     for (FlagPolicyWithContext expandedPolicy : expandedPolicies) {
       String flagName = expandedPolicy.policy.getFlagName();
       effectivePolicy.put(flagName, expandedPolicy);
     }
 
-    return ImmutableList.copyOf(effectivePolicy.values());
+    return effectivePolicy.buildKeepingLast().values().asList();
   }
 
   private static void throwAllowValuesOnExpansionFlagException(String flagName)
