@@ -148,7 +148,10 @@ in the Bazel source tree.
 
 ${IMPLICIT_OUTPUTS}
 
-<p>Warning: the output format of this rule is not guaranteed to be stable. It is intended mainly for
-internal use by <a href="https://github.com/bazelbuild/stardoc">Stardoc</a>.
+Note: the exact output of this rule is not a stable public API. For example, the set of
+natively-defined common rule attributes and their docstrings may change even with minor Bazel
+releases. For this reason, documentation generated for user-defined rules is not stable across Bazel
+releases, so we suggest taking care that any "golden tests" based on outputs of this rule are only
+run with a single Bazel version.
 
 <!-- #END_BLAZE_RULE -->*/
