@@ -155,7 +155,7 @@ public interface CcCompilationContextApi<
   CppModuleMapT getStarlarkModuleMap();
 
   @StarlarkMethod(name = "_direct_module_maps", structField = true, documented = false)
-  public StarlarkList<FileT> getDirectModuleMapsForStarlark();
+  public Depset getDirectModuleMapsForStarlark();
 
   @StarlarkMethod(name = "_exporting_module_maps", structField = true, documented = false)
   StarlarkList<CppModuleMapT> getStarlarkExportingModuleMaps();

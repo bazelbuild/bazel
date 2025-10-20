@@ -247,7 +247,7 @@ public abstract class CcModule
             headerInfo,
             /* transitiveModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* transitivePicModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /* directModuleMaps= */ ImmutableList.of(),
+            /* directModuleMaps= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* exportingModuleMaps= */ ImmutableList.of(),
             moduleMap instanceof CppModuleMap cppModuleMap ? cppModuleMap : null,
             Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"),

@@ -291,7 +291,7 @@ def get_specific_compile_build_variables(
         using_fission = False,
         code_coverage_enabled = False,
         cpp_module_map = None,
-        direct_module_maps = [],
+        direct_module_maps = depset(),
         user_compile_flags = [],
         additional_build_variables = {},
         fdo_build_variables = {}):
@@ -313,7 +313,7 @@ def get_specific_compile_build_variables(
         using_fission: (bool)
         code_coverage_enabled: (bool)
         cpp_module_map: (File)
-        direct_module_maps: (list[File])
+        direct_module_maps: (depset[File])
         user_compile_flags: (list[str])
         additional_build_variables: (dict{str,str})
         fdo_build_variables: (dict{str,str})

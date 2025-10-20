@@ -222,7 +222,7 @@ def _collect_compilation_prerequisites(ctx, compilation_context):
                         direct.append(file)
 
     transitive.append(compilation_context.headers)
-    transitive.append(depset(compilation_context._direct_module_maps))
+    transitive.append(compilation_context._direct_module_maps)
     transitive.append(compilation_context._non_code_inputs)
     if compilation_context._module_map:
         transitive.append(depset([compilation_context._module_map.file()]))
