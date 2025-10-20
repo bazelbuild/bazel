@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.B
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.BuildEventOutputStreamFactory;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceUploadCompleteEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
@@ -159,12 +160,22 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   }
 
   private ImmutableSet<BuildEventTransport> bepTransports;
+  private final List<BuildEventServiceUploadCompleteEvent> besUploadCompleteEvents =
+      new ArrayList<>();
 
   private class BepTransportLogger {
     @Subscribe
     @SuppressWarnings("unused")
     public void transportsKnown(AnnounceBuildEventTransportsEvent event) {
       bepTransports = besModule.getBepTransports();
+    }
+  }
+
+  private class BuildEventServiceUploadCompleteEventListener {
+    @Subscribe
+    @SuppressWarnings("unused")
+    public void onBuildEventServiceUploadComplete(BuildEventServiceUploadCompleteEvent event) {
+      besUploadCompleteEvents.add(event);
     }
   }
 
@@ -180,6 +191,10 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     }
     runtimeWrapper.newCommand();
     runtimeWrapper.getSkyframeExecutor().getEventBus().register(new BepTransportLogger());
+    runtimeWrapper
+        .getSkyframeExecutor()
+        .getEventBus()
+        .register(new BuildEventServiceUploadCompleteEventListener());
     buildTarget();
   }
 
@@ -332,6 +347,19 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_timeout=5s");
     afterBuildCommand();
     events.assertNoWarningsOrErrors();
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadComplete_postsEvent() throws Exception {
+    buildEventService.setDelayBeforeClosingStream(Duration.ofMillis(100));
+    runBuildWithOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
+        "--bes_timeout=5s");
+    afterBuildCommand();
+    events.assertNoWarningsOrErrors();
+    assertThat(besUploadCompleteEvents).hasSize(1);
+    assertThat(besUploadCompleteEvents.get(0).duration()).isGreaterThan(Duration.ZERO);
   }
 
   @Test

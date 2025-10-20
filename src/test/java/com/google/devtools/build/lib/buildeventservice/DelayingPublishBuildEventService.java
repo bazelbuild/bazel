@@ -116,7 +116,7 @@ public class DelayingPublishBuildEventService extends PublishBuildEventImplBase 
     this.errorEarlyInStream = errorEarlyInStream;
   }
 
-  synchronized void setDelayBeforeClosingStream(Duration delay) {
+  public synchronized void setDelayBeforeClosingStream(Duration delay) {
     this.delayBeforeClosingStream = delay;
   }
 

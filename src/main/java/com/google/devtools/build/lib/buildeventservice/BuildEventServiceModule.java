@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceC
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventServiceUploadCompleteEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
@@ -545,9 +546,15 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                   },
                   executor));
 
+      String invocationId = this.invocationId;
       try (AutoProfiler p =
-          GoogleAutoProfilerUtils.logged(
-              "waiting for BES close for invocation " + this.invocationId)) {
+          GoogleAutoProfilerUtils.loggedAndCustomReceiver(
+              "waiting for BES close for invocation " + invocationId,
+              Duration.ZERO, // Log all BES close times, regardless of duration.
+              (elapsedTimeNanos) ->
+                  reporter.post(
+                      new BuildEventServiceUploadCompleteEvent(
+                          Duration.ofNanos(elapsedTimeNanos))))) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (CancellationException e) {

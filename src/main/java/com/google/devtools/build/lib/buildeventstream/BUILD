@@ -16,7 +16,10 @@ java_library(
     name = "buildeventstream",
     srcs = glob(
         ["*.java"],
-        exclude = ["LargeBuildEventSerializedEvent.java"],
+        exclude = [
+            "LargeBuildEventSerializedEvent.java",
+            "BuildEventServiceUploadCompleteEvent.java",
+        ],
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -40,6 +43,14 @@ java_library(
         "//third_party:netty",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
+    ],
+)
+
+java_library(
+    name = "build_event_service_upload_complete_event",
+    srcs = ["BuildEventServiceUploadCompleteEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
     ],
 )
 
