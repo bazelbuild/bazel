@@ -162,4 +162,7 @@ public interface CcCompilationContextApi<
 
   @StarlarkMethod(name = "_non_code_inputs", structField = true, documented = false)
   Depset getNonCodeInputsForStarlark();
+
+  @StarlarkMethod(name = "_header_info", structField = true, documented = false)
+  StarlarkValue getHeaderInfo();
 }

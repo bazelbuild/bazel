@@ -47,11 +47,6 @@ public final class HeaderInfoCodec extends DeferredObjectCodec<HeaderInfo> {
   }
 
   @Override
-  public boolean autoRegister() {
-    return false; // Used only by delegation from CcCompilationContextCodec.
-  }
-
-  @Override
   public void serialize(
       SerializationContext context, HeaderInfo headerInfo, CodedOutputStream codedOut)
       throws SerializationException, IOException {

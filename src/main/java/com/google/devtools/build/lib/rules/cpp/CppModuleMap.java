@@ -83,4 +83,9 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   public String toString() {
     return name + "@" + artifact;
   }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
 }

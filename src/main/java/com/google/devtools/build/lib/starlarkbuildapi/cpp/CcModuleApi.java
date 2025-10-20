@@ -48,7 +48,6 @@ public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
@@ -1518,7 +1517,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_compilation_context",
       doc = "Creates a <code>CompilationContext</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "headers",
@@ -1629,18 +1627,6 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
         @Param(
-            name = "loose_hdrs_dirs",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
-            name = "headers_checking_mode",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound"),
-        @Param(
             name = "pic_header_module",
             documented = false,
             positional = false,
@@ -1677,7 +1663,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  CompilationContextT createCcCompilationContext(
+  default CcCompilationContextApi<FileT, CppModuleMapT> createCcCompilationContext(
       Object headers,
       Object systemIncludes,
       Object includes,
@@ -1694,16 +1680,14 @@ public interface CcModuleApi<
       Sequence<?> dependentCcCompilationContexts,
       Sequence<?> exportedDependentCcCompilationContexts,
       Sequence<?> nonCodeInputs,
-      Sequence<?> looseHdrsDirs,
-      String headersCheckingMode,
       Object picHeaderModule,
       Object headerModule,
       Sequence<?> separateModuleHeaders,
       Object separateModule,
       Object separatePicModule,
-      Object addPublicHeadersToModularHeaders,
-      StarlarkThread thread)
-      throws EvalException;
+      Object addPublicHeadersToModularHeaders) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   @StarlarkMethod(
       name = "create_module_map",
@@ -2080,7 +2064,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "merge_compilation_contexts",
       doc = "Merges multiple <code>CompilationContexts</code>s into one.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "compilation_contexts",
@@ -2090,23 +2073,12 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]"),
-        // There is an inconsistency in naming compilation_context parameter of this method
-        // should be named - exported_compilation_contexts and non_exported_compilation_contexts
-        // should be named compilation_contexts. Because compilation_contexts is already
-        // mistakenly named(cl/373784770) I've decided to go with the non_exported
-        // prefix to keep things consistent.
-        @Param(
-            name = "non_exported_compilation_contexts",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
       })
-  CompilationContextT mergeCompilationContexts(
-      Sequence<?> compilationContexts, // <CcCompilationContextApi> expected
-      Sequence<?> nonExportedCompilationContexts, // <CcCompilationContextApi> expected
-      StarlarkThread thread)
-      throws EvalException;
+  default CcCompilationContextApi<FileT, CppModuleMapT> mergeCompilationContexts(
+      Sequence<?> compilationContexts // <CcCompilationContextApi> expected
+      ) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "get_tool_requirement_for_action",

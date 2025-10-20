@@ -18,7 +18,7 @@ load(
     _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
-load(":common/cc/cc_info.bzl", "CcNativeLibraryInfo", "create_debug_context", "create_linking_context", "merge_cc_infos", "merge_debug_context", "merge_linking_contexts")
+load(":common/cc/cc_info.bzl", "CcNativeLibraryInfo", "create_compilation_context", "create_debug_context", "create_linking_context", "merge_cc_infos", "merge_compilation_contexts", "merge_debug_context", "merge_linking_contexts")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS", "create_compilation_outputs", "merge_compilation_outputs")
@@ -317,7 +317,7 @@ def _create_compilation_context(
         separate_pic_module = None
     if add_public_headers_to_modular_headers == _UNBOUND:
         add_public_headers_to_modular_headers = True
-    return _cc_common_internal.create_compilation_context(
+    return create_compilation_context(
         headers = headers,
         system_includes = system_includes,
         includes = includes,
@@ -334,8 +334,6 @@ def _create_compilation_context(
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
         exported_dependent_cc_compilation_contexts = exported_dependent_cc_compilation_contexts,
         non_code_inputs = non_code_inputs,
-        loose_hdrs_dirs = [],
-        headers_checking_mode = headers_checking_mode,
         pic_header_module = pic_header_module,
         header_module = header_module,
         separate_module_headers = separate_module_headers,
@@ -400,9 +398,6 @@ def _create_linking_context_from_compilation_outputs(
         linked_dll_name_suffix = linked_dll_name_suffix,
         test_only_target = test_only_target,
     )
-
-def _merge_compilation_contexts(*, compilation_contexts = []):
-    return _cc_common_internal.merge_compilation_contexts(compilation_contexts = compilation_contexts)
 
 def _check_experimental_cc_shared_library():
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -729,13 +724,13 @@ cc_common = struct(
     create_linking_context = _create_linking_context,
     merge_cc_infos = merge_cc_infos,
     create_compilation_context = _create_compilation_context,
+    merge_compilation_contexts = merge_compilation_contexts,
     legacy_cc_flags_make_variable_do_not_use = _legacy_cc_flags_make_variable_do_not_use,
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
     add_go_exec_groups_to_binary_rules = _add_go_exec_groups_to_binary_rules,
     is_cc_toolchain_resolution_enabled_do_not_use = _is_cc_toolchain_resolution_enabled_do_not_use,
     create_cc_toolchain_config_info = create_cc_toolchain_config_info,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
-    merge_compilation_contexts = _merge_compilation_contexts,
     merge_linking_contexts = merge_linking_contexts,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     create_module_map = _create_module_map,

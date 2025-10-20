@@ -19,6 +19,7 @@ load(
     "package_source_root",
     "repository_exec_path",
 )
+load(":common/cc/cc_info.bzl", "create_compilation_context")
 load(":common/cc/semantics.bzl", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
 load(":common/paths.bzl", "paths")
 
@@ -553,7 +554,7 @@ def _init_cc_compilation_context(
         dependent_cc_compilation_contexts.append(cc_toolchain_compilation_context)
     dependent_cc_compilation_contexts.extend(deps)
 
-    main_context = _cc_common_internal.create_compilation_context(
+    main_context = create_compilation_context(
         quote_includes = depset(quote_include_dirs_for_context),
         framework_includes = depset(framework_include_dirs),
         external_includes = depset(external_include_dirs),
@@ -576,12 +577,10 @@ def _init_cc_compilation_context(
         separate_pic_module = separate_pic_module,
         add_public_headers_to_modular_headers = False,
         exported_dependent_cc_compilation_contexts = [],
-        headers_checking_mode = "STRICT",
-        loose_hdrs_dirs = [],
     )
     implementation_deps_context = None
     if implementation_deps:
-        implementation_deps_context = _cc_common_internal.create_compilation_context(
+        implementation_deps_context = create_compilation_context(
             quote_includes = depset(quote_include_dirs_for_context),
             framework_includes = depset(framework_include_dirs),
             external_includes = depset(external_include_dirs),
@@ -604,8 +603,6 @@ def _init_cc_compilation_context(
             separate_pic_module = separate_pic_module,
             add_public_headers_to_modular_headers = False,
             exported_dependent_cc_compilation_contexts = [],
-            headers_checking_mode = "STRICT",
-            loose_hdrs_dirs = [],
         )
 
     return main_context, implementation_deps_context

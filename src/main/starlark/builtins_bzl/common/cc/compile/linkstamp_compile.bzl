@@ -22,6 +22,7 @@ load(
     ":common/cc/cc_helper_internal.bzl",
     "is_stamping_enabled",
 )
+load(":common/cc/cc_info.bzl", "EMPTY_COMPILATION_CONTEXT")
 load(
     ":common/cc/compile/compile_build_variables.bzl",
     "get_linkstamp_compile_variables",
@@ -96,7 +97,7 @@ def register_linkstamp_compile_action(
     # cc_compilation_context instead of via cache_key_inputs - a param that is used only here.
     _cc_internal.create_cc_compile_action(
         action_construction_context = ctx,
-        cc_compilation_context = _cc_internal.empty_compilation_context(),
+        cc_compilation_context = EMPTY_COMPILATION_CONTEXT,
         cc_toolchain = cc_toolchain,
         configuration = ctx.configuration,
         copts_filter = _cc_internal.create_copts_filter(),

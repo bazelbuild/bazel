@@ -57,7 +57,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact dotdFile;
   private Artifact diagnosticsFile;
   private Artifact gcnoFile;
-  private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
+  private CcCompilationContext ccCompilationContext = null;
   private final List<String> pluginOpts = new ArrayList<>();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
@@ -347,6 +347,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   /** Returns the list of mandatory inputs for the {@link CppCompileAction} as configured. */
   NestedSet<Artifact> buildMandatoryInputs() throws EvalException {
+    Preconditions.checkNotNull(ccCompilationContext);
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());

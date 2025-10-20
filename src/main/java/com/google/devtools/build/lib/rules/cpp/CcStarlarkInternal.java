@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
@@ -548,49 +548,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         .collect(toImmutableList());
   }
 
-  /**
-   * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
-   * with {@code extraHeaderTokens} added to the header tokens.
-   */
-  @StarlarkMethod(
-      name = "create_cc_compilation_context_with_extra_header_tokens",
-      doc =
-          "Creates a <code>CompilationContext</code> based on an existing one, with extra header"
-              + " tokens.",
-      parameters = {
-        @Param(
-            name = "cc_compilation_context",
-            doc = "The base <code>CompilationContext</code>.",
-            positional = false,
-            named = true),
-        @Param(
-            name = "extra_header_tokens",
-            doc = "The extra header tokens to add.",
-            positional = false,
-            named = true),
-      })
-  public CcCompilationContext createCcCompilationContextWithExtraHeaderTokens(
-      CcCompilationContext ccCompilationContext, Sequence<?> extraHeaderTokens)
-      throws EvalException {
-
-    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    headerTokens.addTransitive(ccCompilationContext.getHeaderTokens());
-    headerTokens.addAll(
-        Sequence.cast(extraHeaderTokens, Artifact.class, "extra_header_tokens").getImmutableList());
-    return CcCompilationContext.create(
-        ccCompilationContext.getCommandLineCcCompilationContext(),
-        ccCompilationContext.getDeclaredIncludeSrcs(),
-        ccCompilationContext.getNonCodeInputs(),
-        ccCompilationContext.getHeaderInfo(),
-        ccCompilationContext.getTransitiveModules(false),
-        ccCompilationContext.getTransitiveModules(true),
-        ccCompilationContext.getDirectModuleMaps(),
-        ccCompilationContext.getExportingModuleMaps(),
-        ccCompilationContext.getCppModuleMap(),
-        ccCompilationContext.getVirtualToOriginalHeaders(),
-        headerTokens.build());
-  }
-
   @StarlarkMethod(
       name = "create_copts_filter",
       doc = "Creates a copts filter from a regex.",
@@ -747,7 +704,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public void createCppCompileAction(
       StarlarkRuleContext starlarkRuleContext,
-      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
       CoptsFilter coptsFilter,
@@ -776,7 +733,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         createCppCompileActionBuilder(
             starlarkRuleContext,
             toolchainType,
-            ccCompilationContext,
+            CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
             coptsFilter,
@@ -860,7 +817,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public void createCppCompileActionTemplate(
       StarlarkRuleContext starlarkRuleContext,
-      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
@@ -900,7 +857,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         createCppCompileActionBuilder(
             starlarkRuleContext,
             toolchainType,
-            ccCompilationContext,
+            CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
             coptsFilter,
@@ -1035,14 +992,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         .map(PerLabelOptions::getOptions)
         .flatMap(options -> options.stream())
         .collect(toImmutableList());
-  }
-
-  @StarlarkMethod(
-      name = "empty_compilation_context",
-      documented = false,
-      parameters = {})
-  public CcCompilationContext emptyCompilationContext() {
-    return CcCompilationContext.EMPTY;
   }
 
   @StarlarkMethod(
@@ -1216,5 +1165,89 @@ public class CcStarlarkInternal implements StarlarkValue {
             bitcodeFiles,
             actions.getRuleContext().getActionOwner());
     actions.getRuleContext().registerAction(actionTemplate);
+  }
+
+  @StarlarkMethod(
+      name = "create_header_info",
+      documented = false,
+      parameters = {
+        @Param(name = "header_module", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "pic_header_module", positional = false, named = true, defaultValue = "None"),
+        @Param(
+            name = "modular_public_headers",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "modular_private_headers",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(name = "textual_headers", positional = false, named = true, defaultValue = "[]"),
+        @Param(
+            name = "separate_module_headers",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(name = "separate_module", positional = false, named = true, defaultValue = "None"),
+        @Param(
+            name = "separate_pic_module",
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+      },
+      useStarlarkThread = true)
+  public HeaderInfo createHeaderInfo(
+      Object headerModule,
+      Object picHeaderModule,
+      Sequence<?> modularPublicHeaders,
+      Sequence<?> modularPrivateHeaders,
+      Sequence<?> textualHeaders,
+      Sequence<?> separateModuleHeaders,
+      Object separateModule,
+      Object separatePicModule,
+      StarlarkThread thread)
+      throws EvalException {
+    return HeaderInfo.create(
+        thread.getNextIdentityToken(),
+        nullIfNone(headerModule, Artifact.DerivedArtifact.class),
+        nullIfNone(picHeaderModule, Artifact.DerivedArtifact.class),
+        Sequence.cast(modularPublicHeaders, Artifact.class, "modular_public_headers")
+            .getImmutableList(),
+        Sequence.cast(modularPrivateHeaders, Artifact.class, "modular_private_headers")
+            .getImmutableList(),
+        Sequence.cast(textualHeaders, Artifact.class, "textual_headers").getImmutableList(),
+        Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers")
+            .getImmutableList(),
+        nullIfNone(separateModule, Artifact.DerivedArtifact.class),
+        nullIfNone(separatePicModule, Artifact.DerivedArtifact.class),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  @StarlarkMethod(
+      name = "create_header_info_with_deps",
+      documented = false,
+      parameters = {
+        @Param(name = "header_info", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "deps", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "merged_deps", positional = false, named = true, defaultValue = "[]")
+      },
+      useStarlarkThread = true)
+  public HeaderInfo createHeaderInfoWithDeps(
+      HeaderInfo headerInfo, Sequence<?> deps, Sequence<?> mergedDeps, StarlarkThread thread)
+      throws EvalException {
+    return HeaderInfo.create(
+        thread.getNextIdentityToken(),
+        headerInfo.headerModule,
+        headerInfo.picHeaderModule,
+        headerInfo.modularPublicHeaders,
+        headerInfo.modularPrivateHeaders,
+        headerInfo.textualHeaders,
+        headerInfo.separateModuleHeaders,
+        headerInfo.separateModule,
+        headerInfo.separatePicModule,
+        Sequence.cast(deps, HeaderInfo.class, "deps").getImmutableList(),
+        Sequence.cast(mergedDeps, HeaderInfo.class, "merged_deps").getImmutableList());
   }
 }

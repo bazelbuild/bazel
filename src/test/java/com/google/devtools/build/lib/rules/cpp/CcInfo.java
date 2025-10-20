@@ -55,7 +55,8 @@ public final class CcInfo {
 
   public CcCompilationContext getCcCompilationContext() {
     try {
-      return starlarkInfo.getValue("compilation_context", CcCompilationContext.class);
+      return CcCompilationContext.of(
+          starlarkInfo.getValue("compilation_context", StarlarkInfo.class));
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }

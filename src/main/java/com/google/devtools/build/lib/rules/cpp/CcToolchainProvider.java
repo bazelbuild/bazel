@@ -399,9 +399,10 @@ public final class CcToolchainProvider {
 
   /** Returns {@code CcCompilationContext} from the {@code CcInfo} for the toolchain. */
   public CcCompilationContext getCcInfoCcCompilationContext() throws EvalException {
-    return value
-        .getValue("_cc_info", StarlarkInfo.class)
-        .getValue("compilation_context", CcCompilationContext.class);
+    return CcCompilationContext.of(
+        value
+            .getValue("_cc_info", StarlarkInfo.class)
+            .getValue("compilation_context", StarlarkInfo.class));
   }
 
   /** Returns the configured features of the toolchain. */

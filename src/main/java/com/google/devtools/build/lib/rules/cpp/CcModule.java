@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -24,17 +21,11 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -43,7 +34,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.Tuple;
 
 /**
  * A module that contains Starlark utilities for C++ support.
@@ -61,7 +51,6 @@ public abstract class CcModule
         StarlarkActionFactory,
         Artifact,
         FeatureConfigurationForStarlark,
-        CcCompilationContext,
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,
@@ -166,153 +155,6 @@ public abstract class CcModule
       return defaultValue;
     }
     return (T) obj; // totally unsafe
-  }
-
-  @Override
-  public CcCompilationContext createCcCompilationContext(
-      Object headers,
-      Object systemIncludes,
-      Object includes,
-      Object quoteIncludes,
-      Object frameworkIncludes,
-      Object defines,
-      Object localDefines,
-      Sequence<?> directTextualHdrs,
-      Sequence<?> directPublicHdrs,
-      Sequence<?> directPrivateHdrs,
-      Object moduleMap,
-      Object externalIncludes,
-      Object virtualToOriginalHeaders,
-      Sequence<?> dependentCcCompilationContexts,
-      Sequence<?> exportedDependentCcCompilationContexts,
-      Sequence<?> nonCodeInputs,
-      Sequence<?> looseHdrsDirsObject,
-      String headersCheckingMode,
-      Object picHeaderModule,
-      Object headerModule,
-      Sequence<?> separateModuleHeaders,
-      Object separateModule,
-      Object separatePicModule,
-      Object addPublicHeadersToModularHeaders,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-
-    // Public parameters.
-    ImmutableList<Artifact> headerList = toNestedSetOfArtifacts(headers, "headers").toList();
-    ImmutableList<Artifact> textualHdrsList =
-        Sequence.cast(directTextualHdrs, Artifact.class, "direct_textual_headers")
-            .getImmutableList();
-    ImmutableList.Builder<Artifact> modularPublicHdrsList = ImmutableList.builder();
-    modularPublicHdrsList.addAll(
-        Sequence.cast(directPublicHdrs, Artifact.class, "direct_public_headers"));
-    ImmutableList<Artifact> modularPrivateHdrsList =
-        Sequence.cast(directPrivateHdrs, Artifact.class, "direct_private_headers")
-            .getImmutableList();
-
-    if ((Boolean) addPublicHeadersToModularHeaders) {
-      modularPublicHdrsList.addAll(headerList);
-    }
-
-    HeaderInfo headerInfo =
-        HeaderInfo.create(
-            thread.getNextIdentityToken(),
-            // TODO(ilist@): typechecks; user code can throw ClassCastException
-            headerModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) headerModule,
-            picHeaderModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) picHeaderModule,
-            modularPublicHdrsList.build(),
-            modularPrivateHdrsList,
-            textualHdrsList,
-            Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers")
-                .getImmutableList(),
-            convertFromNoneable(separateModule, null),
-            convertFromNoneable(separatePicModule, null),
-            ImmutableList.of(),
-            ImmutableList.of());
-
-    CcCompilationContext single =
-        CcCompilationContext.create(
-            new CcCompilationContext.CommandLineCcCompilationContext(
-                toPathFragments(includes, "includes"),
-                toPathFragments(quoteIncludes, "quote_includes"),
-                toPathFragments(systemIncludes, "system_includes"),
-                toPathFragments(frameworkIncludes, "framework_includes"),
-                toPathFragments(externalIncludes, "external_includes"),
-                toNestedSetOfStrings(defines, "defines").toList(),
-                toNestedSetOfStrings(localDefines, "local_defines").toList()),
-            /* declaredIncludeSrcs= */ NestedSetBuilder.wrap(Order.STABLE_ORDER, headerList),
-            NestedSetBuilder.wrap(
-                Order.STABLE_ORDER,
-                Sequence.cast(nonCodeInputs, Artifact.class, "non_code_inputs")),
-            headerInfo,
-            /* transitiveModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /* transitivePicModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /* directModuleMaps= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /* exportingModuleMaps= */ ImmutableList.of(),
-            moduleMap instanceof CppModuleMap cppModuleMap ? cppModuleMap : null,
-            Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"),
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-
-    Sequence<CcCompilationContext> exportedDeps =
-        Sequence.cast(
-            exportedDependentCcCompilationContexts,
-            CcCompilationContext.class,
-            "exported_dependent_cc_compilation_contexts");
-    Sequence<CcCompilationContext> deps =
-        Sequence.cast(
-            dependentCcCompilationContexts,
-            CcCompilationContext.class,
-            "dependent_cc_compilation_contexts");
-
-    return CcCompilationContext.createAndMerge(
-        thread.getNextIdentityToken(), single, exportedDeps, deps);
-  }
-
-  @Override
-  public CcCompilationContext mergeCompilationContexts(
-      Sequence<?> compilationContexts,
-      Sequence<?> nonExportedCompilationContexts,
-      StarlarkThread thread)
-      throws EvalException {
-    if (compilationContexts.isEmpty() && nonExportedCompilationContexts.isEmpty()) {
-      return CcCompilationContext.EMPTY;
-    }
-
-    Sequence<CcCompilationContext> exportedDeps =
-        Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts");
-    Sequence<CcCompilationContext> deps =
-        Sequence.cast(
-            nonExportedCompilationContexts,
-            CcCompilationContext.class,
-            "non_exported_compilation_contexts");
-
-    return CcCompilationContext.createAndMerge(
-        thread.getNextIdentityToken(), CcCompilationContext.EMPTY, exportedDeps, deps);
-  }
-
-  private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
-      throws EvalException {
-    if (obj == Starlark.UNBOUND) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else {
-      return Depset.noneableCast(obj, Artifact.class, fieldName);
-    }
-  }
-
-  private static NestedSet<String> toNestedSetOfStrings(Object obj, String fieldName)
-      throws EvalException {
-    if (obj == Starlark.UNBOUND) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else {
-      return Depset.noneableCast(obj, String.class, fieldName);
-    }
-  }
-
-  private static ImmutableList<PathFragment> toPathFragments(Object obj, String fieldName)
-      throws EvalException {
-    return toNestedSetOfStrings(obj, fieldName).toList().stream()
-        .map(x -> PathFragment.create(x))
-        .collect(toImmutableList());
   }
 
   @Override
