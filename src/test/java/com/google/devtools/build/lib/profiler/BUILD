@@ -18,6 +18,9 @@ filegroup(
 java_test(
     name = "ProfilerTests",
     srcs = glob(["*.java"]),
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",

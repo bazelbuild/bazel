@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -1198,5 +1199,139 @@ public final class ProfilerTest {
     assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
     assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
     assertThat(second.args()).containsExactly("local action", 0.5);
+  }
+
+  @SuppressWarnings("AllowVirtualThreads")
+  @Test
+  public void testVirtualThread() throws Exception {
+    ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+
+    var threadFactory1 = Thread.ofVirtual().name("foo-", 0).factory();
+    var threadFactory2 = Thread.ofVirtual().name("bar-", 0).factory();
+    try (var executor1 = Executors.newThreadPerTaskExecutor(threadFactory1);
+        var executor2 = Executors.newThreadPerTaskExecutor(threadFactory2)) {
+      executor1
+          .submit(
+              () -> {
+                try (var c = profiler.profile(ProfilerTask.PHASE, "virtual task 1")) {
+                  clock.advanceMillis(100);
+                }
+              })
+          .get();
+      executor2
+          .submit(
+              () -> {
+                try (var c = profiler.profile(ProfilerTask.PHASE, "virtual task 2")) {
+                  clock.advanceMillis(100);
+                }
+              })
+          .get();
+      executor1
+          .submit(
+              () -> {
+                try (var c = profiler.profile(ProfilerTask.PHASE, "virtual task 3")) {
+                  clock.advanceMillis(100);
+                }
+              })
+          .get();
+      executor2
+          .submit(
+              () -> {
+                try (var c = profiler.profile(ProfilerTask.PHASE, "virtual task 4")) {
+                  clock.advanceMillis(100);
+                }
+              })
+          .get();
+    }
+
+    profiler.stop();
+
+    var jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    var events =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> ProfilerTask.PHASE.description.equals(e.category()))
+            .toArray();
+
+    assertThat(events).hasLength(4);
+
+    var first = (TraceEvent) events[0];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.name()).isEqualTo("virtual task 1");
+
+    var second = (TraceEvent) events[1];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(second.name()).isEqualTo("virtual task 2");
+
+    var third = (TraceEvent) events[2];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(third.name()).isEqualTo("virtual task 3");
+
+    var fourth = (TraceEvent) events[3];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(fourth.name()).isEqualTo("virtual task 4");
+
+    assertThat(first.threadId()).isEqualTo(third.threadId());
+    assertThat(second.threadId()).isEqualTo(fourth.threadId());
+    assertThat(first.threadId()).isNotEqualTo(second.threadId());
+  }
+
+  @SuppressWarnings("AllowVirtualThreads")
+  @Test
+  public void testVirtualThreadTaskStartedAfterStop() throws Exception {
+    ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+    profiler.stop();
+
+    var threadFactory = Thread.ofVirtual().name("foo-", 0).factory();
+    try (var executor = Executors.newThreadPerTaskExecutor(threadFactory)) {
+      executor
+          .submit(
+              () -> {
+                try (var c = profiler.profile(ProfilerTask.PHASE, "virtual task 1")) {
+                  clock.advanceMillis(100);
+                }
+              })
+          .get();
+    }
+
+    var jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    var events =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> ProfilerTask.PHASE.description.equals(e.category()))
+            .toArray();
+
+    assertThat(events).isEmpty();
+  }
+
+  @SuppressWarnings("AllowVirtualThreads")
+  @Test
+  public void testVirtualThreadTaskEndedAfterStop() throws Exception {
+    ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+
+    var profilerStoppedLatch = new CountDownLatch(1);
+    var threadFactory = Thread.ofVirtual().name("foo-", 0).factory();
+    try (var executor = Executors.newThreadPerTaskExecutor(threadFactory)) {
+      var future =
+          executor.submit(
+              () -> {
+                try (var c = profiler.profile(ProfilerTask.PHASE, "virtual task 1")) {
+                  try {
+                    profilerStoppedLatch.await();
+                  } catch (InterruptedException e) {
+                    throw new IllegalStateException(e);
+                  }
+                }
+              });
+      profiler.stop();
+      profilerStoppedLatch.countDown();
+      future.get();
+    }
+
+    var jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    var events =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> ProfilerTask.PHASE.description.equals(e.category()))
+            .toArray();
+
+    assertThat(events).isEmpty();
   }
 }
