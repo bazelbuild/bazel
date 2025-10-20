@@ -161,7 +161,7 @@ public class InMemoryFileSystem extends AbstractFileSystem {
    */
   private static void unlink(InMemoryDirectoryInfo dir, String child, PathFragment errorPath)
       throws IOException {
-    if (!dir.isWritable()) {
+    if (!dir.isExecutable() || !dir.isWritable()) {
       throw Errno.EACCES.exception(errorPath);
     }
     dir.removeChild(child);
@@ -569,16 +569,28 @@ public class InMemoryFileSystem extends AbstractFileSystem {
     }
 
     synchronized (this) {
-      if (!exists(path, /*followSymlinks=*/ false)) {
-        return false;
+      switch (getDirectoryErrno(path.getParentDirectory())) {
+        case InMemoryDirectoryInfo parent -> {
+          InMemoryContentInfo child = parent.getChild(baseNameOrWindowsDrive(path));
+          if (child == null) {
+            return false;
+          }
+          if (child.isDirectory() && child.getSize() > 2) {
+            throw Errno.ENOTEMPTY.exception(path);
+          }
+          unlink(parent, baseNameOrWindowsDrive(path), path);
+          return true;
+        }
+        case InMemoryContentInfo ignored -> {
+          return false;
+        }
+        case Errno.ENOENT, Errno.ENOTDIR -> {
+          return false;
+        }
+        case Errno error -> {
+          throw error.exception(path);
+        }
       }
-      InMemoryDirectoryInfo parent = getDirectory(path.getParentDirectory());
-      InMemoryContentInfo child = parent.getChild(baseNameOrWindowsDrive(path));
-      if (child.isDirectory() && child.getSize() > 2) {
-        throw Errno.ENOTEMPTY.exception(path);
-      }
-      unlink(parent, baseNameOrWindowsDrive(path), path);
-      return true;
     }
   }
 

@@ -81,7 +81,7 @@ public abstract class FileSystemTest {
   protected Path xLink;
   protected Path xFile;
   protected Path xNonEmptyDirectory;
-  protected Path xNonEmptyDirectoryFoo;
+  protected Path xFileInNonEmptyDirectory;
   protected Path xEmptyDirectory;
 
   @TestParameter(valuesProvider = DigestHashFunctionsProvider.class)
@@ -110,12 +110,12 @@ public abstract class FileSystemTest {
     xLink = absolutize("xLink");
     xFile = absolutize("xFile");
     xNonEmptyDirectory = absolutize("xNonEmptyDirectory");
-    xNonEmptyDirectoryFoo = xNonEmptyDirectory.getChild("foo");
+    xFileInNonEmptyDirectory = xNonEmptyDirectory.getChild("foo");
     xEmptyDirectory = absolutize("xEmptyDirectory");
 
     FileSystemUtils.createEmptyFile(xFile);
     xNonEmptyDirectory.createDirectory();
-    FileSystemUtils.createEmptyFile(xNonEmptyDirectoryFoo);
+    FileSystemUtils.createEmptyFile(xFileInNonEmptyDirectory);
     xEmptyDirectory.createDirectory();
   }
 
@@ -730,24 +730,27 @@ public abstract class FileSystemTest {
   }
 
   // Here we test the situations where delete should throw exceptions.
+
   @Test
   public void testDeleteNonEmptyDirectoryThrowsException() throws Exception {
     IOException e = assertThrows(IOException.class, () -> xNonEmptyDirectory.delete());
     assertThat(e).hasMessageThat().endsWith(xNonEmptyDirectory + " (Directory not empty)");
-  }
-
-  @Test
-  public void testDeleteNonEmptyDirectoryNotDeletedDirectory() throws Exception {
-    assertThrows(IOException.class, () -> xNonEmptyDirectory.delete());
-
     assertThat(xNonEmptyDirectory.isDirectory()).isTrue();
+    assertThat(xFileInNonEmptyDirectory.isFile()).isTrue();
   }
 
   @Test
-  public void testDeleteNonEmptyDirectoryNotDeletedFile() throws Exception {
-    assertThrows(IOException.class, () -> xNonEmptyDirectory.delete());
+  public void testDeleteFileWithNonWritableParentDirectoryThrowsException() throws Exception {
+    xNonEmptyDirectory.chmod(0555);
+    IOException e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.delete());
+    assertThat(e).hasMessageThat().endsWith(xFileInNonEmptyDirectory + " (Permission denied)");
+  }
 
-    assertThat(xNonEmptyDirectoryFoo.isFile()).isTrue();
+  @Test
+  public void testDeleteFileWithNonExecutableParentDirectoryThrowsException() throws Exception {
+    xNonEmptyDirectory.chmod(0666);
+    IOException e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.delete());
+    assertThat(e).hasMessageThat().endsWith(xFileInNonEmptyDirectory + " (Permission denied)");
   }
 
   @Test
@@ -1762,7 +1765,7 @@ public abstract class FileSystemTest {
   public void testSetExecutableOnDirectory() throws Exception {
     setExecutable(xNonEmptyDirectory, false);
 
-    IOException e = assertThrows(IOException.class, () -> xNonEmptyDirectoryFoo.isWritable());
+    IOException e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.isWritable());
     assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
   }
 
@@ -1817,7 +1820,8 @@ public abstract class FileSystemTest {
   public void testCannotMoveFromReadOnlyDirectory() throws Exception {
     xNonEmptyDirectory.setWritable(false);
 
-    IOException e = assertThrows(IOException.class, () -> xNonEmptyDirectoryFoo.renameTo(xNothing));
+    IOException e =
+        assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.renameTo(xNothing));
     assertThat(e).hasMessageThat().endsWith(" (Permission denied)");
   }
 
@@ -1825,8 +1829,8 @@ public abstract class FileSystemTest {
   public void testCannotDeleteInReadOnlyDirectory() throws Exception {
     xNonEmptyDirectory.setWritable(false);
 
-    IOException e = assertThrows(IOException.class, () -> xNonEmptyDirectoryFoo.delete());
-    assertThat(e).hasMessageThat().endsWith(xNonEmptyDirectoryFoo + " (Permission denied)");
+    IOException e = assertThrows(IOException.class, () -> xFileInNonEmptyDirectory.delete());
+    assertThat(e).hasMessageThat().endsWith(xFileInNonEmptyDirectory + " (Permission denied)");
   }
 
   @Test
@@ -1838,7 +1842,7 @@ public abstract class FileSystemTest {
       IOException e =
           assertThrows(
               IOException.class,
-              () -> createSymbolicLink(xNonEmptyDirectoryBar, xNonEmptyDirectoryFoo));
+              () -> createSymbolicLink(xNonEmptyDirectoryBar, xFileInNonEmptyDirectory));
       assertThat(e).hasMessageThat().endsWith(xNonEmptyDirectoryBar + " (Permission denied)");
     }
   }
