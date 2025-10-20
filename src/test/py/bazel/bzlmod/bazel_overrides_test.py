@@ -744,6 +744,54 @@ class BazelOverridesTest(test_base.TestBase):
         stderr,
     )
 
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--override_repository=my_repo=%workspace%/other_repo',
+            '@@my_repo//:target',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "ERROR: Skipping '@@my_repo//:target': no such package '@@my_repo//':"
+        ' the repository @@my_repo does not exist, but has been specified as'
+        ' overridden with --override_repository. Use --inject_repository'
+        ' instead to add a new repository.',
+        stderr,
+    )
+
+  def testOverrideRepositoryOnUseRepoRule(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(',
+            '  name = "my_repo",',
+            '  path = "original_repo",',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('original_repo/REPO.bazel')
+    self.ScratchFile('original_repo/BUILD', ['filegroup(name="original")'])
+
+    self.ScratchFile('override_repo/REPO.bazel')
+    self.ScratchFile('override_repo/BUILD', ['filegroup(name="overridden")'])
+
+    # Verify that the overridden repo is used
+    self.RunBazel(
+        [
+            'build',
+            '--override_repository=+local_repository+my_repo=%workspace%/override_repo',
+            '@my_repo//:overridden',
+        ],
+    )
+
 
 if __name__ == '__main__':
   absltest.main()
