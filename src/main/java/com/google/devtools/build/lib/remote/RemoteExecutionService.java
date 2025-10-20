@@ -150,6 +150,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
@@ -689,6 +690,32 @@ public class RemoteExecutionService {
       }
 
       return actionResult.getExitCode() == 0;
+    }
+
+    /**
+     * Returns an output that is mandatory for the given spawn but missing from this result, if any.
+     */
+    public Optional<? extends ActionInput> maybeGetMissingMandatoryOutput(RemoteAction action) {
+      var outputFiles = Iterables.transform(getOutputFiles(), OutputFile::getPath);
+      var outputDirPaths = Iterables.transform(getOutputDirectories(), OutputDirectory::getPath);
+      var outputSymlinkPaths =
+          Iterables.transform(
+              Iterables.concat(
+                  getOutputSymlinks(), getOutputFileSymlinks(), getOutputDirectorySymlinks()),
+              OutputSymlink::getPath);
+      ImmutableSet<String> allOutputPaths =
+          ImmutableSet.copyOf(
+              Iterables.transform(
+                  Iterables.concat(outputFiles, outputDirPaths, outputSymlinkPaths),
+                  StringEncoding::unicodeToInternal));
+      // Check that all mandatory outputs are created.
+      var spawn = action.getSpawn();
+      var remotePathResolver = action.getRemotePathResolver();
+      return spawn.getOutputFiles().stream()
+          .filter(spawn::isMandatoryOutput)
+          .filter(
+              output -> !allOutputPaths.contains(remotePathResolver.localPathToOutputPath(output)))
+          .findFirst();
     }
 
     /** Returns {@code true} if this result is from a cache. */
@@ -1371,23 +1398,11 @@ public class RemoteExecutionService {
 
     if (result.success()) {
       // Check that all mandatory outputs are created.
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (action.getSpawn().isMandatoryOutput(output)) {
-          // In the past, remote execution did not create output directories if the action didn't do
-          // this explicitly. This check only remains so that old remote cache entries that do not
-          // include empty output directories remain valid.
-          if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-            continue;
-          }
-
-          Path localPath = execRoot.getRelative(output.getExecPath());
-          if (!metadata.files.containsKey(localPath)
-              && !metadata.directories.containsKey(localPath)
-              && !metadata.symlinks.containsKey(localPath)) {
-            throw new IOException(
-                String.format("mandatory output %s was not created", prettyPrint(output)));
-          }
-        }
+      var missingMandatoryOutput = result.maybeGetMissingMandatoryOutput(action);
+      if (missingMandatoryOutput.isPresent()) {
+        throw new IOException(
+            "mandatory output %s was not created"
+                .formatted(prettyPrint(missingMandatoryOutput.get())));
       }
 
       if (result.executeResponse != null && !knownMissingCasDigests.isEmpty()) {

@@ -72,10 +72,13 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
+import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
+import com.google.rpc.RetryInfo;
 import io.grpc.Status.Code;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -211,7 +214,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       }
 
       if (cachedResult != null) {
-        if (cachedResult.getExitCode() != 0) {
+        if (cachedResult.getExitCode() != 0
+            || cachedResult.maybeGetMissingMandatoryOutput(action).isPresent()) {
           // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
           // actions (tests).
           // Set acceptCachedResult to false in order to force the action re-execution
@@ -303,6 +307,19 @@ public class RemoteSpawnRunner implements SpawnRunner {
             // status.
             // It's already late at this stage, but we should at least report once.
             reporter.reportExecutingIfNot();
+
+            if (result.cacheHit()
+                && (!result.success()
+                    || result.maybeGetMissingMandatoryOutput(action).isPresent())) {
+              // Instead of failing in downloadAndFinalizeSpawnResult, retry with forced execution.
+              useCachedResult.set(false);
+              var status =
+                  com.google.rpc.Status.newBuilder()
+                      .setCode(com.google.rpc.Code.NOT_FOUND_VALUE)
+                      .addDetails(Any.pack(RetryInfo.getDefaultInstance()))
+                      .build();
+              throw StatusProto.toStatusRuntimeException(status);
+            }
 
             maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
