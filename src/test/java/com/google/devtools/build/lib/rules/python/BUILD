@@ -167,12 +167,9 @@ java_test(
     srcs = ["PythonToolchainTest.java"],
     deps = [
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
-        "//third_party:truth",
     ],
 )
 
