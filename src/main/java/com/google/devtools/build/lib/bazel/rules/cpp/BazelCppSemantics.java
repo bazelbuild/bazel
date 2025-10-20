@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,23 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcModule;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
-/** A module that contains Starlark utilities for C++ support. */
-public class BazelCcModule extends CcModule {
-  @Override
-  public CppSemantics getSemantics(Language language) {
-    return BazelCppSemantics.INSTANCE;
-  }
+/** C++ compilation semantics. */
+public class BazelCppSemantics implements CppSemantics {
+  @SerializationConstant public static final BazelCppSemantics INSTANCE = new BazelCppSemantics();
+
+  private BazelCppSemantics() {}
 
   @Override
-  public Provider getCcToolchainProvider() {
-    return CcToolchainProvider.BAZEL_PROVIDER;
-  }
+  public void validateLayeringCheckFeatures(
+      RuleContext ruleContext,
+      AspectDescriptor aspectDescriptor,
+      CcToolchainProvider ccToolchain,
+      ImmutableSet<String> unsupportedFeatures) {}
 }

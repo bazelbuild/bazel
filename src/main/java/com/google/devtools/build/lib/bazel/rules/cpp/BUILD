@@ -13,9 +13,32 @@ filegroup(
 
 java_library(
     name = "cpp",
-    srcs = ["BazelCcModule.java"],
+    srcs = glob(
+        ["*.java"],
+        exclude = ["BazelCppSemantics.java"],
+    ),
     deps = [
+        ":bazel_cpp_semantics",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+    ],
+)
+
+java_library(
+    name = "bazel_cpp_semantics",
+    srcs = ["BazelCppSemantics.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )

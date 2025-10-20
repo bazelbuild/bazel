@@ -292,5 +292,4 @@ def get_cc_toolchain_provider(ctx, attributes):
         allowlist_for_layering_check = attributes.allowlist_for_layering_check,
         build_info_files = attributes.build_info_files,
         toolchain_label = ctx.label,
-        extra_cpp_configuration = getattr(ctx.fragments, "google_cpp", None),
     )
