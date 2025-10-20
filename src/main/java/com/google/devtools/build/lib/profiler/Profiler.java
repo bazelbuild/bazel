@@ -999,15 +999,20 @@ public final class Profiler {
   private class MultiLaneGenerator {
     private final Map<String, LaneGenerator> laneGenerators = Maps.newConcurrentMap();
 
+    /**
+     * @return the lane if it's active, otherwise null.
+     */
+    @Nullable
     private Lane acquire(String prefix) {
-      checkState(isActive());
+      if (!isActive()) {
+        return null;
+      }
       var laneGenerator =
           laneGenerators.computeIfAbsent(prefix, unused -> new LaneGenerator(prefix));
       return laneGenerator.acquire();
     }
 
     private void release(Lane lane) {
-      checkState(isActive());
       var laneGenerator = lane.laneGenerator;
       laneGenerator.release(lane);
     }
@@ -1078,6 +1083,9 @@ public final class Profiler {
           () -> {
             var prefix = virtualThreadPrefix.get();
             var lane = multiLaneGenerator.acquire(prefix);
+            if (lane == null) {
+              return null;
+            }
             checkState(lane.refCount == 0);
             return lane;
           });
@@ -1089,6 +1097,9 @@ public final class Profiler {
     }
 
     var lane = borrowedLane.get();
+    if (lane == null) {
+      return null;
+    }
     lane.refCount += 1;
     return lane;
   }
@@ -1140,11 +1151,11 @@ public final class Profiler {
   @CanIgnoreReturnValue
   public <T> ListenableFuture<T> profileFuture(
       ListenableFuture<T> future, String prefix, ProfilerTask type, String description) {
-    if (!isActive()) {
+    Lane lane = multiLaneGenerator.acquire(prefix);
+    if (lane == null) {
       return future;
     }
 
-    Lane lane = multiLaneGenerator.acquire(prefix);
     long startTimeNanos = clock.nanoTime();
     future.addListener(
         () -> {
@@ -1165,7 +1176,7 @@ public final class Profiler {
    * task.
    */
   public class AsyncProfiler implements SilentCloseable {
-    private final Lane lane;
+    @Nullable private final Lane lane;
     private final long startTimeNanos;
     private final String description;
 
@@ -1176,7 +1187,7 @@ public final class Profiler {
     }
 
     public SilentCloseable profile(ProfilerTask type, String description) {
-      if (!(isActive() && isProfiling(type))) {
+      if (!(lane != null && isProfiling(type))) {
         return NOP;
       }
       long startTimeNanos = clock.nanoTime();
