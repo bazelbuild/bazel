@@ -57,6 +57,7 @@ public final class CcToolchainProvider {
   private static final CcToolchainInfoProvider RULES_CC_PROVIDER =
       new RulesCcCcToolchainInfoProvider();
   public static final CcToolchainInfoProvider BAZEL_PROVIDER = new BazelCcToolchainInfoProvider();
+  public static final CcToolchainInfoProvider GOOGLE_PROVIDER = new GoogleCcToolchainInfoProvider();
 
   public static CcToolchainProvider wrapOrThrowEvalException(Info toolchainInfo)
       throws EvalException {
@@ -65,6 +66,9 @@ public final class CcToolchainProvider {
     }
     if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
       return BAZEL_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
+    }
+    if (toolchainInfo.getProvider().getKey().equals(GOOGLE_PROVIDER.getKey())) {
+      return GOOGLE_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
     }
     return RULES_CC_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
   }
@@ -75,6 +79,9 @@ public final class CcToolchainProvider {
     }
     if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
       return BAZEL_PROVIDER.wrap(toolchainInfo);
+    }
+    if (toolchainInfo.getProvider().getKey().equals(GOOGLE_PROVIDER.getKey())) {
+      return GOOGLE_PROVIDER.wrap(toolchainInfo);
     }
     return RULES_CC_PROVIDER.wrap(toolchainInfo);
   }
@@ -87,6 +94,9 @@ public final class CcToolchainProvider {
     }
     if (provider == null) {
       provider = target.get(BAZEL_PROVIDER);
+    }
+    if (provider == null) {
+      provider = target.get(GOOGLE_PROVIDER);
     }
     return provider;
   }
@@ -106,6 +116,16 @@ public final class CcToolchainProvider {
           keyForBuild(
               Label.parseCanonicalUnchecked(
                   "@rules_cc+//cc/private/rules_impl:cc_toolchain_info.bzl")),
+          STARLARK_NAME);
+    }
+  }
+
+  private static class GoogleCcToolchainInfoProvider extends CcToolchainInfoProvider {
+    private GoogleCcToolchainInfoProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "//third_party/bazel_rules/rules_cc/cc/private/rules_impl:cc_toolchain_info.bzl")),
           STARLARK_NAME);
     }
   }
