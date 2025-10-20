@@ -42,9 +42,9 @@ java_library(
     srcs = [
         "BuildConfigurationInfo.java",
         "BuildConfigurationValue.java",
-        "ConfigRequestedEvent.java",
         "OutputDirectories.java",
         "OutputPathMnemonicComputer.java",
+        "TopLevelConfigRequestedEvent.java",
     ],
     deps = [
         ":build_option_details",

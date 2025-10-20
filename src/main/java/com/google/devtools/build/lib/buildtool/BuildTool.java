@@ -1456,8 +1456,10 @@ public class BuildTool {
       if (env.getSkyframeBuildView().getBuildConfiguration() != null) {
         // null at construction time during deserializing build. Will be set later during analysis.
         this.topLevelConfigChecksum =
-            BuildView.getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
-                env.getSkyframeBuildView().getBuildConfiguration().getOptions(), env.getReporter());
+            BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
+                    env.getSkyframeBuildView().getBuildConfiguration().getOptions(),
+                    env.getReporter())
+                .checksum();
       }
 
       if (options.serverChecksumOverride != null) {

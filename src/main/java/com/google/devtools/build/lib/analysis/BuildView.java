@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChan
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.TopLevelConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
@@ -254,7 +254,7 @@ public class BuildView {
 
     // Prepare the analysis phase
     BuildConfigurationValue topLevelConfig;
-    String topLevelConfigurationTrimmedOfTestOptionsChecksum;
+    BuildOptions topLevelConfigurationTrimmedOfTestOptions;
     boolean shouldDiscardAnalysisCache;
     if (skyframeExecutor.getAndIncrementAnalysisCount() != 0
         && remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
@@ -317,14 +317,11 @@ public class BuildView {
                 .forcedRerun(buildConfigChanged)
                 .build());
       }
-      topLevelConfigurationTrimmedOfTestOptionsChecksum =
-          getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
-              topLevelConfig.getOptions(), eventHandler);
+      topLevelConfigurationTrimmedOfTestOptions =
+          getTopLevelConfigurationTrimmedOfTestOptions(topLevelConfig.getOptions(), eventHandler);
       eventBus.post(
-          new ConfigRequestedEvent(
-              topLevelConfig,
-              /* parentChecksum= */ null,
-              topLevelConfigurationTrimmedOfTestOptionsChecksum));
+          new TopLevelConfigRequestedEvent(
+              topLevelConfig, topLevelConfigurationTrimmedOfTestOptions));
     }
     if (buildConfigurationsCreatedCallback != null) {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
@@ -361,7 +358,7 @@ public class BuildView {
 
     if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
       remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
-          topLevelConfigurationTrimmedOfTestOptionsChecksum);
+          topLevelConfigurationTrimmedOfTestOptions.checksum());
       remoteAnalysisCachingDependenciesProvider.setTopLevelConfigMetadata(
           getPatchedOptions(topLevelConfig.getOptions(), eventHandler));
     }
@@ -970,9 +967,9 @@ public class BuildView {
     return ImmutableSet.copyOf(actionsWrapper.getCoverageOutputs());
   }
 
-  public static String getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
+  public static BuildOptions getTopLevelConfigurationTrimmedOfTestOptions(
       BuildOptions buildOptions, ExtendedEventHandler eventHandler) throws InterruptedException {
-    return getPatchedOptions(buildOptions, eventHandler).checksum();
+    return getPatchedOptions(buildOptions, eventHandler);
   }
 
   private static BuildOptions getPatchedOptions(
