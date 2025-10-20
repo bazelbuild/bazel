@@ -821,7 +821,7 @@ public final class CppConfiguration extends Fragment
 
   /** Returns true iff we should do "include scanning" during this build. */
   public boolean shouldScanIncludes() {
-    return cppOptions.includeScanning;
+    return cppOptions.includeScanning || cppOptions.includeScanningInternal;
   }
 
   @StarlarkMethod(name = "include_scanning", documented = false, useStarlarkThread = true)
