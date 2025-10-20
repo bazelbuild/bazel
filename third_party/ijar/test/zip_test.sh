@@ -247,4 +247,12 @@ function test_zipper_file_large_than_2G() {
   $ZIPPER c ${TEST_TMPDIR}/output.zip ${TEST_TMPDIR}/file_2064M.bin
 }
 
+function test_no_path_traversal() {
+  local folder=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
+  ! (cd $folder && $ZIPPER x $(dirname ${ZIPPER})/test/path_traversal_zip.jar)
+  if [[ -e ${folder}/../ZIPPER_POC_OWNED ]]; then
+    fail "Path traversal succeeded"
+  fi
+}
+
 run_suite "zipper tests"
