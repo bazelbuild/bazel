@@ -963,7 +963,30 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           evaluatorContext.getGraph().getBatch(skyKey, Reason.RDEP_REMOVAL, depsToRemove);
       for (SkyKey key : depsToRemove) {
         NodeEntry oldDepEntry = checkNotNull(oldDepEntries.get(key), key);
-        oldDepEntry.removeReverseDep(skyKey);
+        try {
+          oldDepEntry.removeReverseDep(skyKey);
+        } catch (IllegalStateException e) {
+          // TODO: b/439528574 - Remove when bug is diagnosed.
+          var dirtyBuildingState =
+              primaryEntry instanceof AbstractInMemoryNodeEntry<?> inMemoryNodeEntry
+                  ? inMemoryNodeEntry.dirtyBuildingState
+                  : null;
+          throw new IllegalStateException(
+"""
+Cannot remove rdep: %s
+Dep: %s
+rdep in oldDeps: %b
+rdep in resetDeps: %b
+dirtyBuildingState: %s
+"""
+                  .formatted(
+                      skyKey,
+                      key,
+                      oldDeps.contains(key),
+                      resetDeps.contains(key),
+                      dirtyBuildingState),
+              e);
+        }
       }
     }
 
