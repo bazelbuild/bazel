@@ -16,7 +16,10 @@ filegroup(
 java_11_library(
     name = "file",
     srcs = ["WindowsFileOperations.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
+    deps = [
+        ":windows_path_operations",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+    ],
 )
 
 java_library(
@@ -26,8 +29,9 @@ java_library(
 )
 
 java_library(
-    name = "windows_short_path",
-    srcs = ["WindowsShortPath.java"],
+    name = "windows_path_operations",
+    srcs = ["WindowsPathOperations.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
 )
 
 java_library(
