@@ -1754,35 +1754,33 @@ public class RemoteExecutionService {
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      var startTime = Profiler.nanoTimeMaybe();
       backgroundTaskExecutor.execute(
           () -> {
             try {
-              UploadManifest manifest = buildUploadManifest(action, spawnResult);
-              var unused =
-                  manifest.upload(
-                      action.getRemoteActionExecutionContext(), combinedCache, reporter);
-            } catch (IOException | ExecException e) {
+              doUploadOutputs(action, spawnResult, onUploadComplete);
+            } catch (ExecException e) {
               reportUploadError(e);
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-            } finally {
-              Profiler.instance()
-                  .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
-              onUploadComplete.run();
+            } catch (InterruptedException ignored) {
+              // ThreadPerTaskExecutor does not care about interrupt status.
             }
           });
     } else {
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
-        UploadManifest manifest = buildUploadManifest(action, spawnResult);
-        var unused =
-            manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
-      } catch (IOException e) {
-        reportUploadError(e);
-      } finally {
-        onUploadComplete.run();
-      }
+      doUploadOutputs(action, spawnResult, onUploadComplete);
+    }
+  }
+
+  private void doUploadOutputs(
+      RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
+      throws ExecException, InterruptedException {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
+      UploadManifest manifest = buildUploadManifest(action, spawnResult);
+      var unused =
+          manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
+    } catch (IOException e) {
+      reportUploadError(e);
+    } finally {
+      onUploadComplete.run();
     }
   }
 
