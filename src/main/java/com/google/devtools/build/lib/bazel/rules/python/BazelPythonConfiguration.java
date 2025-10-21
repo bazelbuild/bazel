@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -83,10 +85,31 @@ public class BazelPythonConfiguration extends Fragment {
   }
 
   private final Options options;
+  private final boolean disablePyFragment;
 
   public BazelPythonConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     this.options = buildOptions.get(Options.class);
     String pythonPath = getPythonPath();
+
+    // Only set disablePyFragment, which removes ctx.fragments.bazel_py, if all
+    // BazelPythonConfiguration flags are flag aliased. We specially check here to see if any flags
+    // lack Starlark flag aliases.
+    //
+    // This has the clever effect that ctx.fragments.bazel_py can not be disabled for old
+    // rules_python versions that don't support Starlark flags. That's because
+    // SkyframeExecutor.getFlagAliases() doesn't add aliases on those versions and they're too
+    // old to define MODULE.bazel aliases. So needNativeFragment below will be true.
+    //
+    // TODO: b/453809359 - Remove this extra check Bazel 9+ can read Python flag alias
+    // definitions straight from rules_python's MODULE.bazel.
+    var flagAliases =
+        ImmutableMap.copyOf(buildOptions.get(CoreOptions.class).commandLineFlagAliases);
+    boolean needNativeFragment =
+        // LINT.IfChange
+        !flagAliases.containsKey("python_path")
+            || !flagAliases.containsKey("experimental_python_import_all_repositories");
+    // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/skyframe/SkyframeExecutor.java)
+    this.disablePyFragment = options.disablePyFragment && !needNativeFragment;
     if (!pythonPath.startsWith("python") && !PathFragment.create(pythonPath).isAbsolute()) {
       throw new InvalidConfigurationException(
           "python_path must be an absolute path when it is set.");
@@ -95,7 +118,7 @@ public class BazelPythonConfiguration extends Fragment {
 
   @Override
   public boolean shouldInclude() {
-    return !options.disablePyFragment;
+    return !this.disablePyFragment;
   }
 
   @StarlarkConfigurationField(

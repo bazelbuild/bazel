@@ -582,7 +582,7 @@ public class OptionsParser implements OptionsParsingResult {
    * @return The {@link OptionDescription} for the option, or null if there is no option by the
    *     given name.
    */
-  OptionDescription getOptionDescription(String name) throws OptionsParsingException {
+  public OptionDescription getOptionDescription(String name) throws OptionsParsingException {
     return impl.getOptionDescription(name);
   }
 

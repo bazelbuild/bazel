@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
@@ -58,7 +60,25 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
     this.disallowNativeRules = pythonOptions.disallowNativeRules;
     this.includeLabelInLinkstamp = pythonOptions.includeLabelInPyBinariesLinkstamp;
-    this.disablePyFragment = pythonOptions.disablePyFragment;
+
+    // Only set disablePyFragment, which removes ctx.fragments.py, if all PythonOptions flags are
+    // flag aliased. We specially check here to see if any flags lack Starlark flag aliases.
+    //
+    // This has the clever effect that ctx.fragments.bazel_py can not be disabled for old
+    // rules_python versions that don't support Starlark flags. That's because
+    // SkyframeExecutor.getFlagAliases() doesn't add aliases on those versions and they're too
+    // old to define MODULE.bazel aliases. So needNativeFragment below will be true.
+    //
+    // TODO: b/453809359 - Remove this extra check Bazel 9+ can read Python flag alias
+    // definitions straight from rules_python's MODULE.bazel.
+    var flagAliases =
+        ImmutableMap.copyOf(buildOptions.get(CoreOptions.class).commandLineFlagAliases);
+    boolean needNativeFragment =
+        // LINT.IfChange
+        !flagAliases.containsKey("build_python_zip")
+            || !flagAliases.containsKey("incompatible_default_to_explicit_init_py");
+    // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/skyframe/SkyframeExecutor.java)
+    this.disablePyFragment = pythonOptions.disablePyFragment && !needNativeFragment;
   }
 
   @Override

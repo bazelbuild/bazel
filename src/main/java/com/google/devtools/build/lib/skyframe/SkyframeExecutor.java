@@ -121,6 +121,7 @@ import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataP
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -3246,23 +3247,93 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return detailedExitCode;
   }
 
-  public Map<String, String> getFlagAliases(ExtendedEventHandler eventHandler)
+  /** Canonical Starlark flag aliases for {@link PythonOptions} flags. */
+  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
+  // rules_python's MODULE.bazel.
+  private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
+      ImmutableMap.of(
+          // LINT.IfChange
+          "build_python_zip",
+          "@@rules_python+//python/config_settings:build_python_zip",
+          "incompatible_default_to_explicit_init_py",
+          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
+
+  // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/python/PythonConfiguration.java)
+
+  /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
+  // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
+  // rules_python's MODULE.bazel.
+  private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
+      ImmutableMap.of(
+          // LINT.IfChange
+          "python_path",
+          "@@rules_python+//python/config_settings:python_path",
+          "experimental_python_import_all_repositories",
+          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
+
+  // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPythonConfiguration.java)
+
+  /**
+   * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
+   *
+   * <p>These, along with whatever is set in {@code --flag_alias}, rewrite {@code --foo}-style
+   * command line flags to canonical Starlark flags.
+   *
+   * @param eventHandler handler for Skyframe events
+   * @param ensurePyAliases If true, add Python-specific flag aliases even if they're not defined in
+   *     {@code rules_python}'s {@code MODULE.bazel}
+   * @param ensureBazelPyAliases if true, add Bazel Python-specific flag aliases even if they're not
+   *     defined in {@code rules_python}'s {@code MODULE.bazel}
+   */
+  public Map<String, String> getFlagAliases(
+      ExtendedEventHandler eventHandler, boolean ensurePyAliases, boolean ensureBazelPyAliases)
       throws InterruptedException {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    ImmutableMap<String, String> flagAliases =
-        evalResult.get(BazelDepGraphValue.KEY).getDepGraph().get(ModuleKey.ROOT).getFlagAliases();
+    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
+    ImmutableMap<String, String> flagAliases = bzlmodDepGraph.get(ModuleKey.ROOT).getFlagAliases();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-
-    if (flagAliases == null) {
-      return aliasesMap;
+    if (flagAliases != null) {
+      aliasesMap.putAll(flagAliases);
     }
-
-    for (String flag : flagAliases.keySet()) {
-      aliasesMap.put(flag, flagAliases.get(flag));
+    // TODO: b/453809359 - Remove special Python flag handling when Bazel 9+ can read Python flag
+    // alias definitions straight fromrules_python's MODULE.bazel.
+    com.google.devtools.build.lib.bazel.bzlmod.Version minBazelVersionForPythonAliases = null;
+    try {
+      // rules_python at this version or older disables Python flag aliases. These versions don't
+      // support Starlark flags. As of this comment the latest rules_python release is 1.6.3.
+      // 1.6.100 isn't a real version but provides a convenient threshold below 1.7.0. We don't make
+      // 1.7.0 the baseline to permit 1.7.0-rc1 or other prereleases.
+      minBazelVersionForPythonAliases =
+          com.google.devtools.build.lib.bazel.bzlmod.Version.parse("1.6.100");
+    } catch (ParseException e) {
+      throw new IllegalStateException("Hard-coded rules_python version should always parse.", e);
     }
-    return aliasesMap;
+    for (var module : bzlmodDepGraph.entrySet()) {
+      if (!module.getKey().name().equals("rules_python")) {
+        continue;
+      }
+      // Don't set flag aliases for old rules_python versions that start with "1.". But support
+      // aliases for versions like "0.0.0" which represent unreleased development repos.
+      if (module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) < 0
+          && module.getValue().getVersion().toString().startsWith("1.")) {
+        continue;
+      }
+      if (ensurePyAliases) {
+        // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
+        PY_FLAG_ALIASES.entrySet().stream()
+            .filter(e -> !flagAliases.containsKey(e.getKey()))
+            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+      }
+      if (ensureBazelPyAliases) {
+        // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+        BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+            .filter(e -> !flagAliases.containsKey(e.getKey()))
+            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+      }
+    }
+    return ImmutableMap.copyOf(aliasesMap);
   }
 
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
