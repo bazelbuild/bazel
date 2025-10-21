@@ -15,7 +15,7 @@
 """Functions to retrieve the environment to set for Apple actions."""
 
 def apple_host_system_env(xcode_version_info):
-    if not xcode_version_info:
+    if not xcode_version_info or not xcode_version_info.xcode_version():
         return {}
     return {"XCODE_VERSION_OVERRIDE": str(xcode_version_info.xcode_version())}
 
