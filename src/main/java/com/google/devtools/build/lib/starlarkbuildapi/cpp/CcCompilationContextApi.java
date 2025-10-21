@@ -32,9 +32,7 @@ import net.starlark.java.eval.StarlarkValue;
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
             + "dependencies.")
-public interface CcCompilationContextApi<
-        FileT extends FileApi, CppModuleMapT extends CppModuleMapApi<FileT>>
-    extends StarlarkValue {
+public interface CcCompilationContextApi<FileT extends FileApi> extends StarlarkValue {
   @StarlarkMethod(
       name = "defines",
       doc =
@@ -152,13 +150,13 @@ public interface CcCompilationContextApi<
       documented = false,
       allowReturnNones = true)
   @Nullable
-  CppModuleMapT getStarlarkModuleMap();
+  CppModuleMapApi<FileT> getStarlarkModuleMap();
 
   @StarlarkMethod(name = "_direct_module_maps", structField = true, documented = false)
   public Depset getDirectModuleMapsForStarlark();
 
   @StarlarkMethod(name = "_exporting_module_maps", structField = true, documented = false)
-  StarlarkList<CppModuleMapT> getStarlarkExportingModuleMaps();
+  StarlarkList<CppModuleMapApi<FileT>> getStarlarkExportingModuleMaps();
 
   @StarlarkMethod(name = "_non_code_inputs", structField = true, documented = false)
   Depset getNonCodeInputsForStarlark();

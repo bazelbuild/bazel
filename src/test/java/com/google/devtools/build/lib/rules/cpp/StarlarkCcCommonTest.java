@@ -7197,7 +7197,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     List<String> calls =
         ImmutableList.of(
             "cc_common.create_module_map(file=file, name='name')",
-            "module_map.file()",
             compileCall + " module_map = module_map)",
             compileCall + " additional_module_maps = [module_map])",
             compileCall + "additional_exported_hdrs = [])",

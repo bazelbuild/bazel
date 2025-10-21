@@ -50,8 +50,7 @@ public interface CcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CppModuleMapT extends CppModuleMapApi<FileT>>
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -1663,7 +1662,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  default CcCompilationContextApi<FileT, CppModuleMapT> createCcCompilationContext(
+  default CcCompilationContextApi<FileT> createCcCompilationContext(
       Object headers,
       Object systemIncludes,
       Object includes,
@@ -1693,13 +1692,13 @@ public interface CcModuleApi<
       name = "create_module_map",
       documented = false,
       doc = "Creates a <code>CcModuleMap</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(name = "file", positional = false, named = true),
         @Param(name = "name", positional = false, named = true),
       })
-  CppModuleMapT createCppModuleMap(FileT file, String name, StarlarkThread thread)
-      throws EvalException;
+  default CppModuleMapApi<FileT> createCppModuleMap(FileT file, String name) {
+    throw new UnsupportedOperationException("only for documentation");
+  }
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.
   // This should only be called from the cc_flags_supplier rule.
@@ -2074,7 +2073,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]"),
       })
-  default CcCompilationContextApi<FileT, CppModuleMapT> mergeCompilationContexts(
+  default CcCompilationContextApi<FileT> mergeCompilationContexts(
       Sequence<?> compilationContexts // <CcCompilationContextApi> expected
       ) {
     throw new UnsupportedOperationException();

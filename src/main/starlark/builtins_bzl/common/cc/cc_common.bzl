@@ -18,7 +18,7 @@ load(
     _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
-load(":common/cc/cc_info.bzl", "CcNativeLibraryInfo", "create_compilation_context", "create_debug_context", "create_linking_context", "merge_cc_infos", "merge_compilation_contexts", "merge_debug_context", "merge_linking_contexts")
+load(":common/cc/cc_info.bzl", "CcNativeLibraryInfo", "create_compilation_context", "create_debug_context", "create_linking_context", "create_module_map", "merge_cc_infos", "merge_compilation_contexts", "merge_debug_context", "merge_linking_contexts")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/cc_compilation_outputs.bzl", "EMPTY_COMPILATION_OUTPUTS", "create_compilation_outputs", "merge_compilation_outputs")
@@ -411,13 +411,6 @@ def _add_go_exec_groups_to_binary_rules():
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_common_internal.add_go_exec_groups_to_binary_rules()
 
-def _create_module_map(*, file, name):
-    _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _cc_common_internal.create_module_map(
-        file = file,
-        name = name,
-    )
-
 def _get_tool_requirement_for_action(*, feature_configuration, action_name):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
@@ -733,7 +726,7 @@ cc_common = struct(
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
     merge_linking_contexts = merge_linking_contexts,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
-    create_module_map = _create_module_map,
+    create_module_map = create_module_map,
     create_debug_context = create_debug_context,
     merge_debug_context = merge_debug_context,
     get_tool_requirement_for_action = _get_tool_requirement_for_action,

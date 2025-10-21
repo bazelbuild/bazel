@@ -151,7 +151,7 @@ def _create_context_and_provider(
 
     if has_module_map:
         module_map = intermediate_artifacts.swift_module_map()
-        objc_provider_kwargs["module_map"].append(module_map.file())
+        objc_provider_kwargs["module_map"].append(module_map.file)
 
     objc_provider_kwargs_built = {}
     for k, v in objc_provider_kwargs.items():

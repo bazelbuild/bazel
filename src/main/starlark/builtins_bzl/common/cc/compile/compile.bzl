@@ -26,7 +26,7 @@ load(
     "should_create_per_object_debug_info",
     artifact_category = "artifact_category_names",
 )
-load(":common/cc/cc_info.bzl", "create_compilation_context_with_extra_header_tokens")
+load(":common/cc/cc_info.bzl", "create_compilation_context_with_extra_header_tokens", "create_separate_module_map")
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper", "dotd_files_enabled", "serialized_diagnostics_file_enabled")
 load(":common/cc/compile/cc_compilation_outputs.bzl", "create_compilation_outputs_internal")
 load(":common/cc/compile/compile_action_templates.bzl", "create_compile_action_templates")
@@ -504,7 +504,7 @@ def _create_cc_compile_actions(
 
     if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
         cpp_module_map = cc_compilation_context._module_map
-        module_map_label = Label(cpp_module_map.name())
+        module_map_label = Label(cpp_module_map.name)
         modules = _create_module_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
@@ -530,7 +530,7 @@ def _create_cc_compile_actions(
             additional_include_scanning_roots = [],
         )
         if separate_module_headers:
-            separate_cpp_module_map = cpp_module_map.create_separate_module_map()
+            separate_cpp_module_map = create_separate_module_map(cpp_module_map)
             separate_modules = _create_module_action(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
@@ -1424,7 +1424,7 @@ def _create_module_action(
         additional_compilation_inputs,
         additional_include_scanning_roots,
         outputs):
-    module_map_label = Label(cpp_module_map.name())
+    module_map_label = Label(cpp_module_map.name)
     return _create_pic_nopic_compile_source_actions(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
@@ -1445,7 +1445,7 @@ def _create_module_action(
         source_label = module_map_label,
         output_name = paths.basename(module_map_label.name),
         outputs = outputs,
-        source_artifact = cpp_module_map.file(),
+        source_artifact = cpp_module_map.file,
         language = language,
         copts_filter = copts_filter,
         output_category = artifact_category.CPP_MODULE,

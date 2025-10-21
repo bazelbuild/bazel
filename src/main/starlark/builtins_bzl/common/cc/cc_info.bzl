@@ -135,6 +135,38 @@ _EMPTY_DEBUG_CONTEXT = CcDebugContextInfo(
     pic_files = depset(),
 )
 
+_ModuleMapInfo = provider(
+    "ModuleMapInfo",
+    fields = {
+        "file": "The module map file.",
+        "name": "The name of the module.",
+    },
+)
+
+def create_module_map(*, file, name):
+    """
+    Creates a module map struct.
+
+    Args:
+        file: The module map file.
+        name: The name of the module.
+    Returns:
+        A module map struct.
+    """
+    check_private_api()
+    return _ModuleMapInfo(file = file, name = name)
+
+def create_separate_module_map(module_map):
+    """
+    Creates a separate module map struct.
+
+    Args:
+        module_map: The module map struct.
+    Returns:
+        A module map struct.
+    """
+    return _ModuleMapInfo(file = module_map.file, name = module_map.name + ".sep")
+
 def create_linking_context(
         *,
         linker_inputs,
@@ -367,16 +399,16 @@ def _merge_compilation_contexts(*, compilation_context = EMPTY_COMPILATION_CONTE
 
     for dep in exported_deps:
         if dep._module_map:
-            direct_module_maps.add(dep._module_map.file())
+            direct_module_maps.add(dep._module_map.file)
             exporting_module_maps.add(dep._module_map)
         for module_map in dep._exporting_module_maps:
-            direct_module_maps.add(module_map.file())
+            direct_module_maps.add(module_map.file)
         exporting_module_maps.update(dep._exporting_module_maps)
     for dep in deps:
         if dep._module_map:
-            direct_module_maps.add(dep._module_map.file())
+            direct_module_maps.add(dep._module_map.file)
         for module_map in dep._exporting_module_maps:
-            direct_module_maps.add(module_map.file())
+            direct_module_maps.add(module_map.file)
 
     all_deps = exported_deps + deps
     dep_header_infos = [dep._header_info for dep in all_deps]

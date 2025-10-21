@@ -225,7 +225,7 @@ def _collect_compilation_prerequisites(ctx, compilation_context):
     transitive.append(compilation_context._direct_module_maps)
     transitive.append(compilation_context._non_code_inputs)
     if compilation_context._module_map:
-        transitive.append(depset([compilation_context._module_map.file()]))
+        transitive.append(depset([compilation_context._module_map.file]))
     transitive.append(compilation_context._transitive_pic_modules)
     transitive.append(compilation_context._transitive_modules)
 

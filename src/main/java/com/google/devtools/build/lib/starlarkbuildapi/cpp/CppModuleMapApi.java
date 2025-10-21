@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -33,12 +32,9 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(name = "CcModuleMap", category = DocCategory.TOP_LEVEL_MODULE, documented = false)
 public interface CppModuleMapApi<FileT extends FileApi> extends StarlarkValue {
 
-  @StarlarkMethod(name = "name", documented = false, useStarlarkThread = true)
-  String getNameForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "name", documented = false)
+  String getNameForStarlark() throws EvalException;
 
-  @StarlarkMethod(name = "file", documented = false, useStarlarkThread = true)
-  FileT getArtifactForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "create_separate_module_map", documented = false, useStarlarkThread = true)
-  CppModuleMapApi<FileT> createSeparateModuleMap(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "file", documented = false)
+  FileT getArtifactForStarlark() throws EvalException;
 }

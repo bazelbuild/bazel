@@ -53,8 +53,7 @@ public abstract class CcModule
         FeatureConfigurationForStarlark,
         CcToolchainVariables,
         ConstraintValueInfo,
-        StarlarkRuleContext,
-        CppModuleMap> {
+        StarlarkRuleContext> {
 
   @Override
   public Provider getCcToolchainProvider() {
@@ -155,13 +154,6 @@ public abstract class CcModule
       return defaultValue;
     }
     return (T) obj; // totally unsafe
-  }
-
-  @Override
-  public CppModuleMap createCppModuleMap(Artifact file, String name, StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return new CppModuleMap(file, name);
   }
 
   @Override

@@ -19,7 +19,7 @@ load(
     "package_source_root",
     "repository_exec_path",
 )
-load(":common/cc/cc_info.bzl", "create_compilation_context")
+load(":common/cc/cc_info.bzl", "create_compilation_context", "create_module_map")
 load(":common/cc/semantics.bzl", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
 load(":common/paths.bzl", "paths")
 
@@ -210,7 +210,7 @@ _ModuleMapInfo = provider(
 def _module_map_struct_to_module_map_content(parameters, tree_expander):
     lines = []
     module_map = parameters.module_map
-    lines.append("module \"%s\" {" % module_map.name())
+    lines.append("module \"%s\" {" % module_map.name)
     lines.append("  export *")
 
     def expanded(artifacts):
@@ -269,10 +269,10 @@ def _module_map_struct_to_module_map_content(parameters, tree_expander):
         added_paths.add(path)
 
     for dep in parameters.dependency_module_maps:
-        lines.append("  use \"" + dep.name() + "\"")
+        lines.append("  use \"" + dep.name + "\"")
 
     if parameters.separate_module_headers:
-        separate_name = module_map.name() + ".sep"
+        separate_name = module_map.name + ".sep"
         lines.append("  use \"" + separate_name + "\"")
         lines.append("}")
         lines.append("module \"" + separate_name + "\" {")
@@ -286,15 +286,15 @@ def _module_map_struct_to_module_map_content(parameters, tree_expander):
             added_paths.add(header.path)
 
         for dep in parameters.dependency_module_maps:
-            lines.append("  use \"" + dep.name() + "\"")
+            lines.append("  use \"" + dep.name + "\"")
 
     lines.append("}")
 
     if parameters.extern_dependencies:
         for dep in parameters.dependency_module_maps:
             lines.append(
-                "extern module \"" + dep.name() + "\" \"" +
-                parameters.leading_periods + dep.file().path + "\"",
+                "extern module \"" + dep.name + "\" \"" +
+                parameters.leading_periods + dep.file.path + "\"",
             )
 
     return lines
@@ -313,7 +313,7 @@ def _create_module_map_action(
         extern_dependencies):
     content = actions.args()
     content.set_param_file_format("multiline")
-    segments_to_exec_path = module_map.file().path.count("/")
+    segments_to_exec_path = module_map.file.path.count("/")
     leading_periods = "" if module_map_home_is_cwd else "../" * segments_to_exec_path
     public_headers = _cc_internal.freeze(public_headers)
     private_headers = _cc_internal.freeze(private_headers)
@@ -342,7 +342,7 @@ def _create_module_map_action(
     tree_artifacts += [h for h in public_headers if h.is_directory]
     content.add_all(tree_artifacts, map_each = lambda x: None, allow_closure = True)
 
-    actions.write(module_map.file(), content = content, is_executable = True, mnemonic = "CppModuleMap")
+    actions.write(module_map.file, content = content, is_executable = True, mnemonic = "CppModuleMap")
 
 def _init_cc_compilation_context(
         # DO NOT use ctx, this is a temporary placeholder
@@ -473,7 +473,7 @@ def _init_cc_compilation_context(
     header_module = None
     if _enabled(feature_configuration, "module_maps"):
         if not module_map:
-            module_map = _cc_common_internal.create_module_map(
+            module_map = create_module_map(
                 file = actions.declare_file(label.name + ".cppmap"),
                 name = label.workspace_name + "//" + label.package + ":" + label.name,
             )

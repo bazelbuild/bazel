@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -482,7 +483,8 @@ public final class CcCompilationContext {
   @Nullable
   public CppModuleMap getCppModuleMap() {
     try {
-      return starlarkInfo.getNoneableValue("_module_map", CppModuleMap.class);
+      StarlarkInfo moduleMap = starlarkInfo.getNoneableValue("_module_map", StarlarkInfo.class);
+      return moduleMap == null ? null : new CppModuleMap(moduleMap);
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }
@@ -492,7 +494,9 @@ public final class CcCompilationContext {
   @SuppressWarnings("unchecked")
   public ImmutableList<CppModuleMap> getExportingModuleMaps() {
     try {
-      return starlarkInfo.getValue("_exporting_module_maps", StarlarkList.class).getImmutableList();
+      return ((StarlarkList<StarlarkInfo>)
+              starlarkInfo.getValue("_exporting_module_maps", StarlarkList.class))
+          .stream().map(CppModuleMap::new).collect(toImmutableList());
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }

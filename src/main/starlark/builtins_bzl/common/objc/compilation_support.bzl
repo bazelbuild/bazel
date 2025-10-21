@@ -213,7 +213,7 @@ def _compile(
         language = "objc",
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = common_variables.ctx),
         hdrs_checking_mode = "strict",
-        do_not_generate_module_map = not generate_module_map or module_map.file().is_source,
+        do_not_generate_module_map = not generate_module_map or module_map.file.is_source,
         purpose = purpose,
     )
 

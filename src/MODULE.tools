@@ -38,7 +38,7 @@ use_repo(buildozer_binary, "buildozer_binary")
 # See also:  --incompatible_autoload_externally, AutoloadSymbols
 bazel_dep(name = "protobuf", version = "32.1", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_java", version = "8.16.1")
-bazel_dep(name = "rules_cc", version = "0.2.10")
+bazel_dep(name = "rules_cc", version = "0.2.11")
 bazel_dep(name = "rules_python", version = "1.4.1")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "apple_support", version = "1.23.1", repo_name = None)
