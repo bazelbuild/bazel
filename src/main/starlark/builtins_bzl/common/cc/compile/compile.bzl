@@ -213,7 +213,7 @@ def compile(
     cpp_configuration = cc_toolchain._cpp_configuration
     if additional_module_maps == None:
         additional_module_maps = []
-    copts_filter_object = _cc_internal.create_copts_filter(copts_filter)
+
     label = _cc_internal.actions2ctx_cheat(actions).label.same_package_label(name)
     fdo_context = cc_toolchain._fdo_context
 
@@ -344,7 +344,7 @@ def compile(
         configuration = ctx.configuration,
         conlyopts = conly_flags,
         copts = user_compile_flags,
-        copts_filter = copts_filter_object,
+        copts_filter = copts_filter,
         cpp_configuration = cpp_configuration,
         cxxopts = cxx_flags,
         fdo_context = fdo_context,

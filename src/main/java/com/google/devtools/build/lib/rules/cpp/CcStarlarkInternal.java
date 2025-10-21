@@ -548,44 +548,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         .collect(toImmutableList());
   }
 
-  @StarlarkMethod(
-      name = "create_copts_filter",
-      doc = "Creates a copts filter from a regex.",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "copts_filter",
-            doc =
-                "The regex to use for the copts filter. If not given, a filter that always passes"
-                    + " is returned.",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            positional = true,
-            named = true,
-            defaultValue = "unbound"),
-      })
-  public StarlarkValue createCoptsFilterForStarlark(Object coptsFilterObject) throws EvalException {
-    return createCoptsFilter(coptsFilterObject);
-  }
-
-  private CoptsFilter createCoptsFilter(Object coptsFilterObject) throws EvalException {
-    String coptsFilterRegex =
-        (Starlark.isNullOrNone(coptsFilterObject) || coptsFilterObject == Starlark.UNBOUND)
-            ? null
-            : (String) coptsFilterObject;
-    CoptsFilter coptsFilter = null;
-    if (Strings.isNullOrEmpty(coptsFilterRegex)) {
-      coptsFilter = CoptsFilter.alwaysPasses();
-    } else {
-      try {
-        coptsFilter = CoptsFilter.fromRegex(Pattern.compile(coptsFilterRegex));
-      } catch (PatternSyntaxException e) {
-        throw Starlark.errorf(
-            "invalid regular expression '%s': %s", coptsFilterRegex, e.getMessage());
-      }
-    }
-    return coptsFilter;
-  }
-
   // TODO(b/396122076): Test whether this can be replaced with artifact.is_directory().
   @StarlarkMethod(
       name = "is_tree_artifact",
@@ -629,7 +591,12 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "cc_compilation_context", positional = false, named = true),
         @Param(name = "cc_toolchain", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "copts_filter", positional = false, named = true),
+        @Param(
+            name = "copts_filter",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
         @Param(name = "feature_configuration", positional = false, named = true),
         @Param(name = "source", positional = false, named = true),
         @Param(
@@ -707,7 +674,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       StarlarkInfo ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
-      CoptsFilter coptsFilter,
+      Object coptsFilterObject,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Artifact sourceArtifact,
       Sequence<?> additionalCompilationInputs,
@@ -729,6 +696,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       boolean needsIncludeValidation,
       String toolchainType)
       throws EvalException, TypeException {
+    CoptsFilter coptsFilter =
+        createCoptsFilter(
+            Starlark.isNullOrNone(coptsFilterObject) ? null : (String) coptsFilterObject);
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
             starlarkRuleContext,
@@ -781,6 +751,19 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
+  private CoptsFilter createCoptsFilter(String coptsFilterString) throws EvalException {
+    if (Strings.isNullOrEmpty(coptsFilterString)) {
+      return CoptsFilter.alwaysPasses();
+    } else {
+      try {
+        return CoptsFilter.fromRegex(Pattern.compile(coptsFilterString));
+      } catch (PatternSyntaxException e) {
+        throw Starlark.errorf(
+            "invalid regular expression '%s': %s", coptsFilterString, e.getMessage());
+      }
+    }
+  }
+
   @StarlarkMethod(
       name = "create_cc_compile_action_template",
       documented = false,
@@ -811,7 +794,12 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "dotd_tree_artifact", positional = false, named = true),
         @Param(name = "diagnostics_tree_artifact", positional = false, named = true),
         @Param(name = "lto_indexing_tree_artifact", positional = false, named = true),
-        @Param(name = "copts_filter", positional = false, named = true),
+        @Param(
+            name = "copts_filter",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
         @Param(name = "needs_include_validation", positional = false, named = true),
         @Param(name = "toolchain_type", positional = false, named = true)
       })
@@ -831,10 +819,13 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object dotdTreeArtifact,
       Object diagnosticsTreeArtifact,
       Object ltoIndexingTreeArtifact,
-      CoptsFilter coptsFilter,
+      Object coptsFilterObject,
       boolean needsIncludeValidation,
       String toolchainType)
       throws RuleErrorException, EvalException {
+    CoptsFilter coptsFilter =
+        createCoptsFilter(
+            Starlark.isNullOrNone(coptsFilterObject) ? null : (String) coptsFilterObject);
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
       if (outputCategoryObject instanceof String outputCategoryString) {

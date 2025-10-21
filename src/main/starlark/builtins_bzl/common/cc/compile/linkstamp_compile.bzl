@@ -100,7 +100,6 @@ def register_linkstamp_compile_action(
         cc_compilation_context = EMPTY_COMPILATION_CONTEXT,
         cc_toolchain = cc_toolchain,
         configuration = ctx.configuration,
-        copts_filter = _cc_internal.create_copts_filter(),
         feature_configuration = feature_configuration,
         source = source_file,
         additional_compilation_inputs_set = compilation_inputs,
