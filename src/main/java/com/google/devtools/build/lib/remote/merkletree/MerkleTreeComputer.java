@@ -18,18 +18,21 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.allAsList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.submitAsync;
+import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Comparator.comparing;
 import static java.util.Map.entry;
-import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
-import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
@@ -40,7 +43,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -74,18 +77,19 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.AbstractCollection;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -167,8 +171,8 @@ public final class MerkleTreeComputer {
   private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
-  private final AsyncCache<InFlightCacheKey, MerkleTree.RootOnly> inFlightSubTreeCache =
-      Caffeine.newBuilder().buildAsync();
+  private final ConcurrentHashMap<InFlightCacheKey, ListenableFuture<MerkleTree.RootOnly>>
+      inFlightSubTreeCache = new ConcurrentHashMap<>();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -261,7 +265,7 @@ public final class MerkleTreeComputer {
         if (!Objects.equals(scrubber, lastScrubber)) {
           persistentToolSubTreeCache.invalidateAll();
           persistentNonToolSubTreeCache.invalidateAll();
-          inFlightSubTreeCache.synchronous().invalidateAll();
+          inFlightSubTreeCache.clear();
           lastScrubber = scrubber;
         }
       }
@@ -392,7 +396,7 @@ public final class MerkleTreeComputer {
                 BlobPolicy.KEEP_AND_REUPLOAD));
   }
 
-  private CompletableFuture<MerkleTree> build(
+  private ListenableFuture<MerkleTree> build(
       Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> sortedInputs,
       Predicate<PathFragment> isToolInput,
       @Nullable SpawnScrubber spawnScrubber,
@@ -402,32 +406,32 @@ public final class MerkleTreeComputer {
       @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException {
-    return precomputeSubTrees(
+    return transform(
+        precomputeSubTrees(
             sortedInputs,
             isToolInput,
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
             remotePathResolver,
-            blobPolicy)
-        .thenApplyAsync(
-            subTreeRoots -> {
-              try {
-                return buildWithPrecomputedSubTrees(
-                    subTreeRoots,
-                    sortedInputs,
-                    isToolInput,
-                    spawnScrubber,
-                    metadataProvider,
-                    artifactPathResolver,
-                    blobPolicy);
-              } catch (IOException e) {
-                throw new WrappedException(e);
-              } catch (InterruptedException e) {
-                throw new WrappedException(e);
-              }
-            },
-            MERKLE_TREE_BUILD_POOL);
+            blobPolicy),
+        subTreeRoots -> {
+          try {
+            return buildWithPrecomputedSubTrees(
+                subTreeRoots,
+                sortedInputs,
+                isToolInput,
+                spawnScrubber,
+                metadataProvider,
+                artifactPathResolver,
+                blobPolicy);
+          } catch (IOException e) {
+            throw new WrappedException(e);
+          } catch (InterruptedException e) {
+            throw new WrappedException(e);
+          }
+        },
+        MERKLE_TREE_BUILD_POOL);
   }
 
   private MerkleTree buildWithPrecomputedSubTrees(
@@ -618,7 +622,7 @@ public final class MerkleTreeComputer {
     throw new IllegalStateException("not reached");
   }
 
-  private CompletableFuture<
+  private ListenableFuture<
           ImmutableMap<
               ? extends Map.Entry<PathFragment, ? extends ActionInput>, MerkleTree.RootOnly>>
       precomputeSubTrees(
@@ -631,9 +635,9 @@ public final class MerkleTreeComputer {
           BlobPolicy blobPolicy)
           throws IOException {
     var subTreeFutures =
-        new HashMap<
-            Map.Entry<PathFragment, ? extends ActionInput>,
-            CompletableFuture<MerkleTree.RootOnly>>();
+        new ArrayList<
+            ListenableFuture<
+                Map.Entry<Map.Entry<PathFragment, ? extends ActionInput>, MerkleTree.RootOnly>>>();
     for (var entry : sortedInputs) {
       var future =
           maybeCacheSubtree(
@@ -646,17 +650,14 @@ public final class MerkleTreeComputer {
               remotePathResolver,
               blobPolicy);
       if (future != null) {
-        subTreeFutures.put(entry, future);
+        subTreeFutures.add(transform(future, subTree -> entry(entry, subTree), directExecutor()));
       }
     }
-    return allOf(subTreeFutures.values().toArray(CompletableFuture[]::new))
-        .thenApply(
-            unused ->
-                ImmutableMap.copyOf(Maps.transformValues(subTreeFutures, CompletableFuture::join)));
+    return transform(allAsList(subTreeFutures), ImmutableMap::copyOf, directExecutor());
   }
 
   @Nullable
-  private CompletableFuture<MerkleTree.RootOnly> maybeCacheSubtree(
+  private ListenableFuture<MerkleTree.RootOnly> maybeCacheSubtree(
       @Nullable ActionInput input,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -708,7 +709,7 @@ public final class MerkleTreeComputer {
     };
   }
 
-  private CompletableFuture<MerkleTree.RootOnly> computeForRunfilesTreeIfAbsent(
+  private ListenableFuture<MerkleTree.RootOnly> computeForRunfilesTreeIfAbsent(
       RunfilesArtifactValue runfilesArtifactValue,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -750,7 +751,7 @@ public final class MerkleTreeComputer {
         blobPolicy);
   }
 
-  private CompletableFuture<MerkleTree.RootOnly> computeForTreeArtifactIfAbsent(
+  private ListenableFuture<MerkleTree.RootOnly> computeForTreeArtifactIfAbsent(
       TreeArtifactValue treeArtifactValue,
       PathFragment mappedExecPath,
       Predicate<PathFragment> isToolInput,
@@ -789,7 +790,7 @@ public final class MerkleTreeComputer {
         throws IOException, InterruptedException;
   }
 
-  private CompletableFuture<MerkleTree.RootOnly> computeIfAbsent(
+  private ListenableFuture<MerkleTree.RootOnly> computeIfAbsent(
       FileArtifactValue metadata,
       SortedInputsSupplier sortedInputsSupplier,
       boolean isTool,
@@ -806,96 +807,102 @@ public final class MerkleTreeComputer {
       if (cachedRoot != null
           && (blobPolicy == BlobPolicy.DISCARD
               || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
-        return completedFuture(cachedRoot);
+        return immediateFuture(cachedRoot);
       }
     }
     var inFlightCacheKey = new InFlightCacheKey(metadata, isTool, blobPolicy != BlobPolicy.DISCARD);
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
-      inFlightSubTreeCache.synchronous().invalidate(inFlightCacheKey);
+      inFlightSubTreeCache.remove(inFlightCacheKey);
     }
-    return inFlightSubTreeCache
-        .get(
+    var newlyComputed = new AtomicBoolean();
+    var future =
+        inFlightSubTreeCache.computeIfAbsent(
             inFlightCacheKey,
-            (key, unusedExecutor) -> {
-              // There is a window in which a concurrent call may have removed the in-flight cache
-              // entry while this one had already passed the check above. Recheck the persistent
-              // cache to avoid unnecessary work.
-              var cachedRoot = persistentCache.getIfPresent(metadata);
-              if (cachedRoot != null
-                  && (blobPolicy == BlobPolicy.DISCARD
-                      || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
-                return completedFuture(cachedRoot);
-              }
-              // An ongoing computation with blobs can be reused for one that doesn't require them.
-              if (blobPolicy == BlobPolicy.DISCARD) {
-                var inFlightComputation =
-                    inFlightSubTreeCache.getIfPresent(
-                        new InFlightCacheKey(metadata, isTool, /* uploadBlobs= */ true));
-                if (inFlightComputation != null) {
-                  return inFlightComputation;
-                }
-              }
-              CompletableFuture<MerkleTree> merkleTreeFuture;
-              try {
-                // Subtrees either consist entirely of tool inputs or don't contain any.
-                // The same applies to scrubbed inputs.
-                merkleTreeFuture =
-                    build(
-                        sortedInputsSupplier.compute(),
-                        isTool ? alwaysTrue() : alwaysFalse(),
-                        /* spawnScrubber= */ null,
-                        metadataProvider,
-                        artifactPathResolver,
-                        remoteActionExecutionContext,
-                        remotePathResolver,
-                        blobPolicy);
-              } catch (IOException e) {
-                throw new WrappedException(e);
-              } catch (InterruptedException e) {
-                throw new WrappedException(e);
-              }
-              return merkleTreeFuture.thenApplyAsync(
-                  merkleTree -> {
-                    if (merkleTree instanceof MerkleTree.Uploadable uploadable) {
-                      try {
-                        if (merkleTreeUploader != null) {
-                          merkleTreeUploader.ensureInputsPresent(
-                              remoteActionExecutionContext,
-                              uploadable,
-                              blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
-                              remotePathResolver);
-                        }
-                      } catch (IOException e) {
-                        throw new WrappedException(e);
-                      } catch (InterruptedException e) {
-                        throw new WrappedException(e);
+            unusedKey -> {
+              newlyComputed.set(true);
+              return submitAsync(
+                  () -> {
+                    // There is a window in which a concurrent call may have removed the in-flight
+                    // cache entry while this one had already passed the check above. Recheck the
+                    // persistent cache to avoid unnecessary work.
+                    var cachedRoot = persistentCache.getIfPresent(metadata);
+                    if (cachedRoot != null
+                        && (blobPolicy == BlobPolicy.DISCARD
+                            || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
+                      return immediateFuture(cachedRoot);
+                    }
+                    // An ongoing computation with blobs can be reused for one that doesn't require
+                    // them.
+                    if (blobPolicy == BlobPolicy.DISCARD) {
+                      var inFlightComputation =
+                          inFlightSubTreeCache.get(
+                              new InFlightCacheKey(metadata, isTool, /* uploadBlobs= */ true));
+                      if (inFlightComputation != null) {
+                        return inFlightComputation;
                       }
                     }
-                    // Move the computed root to the persistent cache so that it can be reused
-                    // by later builds.
-                    persistentCache
-                        .asMap()
-                        .compute(
-                            metadata,
-                            (unused, oldRoot) -> {
-                              // Don't downgrade the cached root from one indicating that its
-                              // blobs have been uploaded.
-                              return oldRoot instanceof MerkleTree.RootOnly.BlobsUploaded
-                                  ? oldRoot
-                                  : merkleTree.root();
-                            });
-                    return merkleTree.root();
+                    ListenableFuture<MerkleTree> merkleTreeFuture;
+                    try {
+                      // Subtrees either consist entirely of tool inputs or don't contain any.
+                      // The same applies to scrubbed inputs.
+                      merkleTreeFuture =
+                          build(
+                              sortedInputsSupplier.compute(),
+                              isTool ? alwaysTrue() : alwaysFalse(),
+                              /* spawnScrubber= */ null,
+                              metadataProvider,
+                              artifactPathResolver,
+                              remoteActionExecutionContext,
+                              remotePathResolver,
+                              blobPolicy);
+                    } catch (IOException e) {
+                      throw new WrappedException(e);
+                    } catch (InterruptedException e) {
+                      throw new WrappedException(e);
+                    }
+                    return transform(
+                        merkleTreeFuture,
+                        merkleTree -> {
+                          if (merkleTree instanceof MerkleTree.Uploadable uploadable) {
+                            try {
+                              if (merkleTreeUploader != null) {
+                                merkleTreeUploader.ensureInputsPresent(
+                                    remoteActionExecutionContext,
+                                    uploadable,
+                                    blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
+                                    remotePathResolver);
+                              }
+                            } catch (IOException e) {
+                              throw new WrappedException(e);
+                            } catch (InterruptedException e) {
+                              throw new WrappedException(e);
+                            }
+                          }
+                          // Move the computed root to the persistent cache so that it can be reused
+                          // by later builds.
+                          persistentCache
+                              .asMap()
+                              .compute(
+                                  metadata,
+                                  (unused, oldRoot) -> {
+                                    // Don't downgrade the cached root from one indicating that its
+                                    // blobs have been uploaded.
+                                    return oldRoot instanceof MerkleTree.RootOnly.BlobsUploaded
+                                        ? oldRoot
+                                        : merkleTree.root();
+                                  });
+                          return merkleTree.root();
+                        },
+                        MERKLE_TREE_UPLOAD_POOL);
                   },
-                  MERKLE_TREE_UPLOAD_POOL);
-            })
-        // This part of the future must be kept outside the cache lambda to avoid recursive updates
-        // to the in-flight cache.
-        .thenApply(
-            root -> {
-              // Clean up the in-flight cache so that it doesn't grow unboundedly.
-              inFlightSubTreeCache.synchronous().invalidate(inFlightCacheKey);
-              return root;
+                  MERKLE_TREE_BUILD_POOL);
             });
+    if (newlyComputed.get()) {
+      // Clean up the in-flight cache so that it doesn't grow unboundedly.
+      future.addListener(
+          () -> inFlightSubTreeCache.remove(inFlightCacheKey, future), directExecutor());
+    }
+    return future;
   }
 
   private static <T> T getFromFuture(Future<T> future) throws IOException, InterruptedException {
