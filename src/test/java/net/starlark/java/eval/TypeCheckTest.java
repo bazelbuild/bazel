@@ -37,7 +37,7 @@ public class TypeCheckTest {
   @Before
   public void setup() {
     ev = new EvaluationTestCase();
-    ev.setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
   }
 
   @Test

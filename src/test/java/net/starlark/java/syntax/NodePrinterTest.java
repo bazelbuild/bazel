@@ -308,7 +308,7 @@ public final class NodePrinterTest {
 
   @Test
   public void defStatementWithTypeAnnotations() throws SyntaxError.Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     assertStmtIndentedPrettyMatches(
         """
         def f(x:int):
@@ -345,7 +345,7 @@ public final class NodePrinterTest {
   @Test
   public void typeAnnotations() throws SyntaxError.Exception {
     // TODO(ilist@): replace with parsing type annotations directly (remove `def` from this test)
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     assertStmtTostringMatches("def f(x:bool): pass", "def f(x: bool): ...\n");
     assertStmtTostringMatches("def f(x:None | bool): pass", "def f(x: None | bool): ...\n");
     assertStmtTostringMatches("def f(x:list[str]): pass", "def f(x: list[str]): ...\n");

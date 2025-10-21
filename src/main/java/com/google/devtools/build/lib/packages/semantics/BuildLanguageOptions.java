@@ -682,14 +682,37 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalDormantDeps;
 
   @Option(
-      name = "experimental_starlark_types",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES,
+      name = "experimental_starlark_type_syntax",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "Enables type annotations and type checking. Locations where the annotations are "
-              + "allowed is further controlled by `--experimental_starlark_types_allowed_paths`.")
+          "Enables type annotations and related syntax. Locations of files where these are allowed "
+              + "is further restricted by `--experimental_starlark_types_allowed_paths`.")
+  public boolean experimentalStarlarkTypeSyntax;
+
+  @Option(
+      name = "experimental_starlark_type_checking",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables type checking in files and functions that contain type annotations or related "
+              + "syntax.")
+  public boolean experimentalStarlarkTypeChecking;
+
+  // TODO: b/350661266 - Delete this flag.
+  @Option(
+      name = "experimental_starlark_types",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "No-op. Previously used as --experimental_starlark_type_syntax +"
+              + " --experimental_starlark_type_checking")
   public boolean experimentalStarlarkTypes;
 
   @Option(
@@ -915,7 +938,8 @@ public final class BuildLanguageOptions extends OptionsBase {
                 incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
             .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
-            .setBool(EXPERIMENTAL_STARLARK_TYPES, experimentalStarlarkTypes)
+            .setBool(EXPERIMENTAL_STARLARK_TYPE_SYNTAX, experimentalStarlarkTypeSyntax)
+            .setBool(EXPERIMENTAL_STARLARK_TYPE_CHECKING, experimentalStarlarkTypeChecking)
             .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
@@ -1088,7 +1112,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
 
-  public static final String EXPERIMENTAL_STARLARK_TYPES = "-experimental_starlark_types";
+  public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX =
+      FlagConstants.EXPERIMENTAL_STARLARK_TYPE_SYNTAX_FLAG_NAME;
+  public static final String EXPERIMENTAL_STARLARK_TYPE_CHECKING =
+      "-experimental_starlark_type_checking";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =

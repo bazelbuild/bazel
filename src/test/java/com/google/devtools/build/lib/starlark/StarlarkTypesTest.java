@@ -27,7 +27,8 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   @Test
   public void experimentalStarlarkTypes_on_allowsTypeAnnotations() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_starlark_types", "--experimental_starlark_types_allowed_paths=//test");
+        "--experimental_starlark_type_syntax",
+        "--experimental_starlark_types_allowed_paths=//test");
     scratch.file(
         "test/foo.bzl",
         """
@@ -44,7 +45,8 @@ public class StarlarkTypesTest extends BuildViewTestCase {
   @Test
   public void experimentalStarlarkTypes_off_disallowsTypeAnnotations() throws Exception {
     setBuildLanguageOptions(
-        "--noexperimental_starlark_types", "--experimental_starlark_types_allowed_paths=//test");
+        "--noexperimental_starlark_type_syntax",
+        "--experimental_starlark_types_allowed_paths=//test");
     scratch.file(
         "test/foo.bzl",
         """
@@ -57,14 +59,17 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "syntax error at ':': type annotations are disallowed. Enable them with "
-                + "--experimental_starlark_types and --experimental_starlark_types_allowed_paths.");
+            """
+            syntax error at ':': type annotations are disallowed. Enable them with \
+            --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
+            """);
   }
 
   @Test
   public void starlarkTypesAllowedPath_notOnPath_disallowsTypeAnnotations() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_starlark_types", "--experimental_starlark_types_allowed_paths=//main");
+        "--experimental_starlark_type_syntax",
+        "--experimental_starlark_types_allowed_paths=//main");
     scratch.file(
         "test/foo.bzl",
         """
@@ -77,14 +82,17 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "syntax error at ':': type annotations are disallowed. Enable them with "
-                + "--experimental_starlark_types and --experimental_starlark_types_allowed_paths.");
+            """
+            syntax error at ':': type annotations are disallowed. Enable them with \
+            --experimental_starlark_type_syntax and/or --experimental_starlark_types_allowed_paths.\
+            """);
   }
 
   @Test
   public void starlarkTypesAllowedPath_externalPath_allowsTypeAnnotations() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_starlark_types", "--experimental_starlark_types_allowed_paths=@@r+//test");
+        "--experimental_starlark_type_syntax",
+        "--experimental_starlark_types_allowed_paths=@@r+//test");
     scratch.overwriteFile(
         "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
     scratch.file("/r/MODULE.bazel", "module(name='r')");

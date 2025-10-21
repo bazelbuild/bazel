@@ -50,17 +50,17 @@ public final class ParserTest {
   }
 
   // Joins the lines, parse, and returns an expression.
-  private static Expression parseExpression(String... lines) throws SyntaxError.Exception {
+  private Expression parseExpression(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Expression.parse(input);
+    return Expression.parse(input, fileOptions);
   }
 
   // Parses the expression, asserts that parsing fails,
   // and returns the first error message.
-  private static String parseExpressionError(String src) {
+  private String parseExpressionError(String src) {
     ParserInput input = ParserInput.fromLines(src);
     try {
-      Expression.parse(input);
+      Expression.parse(input, fileOptions);
       throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
     } catch (SyntaxError.Exception ex) {
       return ex.errors().get(0).message();
@@ -68,16 +68,16 @@ public final class ParserTest {
   }
 
   // Joins the lines, parse, and returns a type expression.
-  private static Expression parseTypeExpression(String... lines) throws SyntaxError.Exception {
+  private Expression parseTypeExpression(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Expression.parseTypeExpression(input);
+    return Expression.parseTypeExpression(input, fileOptions);
   }
 
   // Parses the type expression, asserts that parsing fails, and returns the first error message.
-  private static String parseTypeExpressionError(String src) {
+  private String parseTypeExpressionError(String src) {
     ParserInput input = ParserInput.fromLines(src);
     try {
-      Expression.parseTypeExpression(input);
+      Expression.parseTypeExpression(input, fileOptions);
       throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
     } catch (SyntaxError.Exception ex) {
       return ex.errors().get(0).message();
@@ -362,8 +362,7 @@ public final class ParserTest {
     assertLocation(0, 14, slice);
   }
 
-  private static void evalSlice(String statement, Object... expectedArgs)
-      throws SyntaxError.Exception {
+  private void evalSlice(String statement, Object... expectedArgs) throws SyntaxError.Exception {
     SliceExpression e = (SliceExpression) parseExpression(statement);
 
     // There is no way to evaluate the expression here, so we rely on string comparison.
@@ -647,7 +646,7 @@ public final class ParserTest {
     assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
   }
 
-  private static void assertExpressionLocationCorrect(String exprStr) throws SyntaxError.Exception {
+  private void assertExpressionLocationCorrect(String exprStr) throws SyntaxError.Exception {
     Expression expr = parseExpression(exprStr);
     assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
     // Also try it with another token at the end (newline), which broke the location in the past.
@@ -1369,7 +1368,7 @@ public final class ParserTest {
 
   @Test
   public void testTypeExpression() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     // basic examples
     assertThat(parseTypeExpression("int")).isInstanceOf(Identifier.class);
     assertThat(parseTypeExpression("tuple[]")).isInstanceOf(TypeApplication.class);
@@ -1399,8 +1398,32 @@ public final class ParserTest {
   }
 
   @Test
+  public void testIllegalTypeExpression_disallowed() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("def f(a : (lambda x: x)): pass");
+    assertContainsError("syntax error at '(': expected a type");
+  }
+
+  @Test
+  public void testIllegalTypeExpression_allowedWithFlag() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+
+    parseStatement("def f(a : (lambda x: x)): pass");
+    assertThat(parseTypeExpression("lambda x: x")).isInstanceOf(LambdaExpression.class);
+
+    // Annotations shouldn't consume adjacent params.
+    Statement stmt = parseStatement("def f(p1 : x, p2): pass");
+    assertThat(stmt.kind()).isEqualTo(Statement.Kind.DEF);
+    assertThat(((DefStatement) stmt).getParameters().stream().map(p -> p.getName()))
+        .containsExactly("p1", "p2")
+        .inOrder();
+  }
+
+  @Test
   public void testDefWithTypeAnnotations() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     parseStatement("def f(a: int): pass");
     parseStatement("def f(a: tuple[]): pass");
     parseStatement("def f(a: list[str]): pass");
@@ -1418,8 +1441,8 @@ public final class ParserTest {
   }
 
   @Test
-  public void testDefWithBareStarTypeAnnotation() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+  public void testDefBareStarCannotHaveTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     setFailFast(false);
     parseStatement("def f(a, *: int, b: bool): pass");
     assertContainsError("syntax error at ':': expected )");
@@ -1434,7 +1457,7 @@ public final class ParserTest {
 
   @Test
   public void testDefWithDisallowedTypeAnnotations() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeAnnotations(false).build());
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
     setFailFast(false);
     parseStatement("def f(a: int): pass");
     assertContainsError("syntax error at ':': type annotations are disallowed.");

@@ -257,7 +257,7 @@ final class Parser {
       while (parser.token.kind == TokenKind.DOC_COMMENT_BLOCK) {
         parser.nextToken();
       }
-      result = isTypeExpr ? parser.parseTypeExpr() : parser.parseExpression();
+      result = isTypeExpr ? parser.parseTypeExprWithFallback() : parser.parseExpr();
       // Skip following doc comments and newlines (no-ops for an expression).
       while (parser.token.kind == TokenKind.NEWLINE
           || parser.token.kind == TokenKind.DOC_COMMENT_BLOCK
@@ -281,14 +281,20 @@ final class Parser {
     return result;
   }
 
-  // Equivalent to 'testlist' rule in Python grammar. It can parse every kind of
-  // expression. In many cases, we need to use parseTest to avoid ambiguity:
-  //   e.g. fct(x, y)  vs  fct((x, y))
+  // Parses every kind of expression, including unparenthesized tuples.
   //
-  // A trailing comma is disallowed in an unparenthesized tuple.
-  // This prevents bugs where a one-element tuple is surprisingly created:
-  //   e.g. foo = f(x),
-  private Expression parseExpression() {
+  // In Python the corresponding grammar production is called `expressions` (or previously, in
+  // Python 3.8 and older, `testlist`).
+  //
+  // In many cases we need to use parseTest() in place of parseExpr() to avoid ambiguity, e.g.:
+  //
+  //   f(x, y)  vs  f((x, y))
+  //
+  // Unlike Python, a trailing comma is disallowed in an unparenthesized tuple.
+  // This prevents bugs where a one-element tuple is surprisingly created, e.g.:
+  //
+  //   foo = f(x),
+  private Expression parseExpr() {
     Expression e = parseTest();
     if (token.kind != TokenKind.COMMA) {
       return e;
@@ -750,7 +756,7 @@ final class Parser {
     Expression step = null;
 
     if (token.kind != TokenKind.COLON) {
-      start = parseExpression();
+      start = parseExpr();
 
       // index x[i]
       if (token.kind == TokenKind.RBRACKET) {
@@ -777,7 +783,7 @@ final class Parser {
   // Equivalent to 'exprlist' rule in Python grammar.
   // loop_variables = primary_with_suffix ( ',' primary_with_suffix )* ','?
   private Expression parseForLoopVariables() {
-    // We cannot reuse parseExpression because it would parse the 'in' operator.
+    // We cannot reuse parseExpr because it would parse the 'in' operator.
     // e.g.  "for i in e: pass"  -> we want to parse only "i" here.
     Expression e1 = parsePrimaryWithSuffix();
     if (token.kind != TokenKind.COMMA) {
@@ -990,15 +996,29 @@ final class Parser {
 
   @Nullable
   private Expression maybeParseTypeAnnotationAfter(TokenKind expectedToken) {
-    if (options.allowTypeAnnotations() && token.kind == expectedToken) {
+    if (options.allowTypeSyntax() && token.kind == expectedToken) {
       nextToken();
-      return parseTypeExpr();
+      return parseTypeExprWithFallback();
     } else if (token.kind == expectedToken) {
       syntaxError(
-          "type annotations are disallowed. Enable them with --experimental_starlark_types and"
-              + " --experimental_starlark_types_allowed_paths.");
+          "type annotations are disallowed. Enable them with --experimental_starlark_type_syntax "
+              + "and/or --experimental_starlark_types_allowed_paths.");
     }
     return null;
+  }
+
+  // Hook for parsing either a structured type expression, or an unstructured arbitrary expression
+  // (except for unparenthesized tuples). The latter is useless for type checking but allows the
+  // parser to never fail on parsing a type annotation it doesn't recognize (e.g. supported by a
+  // future version of Bazel), so long as it's valid expression syntax.
+  private Expression parseTypeExprWithFallback() {
+    if (options.allowArbitraryTypeExpressions()) {
+      // parseTest, because allowing unparenthesized tuples here would consume subsequent params in
+      // function signatures.
+      return parseTest();
+    } else {
+      return parseTypeExpr();
+    }
   }
 
   // TypeExpr = TypeAtom {'|' TypeAtom}.
@@ -1113,7 +1133,10 @@ final class Parser {
     return new TypeApplication(locs, constructor, args.build(), rbracketOffset);
   }
 
-  // Parses a non-tuple expression ("test" in Python terminology).
+  // Parses any expression except for an unparenthesized tuple.
+  //
+  // In Python the corresponding grammar production is called `expression` (or previously, in
+  // Python 3.8 and older, `test`).
   private Expression parseTest() {
     int start = token.start;
     if (token.kind == TokenKind.LAMBDA) {
@@ -1339,13 +1362,13 @@ final class Parser {
       return parseLoadStatement();
     }
 
-    Expression lhs = parseExpression();
+    Expression lhs = parseExpr();
 
     // lhs = rhs  or  lhs += rhs
     TokenKind op = augmentedAssignments.get(token.kind);
     if (token.kind == TokenKind.EQUALS || op != null) {
       int opOffset = nextToken();
-      Expression rhs = parseExpression();
+      Expression rhs = parseExpr();
       @Nullable
       DocComments docComments = getDocCommentBlockOnPreviousLine(lhs.getStartLocation().line());
       if (token.kind == TokenKind.DOC_COMMENT_TRAILING) {
@@ -1391,7 +1414,7 @@ final class Parser {
     int forOffset = expect(TokenKind.FOR);
     Expression vars = parseForLoopVariables();
     expect(TokenKind.IN);
-    Expression collection = parseExpression();
+    Expression collection = parseExpr();
     expect(TokenKind.COLON);
     ImmutableList<Statement> body = parseSuite();
     return new ForStatement(locs, forOffset, vars, collection, body);
@@ -1469,7 +1492,7 @@ final class Parser {
 
     Expression result = null;
     if (!STATEMENT_TERMINATOR_SET.contains(token.kind)) {
-      result = parseExpression();
+      result = parseExpr();
     }
     return new ReturnStatement(locs, returnOffset, result);
   }
