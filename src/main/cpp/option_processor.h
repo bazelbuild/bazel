@@ -144,7 +144,8 @@ class OptionProcessor {
   //   - workspace, %workspace%/.bazelrc (unless --noworkspace_rc, or we aren't
   //     in a workspace directory, indicated by an empty workspace parameter)
   //   - user, $HOME/.bazelrc (unless --nohome_rc)
-  //   - command-line provided, if a value is passed with --bazelrc.
+  //   - command-line provided, if a value is passed with --bazelrc
+  //   - `BAZELRC` environment variable, if non empty.
   virtual blaze_exit_code::ExitCode GetRcFiles(
       const WorkspaceLayout* workspace_layout, const std::string& workspace,
       const std::string& cwd, const CommandLine* cmd_line,

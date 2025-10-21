@@ -51,7 +51,12 @@ before the command (`build`, `test`, etc).
 
     It is not an error if this file does not exist.
 
-4.  **The user-specified RC file**, if specified with
+4.  **The environment variable RC file**, if its path is set with the `BAZELRC`
+    environment variable.
+
+    The environment variable can include multiple comma-separated paths.
+
+5.  **The user-specified RC file**, if specified with
     <code>--bazelrc=<var>file</var></code>
 
     This flag is optional but can also be specified multiple times.

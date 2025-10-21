@@ -351,6 +351,20 @@ std::vector<std::string> GetLostFiles(
   return result;
 }
 
+blaze_exit_code::ExitCode GetAndValidateExistingRcFiles(
+    const std::vector<std::string>& input_rc_files,
+    std::vector<std::string>* result_rc_files) {
+  for (const auto& rc_file : input_rc_files) {
+    string absolute_rc = blaze::AbsolutePathFromFlag(rc_file);
+    if (!blaze_util::CanReadFile(absolute_rc)) {
+      BAZEL_LOG(ERROR) << "Error: Unable to read .bazelrc file '" << absolute_rc
+                       << "'.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    result_rc_files->push_back(absolute_rc);
+  }
+  return blaze_exit_code::SUCCESS;
+}
 }  // namespace internal
 
 // TODO(#4502) Consider simplifying result_rc_files to a vector of RcFiles, no
@@ -393,21 +407,23 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     }
   }
 
+  // Get the env var provided rc.
+  const std::vector<std::string> env_var_rc_files =
+      blaze_util::Split(GetEnv("BAZELRC"), ',');
+  blaze_exit_code::ExitCode env_exit_code =
+      internal::GetAndValidateExistingRcFiles(env_var_rc_files, &rc_files);
+  if (env_exit_code != blaze_exit_code::SUCCESS) {
+    return env_exit_code;
+  }
+
   // Get the command-line provided rc, passed as --bazelrc or nothing if the
   // flag is absent.
   vector<std::string> cmd_line_rc_files =
       GetAllUnaryOptionValues(cmd_line->startup_args, "--bazelrc", "/dev/null");
-  for (auto& rc_file : cmd_line_rc_files) {
-    string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(rc_file);
-    // Unlike the previous 3 paths, where we ignore it if the file does not
-    // exist or is unreadable, since this path is explicitly passed, this is an
-    // error. Check this condition here.
-    if (!blaze_util::CanReadFile(absolute_cmd_line_rc)) {
-      BAZEL_LOG(ERROR) << "Error: Unable to read .bazelrc file '"
-                       << absolute_cmd_line_rc << "'.";
-      return blaze_exit_code::BAD_ARGV;
-    }
-    rc_files.push_back(absolute_cmd_line_rc);
+  blaze_exit_code::ExitCode cmd_exit_code =
+      internal::GetAndValidateExistingRcFiles(cmd_line_rc_files, &rc_files);
+  if (cmd_exit_code != blaze_exit_code::SUCCESS) {
+    return cmd_exit_code;
   }
 
   // Log which files we're looking for before removing duplicates and
