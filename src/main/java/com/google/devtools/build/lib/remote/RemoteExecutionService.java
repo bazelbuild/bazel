@@ -1991,6 +1991,9 @@ public class RemoteExecutionService {
 
     if (buildInterrupted.get()) {
       backgroundTaskExecutor.shutdownNow();
+      if (combinedCache != null) {
+        combinedCache.shutdownNow();
+      }
       Thread.currentThread().interrupt();
     }
 
