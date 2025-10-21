@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -185,6 +186,15 @@ public class BzlCompileFunction implements SkyFunction {
         StarlarkUtil.InvalidUtf8Exception e) {
       return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
     }
+
+    List<String> typeSyntaxAllowlist =
+        semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
+    boolean typeSyntaxAllowlistMatchesPath =
+        !key.isBuildPrelude() // annotations in prelude not allowed (it has null key.label)
+            && (typeSyntaxAllowlist.isEmpty()
+                || typeSyntaxAllowlist.stream()
+                    .anyMatch(s -> key.label.getCanonicalForm().startsWith(s)));
+
     FileOptions options =
         FileOptions.builder()
             // By default, Starlark load statements create file-local bindings.
@@ -199,16 +209,11 @@ public class BzlCompileFunction implements SkyFunction {
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
-            .allowTypeAnnotations(
-                semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES)
-                    && !key.isBuildPrelude() // annotations in prelude not allowed
-                    && (semantics
-                            .get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS)
-                            .isEmpty()
-                        || semantics
-                            .get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS)
-                            .stream()
-                            .anyMatch(s -> key.label.getCanonicalForm().startsWith(s))))
+            .allowTypeSyntax(
+                semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX)
+                    && typeSyntaxAllowlistMatchesPath)
+            .allowArbitraryTypeExpressions(
+                !semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_CHECKING))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 
