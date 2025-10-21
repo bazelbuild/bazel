@@ -893,6 +893,9 @@ public final class MerkleTreeComputer {
   private static <T> T getFromFuture(Future<T> future) throws IOException, InterruptedException {
     try {
       return future.get();
+    } catch (InterruptedException e) {
+      future.cancel(/* mayInterruptIfRunning= */ true);
+      throw e;
     } catch (ExecutionException e) {
       if (e.getCause() instanceof WrappedException wrappedException) {
         wrappedException.unwrapAndThrow();
