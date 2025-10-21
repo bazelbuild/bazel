@@ -161,9 +161,9 @@ public class ModExecutor {
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
-  public void showRepo(ImmutableMap<String, RepoDefinition> targetRepoDefinitions, String specialBuiltinRepoMsg) {
-    if (!specialBuiltinRepoMsg.isEmpty()) {
-      printer.println(specialBuiltinRepoMsg);
+  public void showRepo(ImmutableMap<String, RepoDefinition> targetRepoDefinitions, String repoOverrideMsg) {
+    if (!repoOverrideMsg.isEmpty()) {
+      printer.println(repoOverrideMsg);
     }
     if (targetRepoDefinitions != null) {
       for (Map.Entry<String, RepoDefinition> e : targetRepoDefinitions.entrySet()) {

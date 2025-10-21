@@ -476,7 +476,7 @@ public final class ModCommand implements BlazeCommand {
     }
 
     ImmutableMap<String, RepoDefinition> targetRepoDefinitions = null;
-    String specialBuiltinRepoMsg = "";
+    String repoOverrideMsg = "";
     try {
       if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
@@ -501,9 +501,9 @@ public final class ModCommand implements BlazeCommand {
                 String.format("In repo argument %s: no such repo", e.getKey()),
                 Code.INVALID_ARGUMENTS);
           }
-          if (value instanceof RepoDefinitionValue.SpecialBuiltinRepo) {
-            Path repoPath = ((RepoDefinitionValue.SpecialBuiltinRepo) value).repoPath();
-            specialBuiltinRepoMsg = String.format("\n## bazel_tools:\nSpecial builtin repo located at: %s\n\n", repoPath);
+          if (value instanceof RepoDefinitionValue.RepoOverride) {
+            PathFragment repoPath = ((RepoDefinitionValue.RepoOverride) value).repoPath();
+            repoOverrideMsg = String.format("\n## %s:\nSpecial builtin repo located at: %s\n", e.getKey(), repoPath);
           }
           if (value instanceof RepoDefinitionValue.Found) {
             resultBuilder.put(e.getKey(), ((RepoDefinitionValue.Found) value).repoDefinition());
@@ -547,7 +547,7 @@ public final class ModCommand implements BlazeCommand {
         case DEPS -> modExecutor.graph(argsAsModules);
         case PATH -> modExecutor.path(fromKeys, argsAsModules);
         case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
-        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions, specialBuiltinRepoMsg);
+        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions, repoOverrideMsg);
         case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
         default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }

@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -168,17 +167,6 @@ public final class RepositoryFetchFunction implements SkyFunction {
       Path repoRoot =
           RepositoryUtils.getExternalRepositoryDirectory(directories)
               .getRelative(repositoryName.getName());
-      Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
-      if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
-        return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName);
-      }
-      if (repositoryName.equals(RepositoryName.BAZEL_TOOLS)) {
-        return setupOverride(
-            directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").asFragment(),
-            env,
-            repoRoot,
-            repositoryName);
-      }
 
       RepoDefinition repoDefinition;
       switch ((RepoDefinitionValue) env.getValue(RepoDefinitionValue.key(repositoryName))) {
@@ -188,8 +176,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
         case RepoDefinitionValue.NotFound() -> {
           return new Failure(String.format("Repository '%s' is not defined", repositoryName));
 }          
-        case RepoDefinitionValue.SpecialBuiltinRepo(Path repoPath) -> {
-          return null;
+        case RepoDefinitionValue.RepoOverride(PathFragment repoPath) -> {
+          return setupOverride(repoPath, env, repoRoot, repositoryName);
         }
 
         case RepoDefinitionValue.Found(RepoDefinition rd) -> {

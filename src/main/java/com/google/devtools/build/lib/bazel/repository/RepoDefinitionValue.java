@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -55,9 +55,9 @@ public sealed interface RepoDefinitionValue extends NotComparableSkyValue {
   @AutoCodec
   record NotFound() implements RepoDefinitionValue {}
 
-  /** Special builtin repo - bazel_tools. */
+  /** Symlink to target directory. */
   @AutoCodec
-  record SpecialBuiltinRepo(Path repoPath) implements RepoDefinitionValue {}
+  record RepoOverride(PathFragment repoPath) implements RepoDefinitionValue {}
 
   /** A repo with the given name is found. */
   @AutoCodec
