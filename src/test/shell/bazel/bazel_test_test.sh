@@ -735,24 +735,20 @@ EOF
   cat bazel-testlogs/dir/success/test.xml >$TEST_log
   expect_log "errors=\"0\""
   expect_log_once "testcase"
-  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/success\""
   cat bazel-testlogs/dir/fail/test.xml >$TEST_log
   expect_log "errors=\"1\""
   expect_log_once "testcase"
-  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/fail\""
 
   bazel test //dir:all --run_under=exec &> $TEST_log && fail "should have failed" || true
   cp bazel-testlogs/dir/success/test.xml $TEST_log
   expect_log "errors=\"0\""
   expect_log_once "testcase"
-  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/success\""
   cp bazel-testlogs/dir/fail/test.xml $TEST_log
   expect_log "errors=\"1\""
   expect_log_once "testcase"
-  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/fail\""
 }
 

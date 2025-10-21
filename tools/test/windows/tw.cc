@@ -1453,11 +1453,11 @@ bool ParseArgs(int argc, wchar_t** argv, const Path& exec_root,
 
 bool ParseXmlWriterArgs(int argc, wchar_t** argv, const Path& cwd,
                         Path* out_test_log, Path* out_xml_log,
-                        Duration* out_duration, int* out_exit_code) {
-  if (argc < 5) {
+                        int* out_exit_code) {
+  if (argc < 4) {
     LogError(__LINE__,
              "Usage: $0 <test_output_path> <xml_log_path>"
-             " <duration_in_seconds> <exit_code>");
+             " <exit_code>");
     return false;
   }
   if (!out_test_log->Set(argv[1]) || out_test_log->Get().empty()) {
@@ -1471,13 +1471,8 @@ bool ParseXmlWriterArgs(int argc, wchar_t** argv, const Path& cwd,
     return false;
   }
   out_xml_log->Absolutize(cwd);
-  if (!out_duration->FromString(argv[3])) {
-    LogErrorWithArg(__LINE__, "Failed to parse test duration argument",
-                    argv[3]);
-    return false;
-  }
-  if (!ToInt(argv[4], out_exit_code)) {
-    LogErrorWithArg(__LINE__, "Failed to parse exit code argument", argv[4]);
+  if (!ToInt(argv[3], out_exit_code)) {
+    LogErrorWithArg(__LINE__, "Failed to parse exit code argument", argv[3]);
     return false;
   }
   return true;
@@ -1516,7 +1511,7 @@ bool TeeImpl::MainFunc() const {
 }
 
 int RunSubprocess(const Path& test_path, const std::wstring& args,
-                  const Path& test_outerr, Duration* test_duration) {
+                  const Path& test_outerr) {
   std::unique_ptr<Tee> tee;
   bazel::windows::WaitableProcess process;
   LARGE_INTEGER start, end, freq;
@@ -1539,17 +1534,6 @@ int RunSubprocess(const Path& test_path, const std::wstring& args,
     return 1;
   }
 
-  QueryPerformanceFrequency(&freq);
-  end.QuadPart -= start.QuadPart;
-  decltype(LARGE_INTEGER::QuadPart) seconds;
-  // Compute the number of seconds the test ran for.
-  seconds = end.QuadPart / freq.QuadPart;
-  // Check the remainder: if it's at least 0.5 seconds, round up.
-  if ((end.QuadPart - seconds * freq.QuadPart) * 2 >= freq.QuadPart) {
-    seconds += 1;
-  }
-  test_duration->seconds =
-      (seconds > Duration::kMax) ? Duration::kMax : seconds;
   return result;
 }
 
@@ -1686,7 +1670,7 @@ std::string CreateErrorTag(int exit_code) {
 }
 
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
-                  const Duration duration, const int exit_code,
+                  const int exit_code,
                   const DeleteAfterwards delete_afterwards,
                   const MainType main_type) {
   if (main_type != MainType::kXmlWriterMain) {
@@ -1743,8 +1727,7 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
        << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
        << "\">\n"
           "<testcase name=\""
-       << acp_test_name << "\" status=\"run\" duration=\"" << duration.seconds
-       << "\" time=\"" << duration.seconds << "\">" << error_msg
+       << acp_test_name << "\" status=\"run\">" << error_msg
        << "</testcase>\n"
           "<system-out><![CDATA[";
   if (!ostm.good()) {
@@ -1953,9 +1936,8 @@ int TestWrapperMain(int argc, wchar_t** argv) {
     return 1;
   }
 
-  Duration test_duration;
-  int result = RunSubprocess(executable, args, test_outerr, &test_duration);
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
+  int result = RunSubprocess(executable, args, test_outerr);
+  if (!CreateXmlLog(xml_log, test_outerr, result,
                     DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
@@ -1967,13 +1949,12 @@ int TestWrapperMain(int argc, wchar_t** argv) {
 
 int XmlWriterMain(int argc, wchar_t** argv) {
   Path cwd, test_outerr, test_xml_log;
-  Duration duration;
   int exit_code = 0;
 
   if (!GetCwd(&cwd) ||
       !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
-                          &duration, &exit_code) ||
-      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code,
+                          &exit_code) ||
+      !CreateXmlLog(test_xml_log, test_outerr, exit_code,
                     DeleteAfterwards::kDisabled, MainType::kXmlWriterMain)) {
     return 1;
   }

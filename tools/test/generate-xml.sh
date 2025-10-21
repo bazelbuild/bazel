@@ -18,8 +18,7 @@ set -euo pipefail
 
 TEST_LOG="$1"
 XML_OUTPUT_FILE="$2"
-DURATION_IN_SECONDS="$3"
-EXIT_CODE="$4"
+EXIT_CODE="$3"
 
 function encode_stream {
   # Replace invalid XML characters and invalid sequence in CDATA
@@ -119,7 +118,7 @@ cat >"${XML_OUTPUT_FILE}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="${test_name}" tests="1" failures="0" errors="${errors}">
-    <testcase name="${test_name}" status="run" duration="${DURATION_IN_SECONDS}" time="${DURATION_IN_SECONDS}">${error_msg}</testcase>
+    <testcase name="${test_name}" status="run">${error_msg}</testcase>
       <system-out>
 Generated test.log (if the file is not UTF-8, then this may be unreadable):
 <![CDATA[${ENCODED_LOG}]]>
