@@ -217,5 +217,55 @@ EOF
   expect_log "value after transition: prickly-pear"
 }
 
+function test_bzl_module_flag_alias_function() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  # Set up rule, flag definitions.
+  cat > $pkg/rules.bzl <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+simple_flag = rule(
+  implementation = lambda ctx: BuildSettingInfo(value = ctx.build_setting_value),
+  build_setting = config.string(flag = True),
+)
+simple_rule = rule(
+    implementation = lambda ctx: [],
+    attrs = {}
+)
+EOF
+
+  # Set up rule, flag instances.
+  cat > $pkg/BUILD <<EOF
+load(":rules.bzl", "simple_rule", "simple_flag")
+simple_flag(
+  name = "my_flag",
+  build_setting_default = "default",
+)
+simple_rule(name = "buildme")
+EOF
+
+  # Set up root workspace's MODULE.bazel.
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
+flag_alias(name = "compilation_mode", starlark_flag = "//:my_flag")
+EOF
+
+  cd $pkg
+  # cquery a target with the alias-mapped flag.
+  bazel cquery :buildme --compilation_mode=opt \
+      --flag_alias=user_set=//:fake_flag > cquery_output 2>"$TEST_log" \
+      || fail "Expected success"
+  # Find the cquery target's configuration hash.
+  config_hash=$(cat cquery_output  | grep -o '([a-zA-Z0-9]\+)' | tr -d '()')
+  # Get the configuration.
+  bazel config $config_hash > "$TEST_log" 2>&1 || fail "Expected success"
+
+  expect_log "//:my_flag: opt" "Expected Starlark flag to have user value"
+  expect_log "compilation_mode: fastbuild" \
+      "Expected native flag to have default value"
+  # This is important because select() and transitions read --flag_alias to
+  # correctly map aliases.
+  expect_log 'flag_alias: \[compilation_mode=@@//:my_flag, user_set=//:fake_flag\]' \
+      "Expected alias to be in --flag_alias option value list"
+}
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

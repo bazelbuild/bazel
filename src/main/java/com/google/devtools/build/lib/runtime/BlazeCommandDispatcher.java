@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionAndRawValue;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
@@ -661,13 +663,21 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             Profiler.instance().profile(ProfilerTask.BZLMOD, "compute main repo mapping")) {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
-          optionsParser =
-              optionsParser.toBuilder()
-                  .withConversionContext(mainRepoMapping)
-                  .withAliases(
-                      env.getSkyframeExecutor()
-                          .getFlagAliases(reporter, removePyFragment, removeBazelPyFragment))
-                  .build();
+          optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
+          // Collect MODULE.bazel flag_alias(name = "foo", starlark_flag = "//bar") entries, so when
+          // builds set "--foo=1", that maps to "--//bar=1". Inject this as an implicit
+          // "--flag_alias=foo=//bar" flag. This is because select()s and configuration transitions
+          // really on that flag (CoreOptions.commandLineFlagAliases) to properly handle aliases.
+          optionsParser.parse(
+              PriorityCategory.RC_FILE,
+              "module resolution",
+              env
+                  .getSkyframeExecutor()
+                  .getFlagAliases(reporter, removePyFragment, removeBazelPyFragment)
+                  .entrySet()
+                  .stream()
+                  .map(e -> String.format("--flag_alias=%s=%s", e.getKey(), e.getValue()))
+                  .collect(toImmutableList()));
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";
