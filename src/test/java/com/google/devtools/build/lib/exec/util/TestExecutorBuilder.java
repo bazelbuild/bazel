@@ -44,9 +44,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
-/**
- * Builder for the test instance of the {@link BlazeExecutor} class.
- */
+/** Builder for the test instance of the {@link BlazeExecutor} class. */
 public class TestExecutorBuilder {
   public static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_OPTIONS =
       ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class, CoreOptions.class);
@@ -69,7 +67,9 @@ public class TestExecutorBuilder {
     this.execRoot = execRoot;
     addContext(FileWriteActionContext.class, new FileWriteStrategy());
     addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
-    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, "__main__"));
+    addContext(
+        SymlinkTreeActionContext.class,
+        new SymlinkTreeStrategy(null, TestConstants.WORKSPACE_NAME));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 
