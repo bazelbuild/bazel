@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -83,13 +84,20 @@ class OnDiskBlobStoreCache extends CombinedCache {
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
     Directory directory = Directory.parseFrom(getFromFuture(downloadBlob(context, rootDigest)));
+    HashSet<Path> childrenSeen = new HashSet<>();
     for (FileNode file : directory.getFilesList()) {
       Path dst = rootLocation.getRelative(unicodeToInternal(file.getName()));
+      if (!childrenSeen.add(dst)) {
+        throw new IOException("Duplicate child '%s' in directory %s".formatted(dst, directory));
+      }
       getFromFuture(downloadFile(context, dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
     }
     for (SymlinkNode symlink : directory.getSymlinksList()) {
       Path dst = rootLocation.getRelative(unicodeToInternal(symlink.getName()));
+      if (!childrenSeen.add(dst)) {
+        throw new IOException("Duplicate child '%s' in directory %s".formatted(dst, directory));
+      }
       // TODO(fmeum): The following line is not generally correct: The remote execution API allows
       //  for non-normalized symlink targets, but the normalization applied by PathFragment.create
       //  does not take directory symlinks into account. However, Bazel's file system API does not
@@ -98,8 +106,11 @@ class OnDiskBlobStoreCache extends CombinedCache {
       dst.createSymbolicLink(PathFragment.create(unicodeToInternal(symlink.getTarget())));
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
-      downloadTree(
-          context, child.getDigest(), rootLocation.getRelative(unicodeToInternal(child.getName())));
+      Path dst = rootLocation.getRelative(unicodeToInternal(child.getName()));
+      if (!childrenSeen.add(dst)) {
+        throw new IOException("Duplicate child '%s' in directory %s".formatted(dst, directory));
+      }
+      downloadTree(context, child.getDigest(), dst);
     }
   }
 
