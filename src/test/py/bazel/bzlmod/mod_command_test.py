@@ -634,7 +634,7 @@ class ModCommandTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     stdout = '\n'.join(stdout)
     self.assertIn('## bazel_tools:', stdout)
-    self.assertIn('Special builtin repo stored at: ', stdout)
+    self.assertIn('Special builtin repo located at: ', stdout)
     self.assertIn('/external/bazel_tools', stdout)
 
   def testDumpRepoMapping(self):

@@ -161,10 +161,15 @@ public class ModExecutor {
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
-  public void showRepo(ImmutableMap<String, RepoDefinition> targetRepoDefinitions) {
-    for (Map.Entry<String, RepoDefinition> e : targetRepoDefinitions.entrySet()) {
-      printer.printf("## %s:\n", e.getKey());
-      printRepoDefinition(e.getValue());
+  public void showRepo(ImmutableMap<String, RepoDefinition> targetRepoDefinitions, String specialBuiltinRepoMsg) {
+    if (!specialBuiltinRepoMsg.isEmpty()) {
+      printer.println(specialBuiltinRepoMsg);
+    }
+    if (targetRepoDefinitions != null) {
+      for (Map.Entry<String, RepoDefinition> e : targetRepoDefinitions.entrySet()) {
+        printer.printf("## %s:\n", e.getKey());
+        printRepoDefinition(e.getValue());
+      }
     }
     printer.flush();
   }

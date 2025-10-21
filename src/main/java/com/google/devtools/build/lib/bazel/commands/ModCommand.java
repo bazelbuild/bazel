@@ -476,6 +476,7 @@ public final class ModCommand implements BlazeCommand {
     }
 
     ImmutableMap<String, RepoDefinition> targetRepoDefinitions = null;
+    String specialBuiltinRepoMsg = "";
     try {
       if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
@@ -502,22 +503,15 @@ public final class ModCommand implements BlazeCommand {
           }
           if (value instanceof RepoDefinitionValue.SpecialBuiltinRepo) {
             Path repoPath = ((RepoDefinitionValue.SpecialBuiltinRepo) value).repoPath();
-            String info = String.format("\n## bazel_tools:\nSpecial builtin repo stored at: %s\n\n", repoPath);
-
-            OutputStreamWriter writer = new OutputStreamWriter(
-                env.getReporter().getOutErr().getOutputStream(),
-                modOptions.charset == UTF8 ? UTF_8 : US_ASCII 
-            );
-            writer.write(info);
-            writer.flush();
-
-            return BlazeCommandResult.success();
+            specialBuiltinRepoMsg = String.format("\n## bazel_tools:\nSpecial builtin repo located at: %s\n\n", repoPath);
           }
-          resultBuilder.put(e.getKey(), ((RepoDefinitionValue.Found) value).repoDefinition());
+          if (value instanceof RepoDefinitionValue.Found) {
+            resultBuilder.put(e.getKey(), ((RepoDefinitionValue.Found) value).repoDefinition());
+          }
         }
         targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
-    } catch (InterruptedException | IOException e) {
+    } catch (InterruptedException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
       return BlazeCommandResult.detailedExitCode(
@@ -553,7 +547,7 @@ public final class ModCommand implements BlazeCommand {
         case DEPS -> modExecutor.graph(argsAsModules);
         case PATH -> modExecutor.path(fromKeys, argsAsModules);
         case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
-        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions);
+        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions, specialBuiltinRepoMsg);
         case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
         default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }
