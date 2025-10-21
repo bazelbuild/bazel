@@ -193,6 +193,7 @@ public interface SpawnRunner {
           throwIfInstanceOf(cause, IOException.class);
           throwIfInstanceOf(cause, ExecException.class);
           throwIfInstanceOf(cause, ForbiddenActionInputException.class);
+          throwIfInstanceOf(cause, InterruptedException.class);
           throwIfInstanceOf(cause, RuntimeException.class);
         }
         throw new IOException(e);
