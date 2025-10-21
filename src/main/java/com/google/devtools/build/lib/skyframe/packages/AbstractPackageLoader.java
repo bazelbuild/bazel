@@ -588,7 +588,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 ruleClassProvider.getBazelStarlarkEnvironment(),
                 Root.fromPath(directories.getWorkspace())))
         .put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE)
-        .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
+        .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction(ruleClassProvider))
         .put(
             SkyFunctions.PACKAGE,

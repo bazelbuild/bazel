@@ -187,7 +187,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
         case RepoDefinitionValue.NotFound() -> {
           return new Failure(String.format("Repository '%s' is not defined", repositoryName));
+}          
+        case RepoDefinitionValue.SpecialBuiltinRepo(Path repoPath) -> {
+          return null;
         }
+
         case RepoDefinitionValue.Found(RepoDefinition rd) -> {
           repoDefinition = rd;
         }

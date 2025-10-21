@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoRuleId;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -47,6 +49,11 @@ import net.starlark.java.syntax.Location;
 
 /** Looks up the definition of a repo with the given name. */
 public final class RepoDefinitionFunction implements SkyFunction {
+  private final BlazeDirectories directories;
+
+  public RepoDefinitionFunction(BlazeDirectories directories) {
+    this.directories = directories;
+  }
 
   @Nullable
   @Override
@@ -76,6 +83,14 @@ public final class RepoDefinitionFunction implements SkyFunction {
             RepositoryName.MAIN);
 
     RepositoryName repositoryName = ((RepoDefinitionValue.Key) skyKey).argument();
+
+    // Step 0: Look for bazel_tools, as it is a special, builtin repository.
+    if (repositoryName.equals(RepositoryName.BAZEL_TOOLS)) {
+        Path repoPath =
+            RepositoryUtils.getExternalRepositoryDirectory(directories)
+                .getRelative(repositoryName.getName());
+        return new RepoDefinitionValue.SpecialBuiltinRepo(repoPath);
+      }
 
     // Step 1: Look for repositories defined by non-registry overrides.
     Optional<RepoSpec> repoSpec = checkRepoFromNonRegistryOverrides(root, repositoryName);

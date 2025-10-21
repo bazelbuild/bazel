@@ -625,6 +625,18 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
+  # fix for https://github.com/bazelbuild/bazel/issues/27233
+  def testShowRepoBazelTools(self):
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@bazel_tools'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    stdout = '\n'.join(stdout)
+    self.assertIn('## bazel_tools:', stdout)
+    self.assertIn('Special builtin repo stored at: ', stdout)
+    self.assertIn('/external/bazel_tools', stdout)
+
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
         [

@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -499,11 +500,24 @@ public final class ModCommand implements BlazeCommand {
                 String.format("In repo argument %s: no such repo", e.getKey()),
                 Code.INVALID_ARGUMENTS);
           }
+          if (value instanceof RepoDefinitionValue.SpecialBuiltinRepo) {
+            Path repoPath = ((RepoDefinitionValue.SpecialBuiltinRepo) value).repoPath();
+            String info = String.format("\n## bazel_tools:\nSpecial builtin repo stored at: %s\n\n", repoPath);
+
+            OutputStreamWriter writer = new OutputStreamWriter(
+                env.getReporter().getOutErr().getOutputStream(),
+                modOptions.charset == UTF8 ? UTF_8 : US_ASCII 
+            );
+            writer.write(info);
+            writer.flush();
+
+            return BlazeCommandResult.success();
+          }
           resultBuilder.put(e.getKey(), ((RepoDefinitionValue.Found) value).repoDefinition());
         }
         targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
-    } catch (InterruptedException e) {
+    } catch (InterruptedException | IOException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
       return BlazeCommandResult.detailedExitCode(
