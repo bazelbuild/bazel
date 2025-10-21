@@ -3567,6 +3567,151 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void starlarkCustomCommandLineKeyComputation_singleLabel_repoMappingChanges_relevant()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    var mainRepoMapping1 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent1", RepositoryName.createUnvalidated("canonical+")),
+            RepositoryName.MAIN);
+    var mainRepoMapping2 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent2", RepositoryName.createUnvalidated("canonical+")),
+            RepositoryName.MAIN);
+    var args =
+        """
+        args = ruleContext.actions.args()
+        args.add(Label("@@canonical+//foo:bar"))
+        """;
+    var commandLine1 = getCommandLine(mainRepoMapping1, args);
+    var commandLine2 = getCommandLine(mainRepoMapping2, args);
+
+    assertThat(ImmutableList.copyOf(commandLine1.arguments()))
+        .isNotEqualTo(ImmutableList.copyOf(commandLine2.arguments()));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_singleLabel_repoMappingChanges_notRelevant()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    var mainRepoMapping1 =
+        RepositoryMapping.create(
+            ImmutableMap.of(
+                "apparent", RepositoryName.createUnvalidated("canonical+"),
+                "other_repo1", RepositoryName.createUnvalidated("other_repo+")),
+            RepositoryName.MAIN);
+    var mainRepoMapping2 =
+        RepositoryMapping.create(
+            ImmutableMap.of(
+                "apparent", RepositoryName.createUnvalidated("canonical+"),
+                "other_repo2", RepositoryName.createUnvalidated("other_repo+")),
+            RepositoryName.MAIN);
+    var args =
+        """
+        args = ruleContext.actions.args()
+        args.add(Label("@@canonical+//foo:bar"))
+        """;
+    var commandLine1 = getCommandLine(mainRepoMapping1, args);
+    var commandLine2 = getCommandLine(mainRepoMapping2, args);
+
+    assertThat(commandLine1.arguments())
+        .containsExactlyElementsIn(commandLine2.arguments())
+        .inOrder();
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_listOfLabels_repoMappingChanges_relevant()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    var mainRepoMapping1 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent1", RepositoryName.createUnvalidated("canonical+")),
+            RepositoryName.MAIN);
+    var mainRepoMapping2 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent2", RepositoryName.createUnvalidated("canonical+")),
+            RepositoryName.MAIN);
+    var args =
+        """
+        args = ruleContext.actions.args()
+        args.add_all([Label("@@canonical+//foo:bar"), Label("@@canonical+//foo:baz")])
+        """;
+    var commandLine1 = getCommandLine(mainRepoMapping1, args);
+    var commandLine2 = getCommandLine(mainRepoMapping2, args);
+
+    assertThat(ImmutableList.copyOf(commandLine1.arguments()))
+        .isNotEqualTo(ImmutableList.copyOf(commandLine2.arguments()));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_listOfLabels_repoMappingChanges_notRelevant()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    var mainRepoMapping1 =
+        RepositoryMapping.create(
+            ImmutableMap.of(
+                "apparent",
+                RepositoryName.createUnvalidated("canonical+"),
+                "other_repo1",
+                RepositoryName.createUnvalidated("other_repo+")),
+            RepositoryName.MAIN);
+    var mainRepoMapping2 =
+        RepositoryMapping.create(
+            ImmutableMap.of(
+                "apparent",
+                RepositoryName.createUnvalidated("canonical+"),
+                "other_repo2",
+                RepositoryName.createUnvalidated("other_repo+")),
+            RepositoryName.MAIN);
+    var args =
+        """
+        args = ruleContext.actions.args()
+        args.add_all([Label("@@canonical+//foo:bar"), Label("@@canonical+//foo:baz")])
+        """;
+    var commandLine1 = getCommandLine(mainRepoMapping1, args);
+    var commandLine2 = getCommandLine(mainRepoMapping2, args);
+
+    assertThat(commandLine1.arguments())
+        .containsExactlyElementsIn(commandLine2.arguments())
+        .inOrder();
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void
+      starlarkCustomCommandLineKeyComputation_nestedSetOfLabels_repoMappingChanges_relevant()
+          throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    var mainRepoMapping1 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent1", RepositoryName.createUnvalidated("canonical+")),
+            RepositoryName.MAIN);
+    var mainRepoMapping2 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent2", RepositoryName.createUnvalidated("canonical+")),
+            RepositoryName.MAIN);
+    var args =
+        """
+        args = ruleContext.actions.args()
+        args.add_all(depset([Label("@@canonical+//foo:bar"), Label("@@canonical+//foo:baz")]))
+        """;
+    var commandLine1 = getCommandLine(mainRepoMapping1, args);
+    var commandLine2 = getCommandLine(mainRepoMapping2, args);
+
+    assertThat(ImmutableList.copyOf(commandLine1.arguments()))
+        .isNotEqualTo(ImmutableList.copyOf(commandLine2.arguments()));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
   public void starlarkCustomCommandLineKeyComputation_labelVsString() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
