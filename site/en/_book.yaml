@@ -142,6 +142,8 @@ upper_tabs:
         path: /external/mod-command
       - title: Bzlmod migration guide
         path: /external/migration
+      - title: Bzlmod migration tool
+        path: /external/migration_tool
       - title: FAQ
         path: /external/faq
       - heading: Querying your build

@@ -31,90 +31,12 @@ your project to Bzlmod and drop WORKSPACE for managing external dependencies.
 
 Recommended migration process:
 
-1.  Use [migration tool](#migration-tool) as a helper tool to streamline the
-    migration process as much as possible. Check [migration
-    tool](#migration-tool) and [how to use the tool](#migration-tool-how-to-use)
-    sections.
+1.  Use [migration tool](/external/migration_tool) as a helper tool to
+    streamline the migration process as much as possible.
 2.  If there are errors left after using the migration tool, resolve them
     manually. For understanding the main differences between concepts inside
     `WORKSPACE` and `MODULE.bazel` files, check [WORKSPACE versus
     Bzlmod](#workspace-vs-bzlmod) section.
-
-## Migration tool {:#migration-tool}
-
-[migration_script]: https://github.com/bazelbuild/bazel-central-registry/blob/main/tools/migrate_to_bzlmod.py
-
-To simplify the often complex process of moving from WORKSPACE to Bzlmod, it's
-highly recommended to use the [migration script][migration_script]. This helper
-tool automates many of the steps involved in migrating your external dependency
-management system.
-
-### Core Functionality {:#migration-tool-core-functionality}
-
-The script's primary functions are:
-
-*   **Dependency Information Collection:** Analyzes your project's `WORKSPACE`
-    file to identify external repositories used by specified build targets. It
-    uses Bazel's
-    [experimental_repository_resolved_file](https://bazel.build/versions/8.2.0/reference/command-line-reference#flag--experimental_repository_resolved_file)
-    flag to generate a `resolved_deps.py` file containing this information.
-*   **Direct Dependency Identification:** Uses `bazel query` to determine which
-    repositories are direct dependencies for the specified targets.
-*   **Bzlmod Migration:** Translates relevant `WORKSPACE` dependencies into
-    their Bzlmod equivalents. This is a two-step process:
-    1.  Tries introducing all identified direct dependencies to the
-        `MODULE.bazel` file.
-    2.  Attempts to build specified targets with Bzlmod enabled, then
-        iteratively identifies and fixes recognizable errors. This step is
-        needed since some dependencies might be missing in the first step.
-*   **Migration Report Generation:** Creates a `migration_info.md` file that
-    documents the migration process. This report includes a list of direct
-    dependencies, the generated Bzlmod declarations, and any manual steps that
-    may be required to complete the migration.
-
-The migration tool supports:
-
-*   Dependencies available in the Bazel Central Registry
-*   User-defined custom repository rules
-*   Package manager dependencies
-    *   Maven ([rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external/blob/master/docs/bzlmod.md))
-    *   Go ([rules_go](https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/bzlmod.md))
-    *   \[Upcoming\] Python ([rules_python](https://github.com/bazelbuild/rules_python/blob/main/BZLMOD_SUPPORT.md))
-
-**Important Note**: The migration tool is a best-effort utility. Always
-double-check its recommendations for correctness.
-
-### How to Use the Migration Tool {:#migration-tool-how-to-use}
-
-Before you begin:
-
-*   Upgrade to the latest Bazel 7 release, which provides robust support for
-    both WORKSPACE and Bzlmod.
-*   Verify the following command runs successfully for your project's main build
-    targets:
-
-    ```shell
-    bazel build --nobuild --enable_workspace --noenable_bzlmod <targets>
-    ```
-
-Once the prerequisites are met, run the following commands to use the migration
-tool:
-
-```shell
-# Clone the Bazel Central Registry repository
-git clone https://github.com/bazelbuild/bazel-central-registry.git
-cd bazel-central-registry
-
-# Build the migration tool
-bazel build //tools:migrate_to_bzlmod
-
-# Create a convenient alias for the tool
-alias migrate2bzlmod=$(realpath ./bazel-bin/tools/migrate_to_bzlmod)
-
-# Navigate to your project's root directory and run the tool
-cd <your workspace root>
-migrate2bzlmod -t <your build targets>
-```
 
 ## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
 
