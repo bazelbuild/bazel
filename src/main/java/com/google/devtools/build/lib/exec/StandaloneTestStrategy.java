@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
+import com.google.devtools.build.lib.analysis.test.XmlTestGeneration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
@@ -473,7 +474,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       envBuilder.put("TEST_TOTAL_SHARDS", "0");
     }
     return new SimpleSpawn(
-        action,
+        new XmlTestGeneration(action),
         args,
         envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on the

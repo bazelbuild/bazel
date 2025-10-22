@@ -130,6 +130,7 @@ java_library(
         "test/TestTagsProvider.java",
         "test/TestTargetExecutionSettings.java",
         "test/TestTargetProperties.java",
+        "test/XmlTestGeneration.java",
     ],
     deps = [
         ":actions/abstract_file_write_action",
