@@ -315,7 +315,8 @@ public final class StarlarkThread {
     CallProfiler callProfiler = StarlarkThread.callProfiler;
     if (callProfiler != null && fr.profileStartTimeNanos >= 0) {
       // Only record the context once since it is the same for all frames.
-      callProfiler.end(fr.profileStartTimeNanos, fr.fn, last == 0 ? getContextDescription() : null);
+      var contextDescription = last == 0 ? getContextDescription() : null;
+      callProfiler.end(fr.profileStartTimeNanos, fr.fn, contextDescription);
     }
 
     // Notify debug tools of the thread's last pop.
@@ -626,6 +627,10 @@ public final class StarlarkThread {
   public interface CallProfiler {
     long start();
 
+    /**
+     * @param threadContext an optional description of the context in which the function is called.
+     *     Only non-null for the outermost function in a call stack.
+     */
     @SuppressWarnings("GoodTime") // This code is very performance sensitive.
     void end(long startTimeNanos, StarlarkCallable fn, @Nullable String threadContext);
   }
