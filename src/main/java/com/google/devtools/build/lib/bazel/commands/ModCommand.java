@@ -475,8 +475,7 @@ public final class ModCommand implements BlazeCommand {
       }
     }
 
-    ImmutableMap<String, RepoDefinition> targetRepoDefinitions = null;
-    String repoOverrideMsg = "";
+    ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions = null;
     try {
       if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
@@ -492,7 +491,7 @@ public final class ModCommand implements BlazeCommand {
           return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
         }
         var resultBuilder =
-            ImmutableMap.<String, RepoDefinition>builderWithExpectedSize(argsAsRepos.size());
+            ImmutableMap.<String, RepoDefinitionValue>builderWithExpectedSize(argsAsRepos.size());
         for (Map.Entry<String, RepositoryName> e : argsAsRepos.entrySet()) {
           SkyValue value = result.get(RepoDefinitionValue.key(e.getValue()));
           if (value == RepoDefinitionValue.NOT_FOUND) {
@@ -501,13 +500,7 @@ public final class ModCommand implements BlazeCommand {
                 String.format("In repo argument %s: no such repo", e.getKey()),
                 Code.INVALID_ARGUMENTS);
           }
-          if (value instanceof RepoDefinitionValue.RepoOverride) {
-            PathFragment repoPath = ((RepoDefinitionValue.RepoOverride) value).repoPath();
-            repoOverrideMsg = String.format("\n## %s:\nSpecial builtin repo located at: %s\n", e.getKey(), repoPath);
-          }
-          if (value instanceof RepoDefinitionValue.Found) {
-            resultBuilder.put(e.getKey(), ((RepoDefinitionValue.Found) value).repoDefinition());
-          }
+          resultBuilder.put(e.getKey(), (RepoDefinitionValue) value);
         }
         targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
@@ -547,7 +540,7 @@ public final class ModCommand implements BlazeCommand {
         case DEPS -> modExecutor.graph(argsAsModules);
         case PATH -> modExecutor.path(fromKeys, argsAsModules);
         case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
-        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions, repoOverrideMsg);
+        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions);
         case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
         default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }

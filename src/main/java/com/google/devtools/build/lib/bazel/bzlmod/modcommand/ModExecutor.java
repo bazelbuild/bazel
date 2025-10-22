@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultN
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -161,14 +162,14 @@ public class ModExecutor {
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
-  public void showRepo(ImmutableMap<String, RepoDefinition> targetRepoDefinitions, String repoOverrideMsg) {
-    if (!repoOverrideMsg.isEmpty()) {
-      printer.println(repoOverrideMsg);
-    }
-    if (targetRepoDefinitions != null) {
-      for (Map.Entry<String, RepoDefinition> e : targetRepoDefinitions.entrySet()) {
+  public void showRepo(ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions) {
+    for (Map.Entry<String, RepoDefinitionValue> e : targetRepoDefinitions.entrySet()) {
+      if (e.getValue() instanceof RepoDefinitionValue.Found repoDefValue) {
         printer.printf("## %s:\n", e.getKey());
-        printRepoDefinition(e.getValue());
+        printRepoDefinition(repoDefValue.repoDefinition());
+      }
+      if (e.getValue() instanceof RepoDefinitionValue.RepoOverride repoOverrideValue) {
+        printer.printf("## %s:\nBuiltin or overridden repo located at: %s\n\n", e.getKey(), repoOverrideValue.repoPath());
       }
     }
     printer.flush();
