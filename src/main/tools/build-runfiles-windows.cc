@@ -113,9 +113,6 @@ bool ReadSymlink(const wstring& abs_path, wstring* target, wstring* error) {
     case bazel::windows::ReadSymlinkOrJunctionResult::kNotALink:
       *error = L"path is not a link";
       break;
-    case bazel::windows::ReadSymlinkOrJunctionResult::kUnknownLinkType:
-      *error = L"unknown link type";
-      break;
     default:
       // This is bazel::windows::ReadSymlinkOrJunctionResult::kError (1).
       // The JNI code puts a custom message in 'error'.

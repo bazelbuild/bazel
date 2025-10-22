@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -24,12 +24,13 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -166,12 +167,10 @@ public class WindowsFileSystemTest {
         .isFalse();
     assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(root, "longta~1/file2.txt")))
         .isFalse();
-    try {
-      WindowsFileSystem.isSymlinkOrJunction(new File(root, "non-existent"));
-      fail("expected failure");
-    } catch (IOException e) {
-      assertThat(e.getMessage()).contains("path does not exist");
-    }
+
+    assertThrows(
+        FileNotFoundException.class,
+        () -> WindowsFileSystem.isSymlinkOrJunction(new File(root, "non-existent")));
 
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/b").list())).containsExactly("file2.txt");
@@ -364,26 +363,15 @@ public class WindowsFileSystemTest {
     assertThat(dirPath.isSymbolicLink()).isFalse();
     assertThat(juncPath.isSymbolicLink()).isTrue();
 
-    try {
-      testUtil.createVfsPath(fs, "does-not-exist").readSymbolicLink();
-      fail("expected exception");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*path does not exist");
-    }
+    assertThrows(
+        FileNotFoundException.class,
+        () -> testUtil.createVfsPath(fs, "does-not-exist").readSymbolicLink());
 
-    try {
-      testUtil.createVfsPath(fs, "dir\\hello.txt").readSymbolicLink();
-      fail("expected exception");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*is not a symlink");
-    }
+    assertThrows(
+        NotASymlinkException.class,
+        () -> testUtil.createVfsPath(fs, "dir\\hello.txt").readSymbolicLink());
 
-    try {
-      dirPath.readSymbolicLink();
-      fail("expected exception");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().matches(".*is not a symlink");
-    }
+    assertThrows(NotASymlinkException.class, () -> dirPath.readSymbolicLink());
 
     assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
   }

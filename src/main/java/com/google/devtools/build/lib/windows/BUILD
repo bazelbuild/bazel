@@ -19,6 +19,8 @@ java_11_library(
     deps = [
         ":windows_path_operations",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 
