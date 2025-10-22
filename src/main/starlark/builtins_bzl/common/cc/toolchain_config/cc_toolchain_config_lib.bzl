@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+# LINT.IfChange(forked_exports)
 """ A library of functions creating structs for CcToolchainConfigInfo."""
 
 def _check_is_none(obj, parameter_name, method_name):
@@ -615,3 +615,5 @@ def artifact_name_pattern(category_name, prefix, extension):
         extension = extension,
         type_name = "artifact_name_pattern",
     )
+
+# LINT.ThenChange(@rules_cc//cc/private/toolchain_config/cc_toolchain_config_lib.bzl:forked_exports)

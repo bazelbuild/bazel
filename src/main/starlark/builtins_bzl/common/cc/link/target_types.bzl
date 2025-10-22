@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Types of ELF files that can be created by the linker (.a, .so, .lo, executable)."""
 
 load(":common/cc/action_names.bzl", "ACTION_NAMES")
@@ -129,3 +130,5 @@ LINK_TARGET_TYPE = struct(
 def is_dynamic_library(link_target):
     """Returns true iff this link type is a dynamic library or transitive dynamic library."""
     return link_target in [LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY, LINK_TARGET_TYPE.DYNAMIC_LIBRARY]
+
+# LINT.ThenChange(@rules_cc//cc/private/link/target_types.bzl:forked_exports)

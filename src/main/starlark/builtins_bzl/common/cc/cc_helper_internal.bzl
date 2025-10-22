@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+# LINT.IfChange(forked_exports)
 """
 Utility functions for C++ rules that don't depend on cc_common.
 
@@ -43,8 +43,6 @@ def wrap_with_check_private_api(symbol):
 CPP_SOURCE_TYPE_HEADER = "HEADER"
 CPP_SOURCE_TYPE_SOURCE = "SOURCE"
 CPP_SOURCE_TYPE_CLIF_INPUT_PROTO = "CLIF_INPUT_PROTO"
-
-# LINT.IfChange(forked_exports)
 
 CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [
     ("", "devtools/rust/cc_interop"),
@@ -303,8 +301,6 @@ def is_stamping_enabled(ctx):
         stamp = ctx.attr.stamp
     return stamp
 
-# LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)
-
 def is_shared_library(file):
     return file.extension in ["so", "dylib", "dll", "pyd", "wasm", "tgt", "vpi"]
 
@@ -339,3 +335,5 @@ def use_pic_for_dynamic_libs(cpp_config, feature_configuration):
     """
     return (cpp_config.force_pic() or
             feature_configuration.is_enabled("supports_pic"))
+
+# LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)

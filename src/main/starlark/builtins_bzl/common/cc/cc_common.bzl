@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Utilities related to C++ support."""
 
 load(
@@ -763,3 +764,5 @@ cc_common = struct(
     solib_symlink_action = _solib_symlink_action,
     cc_toolchain_variables = _cc_toolchain_variables,
 )
+
+# LINT.ThenChange(@rules_cc//cc/private/cc_common.bzl:forked_exports)

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 The cc_common.create_library_to_link function.
 """
@@ -286,3 +287,5 @@ def _validate_extension(path, extensions, func = None, not_ext = [], fail = fail
     if func and func(struct(basename = path)):
         return
     fail("'%s' does not have any of the allowed extensions %s" % (path, ", ".join(extensions)))
+
+# LINT.ThenChange(@rules_cc//cc/private/link/create_library_to_link.bzl:forked_exports)

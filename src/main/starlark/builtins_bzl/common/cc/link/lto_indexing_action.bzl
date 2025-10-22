@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Functions that create LTO indexing action."""
 
 load(":common/cc/compile/lto_compilation_context.bzl", "get_minimized_bitcode_or_self")
@@ -125,7 +126,6 @@ def create_lto_artifacts_and_lto_indexing_action(
             use_pic = use_pic,
             linking_mode = linking_mode,
             all_lto_artifacts = all_lto_artifacts,
-            allow_lto_indexing = allow_lto_indexing,
             include_link_static_in_lto_indexing = include_link_static_in_lto_indexing,
             lto_output_root_prefix = lto_output_root_prefix,
             lto_obj_root_prefix = lto_obj_root_prefix,
@@ -141,7 +141,6 @@ def _lto_indexing_action(
         linking_mode,
         cc_toolchain,
         all_lto_artifacts,
-        allow_lto_indexing,
         libraries_to_link,
         static_libraries_to_link,
         prefer_pic_libs,
@@ -288,3 +287,5 @@ def _lto_indexing_action(
     )
 
     return thinlto_param_file, thinlto_merged_object_file
+
+# LINT.ThenChange(@rules_cc//cc/private/link/lto_indexing_action.bzl:forked_exports)

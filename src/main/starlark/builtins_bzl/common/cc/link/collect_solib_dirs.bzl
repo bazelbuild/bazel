@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Goes over LegacyLinkerInputs and produces LibraryToLinkValue-s."""
 
 load(":common/cc/cc_helper_internal.bzl", "is_shared_library")
@@ -54,11 +55,8 @@ def collect_solib_dirs(
       link_type: (LINK_TARGET_TYPE) The type of ELF file to be created (.a, .so, .lo, executable).
       linking_mode: ("static"|"dynamic") Linking mode.
       is_native_deps: (bool) Is this link action is used for a native dependency library.
-      need_whole_archive: (bool) Whether we need to use whole-archive for the link.
       solib_dir: (str) solib directory.
       toolchain_libraries_solib_dir: (str) Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...).
-      allow_lto_indexing: (bool) Is LTO indexing being done.
-      lto_mapping: (dict[File, File]) Map from bitcode files to object files. Used to replace all linker inputs.
       workspace_name: (str) Workspace name. To support legacy code.
 
     Returns:
@@ -112,7 +110,6 @@ def collect_solib_dirs(
     include_solib_dir, include_toolchain_libraries_solib_dir = _collect_solib_dirs_from_libraries(
         libraries,
         prefer_static_libs,
-        cc_toolchain,
         feature_configuration,
         solib_dir,
         toolchain_libraries_solib_dir,
@@ -155,7 +152,6 @@ def collect_solib_dirs(
 def _collect_solib_dirs_from_libraries(
         libraries,
         prefer_static_libs,
-        cc_toolchain,
         feature_configuration,
         solib_dir,
         toolchain_libraries_solib_dir,
@@ -483,3 +479,5 @@ def _get_relative(start, to):
         common_parent = common_parent[:-len(seg) - 1]
 
     return dotdots + paths.relativize(to, common_parent)
+
+# LINT.ThenChange(@rules_cc//cc/private/link/collect_solib_dirs.bzl:forked_exports)

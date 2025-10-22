@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Provider that signals that rules that use launchers can use this target as the launcher."""
 
 load(":common/cc/cc_helper_internal.bzl", "wrap_with_check_private_api")
@@ -29,3 +30,4 @@ CcLauncherInfo, _ = provider(
     },
     init = _cc_launcher_info_constructor,
 )
+# LINT.ThenChange(@rules_cc//cc/private/cc_launcher_info.bzl:forked_exports)

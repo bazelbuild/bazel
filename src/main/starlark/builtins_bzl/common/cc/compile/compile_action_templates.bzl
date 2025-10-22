@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Tree artifact compilation actions"""
 
 load(
@@ -186,7 +187,6 @@ def _create_compile_action_template(
     )
     dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
         action_construction_context,
-        configuration,
         feature_configuration,
         language,
         label,
@@ -240,7 +240,6 @@ def _declare_compile_output_tree_artifact(
 
 def _maybe_declare_dotd_tree_artifact(
         ctx,
-        configuration,
         feature_configuration,
         language,
         label,
@@ -267,3 +266,5 @@ def _maybe_declare_diagnostics_tree_artifact(
         label.name,
         output_name,
     ))
+
+# LINT.ThenChange(@rules_cc//cc/private/compile/compile_action_templates.bzl:forked_exports)

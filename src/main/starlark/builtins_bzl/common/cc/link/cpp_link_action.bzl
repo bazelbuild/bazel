@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Functions that create C++ link action."""
 
 load(":common/cc/cc_helper_internal.bzl", artifact_category = "artifact_category_names")
@@ -272,3 +273,5 @@ def _map_linkstamps_to_outputs(actions, linkstamps, output):
         stamp_output_file = actions.declare_shareable_artifact(stamp_output_path)
         map[linkstamp] = stamp_output_file
     return map
+
+# LINT.ThenChange(@rules_cc//cc/private/link/cpp_link_action.bzl:forked_exports)

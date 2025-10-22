@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 All build variables we create for various `CppCompileAction`s
 """
@@ -80,6 +81,7 @@ _VARS = struct(
     INCLUDES = "includes",
 )
 
+# buildifier: disable=name-conventions
 _UnboundValueProviderDoNotUse = provider("This provider is used as an unique symbol to distinguish between bound and unbound Starlark values, to avoid using kwargs.", fields = [])
 _UNBOUND = _UnboundValueProviderDoNotUse()
 
@@ -102,7 +104,7 @@ def create_compile_variables(
         thinlto_output_object_file = None,
         use_pic = False,
         # TODO(b/65151735): Remove once we migrate crosstools to features
-        add_legacy_cxx_options = False,  # unused
+        add_legacy_cxx_options = False,  # buildifier: disable=unused-variable
         variables_extension = {},
         strip_opts = _UNBOUND,
         input_file = _UNBOUND):
@@ -636,3 +638,5 @@ def _compute_all_linkstamp_defines(
         define.replace("${LABEL}", label_replacement).replace("${OUTPUT_PATH}", output_replacement)
         for define in defines
     ]
+
+# LINT.ThenChange(@rules_cc//cc/private/compile/compile_build_variables.bzl:forked_exports)

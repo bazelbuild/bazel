@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """A provider for the binary file and its associated .dwp files, if fission is enabled."""
 
 DebugPackageInfo = provider(
@@ -24,3 +25,5 @@ DebugPackageInfo = provider(
         "dwp_file": "The .dwp file (for fission builds) or null if --fission=no.",
     },
 )
+
+# LINT.ThenChange(@rules_cc//cc/private/debug_package_info.bzl:forked_exports)

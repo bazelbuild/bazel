@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 The CcCompilationOutputs provider.
 """
@@ -209,3 +210,5 @@ def merge_compilation_outputs(*, compilation_outputs):
         _header_tokens = header_tokens,
         _module_files = module_files,
     )
+
+# LINT.ThenChange(@rules_cc//cc/private/compile/cc_compilation_outputs.bzl:forked_exports)

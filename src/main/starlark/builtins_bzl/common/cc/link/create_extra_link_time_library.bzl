@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 Extra link-time library functionality.
 
@@ -180,3 +181,5 @@ def build_libraries(extra_libraries, ctx, static_mode, for_dynamic_library):
         depset(transitive = transitive_linker_inputs),
         depset(transitive = transitive_runtime_libraries),
     )
+
+# LINT.ThenChange(@rules_cc//cc/private/link/create_extra_link_time_library.bzl:forked_exports)

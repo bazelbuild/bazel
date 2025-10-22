@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 ThinLTO expands the traditional 2 step compile (N x compile .cc, 1x link (N .o files) into a 4
 step process:
@@ -63,6 +64,25 @@ def create_lto_backends(
         allow_lto_indexing,
         include_link_static_in_lto_indexing,
         prefer_pic_libs):
+    """Create the LTO backends for a link.
+
+    Args:
+      actions: (actions) The actions object.
+      lto_compilation_context: (LtoCompilationContext) The LTO compilation context.
+      feature_configuration: (feature_configuration) The feature configuration.
+      cc_toolchain: (CcToolchainInfo) The C++ toolchain.
+      use_pic: (bool) Whether to use PIC.
+      object_file_inputs: (depset[File]) The object file inputs.
+      lto_output_root_prefix: (str) The root prefix for the LTO output files.
+      lto_obj_root_prefix: (str) The root prefix for the LTO object files.
+      static_libraries_to_link: (list[LibraryToLink]) The static libraries to link.
+      allow_lto_indexing: (bool) Whether LTO indexing is allowed.
+      include_link_static_in_lto_indexing: (bool) Whether to include the static libraries in the
+        LTO indexing.
+      prefer_pic_libs: (bool) Whether to prefer PIC static libraries.
+    Returns:
+      (list[LtoBackendArtifactsInfo]) The LTO backends.
+    """
     cpp_config = cc_toolchain._cpp_configuration
     debug = should_create_per_object_debug_info(feature_configuration, cpp_config)
 
@@ -183,6 +203,20 @@ def create_shared_non_lto_artifacts(
         cc_toolchain,
         use_pic,
         object_file_inputs):
+    """Create the shared non-LTO artifacts for a statically linked library.
+
+    Args:
+      actions: (actions) The actions object.
+      lto_compilation_context: (LtoCompilationContext) The LTO compilation context.
+      is_linker: (bool) Whether the link is a linker.
+      feature_configuration: (feature_configuration) The feature configuration.
+      cc_toolchain: (CcToolchainInfo) The C++ toolchain.
+      use_pic: (bool) Whether to use PIC.
+      object_file_inputs: (depset[File]) The object file inputs.
+    Returns:
+      (dict[File, LtoBackendArtifactsInfo]) The shared non-LTO artifacts.
+    """
+
     # Only create the shared LTO artifacts for a statically linked library that has bitcode files.
     if not lto_compilation_context or is_linker:
         return {}
@@ -479,3 +513,4 @@ def _get_lto_backend_action_outputs(object_file, dwo_file):
     return outputs
 
 # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/LtoBackendArtifacts.java:lto_backends)
+# LINT.ThenChange(@rules_cc//cc/private/link/lto_backends.bzl:forked_exports)

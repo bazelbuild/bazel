@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 The cc_common.create_linking_context_from_compilation_outputs function.
 
@@ -137,3 +138,5 @@ def create_linking_context_from_compilation_outputs(
         linking_contexts = [direct_linking_context] + linking_contexts,
     )
     return linking_context, cc_linking_outputs
+
+# LINT.ThenChange(@rules_cc//cc/private/link/create_linking_context_from_compilation_outputs.bzl:forked_exports)

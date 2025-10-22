@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 The cc_common.register_linkstamp_compile_action function.
 
@@ -114,3 +115,5 @@ def register_linkstamp_compile_action(
         needs_include_validation = cc_semantics.needs_include_validation(language = "c++"),
         toolchain_type = cc_semantics.toolchain,
     )
+
+# LINT.ThenChange(@rules_cc//cc/private/compile/linkstamp_compile.bzl:forked_exports)

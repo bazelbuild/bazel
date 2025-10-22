@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+# LINT.IfChange(forked_exports)
 """Information describing C++ toolchain derived from CROSSTOOL file."""
 
 load(
@@ -138,3 +138,5 @@ def create_cc_toolchain_config_info(
         tool_paths = tool_paths,
         toolchain_id = toolchain_identifier,
     )
+
+# LINT.ThenChange(@rules_cc//cc/private/toolchain_config/cc_toolchain_config_info.bzl:forked_exports)

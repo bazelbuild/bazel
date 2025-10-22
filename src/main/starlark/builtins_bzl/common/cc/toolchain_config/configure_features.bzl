@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Helper functions for C++ feature configuration."""
 
 load(":common/cc/action_names.bzl", "ACTION_NAMES")
@@ -230,3 +231,5 @@ def configure_features(
              "(feature named 'supports_pic' is not enabled)")
 
     return feature_configuration
+
+# LINT.ThenChange(@rules_cc//cc/private/toolchain_config/configure_features.bzl:forked_exports)

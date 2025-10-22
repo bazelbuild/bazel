@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Functions that populate link build variables.
 
 Link build variables are a dictionary of string named variables that are used to generate C++
@@ -113,7 +114,7 @@ def create_link_variables(
         is_linking_dynamic_library = False,
         must_keep_debug = True,
         use_test_only_flags = False,
-        is_static_linking_mode = None):
+        is_static_linking_mode = None):  # buildifier: disable=unused-variable
     """Returns common link build variables used for both linking and thin LTO indexing actions.
 
     The implementation also includes variables specified by cc_toolchain.
@@ -392,3 +393,5 @@ def setup_lto_indexing_variables(
     vars = vars | _DONT_GENERATE_INTERFACE_LIBRARY
 
     return vars
+
+# LINT.ThenChange(@rules_cc//cc/private/link/link_build_variables.bzl:forked_exports)

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """
 The cc_common.compile function.
 
@@ -1615,3 +1616,5 @@ def _maybe_declare_gcno_file(
             ),
         )
     return gcno_file
+
+# LINT.ThenChange(@rules_cc//cc/private/compile/compile.bzl:forked_exports)

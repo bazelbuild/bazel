@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# LINT.IfChange(forked_exports)
 """Common functions that create C++ link and LTO indexing action."""
 
 load(":common/cc/compile/linkstamp_compile.bzl", "register_linkstamp_compile_action")
@@ -325,6 +326,7 @@ def _create_action(
       outputs: (depset(File)) all outputs of the action
       progress_message: (str) progress message
       link_type: (LINK_TARGET_TYPE) link type, used to determine parameter file type
+      interface_output: (File) Interface output file, if any.
     """
 
     parameter_file_type = None
@@ -467,3 +469,5 @@ def _resource_set(os, inputs):
         return {"memory": max(50, -100 + 0.1 * inputs), "cpu": 1}
     else:
         return {"memory": 1500 + inputs, "cpu": 1}
+
+# LINT.ThenChange(@rules_cc//cc/private/link/finalize_link_action.bzl:forked_exports)
