@@ -611,7 +611,10 @@ public class ModuleFileFunction implements SkyFunction {
         Mutability mu = Mutability.create("module file", moduleKey)) {
       StarlarkThread thread =
           StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", symbolGenerator);
+              mu,
+              starlarkSemantics,
+              /* contextDescription= */ "MODULE.bazel file of " + moduleKey.toDisplayString(),
+              symbolGenerator);
       context.storeInThread(thread);
       if (printIsNoop) {
         thread.setPrintHandler((t, msg) -> {});

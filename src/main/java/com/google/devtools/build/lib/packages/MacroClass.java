@@ -412,14 +412,15 @@ public final class MacroClass {
     try (Mutability mu =
         Mutability.create(
             "macro", targetDefinitionContext.getPackageIdentifier(), macro.getName())) {
+      var instanceId =
+          MacroInstance.UniqueId.create(
+              macro.getPackageMetadata().packageIdentifier(), macro.getId());
       StarlarkThread thread =
           StarlarkThread.create(
               mu,
               semantics,
-              /* contextDescription= */ "",
-              SymbolGenerator.create(
-                  MacroInstance.UniqueId.create(
-                      macro.getPackageMetadata().packageIdentifier(), macro.getId())));
+              /* contextDescription= */ "macro " + instanceId,
+              SymbolGenerator.create(instanceId));
       thread.setPrintHandler(
           Event.makeDebugPrintHandler(targetDefinitionContext.getLocalEventHandler()));
 

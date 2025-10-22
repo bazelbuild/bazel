@@ -162,7 +162,7 @@ public class RepoFileFunction implements SkyFunction {
           StarlarkThread.create(
               mu,
               starlarkSemantics,
-              /* contextDescription= */ "",
+              "REPO.bazel file of " + repoDisplayName,
               SymbolGenerator.create(repoName));
       thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
       RepoThreadContext context = new RepoThreadContext();

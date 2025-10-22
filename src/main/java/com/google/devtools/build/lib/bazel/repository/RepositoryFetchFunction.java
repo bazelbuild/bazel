@@ -594,7 +594,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
                 directories)) {
       StarlarkThread thread =
           StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
+              mu,
+              starlarkSemantics,
+              /* contextDescription= */ "repository "
+                  + ((RepositoryName) key.argument()).getDisplayForm(mainRepoMapping),
+              SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       var repoMappingRecorder = new Label.RepoMappingRecorder();
       repoMappingRecorder.mergeEntries(repoDefinition.repoRule().recordedRepoMappingEntries());

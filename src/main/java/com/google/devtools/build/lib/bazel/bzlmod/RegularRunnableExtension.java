@@ -279,7 +279,7 @@ final class RegularRunnableExtension implements RunnableExtension {
           StarlarkThread.create(
               mu,
               starlarkSemantics,
-              /* contextDescription= */ "",
+              "module extension " + extensionId,
               SymbolGenerator.create(extensionId));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       threadContext.storeInThread(thread);
