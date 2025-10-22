@@ -73,6 +73,7 @@ final class RegularRunnableExtension implements RunnableExtension {
   private final ModuleExtension extension;
   private final ImmutableMap<String, Optional<String>> staticEnvVars;
   private final BlazeDirectories directories;
+  private final Supplier<Map<String, String>> repoEnvironmentSupplier;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
@@ -84,6 +85,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       ModuleExtension extension,
       ImmutableMap<String, Optional<String>> staticEnvVars,
       BlazeDirectories directories,
+      Supplier<Map<String, String>> repoEnvironmentSupplier,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -93,6 +95,7 @@ final class RegularRunnableExtension implements RunnableExtension {
     this.extension = extension;
     this.staticEnvVars = staticEnvVars;
     this.directories = directories;
+    this.repoEnvironmentSupplier = repoEnvironmentSupplier;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
@@ -141,6 +144,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       Environment env,
       BlazeDirectories directories,
+      Supplier<Map<String, String>> repoEnvironmentSupplier,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -176,16 +180,17 @@ final class RegularRunnableExtension implements RunnableExtension {
           SpellChecker.didYouMean(extensionId.extensionName(), exportedExtensions));
     }
 
-    ImmutableMap<String, Optional<String>> envVars =
+    ImmutableMap<String, Optional<String>> staticEnvVars =
         RepositoryUtils.getEnvVarValues(env, ImmutableSet.copyOf(extension.envVariables()));
-    if (envVars == null) {
+    if (staticEnvVars == null) {
       return null;
     }
     return new RegularRunnableExtension(
         bzlLoadValue,
         extension,
-        envVars,
+        staticEnvVars,
         directories,
+        repoEnvironmentSupplier,
         clientEnvironmentSupplier,
         timeoutScaling,
         processWrapper,
@@ -364,6 +369,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         workingDirectory,
         directories,
         env,
+        repoEnvironmentSupplier.get(),
         clientEnvironmentSupplier.get(),
         downloadManager,
         timeoutScaling,
