@@ -88,7 +88,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_remove_ctx_py_fragment",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

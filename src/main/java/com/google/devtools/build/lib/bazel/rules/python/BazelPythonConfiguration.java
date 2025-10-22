@@ -73,7 +73,7 @@ public class BazelPythonConfiguration extends Fragment {
 
     @Option(
         name = "incompatible_remove_ctx_bazel_py_fragment",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
