@@ -1673,7 +1673,9 @@ EOF
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then
-    rm -fr "${TEST_TMPDIR}/server_dir"
+    # On Windows, the server process may not release file handles immediately,
+    # so we need to retry the deletion.
+    try_with_timeout rm -fr "${TEST_TMPDIR}/server_dir"
   fi
   true
 }
