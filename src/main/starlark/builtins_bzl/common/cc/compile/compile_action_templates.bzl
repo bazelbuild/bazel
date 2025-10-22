@@ -75,191 +75,160 @@ def create_compile_action_templates(
     lto_index_tree_artifact = None
 
     if cpp_source.type == CPP_SOURCE_TYPE_HEADER:
-        lto_output_enabled = False
-        use_pic = generate_pic_action
-        output_categories = [artifact_category.GENERATED_HEADER, artifact_category.PROCESSED_HEADER]
-        outputs_key = "header_tokens"
-        header_token_file = _declare_compile_output_tree_artifact(
-            action_construction_context,
-            label,
-            output_name,
-            use_pic = use_pic,
-        )
-        specific_compile_build_variables = get_specific_compile_build_variables(
-            feature_configuration,
-            use_pic = use_pic,
-            source_file = source_artifact,
-            output_file = header_token_file,
-            cpp_module_map = cc_compilation_context._module_map,
-            direct_module_maps = cc_compilation_context._direct_module_maps,
-            user_compile_flags = all_copts,
-        )
-        dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
-            action_construction_context,
-            configuration,
-            feature_configuration,
-            language,
-            label,
-            output_name,
-            use_pic = use_pic,
-        )
-        diagnostics_tree_artifact = _maybe_declare_diagnostics_tree_artifact(
-            action_construction_context,
-            feature_configuration,
-            label,
-            output_name,
-            use_pic = use_pic,
-        )
-        if lto_output_enabled:
-            outputs["lto_compilation_context"][header_token_file] = (lto_index_tree_artifact, all_copts)
-        _cc_internal.create_cc_compile_action_template(
+        _create_compile_action_template(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
             configuration = configuration,
             feature_configuration = feature_configuration,
             copts_filter = copts_filter,
-            compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
-                common_compile_build_variables,
-                specific_compile_build_variables,
-            ),
-            source = cpp_source.file,
+            common_compile_build_variables = common_compile_build_variables,
+            cpp_source = cpp_source,
+            source_artifact = source_artifact,
+            label = label,
+            all_copts = all_copts,
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
-            use_pic = use_pic,
-            output_categories = output_categories,
-            output_files = header_token_file,
-            dotd_tree_artifact = dotd_tree_artifact,
-            diagnostics_tree_artifact = diagnostics_tree_artifact,
-            lto_indexing_tree_artifact = lto_index_tree_artifact,
-            needs_include_validation = cc_semantics.needs_include_validation(language),
-            toolchain_type = cc_semantics.toolchain,
+            output_name = output_name,
+            outputs = outputs,
+            lto_output_enabled = False,
+            use_pic = generate_pic_action,
+            output_categories = [artifact_category.GENERATED_HEADER, artifact_category.PROCESSED_HEADER],
+            outputs_key = "header_tokens",
+            lto_index_tree_artifact = lto_index_tree_artifact,
+            language = language,
         )
-        outputs[outputs_key].append(header_token_file)
     else:  # CPP_SOURCE_TYPE_SOURCE
         lto_output_enabled = feature_configuration.is_enabled("thin_lto")
         if generate_no_pic_action:
-            use_pic = False
-            output_categories = [artifact_category.OBJECT_FILE]
-            outputs_key = "objects"
-            object_file = _declare_compile_output_tree_artifact(
-                action_construction_context,
-                label,
-                output_name,
-                use_pic = use_pic,
-            )
-            specific_compile_build_variables = get_specific_compile_build_variables(
-                feature_configuration,
-                use_pic = use_pic,
-                source_file = source_artifact,
-                output_file = object_file,
-                cpp_module_map = cc_compilation_context._module_map,
-                direct_module_maps = cc_compilation_context._direct_module_maps,
-                user_compile_flags = all_copts,
-            )
-            dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
-                action_construction_context,
-                configuration,
-                feature_configuration,
-                language,
-                label,
-                output_name,
-                use_pic = use_pic,
-            )
-            diagnostics_tree_artifact = _maybe_declare_diagnostics_tree_artifact(
-                action_construction_context,
-                feature_configuration,
-                label,
-                output_name,
-                use_pic = use_pic,
-            )
-            if lto_output_enabled:
-                outputs["lto_compilation_context"][object_file] = (lto_index_tree_artifact, all_copts)
-            _cc_internal.create_cc_compile_action_template(
+            _create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
                 configuration = configuration,
                 feature_configuration = feature_configuration,
                 copts_filter = copts_filter,
-                compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
-                    common_compile_build_variables,
-                    specific_compile_build_variables,
-                ),
-                source = cpp_source.file,
+                common_compile_build_variables = common_compile_build_variables,
+                cpp_source = cpp_source,
+                source_artifact = source_artifact,
+                label = label,
+                all_copts = all_copts,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
-                use_pic = use_pic,
-                output_categories = output_categories,
-                output_files = object_file,
-                dotd_tree_artifact = dotd_tree_artifact,
-                diagnostics_tree_artifact = diagnostics_tree_artifact,
-                lto_indexing_tree_artifact = lto_index_tree_artifact,
-                needs_include_validation = cc_semantics.needs_include_validation(language),
-                toolchain_type = cc_semantics.toolchain,
+                output_name = output_name,
+                outputs = outputs,
+                lto_output_enabled = lto_output_enabled,
+                use_pic = False,
+                output_categories = [artifact_category.OBJECT_FILE],
+                outputs_key = "objects",
+                lto_index_tree_artifact = lto_index_tree_artifact,
+                language = language,
             )
-            outputs[outputs_key].append(object_file)
         if generate_pic_action:
-            use_pic = True
-            output_categories = [artifact_category.PIC_OBJECT_FILE]
-            outputs_key = "pic_objects"
-            pic_object_file = _declare_compile_output_tree_artifact(
-                action_construction_context,
-                label,
-                output_name,
-                use_pic = use_pic,
-            )
-            specific_compile_build_variables = get_specific_compile_build_variables(
-                feature_configuration,
-                use_pic = use_pic,
-                source_file = source_artifact,
-                output_file = pic_object_file,
-                cpp_module_map = cc_compilation_context._module_map,
-                direct_module_maps = cc_compilation_context._direct_module_maps,
-                user_compile_flags = all_copts,
-            )
-            dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
-                action_construction_context,
-                configuration,
-                feature_configuration,
-                language,
-                label,
-                output_name,
-                use_pic = use_pic,
-            )
-            diagnostics_tree_artifact = _maybe_declare_diagnostics_tree_artifact(
-                action_construction_context,
-                feature_configuration,
-                label,
-                output_name,
-                use_pic = use_pic,
-            )
-            if lto_output_enabled:
-                outputs["lto_compilation_context"][pic_object_file] = (lto_index_tree_artifact, all_copts)
-            _cc_internal.create_cc_compile_action_template(
+            _create_compile_action_template(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
                 cc_toolchain = cc_toolchain,
                 configuration = configuration,
                 feature_configuration = feature_configuration,
                 copts_filter = copts_filter,
-                compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
-                    common_compile_build_variables,
-                    specific_compile_build_variables,
-                ),
-                source = cpp_source.file,
+                common_compile_build_variables = common_compile_build_variables,
+                cpp_source = cpp_source,
+                source_artifact = source_artifact,
+                label = label,
+                all_copts = all_copts,
                 additional_compilation_inputs = additional_compilation_inputs,
                 additional_include_scanning_roots = additional_include_scanning_roots,
-                use_pic = use_pic,
-                output_categories = output_categories,
-                output_files = pic_object_file,
-                dotd_tree_artifact = dotd_tree_artifact,
-                diagnostics_tree_artifact = diagnostics_tree_artifact,
-                lto_indexing_tree_artifact = lto_index_tree_artifact,
-                needs_include_validation = cc_semantics.needs_include_validation(language),
-                toolchain_type = cc_semantics.toolchain,
+                output_name = output_name,
+                outputs = outputs,
+                lto_output_enabled = lto_output_enabled,
+                use_pic = True,
+                output_categories = [artifact_category.PIC_OBJECT_FILE],
+                outputs_key = "pic_objects",
+                lto_index_tree_artifact = lto_index_tree_artifact,
+                language = language,
             )
-            outputs[outputs_key].append(pic_object_file)
+
+def _create_compile_action_template(
+        *,
+        action_construction_context,
+        cc_compilation_context,
+        cc_toolchain,
+        configuration,
+        feature_configuration,
+        copts_filter,
+        common_compile_build_variables,
+        cpp_source,
+        source_artifact,
+        label,
+        all_copts,
+        additional_compilation_inputs,
+        additional_include_scanning_roots,
+        output_name,
+        outputs,
+        lto_output_enabled,
+        use_pic,
+        output_categories,
+        outputs_key,
+        lto_index_tree_artifact,
+        language):
+    output_file = _declare_compile_output_tree_artifact(
+        action_construction_context,
+        label,
+        output_name,
+        use_pic = use_pic,
+    )
+    specific_compile_build_variables = get_specific_compile_build_variables(
+        feature_configuration,
+        use_pic = use_pic,
+        source_file = source_artifact,
+        output_file = output_file,
+        cpp_module_map = cc_compilation_context._module_map,
+        direct_module_maps = cc_compilation_context._direct_module_maps,
+        user_compile_flags = all_copts,
+    )
+    dotd_tree_artifact = _maybe_declare_dotd_tree_artifact(
+        action_construction_context,
+        configuration,
+        feature_configuration,
+        language,
+        label,
+        output_name,
+        use_pic = use_pic,
+    )
+    diagnostics_tree_artifact = _maybe_declare_diagnostics_tree_artifact(
+        action_construction_context,
+        feature_configuration,
+        label,
+        output_name,
+        use_pic = use_pic,
+    )
+    if lto_output_enabled:
+        outputs["lto_compilation_context"][output_file] = (lto_index_tree_artifact, all_copts)
+    _cc_internal.create_cc_compile_action_template(
+        action_construction_context = action_construction_context,
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        configuration = configuration,
+        feature_configuration = feature_configuration,
+        copts_filter = copts_filter,
+        compile_build_variables = _cc_internal.combine_cc_toolchain_variables(
+            common_compile_build_variables,
+            specific_compile_build_variables,
+        ),
+        source = cpp_source.file,
+        additional_compilation_inputs = additional_compilation_inputs,
+        additional_include_scanning_roots = additional_include_scanning_roots,
+        use_pic = use_pic,
+        output_categories = output_categories,
+        output_files = output_file,
+        dotd_tree_artifact = dotd_tree_artifact,
+        diagnostics_tree_artifact = diagnostics_tree_artifact,
+        lto_indexing_tree_artifact = lto_index_tree_artifact,
+        needs_include_validation = cc_semantics.needs_include_validation(language),
+        toolchain_type = cc_semantics.toolchain,
+    )
+    outputs[outputs_key].append(output_file)
 
 def _declare_compile_output_tree_artifact(
         ctx,
