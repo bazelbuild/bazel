@@ -46,7 +46,12 @@ CPP_SOURCE_TYPE_CLIF_INPUT_PROTO = "CLIF_INPUT_PROTO"
 
 # LINT.IfChange(forked_exports)
 
-CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop"), ("", "third_party/crubit"), ("", "tools/build_defs/clif")]
+CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [
+    ("", "devtools/rust/cc_interop"),
+    ("", "third_party/crubit"),
+    ("", "tools/build_defs/clif"),
+    ("", "third_party/bazel_rules/rules_cc"),
+]
 
 PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("_builtins", ""),
