@@ -550,7 +550,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
           // fingerprinting stringificationType here.
           CommandLineItemMapEachAdaptor commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(
-                  mapEach, location, starlarkSemantics, artifactExpander, outputPathsMode);
+                  mapEach,
+                  location,
+                  starlarkSemantics,
+                  (features & EXPAND_DIRECTORIES) != 0 || wantsDirectoryExpander(mapEach)
+                      ? artifactExpander
+                      : null,
+                  outputPathsMode);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
@@ -1129,14 +1135,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
-      // map_each can accept either each object, or each object + a directory expander.
-      boolean wantsDirectoryExpander =
-          mapFn instanceof StarlarkFunction starlarkFunction
-              && starlarkFunction.getParameterNames().size() >= 2;
       // We create a list that we reuse for the args to map_each
       List<Object> args = new ArrayList<>(2);
       args.add(null); // This will be overwritten each iteration.
-      if (wantsDirectoryExpander) {
+      // map_each can accept either each object, or each object + a directory expander.
+      if (wantsDirectoryExpander(mapFn)) {
         DirectoryExpander expander;
         if (artifactExpander != null) {
           expander = new FullExpander(artifactExpander);
@@ -1173,6 +1176,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       throw new CommandLineExpansionException(
           errorMessage(e.getMessageWithStack(), loc, e.getCause()));
     }
+  }
+
+  private static boolean wantsDirectoryExpander(StarlarkCallable mapFn) {
+    return mapFn instanceof StarlarkFunction starlarkFunction
+        && starlarkFunction.getParameterNames().size() >= 2;
   }
 
   private static class CommandLineItemMapEachAdaptor
