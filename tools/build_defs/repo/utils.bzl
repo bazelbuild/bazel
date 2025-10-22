@@ -71,16 +71,18 @@ def _use_native_patch(patch_args):
     return True
 
 def _download_patch(ctx, patch_url, integrity, auth = None):
-    name = patch_url.split("/")[-1]
+    # Prepend a hash to the filename to avoid potential collisions/races.
+    name = str(hash(patch_url)) + "-" + patch_url.split("/")[-1]
     patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
-    download_info = ctx.download(
+    token = ctx.download(
         patch_url,
         patch_path,
         canonical_id = ctx.attr.canonical_id,
         auth = get_auth(ctx, [patch_url]) if auth == None else auth,
         integrity = integrity,
+        block = False,
     )
-    return patch_path, download_info
+    return patch_path, token
 
 def download_remote_files(ctx, auth = None):
     """Utility function for downloading remote files.
@@ -214,10 +216,13 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
     remote_patches_download_info = {}
     for patch_url in remote_patches:
         integrity = remote_patches[patch_url]
-        patchfile, download_info = _download_patch(ctx, patch_url, integrity, auth)
-        remote_patches_download_info[patch_url] = download_info
+        remote_patches_download_info[patch_url] = _download_patch(ctx, patch_url, integrity, auth)
+
+    for patch_url, (patchfile, token) in remote_patches_download_info.items():
+        remote_patches_download_info[patch_url] = token.wait()
         ctx.patch(patchfile, remote_patch_strip)
         ctx.delete(patchfile)
+
     ctx.delete(ctx.path(_REMOTE_PATCH_DIR))
 
     # Apply local patches
