@@ -74,6 +74,7 @@ import java.util.TreeMap;
 // TODO(bazel-team): add tests for this strategy.
 public class StandaloneTestStrategy extends TestStrategy {
   private static final String TEST_NAME_ENV = "TEST_NAME";
+  private static final String XML_TEST_GENERATION_MNEMONIC = "XmlTestGeneration";
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
@@ -484,7 +485,8 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        SpawnAction.DEFAULT_RESOURCE_SET,
+        XML_TEST_GENERATION_MNEMONIC);
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
