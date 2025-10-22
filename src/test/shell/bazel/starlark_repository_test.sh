@@ -3199,8 +3199,8 @@ function test_download_then_extract_tar() {
 
   pushd ${TEST_TMPDIR}
   echo "Experiment with tar" > ${data_dir}/download_then_extract_tar.txt
-  tar -zcvf ${server_dir}/download_then_extract.tar.gz data_dir
-  file_sha256="$(sha256sum $server_dir/download_then_extract.tar.gz | head -c 64)"
+  tar -zcvf server_dir/download_then_extract.tar.gz data_dir
+  file_sha256="$(sha256sum server_dir/download_then_extract.tar.gz | head -c 64)"
   popd
 
   # Start HTTP server with Python
