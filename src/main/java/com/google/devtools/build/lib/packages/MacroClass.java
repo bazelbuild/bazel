@@ -398,7 +398,7 @@ public final class MacroClass {
           StarlarkThread.create(
               mu,
               semantics,
-              /* contextDescription= */ "",
+              macro.getShortDescription(),
               SymbolGenerator.create(
                   MacroInstance.UniqueId.create(
                       macro.getPackage().getPackageIdentifier(), macro.getId())));

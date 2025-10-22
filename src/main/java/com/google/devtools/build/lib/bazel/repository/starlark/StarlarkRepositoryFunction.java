@@ -265,7 +265,10 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 directories)) {
       StarlarkThread thread =
           StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
+              mu,
+              starlarkSemantics,
+              "repository " + ((RepositoryName) key.argument()).getDisplayForm(mainRepoMapping),
+              SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       var repoMappingRecorder = new Label.RepoMappingRecorder();
       // For repos defined in Bzlmod, record any used repo mappings in the marker file.
