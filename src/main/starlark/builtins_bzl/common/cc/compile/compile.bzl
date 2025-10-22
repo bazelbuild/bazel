@@ -651,7 +651,6 @@ def _create_cc_compile_actions(
                 additional_include_scanning_roots = additional_include_scanning_roots,
                 output_name = output_name,
                 outputs = outputs,
-                bitcode_output = bitcode_output,
             )
     for cpp_source in compilation_unit_sources.values():
         source_artifact = cpp_source.file
