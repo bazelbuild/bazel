@@ -370,6 +370,17 @@ public final class MacroInstance extends RuleOrMacroInstance {
     return false;
   }
 
+  /** Returns a human-readable description of the macro suitable for debugging output. */
+  public String getShortDescription() {
+    return String.format(
+        "%smacro %s:%s defined by %s%%%s",
+        macroClass.isFinalizer() ? "finalizer " : "",
+        packageMetadata.packageIdentifier().getCanonicalForm(),
+        getName(),
+        macroClass.getDefiningBzlLabel().getCanonicalForm(),
+        macroClass.getName());
+  }
+
   /**
    * Logical tuple of the package and id within the package. Used to label the Starlark evaluation
    * environment.

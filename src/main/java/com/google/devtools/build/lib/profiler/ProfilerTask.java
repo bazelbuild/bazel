@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.profiler;
 import java.time.Duration;
 
 /**
- * All possible types of profiler tasks. Each type also defines description and
- * minimum duration in nanoseconds for it to be recorded as separate event and
- * not just be aggregated into the parent event.
+ * All possible types of profiler tasks. Each type also defines description and minimum duration in
+ * nanoseconds for it to be recorded as separate event and not just be aggregated into the parent
+ * event.
  */
 public enum ProfilerTask {
   PHASE("build phase marker"),
@@ -73,6 +73,7 @@ public enum ProfilerTask {
   STARLARK_BUILTIN_FN("Starlark builtin function call", Threshold.FIFTY_MILLIS),
   STARLARK_USER_COMPILED_FN("Starlark compiled user function call", Threshold.FIFTY_MILLIS),
   STARLARK_REPOSITORY_FN("Starlark repository function call", Threshold.FIFTY_MILLIS),
+  STARLARK_THREAD_CONTEXT("Starlark thread context", Threshold.FIFTY_MILLIS),
   ACTION_FS_STAGING("Staging per-action file system"),
   REMOTE_CACHE_CHECK("remote action cache check"),
   REMOTE_DOWNLOAD("remote output download", Threshold.TEN_MILLIS),
@@ -104,13 +105,16 @@ public enum ProfilerTask {
 
   /** Human readable description for the task. */
   public final String description;
+
   /**
    * Threshold for skipping tasks in the profile in nanoseconds, unless --record_full_profiler_data
    * is used.
    */
   public final long minDuration;
+
   /** Whether this task collects the slowest instances. */
   public final boolean collectsSlowestInstances;
+
   /** True if the metric records VFS operations */
   private final boolean vfs;
 

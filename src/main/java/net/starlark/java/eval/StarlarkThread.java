@@ -314,7 +314,9 @@ public final class StarlarkThread {
     // End wall-time profile span.
     CallProfiler callProfiler = StarlarkThread.callProfiler;
     if (callProfiler != null && fr.profileStartTimeNanos >= 0) {
-      callProfiler.end(fr.profileStartTimeNanos, fr.fn);
+      // Only record the context once since it is the same for all frames.
+      var contextDescription = last == 0 ? getContextDescription() : null;
+      callProfiler.end(fr.profileStartTimeNanos, fr.fn, contextDescription);
     }
 
     // Notify debug tools of the thread's last pop.
@@ -439,7 +441,8 @@ public final class StarlarkThread {
    *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
    *     the same application would use the same {@code StarlarkSemantics} instance.
    * @param contextDescription a short description of this evaluation, added as context when an
-   *     exception is thrown. The empty String can be used as a default value.
+   *     exception is thrown as well as in profiles. The empty String can be used as a default
+   *     value.
    * @param symbolGenerator a supplier of deterministic, stable IDs for objects created by this
    *     thread
    */
@@ -624,8 +627,14 @@ public final class StarlarkThread {
   public interface CallProfiler {
     long start();
 
+    /**
+     * Records the end time of a function call.
+     *
+     * @param threadContext an optional description of the context in which the function is called.
+     *     Only non-null for the outermost function in a call stack.
+     */
     @SuppressWarnings("GoodTime") // This code is very performance sensitive.
-    void end(long startTimeNanos, StarlarkCallable fn);
+    void end(long startTimeNanos, StarlarkCallable fn, @Nullable String threadContext);
   }
 
   /** Installs a global hook that will be notified of function calls. */
