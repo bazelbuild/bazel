@@ -37,8 +37,9 @@ def create_compile_action_templates(
         feature_configuration,
         language,
         common_compile_build_variables,
-        cpp_source,
-        source_artifact,
+        source_dir,
+        source_type,
+        source_label,
         label,
         copts,
         conlyopts,
@@ -50,16 +51,16 @@ def create_compile_action_templates(
         additional_include_scanning_roots,
         output_name,
         outputs):
-    if cpp_source.type not in [CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER]:
-        fail("Encountered invalid source types when creating CppCompileActionTemplates: " + cpp_source.type)
+    if source_type not in [CPP_SOURCE_TYPE_SOURCE, CPP_SOURCE_TYPE_HEADER]:
+        fail("Encountered invalid source types when creating CppCompileActionTemplates: " + source_type)
     all_copts = get_copts(
         language = language,
         cpp_configuration = cpp_configuration,
-        source_file = source_artifact,
+        source_file = source_dir,
         conlyopts = conlyopts,
         copts = copts,
         cxxopts = cxxopts,
-        label = cpp_source.label,
+        label = source_label,
     )
 
     # Currently we do not generate minimized bitcode files for tree artifacts because of issues
@@ -74,7 +75,7 @@ def create_compile_action_templates(
     # TODO(b/289071777): support for minimized bitcode files.
     lto_index_tree_artifact = None
 
-    if cpp_source.type == CPP_SOURCE_TYPE_HEADER:
+    if source_type == CPP_SOURCE_TYPE_HEADER:
         _create_compile_action_template(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
@@ -83,8 +84,7 @@ def create_compile_action_templates(
             feature_configuration = feature_configuration,
             copts_filter = copts_filter,
             common_compile_build_variables = common_compile_build_variables,
-            cpp_source = cpp_source,
-            source_artifact = source_artifact,
+            source_dir = source_dir,
             label = label,
             all_copts = all_copts,
             additional_compilation_inputs = additional_compilation_inputs,
@@ -109,8 +109,7 @@ def create_compile_action_templates(
                 feature_configuration = feature_configuration,
                 copts_filter = copts_filter,
                 common_compile_build_variables = common_compile_build_variables,
-                cpp_source = cpp_source,
-                source_artifact = source_artifact,
+                source_dir = source_dir,
                 label = label,
                 all_copts = all_copts,
                 additional_compilation_inputs = additional_compilation_inputs,
@@ -133,8 +132,7 @@ def create_compile_action_templates(
                 feature_configuration = feature_configuration,
                 copts_filter = copts_filter,
                 common_compile_build_variables = common_compile_build_variables,
-                cpp_source = cpp_source,
-                source_artifact = source_artifact,
+                source_dir = source_dir,
                 label = label,
                 all_copts = all_copts,
                 additional_compilation_inputs = additional_compilation_inputs,
@@ -158,8 +156,7 @@ def _create_compile_action_template(
         feature_configuration,
         copts_filter,
         common_compile_build_variables,
-        cpp_source,
-        source_artifact,
+        source_dir,
         label,
         all_copts,
         additional_compilation_inputs,
@@ -172,7 +169,7 @@ def _create_compile_action_template(
         outputs_key,
         lto_index_tree_artifact,
         language):
-    output_file = _declare_compile_output_tree_artifact(
+    output_dir = _declare_compile_output_tree_artifact(
         action_construction_context,
         label,
         output_name,
@@ -181,8 +178,8 @@ def _create_compile_action_template(
     specific_compile_build_variables = get_specific_compile_build_variables(
         feature_configuration,
         use_pic = use_pic,
-        source_file = source_artifact,
-        output_file = output_file,
+        source_file = source_dir,
+        output_file = output_dir,
         cpp_module_map = cc_compilation_context._module_map,
         direct_module_maps = cc_compilation_context._direct_module_maps,
         user_compile_flags = all_copts,
@@ -204,7 +201,7 @@ def _create_compile_action_template(
         use_pic = use_pic,
     )
     if lto_output_enabled:
-        outputs["lto_compilation_context"][output_file] = (lto_index_tree_artifact, all_copts)
+        outputs["lto_compilation_context"][output_dir] = (lto_index_tree_artifact, all_copts)
     _cc_internal.create_cc_compile_action_template(
         action_construction_context = action_construction_context,
         cc_compilation_context = cc_compilation_context,
@@ -216,19 +213,19 @@ def _create_compile_action_template(
             common_compile_build_variables,
             specific_compile_build_variables,
         ),
-        source = cpp_source.file,
+        source = source_dir,
         additional_compilation_inputs = additional_compilation_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
         use_pic = use_pic,
         output_categories = output_categories,
-        output_files = output_file,
+        output_files = output_dir,
         dotd_tree_artifact = dotd_tree_artifact,
         diagnostics_tree_artifact = diagnostics_tree_artifact,
         lto_indexing_tree_artifact = lto_index_tree_artifact,
         needs_include_validation = cc_semantics.needs_include_validation(language),
         toolchain_type = cc_semantics.toolchain,
     )
-    outputs[outputs_key].append(output_file)
+    outputs[outputs_key].append(output_dir)
 
 def _declare_compile_output_tree_artifact(
         ctx,
