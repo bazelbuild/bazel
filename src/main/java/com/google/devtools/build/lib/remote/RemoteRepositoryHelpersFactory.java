@@ -14,16 +14,15 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteHelpersFactory;
+import javax.annotation.Nullable;
 
 /** Factory for {@link RemoteRepositoryRemoteExecutor}. */
-class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorFactory {
+class RemoteRepositoryHelpersFactory implements RepositoryRemoteHelpersFactory {
 
-  private final RemoteExecutionCache remoteExecutionCache;
-  private final RemoteExecutionClient remoteExecutor;
-  private final DigestUtil digestUtil;
+  private final CombinedCache cache;
+  @Nullable private final RemoteExecutionClient remoteExecutor;
   private final String buildRequestId;
   private final String commandId;
   private final String workspaceName;
@@ -31,18 +30,16 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
   private final String remoteInstanceName;
   private final boolean acceptCached;
 
-  RemoteRepositoryRemoteExecutorFactory(
-      RemoteExecutionCache remoteExecutionCache,
-      RemoteExecutionClient remoteExecutor,
-      DigestUtil digestUtil,
+  RemoteRepositoryHelpersFactory(
+      CombinedCache cache,
+      @Nullable RemoteExecutionClient remoteExecutor,
       String buildRequestId,
       String commandId,
       String workspaceName,
       String remoteInstanceName,
       boolean acceptCached) {
-    this.remoteExecutionCache = remoteExecutionCache;
+    this.cache = cache;
     this.remoteExecutor = remoteExecutor;
-    this.digestUtil = digestUtil;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.workspaceName = workspaceName;
@@ -50,12 +47,16 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
     this.acceptCached = acceptCached;
   }
 
+  @Nullable
   @Override
-  public RepositoryRemoteExecutor create() {
+  public RepositoryRemoteExecutor createExecutor() {
+    if (remoteExecutor == null) {
+      return null;
+    }
     return new RemoteRepositoryRemoteExecutor(
-        remoteExecutionCache,
+        (RemoteExecutionCache) cache,
         remoteExecutor,
-        digestUtil,
+        cache.digestUtil,
         buildRequestId,
         commandId,
         workspaceName,

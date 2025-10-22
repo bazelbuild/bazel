@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -180,7 +180,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(
-                        ImmutableMap::of, directories, new RepoContentsCache()))
+                        ImmutableMap::of, directories, new LocalRepoContentsCache()))
                 .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
                 .put(
                     SkyFunctions.REGISTRY,

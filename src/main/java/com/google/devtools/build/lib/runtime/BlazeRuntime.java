@@ -197,7 +197,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final String productName;
   private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
-  @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
+  @Nullable private final RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -232,7 +232,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       BlazeServiceRegistry blazeServiceRegistry,
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
-      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
+      RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory,
       InstrumentationOutputFactory instrumentationOutputFactory,
       FileSystemLock installBaseLock) {
     // Server state
@@ -262,7 +262,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         new CommandNameCacheImpl(commandMap));
     this.productName = productName;
     this.buildEventArtifactUploaderFactoryMap = buildEventArtifactUploaderFactoryMap;
-    this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
+    this.repositoryRemoteHelpersFactory = repositoryRemoteHelpersFactory;
     this.instrumentationOutputFactory = instrumentationOutputFactory;
     this.installBaseLock = installBaseLock;
     this.cgroupsInfo = VirtualCgroup.getInstance().cgroupsInfo();
@@ -1602,8 +1602,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return buildEventArtifactUploaderFactoryMap;
   }
 
-  public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
-    return repositoryRemoteExecutorFactory;
+  public RepositoryRemoteHelpersFactory getRepositoryHelpersFactory() {
+    return repositoryRemoteHelpersFactory;
   }
 
   public InstrumentationOutputFactory getInstrumentationOutputFactory() {
@@ -1748,7 +1748,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getBlazeServiceRegistry(),
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
-              serverBuilder.getRepositoryRemoteExecutorFactory(),
+              serverBuilder.getRepositoryHelpersFactory(),
               serverBuilder.createInstrumentationOutputFactory(),
               installBaseLock);
       AutoProfiler.setClock(runtime.getClock());
