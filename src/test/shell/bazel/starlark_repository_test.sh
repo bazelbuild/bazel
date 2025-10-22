@@ -3151,4 +3151,321 @@ EOF
   expect_log "by modifying arguments attr1 = \"default2\" and dropping \[attr2, attr3\]"
 }
 
+function test_download_then_extract() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "This is one file" > ${server_dir}/download_then_extract.txt
+  zip -r ${server_dir}/download_then_extract.zip server_dir
+  file_sha256="$(sha256sum $server_dir/download_then_extract.zip | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download("http://localhost:${fileserver_port}/download_then_extract.zip", "downloaded_file.zip", "${file_sha256}")
+  repository_ctx.extract("downloaded_file.zip", "out_dir", "server_dir/")
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "This is one file" "$output_base/external/+repo+foo/out_dir/download_then_extract.txt"
+}
+
+function test_download_then_extract_tar() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  local data_dir="${TEST_TMPDIR}/data_dir"
+  mkdir -p "${server_dir}"
+  mkdir -p "${data_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "Experiment with tar" > ${data_dir}/download_then_extract_tar.txt
+  tar -zcvf ${server_dir}/download_then_extract.tar.gz data_dir
+  file_sha256="$(sha256sum $server_dir/download_then_extract.tar.gz | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download("http://localhost:${fileserver_port}/download_then_extract.tar.gz", "downloaded_file.tar.gz", "${file_sha256}")
+  repository_ctx.extract("downloaded_file.tar.gz", "out_dir", "data_dir/")
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "Experiment with tar" "$output_base/external/+repo+foo/out_dir/download_then_extract_tar.txt"
+}
+
+function test_download_and_extract() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+
+  pushd ${TEST_TMPDIR}
+  echo "This is one file" > ${server_dir}/download_and_extract.txt
+  zip -r ${server_dir}/download_and_extract.zip server_dir
+  file_sha256="$(sha256sum ${server_dir}/download_and_extract.zip | head -c 64)"
+  popd
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download_and_extract("http://localhost:${fileserver_port}/download_and_extract.zip", "out_dir", "${file_sha256}", "zip", "server_dir/")
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "This is one file" "$output_base/external/+repo+foo/out_dir/download_and_extract.txt"
+}
+
+function test_extract_rename_files() {
+  local archive_tar="${TEST_TMPDIR}/archive.tar"
+
+  # Create a tar archive with two entries, which would have conflicting
+  # paths if extracted to a case-insensitive filesystem.
+  pushd "${TEST_TMPDIR}"
+  mkdir prefix
+  echo "First file: a" > prefix/a.txt
+  tar -cvf archive.tar prefix
+  rm prefix/a.txt
+  echo "Second file: A" > prefix/A.txt
+  tar -rvf archive.tar prefix
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'prefix/', rename_files={
+    'prefix/A.txt': 'prefix/renamed-A.txt',
+  })
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "First file: a" "$output_base/external/+repo+foo/out_dir/a.txt"
+  assert_contains "Second file: A" "$output_base/external/+repo+foo/out_dir/renamed-A.txt"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/12986
+# Verifies that tar entries with PAX headers, which are always encoded in UTF-8, are extracted
+# correctly.
+function test_extract_pax_tar_non_ascii_utf8_file_names() {
+  local archive_tar="${TEST_TMPDIR}/pax.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_pax_∅"
+  echo "bar" > "Ä_pax_∅/Ä_foo_∅.txt"
+  tar --format=pax -cvf pax.tar "Ä_pax_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
+}
+
+# Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
+# correctly if that encoding happens to be UTF-8.
+function test_extract_ustar_tar_non_ascii_utf8_file_names() {
+  local archive_tar="${TEST_TMPDIR}/ustar.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_ustar_∅"
+  echo "bar" > "Ä_ustar_∅/Ä_foo_∅.txt"
+  tar --format=ustar -cvf ustar.tar "Ä_ustar_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
+}
+
+# Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted
+# correctly if that encoding is not UTF-8.
+function test_extract_ustar_tar_non_ascii_non_utf8_file_names() {
+  if ! is_linux; then
+    echo "Skipping test on non-Linux platforms due to lack of support for non-UTF-8 filenames"
+    return
+  fi
+
+  local archive_tar="${TEST_TMPDIR}/ustar.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_ustar_latin1_∅"
+  echo "bar" > "$(echo -e 'Ä_ustar_latin1_∅/\xC4_foo_latin1_\xD6.txt')"
+  tar --format=ustar -cvf ustar.tar "Ä_ustar_latin1_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_latin1_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$(echo -e "$output_base/external/+repo+foo/out_dir/\xC4_foo_latin1_\xD6.txt")"
+}
+
+function test_extract_default_zip_non_ascii_utf8_file_names() {
+  local archive_zip="${TEST_TMPDIR}/default.zip"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_default_∅"
+  echo "bar" > "Ä_default_∅/Ä_foo_∅.txt"
+  zip default.zip -r "Ä_default_∅"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_zip}', 'out_dir', 'Ä_default_∅/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
+}
+
+function test_read_roundtrip_utf8() {
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  content = "echo fïlëfïlë"
+  repository_ctx.file("filefile.sh", content, True, legacy_utf8=False)
+  read_result = repository_ctx.read("filefile.sh")
+  if read_result != content:
+    fail("read(): expected %r, got %r" % (content, read_result))
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+}
+
+function test_sparse_tar() {
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download_and_extract(
+      url='https://mirror.bazel.build/github.com/astral-sh/ruff/releases/download/v0.1.6/ruff-aarch64-apple-darwin.tar.gz',
+      sha256='0b626e88762b16908b3dbba8327341ddc13b37ebe6ec1a0db3f033ce5a44162d',
+  )
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  [[ -f "$output_base/external/+repo+foo/ruff" ]] || fail "Expected ruff binary to be extracted"
+}
+
 run_suite "local repository tests"
