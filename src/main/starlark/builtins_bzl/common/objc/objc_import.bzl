@@ -21,8 +21,6 @@ load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/objc/attrs.bzl", "common_attrs")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 
-objc_internal = _builtins.internal.objc_internal
-
 def _objc_import_impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     alwayslink = ctx.fragments.objc.target_should_alwayslink(ctx)

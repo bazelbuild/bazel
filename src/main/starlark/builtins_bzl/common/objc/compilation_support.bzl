@@ -25,7 +25,7 @@ load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/paths.bzl", "paths")
 load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
-objc_internal = _builtins.internal.objc_internal
+_cc_internal = _builtins.internal.cc_internal
 
 def _build_variable_extensions(ctx, arc_enabled):
     extensions = {}
@@ -59,12 +59,12 @@ def _create_compilation_attributes(ctx):
         sdk_frameworks = depset(sdk_frameworks),
         weak_sdk_frameworks = depset(weak_sdk_frameworks),
         sdk_dylibs = depset(getattr(ctx.attr, "sdk_dylibs", [])),
-        linkopts = objc_internal.expand_and_tokenize(ctx = ctx, attr = "linkopts", flags = getattr(ctx.attr, "linkopts", [])),
-        copts = objc_internal.expand_and_tokenize(ctx = ctx, attr = "copts", flags = getattr(ctx.attr, "copts", [])),
-        conlyopts = objc_internal.expand_and_tokenize(ctx = ctx, attr = "conlyopts", flags = getattr(ctx.attr, "conlyopts", [])),
-        cxxopts = objc_internal.expand_and_tokenize(ctx = ctx, attr = "cxxopts", flags = getattr(ctx.attr, "cxxopts", [])),
+        linkopts = _cc_internal.expand_and_tokenize(ctx = ctx, attr = "linkopts", flags = getattr(ctx.attr, "linkopts", [])),
+        copts = _cc_internal.expand_and_tokenize(ctx = ctx, attr = "copts", flags = getattr(ctx.attr, "copts", [])),
+        conlyopts = _cc_internal.expand_and_tokenize(ctx = ctx, attr = "conlyopts", flags = getattr(ctx.attr, "conlyopts", [])),
+        cxxopts = _cc_internal.expand_and_tokenize(ctx = ctx, attr = "cxxopts", flags = getattr(ctx.attr, "cxxopts", [])),
         additional_linker_inputs = getattr(ctx.files, "additional_linker_inputs", []),
-        defines = objc_internal.expand_and_tokenize(ctx = ctx, attr = "defines", flags = getattr(ctx.attr, "defines", [])),
+        defines = _cc_internal.expand_and_tokenize(ctx = ctx, attr = "defines", flags = getattr(ctx.attr, "defines", [])),
         enable_modules = getattr(ctx.attr, "enable_modules", False),
     )
 

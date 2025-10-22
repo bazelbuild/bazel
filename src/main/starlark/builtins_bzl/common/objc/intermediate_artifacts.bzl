@@ -17,8 +17,6 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/paths.bzl", "paths")
 
-objc_internal = _builtins.internal.objc_internal
-
 def _declare_file_with_extension(ctx, extension):
     return ctx.actions.declare_file(ctx.label.name + extension)
 

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -1240,5 +1242,54 @@ public class CcStarlarkInternal implements StarlarkValue {
         headerInfo.separatePicModule,
         Sequence.cast(deps, HeaderInfo.class, "deps").getImmutableList(),
         Sequence.cast(mergedDeps, HeaderInfo.class, "merged_deps").getImmutableList());
+  }
+
+  /**
+   * Run variable expansion and shell tokenization on a sequence of flags.
+   *
+   * <p>When expanding path variables (e.g. $(execpath ...)), the label can refer to any of which in
+   * the {@code srcs}, {@code non_arc_srcs}, {@code hdrs} or {@code data} attributes or an output of
+   * the target.
+   *
+   * @param starlarkRuleContext The rule context of the expansion.
+   * @param attributeName The attribute of the rule tied to the expansion. Used for error reporting
+   *     only.
+   * @param flags The sequence of flags to expand.
+   */
+  @StarlarkMethod(
+      name = "expand_and_tokenize",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "attr", positional = false, named = true),
+        @Param(name = "flags", positional = false, defaultValue = "[]", named = true),
+      })
+  public Sequence<String> expandAndTokenize(
+      StarlarkRuleContext starlarkRuleContext, String attributeName, Sequence<?> flags)
+      throws EvalException, InterruptedException {
+    if (flags.isEmpty()) {
+      return Sequence.cast(flags, String.class, attributeName);
+    }
+    Expander expander =
+        starlarkRuleContext
+            .getRuleContext()
+            .getExpander(
+                StarlarkRuleContext.makeLabelMap(
+                    ImmutableSet.copyOf(
+                        Iterables.concat(
+                            starlarkRuleContext.getRuleContext().getPrerequisites("srcs"),
+                            starlarkRuleContext.getRuleContext().getPrerequisites("non_arc_srcs"),
+                            starlarkRuleContext.getRuleContext().getPrerequisites("hdrs"),
+                            starlarkRuleContext.getRuleContext().getPrerequisites("data"),
+                            starlarkRuleContext
+                                .getRuleContext()
+                                .getPrerequisites("additional_linker_inputs"))),
+                    starlarkRuleContext
+                        .getStarlarkSemantics()
+                        .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE)))
+            .withDataExecLocations();
+    ImmutableList<String> expandedFlags =
+        expander.tokenized(attributeName, Sequence.cast(flags, String.class, attributeName));
+    return StarlarkList.immutableCopyOf(expandedFlags);
   }
 }

@@ -663,7 +663,7 @@ def _absolute_symlink(*, ctx, output, target_path, progress_message):
 
 def _objc_expand_and_tokenize(**kwargs):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _builtins.internal.objc_internal.expand_and_tokenize(**kwargs)
+    return _cc_internal.expand_and_tokenize(**kwargs)
 
 def _create_linkstamp(linkstamp, headers):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)

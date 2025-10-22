@@ -22,7 +22,6 @@ load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/objc_common.bzl", "extensions")
 load(":common/objc/semantics.bzl", "semantics")
 
-objc_internal = _builtins.internal.objc_internal
 coverage_common = _builtins.toplevel.coverage_common
 
 def _attribute_error(attr_name, msg):

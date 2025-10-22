@@ -15,15 +15,11 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
@@ -34,9 +30,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utility methods for Objc rules in Starlark Builtins */
@@ -55,55 +49,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       return defaultValue;
     }
     return (T) obj;
-  }
-
-  /**
-   * Run variable expansion and shell tokenization on a sequence of flags.
-   *
-   * <p>When expanding path variables (e.g. $(execpath ...)), the label can refer to any of which in
-   * the {@code srcs}, {@code non_arc_srcs}, {@code hdrs} or {@code data} attributes or an output of
-   * the target.
-   *
-   * @param starlarkRuleContext The rule context of the expansion.
-   * @param attributeName The attribute of the rule tied to the expansion. Used for error reporting
-   *     only.
-   * @param flags The sequence of flags to expand.
-   */
-  @StarlarkMethod(
-      name = "expand_and_tokenize",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "attr", positional = false, named = true),
-        @Param(name = "flags", positional = false, defaultValue = "[]", named = true),
-      })
-  public Sequence<String> expandAndTokenize(
-      StarlarkRuleContext starlarkRuleContext, String attributeName, Sequence<?> flags)
-      throws EvalException, InterruptedException {
-    if (flags.isEmpty()) {
-      return Sequence.cast(flags, String.class, attributeName);
-    }
-    Expander expander =
-        starlarkRuleContext
-            .getRuleContext()
-            .getExpander(
-                StarlarkRuleContext.makeLabelMap(
-                    ImmutableSet.copyOf(
-                        Iterables.concat(
-                            starlarkRuleContext.getRuleContext().getPrerequisites("srcs"),
-                            starlarkRuleContext.getRuleContext().getPrerequisites("non_arc_srcs"),
-                            starlarkRuleContext.getRuleContext().getPrerequisites("hdrs"),
-                            starlarkRuleContext.getRuleContext().getPrerequisites("data"),
-                            starlarkRuleContext
-                                .getRuleContext()
-                                .getPrerequisites("additional_linker_inputs"))),
-                    starlarkRuleContext
-                        .getStarlarkSemantics()
-                        .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE)))
-            .withDataExecLocations();
-    ImmutableList<String> expandedFlags =
-        expander.tokenized(attributeName, Sequence.cast(flags, String.class, attributeName));
-    return StarlarkList.immutableCopyOf(expandedFlags);
   }
 
   @StarlarkMethod(
