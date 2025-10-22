@@ -3184,6 +3184,8 @@ EOF
 
   output_base="$(bazel info output_base)"
   assert_contains "This is one file" "$output_base/external/+repo+foo/out_dir/download_then_extract.txt"
+
+  shutdown_server
 }
 
 function test_download_then_extract_tar() {
@@ -3221,6 +3223,8 @@ EOF
 
   output_base="$(bazel info output_base)"
   assert_contains "Experiment with tar" "$output_base/external/+repo+foo/out_dir/download_then_extract_tar.txt"
+
+  shutdown_server
 }
 
 function test_download_and_extract() {
@@ -3255,6 +3259,8 @@ EOF
 
   output_base="$(bazel info output_base)"
   assert_contains "This is one file" "$output_base/external/+repo+foo/out_dir/download_and_extract.txt"
+
+  shutdown_server
 }
 
 function test_extract_rename_files() {
