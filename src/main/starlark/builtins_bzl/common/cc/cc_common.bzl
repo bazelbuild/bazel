@@ -693,7 +693,15 @@ def _cc_toolchain_variables(*, vars):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return _cc_internal.cc_toolchain_variables(vars = vars)
 
+def _internal_exports():
+    _builtins.internal.cc_internal.check_private_api(allowlist = [
+        ("", "third_party/bazel_rules/rules_cc"),
+        ("rules_cc", ""),
+    ])
+    return _cc_internal
+
 cc_common = struct(
+    internal_DO_NOT_USE = _internal_exports,
     link = _link,
     create_lto_compilation_context = create_lto_compilation_context,
     create_compilation_outputs = create_compilation_outputs,
