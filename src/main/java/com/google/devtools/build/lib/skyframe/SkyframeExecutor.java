@@ -120,6 +120,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
@@ -3251,16 +3252,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    ImmutableMap<String, String> flagAliases =
-        evalResult.get(BazelDepGraphValue.KEY).getDepGraph().get(ModuleKey.ROOT).getFlagAliases();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-
-    if (flagAliases == null) {
-      return aliasesMap;
-    }
-
-    for (String flag : flagAliases.keySet()) {
-      aliasesMap.put(flag, flagAliases.get(flag));
+    for (Module module : evalResult.get(BazelDepGraphValue.KEY).getDepGraph().values()) {
+      ImmutableMap<String, String> flagAliases = module.getFlagAliases();
+      for (String flag : flagAliases.keySet()) {
+        aliasesMap.put(flag, flagAliases.get(flag));
+      }
     }
     return aliasesMap;
   }
