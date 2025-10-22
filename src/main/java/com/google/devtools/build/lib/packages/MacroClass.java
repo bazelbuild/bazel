@@ -419,7 +419,7 @@ public final class MacroClass {
           StarlarkThread.create(
               mu,
               semantics,
-              /* contextDescription= */ "macro " + instanceId,
+              /* contextDescription= */ macro.getDisplayName(),
               SymbolGenerator.create(instanceId));
       thread.setPrintHandler(
           Event.makeDebugPrintHandler(targetDefinitionContext.getLocalEventHandler()));
