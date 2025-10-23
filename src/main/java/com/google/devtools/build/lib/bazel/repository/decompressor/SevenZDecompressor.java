@@ -55,6 +55,29 @@ public class SevenZDecompressor implements Decompressor {
       Iterable<SevenZArchiveEntry> entries = sevenZFile.getEntries();
       for (SevenZArchiveEntry entry : entries) {
         String entryName = entry.getName();
+        /**
+         * From https://commons.apache.org/proper/commons-compress/examples.html
+         *
+         * <blockquote>
+         *
+         * Some 7z archives don't contain any names for the archive entries. The native 7zip tools
+         * derive a default name from the name of the archive itself for such entries. Starting with
+         * Compress 1.19 SevenZFile has an option to mimic this behavior, but by default unnamed
+         * archive entries will return null from SevenZArchiveEntry#getName.
+         *
+         * </blockquote>
+         *
+         * The 7-zip command line will try to rename ALL nameless entries with the same default file
+         * name. The user will be prompted if they want to overwrite a previously extracted nameless
+         * file with the next nameless file. Since we don't have interactive prompting when doing
+         * extractions, and don't know the correct behavior desired (overwrite the file with the
+         * later entries or not), we will simply throw an error for ALL nameless entries. Maybe
+         * there should be a flag/option to dictate the behavior, but it's probably too small of an
+         * edge case.
+         */
+        if (entryName == null || entryName.isEmpty()) {
+          throw new IOException("7z archive contains unnamed entry");
+        }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
             StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
@@ -112,7 +135,9 @@ public class SevenZDecompressor implements Decompressor {
           throw new InterruptedException();
         }
       }
-      outputPath.setLastModifiedTime(entry.getLastModifiedTime().toMillis());
+      if (entry.getHasLastModifiedDate()) {
+        outputPath.setLastModifiedTime(entry.getLastModifiedTime().toMillis());
+      }
     }
   }
 }

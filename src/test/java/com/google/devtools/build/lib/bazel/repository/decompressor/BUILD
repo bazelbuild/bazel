@@ -38,6 +38,7 @@ java_library(
         "//third_party:java-diff-utils",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party:apache_commons_compress",
         "@rules_java//java/runfiles",
     ],
 )

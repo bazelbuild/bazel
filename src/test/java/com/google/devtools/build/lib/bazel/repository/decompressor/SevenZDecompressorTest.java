@@ -19,14 +19,24 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.ROOT_FOLDER_NAME;
 import static java.util.stream.Collectors.toCollection;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
+import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
+import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -123,6 +133,99 @@ public class SevenZDecompressorTest {
         fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
     assertThat(files).contains("renamedFile");
     assertThat(fileDir.getRelative("renamedFile").getFileSize()).isNotEqualTo(0);
+  }
+
+  private File ARCHIVE_DIR;
+  private File EXTRACTION_DIR;
+
+  public void setUpTestDirectories() {
+    // Create an "archives" directory to hold the .7z archive and an "extracted" directory where the
+    // extraction will occur.
+    String tmpDir = Paths.get(TestUtils.tmpDir()).resolve(name.getMethodName()).toString();
+    ARCHIVE_DIR = Paths.get(tmpDir).resolve("archives").toFile();
+    assertThat(ARCHIVE_DIR.mkdirs()).isTrue();
+    EXTRACTION_DIR = Paths.get(tmpDir).resolve("extracted").toFile();
+    assertThat(EXTRACTION_DIR.mkdirs()).isTrue();
+  }
+
+  @Test
+  public void test7zFileModificationDate() throws Exception {
+    setUpTestDirectories();
+
+    // Create a test archive.
+    SevenZOutputFile sevenZOutput =
+        new SevenZOutputFile(new File(ARCHIVE_DIR.getPath(), ARCHIVE_NAME));
+
+    // A regular entry with modification date set to 2000/02/14.
+    SevenZArchiveEntry entry =
+        sevenZOutput.createArchiveEntry(
+            new File(TestUtils.tmpDirFile(), "test_file"),
+            "root_folder/another_folder/regularFile");
+    GregorianCalendar testDate = new GregorianCalendar(2000, Calendar.FEBRUARY, 14, 3, 7, 14);
+    entry.setLastModifiedDate(testDate.getTime());
+    sevenZOutput.putArchiveEntry(entry);
+    sevenZOutput.write("regular test file contents with modification date 2000/02/14\n".getBytes());
+    sevenZOutput.closeArchiveEntry();
+
+    // An entry that has no modification date (shouldn't crash on this).
+    SevenZArchiveEntry entryWithNoModifiedDate =
+        sevenZOutput.createArchiveEntry(
+            new File(TestUtils.tmpDirFile(), "test_file"),
+            "root_folder/another_folder/fileNoModificationDate");
+    entryWithNoModifiedDate.setLastModifiedDate(null);
+    sevenZOutput.putArchiveEntry(entryWithNoModifiedDate);
+    sevenZOutput.write("entry has no modification date\n".getBytes());
+    sevenZOutput.closeArchiveEntry();
+    sevenZOutput.finish();
+
+    FileSystem testFS = TestArchiveDescriptor.getFileSystem();
+    DecompressorDescriptor.Builder descriptor =
+        DecompressorDescriptor.builder()
+            .setDestinationPath(testFS.getPath(EXTRACTION_DIR.getCanonicalPath()))
+            .setArchivePath(
+                testFS.getPath(ARCHIVE_DIR.getCanonicalPath()).getRelative(ARCHIVE_NAME));
+
+    // Decompression should not crash and set the correct modification date.
+    Path outputDir = decompress(descriptor.build());
+
+    Path fileDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
+    ImmutableList<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
+
+    assertThat(files).containsExactly("fileNoModificationDate", "regularFile");
+    assertThat(fileDir.getRelative("regularFile").getLastModifiedTime())
+        .isEqualTo(testDate.getTimeInMillis());
+  }
+
+  /** Check that we throw when handling nameless 7z entries. */
+  @Test
+  public void test7zEntriesWithNoNameThrows() throws Exception {
+    setUpTestDirectories();
+    // Create a test archive.
+    SevenZOutputFile sevenZOutput =
+        new SevenZOutputFile(new File(ARCHIVE_DIR.getPath(), ARCHIVE_NAME));
+
+    SevenZArchiveEntry entryWithNoName =
+        sevenZOutput.createArchiveEntry(new File(TestUtils.tmpDirFile(), "test_file"), "");
+    sevenZOutput.putArchiveEntry(entryWithNoName);
+    sevenZOutput.write("entry without a name\n".getBytes());
+    sevenZOutput.closeArchiveEntry();
+    SevenZArchiveEntry entryWithNoName2 =
+        sevenZOutput.createArchiveEntry(new File(TestUtils.tmpDirFile(), "test_file"), "");
+    sevenZOutput.putArchiveEntry(entryWithNoName2);
+    sevenZOutput.write("entry without a name2\n".getBytes());
+    sevenZOutput.closeArchiveEntry();
+
+    sevenZOutput.finish();
+    FileSystem testFS = TestArchiveDescriptor.getFileSystem();
+    DecompressorDescriptor.Builder descriptor =
+        DecompressorDescriptor.builder()
+            .setDestinationPath(testFS.getPath(EXTRACTION_DIR.getCanonicalPath()))
+            .setArchivePath(
+                testFS.getPath(ARCHIVE_DIR.getCanonicalPath()).getRelative(ARCHIVE_NAME));
+
+    IOException e = assertThrows(IOException.class, () -> decompress(descriptor.build()));
+    assertThat(e.getMessage()).isEqualTo("7z archive contains unnamed entry");
   }
 
   private Path decompress(DecompressorDescriptor descriptor) throws Exception {
