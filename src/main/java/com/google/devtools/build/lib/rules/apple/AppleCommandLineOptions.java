@@ -174,8 +174,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
   /** The default visionOS CPU value. */
-  public static final String DEFAULT_VISIONOS_CPU =
-      CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
+  public static final String DEFAULT_VISIONOS_CPU = "sim_arm64";
 
   /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU =
