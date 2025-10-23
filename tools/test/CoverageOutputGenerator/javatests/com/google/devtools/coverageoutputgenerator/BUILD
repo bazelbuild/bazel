@@ -6,6 +6,18 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])  # Apache 2.0
 
 java_test(
+    name = "BranchCoverageTest",
+    srcs = ["BranchCoverageTest.java"],
+    deps = [
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageItem",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverageKey",
+    ],
+)
+
+java_test(
     name = "LineCoverageTest",
     srcs = ["LineCoverageTest.java"],
     deps = [

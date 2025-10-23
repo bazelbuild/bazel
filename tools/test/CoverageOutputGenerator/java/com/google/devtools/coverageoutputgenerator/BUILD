@@ -80,9 +80,20 @@ java_library(
 )
 
 java_library(
+    name = "BranchCoverage",
+    srcs = ["BranchCoverage.java"],
+    deps = [
+        ":BranchCoverageItem",
+        ":BranchCoverageKey",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "SourceFileCoverage",
     srcs = ["SourceFileCoverage.java"],
     deps = [
+        ":BranchCoverage",
         ":BranchCoverageItem",
         ":BranchCoverageKey",
         ":LineCoverage",

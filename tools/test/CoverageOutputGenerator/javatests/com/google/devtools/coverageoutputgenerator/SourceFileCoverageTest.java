@@ -129,8 +129,13 @@ public class SourceFileCoverageTest {
     sourceFile1.addBranch(800, "0", "0", true, 1);
     sourceFile1.addBranch(800, "0", "1", true, 0);
     sourceFile1.addBranch(800, "1", "0", true, 1);
+    sourceFile1.addBranch(900, "0", "0", true, 1);
+    sourceFile1.addBranch(900, "0", "1", true, 0);
     sourceFile2.addBranch(800, "1", "0", true, 3);
     sourceFile2.addBranch(800, "1", "1", true, 4);
+    sourceFile2.addBranch(900, "0", "0", false, 0);
+    sourceFile2.addBranch(900, "0", "1", false, 0);
+    sourceFile2.addBranch(900, "0", "2", false, 0);
 
     // Check the results are the same no matter the order of the merge.
     SourceFileCoverage merged1 = SourceFileCoverage.merge(sourceFile1, sourceFile2);
@@ -141,13 +146,19 @@ public class SourceFileCoverageTest {
             BranchCoverageItem.create(800, "0", "0", true, 1),
             BranchCoverageItem.create(800, "0", "1", true, 0),
             BranchCoverageItem.create(800, "1", "0", true, 4),
-            BranchCoverageItem.create(800, "1", "1", true, 4));
+            BranchCoverageItem.create(800, "1", "1", true, 4),
+            BranchCoverageItem.create(900, "0", "0", true, 1),
+            BranchCoverageItem.create(900, "0", "1", true, 0),
+            BranchCoverageItem.create(900, "0", "2", true, 0));
     assertThat(merged2.getAllBranches())
         .containsExactly(
             BranchCoverageItem.create(800, "0", "0", true, 1),
             BranchCoverageItem.create(800, "0", "1", true, 0),
             BranchCoverageItem.create(800, "1", "0", true, 4),
-            BranchCoverageItem.create(800, "1", "1", true, 4));
+            BranchCoverageItem.create(800, "1", "1", true, 4),
+            BranchCoverageItem.create(900, "0", "0", true, 1),
+            BranchCoverageItem.create(900, "0", "1", true, 0),
+            BranchCoverageItem.create(900, "0", "2", true, 0));
   }
 
   @Test

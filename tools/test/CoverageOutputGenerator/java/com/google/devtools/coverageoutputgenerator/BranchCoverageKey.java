@@ -15,6 +15,7 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import com.google.auto.value.AutoValue;
+import java.util.Objects;
 
 /**
  * An identifier (line, block, branch) for a particular branch.
@@ -75,5 +76,24 @@ abstract class BranchCoverageKey implements Comparable<BranchCoverageKey> {
       return blockDiff;
     }
     return this.branchNumber().compareTo(other.branchNumber());
+  }
+
+  @Override
+  public final boolean equals(Object other) {
+    if (other == this) {
+      return true;
+    }
+    if (!(other instanceof BranchCoverageKey)) {
+      return false;
+    }
+    BranchCoverageKey otherKey = (BranchCoverageKey) other;
+    return this.lineNumber() == otherKey.lineNumber()
+        && this.blockNumber().equals(otherKey.blockNumber())
+        && this.branchNumber().equals(otherKey.branchNumber());
+  }
+
+  @Override
+  public final int hashCode() {
+    return Objects.hash(this.lineNumber(), this.blockNumber(), this.branchNumber());
   }
 }
