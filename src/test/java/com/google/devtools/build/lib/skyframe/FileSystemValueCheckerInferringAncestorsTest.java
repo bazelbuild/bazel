@@ -623,8 +623,14 @@ public final class FileSystemValueCheckerInferringAncestorsTest
     FileStateValue file1Value = fileStateValue("dir/file1");
     FileStateKey file2Key = fileStateValueKey("dir/file2");
     FileStateValue file2Value = fileStateValue("dir/file2");
+    FileStateKey subdirFileKey = fileStateValueKey("dir/subdir/file");
+    FileStateValue subdirFileValue = fileStateValue("dir/subdir/file");
     FileStateKey dirKey = fileStateValueKey("dir");
     FileStateValue dirValue = fileStateValue("dir");
+    FileStateKey subdirKey = fileStateValueKey("dir/subdir");
+    FileStateValue subdirValue = fileStateValue("dir/subdir");
+    SkyKey subdirListingKey = directoryListingStateValueKey("dir/subdir");
+    DirectoryListingStateValue subdirListingValue = directoryListingStateValue(file("file"));
     file1.getParentDirectory().deleteTree();
     addDoneNodesAndThenMarkChanged(
         ImmutableMap.of(
@@ -632,8 +638,14 @@ public final class FileSystemValueCheckerInferringAncestorsTest
             file1Value,
             file2Key,
             file2Value,
+            subdirFileKey,
+            subdirFileValue,
             dirKey,
             dirValue,
+            subdirKey,
+            subdirValue,
+            subdirListingKey,
+            subdirListingValue,
             fileStateValueKey(""),
             fileStateValue("")));
 
@@ -649,7 +661,13 @@ public final class FileSystemValueCheckerInferringAncestorsTest
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(dirKey, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
-        .containsExactly(directoryListingStateValueKey(""));
+        .containsExactly(
+            directoryListingStateValueKey(""),
+            file1Key,
+            file2Key,
+            subdirKey,
+            subdirListingKey,
+            subdirFileKey);
     assertThat(statedPaths).containsExactly("dir", "");
   }
 
