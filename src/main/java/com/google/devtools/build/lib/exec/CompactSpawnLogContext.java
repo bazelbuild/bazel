@@ -23,6 +23,7 @@ import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -71,12 +72,16 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A {@link SpawnLogContext} implementation that produces a log in compact format. */
 public class CompactSpawnLogContext extends SpawnLogContext {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final Comparator<ExecLogEntry.File> EXEC_LOG_ENTRY_FILE_COMPARATOR =
       Comparator.comparing(ExecLogEntry.File::getPath);
@@ -154,6 +159,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final UUID invocationId;
   private final ExtendedEventHandler reporter;
   private final boolean verboseFailures;
+  private final AtomicBoolean outputLoggingFailed = new AtomicBoolean(false);
 
   // Maps a key identifying an entry into its ID.
   // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
@@ -266,17 +272,16 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           }
         } catch (IOException e) {
           if (!warned) {
+            outputLoggingFailed.set(true);
             warned = true;
-            var message =
-                "Failed to log outputs of %s %s: %s"
-                    .formatted(
-                        spawn.getMnemonic(),
-                        spawn.getOutputFiles().iterator().next().getExecPathString(),
-                        e.getMessage());
-            if (verboseFailures) {
-              message += "\n" + getStackTraceAsString(e);
-            }
-            reporter.handle(Event.warn(message));
+            logger.at(Level.INFO).log(
+                "Failed to log outputs of %s %s: %s%s",
+                spawn.getMnemonic(),
+                spawn.getOutputFiles().iterator().next().getExecPathString(),
+                e.getMessage(),
+                verboseFailures
+                    ? "\n" + getStackTraceAsString(e)
+                    : " (run with --verbose_failures to see a stack trace)");
           }
           outputBuilder.setInvalidOutputPath(internalToUnicode(output.getExecPathString()));
         }
@@ -758,6 +763,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
   @Override
   public void close() throws IOException {
+    if (outputLoggingFailed.get()) {
+      reporter.handle(
+          Event.warn(
+              "The compact execution log is incomplete because some outputs could not be read."
+                  + " Refer to the server log file for details."));
+    }
     outputStream.close();
   }
 }

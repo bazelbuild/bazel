@@ -261,13 +261,6 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    assertContainsEvent(
-        storedEventHandler.getEvents(),
-        "Failed to log outputs of Mnemonic %s: %s (Permission denied)"
-            .formatted(readableFile.getExecPathString(), unreadableFile.getPath().getPathString()));
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    assertThat(storedEventHandler.getPosts()).isEmpty();
-
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
@@ -280,6 +273,13 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             .addListedOutputs(PRODUCT_NAME + "-out/k8-fastbuild/bin/unreadable")
             .addListedOutputs(PRODUCT_NAME + "-out/k8-fastbuild/bin/unreadableFileDir")
             .build());
+
+    assertContainsEvent(
+        storedEventHandler.getEvents(),
+        "The compact execution log is incomplete because some outputs could not be read. Refer"
+            + " to the server log file for details.");
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThat(storedEventHandler.getPosts()).isEmpty();
   }
 
   @Override
