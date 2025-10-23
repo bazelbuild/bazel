@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
-import com.google.devtools.build.lib.analysis.test.XmlTestGeneration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
@@ -75,6 +74,7 @@ import java.util.TreeMap;
 // TODO(bazel-team): add tests for this strategy.
 public class StandaloneTestStrategy extends TestStrategy {
   private static final String TEST_NAME_ENV = "TEST_NAME";
+  private static final String XML_TEST_GENERATION_MNEMONIC = "XmlTestGeneration";
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
@@ -474,7 +474,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       envBuilder.put("TEST_TOTAL_SHARDS", "0");
     }
     return new SimpleSpawn(
-        new XmlTestGeneration(action),
+        action,
         args,
         envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on the
@@ -485,7 +485,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        SpawnAction.DEFAULT_RESOURCE_SET) {
+      @Override
+      public String getMnemonic() {
+        return XML_TEST_GENERATION_MNEMONIC;
+      }
+    };
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
