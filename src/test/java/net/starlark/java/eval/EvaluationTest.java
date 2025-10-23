@@ -867,6 +867,13 @@ public final class EvaluationTest {
   }
 
   @Test
+  public void typeAliasStatement_evalsAsNoop() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario().setUp("type X = int").testLookup("X", null);
+    ev.new Scenario().setUp("Y = 'foo'; type Y = bool").testLookup("Y", "foo");
+  }
+
+  @Test
   public void castExpression_evalsAsIdentity() throws Exception {
     // The dynamic behavior of `cast` (disregarding type checking) is to return its value unchanged.
     ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
