@@ -289,6 +289,8 @@ def _wrap_static_library_with_alwayslink(ctx, feature_configuration, cc_toolchai
             objects = old_library_to_link.objects,
             pic_static_library = old_library_to_link.pic_static_library,
             pic_objects = old_library_to_link.pic_objects,
+            lto_compilation_context = old_library_to_link._lto_compilation_context,
+            pic_lto_compilation_context = old_library_to_link._pic_lto_compilation_context,
             alwayslink = True,
         )
         new_libraries_to_link.append(new_library_to_link)

@@ -199,6 +199,7 @@ def _create_library_to_link(
         pic_objects = _UNBOUND,
         objects = _UNBOUND,
         lto_compilation_context = _UNBOUND,
+        pic_lto_compilation_context = _UNBOUND,
         alwayslink = False,
         dynamic_library_symlink_path = "",
         interface_library_symlink_path = "",
@@ -207,6 +208,10 @@ def _create_library_to_link(
         _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     else:  # lto_compilation_context == _UNBOUND
         lto_compilation_context = None
+    if pic_lto_compilation_context != _UNBOUND:
+        _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    else:  # pic_lto_compilation_context == _UNBOUND
+        pic_lto_compilation_context = None
     if must_keep_debug != _UNBOUND:
         _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     else:
@@ -232,6 +237,7 @@ def _create_library_to_link(
         "interface_library_symlink_path": interface_library_symlink_path,
         "must_keep_debug": must_keep_debug,
         "lto_compilation_context": lto_compilation_context,
+        "pic_lto_compilation_context": pic_lto_compilation_context,
     }
     if pic_objects != _UNBOUND:
         kwargs["pic_objects"] = pic_objects

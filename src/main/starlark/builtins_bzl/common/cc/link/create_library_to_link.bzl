@@ -128,6 +128,7 @@ def create_library_to_link(
         pic_objects = None,
         objects = None,
         lto_compilation_context = None,
+        pic_lto_compilation_context = None,
         alwayslink = False,
         dynamic_library_symlink_path = "",
         interface_library_symlink_path = "",
@@ -150,6 +151,7 @@ def create_library_to_link(
         pic_objects: (list[File]|None) Experimental, do not use.
         objects: (list[File]|None) Experimental, do not use.
         lto_compilation_context: (LtoCompilationContext) Experimental, do not use.
+        pic_lto_compilation_context: (LtoCompilationContext) Experimental, do not use.
         alwayslink: (bool) Whether to link the static library/objects in the --whole_archive block.
         dynamic_library_symlink_path: (str) Override the default path of the dynamic library link
             in the solib directory. Empty string to use the default.
@@ -250,6 +252,7 @@ def create_library_to_link(
     else:
         shared_non_lto_backends = None
     lto_compilation_context = lto_compilation_context or _EMPTY_LTO
+    pic_lto_compilation_context = pic_lto_compilation_context or _EMPTY_LTO
 
     return make_library_to_link(
         static_library = static_library,
@@ -264,6 +267,7 @@ def create_library_to_link(
         _library_identifier = library_identifier,
         _must_keep_debug = must_keep_debug,
         _lto_compilation_context = lto_compilation_context,
+        _pic_lto_compilation_context = pic_lto_compilation_context,
         _shared_non_lto_backends = shared_non_lto_backends,
         _contains_objects = bool(objects) or bool(pic_objects),
     )
