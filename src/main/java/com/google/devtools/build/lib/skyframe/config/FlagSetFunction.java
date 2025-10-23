@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.stream.Collectors.joining;
@@ -178,6 +179,26 @@ public final class FlagSetFunction implements SkyFunction {
       sclConfigValue = configs.get(sclConfigName).flags();
     }
 
+    // Canonicalize space-separated flags to equals-separated flags.
+    sclConfigValue =
+        sclConfigValue.stream()
+            .map(
+                flag -> {
+                  // Leave normal and malformed flags alone.
+                  if (!flag.startsWith("--") || !flag.contains(" ")) {
+                    return flag;
+                  }
+                  int spaceIndex = flag.indexOf(' ');
+                  int equalsIndex = flag.indexOf('=');
+                  // Space-separated flags will always have the space before the equals sign.
+                  // e.g. we need to canonicalize --define bar=baz, but not --foo='bar baz'
+                  if (spaceIndex < equalsIndex) {
+                    return flag.substring(0, spaceIndex) + "=" + flag.substring(spaceIndex + 1);
+                  }
+                  return flag;
+                })
+            .collect(toImmutableList());
+
     ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(key.targetOptions());
     FlagTypes directlySetFlags =
         groupFlags(sclConfigValue, key.allOptionNames(), buildOptionsAsStrings);
@@ -332,6 +353,8 @@ public final class FlagSetFunction implements SkyFunction {
    * <p>Only the options that are part of {@link BuildOptions} are allowed to be set in the project
    * file.
    */
+  // TODO: steinman - I don't think we need this anymore since we're already failing the build
+  // if there are any unrecognized flags.
   private static ImmutableSet<String> filterOptions(
       Collection<String> flagsFromSelectedConfig, ImmutableList<String> buildOptionsAsStrings) {
     ImmutableSet.Builder<String> filteredFlags = ImmutableSet.builder();
@@ -340,6 +363,9 @@ public final class FlagSetFunction implements SkyFunction {
       if (buildOptionsAsStrings.contains(
           Iterables.get(Splitter.on("=").split(flagSetting), 0)
               .replaceFirst("--", "")
+              // Don't strip out negative boolean flags, e.g --nostamp, even though they aren't
+              // part of BuildOptions in the negative form.
+              .replaceFirst("no", "")
               .replace("'", ""))) {
         filteredFlags.add(flagSetting);
       } else if (STARLARK_SKIPPED_PREFIXES.stream().anyMatch(flagSetting::startsWith)) {
@@ -389,7 +415,12 @@ public final class FlagSetFunction implements SkyFunction {
         starlarkFlags.add(flagName);
       } else if (!allOptionNames.contains(flagName)) {
         unrecognizedFlags.add(flagName);
-      } else if (!buildOptionsAsStrings.contains(flagName)) {
+      } else if (!buildOptionsAsStrings.contains(flagName)
+          // We really only want to check the option without its "no" prefix if the flag is a
+          // boolean flag, but it's hard to know what type it is at this point in the build. Since
+          // we're already sure that this flag is a recognized flag from the previous check, it's
+          // probably ok to overapproximate here.
+          && !buildOptionsAsStrings.contains(flagName.replaceFirst("no", ""))) {
         unsupportedFlags.add(flagName);
       } else {
         supportedFlags.add(flagName);

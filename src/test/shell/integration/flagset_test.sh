@@ -482,4 +482,37 @@ EOF
     &> "$TEST_log" || fail "expected success"
 }
 
+function test_spaceDelimited_andNegativeBooleanflags_succeed() {
+  mkdir -p test
+  cat > test/BUILD <<EOF
+platform(name = "my_platform")
+genrule(name='test', outs=['test.txt'], cmd='echo "hi" > \$@')
+EOF
+  cat > test/PROJECT.scl <<EOF
+load(
+  "//third_party/bazel/src/main/protobuf/project:project_proto.scl",
+  "buildable_unit_pb2",
+  "project_pb2",
+)
+project = project_pb2.Project.create(
+  enforcement_policy = "warn",
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "test_config",
+          flags = [
+            "--define foo=bar",
+            "--nostamp",
+            "--define=foo='bar baz'",
+          ],
+          is_default = True,
+      )
+  ],
+)
+EOF
+
+  bazel build --nobuild //test:test --enforce_project_configs --experimental_enable_scl_dialect \
+    &> "$TEST_log" || fail "Build with space-separated and --no prefix flags in project file failed"
+  expect_log "Applying flags from the config 'test_config' defined in //test:PROJECT.scl: \[--define=foo=bar, --nostamp, --define=foo='bar baz'\]"
+}
+
 run_suite "Integration tests for flagsets/scl_config"

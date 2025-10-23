@@ -327,17 +327,23 @@ public class BuildTool {
                   request.shouldRunTests(),
                   validator);
 
-      ImmutableSet<String> allOptionNames =
+      ImmutableSet<OptionDefinition> optionDefinitions =
           optionsParser.getOptionsSortedByCategory().values().stream()
               .flatMap(Collection::stream)
-              .map(OptionDefinition::getOptionName)
               .collect(toImmutableSet());
-
+      ImmutableSet.Builder<String> allOptionNames = ImmutableSet.builder();
+      for (OptionDefinition optionDefinition : optionDefinitions) {
+        allOptionNames.add(optionDefinition.getOptionName());
+        // --no[flag_name] is a valid flag only if [flag_name] is a boolean flag.
+        if (optionDefinition.usesBooleanValueSyntax()) {
+          allOptionNames.add("no" + optionDefinition.getOptionName());
+        }
+      }
       ProjectEvaluationResult projectEvaluationResult =
           evaluateProjectFile(
               request,
               buildOptions,
-              allOptionNames,
+              allOptionNames.build(),
               request.getUserOptions(),
               targetPatternsForProjectResolution,
               env);

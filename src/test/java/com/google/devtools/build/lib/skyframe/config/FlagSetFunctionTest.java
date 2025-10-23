@@ -350,6 +350,48 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void canonicalConfigs_acceptSpaceDelimitedFlags() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--define foo=bar"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(Label.parseCanonical("//test:test_target")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* allOptionNames= */ ImmutableSet.of("define"),
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    assertThat(flagSetsValue.getOptionsFromFlagset())
+        .contains("--define=foo=bar"); // space is replaced with =
+    assertContainsPersistentMessage(
+        flagSetsValue,
+        EventKind.INFO,
+        /* frequency= */ 1,
+        "Applying flags from the config 'test_config'");
+  }
+
+  @Test
   public void enforceCanonicalConfigsExtraNativeFlag_withSclConfig_fails() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
