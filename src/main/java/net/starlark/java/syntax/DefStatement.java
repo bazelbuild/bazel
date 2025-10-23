@@ -22,6 +22,7 @@ public final class DefStatement extends Statement {
 
   private final int defOffset;
   private final Identifier identifier;
+  private final ImmutableList<Identifier> typeParameters;
   private final ImmutableList<Statement> body; // non-empty if well formed
   private final ImmutableList<Parameter> parameters;
   @Nullable private final Expression returnType;
@@ -33,12 +34,14 @@ public final class DefStatement extends Statement {
       FileLocations locs,
       int defOffset,
       Identifier identifier,
+      ImmutableList<Identifier> typeParameters,
       ImmutableList<Parameter> parameters,
       @Nullable Expression returnType,
       ImmutableList<Statement> body) {
     super(locs, Kind.DEF);
     this.defOffset = defOffset;
     this.identifier = identifier;
+    this.typeParameters = typeParameters;
     this.parameters = Preconditions.checkNotNull(parameters);
     this.returnType = returnType;
     this.body = Preconditions.checkNotNull(body);
@@ -59,6 +62,10 @@ public final class DefStatement extends Statement {
 
   public ImmutableList<Statement> getBody() {
     return body;
+  }
+
+  public ImmutableList<Identifier> getTypeParameters() {
+    return typeParameters;
   }
 
   public ImmutableList<Parameter> getParameters() {
