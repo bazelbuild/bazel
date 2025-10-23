@@ -579,8 +579,12 @@ public final class Utils {
         && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }
 
-  public static void waitForBulkTransfer(
-      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
+  /**
+   * Waits for all transfers to finish.
+   *
+   * <p>If interrupted, all remaining transfers are canceled.
+   */
+  public static void waitForBulkTransfer(Iterable<? extends ListenableFuture<?>> transfers)
       throws BulkTransferException, InterruptedException {
     BulkTransferException bulkTransferException = null;
     InterruptedException interruptedException = null;
@@ -589,7 +593,7 @@ public final class Utils {
       try {
         if (interruptedException == null) {
           // Wait for all transfers to finish.
-          getFromFuture(transfer, cancelRemainingOnInterrupt);
+          getFromFuture(transfer, /* cancelOnInterrupt= */ true);
         } else {
           transfer.cancel(true);
         }
@@ -601,10 +605,6 @@ public final class Utils {
       } catch (InterruptedException e) {
         interrupted = Thread.interrupted() || interrupted;
         interruptedException = e;
-        if (!cancelRemainingOnInterrupt) {
-          // leave the rest of the transfers alone
-          break;
-        }
       }
     }
     if (interrupted) {

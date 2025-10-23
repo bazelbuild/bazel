@@ -263,6 +263,7 @@ java_test(
 java_test(
     name = "DiskCacheIntegrationTest",
     srcs = ["DiskCacheIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     tags = ["requires-network"],
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",

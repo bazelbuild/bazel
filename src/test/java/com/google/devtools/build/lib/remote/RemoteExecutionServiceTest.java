@@ -3003,7 +3003,6 @@ public class RemoteExecutionServiceTest {
 
   private RemoteExecutionService newRemoteExecutionService(RemoteOptions remoteOptions) {
     return new RemoteExecutionService(
-        directExecutor(),
         reporter,
         /* verboseFailures= */ true,
         execRoot,
