@@ -101,10 +101,12 @@ public class PathTransformingDelegateFileSystemTest {
   public void createSymbolicLink_callsDelegateWithRewrittenPathNotTarget() throws Exception {
     PathFragment target = PathFragment.create("/original/target");
 
-    fileSystem.createSymbolicLink(PathFragment.create("/original/dir/file"), target);
+    fileSystem.createSymbolicLink(
+        PathFragment.create("/original/dir/file"), target, SymlinkTargetType.UNSPECIFIED);
 
     verify(delegateFileSystem)
-        .createSymbolicLink(PathFragment.create("/transformed/dir/file"), target);
+        .createSymbolicLink(
+            PathFragment.create("/transformed/dir/file"), target, SymlinkTargetType.UNSPECIFIED);
     verifyNoMoreInteractions(delegateFileSystem);
   }
 
@@ -158,7 +160,11 @@ public class PathTransformingDelegateFileSystemTest {
             getFileSystemMethod("getPath", PathFragment.class),
             getFileSystemMethod("readSymbolicLink", PathFragment.class),
             getFileSystemMethod("resolveSymbolicLinks", PathFragment.class),
-            getFileSystemMethod("createSymbolicLink", PathFragment.class, PathFragment.class));
+            getFileSystemMethod(
+                "createSymbolicLink",
+                PathFragment.class,
+                PathFragment.class,
+                SymlinkTargetType.class));
 
     private static Method getFileSystemMethod(String name, Class<?>... parameterTypes) {
       try {
