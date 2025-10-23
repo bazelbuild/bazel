@@ -1639,6 +1639,63 @@ public final class ParserTest {
   }
 
   @Test
+  public void testCastExpression_basicFunctionality() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    CastExpression cast = (CastExpression) parseExpression("cast(list[int], foo())");
+    assertThat(cast.getType()).isInstanceOf(TypeApplication.class);
+    assertThat(cast.getValue()).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testCastExpression_isExpression() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("cast(list, x) += cast(list[list], (cast(struct, y)).foo())[cast(int, z)]");
+  }
+
+  @Test
+  public void testCast_isKeyword() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("something.cast(list, x)"))
+        .contains("syntax error at 'cast': expected identifier after dot");
+    assertThat(parseExpressionError("(cast)(list, x)")).contains("expected (");
+  }
+
+  @Test
+  public void testCastExpression_requiresTypeSyntax() throws Exception {
+    // If type syntax is disabled, `cast` is treated as an ordinary identifier.
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    assertThat(parseExpression("cast(list[str], foo())")).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testCastExpression_goodSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseExpression(
+        """
+        cast(
+            int,
+            n
+        )\
+        """);
+    parseExpression("cast(int, x,)");
+  }
+
+  @Test
+  public void testCastExpression_badSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("cast int, x")).contains("syntax error at 'int': expected (");
+    assertThat(parseExpressionError("cast(int, x, y)")).contains("syntax error at 'y': expected )");
+    assertThat(parseExpressionError("cast(int, x"))
+        .contains("syntax error at 'newline': expected )");
+    assertThat(parseExpressionError("cast(*args)"))
+        .contains("syntax error at '*': expected a type");
+    assertThat(parseExpressionError("cast(type=int, value=x"))
+        .contains("syntax error at '=': expected ,");
+  }
+
+  @Test
   public void testLambda() throws Exception {
     parseExpression("lambda a, b=1, *args, **kwargs: a+b");
     parseExpression("lambda *, a, *b: 0");

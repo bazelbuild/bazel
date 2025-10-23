@@ -386,6 +386,17 @@ final class NodePrinter {
           break;
         }
 
+      case CAST:
+        {
+          CastExpression cast = (CastExpression) expr;
+          buf.append("cast(");
+          printExpr(cast.getType());
+          buf.append(", ");
+          printExpr(cast.getValue());
+          buf.append(')');
+          break;
+        }
+
       case IDENTIFIER:
         buf.append(((Identifier) expr).getName());
         break;

@@ -535,6 +535,47 @@ public class ResolverTest {
     assertContainsError(file.errors(), ":2:3: type alias statement not at top level");
   }
 
+  @Test
+  public void testCastExpression_cannotBeLhsOfAssignment() throws Exception {
+    options.allowTypeSyntax(true);
+    StarlarkFile file =
+        resolveFile(
+            """
+            cast(int, x) = 42
+            cast(int, y[0]) = 42
+            cast(list[int], z) += [42]
+            """);
+    assertThat(file.ok()).isFalse();
+    assertContainsError(file.errors(), "cannot assign to 'cast(int, x)'");
+    assertContainsError(file.errors(), "cannot assign to 'cast(int, y[0])'");
+    assertContainsError(file.errors(), "cannot assign to 'cast(list[int], z)'");
+  }
+
+  @Test
+  public void testCastExpression_value_isResolved() throws Exception {
+    options.allowTypeSyntax(true);
+    StarlarkFile badFile = resolveFile("cast(int, f())");
+    assertThat(badFile.ok()).isFalse();
+    assertContainsError(badFile.errors(), "name 'f' is not defined");
+
+    StarlarkFile goodFile =
+        resolveFile(
+            """
+            def f():
+              return 1
+            cast(int, f())
+            """);
+    assertThat(goodFile.ok()).isTrue();
+  }
+
+  @Test
+  public void testCastExpression_type_notResolved() throws Exception {
+    // TODO(brandjon): resolve the cast's type once we have type checking.
+    options.allowTypeSyntax(true);
+    StarlarkFile badFile = resolveFile("cast(NoSuchType[int], 42)");
+    assertThat(badFile.ok()).isTrue();
+  }
+
   // checkBindings verifies the binding (scope and index) of each identifier.
   // Every variable must be followed by a superscript letter (its scope)
   // and a subscript numeral (its index). They are replaced by spaces, the

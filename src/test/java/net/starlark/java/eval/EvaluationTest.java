@@ -865,4 +865,20 @@ public final class EvaluationTest {
     }
     assertThat(module.getDocumentation()).isEqualTo("preset docstring");
   }
+
+  @Test
+  public void castExpression_evalsAsIdentity() throws Exception {
+    // The dynamic behavior of `cast` (disregarding type checking) is to return its value unchanged.
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario()
+        .setUp(
+            """
+            x = cast(list, [1])
+            y = cast(int, "this is not an int")
+            z = cast(dict[str, str], 42)
+            """)
+        .testEval("x", "[1]")
+        .testEval("y", "\"this is not an int\"")
+        .testEval("z", "42");
+  }
 }

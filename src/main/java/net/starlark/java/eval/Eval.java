@@ -24,6 +24,7 @@ import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
 import net.starlark.java.syntax.BinaryOperatorExpression;
 import net.starlark.java.syntax.CallExpression;
+import net.starlark.java.syntax.CastExpression;
 import net.starlark.java.syntax.Comprehension;
 import net.starlark.java.syntax.ConditionalExpression;
 import net.starlark.java.syntax.DefStatement;
@@ -555,6 +556,8 @@ final class Eval {
         return evalDot(fr, (DotExpression) expr);
       case CALL:
         return evalCall(fr, (CallExpression) expr);
+      case CAST:
+        return eval(fr, ((CastExpression) expr).getValue());
       case IDENTIFIER:
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:

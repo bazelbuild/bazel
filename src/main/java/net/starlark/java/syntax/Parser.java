@@ -550,6 +550,21 @@ final class Parser {
     return new CallExpression(locs, fn, locs.getLocation(lparenOffset), args, rparenOffset);
   }
 
+  // cast_expression = 'cast' '(' TypeExpr ',' expr [','] ')'
+  private Expression parseCastExpression() {
+    checkAllowTypeSyntax(token.start, token.kind, token.value);
+    int startOffset = expect(TokenKind.CAST);
+    expect(TokenKind.LPAREN);
+    Expression typeExpr = parseTypeExprWithFallback();
+    expect(TokenKind.COMMA);
+    Expression valueExpr = parseTest();
+    if (token.kind == TokenKind.COMMA) {
+      expect(TokenKind.COMMA);
+    }
+    int rparenOffset = expect(TokenKind.RPAREN);
+    return new CastExpression(locs, startOffset, typeExpr, valueExpr, rparenOffset);
+  }
+
   // Parse a list of call arguments.
   //
   // arg_list = ( (arg ',')* arg ','? )?
@@ -650,6 +665,7 @@ final class Parser {
   //          | '(' expr ')'               // a parenthesized expression
   //          | dict_expression
   //          | '-' primary_with_suffix
+  //          | cast_expression
   private Expression parsePrimary() {
     switch (token.kind) {
       case INT:
@@ -729,6 +745,9 @@ final class Parser {
           Expression x = parsePrimaryWithSuffix();
           return new UnaryOperatorExpression(locs, op, offset, x);
         }
+
+      case CAST:
+        return parseCastExpression();
 
       default:
         {

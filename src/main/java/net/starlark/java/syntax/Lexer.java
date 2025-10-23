@@ -607,10 +607,15 @@ final class Lexer {
     String id = identInterner.intern(scanIdentifier());
     TokenKind kind = keywordMap.get(id);
     if (kind == null) {
-      setToken(TokenKind.IDENTIFIER, oldPos, pos);
-      // setValue allocates a new String for the raw text, but it's not retained so we don't bother
-      // interning it.
-      setValue(id);
+      if (options.allowTypeSyntax() && id.equals("cast")) {
+        // `cast` is treated as a keyword iff --experimental_starlark_type_syntax is enabled.
+        setToken(TokenKind.CAST, oldPos, pos);
+      } else {
+        setToken(TokenKind.IDENTIFIER, oldPos, pos);
+        // setValue allocates a new String for the raw text, but it's not retained so we don't
+        // bother interning it.
+        setValue(id);
+      }
     } else {
       setToken(kind, oldPos, pos);
     }

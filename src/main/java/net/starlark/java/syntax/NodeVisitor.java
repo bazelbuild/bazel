@@ -53,6 +53,10 @@ public class NodeVisitor {
     visitAll(node.getArguments());
   }
 
+  public void visit(CastExpression node) {
+    visit(node.getValue());
+  }
+
   public void visit(Identifier node) {}
 
   public void visit(Comprehension node) {
