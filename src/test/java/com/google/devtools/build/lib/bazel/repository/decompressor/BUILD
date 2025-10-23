@@ -17,6 +17,7 @@ java_library(
     name = "DecompressorTests_lib",
     srcs = glob(["*.java"]),
     data = [
+        "test_decompress_archive.7z",
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",
         "test_files.ar",

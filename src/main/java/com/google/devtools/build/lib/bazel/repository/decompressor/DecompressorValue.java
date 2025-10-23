@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -112,11 +112,13 @@ public class DecompressorValue implements SkyValue {
       return TarBz2Function.INSTANCE;
     } else if (baseName.endsWith(".ar") || baseName.endsWith(".deb")) {
       return ArFunction.INSTANCE;
+    } else if (baseName.endsWith(".7z")) {
+      return SevenZDecompressor.INSTANCE;
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .whl, .tar, .tar.gz, .tgz,"
-                  + " .tar.xz, , .tar.zst, .tzst, .tar.bz2, .tbz, .ar or .deb suffix (got %s)",
+                  + " .tar.xz, , .tar.zst, .tzst, .tar.bz2, .tbz, .ar, .deb or .7z suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }

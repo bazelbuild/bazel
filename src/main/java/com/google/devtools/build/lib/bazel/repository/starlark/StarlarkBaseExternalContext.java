@@ -1,4 +1,4 @@
-// Copyright 2021 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -906,7 +906,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 determined from the file extension of the URL. If the file has no \
                 extension, you can explicitly specify either "zip", "jar", "war", \
                 "aar", "nupkg", "whl", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
-                ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
+                ".tzst", "tar.bz2", ".tbz", ".ar", ".deb", or ".7z" here.
                 """),
         @Param(
             name = "strip_prefix",
