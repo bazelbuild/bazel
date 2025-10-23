@@ -21,16 +21,17 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests of parser. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class ParserTest {
 
   private final List<SyntaxError> events = new ArrayList<>();
@@ -1438,6 +1439,9 @@ public final class ParserTest {
 
     // Return type
     parseStatement("def f() -> int: pass");
+
+    // Type parameters
+    parseStatement("def f[T, U](x: dict[T, U]) -> dict[U, T]: pass");
   }
 
   @Test
@@ -1461,6 +1465,9 @@ public final class ParserTest {
     setFailFast(false);
     parseStatement("def f(a: int): pass");
     assertContainsError("syntax error at ':': type annotations are disallowed.");
+    events.clear();
+    parseStatement("def f[T](): pass");
+    assertContainsError("syntax error at '[': type annotations are disallowed.");
   }
 
   @Test
@@ -1511,51 +1518,6 @@ public final class ParserTest {
         .containsExactly("T", "U")
         .inOrder();
     assertThat(stmt.getDefinition()).isInstanceOf(BinaryOperatorExpression.class);
-  }
-
-  @Test
-  public void testTypeAliasStatement_allowsUnusedTypeParams() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    parseStatement("type unused_params[T, U] = int");
-  }
-
-  @Test
-  public void testTypeAliasStatement_allowsOnlyIdentifiersInTypeParams() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    setFailFast(false);
-    parseStatement("type X[1] = int");
-    assertContainsError("syntax error at '1': expected identifier");
-    events.clear();
-    parseStatement("type Y['two'] = int");
-    assertContainsError("syntax error at '\"two\"': expected identifier");
-    events.clear();
-    parseStatement("type Z[(THREE)] = int");
-    assertContainsError("syntax error at '(': expected identifier");
-  }
-
-  @Test
-  public void testTypeAliasStatement_disallowsDuplicateTypeParams() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    setFailFast(false);
-    parseStatement("type duplicate_params[T, U, T] = int");
-    assertContainsError("1:29: syntax error at 'T': duplicate type parameter");
-  }
-
-  @Test
-  public void testTypeAliasStatement_allowsTrailingCommasInTypeParams() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    parseStatement("type X[T, U,] = dict[T, U]");
-  }
-
-  @Test
-  public void testTypeAliasStatement_disallowsEmptyTypeParamList() throws Exception {
-    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    setFailFast(false);
-    parseStatement("type X[] = list");
-    assertContainsError("syntax error at ']': expected identifier");
-    events.clear();
-    parseStatement("type X[,] = dict[T, U]");
-    assertContainsError("syntax error at ',': expected identifier");
   }
 
   @Test
@@ -1610,6 +1572,70 @@ public final class ParserTest {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     parseStatement("type = type.type(type)");
     parseStatement("type type = type");
+  }
+
+  private static enum TypeParamTestKind {
+    DEF_STATEMENT,
+    TYPE_ALIAS_STATEMENT
+  }
+
+  private Statement parseTypeParamTestCaseStatement(TypeParamTestKind testKind, String typeParams)
+      throws Exception {
+    return switch (testKind) {
+      // Extra space in DEF_STATEMENT case to place typeParams at offset 6 in both cases
+      case DEF_STATEMENT -> parseStatement(String.format("def  f%s(): pass", typeParams));
+      case TYPE_ALIAS_STATEMENT -> parseStatement(String.format("type X%s = int", typeParams));
+    };
+  }
+
+  @Test
+  public void testTypeParams_mayBeUnused(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseTypeParamTestCaseStatement(testKind, "[T, U]");
+  }
+
+  @Test
+  public void testTypeParams_allowOnlyIdentifiers(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseTypeParamTestCaseStatement(testKind, "[1]");
+    assertContainsError("syntax error at '1': expected identifier");
+    events.clear();
+    parseTypeParamTestCaseStatement(testKind, "['two']");
+    assertContainsError("syntax error at '\"two\"': expected identifier");
+    events.clear();
+    parseTypeParamTestCaseStatement(testKind, "[(THREE)]");
+    assertContainsError("syntax error at '(': expected identifier");
+  }
+
+  @Test
+  public void testTypeParams_disallowDuplicates(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseTypeParamTestCaseStatement(testKind, "[T, U, T]");
+    assertContainsError("1:14: syntax error at 'T': duplicate type parameter");
+  }
+
+  @Test
+  public void testTypeParams_allowsTrailingCommas(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseTypeParamTestCaseStatement(testKind, "[T, U,]");
+  }
+
+  @Test
+  public void testTypeParams_cannotBeEmptyIfPresent(@TestParameter TypeParamTestKind testKind)
+      throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseTypeParamTestCaseStatement(testKind, "[]");
+    assertContainsError("syntax error at ']': expected identifier");
+    events.clear();
+    parseTypeParamTestCaseStatement(testKind, "[,]");
+    assertContainsError("syntax error at ',': expected identifier");
   }
 
   @Test

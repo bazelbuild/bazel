@@ -340,6 +340,21 @@ public final class NodePrinterTest {
           print(x)
         """,
         "def f() -> bool: ...\n");
+    assertStmtIndentedPrettyMatches(
+        """
+        def f[T,U,](x:dict[T,U])->list[U]:
+          print(x)\
+        """,
+        """
+          def f[T, U](x: dict[T, U]) -> list[U]:
+            print(x)
+        """);
+    assertStmtTostringMatches(
+        """
+        def f[T,U,](x:dict[T,U]|set[U]) -> bool:
+          print(x)
+        """,
+        "def f[T, U](x: dict[T, U] | set[U]) -> bool: ...\n");
   }
 
   @Test

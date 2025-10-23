@@ -1188,6 +1188,7 @@ final class Parser {
   // least one identifier.)
   private ImmutableList<Identifier> parseOptionalTypeParameters() {
     if (token.kind == TokenKind.LBRACKET) {
+      checkAllowTypeSyntax(token.start, token.kind, token.value);
       nextToken();
       ImmutableList.Builder<Identifier> parameters = ImmutableList.builder();
       Set<String> uniqueParameterNames = new HashSet<>();
@@ -1513,17 +1514,18 @@ final class Parser {
     return new ForStatement(locs, forOffset, vars, collection, body);
   }
 
-  // def_stmt = DEF IDENTIFIER '(' arguments ')' ':' suite
+  // def_stmt = DEF IDENTIFIER optional_type_parameters '(' arguments ')' ['->' TypeExpr] ':' suite
   private DefStatement parseDefStatement() {
     int defOffset = expect(TokenKind.DEF);
     Identifier ident = parseIdent();
+    ImmutableList<Identifier> typeParams = parseOptionalTypeParameters();
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters(/* defStatement= */ true);
     expect(TokenKind.RPAREN);
     Expression returnType = maybeParseTypeAnnotationAfter(TokenKind.RARROW);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = parseSuite();
-    return new DefStatement(locs, defOffset, ident, params, returnType, block);
+    return new DefStatement(locs, defOffset, ident, typeParams, params, returnType, block);
   }
 
   // Parse a list of function parameters.

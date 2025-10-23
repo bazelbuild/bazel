@@ -127,6 +127,16 @@ final class NodePrinter {
   void printDefSignature(DefStatement def) {
     buf.append("def ");
     printExpr(def.getIdentifier());
+    if (!def.getTypeParameters().isEmpty()) {
+      buf.append("[");
+      String sep = "";
+      for (Identifier typeParam : def.getTypeParameters()) {
+        buf.append(sep);
+        printExpr(typeParam);
+        sep = ", ";
+      }
+      buf.append("]");
+    }
     buf.append('(');
     String sep = "";
     for (Parameter param : def.getParameters()) {
