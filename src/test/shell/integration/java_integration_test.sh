@@ -910,4 +910,32 @@ function test_class_jar_retains_module_info() {
   expect_log " module-info.class" "missing module-info file"
 }
 
+function test_java_import_srcjar_not_found() {
+  if [ "${PRODUCT_NAME}" == "bazel" ]; then
+    # TODO(hvd): enable after next rules_java release.
+    return 0
+  fi
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p $pkg/third_party/library || fail "mkdir"
+  cat > $pkg/third_party/library/BUILD <<EOF
+load("@rules_java//java:java_import.bzl", "java_import")
+java_import(
+    name='common',
+    jars=['common.jar'],
+    srcjar = 'src.jar'
+)
+EOF
+
+  cat > $pkg/third_party/library/Common.class <<EOF
+This is a fake class file.
+EOF
+
+  cd $pkg
+  zip -q third_party/library/common.jar third_party/library/Common.class || fail "zip failed"
+  cd ..
+
+  bazel build //$pkg/third_party/library:common >& "$TEST_log" && fail "Unexpected success"
+  expect_log "missing input file '//$pkg/third_party/library:src.jar'"
+}
+
 run_suite "Java integration tests"
