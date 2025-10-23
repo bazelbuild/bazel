@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -183,7 +185,7 @@ public final class PackageFactory {
   }
 
   public static ForkJoinPool makeDefaultSizedForkJoinPoolForGlobbing() {
-    return makeForkJoinPool(/*globbingThreads=*/ 100);
+    return makeForkJoinPool(/* globbingThreads= */ 100);
   }
 
   private static ForkJoinPool makeForkJoinPool(int globbingThreads) {
@@ -560,7 +562,8 @@ public final class PackageFactory {
           }
 
           @Override
-          public void end(long startTimeNanos, StarlarkCallable fn) {
+          public void end(
+              long startTimeNanos, StarlarkCallable fn, @Nullable String threadContext) {
             Profiler.instance()
                 .completeTask(
                     startTimeNanos,
@@ -568,6 +571,12 @@ public final class PackageFactory {
                         ? ProfilerTask.STARLARK_USER_FN
                         : ProfilerTask.STARLARK_BUILTIN_FN,
                     fn.getName());
+            // Keep this last so that it wraps the span above.
+            if (!isNullOrEmpty(threadContext)) {
+              Profiler.instance()
+                  .completeTask(
+                      startTimeNanos, ProfilerTask.STARLARK_THREAD_CONTEXT, threadContext);
+            }
           }
         });
   }

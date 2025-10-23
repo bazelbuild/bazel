@@ -126,7 +126,7 @@ public class VendorFileFunction implements SkyFunction {
       Program program = Program.compileFile(vendorFile, predeclaredEnv);
       StarlarkThread thread =
           StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(skyKey));
+              mu, starlarkSemantics, "VENDOR.bazel", SymbolGenerator.create(skyKey));
       VendorThreadContext context = new VendorThreadContext();
       context.storeInThread(thread);
       Starlark.execFileProgram(program, predeclaredEnv, thread);
