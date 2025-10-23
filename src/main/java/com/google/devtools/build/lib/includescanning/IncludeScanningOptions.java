@@ -45,8 +45,10 @@ public class IncludeScanningOptions extends OptionsBase {
     },
     defaultValue = "false",
     help =
-        "If enabled, searching for '#include' lines in generated header files will not "
-            + "touch local disk. This makes include scanning of C++ files less disk-intensive."
+        """
+        If enabled, searching for `#include` lines in generated header files will not
+        touch local disk. This makes include scanning of C++ files less disk-intensive.
+        """
   )
   public boolean inMemoryIncludesFiles;
 
