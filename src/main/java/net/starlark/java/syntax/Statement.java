@@ -29,6 +29,7 @@ public abstract class Statement extends Node {
     IF,
     LOAD,
     RETURN,
+    TYPE_ALIAS,
   }
 
   // Materialize kind as a field so its accessor can be non-virtual.
