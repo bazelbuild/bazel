@@ -15,7 +15,7 @@
 """Legacy apple_common module"""
 
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
-load(":common/objc/apple_platform.bzl", "PLATFORM", "PLATFORM_TYPE", "apple_platform")
+load(":common/objc/apple_platform.bzl", "PLATFORM", "PLATFORM_TYPE")
 load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
@@ -35,9 +35,8 @@ apple_common = struct(
     target_apple_env = target_apple_env,
     new_objc_provider = ObjcInfo,
     dotted_version = lambda version: native_apple_common.dotted_version(version),
-    apple_platform = apple_platform,
     compilation_support = compilation_support,
     get_apple_config = lambda config: native_objc_internal.get_apple_config(config),
+    # This is only used by mock apple_binary in the tests.
     get_split_build_configs = lambda ctx: native_objc_internal.get_split_build_configs(ctx),
-    get_split_prerequisites = lambda ctx: native_objc_internal.get_split_prerequisites(ctx),
 )

@@ -1004,7 +1004,6 @@ def _register_configuration_specific_link_actions_with_objc_variables(
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,
     build_common_variables = _build_common_variables,
-    build_feature_configuration = _build_feature_configuration,
     get_library_for_linking = _get_library_for_linking,
     get_static_library_for_linking = _get_static_library_for_linking,
     validate_attributes = _validate_attributes,

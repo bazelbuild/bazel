@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -24,13 +23,11 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utility methods for Objc rules in Starlark Builtins */
@@ -38,41 +35,6 @@ import net.starlark.java.eval.StarlarkValue;
 public class ObjcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "objc_internal";
-
-  /**
-   * Converts a possibly NoneType object to the real object if it is not NoneType or returns the
-   * default value if it is.
-   */
-  @SuppressWarnings("unchecked")
-  public static <T> T convertFromNoneable(Object obj, @Nullable T defaultValue) {
-    if (Starlark.UNBOUND == obj || Starlark.isNullOrNone(obj)) {
-      return defaultValue;
-    }
-    return (T) obj;
-  }
-
-  @StarlarkMethod(
-      name = "get_split_prerequisites",
-      documented = false,
-      parameters = {@Param(name = "ctx", named = true)})
-  public ImmutableMap<String, BuildConfigurationValue> getSplitPrerequisites(
-      StarlarkRuleContext starlarkRuleContext) throws EvalException {
-    Map<Optional<String>, List<ConfiguredTargetAndData>> ctads =
-        starlarkRuleContext
-            .getRuleContext()
-            .getRulePrerequisitesCollection()
-            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR);
-    ImmutableMap.Builder<String, BuildConfigurationValue> result = ImmutableMap.builder();
-    for (Optional<String> splitTransitionKey : ctads.keySet()) {
-      if (!splitTransitionKey.isPresent()) {
-        throw new EvalException("unexpected empty key in split transition");
-      }
-      result.put(
-          splitTransitionKey.get(),
-          Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
-    }
-    return result.buildOrThrow();
-  }
 
   @StarlarkMethod(
       name = "get_apple_config",
