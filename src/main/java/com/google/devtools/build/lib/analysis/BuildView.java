@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTe
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -326,6 +327,22 @@ public class BuildView {
     if (buildConfigurationsCreatedCallback != null) {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
+    if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
+      remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
+          topLevelConfigurationTrimmedOfTestOptions.checksum());
+      if (remoteAnalysisCachingDependenciesProvider.areMetadataQueriesEnabled()) {
+        remoteAnalysisCachingDependenciesProvider.setConfigMetadata(
+            topLevelConfigurationTrimmedOfTestOptions);
+      }
+    }
+    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
+      try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
+        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
+      }
+      if (remoteAnalysisCachingDependenciesProvider.bailedOut()) {
+        remoteAnalysisCachingDependenciesProvider = DisabledDependenciesProvider.INSTANCE;
+      }
+    }
 
     skyframeBuildView.setConfiguration(topLevelConfig, targetOptions, shouldDiscardAnalysisCache);
 
@@ -356,12 +373,6 @@ public class BuildView {
         createTopLevelAspectKeys(
             aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
 
-    if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
-      remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
-          topLevelConfigurationTrimmedOfTestOptions.checksum());
-      remoteAnalysisCachingDependenciesProvider.setTopLevelConfigMetadata(
-          getPatchedOptions(topLevelConfig.getOptions(), eventHandler));
-    }
     skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
         remoteAnalysisCachingDependenciesProvider);
     skyframeExecutor.invalidateWithExternalService(eventHandler);

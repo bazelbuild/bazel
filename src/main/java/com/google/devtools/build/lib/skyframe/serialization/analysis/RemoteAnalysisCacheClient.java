@@ -51,7 +51,9 @@ public interface RemoteAnalysisCacheClient {
       String bazelVersion,
       String area,
       Collection<String> configFlags,
-      EventHandler eventHandler);
+      EventHandler eventHandler,
+      Runnable bailOutCallback)
+      throws InterruptedException;
 
   void shutdown();
 }

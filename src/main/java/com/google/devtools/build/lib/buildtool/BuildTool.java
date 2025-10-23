@@ -409,6 +409,7 @@ public class BuildTool {
       }
 
       if (analysisCachingDeps.mode().serializesValues()) {
+        Preconditions.checkState(!analysisCachingDeps.bailedOut());
         serializeValues(analysisCachingDeps);
       }
 
@@ -442,7 +443,7 @@ public class BuildTool {
         env.ensureBuildInfoPosted();
 
         // Log stats and sync state even on failure.
-        if (analysisCachingDeps != null) {
+        if (analysisCachingDeps != null && !analysisCachingDeps.bailedOut()) {
           logAnalysisCachingStats(analysisCachingDeps);
           RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getJsonLogWriter();
           if (logWriter != null) {
@@ -1282,8 +1283,10 @@ public class BuildTool {
 
     private final ExtendedEventHandler eventHandler;
 
-    private final boolean isAnalysisCacheMetadataQueriesEnabled;
+    private final boolean areMetadataQueriesEnabled;
     private final SkycacheMetadataParams skycacheMetadataParams;
+
+    private boolean bailedOut;
 
     static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env,
@@ -1513,9 +1516,9 @@ public class BuildTool {
           env.getBlazeWorkspace()
               .remoteAnalysisCachingServicesSupplier()
               .getSkycacheMetadataParams();
-      this.isAnalysisCacheMetadataQueriesEnabled =
+      this.areMetadataQueriesEnabled =
           skycacheMetadataParams != null && options.analysisCacheEnableMetadataQueries;
-      if (isAnalysisCacheMetadataQueriesEnabled) {
+      if (areMetadataQueriesEnabled) {
         this.skycacheMetadataParams.init(
             evaluatingVersion.getVal(),
             String.format("%s-%s", BlazeVersionInfo.instance().getReleaseName(), blazeInstallMD5),
@@ -1668,27 +1671,39 @@ public class BuildTool {
     }
 
     @Override
-    public void setTopLevelConfigMetadata(BuildOptions topLevelOptions) {
-      if (isAnalysisCacheMetadataQueriesEnabled) {
-        skycacheMetadataParams.setConfigurationHash(topLevelOptions.checksum());
-        skycacheMetadataParams.setOriginalConfigurationOptions(
-            getConfigurationOptionsAsStrings(topLevelOptions));
-        if (mode == RemoteAnalysisCacheMode.DOWNLOAD) {
-          if (skycacheMetadataParams.getUseFakeStampData()) {
-            if (skycacheMetadataParams.getTargets().isEmpty()) {
-              eventHandler.handle(
-                  Event.warn(
-                      "Skycache: Not querying Skycache metadata because invocation has no"
-                          + " targets"));
-            } else {
-              tryReadSkycacheMetadata();
-            }
-          } else {
-            eventHandler.handle(
-                Event.warn("Skycache: Not querying metadata because use_fake_stamp_data is false"));
-          }
-        }
+    public void setConfigMetadata(BuildOptions buildOptions) {
+      skycacheMetadataParams.setConfigurationHash(buildOptions.checksum());
+      skycacheMetadataParams.setOriginalConfigurationOptions(
+          getConfigurationOptionsAsStrings(buildOptions));
+    }
+
+    @Override
+    public void queryMetadataAndMaybeBailout() throws InterruptedException {
+      Preconditions.checkState(mode == RemoteAnalysisCacheMode.DOWNLOAD);
+      if (!areMetadataQueriesEnabled) {
+        return;
       }
+      if (skycacheMetadataParams.getUseFakeStampData()) {
+        if (skycacheMetadataParams.getTargets().isEmpty()) {
+          eventHandler.handle(
+              Event.warn(
+                  "Skycache: Not querying Skycache metadata because invocation has no"
+                      + " targets"));
+        } else {
+          getAnalysisCacheClient()
+              .lookupTopLevelTargets(
+                  skycacheMetadataParams.getEvaluatingVersion(),
+                  skycacheMetadataParams.getConfigurationHash(),
+                  skycacheMetadataParams.getBazelVersion(),
+                  skycacheMetadataParams.getArea(),
+                  skycacheMetadataParams.getConfigFlags(),
+                  eventHandler,
+                  () -> bailedOut = true);
+          }
+      } else {
+        eventHandler.handle(
+            Event.warn("Skycache: Not querying metadata because use_fake_stamp_data is false"));
+        }
     }
 
     /**
@@ -1716,17 +1731,6 @@ public class BuildTool {
         fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
       }
       return allOptionsAsStringsBuilder.build();
-    }
-
-    private void tryReadSkycacheMetadata() {
-      getAnalysisCacheClient()
-          .lookupTopLevelTargets(
-              skycacheMetadataParams.getEvaluatingVersion(),
-              skycacheMetadataParams.getConfigurationHash(),
-              skycacheMetadataParams.getBazelVersion(),
-              skycacheMetadataParams.getArea(),
-              skycacheMetadataParams.getConfigFlags(),
-              eventHandler);
     }
 
     @Override
@@ -1772,6 +1776,21 @@ public class BuildTool {
         }
       }
       return localRef;
+    }
+
+    @Override
+    public SkycacheMetadataParams getSkycacheMetadataParams() {
+      return skycacheMetadataParams;
+    }
+
+    @Override
+    public boolean bailedOut() {
+      return bailedOut;
+    }
+
+    @Override
+    public boolean areMetadataQueriesEnabled() {
+      return areMetadataQueriesEnabled;
     }
   }
 

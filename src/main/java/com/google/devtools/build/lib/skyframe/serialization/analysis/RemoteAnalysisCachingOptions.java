@@ -220,7 +220,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
 
   @Option(
       name = "experimental_analysis_cache_enable_metadata_queries",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
