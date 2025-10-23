@@ -21,6 +21,7 @@ java_library(
         "AssignmentStatement.java",
         "BinaryOperatorExpression.java",
         "CallExpression.java",
+        "CastExpression.java",
         "Comment.java",
         "Comprehension.java",
         "ConditionalExpression.java",

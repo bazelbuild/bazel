@@ -344,6 +344,13 @@ public final class NodePrinterTest {
   }
 
   @Test
+  public void castExpression() throws SyntaxError.Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertExprPrettyMatches("cast(list[int],foo())", "cast(list[int], foo())");
+    assertExprTostringMatches("cast(set|None,bar(),)", "cast(set | None, bar())");
+  }
+
+  @Test
   public void flowStatement() throws SyntaxError.Exception {
     assertStmtIndentedPrettyMatches(
         join("def f():", "     pass", "     continue", "     break"),

@@ -24,6 +24,8 @@ public enum TokenKind {
   BREAK("break"),
   CARET("^"),
   CARET_EQUALS("^="),
+  /** Emitted only if --experimental_starlark_type_syntax is enabled. */
+  CAST("cast"),
   CLASS("class"),
   COLON(":"),
   COMMA(","),
