@@ -279,6 +279,10 @@ function shutdown_server() {
   [ -z "${fileserver_pid:-}" ] || kill $fileserver_pid || true
   [ -z "${redirect_pid:-}" ] || kill $redirect_pid || true
   [ -z "${nc_pid:-}" ] || kill $nc_pid || true
+  # Wait for processes to fully terminate to release file handles (especially on Windows)
+  [ -z "${fileserver_pid:-}" ] || wait $fileserver_pid 2>/dev/null || true
+  [ -z "${redirect_pid:-}" ] || wait $redirect_pid 2>/dev/null || true
+  [ -z "${nc_pid:-}" ] || wait $nc_pid 2>/dev/null || true
   [ -z "${nc_log:-}" ] || cat $nc_log
   [ -z "${redirect_log:-}" ] || cat $redirect_log
 }
