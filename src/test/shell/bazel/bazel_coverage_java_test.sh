@@ -235,7 +235,7 @@ end_of_record"
   # Verify that genhtml can process the file.
   "$(rlocation $GENHTML)" bazel-out/_coverage/_coverage_report.dat \
     --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/coverage" &> $TEST_log \
-    || fail "genhtml failed on the coverage report but should have succeeded.
+    || fail "genhtml failed on the coverage report but should have succeeded."
 }
 
 function test_java_test_java_import_coverage() {
