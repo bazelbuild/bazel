@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -66,6 +67,9 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   /** Returns the {@link FingerprintValueService} implementation. */
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
+
+  /** Returns the desination for file invalidation data when uploading. */
+  KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
 
   RemoteAnalysisCacheClient getAnalysisCacheClient();
 
@@ -130,6 +134,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public FingerprintValueService getFingerprintValueService() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public KeyValueWriter getFileInvalidationWriter() {
       throw new UnsupportedOperationException();
     }
 

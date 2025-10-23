@@ -33,12 +33,7 @@ import javax.annotation.Nullable;
  * Bundles the components needed to store serialized values by fingerprint, the storage interface,
  * the cache and the hash function for computing fingerprints.
  */
-public final class FingerprintValueService {
-
-  /** Injectable implementation of the fingerprint function. */
-  public interface Fingerprinter {
-    PackedFingerprint fingerprint(byte[] input);
-  }
+public final class FingerprintValueService implements KeyValueWriter {
 
   /** A {@link Fingerprinter} implementation for non-production use. */
   public static final Fingerprinter NONPROD_FINGERPRINTER =
@@ -104,6 +99,7 @@ public final class FingerprintValueService {
   }
 
   /** Delegates to {@link FingerprintValueStore#put}. */
+  @Override
   public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     Instant before = Instant.now();
     WriteStatus putStatus = store.put(fingerprint, serializedBytes);
@@ -169,12 +165,14 @@ public final class FingerprintValueService {
   }
 
   /** Computes the fingerprint of {@code bytes}. */
+  @Override
   public PackedFingerprint fingerprint(byte[] bytes) {
     return fingerprinter.fingerprint(bytes);
   }
 
   /** Convenience overload of {@link #fingerprint(byte[])}. */
-  public PackedFingerprint fingerprint(ByteString bytes) {
+  @VisibleForTesting
+  PackedFingerprint fingerprint(ByteString bytes) {
     return fingerprint(bytes.toByteArray());
   }
 

@@ -184,6 +184,7 @@ public final class FrontierSerializer {
             frontierVersion,
             selectedKeys,
             dependenciesProvider.getFingerprintValueService(),
+            dependenciesProvider.getFileInvalidationWriter(),
             dependenciesProvider.getJsonLogWriter(),
             eventBus,
             profileCollector,

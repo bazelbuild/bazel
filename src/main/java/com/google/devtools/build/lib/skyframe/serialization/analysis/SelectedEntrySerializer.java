@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmp
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
@@ -138,13 +139,14 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       FrontierNodeVersion frontierVersion,
       ImmutableSet<SkyKey> selection,
       FingerprintValueService fingerprintValueService,
+      KeyValueWriter fileInvalidationWriter,
       @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats) {
     var fileOpNodes = new FileOpNodeMemoizingLookup(graph);
     var fileDependencySerializer =
-        new FileDependencySerializer(versionGetter, graph, fingerprintValueService);
+        new FileDependencySerializer(versionGetter, graph, fileInvalidationWriter);
     var writeStatuses = new WriteStatusesFuture();
     var serializer =
         new SelectedEntrySerializer(

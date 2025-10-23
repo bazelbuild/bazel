@@ -122,6 +122,7 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutput
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -1624,6 +1625,11 @@ public class BuildTool {
       } catch (ExecutionException | TimeoutException e) {
         throw new IllegalStateException("Unable to initialize fingerprint value service", e);
       }
+    }
+
+    @Override
+    public KeyValueWriter getFileInvalidationWriter() throws InterruptedException {
+      return getFingerprintValueService();
     }
 
     @Override

@@ -49,8 +49,8 @@ import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFi
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
@@ -93,14 +93,14 @@ import javax.annotation.Nullable;
 
 /**
  * Records {@link FileKey}, {@link DirectoryListingKey} or {@link AbstractNestedFileOpNodes}
- * invalidation to a remote {@link FingerprintValueService}.
+ * invalidation to a remote {@link KeyValueWriter}.
  */
 final class FileDependencySerializer {
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
-  private final FingerprintValueService fingerprintValueService;
+  private final KeyValueWriter writer;
 
   private final ValueOrFutureMap<FileKey, FileDataInfoOrFuture, FileDataInfo, FutureFileDataInfo>
       fileDataInfo =
@@ -120,17 +120,15 @@ final class FileDependencySerializer {
               FutureListingDataInfo.class);
 
   FileDependencySerializer(
-      LongVersionGetter versionGetter,
-      InMemoryGraph graph,
-      FingerprintValueService fingerprintValueService) {
+      LongVersionGetter versionGetter, InMemoryGraph graph, KeyValueWriter writer) {
     this.versionGetter = versionGetter;
     this.graph = graph;
-    this.fingerprintValueService = fingerprintValueService;
+    this.writer = writer;
   }
 
   /**
-   * Stores data about a {@code node} and its transitive dependencies in {@link
-   * #fingerprintValueService} to be used for invalidation.
+   * Stores data about a {@code node} and its transitive dependencies in {@link #writer} to be used
+   * for invalidation.
    *
    * <p>The resulting data can be embedded in reverse deps of {@code node} and used to invalidate
    * them by checking against a list of changed files and directory listings.
@@ -160,7 +158,7 @@ final class FileDependencySerializer {
   /**
    * Registers a dependency on the set of transitive dependencies represented by {@code node}.
    *
-   * <p>Uploads the result to the {@link #fingerprintValueService}.
+   * <p>Uploads the result to the {@link #writer}.
    */
   NodeDataInfoOrFuture registerDependency(AbstractNestedFileOpNodes node) {
     var reference = (NodeDataInfoOrFuture) node.getSerializationScratch();
@@ -191,7 +189,7 @@ final class FileDependencySerializer {
    * Populates the {@link FileDataInfoOrFuture} for the given {@link FutureFileDataInfo}.
    *
    * <p>This method is responsible for resolving the {@link FileKey} and its dependencies, and
-   * uploading the resulting {@link FileInvalidationData} to the {@link #fingerprintValueService}.
+   * uploading the resulting {@link FileInvalidationData} to the {@link #writer}.
    *
    * @param future The {@link FutureFileDataInfo} to populate.
    * @return The populated {@link FileDataInfoOrFuture}.
@@ -243,8 +241,7 @@ final class FileDependencySerializer {
     //    registered.
     // 4. The uploader itself is a Function that directly returns a FileDataInfo but gets wrapped as
     //    a future by the transform method.
-    // 5. The upload happens through the put() operation in the fingerprintValueService inside the
-    //    uploader.
+    // 5. The upload happens through the put() operation in the writer inside the uploader.
     return future.completeWith(
         Futures.transform(
             fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader),
@@ -285,7 +282,7 @@ final class FileDependencySerializer {
       String cacheKey = computeCacheKey(rootedPath.getRootRelativePath(), mtsv, FILE_KEY_DELIMITER);
       KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
       byte[] dataBytes = data.build().toByteArray();
-      writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
+      writeStatuses.add(writer.put(keyBytes, dataBytes));
       return new FileInvalidationDataInfo(
           cacheKey, sparselyAggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
     }
@@ -605,7 +602,7 @@ final class FileDependencySerializer {
                 computeCacheKey(rootedPath.getRootRelativePath(), mtsv, DIRECTORY_KEY_DELIMITER);
             KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
             byte[] dataBytes = data.build().toByteArray();
-            writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
+            writeStatuses.add(writer.put(keyBytes, dataBytes));
             return new ListingInvalidationDataInfo(
                 cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
           },
@@ -721,8 +718,8 @@ final class FileDependencySerializer {
       if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
         maybeCompressedBytes = compressBytes(nodeBytes);
       }
-      PackedFingerprint key = fingerprintValueService.fingerprint(maybeCompressedBytes);
-      writeStatuses.add(fingerprintValueService.put(key, maybeCompressedBytes));
+      PackedFingerprint key = writer.fingerprint(maybeCompressedBytes);
+      writeStatuses.add(writer.put(key, maybeCompressedBytes));
       return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
     }
 
@@ -910,7 +907,7 @@ final class FileDependencySerializer {
   private KeyBytesProvider getKeyBytes(String cacheKey, Consumer<String> overflowConsumer) {
     if (cacheKey.length() > MAX_KEY_LENGTH) {
       overflowConsumer.accept(cacheKey);
-      return fingerprintValueService.fingerprint(cacheKey.getBytes(UTF_8));
+      return writer.fingerprint(cacheKey.getBytes(UTF_8));
     }
     return new StringKey(cacheKey);
   }
