@@ -522,6 +522,19 @@ public class ResolverTest {
     assertThat(file.docCommentsMap.get("BAZ").getText()).isEqualTo("Applies to LHS list");
   }
 
+  @Test
+  public void testTypeAliasStatement_mustBeAtTopLevel() throws Exception {
+    options.allowTypeSyntax(true);
+    StarlarkFile file =
+        resolveFile(
+            """
+            def f():
+              type X = int
+            """);
+    assertThat(file.ok()).isFalse();
+    assertContainsError(file.errors(), ":2:3: type alias statement not at top level");
+  }
+
   // checkBindings verifies the binding (scope and index) of each identifier.
   // Every variable must be followed by a superscript letter (its scope)
   // and a subscript numeral (its index). They are replaced by spaces, the

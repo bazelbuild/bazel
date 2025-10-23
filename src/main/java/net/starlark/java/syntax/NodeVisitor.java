@@ -128,6 +128,10 @@ public class NodeVisitor {
 
   public void visit(FlowStatement node) {}
 
+  public void visit(TypeAliasStatement node) {
+    // TODO(brandjon): resolve type alias
+  }
+
   public void visit(DictExpression node) {
     visitAll(node.getEntries());
   }

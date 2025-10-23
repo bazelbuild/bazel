@@ -526,6 +526,8 @@ public final class Resolver extends NodeVisitor {
           }
         }
         break;
+      case TYPE_ALIAS:
+      // TODO(brandjon): create a type-valence binding for the alias
       case EXPRESSION:
       case FLOW:
       case RETURN:
@@ -746,6 +748,16 @@ public final class Resolver extends NodeVisitor {
     }
 
     assign(node.getLHS());
+  }
+
+  @Override
+  public void visit(TypeAliasStatement node) {
+    if (!(locals.syntax instanceof StarlarkFile)) {
+      errorf(node, "type alias statement not at top level");
+    }
+
+    // TODO(brandjon): resolve type alias
+    super.visit(node);
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.

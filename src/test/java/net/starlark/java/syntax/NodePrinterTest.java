@@ -360,6 +360,16 @@ public final class NodePrinterTest {
   }
 
   @Test
+  public void typeAliasStatement() throws SyntaxError.Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertStmtTostringMatches("type my_int=int", "type my_int = ...\n");
+    assertStmtIndentedPrettyMatches("type my_int=int", "  type my_int = int\n");
+    assertStmtTostringMatches("type X[T,U]=dict[T,U]|list[U]", "type X[T, U] = ...\n");
+    assertStmtIndentedPrettyMatches(
+        "type X[T,U]=dict[T,U]|list[U]", "  type X[T, U] = dict[T, U] | list[U]\n");
+  }
+
+  @Test
   public void flowStatement() throws SyntaxError.Exception {
     assertStmtIndentedPrettyMatches(
         """

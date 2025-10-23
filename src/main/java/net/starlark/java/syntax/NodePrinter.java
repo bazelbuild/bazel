@@ -257,6 +257,27 @@ final class NodePrinter {
           buf.append('\n');
           break;
         }
+
+      case TYPE_ALIAS:
+        {
+          TypeAliasStatement stmt = (TypeAliasStatement) s;
+          buf.append("type ");
+          printExpr(stmt.getIdentifier());
+          if (!stmt.getParameters().isEmpty()) {
+            buf.append('[');
+            String sep = "";
+            for (Identifier param : stmt.getParameters()) {
+              buf.append(sep);
+              printExpr(param);
+              sep = ", ";
+            }
+            buf.append(']');
+          }
+          buf.append(" = ");
+          printExpr(stmt.getDefinition(), /* canSkipParenthesis= */ true);
+          buf.append('\n');
+          break;
+        }
     }
   }
 

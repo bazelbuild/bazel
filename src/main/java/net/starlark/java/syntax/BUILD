@@ -59,6 +59,7 @@ java_library(
         "StringLiteral.java",
         "SyntaxError.java",
         "TokenKind.java",
+        "TypeAliasStatement.java",
         "TypeApplication.java",
         "UnaryOperatorExpression.java",
     ],

@@ -1492,6 +1492,127 @@ public final class ParserTest {
   }
 
   @Test
+  public void testTypeAliasStatement_basicFunctionality() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    TypeAliasStatement stmt = (TypeAliasStatement) parseStatement("type X = list");
+    assertThat(stmt.getIdentifier().getName()).isEqualTo("X");
+    assertThat(stmt.getParameters()).isEmpty();
+    assertThat(stmt.getDefinition()).isInstanceOf(Identifier.class);
+    assertThat(((Identifier) stmt.getDefinition()).getName()).isEqualTo("list");
+  }
+
+  @Test
+  public void testTypeAliasStatement_typeParams() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    TypeAliasStatement stmt =
+        (TypeAliasStatement) parseStatement("type my_nullable_dict[T, U] = dict[T, U] | None");
+    assertThat(stmt.getIdentifier().getName()).isEqualTo("my_nullable_dict");
+    assertThat(stmt.getParameters().stream().map(p -> p.getName()))
+        .containsExactly("T", "U")
+        .inOrder();
+    assertThat(stmt.getDefinition()).isInstanceOf(BinaryOperatorExpression.class);
+  }
+
+  @Test
+  public void testTypeAliasStatement_allowsUnusedTypeParams() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("type unused_params[T, U] = int");
+  }
+
+  @Test
+  public void testTypeAliasStatement_allowsOnlyIdentifiersInTypeParams() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X[1] = int");
+    assertContainsError("syntax error at '1': expected identifier");
+    events.clear();
+    parseStatement("type Y['two'] = int");
+    assertContainsError("syntax error at '\"two\"': expected identifier");
+    events.clear();
+    parseStatement("type Z[(THREE)] = int");
+    assertContainsError("syntax error at '(': expected identifier");
+  }
+
+  @Test
+  public void testTypeAliasStatement_disallowsDuplicateTypeParams() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type duplicate_params[T, U, T] = int");
+    assertContainsError("1:29: syntax error at 'T': duplicate type parameter");
+  }
+
+  @Test
+  public void testTypeAliasStatement_allowsTrailingCommasInTypeParams() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("type X[T, U,] = dict[T, U]");
+  }
+
+  @Test
+  public void testTypeAliasStatement_disallowsEmptyTypeParamList() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X[] = list");
+    assertContainsError("syntax error at ']': expected identifier");
+    events.clear();
+    parseStatement("type X[,] = dict[T, U]");
+    assertContainsError("syntax error at ',': expected identifier");
+  }
+
+  @Test
+  public void testTypeAliasStatement_requiresTypeSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    setFailFast(false);
+    parseStatement("type X = list");
+    assertContainsError("syntax error at 'type': type annotations are disallowed");
+  }
+
+  @Test
+  public void testTypeAliasStatement_requiresExactlyOneName() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X, Y = list, int");
+    assertContainsError("syntax error at ',': expected =");
+  }
+
+  @Test
+  public void testTypeAliasStatement_requiresDefinition() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X # = define_later");
+    assertContainsError("syntax error at 'newline': expected =");
+  }
+
+  @Test
+  public void testTypeAliasStatement_allowsParsingWithUnresolvableDefinition() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("type x = no_such_type");
+  }
+
+  @Test
+  public void testTypeAliasStatement_disallowsIllegalDefinition() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    parseStatement("type X = lambda x: x");
+    assertContainsError("syntax error at 'lambda': expected a type");
+  }
+
+  @Test
+  public void testTypeAliasStatement_allowsIllegalDefinition_withFlag() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+    TypeAliasStatement stmt = (TypeAliasStatement) parseStatement("type X = lambda x: x");
+    assertThat(stmt.getDefinition()).isInstanceOf(LambdaExpression.class);
+  }
+
+  @Test
+  public void testTypeIsSoftKeyword() throws Exception {
+    // Test that `type` may be used as an identifier in any context where identifiers are allowed.
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("type = type.type(type)");
+    parseStatement("type type = type");
+  }
+
+  @Test
   public void testLambda() throws Exception {
     parseExpression("lambda a, b=1, *args, **kwargs: a+b");
     parseExpression("lambda *, a, *b: 0");

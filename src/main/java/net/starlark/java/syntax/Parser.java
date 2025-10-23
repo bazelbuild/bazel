@@ -18,12 +18,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Parser is a recursive-descent parser for Starlark. */
@@ -90,6 +93,9 @@ final class Parser {
           TokenKind.RBRACKET,
           TokenKind.RPAREN,
           TokenKind.SLASH);
+
+  /** "type" is a keyword iff it precedes an identifier (such as in a type alias expression). */
+  private static final String TYPE_SOFT_KEYWORD = "type";
 
   /** Current lookahead token. May be mutated by the parser. */
   private final Lexer token; // token.kind is a prettier alias for lexer.kind
@@ -318,12 +324,16 @@ final class Parser {
   }
 
   private void syntaxError(String message) {
+    syntaxError(token.start, token.kind, token.value, message);
+  }
+
+  private void syntaxError(int offset, TokenKind tokenKind, Object tokenValue, String message) {
     if (!recoveryMode) {
-      if (token.kind == TokenKind.INDENT) {
-        reportError(token.start, "indentation error");
+      if (tokenKind == TokenKind.INDENT) {
+        reportError(offset, "indentation error");
       } else {
         reportError(
-            token.start, "syntax error at '%s': %s", tokenString(token.kind, token.value), message);
+            offset, "syntax error at '%s': %s", tokenString(tokenKind, tokenValue), message);
       }
       recoveryMode = true;
     }
@@ -994,15 +1004,30 @@ final class Parser {
     return new BinaryOperatorExpression(locs, x, op, opOffset, y);
   }
 
-  @Nullable
-  private Expression maybeParseTypeAnnotationAfter(TokenKind expectedToken) {
-    if (options.allowTypeSyntax() && token.kind == expectedToken) {
-      nextToken();
-      return parseTypeExprWithFallback();
-    } else if (token.kind == expectedToken) {
+  /**
+   * Returns true if type syntax is allowed. Otherwise, reports a syntax error for the given offset
+   * and token kind and value, and returns false.
+   */
+  @CanIgnoreReturnValue
+  private boolean checkAllowTypeSyntax(int offset, TokenKind tokenKind, Object tokenValue) {
+    if (options.allowTypeSyntax()) {
+      return true;
+    } else {
       syntaxError(
+          offset,
+          tokenKind,
+          tokenValue,
           "type annotations are disallowed. Enable them with --experimental_starlark_type_syntax "
               + "and/or --experimental_starlark_types_allowed_paths.");
+      return false;
+    }
+  }
+
+  @Nullable
+  private Expression maybeParseTypeAnnotationAfter(TokenKind expectedToken) {
+    if (token.kind == expectedToken && checkAllowTypeSyntax(token.start, token.kind, token.value)) {
+      nextToken();
+      return parseTypeExprWithFallback();
     }
     return null;
   }
@@ -1131,6 +1156,67 @@ final class Parser {
     }
     int rbracketOffset = expect(TokenKind.RBRACKET);
     return new TypeApplication(locs, constructor, args.build(), rbracketOffset);
+  }
+
+  private static boolean isTypeSoftKeyword(Node node) {
+    return node instanceof Identifier id && id.getName().equals(TYPE_SOFT_KEYWORD);
+  }
+
+  // type_alias_stmt = 'type' type_alias_stmt_tail
+  // type_alias_stmt_tail = identifier optional_type_params '=' TypeExpr
+  //
+  // This method assumes that 'type' has already been consumed to produce typeSoftKeywordNode.
+  private Statement parseTypeAliasStatementTail(Node typeSoftKeywordNode) {
+    Preconditions.checkArgument(isTypeSoftKeyword(typeSoftKeywordNode));
+    int startOffset = typeSoftKeywordNode.getStartOffset();
+    // For user-friendliness, mark the error as if it was detected at 'type'
+    checkAllowTypeSyntax(startOffset, TokenKind.IDENTIFIER, TYPE_SOFT_KEYWORD);
+    Identifier identifier = parseIdent();
+    ImmutableList<Identifier> parameters = parseOptionalTypeParameters();
+    expect(TokenKind.EQUALS);
+    Expression definition = parseTypeExprWithFallback();
+    return new TypeAliasStatement(locs, startOffset, identifier, parameters, definition);
+  }
+
+  // optional_type_params = ['[' identifier {',' identifier} [','] ']']
+  //
+  // For syntactic compatibility with Python, the list of identifiers in optional_type_params cannot
+  // contain duplicates; duplicate identifiers are treated as a syntax error.
+  //
+  // If the optional_type_params is absent (in other words, if the initial token is not '['), this
+  // method returns an empty list. (Note that if optional_type_params is present, it must contain at
+  // least one identifier.)
+  private ImmutableList<Identifier> parseOptionalTypeParameters() {
+    if (token.kind == TokenKind.LBRACKET) {
+      nextToken();
+      ImmutableList.Builder<Identifier> parameters = ImmutableList.builder();
+      Set<String> uniqueParameterNames = new HashSet<>();
+      parameters.add(parseTypeParameter(uniqueParameterNames));
+      while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+        expect(TokenKind.COMMA);
+        if (token.kind == TokenKind.RBRACKET) {
+          break;
+        }
+        parameters.add(parseTypeParameter(uniqueParameterNames));
+      }
+      expect(TokenKind.RBRACKET);
+      return parameters.build();
+    } else {
+      return ImmutableList.of();
+    }
+  }
+
+  private Identifier parseTypeParameter(Set<String> uniqueParameterNames) {
+    int tokenStart = token.start;
+    TokenKind tokenKind = token.kind;
+    Object tokenValue = token.value;
+    Identifier ident = parseIdent();
+    // If parseIdent() encountered a syntax error, Identifier.isValid(param.getName()) would be
+    // false, and in that case, there's no need to check for the param's uniqueness.
+    if (Identifier.isValid(ident.getName()) && !uniqueParameterNames.add(ident.getName())) {
+      syntaxError(tokenStart, tokenKind, tokenValue, "duplicate type parameter");
+    }
+    return ident;
   }
 
   // Parses any expression except for an unparenthesized tuple.
@@ -1334,6 +1420,7 @@ final class Parser {
   }
 
   //     small_stmt = assign_stmt
+  //                | type_alias_stmt
   //                | expr
   //                | load_stmt
   //                | return_stmt
@@ -1363,6 +1450,12 @@ final class Parser {
     }
 
     Expression lhs = parseExpr();
+
+    // type alias; this is the only context in which the identifier `type` may be followed by
+    // another identifier.
+    if (token.kind == TokenKind.IDENTIFIER && isTypeSoftKeyword(lhs)) {
+      return parseTypeAliasStatementTail(lhs);
+    }
 
     // lhs = rhs  or  lhs += rhs
     TokenKind op = augmentedAssignments.get(token.kind);
