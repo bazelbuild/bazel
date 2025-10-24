@@ -32,6 +32,9 @@ common --check_direct_dependencies=error
 # Add mirrors for certain download URLs
 common --downloader_config=bazel_downloader.cfg
 
+# Add BCR module mirrors
+common --module_mirrors=https://bcr.cloudflaremirrors.com
+
 # Suppress warnings from external repos, we have no direct control on them anyway.
 common:linux --per_file_copt=external/.*@-w
 common:linux --host_per_file_copt=external/.*@-w
