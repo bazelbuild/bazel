@@ -515,4 +515,31 @@ EOF
   expect_log "Applying flags from the config 'test_config' defined in //test:PROJECT.scl: \[--define=foo=bar, --nostamp, --define=foo='bar baz'\]"
 }
 
+function test_magic_label_loads_project_proto(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+load(
+  "//:project_proto.scl",
+  "buildable_unit_pb2",
+  "project_pb2",
+)
+project = project_pb2.Project.create(
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "test_config",
+          flags = [],
+          is_default = True,
+      )
+  ],
+)
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel build --nobuild //test1:g \
+    &> "$TEST_log" || fail "expected success"
+}
+
+
 run_suite "Integration tests for flagsets/scl_config"

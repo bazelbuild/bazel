@@ -1067,7 +1067,8 @@ public class BzlLoadFunction implements SkyFunction {
    * then ".scl" is mentioned as a possible file extension in error messages.
    */
   @Nullable
-  private static ImmutableList<Label> getLoadLabels(
+  @VisibleForTesting
+  static ImmutableList<Label> getLoadLabels(
       EventHandler handler,
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
@@ -1086,8 +1087,16 @@ public class BzlLoadFunction implements SkyFunction {
       // syntax and the parsed label for structure.
       String unparsedLabel = load.first;
       try {
-        if (withinSclDialect && !unparsedLabel.startsWith("//")) {
-          throw new LabelSyntaxException("in .scl files, load labels must begin with \"//\"");
+        if (withinSclDialect) {
+          if (!unparsedLabel.startsWith("//")) {
+            throw new LabelSyntaxException("in .scl files, load labels must begin with \"//\"");
+          }
+          // Map the magic label "//:project_proto.scl" to the corresponding label in bazel_tools,
+          // since .scl doesn't support @repo syntax.
+          // See https://github.com/bazelbuild/bazel/issues/24839
+          if (unparsedLabel.equals("//:project_proto.scl")) {
+            unparsedLabel = "@bazel_tools//src/main/protobuf/project:project_proto.scl";
+          }
         }
         Label label =
             Label.parseWithPackageContext(
