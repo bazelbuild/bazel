@@ -125,7 +125,7 @@ public class BazelRepositoryModule extends BlazeModule {
   // Default list of registries.
   public static final ImmutableSet<String> DEFAULT_REGISTRIES =
       ImmutableSet.of("https://bcr.bazel.build/");
-  public static final ImmutableSet<String> DEFAULT_MODULE_MIRRORS = ImmutableSet.of();
+  public static final ImmutableSet<String> DEFAULT_MODULE_MIRRORS = ImmutableSet.of("https://bcr.cloudflaremirrors.com");
 
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
