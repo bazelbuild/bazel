@@ -99,9 +99,11 @@ _TARGET_CPUS_BY_PLATFORM = {
     "tvos_simulator": {
         "tvos_x86_64": True,
         "tvos_sim_arm64": True,
+        "tvos_sim_arm64e": True,
     },
     "tvos_device": {
         "tvos_arm64": True,
+        "tvos_arm64e": True,
     },
     "catalyst": {
         "catalyst_x86_64": True,
