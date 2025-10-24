@@ -635,7 +635,23 @@ my_test(
     deps = [":tested_libs"],
 )
 EOF
-    touch test/{untested_1.txt,untested_2.txt,covered_1.txt,covered_2.txt,test_1.txt,test_2.txt}
+    touch test/test_{1,2}.txt
+    cat <<EOF > test/covered_1.txt
+hit
+not hit
+EOF
+    cat <<EOF > test/covered_2.txt
+hit
+not hit
+EOF
+    cat <<EOF > test/untested_1.txt
+nonempty
+line
+EOF
+    cat <<EOF > test/untested_2.txt
+nonempty
+line
+EOF
 
     bazel coverage //test:my_test //test:all_libs --combined_report=lcov &> $TEST_log \
         || fail "Coverage run failed but should have succeeded."
@@ -706,6 +722,16 @@ end_of_record"
 
     assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
     assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
+
+    if ! is_windows; then
+      # Verify that genhtml can process the files.
+      "$(rlocation $GENHTML)" bazel-out/_coverage/_coverage_report.dat \
+          --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/coverage" &> $TEST_log \
+          || fail "genhtml failed on the coverage report but should have succeeded."
+      "$(rlocation $GENHTML)" bazel-out/_coverage/_baseline_report.dat \
+          --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/baseline" &> $TEST_log \
+          || fail "genhtml failed on the baseline report but should have succeeded."
+    fi
 }
 
 function test_starlark_rule_custom_baseline_coverage() {
