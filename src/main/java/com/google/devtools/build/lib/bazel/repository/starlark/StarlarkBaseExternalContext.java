@@ -2276,13 +2276,7 @@ func(
         && directories.getOutputBase().getFileSystem()
             instanceof RemoteExternalOverlayFileSystem remoteFs) {
       try {
-        remoteFs.ensureMaterialized(
-            label.getRepository(),
-            () ->
-                env.getListener()
-                    .handle(
-                        Event.debug(
-                            "Materializing remote repo %s".formatted(label.getRepository()))));
+        remoteFs.ensureMaterialized(label.getRepository(), env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());

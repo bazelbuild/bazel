@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -134,9 +135,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     this.reporter = null;
     this.buildRequestId = null;
     this.commandId = null;
-    // Clean up the in-memory contents of materialized repos or those that need to be refetched to
-    // recover files that the remote cache has lost. This wouldn't be safe to do eagerly as ongoing
-    // repo rule evaluations may still refer to the in-memory content and refetching is not atomic.
+    // Clean up the in-memory contents of materialized repos to save memory, or those that need to
+    // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
+    // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
+    // refetching is not atomic.
     remoteRepoMaterializationState.forEach(
         0,
         (repoName, materializationState) ->
@@ -144,7 +146,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
                     || reposWithLostFiles.contains(repoName)
                 ? repoName
                 : null,
-        this::deleteRepo);
+        this::deleteInMemoryRepoContents);
     if (!reposWithLostFiles.isEmpty()) {
       evaluator.delete(
           k ->
@@ -169,11 +171,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     // Create the repo directory on disk so that readdir reflects the overlaid state of the external
     // directory.
     nativeFs.createDirectoryAndParents(externalDirectory.getChild(repo.getName()));
-    remoteRepoMaterializationState.put(repo.getName(), new CountDownLatch(2));
+    remoteRepoMaterializationState.put(
+        repo.getName(), new CountDownLatch(MATERIALIZATION_NOT_STARTED));
   }
 
   // Must not be called concurrently with any other method.
-  private void deleteRepo(String repoName) {
+  private void deleteInMemoryRepoContents(String repoName) {
     try {
       externalFs.deleteTree(externalDirectory.getChild(repoName));
     } catch (IOException e) {
@@ -229,7 +232,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
    * Bazel or local actions are handled automatically by the file system or {@link
    * AbstractActionInputPrefetcher}.
    */
-  public void ensureMaterialized(RepositoryName repo, Runnable report)
+  public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     String repoName = repo.getName();
     // Fast path that avoids write locking and allocations.
@@ -256,7 +259,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       return;
     }
 
-    report.run();
+    reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
     var repoPath = externalDirectory.getChild(repoName);
     var remoteRepo = externalFs.getPath(repoPath);
     var walkResult = walk(remoteRepo);
@@ -619,8 +622,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       return info.getMetadata();
     }
 
-    // TODO: Support rewinding to allow incremental builds to recover from a lost remote BUILD or
-    //  .bzl file.
     @Override
     public InputStream getInputStream(PathFragment path) throws IOException {
       var relativePath = path.relativeTo(externalDirectory);
