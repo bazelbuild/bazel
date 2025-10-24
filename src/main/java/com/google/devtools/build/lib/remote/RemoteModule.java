@@ -809,7 +809,7 @@ public final class RemoteModule extends BlazeModule {
     actionInputFetcher = createActionInputFetcher(actionContextProvider.getCombinedCache());
 
     repositoryRemoteHelpersFactoryDelegate.init(
-        new RemoteRepositoryHelpersFactory(
+        new RepositoryRemoteHelpersFactoryImpl(
             actionContextProvider.getCombinedCache(),
             actionContextProvider.getRemoteExecutionClient(),
             buildRequestId,

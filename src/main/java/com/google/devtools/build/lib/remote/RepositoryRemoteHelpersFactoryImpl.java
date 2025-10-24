@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteHelpersFactory;
 import javax.annotation.Nullable;
 
-/** Factory for {@link RemoteRepositoryRemoteExecutor}. */
-class RemoteRepositoryHelpersFactory implements RepositoryRemoteHelpersFactory {
+/** Factory for {@link RemoteRepositoryRemoteExecutor} and {@link RemoteRepoContentsCacheImpl}. */
+class RepositoryRemoteHelpersFactoryImpl implements RepositoryRemoteHelpersFactory {
 
   private final CombinedCache cache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
@@ -32,7 +32,7 @@ class RemoteRepositoryHelpersFactory implements RepositoryRemoteHelpersFactory {
   private final boolean acceptCached;
   private final boolean uploadLocalResults;
 
-  RemoteRepositoryHelpersFactory(
+  RepositoryRemoteHelpersFactoryImpl(
       CombinedCache cache,
       @Nullable RemoteExecutionClient remoteExecutor,
       String buildRequestId,
