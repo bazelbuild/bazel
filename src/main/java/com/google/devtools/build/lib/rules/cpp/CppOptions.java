@@ -436,7 +436,7 @@ public class CppOptions extends FragmentOptions {
       name = "fdo_profile",
       defaultValue = "null",
       category = "flags",
-      converter = LabelConverter.class,
+      converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "The fdo_profile representing the profile to be used for optimization.")
