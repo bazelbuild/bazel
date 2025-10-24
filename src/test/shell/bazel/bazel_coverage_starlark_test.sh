@@ -723,13 +723,15 @@ end_of_record"
     assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
     assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
 
-    # Verify that genhtml can process the files.
-    "$(rlocation $GENHTML)" bazel-out/_coverage/_coverage_report.dat \
-        --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/coverage" &> $TEST_log \
-        || fail "genhtml failed on the coverage report but should have succeeded."
-    "$(rlocation $GENHTML)" bazel-out/_coverage/_baseline_report.dat \
-        --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/baseline" &> $TEST_log \
-        || fail "genhtml failed on the baseline report but should have succeeded."
+    if ! is_windows; then
+      # Verify that genhtml can process the files.
+      "$(rlocation $GENHTML)" bazel-out/_coverage/_coverage_report.dat \
+          --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/coverage" &> $TEST_log \
+          || fail "genhtml failed on the coverage report but should have succeeded."
+      "$(rlocation $GENHTML)" bazel-out/_coverage/_baseline_report.dat \
+          --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name/baseline" &> $TEST_log \
+          || fail "genhtml failed on the baseline report but should have succeeded."
+    fi
 }
 
 function test_starlark_rule_custom_baseline_coverage() {
