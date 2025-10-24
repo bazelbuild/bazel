@@ -69,4 +69,7 @@ public interface RemoteAnalysisCachingServicesSupplier {
   default SkycacheMetadataParams getSkycacheMetadataParams() {
     return null;
   }
+
+  /** Relinquishes any underlying resources. */
+  void shutdown();
 }

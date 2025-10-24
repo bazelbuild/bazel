@@ -51,6 +51,4 @@ public interface RemoteAnalysisCacheClient {
       EventHandler eventHandler,
       Runnable bailOutCallback)
       throws InterruptedException;
-
-  void shutdown();
 }

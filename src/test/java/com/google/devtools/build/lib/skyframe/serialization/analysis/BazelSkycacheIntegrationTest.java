@@ -123,6 +123,9 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
     public ListenableFuture<FingerprintValueService> getFingerprintValueService() {
       return wrappedService;
     }
+
+    @Override
+    public void shutdown() {}
   }
 
   @Override
