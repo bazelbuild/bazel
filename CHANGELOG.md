@@ -1,3 +1,51 @@
+## Release 9.0.0-pre.20251014.1 (2025-10-24)
+
+```
+Baseline: d53a7fab7b7ebf899ec8d9d5b09f6f4d3f6618bd
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 9.0.0-pre.20251008.2 (2025-10-17)
+
+```
+Baseline: f7538936d349ccb323724f0fa31554f4c97c6fd8
+```
+
+New features:
+
+  - The new `ctx.configuration.short_id` field provides a short
+    identifier for the current configuration that is understood by
+    `bazel config`.
+  - Module extensions can store a JSON-like Starlark object in
+    `module_ctx.extension_metadata(facts = ...)` and retrieve it back
+    in future evaluations of the extension via `module_ctx.facts`
+    without any invalidation taking place.
+
+Important changes:
+
+  - With the new `--incompatible_eagerly_resolve_select_keys` flag,
+    the label string keys of `select` dicts in `.bzl` files are
+    resolved relative to the containing file instead of relative to
+    the BUILD file that ends up using the `select`. Use
+    `native.package_relative_label` if this is not desired.
+  - native.existing_rule() and native.existing_rules() now correctly
+    handle
+    labels pointing to a different repo.
+  - Starlark string.split(), string.rsplit() now allow sep and
+    maxsplit to be
+    provided as keyword arguments.
+  - With `--experimental_check_external_repository_files` enabled
+    (the default), Bazel will now refetch the respective repositories
+    when it encounters external modifications. This is necessary to
+    ensure correct incrementality. If you rely on external
+    modifications to these repositories, either disable or the flag
+    or use a supported mechanism such as `--override_repository`,
+    `local_path_override` or `override_repo`.
+  - `ctx.actions.symlink` now accepts a `target_type` argument.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Benjamin Peterson, Bradley Bridges, Christian Scott, Christopher Rydell, David Sanderson, David Zbarsky, dependabot[bot], Fabian Meumertzheim, George Gensure, Grzegorz Lukasik, Jonathan Schear, Jordan Mele, Jordan Mele, Nathan Naze, PikachuHy, Ruoyu Zhong, Son Luong Ngoc, Timothy Gu, Ulrik Falklof.
+
 ## Release 7.6.2 (2025-10-08)
 
 ```
