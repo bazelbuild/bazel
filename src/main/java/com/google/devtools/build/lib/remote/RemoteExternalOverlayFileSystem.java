@@ -239,6 +239,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
    */
   public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
+    if (!markerFileContents.containsKey(repo.getName())) {
+      // The repo has not been injected into the in-memory file system.
+      return;
+    }
     getFromFuture(
         materializations.computeIfAbsent(
             repo.getName(),
