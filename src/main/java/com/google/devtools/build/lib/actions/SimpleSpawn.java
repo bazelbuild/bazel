@@ -28,9 +28,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-/** Immutable implementation of a Spawn that does not perform any processing on the parameters. */
+/** Implementation of a Spawn that does not perform any processing on the parameters. */
 @Immutable
-public final class SimpleSpawn implements Spawn {
+public class SimpleSpawn implements Spawn {
   private final ActionExecutionMetadata owner;
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
