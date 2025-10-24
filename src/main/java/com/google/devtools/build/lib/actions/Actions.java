@@ -26,7 +26,6 @@ import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Arrays;
@@ -375,18 +374,6 @@ public final class Actions {
    * escaped with an '_' + a single character token.
    */
   public static String escapedPath(String path) {
-    return PATH_ESCAPER.escape(path);
-  }
-
-  /**
-   * Returns a string that is usable as a unique path component for a label. It is guaranteed that
-   * no other label maps to this string.
-   */
-  public static String escapeLabel(Label label) {
-    String path = label.getPackageName() + ":" + label.getName();
-    if (!label.getRepository().isMain()) {
-      path = label.getRepository().getName() + "@" + path;
-    }
     return PATH_ESCAPER.escape(path);
   }
 

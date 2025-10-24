@@ -676,9 +676,27 @@ def _create_linkstamp(linkstamp, headers):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return create_linkstamp(linkstamp, headers)
 
+_PATH_ESCAPE_REPLACEMENTS = {
+    "_": "_U",
+    "/": "_S",
+    "\\": "_B",
+    ":": "_C",
+    "@": "_A",
+}
+
 def _escape_label(*, label):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return _cc_internal.escape_label(label = label)
+    path = label.package + ":" + label.name
+    if label.repo_name:
+        path = label.repo_name + "@" + path
+    result = []
+    for idx in range(len(path)):
+        c = path[idx]
+        result.append(_PATH_ESCAPE_REPLACEMENTS.get(
+            c,
+            c,  # no escaping by default
+        ))
+    return "".join(result)
 
 def _cc_toolchain_features(*, toolchain_config_info, tools_directory):
     _cc_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)

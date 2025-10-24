@@ -25,7 +25,6 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
@@ -340,16 +339,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "stl_computed_default", documented = false)
   public ComputedDefault getStlComputedDefault() {
     return new StlComputedDefault();
-  }
-
-  @StarlarkMethod(
-      name = "escape_label",
-      documented = false,
-      parameters = {
-        @Param(name = "label", positional = false, named = true),
-      })
-  public String escapeLabel(Label label) {
-    return Actions.escapeLabel(label);
   }
 
   @StarlarkMethod(
