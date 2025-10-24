@@ -63,7 +63,9 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
     JsonObject jsonObject = JsonParser.parseReader(in).getAsJsonObject();
     Dict.Builder<String, Object> dict = Dict.builder();
     for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-      dict.put(entry.getKey(), deserializeObject(entry.getValue()));
+      // The set of valid attribute names per repo rule is small and static, so interning them
+      // helps reduce memory usage.
+      dict.put(entry.getKey().intern(), deserializeObject(entry.getValue()));
     }
     return AttributeValues.create(dict.buildImmutable());
   }
