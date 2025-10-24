@@ -1,3 +1,17 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -132,46 +146,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
     var action = buildAction(predeclaredInputHash);
     var actionKey = new ActionKey(digestUtil.compute(action));
-    var remotePathResolver =
-        new RemotePathResolver() {
-          @Override
-          public String localPathToOutputPath(Path path) {
-            // Map repo marker file and contents to fixed locations under the fake remote exec root.
-            if (path.equals(fetchedRepoMarkerFile)) {
-              return MARKER_FILE_PATH;
-            }
-            if (path.equals(fetchedRepoDir)) {
-              return REPO_DIRECTORY_PATH;
-            }
-            return REPO_DIRECTORY_PATH + "/" + path.relativeTo(fetchedRepoDir).getPathString();
-          }
-
-          @Override
-          public PathFragment getWorkingDirectory() {
-            throw new UnsupportedOperationException("Not used");
-          }
-
-          @Override
-          public String localPathToOutputPath(PathFragment execPath) {
-            throw new UnsupportedOperationException("Not used");
-          }
-
-          @Override
-          public Path outputPathToLocalPath(String outputPath) {
-            throw new UnsupportedOperationException("Not used");
-          }
-
-          @Override
-          public PathFragment localPathToExecPath(PathFragment localPath) {
-            throw new UnsupportedOperationException("Not used");
-          }
-
-          @Override
-          public SortedMap<PathFragment, ActionInput> getInputMapping(
-              SpawnRunner.SpawnExecutionContext context, boolean willAccessRepeatedly) {
-            throw new UnsupportedOperationException("Not used");
-          }
-        };
+    var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
     try {
       // TODO: Consider uploading asynchronously.
       UploadManifest.create(
@@ -237,6 +212,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
     ListenableFuture<byte[]> markerFileContentFuture;
     var markerFile = actionResult.getOutputFiles(0);
+    // Inlining is an optional feature, so we have to be prepared to download the marker file.
     if (markerFile.getContents().isEmpty()) {
       markerFileContentFuture =
           cache.downloadBlob(
@@ -251,9 +227,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                 context, REPO_DIRECTORY_PATH, /* execPath= */ null, repoDirectory.getTreeDigest()),
             (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
             directExecutor());
-    waitForBulkTransfer(
-        ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture),
-        /* cancelRemainingOnInterrupt= */ true);
+    waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
     String markerFileContent;
     Tree repoDirectoryContent;
     try {
@@ -269,7 +243,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
             .collect(toImmutableList());
     if (markerFileLines.size() > 1) {
       reporter.handle(
-          Event.debug(
+          Event.warn(
               "Marker file for repo %s has extra lines, skipping:\n%s"
                   .formatted(
                       repoName,
@@ -307,5 +281,47 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     return baseAction.toBuilder()
         .setSalt(ByteString.copyFrom(StringUnsafe.getByteArray(predeclaredInputHash)))
         .build();
+  }
+
+  private record RepoRemotePathResolver(Path fetchedRepoMarkerFile, Path fetchedRepoDir)
+      implements RemotePathResolver {
+
+    @Override
+    public String localPathToOutputPath(Path path) {
+      // Map repo marker file and contents to fixed locations under the fake remote exec root.
+      if (path.equals(fetchedRepoMarkerFile)) {
+        return MARKER_FILE_PATH;
+      }
+      if (path.equals(fetchedRepoDir)) {
+        return REPO_DIRECTORY_PATH;
+      }
+      return REPO_DIRECTORY_PATH + "/" + path.relativeTo(fetchedRepoDir).getPathString();
+    }
+
+    @Override
+    public PathFragment getWorkingDirectory() {
+      throw new UnsupportedOperationException("Not used");
+    }
+
+    @Override
+    public String localPathToOutputPath(PathFragment execPath) {
+      throw new UnsupportedOperationException("Not used");
+    }
+
+    @Override
+    public Path outputPathToLocalPath(String outputPath) {
+      throw new UnsupportedOperationException("Not used");
+    }
+
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      throw new UnsupportedOperationException("Not used");
+    }
+
+    @Override
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        SpawnRunner.SpawnExecutionContext context, boolean willAccessRepeatedly) {
+      throw new UnsupportedOperationException("Not used");
+    }
   }
 }
