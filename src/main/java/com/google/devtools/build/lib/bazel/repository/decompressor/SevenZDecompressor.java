@@ -63,7 +63,7 @@ public class SevenZDecompressor implements Decompressor {
          * Some 7z archives don't contain any names for the archive entries. The native 7zip tools
          * derive a default name from the name of the archive itself for such entries. Starting with
          * Compress 1.19 SevenZFile has an option to mimic this behavior, but by default unnamed
-         * archive entries will return null from SevenZArchiveEntry#getName.
+         * archive entries will return null from {@link SevenZArchiveEntry#getName}.
          *
          * </blockquote>
          *
