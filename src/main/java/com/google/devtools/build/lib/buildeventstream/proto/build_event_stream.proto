@@ -259,6 +259,9 @@ message BuildEventId {
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
 
+  // Identifier of an event indicating that all background tasks have completed.
+  message BackgroundTasksCompletedId {}
+
   reserved 27;
 
   oneof id {
@@ -290,6 +293,7 @@ message BuildEventId {
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     ExecRequestId exec_request = 28;
+    BackgroundTasksCompletedId background_tasks_completed = 30;
   }
 }
 
@@ -448,8 +452,7 @@ message WorkspaceStatus {
 // build.
 message BuildMetadata {
   // Custom metadata for the build.
-  map<string, string> metadata = 1
-      ;
+  map<string, string> metadata = 1;
 }
 
 // Payload of an event reporting details of a given configuration.
@@ -457,8 +460,7 @@ message Configuration {
   string mnemonic = 1;
   string platform_name = 2;
   string cpu = 3;
-  map<string, string> make_variable = 4
-      ;
+  map<string, string> make_variable = 4;
   // Whether this configuration is used for building tools.
   bool is_tool = 5;
 }
@@ -1442,6 +1444,9 @@ message EnvironmentVariable {
   bytes name = 1;
   bytes value = 2;
 }
+
+// Event indicating that all background tasks have completed.
+message BackgroundTasksCompletedEvent {}
 
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up

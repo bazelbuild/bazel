@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectEvaluationResult;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DisplayMode;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -92,6 +93,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
 import com.google.devtools.build.lib.runtime.BlazeOptionHandler.SkyframeExecutorTargetLoader;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
@@ -1172,12 +1174,15 @@ public class BuildTool {
         ie = e;
       }
 
-      env.getEventBus()
-          .post(
-              new BuildCompleteEvent(
-                  result,
-                  ImmutableList.of(
-                      BuildEventIdUtil.buildToolLogs(), BuildEventIdUtil.buildMetrics())));
+      var buildCompleteChildrenEvents =
+          ImmutableList.<BuildEventStreamProtos.BuildEventId>builder()
+              .add(BuildEventIdUtil.buildToolLogs())
+              .add(BuildEventIdUtil.buildMetrics());
+      var blockWaitingModule = runtime.getBlazeModule(BlockWaitingModule.class);
+      if (blockWaitingModule != null) {
+        buildCompleteChildrenEvents.add(blockWaitingModule.getEventId());
+      }
+      env.getEventBus().post(new BuildCompleteEvent(result, buildCompleteChildrenEvents.build()));
     }
     // Post the build tool logs event; the corresponding local files may be contributed from
     // modules, and this has to happen after posting the BuildCompleteEvent because that's when
@@ -1702,11 +1707,11 @@ public class BuildTool {
                   skycacheMetadataParams.getBazelVersion(),
                   eventHandler,
                   () -> bailedOut = true);
-          }
+        }
       } else {
         eventHandler.handle(
             Event.warn("Skycache: Not querying metadata because use_fake_stamp_data is false"));
-        }
+      }
     }
 
     /**

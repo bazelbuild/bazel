@@ -16,7 +16,11 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildtool.buildevent.BackgroundTasksCompletedEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.ArrayList;
@@ -46,6 +50,7 @@ public class BlockWaitingModule extends BlazeModule {
     }
   }
 
+  @Nullable private EventBus eventBus;
   @Nullable private ExecutorService executorService;
   @Nullable private ArrayList<Future<?>> submittedTasks;
 
@@ -54,6 +59,7 @@ public class BlockWaitingModule extends BlazeModule {
     checkState(executorService == null, "executorService must be null");
     checkState(submittedTasks == null, "submittedTasks must be null");
 
+    eventBus = env.getEventBus();
     executorService =
         Executors.newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("block-waiting-%d").build());
@@ -77,6 +83,10 @@ public class BlockWaitingModule extends BlazeModule {
             }));
   }
 
+  public BuildEventStreamProtos.BuildEventId getEventId() {
+    return BuildEventIdUtil.backgroundTasksCompletedId();
+  }
+
   @Override
   public void afterCommand() throws AbruptExitException {
     checkNotNull(executorService, "executorService must not be null");
@@ -85,19 +95,23 @@ public class BlockWaitingModule extends BlazeModule {
       Thread.currentThread().interrupt();
     }
 
-    for (Future<?> f : submittedTasks) {
-      try {
-        f.get(); // guaranteed to have completed.
-      } catch (InterruptedException e) {
-        throw new AssertionError("task should not have been interrupted");
-      } catch (ExecutionException e) {
-        Throwable cause = e.getCause();
-        if (cause instanceof TaskException) {
-          checkState(cause.getCause() instanceof AbruptExitException);
-          throw (AbruptExitException) cause.getCause();
+    try {
+      for (Future<?> f : submittedTasks) {
+        try {
+          f.get(); // guaranteed to have completed.
+        } catch (InterruptedException e) {
+          throw new AssertionError("task should not have been interrupted");
+        } catch (ExecutionException e) {
+          Throwable cause = e.getCause();
+          if (cause instanceof TaskException) {
+            checkState(cause.getCause() instanceof AbruptExitException);
+            throw (AbruptExitException) cause.getCause();
+          }
+          throw new RuntimeException(e);
         }
-        throw new RuntimeException(e);
       }
+    } finally {
+      eventBus.post(new BackgroundTasksCompletedEvent());
     }
 
     executorService = null;

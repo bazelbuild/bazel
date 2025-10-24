@@ -18,13 +18,16 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule.Task;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.concurrent.ExecutionException;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,6 +45,12 @@ public final class BlockWaitingModuleTest {
               .build());
 
   @Mock CommandEnvironment env;
+
+  @Before
+  public void setUp() {
+    env = mock(CommandEnvironment.class);
+    when(env.getEventBus()).thenReturn(new EventBus());
+  }
 
   @Test
   public void testSubmitZeroTasks() throws Exception {
