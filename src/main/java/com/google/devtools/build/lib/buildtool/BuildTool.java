@@ -1095,7 +1095,6 @@ public class BuildTool {
                   skycacheMetadataParams.getEvaluatingVersion(),
                   skycacheMetadataParams.getConfigurationHash(),
                   skycacheMetadataParams.getBazelVersion(),
-                  skycacheMetadataParams.getArea(),
                   skycacheMetadataParams.getTargets(),
                   skycacheMetadataParams.getConfigFlags())
               .get(SkycacheMetadataParams.TIMEOUT.toSeconds(), SECONDS);
@@ -1701,8 +1700,6 @@ public class BuildTool {
                   skycacheMetadataParams.getEvaluatingVersion(),
                   skycacheMetadataParams.getConfigurationHash(),
                   skycacheMetadataParams.getBazelVersion(),
-                  skycacheMetadataParams.getArea(),
-                  skycacheMetadataParams.getConfigFlags(),
                   eventHandler,
                   () -> bailedOut = true);
           }

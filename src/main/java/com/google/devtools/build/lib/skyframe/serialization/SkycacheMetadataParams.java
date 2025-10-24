@@ -63,9 +63,6 @@ public interface SkycacheMetadataParams {
   /** The Bazel version which consists of the release name + the md5 install hash. */
   String getBazelVersion();
 
-  /** Geographical area of the build. */
-  String getArea();
-
   /**
    * Whether real stamp data is used for the build. This flag is not considered for the top level
    * configuration checksum.

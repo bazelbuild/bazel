@@ -40,7 +40,6 @@ public interface RemoteAnalysisCacheClient {
       long evaluatingVersion,
       String configurationHash,
       String bazelVersion,
-      String area,
       Collection<String> targets,
       Collection<String> configFlags);
 
@@ -49,8 +48,6 @@ public interface RemoteAnalysisCacheClient {
       long evaluatingVersion,
       String configurationHash,
       String bazelVersion,
-      String area,
-      Collection<String> configFlags,
       EventHandler eventHandler,
       Runnable bailOutCallback)
       throws InterruptedException;
