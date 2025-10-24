@@ -178,18 +178,24 @@ public final class Project {
           keyToTargets.getValue());
     }
 
-    if (canonicalProjectsToTargets.size() == 1 && targetsWithNoProjectFiles.isEmpty()) {
-      // All targets resolve to the same canonical project file.
+    if (canonicalProjectsToTargets.size() != 1) {
+      // Targets resolve to different project files.
+      return new ActiveProjects(
+          canonicalProjectsToTargets,
+          !canonicalProjectsToTargets.keySet().isEmpty() && !targetsWithNoProjectFiles.isEmpty(),
+          differentProjectFilesError(canonicalProjectsToTargets, targetsWithNoProjectFiles));
+    } else {
       Label projectFile = Iterables.getOnlyElement(canonicalProjectsToTargets.keySet());
       eventHandler.handle(
           Event.info(String.format("Reading project settings from %s.", projectFile)));
-      return new ActiveProjects(canonicalProjectsToTargets, false, "");
     }
-    // Either some targets resolve to different files or a distinct subset resolve to no files.
-    return new ActiveProjects(
-        canonicalProjectsToTargets,
-        !canonicalProjectsToTargets.keySet().isEmpty() && !targetsWithNoProjectFiles.isEmpty(),
-        differentProjectFilesError(canonicalProjectsToTargets, targetsWithNoProjectFiles));
+    if (targetsWithNoProjectFiles.isEmpty()) {
+      // All targets resolve to the same canonical project file.
+      return new ActiveProjects(canonicalProjectsToTargets, false, "");
+    } else {
+      // Some targets have project files and some don't.
+      return new ActiveProjects(canonicalProjectsToTargets, /* partialProjectBuild= */ true, "");
+    }
   }
 
   /**
@@ -359,14 +365,14 @@ public final class Project {
           Code.INVALID_BUILD_OPTIONS);
     }
 
-    // We can only have multiple configs if they're defaults configs (i.e. the build didn't set
-    // --scl_config). Permit this as long as they all produce the same value.
+    // We can only have multiple configs if they're default configs (i.e. the build didn't set
+    // --scl_config). Permit this as long as they all produce the same value, ignoring projects with
+    // no project files.
     ImmutableSet<ImmutableSet<String>> uniqueConfigs =
         result.values().stream()
             .map(v -> ((FlagSetValue) v).getOptionsFromFlagset())
             .collect(toImmutableSet());
-    if (uniqueConfigs.size() > 1
-        || (activeProjects.partialProjectBuild && !uniqueConfigs.iterator().next().isEmpty())) {
+    if (uniqueConfigs.size() > 1) {
       throw new InvalidConfigurationException(
           "Mismatching default configs for a %s. %s"
               .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails),

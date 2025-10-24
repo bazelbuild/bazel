@@ -292,8 +292,7 @@ public final class AnalysisPhaseRunner {
 
     if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD) || featureFlags.contains(SKYFOCUS)) {
       // Features that can work with zero or one project file.
-      if (activeProjects.projectFilesToTargetLabels().size() > 1
-          || activeProjects.partialProjectBuild()) {
+      if (activeProjects.projectFilesToTargetLabels().size() > 1) {
         String message =
             "This is a %s. %s"
                 .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());

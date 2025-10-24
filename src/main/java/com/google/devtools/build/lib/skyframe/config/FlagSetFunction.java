@@ -280,9 +280,9 @@ public final class FlagSetFunction implements SkyFunction {
         new HashMap<>();
     for (Label target : targets) {
       for (ProjectValue.BuildableUnit buildableUnit : buildableUnits.values()) {
-        if (doesBuildableUnitMatchTarget(buildableUnit, target)) {
-          if (buildableUnit.isDefault()) {
-            if (targetsAndMatchingDefaultBuildableUnits.put(target, buildableUnit) != null) {
+        if (doesBuildableUnitMatchTarget(buildableUnit, target)
+            && buildableUnit.isDefault()
+            && targetsAndMatchingDefaultBuildableUnits.put(target, buildableUnit) != null) {
               throw new FlagSetFunctionException(
                   new UnsupportedConfigException(
                       String.format(
@@ -291,8 +291,6 @@ public final class FlagSetFunction implements SkyFunction {
                               + " 1 matching default config.",
                           target, target)),
                   Transience.PERSISTENT);
-            }
-          }
         }
       }
     }

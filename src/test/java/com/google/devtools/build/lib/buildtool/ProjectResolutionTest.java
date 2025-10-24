@@ -172,13 +172,7 @@ Targets have different project settings:
             reporter);
     assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME));
-    assertThat(projectFiles.differentProjectsDetails())
-        .contains(
-"""
-Targets have different project settings:
-  - //foo:f -> //foo:PROJECT.scl
-  - //bar:g -> no project file\
-""");
+    assertThat(projectFiles.differentProjectsDetails()).isEmpty();
   }
 
   @Test
