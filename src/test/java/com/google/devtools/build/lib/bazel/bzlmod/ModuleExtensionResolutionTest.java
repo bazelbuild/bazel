@@ -1355,6 +1355,39 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void nonVisibleLabelInLabelListDictAttr() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel", "ext = use_extension('//:defs.bzl','ext')", "use_repo(ext,'ext')");
+    scratch.file(
+        "defs.bzl",
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label_list_dict()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data={'bar':['@not_other_repo//:foo']})",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@ext//:data.bzl', ext_data='data')", "data=ext_data");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    assertContainsEvent(
+        """
+        ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
+        \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data={'bar':['@not_other_repo//:foo']})
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
+        """);
+  }
+
+  @Test
   public void nativeExistingRuleIsEmpty() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",

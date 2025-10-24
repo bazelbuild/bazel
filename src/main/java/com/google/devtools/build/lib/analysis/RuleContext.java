@@ -1574,6 +1574,9 @@ public class RuleContext extends TargetContext
       for (String attributeName : attributes.getAttributeNames()) {
         Attribute attr = attributes.getAttributeDefinition(attributeName);
         if (attr.getType() != BuildType.LABEL_LIST) {
+          // It is not obvious but correct to skip LABEL_LIST_DICT here: since concatenating selects
+          // of dicts of lists does not concatenate the lists but picks the last one for each key,
+          // all possible duplicates have already been ruled out by AggregatingAttributeMapper.
           continue;
         }
 
