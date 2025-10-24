@@ -35,11 +35,6 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
-// On OSX, there apparently is no header that defines this.
-#ifndef environ
-extern char **environ;
-#endif
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -525,7 +520,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   }
 
   blazerc_and_env_command_args_ = GetBlazercAndEnvCommandArgs(
-      cwd, rc_file_ptrs, blaze::internal::GetProcessedEnv());
+      cwd, rc_file_ptrs, blaze::GetProcessedEnv());
   return blaze_exit_code::SUCCESS;
 }
 

@@ -22,7 +22,7 @@
 extern char** environ;
 #endif
 
-namespace blaze::internal {
+namespace blaze {
 
 std::vector<std::string> GetProcessedEnv() {
   std::vector<std::string> processed_env;
@@ -32,4 +32,4 @@ std::vector<std::string> GetProcessedEnv() {
   return processed_env;
 }
 
-}  // namespace blaze::internal
+}  // namespace blaze

@@ -79,10 +79,6 @@
 
 using blaze_util::GetLastErrorString;
 
-#if !defined(_WIN32)
-extern char **environ;
-#endif
-
 namespace blaze {
 
 using command_server::CommandServer;
@@ -1297,8 +1293,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // environment variables to modify the current process, we may actually use
   // such map to configure a process from scratch (via interfaces like execvpe
   // or posix_spawn), so we need to inherit any untouched variables.
-  for (char **entry = environ; *entry != nullptr; entry++) {
-    const std::string var_value = *entry;
+  for (const auto& var_value : blaze::GetProcessedEnv()) {
     std::string::size_type equals = var_value.find('=');
     if (equals == std::string::npos) {
       // Ignore possibly-bad environment. We don't control what we see in this
