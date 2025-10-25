@@ -956,7 +956,6 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "BUILD",
         "licenses(['notice'])",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
     CcCompilationContext ccContext =
         getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
