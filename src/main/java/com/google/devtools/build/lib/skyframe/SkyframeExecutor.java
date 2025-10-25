@@ -900,7 +900,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Inject an empty default BAZEL_DEP_GRAPH SkyFunction for unit tests.
     map.put(
         SkyFunctions.BAZEL_DEP_GRAPH, (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph());
-    map.put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction());
+    map.put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories));
     map.put(
         SkyFunctions.TARGET_COMPLETION,
         TargetCompletor.targetCompletionFunction(

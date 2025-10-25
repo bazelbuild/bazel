@@ -198,7 +198,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.BAZEL_LOCK_FILE,
                     new BazelLockFileFunction(rootDirectory, directories.getOutputBase()))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
-                .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
+                .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
                 .put(
                     SkyFunctions.REGISTRY,
                     new RegistryFunction(registryFactory, directories.getWorkspace()))
