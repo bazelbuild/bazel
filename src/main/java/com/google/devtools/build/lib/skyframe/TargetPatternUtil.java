@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
@@ -40,12 +41,12 @@ public class TargetPatternUtil {
    * Skyframe restart.
    */
   @Nullable
-  public static ImmutableList<Label> expandTargetPatterns(
+  public static ImmutableSet<Label> expandTargetPatterns(
       Environment env, List<SignedTargetPattern> targetPatterns, FilteringPolicy filteringPolicy)
       throws InvalidTargetPatternException, InterruptedException {
 
     if (targetPatterns.isEmpty()) {
-      return ImmutableList.of();
+      return ImmutableSet.of();
     }
 
     Iterable<TargetPatternKey> targetPatternKeys =
@@ -82,7 +83,7 @@ public class TargetPatternUtil {
       return null;
     }
 
-    return ImmutableList.copyOf(labels);
+    return ImmutableSet.copyOf(labels);
   }
 
   // TODO(bazel-team): look into moving this into SignedTargetPattern itself.
