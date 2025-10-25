@@ -1114,7 +1114,7 @@ sh_test(
 )
 EOF
   bazel test --nobuild_runfile_manifests --spawn_strategy=local //dir:test >& $TEST_log && fail "should have failed"
-  expect_log "cannot run local tests with --nobuild_runfile_manifests"
+  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
   bazel test --nobuild_runfile_manifests --spawn_strategy=standalone //dir:test >& $TEST_log && fail "should have failed"
   bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "should have succeeded"
 }
