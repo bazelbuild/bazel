@@ -286,7 +286,11 @@ class BazelModuleTest(test_base.TestBase):
     )
     exit_code, _, stderr = self.RunBazel(['run', '//:main'], allow_failure=True)
     self.AssertNotExitCode(exit_code, 0, stderr)
-    self.assertIn("@@[unknown repo 'bbb' requested from @@]", '\n'.join(stderr))
+    self.assertIn(
+        "Error in archive_override: invalid label in 'patches': only patches in"
+        " the main repository can be applied, not from '@bbb'",
+        '\n'.join(stderr),
+    )
 
   def testRepoNameForBazelDep(self):
     self.writeMainProjectFiles()
