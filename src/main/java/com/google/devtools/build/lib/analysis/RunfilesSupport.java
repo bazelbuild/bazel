@@ -441,8 +441,7 @@ public final class RunfilesSupport {
   /** Returns the root directory of the runfiles symlink farm; otherwise, returns null. */
   @Nullable
   public Path getRunfilesDirectory() {
-    Path executablePath = owningExecutable.getPath();
-    return executablePath.getParentDirectory().getRelative(executablePath.getBaseName() + RUNFILES_DIR_EXT);
+    return runfilesTreeArtifact.getPath();
   }
 
   /**
