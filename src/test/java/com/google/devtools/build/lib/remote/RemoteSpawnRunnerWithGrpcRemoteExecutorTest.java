@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.GrpcCacheClient.getResourceName;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -340,7 +339,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             cacheProtocol, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
-            directExecutor(),
             reporter,
             /* verboseFailures= */ true,
             execRoot,

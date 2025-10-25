@@ -210,8 +210,7 @@ public class CombinedCacheTest {
         combinedCache.downloadOutErr(
             remoteActionExecutionContext,
             result.build(),
-            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr"))),
-        true);
+            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr"))));
 
     assertThat(combinedCache.getNumSuccessfulDownloads()).isEqualTo(0);
     assertThat(combinedCache.getNumFailedDownloads()).isEqualTo(0);
