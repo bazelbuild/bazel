@@ -475,8 +475,7 @@ bool ChdirToRunfiles(const Path& abs_exec_root, const Path& abs_test_srcdir) {
   std::wstring coverage_dir;
   if (!GetEnv(L"COVERAGE_DIR", &coverage_dir) || coverage_dir.empty()) {
     if (!DirectoryExists(dir)) {
-      LogError(__LINE__, L"ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution. ");
-      LogError(__LINE__, L"Use a different execution strategy, or build with runfile manifests.");
+      LogError(__LINE__, L"ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution. Use a different execution strategy, or build with runfile manifests.");
       return false;
     }
     if (!SetCurrentDirectoryW(dir.Get().c_str())) {
