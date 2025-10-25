@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.reverseOrder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -43,8 +45,10 @@ import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.io.Writer;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Comparator;
@@ -70,19 +74,22 @@ public class ModExecutor {
   private final ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos;
   private final Optional<MaybeCompleteSet<ModuleExtensionId>> extensionFilter;
   private final ModOptions options;
+  private final OutputStream outputStream;
   private final PrintWriter printer;
   private ImmutableMap<ModuleExtensionId, ImmutableSetMultimap<String, ModuleKey>>
       extensionRepoImports;
 
   public ModExecutor(
-      ImmutableMap<ModuleKey, AugmentedModule> depGraph, ModOptions options, Writer writer) {
+      ImmutableMap<ModuleKey, AugmentedModule> depGraph,
+      ModOptions options,
+      OutputStream outputStream) {
     this(
         depGraph,
         ImmutableTable.of(),
         ImmutableSetMultimap.of(),
         Optional.of(MaybeCompleteSet.completeSet()),
         options,
-        writer);
+        outputStream);
   }
 
   public ModExecutor(
@@ -91,13 +98,17 @@ public class ModExecutor {
       ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos,
       Optional<MaybeCompleteSet<ModuleExtensionId>> extensionFilter,
       ModOptions options,
-      Writer writer) {
+      OutputStream outputStream) {
     this.depGraph = depGraph;
     this.extensionUsages = extensionUsages;
     this.extensionRepos = extensionRepos;
     this.extensionFilter = extensionFilter;
     this.options = options;
-    this.printer = new PrintWriter(writer);
+    this.outputStream = outputStream;
+    this.printer =
+        new PrintWriter(
+            new OutputStreamWriter(
+                outputStream, options.charset == ModOptions.Charset.UTF8 ? UTF_8 : US_ASCII));
     // Easier lookup table for repo imports by module.
     // It is updated after pruneByDepthAndLink to filter out pruned modules.
     this.extensionRepoImports = computeRepoImportsTable(depGraph.keySet());
@@ -162,9 +173,15 @@ public class ModExecutor {
   }
 
   public void showRepo(ImmutableMap<String, RepoDefinition> targetRepoDefinitions) {
+    var formatter = new RepoOutputFormatter(printer, outputStream, options.outputFormat);
     for (Map.Entry<String, RepoDefinition> e : targetRepoDefinitions.entrySet()) {
-      printer.printf("## %s:\n", e.getKey());
-      printRepoDefinition(e.getValue());
+      formatter.print(e.getKey(), e.getValue());
+    }
+
+    try {
+      outputStream.flush();
+    } catch (IOException ex) {
+      // do nothing
     }
     printer.flush();
   }
@@ -761,28 +778,5 @@ public class ModExecutor {
 
       abstract ResultNode build();
     }
-  }
-
-  private void printRepoDefinition(RepoDefinition repoDefinition) {
-    RepoRule repoRule = repoDefinition.repoRule();
-    printer
-        .append("load(\"")
-        .append(repoRule.id().bzlFileLabel().getUnambiguousCanonicalForm())
-        .append("\", \"")
-        .append(repoRule.id().ruleName())
-        .append("\")\n");
-    printer.append(repoRule.id().ruleName()).append("(\n");
-    printer.append("  name = \"").append(repoDefinition.name()).append("\",\n");
-    for (Map.Entry<String, Object> attr : repoDefinition.attrValues().attributes().entrySet()) {
-      printer
-          .append("  ")
-          .append(attr.getKey())
-          .append(" = ")
-          .append(Starlark.repr(attr.getValue()))
-          .append(",\n");
-    }
-    printer.append(")\n");
-    // TODO: record and print the call stack for the repo definition itself?
-    printer.append("\n");
   }
 }
