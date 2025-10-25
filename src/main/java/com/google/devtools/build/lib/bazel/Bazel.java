@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -99,9 +100,12 @@ public final class Bazel {
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class);
 
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
+  public static final ImmutableList<BlazeService> BAZEL_SERVICES = ImmutableList.of();
+
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
-    BlazeRuntime.main(BAZEL_MODULES, args);
+    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args);
   }
 
   /**

@@ -44,6 +44,7 @@ public class BazelDocumentationTest {
     final File documentationFile = new File(documentationFilePath);
     DocumentationTestUtil.validateUserManual(
         Bazel.BAZEL_MODULES,
+        Bazel.BAZEL_SERVICES,
         BazelRuleClassProvider.create(),
         Files.asCharSource(documentationFile, UTF_8).read(),
         ImmutableSet.of());

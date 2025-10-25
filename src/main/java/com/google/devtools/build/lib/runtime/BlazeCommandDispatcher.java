@@ -129,7 +129,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   return OptionsParser.getOptionsData(
                       BlazeCommandUtils.getOptions(
                           command.getClass(),
-                          runtime.getBlazeModules(),
+                          runtime.getOptionsSuppliers(),
                           runtime.getRuleClassProvider()));
                 }
               });

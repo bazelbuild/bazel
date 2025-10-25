@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.OptionsSupplier;
 import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
@@ -213,7 +214,7 @@ public class BlazeRuntimeWrapper {
 
     additionalOptionsClasses.addAll(
         BlazeCommandUtils.getOptions(
-            command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()));
+            command.getClass(), runtime.getOptionsSuppliers(), runtime.getRuleClassProvider()));
     initializeOptionsParser(commandAnnotation, ignoreUserOptions);
 
     checkNotNull(
@@ -378,9 +379,9 @@ public class BlazeRuntimeWrapper {
                 SandboxOptions.class));
     options.addAll(additionalOptionsClasses);
 
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      Iterables.addAll(options, module.getCommonCommandOptions());
-      Iterables.addAll(options, module.getCommandOptions(commandAnnotation.name()));
+    for (OptionsSupplier supplier : runtime.getOptionsSuppliers()) {
+      Iterables.addAll(options, supplier.getCommonCommandOptions());
+      Iterables.addAll(options, supplier.getCommandOptions(commandAnnotation.name()));
     }
     options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
     // Because the tests that use this class don't set sources for their options, the normal logic

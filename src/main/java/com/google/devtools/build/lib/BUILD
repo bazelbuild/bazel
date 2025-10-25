@@ -300,6 +300,22 @@ java_library(
 )
 
 java_library(
+    name = "runtime/options_supplier",
+    srcs = ["runtime/OptionsSupplier.java"],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
+)
+
+java_library(
+    name = "runtime/blaze_service",
+    srcs = ["runtime/BlazeService.java"],
+    deps = [
+        ":runtime/options_supplier",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -312,6 +328,7 @@ java_library(
             "buildtool/BaselineCLDiffEvent.java",
             "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
+            "runtime/BlazeService.java",
             "runtime/CommandDispatcher.java",
             "runtime/CommandLinePathFactory.java",
             "runtime/ConfigFlagDefinitions.java",
@@ -321,6 +338,7 @@ java_library(
             "runtime/MemoryPressureEvent.java",
             "runtime/MemoryPressureOptions.java",
             "runtime/MemoryPressureStatCollector.java",
+            "runtime/OptionsSupplier.java",
             "runtime/StarlarkOptionsParser.java",
             "runtime/TestSummaryOptions.java",
         ],
@@ -332,10 +350,12 @@ java_library(
         ":keep-going-option",
         ":loading-phase-threads-option",
         ":runtime/blaze_command_result",
+        ":runtime/blaze_service",
         ":runtime/command_dispatcher",
         ":runtime/command_line_path_factory",
         ":runtime/config_flag_definitions",
         ":runtime/memory_pressure",
+        ":runtime/options_supplier",
         ":runtime/test_summary_options",
         ":starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",

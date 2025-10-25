@@ -55,21 +55,20 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
- * A module Bazel can load at the beginning of its execution. Modules are supplied with extension
- * points to augment the functionality at specific, well-defined places.
+ * Provides the ability to augment the functionality of the Logical Component (LC).
  *
- * <p>The constructors of individual Bazel modules should be empty. All work should be done in the
- * methods (e.g. {@link #blazeStartup}).
+ * <p>The augmentation is done by implementing one or more of the methods in this class, which are
+ * called at well-defined points during the server's lifecycle.
+ *
+ * <p>The set of modules is passed into {@link BlazeRuntime#main} and is fixed for the lifetime of
+ * the server. A module can be obtained by calling {@link BlazeRuntime#getBlazeModule}.
+ *
+ * <p>The constructors of individual Bazel modules must take no arguments and be empty. All work
+ * should be done in the methods (e.g. {@link #blazeStartup}).
  */
-public abstract class BlazeModule {
+public abstract class BlazeModule implements OptionsSupplier {
 
-  /**
-   * Returns the extra startup options this module contributes.
-   *
-   * <p>This method will be called at the beginning of Blaze startup (before {@link #globalInit}).
-   * The startup options need to be parsed very early in the process, which requires this to be
-   * separate from {@link #serverInit}.
-   */
+  @Override
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
     return ImmutableList.of();
   }
@@ -240,37 +239,12 @@ public abstract class BlazeModule {
     return null;
   }
 
-  /**
-   * Returns extra options this module contributes to a specific command. Note that option
-   * inheritance applies: if this method returns a non-empty list, then the returned options are
-   * added to every command that depends on this command.
-   *
-   * <p>This method may be called at any time, and the returned value may be cached. Implementations
-   * must be thread-safe and never return different lists for the same command name. Typical
-   * implementations look like this:
-   *
-   * <pre>
-   * return commandName.equals("build")
-   *     ? ImmutableList.<Class<? extends OptionsBase>>of(MyOptions.class)
-   *     : ImmutableList.<Class<? extends OptionsBase>>of();
-   * </pre>
-   *
-   * Note that this example adds options to all commands that inherit from the build command.
-   *
-   * <p>This method is also used to generate command-line documentation; in order to avoid
-   * duplicated options descriptions, this method should never return the same options class for two
-   * different commands if one of them inherits the other.
-   *
-   * <p>If you want to add options to all commands, override {@link #getCommonCommandOptions}
-   * instead.
-   *
-   * @param commandName the command name, e.g. "build" or "test".
-   */
+  @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
     return ImmutableList.of();
   }
 
-  /** Returns extra options this module contributes to all commands. */
+  @Override
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of();
   }

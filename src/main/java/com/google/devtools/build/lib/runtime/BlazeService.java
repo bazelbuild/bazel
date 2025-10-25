@@ -13,16 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.common.options.OptionsBase;
+
 /**
- * A marker interface for service interfaces that are used to communicate between Logic Component
- * (LC) and Services Component (SC).
+ * Provides a piece of functionality in the Service Component (SC).
  *
- * <p>A service interface defines a set of interactions between LC and a service implementation. The
- * service implementation then takes care of communicating with the outside world, e.g. remote
- * execution service.
+ * <p>Each service must be structured as an interface type (which extends this interface) and an
+ * implementation type (which implements the interface type). The interface type provides a stable
+ * API through which the Logical Component (LC) can access the service, whose implementation is
+ * provided by the SC.
  *
- * <p>SC is a collection of service implementations that are compiled into a separate jar file from
- * LC. They are registered into {@link BlazeServiceRegistry} during server startup. LC can only
- * communicate with SC through the service interface.
+ * <p>The set of services is passed into {@link BlazeRuntime#main} and fixed for the lifetime of the
+ * server. A service can be obtained by calling {@link BlazeRuntime#getBlazeService} with the
+ * interface type as the argument.
  */
-public interface BlazeService {}
+public interface BlazeService extends OptionsSupplier {
+
+  @Override
+  default Iterable<Class<? extends OptionsBase>> getStartupOptions() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  default Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  default Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return ImmutableList.of();
+  }
+}

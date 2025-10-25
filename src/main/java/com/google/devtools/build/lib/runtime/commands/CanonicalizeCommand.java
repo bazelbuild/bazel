@@ -161,7 +161,9 @@ public final class CanonicalizeCommand implements BlazeCommand {
         ImmutableList.<Class<? extends OptionsBase>>builder()
             .addAll(
                 BlazeCommandUtils.getOptions(
-                    command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()))
+                    command.getClass(),
+                    runtime.getOptionsSuppliers(),
+                    runtime.getRuleClassProvider()))
             .add(FlagClashCanaryOptions.class)
             .build();
 

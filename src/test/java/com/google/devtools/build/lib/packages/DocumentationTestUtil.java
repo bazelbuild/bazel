@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.DocCheckerUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.exec.TestPolicy;
@@ -23,6 +24,8 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.runtime.OptionsSupplier;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.commands.BuiltinCommandModule;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
@@ -56,7 +59,8 @@ abstract class DocumentationTestUtil {
    * provided by a given set of modules.
    */
   static void validateUserManual(
-      List<Class<? extends BlazeModule>> modules,
+      Iterable<Class<? extends BlazeModule>> blazeModuleClasses,
+      Iterable<BlazeService> blazeServices,
       ConfiguredRuleClassProvider ruleClassProvider,
       String documentationSource,
       Set<String> extraValidOptions)
@@ -64,11 +68,12 @@ abstract class DocumentationTestUtil {
     // if there is a class missing, one can find it using
     //   find . -name "*.java" -exec grep -Hn "@Option(name = " {} \; | grep "xxx"
     // where 'xxx' is a flag name.
-    List<BlazeModule> blazeModules = BlazeRuntime.createModules(modules);
+    Iterable<OptionsSupplier> optionsSuppliers =
+        Iterables.concat(BlazeRuntime.createBlazeModules(blazeModuleClasses), blazeServices);
 
     Set<String> validOptions = new HashSet<>();
 
-    var startupOptionsClasses = BlazeCommandUtils.getStartupOptions(blazeModules);
+    var startupOptionsClasses = BlazeCommandUtils.getStartupOptions(optionsSuppliers);
     // collect all startup options
     for (Class<? extends OptionsBase> optionsClass : startupOptionsClasses) {
       validOptions.addAll(Options.getDefaults(optionsClass).asMap().keySet());
@@ -81,14 +86,16 @@ abstract class DocumentationTestUtil {
     // collect all command options
     ServerBuilder serverBuilder = new ServerBuilder();
     new DummyBuiltinCommandModule().serverInit(startupOptions, serverBuilder);
-    for (BlazeModule module : blazeModules) {
-      module.serverInit(startupOptions, serverBuilder);
+    for (OptionsSupplier optionsSupplier : optionsSuppliers) {
+      if (optionsSupplier instanceof BlazeModule blazeModule) {
+        blazeModule.serverInit(startupOptions, serverBuilder);
+      }
     }
     List<BlazeCommand> blazeCommands = serverBuilder.getCommands();
 
     for (BlazeCommand command : blazeCommands) {
       for (Class<? extends OptionsBase> optionClass :
-          BlazeCommandUtils.getOptions(command.getClass(), blazeModules, ruleClassProvider)) {
+          BlazeCommandUtils.getOptions(command.getClass(), optionsSuppliers, ruleClassProvider)) {
         validOptions.addAll(Options.getDefaults(optionClass).asMap().keySet());
       }
     }

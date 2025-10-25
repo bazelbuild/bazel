@@ -36,11 +36,11 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
-import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.runtime.OptionsSupplier;
 import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -191,7 +191,7 @@ public final class HelpCommand implements BlazeCommand {
         BlazeCommandUtils.getUsage(
             command.getClass(),
             helpOptions.helpVerbosity,
-            runtime.getBlazeModules(),
+            runtime.getOptionsSuppliers(),
             runtime.getRuleClassProvider(),
             productName));
 
@@ -211,7 +211,7 @@ public final class HelpCommand implements BlazeCommand {
             "startup_options",
             "resource:startup_options.txt",
             getClass(),
-            BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()),
+            BlazeCommandUtils.getStartupOptions(runtime.getOptionsSuppliers()),
             helpVerbosity,
             runtime.getProductName()));
   }
@@ -389,18 +389,19 @@ public final class HelpCommand implements BlazeCommand {
       Consumer<OptionsParser> startupOptionVisitor,
       CommandOptionVisitor commandOptionVisitor) {
     // First startup_options
-    Iterable<BlazeModule> blazeModules = runtime.getBlazeModules();
+    Iterable<OptionsSupplier> optionsSuppliers = runtime.getOptionsSuppliers();
     ConfiguredRuleClassProvider ruleClassProvider = runtime.getRuleClassProvider();
     Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
 
     Iterable<Class<? extends OptionsBase>> options =
-        BlazeCommandUtils.getStartupOptions(blazeModules);
+        BlazeCommandUtils.getStartupOptions(optionsSuppliers);
     startupOptionVisitor.accept(OptionsParser.builder().optionsClasses(options).build());
 
     for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
       BlazeCommand command = e.getValue();
       Command annotation = command.getClass().getAnnotation(Command.class);
-      options = BlazeCommandUtils.getOptions(command.getClass(), blazeModules, ruleClassProvider);
+      options =
+          BlazeCommandUtils.getOptions(command.getClass(), optionsSuppliers, ruleClassProvider);
       commandOptionVisitor.visit(
           e.getKey(), annotation, OptionsParser.builder().optionsClasses(options).build());
     }
@@ -497,7 +498,7 @@ public final class HelpCommand implements BlazeCommand {
       result.append("<h2>Startup Options</h2>\n");
       appendOptionsHtml(
           result,
-          BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()),
+          BlazeCommandUtils.getStartupOptions(runtime.getOptionsSuppliers()),
           ImmutableList.of(),
           "startup_options");
       result.append("\n");
@@ -505,7 +506,7 @@ public final class HelpCommand implements BlazeCommand {
       result.append("<h2><a name=\"common_options\">Options Common to all Commands</a></h2>\n");
       appendOptionsHtml(
           result,
-          BlazeCommandUtils.getCommonOptions(runtime.getBlazeModules()),
+          BlazeCommandUtils.getCommonOptions(runtime.getOptionsSuppliers()),
           ImmutableList.of(),
           "common_options");
       result.append("\n");
@@ -532,8 +533,8 @@ public final class HelpCommand implements BlazeCommand {
         }
         Set<Class<? extends OptionsBase>> options = new HashSet<>();
         Collections.addAll(options, annotation.options());
-        for (BlazeModule blazeModule : runtime.getBlazeModules()) {
-          Iterables.addAll(options, blazeModule.getCommandOptions(annotation.name()));
+        for (OptionsSupplier supplier : runtime.getOptionsSuppliers()) {
+          Iterables.addAll(options, supplier.getCommandOptions(annotation.name()));
         }
         List<String> optionsToIgnore =
             appendOptionsHtml(result, options, ImmutableList.of(), e.getKey());

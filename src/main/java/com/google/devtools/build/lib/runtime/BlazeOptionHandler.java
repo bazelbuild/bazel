@@ -128,7 +128,7 @@ public final class BlazeOptionHandler {
             .flatMap(
                 cmd ->
                     BlazeCommandUtils.getOptions(
-                        cmd, runtime.getBlazeModules(), runtime.getRuleClassProvider())
+                        cmd, runtime.getOptionsSuppliers(), runtime.getRuleClassProvider())
                         .stream())
             .distinct()
             .collect(toImmutableList());

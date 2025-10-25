@@ -97,8 +97,7 @@ public class AbstractCommandTest {
         .build();
 
     assertThat(
-            BlazeCommandUtils.getOptions(
-                TestCommand.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+            BlazeCommandUtils.getOptions(TestCommand.class, ImmutableList.of(), ruleClassProvider))
         .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class, BarOptions.class));
   }
 
@@ -123,13 +122,9 @@ public class AbstractCommandTest {
     ConfiguredRuleClassProvider ruleClassProvider = new ConfiguredRuleClassProvider.Builder()
         .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
         .build();
-    assertThat(
-            BlazeCommandUtils.getOptions(
-                CommandA.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+    assertThat(BlazeCommandUtils.getOptions(CommandA.class, ImmutableList.of(), ruleClassProvider))
         .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class));
-    assertThat(
-            BlazeCommandUtils.getOptions(
-                CommandB.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+    assertThat(BlazeCommandUtils.getOptions(CommandB.class, ImmutableList.of(), ruleClassProvider))
         .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class, BarOptions.class));
   }
 

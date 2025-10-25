@@ -326,14 +326,32 @@ public class BlazeRuntimeTest {
 
   @Test
   public void addsCommandsFromModules() throws Exception {
-    BlazeRuntime runtime = createRuntime(new FooCommandModule(), new BarCommandModule());
+    BlazeRuntime runtime =
+        createRuntime(
+            ImmutableList.of(new FooCommandModule(), new BarCommandModule()), ImmutableList.of());
 
     assertThat(runtime.getCommandMap().keySet()).containsExactly("foo", "bar").inOrder();
     assertThat(runtime.getCommandMap().get("foo")).isInstanceOf(FooCommandModule.FooCommand.class);
     assertThat(runtime.getCommandMap().get("bar")).isInstanceOf(BarCommandModule.BarCommand.class);
   }
 
-  private BlazeRuntime createRuntime(BlazeModule... modules) throws Exception {
+  @Test
+  public void returnsBothModulesAndServicesAsOptionsSuppliers() throws Exception {
+    var module = new BlazeModule() {};
+    var service = new BlazeService() {};
+
+    BlazeRuntime runtime = createRuntime(ImmutableList.of(module), ImmutableList.of(service));
+
+    // Additional modules may be registered internally, e.g. DummyMetricsModule.
+    assertThat(runtime.getOptionsSuppliers()).containsAtLeast(module, service);
+  }
+
+  private BlazeRuntime createRuntime() throws Exception {
+    return createRuntime(ImmutableList.of(), ImmutableList.of());
+  }
+
+  private BlazeRuntime createRuntime(Iterable<BlazeModule> modules, Iterable<BlazeService> services)
+      throws Exception {
     var builder =
         new BlazeRuntime.Builder()
             .setFileSystem(fs)
@@ -342,6 +360,9 @@ public class BlazeRuntimeTest {
             .setStartupOptionsProvider(mock(OptionsParsingResult.class));
     for (var module : modules) {
       builder.addBlazeModule(module);
+    }
+    for (var service : services) {
+      builder.addBlazeService(service);
     }
     return builder.build();
   }

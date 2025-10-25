@@ -165,8 +165,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private final FileSystem fileSystem;
   private final ImmutableList<BlazeModule> blazeModules;
+  private final ImmutableList<BlazeService> blazeServices;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
-  private final BlazeServiceRegistry blazeServiceRegistry;
   private final Clock clock;
   private final Runnable abruptShutdownHandler;
 
@@ -223,13 +223,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Runnable abruptShutdownHandler,
       OptionsParsingResult startupOptionsProvider,
       ImmutableList<BlazeModule> blazeModules,
+      ImmutableList<BlazeService> blazeServices,
       SubscriberExceptionHandler eventBusExceptionHandler,
       BugReporter bugReporter,
       ProjectFile.Provider projectFileProvider,
       QueryRuntimeHelper.Factory queryRuntimeHelperFactory,
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
-      BlazeServiceRegistry blazeServiceRegistry,
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory,
@@ -238,8 +238,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
+    this.blazeServices = blazeServices;
     overrideCommands(commands);
-    this.blazeServiceRegistry = blazeServiceRegistry;
 
     this.packageFactory = pkgFactory;
     this.projectFileProvider = projectFileProvider;
@@ -575,17 +575,41 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return blazeModules;
   }
 
+  public Iterable<OptionsSupplier> getOptionsSuppliers() {
+    return Iterables.concat(blazeModules, blazeServices);
+  }
+
   /**
-   * Returns the first module that is an instance of a given class or interface.
+   * Returns the first {@link BlazeModule} that is an instance of a given class or interface.
    *
    * @param moduleClass a class or interface that we want to match to a module
    * @param <T> the type of the module's class
-   * @return a module that is an instance of the given class or interface
+   * @return a module that is an instance of the given class or interface, or null if no such module
+   *     exists
    */
+  @Nullable
   public <T> T getBlazeModule(Class<T> moduleClass) {
     for (BlazeModule module : blazeModules) {
       if (moduleClass.isInstance(module)) {
         return moduleClass.cast(module);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns the first {@link BlazeService} that is an instance of a given class or interface.
+   *
+   * @param serviceClass a class or interface that we want to match to a service
+   * @param <T> the type of the service's class
+   * @return a service that is an instance of the given class or interface, or null if no such
+   *     service exists
+   */
+  @Nullable
+  public <T extends BlazeService> T getBlazeService(Class<T> serviceClass) {
+    for (BlazeService service : blazeServices) {
+      if (serviceClass.isInstance(service)) {
+        return serviceClass.cast(service);
       }
     }
     return null;
@@ -822,19 +846,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
-   * Returns the service implementation for the given service class, or {@code null} if it was not
-   * registered.
-   *
-   * <p>Service implementations are registered by modules via {@link ServerBuilder#registerService}
-   * during {@link BlazeModule#serverInit}. The instance returned by this method remains constant
-   * for the lifetime of the server.
-   */
-  @Nullable
-  public <T extends BlazeService> T getService(Class<T> service) {
-    return blazeServiceRegistry.get(service);
-  }
-
-  /**
    * Returns the {@link BugReporter} that should be used when filing bug reports, if possible. Use
    * this in preference to {@link BugReport#sendBugReport} for ease of testing codepaths that file
    * bug reports.
@@ -892,22 +903,25 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * Main method for the Blaze server startup. Note: This method logs exceptions to remote servers.
    * Do not add this to a unittest.
    */
-  public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
+  public static void main(
+      Iterable<Class<? extends BlazeModule>> blazeModuleClasses,
+      Iterable<BlazeService> blazeServices,
+      String[] args) {
     // Transform args into Bazel's internal string representation.
     args = Arrays.stream(args).map(StringEncoding::platformToInternal).toArray(String[]::new);
     setupUncaughtHandlerAtStartup(args);
-    List<BlazeModule> modules = createModules(moduleClasses);
+    ImmutableList<BlazeModule> blazeModules = createBlazeModules(blazeModuleClasses);
     // blaze.cc will put --batch first if the user set it.
     if (args.length >= 1 && args[0].equals("--batch")) {
       // Run Blaze in batch mode.
-      exit(batchMain(modules, args));
+      exit(batchMain(blazeModules, blazeServices, args));
     }
     logger.atInfo().log(
         "Starting Bazel server with pid %d, args %s",
         ProcessHandle.current().pid(), Arrays.toString(args));
     try {
       // Run Blaze in server mode.
-      exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
+      exit(serverMain(blazeModules, blazeServices, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
       Crash crash = Crash.from(e);
       BugReport.handleCrash(crash, CrashContext.keepAlive().withArgs(args));
@@ -924,7 +938,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   @VisibleForTesting
-  public static List<BlazeModule> createModules(
+  public static ImmutableList<BlazeModule> createBlazeModules(
       Iterable<Class<? extends BlazeModule>> moduleClasses) {
     ImmutableList.Builder<BlazeModule> result = ImmutableList.builder();
     for (Class<? extends BlazeModule> moduleClass : moduleClasses) {
@@ -968,11 +982,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * </code> in <code>blaze.cc</code> by reconstructing the startup options from their parsed
    * versions instead of using <code>argv</code> verbatim.
    */
-  static CommandLineOptions splitStartupOptions(Iterable<BlazeModule> modules, String... args) {
+  static CommandLineOptions splitStartupOptions(
+      Iterable<OptionsSupplier> suppliers, String... args) {
     List<String> prefixes = new ArrayList<>();
     List<OptionDefinition> startupOptions = Lists.newArrayList();
     for (Class<? extends OptionsBase> defaultOptions :
-        BlazeCommandUtils.getStartupOptions(modules)) {
+        BlazeCommandUtils.getStartupOptions(suppliers)) {
       startupOptions.addAll(OptionsParser.getOptionDefinitions(defaultOptions));
     }
 
@@ -1062,9 +1077,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * A main method that runs blaze commands in batch mode. The return value indicates the desired
    * exit status of the program.
    */
-  private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
-    InterruptSignalHandler signalHandler = captureSigint(getSlowInterruptMessageSuffix(modules));
-    CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
+  private static int batchMain(
+      Iterable<BlazeModule> blazeModules, Iterable<BlazeService> blazeServices, String[] args) {
+    InterruptSignalHandler signalHandler =
+        captureSigint(getSlowInterruptMessageSuffix(blazeModules));
+    CommandLineOptions commandLineOptions =
+        splitStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
     logger.atInfo().log(
         "Running Bazel in batch mode with pid %d, startup args %s",
         ProcessHandle.current().pid(), commandLineOptions.getStartupArgs());
@@ -1074,7 +1092,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     BlazeServerStartupOptions startupOptions;
 
     try {
-      runtime = newRuntime(modules, commandLineOptions.getStartupArgs(), null);
+      runtime = newRuntime(blazeModules, blazeServices, commandLineOptions.getStartupArgs(), null);
       startupOptions = runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
       policy = InvocationPolicyParser.parsePolicy(startupOptions.invocationPolicy);
     } catch (OptionsParsingException e) {
@@ -1174,12 +1192,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * A main method that does not send email. The return value indicates the desired exit status of
    * the program.
    */
-  private static int serverMain(Iterable<BlazeModule> modules, OutErr outErr, String[] args) {
+  private static int serverMain(
+      Iterable<BlazeModule> blazeModules,
+      Iterable<BlazeService> blazeServices,
+      OutErr outErr,
+      String[] args) {
     InterruptSignalHandler sigintHandler = null;
     try {
       AtomicReference<GrpcServerImpl> rpcServerRef = new AtomicReference<>();
       Runnable prepareForAbruptShutdown = () -> rpcServerRef.get().prepareForAbruptShutdown();
-      BlazeRuntime runtime = newRuntime(modules, Arrays.asList(args), prepareForAbruptShutdown);
+      BlazeRuntime runtime =
+          newRuntime(blazeModules, blazeServices, Arrays.asList(args), prepareForAbruptShutdown);
 
       // server.pid was written in the C++ launcher after fork() but before exec(). The client only
       // accesses the pid file after connecting to the socket which ensures that it gets the correct
@@ -1207,7 +1230,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               startupOptions.maxIdleSeconds,
               startupOptions.shutdownOnLowSysMem,
               startupOptions.idleServerTasks,
-              getSlowInterruptMessageSuffix(modules));
+              getSlowInterruptMessageSuffix(blazeModules));
       rpcServerRef.set(rpcServer);
 
       // Register the signal handler.
@@ -1250,9 +1273,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * we just report an unknown source for every startup option.
    */
   private static OptionsParsingResult parseStartupOptions(
-      Iterable<BlazeModule> modules, List<String> args) throws OptionsParsingException {
+      Iterable<OptionsSupplier> suppliers, List<String> args) throws OptionsParsingException {
     ImmutableList<Class<? extends OptionsBase>> optionClasses =
-        BlazeCommandUtils.getStartupOptions(modules);
+        BlazeCommandUtils.getStartupOptions(suppliers);
 
     // First parse the command line so that we get the option_sources argument
     OptionsParser parser =
@@ -1288,9 +1311,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    *     runtime unsuitable for real commands
    */
   private static BlazeRuntime newRuntime(
-      Iterable<BlazeModule> blazeModules, List<String> args, Runnable abruptShutdownHandler)
+      Iterable<BlazeModule> blazeModules,
+      Iterable<BlazeService> blazeServices,
+      List<String> args,
+      Runnable abruptShutdownHandler)
       throws AbruptExitException, OptionsParsingException {
-    OptionsParsingResult options = parseStartupOptions(blazeModules, args);
+    OptionsParsingResult options =
+        parseStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
 
     // Set up the failure detail path first, so that it can communicate problems with other flags
@@ -1475,6 +1502,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       runtimeBuilder.addBlazeModule(blazeModule);
     }
 
+    for (BlazeService blazeService : blazeServices) {
+      runtimeBuilder.addBlazeService(blazeService);
+    }
+
     BlazeRuntime runtime = runtimeBuilder.build();
 
     CustomExitCodePublisher.setAbruptExitStatusFileDir(
@@ -1628,7 +1659,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private Clock clock;
     private Runnable abruptShutdownHandler;
     private OptionsParsingResult startupOptionsProvider;
-    private final List<BlazeModule> blazeModules = new ArrayList<>();
+    private final ArrayList<BlazeModule> blazeModules = new ArrayList<>();
+    private final ArrayList<BlazeService> blazeServices = new ArrayList<>();
     private SubscriberExceptionHandler eventBusExceptionHandler =
         (throwable, context) -> BugReport.handleCrash(throwable);
     private UUID instanceId;
@@ -1739,13 +1771,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               abruptShutdownHandler,
               startupOptionsProvider,
               ImmutableList.copyOf(blazeModules),
+              ImmutableList.copyOf(blazeServices),
               eventBusExceptionHandler,
               bugReporter,
               projectFileProvider,
               queryRuntimeHelperFactory,
               serverBuilder.getInvocationPolicy(),
               serverBuilder.getCommands(),
-              serverBuilder.getBlazeServiceRegistry(),
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getRepositoryHelpersFactory(),
@@ -1795,6 +1827,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     @CanIgnoreReturnValue
     public Builder addBlazeModule(BlazeModule blazeModule) {
       blazeModules.add(blazeModule);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addBlazeService(BlazeService blazeService) {
+      blazeServices.add(blazeService);
       return this;
     }
 
