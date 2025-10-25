@@ -101,9 +101,13 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     if (action.getExecutionSettings().getInputManifest() == null) {
-      throw createTestExecException(
-          TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-          "cannot run local tests with --nobuild_runfile_manifests");
+
+      boolean localStrategyPossible = executionOptions.spawnStrategy.contains("local") || executionOptions.spawnStrategy.contains("standalone");
+      if (localStrategyPossible) {
+        throw createTestExecException(
+            TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+            "cannot specify run local tests with --nobuild_runfile_manifests");
+      }
     }
     Map<String, String> testEnvironment =
         createEnvironment(actionExecutionContext, action, tmpDirRoot);
