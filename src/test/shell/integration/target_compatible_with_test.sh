@@ -179,7 +179,6 @@ EOF
 }
 
 add_to_bazelrc "test --nocache_test_results"
-add_to_bazelrc "build --incompatible_merge_genfiles_directory=true"
 
 function tear_down() {
   bazel shutdown

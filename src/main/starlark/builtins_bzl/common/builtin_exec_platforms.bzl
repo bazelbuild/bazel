@@ -235,7 +235,6 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_output_paths",
         "//command_line_option:enable_runfiles",
         "//command_line_option:enforce_constraints",
-        "//command_line_option:incompatible_merge_genfiles_directory",
         "//command_line_option:experimental_platform_in_output_dir",
         "//command_line_option:host_cpu",
         "//command_line_option:incompatible_modify_execution_info_additive",
