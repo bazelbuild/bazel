@@ -106,7 +106,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       if (localStrategyPossible) {
         throw createTestExecException(
             TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-            "cannot specify run local tests with --nobuild_runfile_manifests");
+            "cannot run local tests with --nobuild_runfile_manifests");
       }
     }
     Map<String, String> testEnvironment =
