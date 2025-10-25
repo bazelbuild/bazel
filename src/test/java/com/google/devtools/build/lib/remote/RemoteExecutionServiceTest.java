@@ -146,6 +146,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Random;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -164,6 +165,7 @@ import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link RemoteExecutionService}. */
 @RunWith(TestParameterInjector.class)
+@SuppressWarnings("AllowVirtualThreads")
 public class RemoteExecutionServiceTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
@@ -762,8 +764,30 @@ public class RemoteExecutionServiceTest {
             });
 
     assertThat(digestUtil.compute(rootDirectory)).isEqualTo(expectedDigest);
-    assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().digest())
-        .isEqualTo(expectedDigest);
+
+    // Verify that multiple concurrent Merkle tree builds all produce the same result and don't
+    // interfere with each other.
+    var exceptions = new ConcurrentLinkedDeque<Throwable>();
+    try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      for (int i = 0; i < 16; i++) {
+        executor.execute(
+            () -> {
+              try {
+                assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().digest())
+                    .isEqualTo(expectedDigest);
+              } catch (Throwable e) {
+                exceptions.add(e);
+              }
+            });
+      }
+    }
+    if (!exceptions.isEmpty()) {
+      var combinedException = new AssertionError("Exceptions in golden test runs:");
+      for (var e : exceptions) {
+        combinedException.addSuppressed(e);
+      }
+      throw combinedException;
+    }
   }
 
   private FileNode file(String name, String content) {
