@@ -1100,7 +1100,7 @@ EOF
   [ ! -d $outputs_manifest ] || fail "$outputs_manifest was present after test"
 }
 
-function test_test_local_with_nobuild_runfile_manifests() {
+function test_test_with_nobuild_runfile_manifests() {
   mkdir -p dir
   add_rules_shell "MODULE.bazel"
 
@@ -1115,22 +1115,8 @@ sh_test(
 EOF
   bazel test --nobuild_runfile_manifests --spawn_strategy=local //dir:test >& $TEST_log && fail "should have failed"
   expect_log "cannot run local tests with --nobuild_runfile_manifests"
-}
-
-function test_test_sandboxed_with_nobuild_runfile_manifests() {
-  mkdir -p dir
-  add_rules_shell "MODULE.bazel"
-
-  touch dir/test.sh
-  chmod u+x dir/test.sh
-  cat <<'EOF' > dir/BUILD
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
-sh_test(
-    name = 'test',
-    srcs = ['test.sh'],
-)
-EOF
-  bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "expected success"
+  bazel test --nobuild_runfile_manifests --spawn_strategy=standalone //dir:test >& $TEST_log && fail "should have failed"
+  bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "should have succeeded"
 }
 
 function test_test_with_reserved_env_variable() {
