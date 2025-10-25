@@ -941,11 +941,26 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "BUILD",
         "licenses(['notice'])",
-        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
+        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix=None)");
     CcCompilationContext ccContext =
         getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
         .containsExactly("b.h");
+  }
+
+  @Test
+  public void testDotPackageStripPrefix() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
+    CcCompilationContext ccContext =
+        getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
+        .containsExactly("_virtual_includes/a/b.h", "b.h");
   }
 
   @Test
@@ -961,7 +976,7 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSymlinkActionIsNotRegisteredWhenIncludePrefixDoesntChangePath() throws Exception {
+  public void testSymlinkActionIsRegisteredWhenIncludePrefixDoesntChangePath() throws Exception {
     scratch.file(
         "third_party/BUILD",
         "licenses(['notice'])",
@@ -970,7 +985,7 @@ public class CcCommonTest extends BuildViewTestCase {
     CcCompilationContext ccCompilationContext =
         getConfiguredTarget("//third_party:a").get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
-        .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
+        .containsExactly("third_party/_virtual_includes/a/third_party/a.h", "third_party/a.h");
   }
 
   @Test
