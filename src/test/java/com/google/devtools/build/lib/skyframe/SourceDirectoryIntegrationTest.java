@@ -235,9 +235,9 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   }
 
   @Test
-  public void crossingPackageBoundary_fails() throws Exception {
+  public void crossingPackageBoundary_warns() throws Exception {
     createEmptyFile(sourceDir.getRelative("subdir/BUILD"));
-    assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+    assertInvalidatedByBuild();
     assertContainsEvent(
         "Directory artifact foo/dir crosses package boundary into package rooted at"
             + " foo/dir/subdir");
