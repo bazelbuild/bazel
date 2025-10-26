@@ -391,6 +391,66 @@ class RepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_b)
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testReverseDependencyDirection(self):
+    # Set up two repos that retain their predeclared input hashes across two
+    #  builds but still reverse their dependency direction. Depending on how
+    # repo cache candidates are checked, this could lead to a Skyframe cycle.
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'repo = use_repo_rule("//:repo.bzl", "repo")',
+        'repo(',
+        '  name = "foo",',
+        '  deps_file = "//:foo_deps.txt",',
+        ')',
+        'repo(',
+        '  name = "bar",',
+        '  deps_file = "//:bar_deps.txt",',
+        ')',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'repo.bzl',
+      [
+        'def _repo_impl(rctx):',
+        '  deps = rctx.read(rctx.attr.deps_file).splitlines()',
+        '  output = ""',
+        '  for dep in deps:',
+        '    if dep:',
+        '      output += "{}: {}\\n".format(dep, rctx.read(Label(dep)))',
+        '  rctx.file("output.txt", output)',
+        '  rctx.file("BUILD", "exports_files([\'output.txt\'])")',
+        '  print("JUST FETCHED: %s" % rctx.original_name)',
+        '  return rctx.repo_metadata(reproducible=True)',
+        'repo = repository_rule(',
+        '  implementation = _repo_impl,',
+        '  attrs = {',
+        '    "deps_file": attr.label(),'
+        '  }',
+        ')',
+      ],
+    )
+
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt', [''])
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    self.assertIn('JUST FETCHED: bar', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED: foo', '\n'.join(stderr))
+
+    # After expunging and reversing the dependency direction: not cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt', [''])
+    self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
+    exit_code, stdout, stderr = self.RunBazel(['build', '@foo//:output.txt'], allow_failure=True)
+    # TODO: This is NOT the intended behavior.
+    self.AssertNotExitCode(exit_code, 0, stderr, stdout)
+    self.assertIn(".-> @@+repo+foo", stderr)
+    self.assertIn("|   @@+repo+bar", stderr)
+    self.assertIn("`-- @@+repo+foo", stderr)
+
 
 if __name__ == '__main__':
   absltest.main()

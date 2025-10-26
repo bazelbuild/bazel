@@ -2735,6 +2735,7 @@ java_library(
     deps = [
         ":abstract_label_cycle_reporter",
         ":bzl_load_value",
+        ":filesystem_keys",
         ":repository_mapping_value",
         ":sky_functions",
         ":starlark_builtins_value",
@@ -2745,6 +2746,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
