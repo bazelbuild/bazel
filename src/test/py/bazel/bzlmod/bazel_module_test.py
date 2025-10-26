@@ -1081,19 +1081,19 @@ class BazelModuleTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'module(name="aaa", version="0.1")',
+            'bazel_dep(name="rules_shell", version="0.6.1")',
             'bazel_dep(name="bbb", version="1.0")',
             'local_path_override(module_name="bbb", path="code_for_b")',
         ],
     )
-    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'code_for_b/MODULE.bazel',
         [
             'module(name="bbb", version="1.0")',
+            'bazel_dep(name="rules_shell", version="0.6.1")',
             'include("//subdir:bbb.MODULE.bazel")',
         ],
     )
-    self.AddBazelDep('rules_shell', path='code_for_b')
     self.ScratchFile('code_for_b/subdir/BUILD')
     self.ScratchFile(
         'code_for_b/subdir/bbb.MODULE.bazel',

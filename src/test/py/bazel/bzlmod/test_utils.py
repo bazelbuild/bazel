@@ -229,6 +229,134 @@ class BazelRegistry:
         ])
     return src_dir
 
+  def generateShSource(
+      self,
+      name,
+      version,
+      deps=None,
+      repo_names=None,
+      extra_module_file_contents=None,
+  ):
+    """Generate a sh project with given dependency information.
+
+    1. The sh library implements a hello_<lib_name> function.
+    2. The hello_<lib_name> function calls the same function of its
+    dependencies.
+    3. The hello_<lib_name> function prints "<caller name> =>
+    <lib_name@version>".
+    4. The BUILD file references the dependencies as their desired repo names.
+
+    Args:
+      name:  The module name.
+      version: The module version.
+      deps: The dependencies of this module.
+      repo_names: The desired repository name for some dependencies.
+      extra_module_file_contents: Extra lines to append to the MODULE.bazel
+        file.
+
+    Returns:
+      The generated source directory.
+    """
+
+    src_dir = self.projects.joinpath(name, version)
+    src_dir.mkdir(parents=True, exist_ok=True)
+    if not deps:
+      deps = {}
+    if not repo_names:
+      repo_names = {}
+    for dep in deps:
+      if dep not in repo_names:
+        repo_names[dep] = dep
+    if not extra_module_file_contents:
+      extra_module_file_contents = []
+
+    def calc_repo_name_str(dep):
+      if dep == repo_names[dep]:
+        return ''
+      return ', repo_name = "%s"' % repo_names[dep]
+
+    scratchFile(
+      src_dir.joinpath('MODULE.bazel'),
+      [
+        'module(',
+        '  name = "%s",' % name,
+        '  version = "%s",' % version,
+        '  compatibility_level = 1,',
+        ')',
+        ]
+      + [
+        'bazel_dep(name = "%s", version = "%s"%s)'
+        % (dep, version, calc_repo_name_str(dep))
+        for dep, version in deps.items()
+      ]
+      + extra_module_file_contents,
+      )
+
+    scratchFile(
+      src_dir.joinpath(name.lower() + '.sh'),
+      [
+        'source $(rlocation %s+/%s.sh)' % (dep.lower(), dep.lower())
+        for dep in deps
+      ]
+      + [
+        'function hello_%s {' % name.lower(),
+        '    caller_name="${1}"',
+        '    lib_name="%s@%s%s"' % (name, version, self.registry_suffix),
+        '    echo "${caller_name} => ${lib_name}"',
+        ]
+      + ['    hello_%s ${lib_name}' % dep.lower() for dep in deps]
+      + [
+        '}',
+      ],
+      )
+    scratchFile(
+      src_dir.joinpath('sh_library.bzl'),
+      [
+        'def _impl(ctx):',
+        '  f = ctx.actions.declare_file(ctx.label.name + ".dummy")',
+        '  ctx.actions.write(f, "dummy out")',  # dummy action for aquery
+        '  files = depset(',
+        '     ctx.files.srcs,',
+        '     transitive = [d[DefaultInfo].files for d in ctx.attr.deps]',
+        '  )',
+        '  runfiles = ctx.runfiles(transitive_files = files)',
+        '  return DefaultInfo(files = files, runfiles = runfiles)',
+        'sh_library = rule(_impl, attrs = {',
+        (
+          '  "srcs": attr.label_list(allow_files = True),'
+          '  "deps": attr.label_list(allow_rules = ["sh_library"]),'
+          '})'
+        ),
+      ],
+    )
+    scratchFile(
+      src_dir.joinpath('BUILD'),
+      [
+        'load(":sh_library.bzl", "sh_library")',
+        'package(default_visibility = ["//visibility:public"])',
+        'sh_library(',
+        '  name = "lib_%s",' % name.lower(),
+        '  srcs = ["%s.sh"],' % name.lower(),
+        ]
+      + (
+        [
+          '  deps = ["%s"],'
+          % (
+            '", "'.join([
+              '@%s//:lib_%s' % (repo_names[dep], dep.lower())
+              for dep in deps
+            ])
+          ),
+          ]
+        if deps
+        else []
+      )
+      + [
+        ')',
+      ],
+      )
+    return src_dir
+
   def createArchive(self, name, version, src_dir, filename_pattern='%s.%s.zip'):
     """Create an archive with a given source directory."""
     zip_path = self.archives.joinpath(filename_pattern % (name, version))
@@ -311,6 +439,42 @@ class BazelRegistry:
     if archive_pattern:
       archive = self.createArchive(
           name, version, src_dir, filename_pattern=archive_pattern
+      )
+    else:
+      archive = self.createArchive(name, version, src_dir)
+    module = Module(name, version)
+    module.set_source(archive.resolve().as_uri())
+    module.set_module_dot_bazel(src_dir.joinpath('MODULE.bazel'))
+    if patches:
+      module.set_patches(patches, patch_strip)
+    if overlay:
+      module.set_overlay(overlay)
+    if archive_type:
+      module.set_archive_type(archive_type)
+
+    self.addModule(module)
+    return self
+
+  def createShModule(
+        self,
+        name,
+        version,
+        deps=None,
+        repo_names=None,
+        patches=None,
+        patch_strip=0,
+        overlay=None,
+        archive_pattern=None,
+        archive_type=None,
+        extra_module_file_contents=None,
+    ):
+    """Generate a cc project and add it as a module into the registry."""
+    src_dir = self.generateShSource(
+      name, version, deps, repo_names, extra_module_file_contents
+    )
+    if archive_pattern:
+      archive = self.createArchive(
+        name, version, src_dir, filename_pattern=archive_pattern
       )
     else:
       archive = self.createArchive(name, version, src_dir)
