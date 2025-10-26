@@ -396,6 +396,12 @@ message BuildStarted {
 
   // The process ID of the Bazel server.
   int64 server_pid = 8;
+
+  // The short hostname of the machine where the build is running.
+  string host = 10;
+
+  // The username of the user who started the build.
+  string user = 11;
 }
 
 // Configuration related to the blaze workspace and output tree.
