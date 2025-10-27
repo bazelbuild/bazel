@@ -851,6 +851,14 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
     }
   }
 
+  // Do not manually edit. To get a ready-to-copy-and-paste string of updated decompression formats,
+  // run the test in StarlarkBaseExternalContextTest.
+  static final String SUPPORTED_DECOMPRESSION_FORMATS =
+"""
+"zip", "jar", "war", "aar", "nupkg", "whl", "tar", "tar.gz", "tgz", "gz", \
+"tar.xz", "txz", "xz", "tar.zst", "tzst", "zst", "tar.bz2", "tbz", "bz2", "ar", \
+"deb" or "7z\"""";
+
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
@@ -908,13 +916,15 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             defaultValue = "''",
             named = true,
             doc =
+                // Since this is an annotation label, the SUPPORTED_DECOMPRESSION_FORMATS string
+                // must be a compile time constant (we can't call a method to get it).
                 """
                 The archive type of the downloaded file. By default, the archive type is \
                 determined from the file extension of the URL. If the file has no \
-                extension, you can explicitly specify either "zip", "jar", "war", \
-                "aar", "nupkg", "whl", "tar", "tar.gz", "tgz", "gz", "tar.xz", "txz", "xz", "tar.zst", \
-                "tzst", "zst", "tar.bz2", "tbz", "bz2", "ar", "deb", or "7z" here.
-                """),
+                extension, you can explicitly specify either \
+                """
+                    + SUPPORTED_DECOMPRESSION_FORMATS
+                    + " here."),
         @Param(
             name = "strip_prefix",
             defaultValue = "''",
