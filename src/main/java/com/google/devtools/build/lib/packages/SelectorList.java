@@ -21,6 +21,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Arrays;
@@ -288,7 +289,10 @@ public final class SelectorList implements StarlarkValue, HasBinary {
         labelConverter = thread.getThreadLocal(LabelConverter.class);
         // Handle the case of a regular BUILD thread.
         if (labelConverter == null) {
-          var targetDefinitionContext = TargetDefinitionContext.fromOrNull(thread);
+          StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
+          var targetDefinitionContext = ctx instanceof TargetDefinitionContext tdc
+              ? tdc
+              : null;
           if (targetDefinitionContext != null) {
             labelConverter = targetDefinitionContext.getLabelConverter();
           }

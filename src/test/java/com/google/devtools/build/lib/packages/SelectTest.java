@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -159,8 +158,7 @@ public class SelectTest {
   public void testKeyResolution(@TestParameter boolean resolveSelectKeysEagerly) throws Exception {
     var ctx =
         BazelModuleContext.create(
-            BazelModuleKey.createFakeModuleKeyForTesting(
-                Label.parseCanonicalUnchecked("//other/pkg:def.bzl")),
+                Label.parseCanonicalUnchecked("//other/pkg:def.bzl"),
             RepositoryMapping.create(
                 ImmutableMap.of(
                     "",
@@ -170,9 +168,7 @@ public class SelectTest {
                 RepositoryName.MAIN),
             "other/pkg/def.bzl",
             /* loads= */ ImmutableList.of(),
-            /* bzlTransitiveDigest= */ new byte[0],
-            /* docCommentsMap= */ ImmutableMap.of(),
-            /* unusedDocCommentLines= */ ImmutableList.of());
+            /* bzlTransitiveDigest= */ new byte[0]);
     var semantics =
         StarlarkSemantics.builder()
             .setBool(
