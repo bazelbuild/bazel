@@ -314,6 +314,20 @@ def _starts_with(path_a, path_b):
         return False
     return len(norm_a) == len(norm_b) or norm_a[len(norm_b)] == "/"
 
+def _root_relative_path(file):
+    """Returns the path of `file` relative to its root.
+
+    A Starlark implementation of `Artifact.getRootRelativePath()`.
+    """
+    if not file.is_source:
+        return _relativize(file.path, file.root.path)
+    short_path = file.short_path
+    if not short_path.startswith("../"):
+        return short_path
+
+    # This is a file in an external repo, skip over the repo name.
+    return short_path[short_path.index("/", 3) + 1:]
+
 paths = struct(
     basename = _basename,
     dirname = _dirname,
@@ -328,4 +342,5 @@ paths = struct(
     get_relative = _get_relative,
     contains_up_level_references = _contains_up_level_references,
     starts_with = _starts_with,
+    root_relative_path = _root_relative_path,
 )
