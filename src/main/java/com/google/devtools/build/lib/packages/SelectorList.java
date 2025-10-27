@@ -289,12 +289,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
         labelConverter = thread.getThreadLocal(LabelConverter.class);
         // Handle the case of a regular BUILD thread.
         if (labelConverter == null) {
-          StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
-          var targetDefinitionContext = ctx instanceof TargetDefinitionContext tdc
-              ? tdc
-              : null;
-          if (targetDefinitionContext != null) {
-            labelConverter = targetDefinitionContext.getLabelConverter();
+          Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
+          if (pkgBuilder != null) {
+            labelConverter = pkgBuilder.getLabelConverter();
           }
         }
         // In all other cases, must be in a .bzl file.
