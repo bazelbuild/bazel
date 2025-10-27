@@ -1075,6 +1075,117 @@ class BazelModuleTest(test_base.TestBase):
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
 
+  def testNonRegistryOverrideModuleInclude(self):
+    """Tests that include() works in non-root modules with a non-registry override."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="aaa", version="0.1")',
+            'bazel_dep(name="rules_shell", version="0.6.1")',
+            'bazel_dep(name="bbb", version="1.0")',
+            'local_path_override(module_name="bbb", path="code_for_b")',
+        ],
+    )
+    self.ScratchFile(
+        'code_for_b/MODULE.bazel',
+        [
+            'module(name="bbb", version="1.0")',
+            'bazel_dep(name="rules_shell", version="0.6.1")',
+            'include("//subdir:bbb.MODULE.bazel")',
+        ],
+    )
+    self.ScratchFile('code_for_b/subdir/BUILD')
+    self.ScratchFile(
+        'code_for_b/subdir/bbb.MODULE.bazel',
+        [
+            'include("//subdir/nested:ccc.MODULE.bazel")',
+        ],
+    )
+    self.ScratchFile('code_for_b/subdir/nested/BUILD')
+    self.ScratchFile(
+        'code_for_b/subdir/nested/ccc.MODULE.bazel',
+        [
+            'bazel_dep(name="ccc", version="2.0")',
+        ],
+    )
+    self.ScratchFile(
+        'code_for_b/BUILD',
+        [
+            'load("@rules_shell//shell:sh_library.bzl", "sh_library")',
+            'sh_library(',
+            '  name = "lib_bbb",',
+            '  srcs = ["bbb.sh"],',
+            '  deps = ["@ccc//:lib_ccc"],',
+            '  visibility = ["//visibility:public"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'code_for_b/bbb.sh',
+        [
+            'source $(rlocation ccc+/ccc.sh)',
+            'function hello_bbb {',
+            '    caller_name="${1}"',
+            '    lib_name="bbb@1.0"',
+            '    echo "${caller_name} => ${lib_name}"',
+            '    hello_ccc ${lib_name}',
+            '}',
+        ],
+        executable=True,
+    )
+    self.main_registry.createShModule('ccc', '2.0', {'ddd': '3.0'})
+    self.main_registry.createShModule('ddd', '3.0')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "main",',
+            '  srcs = ["main.sh"],',
+            '  deps = ["@bbb//:lib_bbb"],',
+            '  use_bash_launcher = True,',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.sh',
+        [
+            'source $(rlocation bbb+/bbb.sh)',
+            'hello_bbb "main function"',
+        ],
+        executable=True,
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => bbb@1.0', stdout)
+    self.assertIn('bbb@1.0 => ccc@2.0', stdout)
+    self.assertIn('ccc@2.0 => ddd@3.0', stdout)
+
+  def testRegistryModuleInclude(self):
+    """Tests that include() is not allowed in registry modules."""
+    self.main_registry.createShModule(
+        'foo',
+        '1.0',
+        extra_module_file_contents=['include("//java:MODULE.bazel.segment")'],
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo", version="1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '//:all'], allow_failure=True
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        'include() directive found at '
+        + self.main_registry.getURL()
+        + '/modules/foo/1.0/MODULE.bazel:6:1, but it can only be used in the '
+        + 'root module or in modules with non-registry overrides',
+        '\n'.join(stderr),
+    )
+
   def testLabelDebugPrint(self):
     """Tests that print emits labels in display form."""
     self.ScratchFile(
