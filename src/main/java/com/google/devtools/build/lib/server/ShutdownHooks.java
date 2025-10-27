@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -68,7 +67,6 @@ public class ShutdownHooks {
         () -> {
           try {
             pidFileWatcher.endWatch();
-            Uninterruptibles.joinUninterruptibly(pidFileWatcher);
             pidFile.delete();
           } catch (IOException e) {
             printStack(e);

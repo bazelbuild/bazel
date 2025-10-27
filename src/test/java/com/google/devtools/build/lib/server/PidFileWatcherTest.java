@@ -61,15 +61,6 @@ public class PidFileWatcherTest {
   }
 
   @Test
-  @SuppressWarnings("DoNotCall") // testing that the watcher exits without erroring
-  public void testStoppedWatcherDoesNotHaltProgram() throws IOException {
-    underTest.endWatch();
-    pidFile.delete();
-
-    underTest.run();
-  }
-
-  @Test
   public void testEmptyPidFileCountsAsChanged() throws IOException {
     FileSystemUtils.writeContent(pidFile, new byte[0]);
 

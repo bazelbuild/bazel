@@ -15,27 +15,32 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.time.Duration;
-import javax.annotation.concurrent.GuardedBy;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/** A thread that watches if the PID file changes and shuts down the server immediately if so. */
-public class PidFileWatcher extends Thread {
+/** A class that watches if the PID file changes and shuts down the server immediately if so. */
+public class PidFileWatcher {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  
+
   private final Path pidFile;
   private final int serverPid;
   private final Runnable onPidFileChange;
+  private final AtomicBoolean shuttingDown;
 
-  @GuardedBy("this")
-  private boolean shuttingDown = false;
+  private ScheduledFuture<?> iteration;
 
-  private boolean endWatch;
+  private final ScheduledExecutorService executorService;
 
   public PidFileWatcher(Path pidFile, int serverPid) {
     this(
@@ -47,43 +52,53 @@ public class PidFileWatcher extends Thread {
   /** Test-only constructor allowing a more gentle {@link #onPidFileChange} callback. */
   @VisibleForTesting
   PidFileWatcher(Path pidFile, int serverPid, Runnable onPidFileChange) {
-    super("pid-file-watcher");
     this.pidFile = pidFile;
     this.serverPid = serverPid;
     this.onPidFileChange = onPidFileChange;
-    setDaemon(true);
+    this.shuttingDown = new AtomicBoolean(false);
+    this.executorService =
+        Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder()
+                .setNameFormat("pid-file-watcher-%d")
+                .setDaemon(true)
+                .build());
+  }
+
+  /** Starts the watching. Can only be called once per instance. */
+  public void start() {
+    Preconditions.checkState(iteration == null); // Can only be called once
+    iteration = executorService.scheduleWithFixedDelay(this::iteration, 3, 3, TimeUnit.SECONDS);
   }
 
   /**
-   * Signals a shutdown is in progress, thus pid file changes can be expected and should not trigger
+   * Signals a shutdown is in progress, thus PID file changes can be expected and should not trigger
    * an aggressive shutdown.
    */
-  synchronized void signalShutdown() {
-    shuttingDown = true;
+  void signalShutdown() {
+    shuttingDown.set(true);
   }
 
   /**
-   * Signals the watcher thread to stop. This should invoked and the thread joined before the pid
-   * file is deleted by the Blaze server on an orderly shutdown.
+   * Stops the watching. Once this method returns, no more activity will happen.
+   *
+   * <p>This should invoked before the PID file is deleted by the Blaze server on an orderly
+   * shutdown.
    */
-  synchronized void endWatch() {
-    endWatch = true;
+  void endWatch() {
+    executorService.shutdownNow();
+    Uninterruptibles.awaitTerminationUninterruptibly(executorService);
   }
 
-  @Override
-  public void run() {
-    do {
-      synchronized (this) {
-        if (endWatch) {
-          return;
-        }
-      }
-      Uninterruptibles.sleepUninterruptibly(Duration.ofSeconds(3));
-    } while (runPidFileChecks());
+  private void iteration() {
+    if (runPidFileChecks()) {
+      return;
+    }
+
+    iteration.cancel(false);
   }
 
   /**
-   * Runs one iteration of pid file checks. Returns whether or not the main loop should continue, or
+   * Runs one iteration of PID file checks. Returns whether or not the main loop should continue, or
    * crashes the program via {@link #onPidFileChange} callback.
    */
   @VisibleForTesting
@@ -92,20 +107,16 @@ public class PidFileWatcher extends Thread {
       return true;
     }
 
-    synchronized (this) {
-      if (shuttingDown) {
-        logger.atWarning().log(
-            "PID file deleted or overwritten but shutdown is already in progress");
-        return false;
-      }
-
-      shuttingDown = true;
-      // Someone overwrote the PID file. Maybe it's another server, so shut down as quickly
-      // as possible without even running the shutdown hooks (that would delete it)
-      logger.atSevere().log("PID file deleted or overwritten, exiting as quickly as possible");
-      onPidFileChange.run();
-      throw new IllegalStateException("Should have crashed.");
+    if (shuttingDown.get()) {
+      logger.atWarning().log("PID file deleted or overwritten but shutdown is already in progress");
+      return false;
     }
+
+    // Someone overwrote the PID file. Maybe it's another server, so shut down as quickly
+    // as possible without even running the shutdown hooks (that would delete it)
+    logger.atSevere().log("PID file deleted or overwritten, exiting as quickly as possible");
+    onPidFileChange.run();
+    throw new IllegalStateException("Should have crashed.");
   }
 
   private static boolean pidFileValid(Path pidFile, int expectedPid) {
