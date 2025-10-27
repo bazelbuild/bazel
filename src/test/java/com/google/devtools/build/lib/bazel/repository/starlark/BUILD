@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/decompressor",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -51,6 +52,7 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
+        "@maven//:commons_lang_commons_lang_2_6",
     ],
 )
 
