@@ -417,7 +417,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
 
     CcLinkingContext ccLinkingContext =
-        getConfiguredTarget("//lib:lib").get(CcInfo.PROVIDER).getCcLinkingContext();
+        CcInfo.get(getConfiguredTarget("//lib:lib")).getCcLinkingContext();
     assertThat(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries())
         .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
   }
@@ -1865,8 +1865,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsExactly("bar.m", "bar_impl.h");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bar");
-    CcCompilationContext ccCompilationContext =
-        target.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(target).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDirectPublicHdrs()))
         .containsExactly("bar.h");
     assertThat(baseArtifactNames(ccCompilationContext.getDirectPrivateHdrs()))
@@ -1958,7 +1957,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             "x",
             "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
             "objc_library(name = 'x', hdrs = ['x.h'])");
-    CcCompilationContext ccCompilationContext = x.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(x).getCcCompilationContext();
     assertThat(Artifact.toRootRelativePaths(ccCompilationContext.getHeaderTokens()))
         .containsExactly("foo/_objs/x/arc/x.h.processed");
   }
@@ -1975,7 +1974,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
             "objc_library(name = 'x', deps = [':y'])",
             "objc_library(name = 'y', hdrs = ['y.h'])");
-    CcCompilationContext ccCompilationContext = x.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(x).getCcCompilationContext();
     assertThat(ActionsTestUtil.baseNamesOf(ccCompilationContext.getHeaderTokens()))
         .isEqualTo("y.h.processed");
     assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
@@ -2227,7 +2226,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         """);
 
     CcLinkingContext ccLinkingContext =
-        getConfiguredTarget("//x:foo").get(CcInfo.PROVIDER).getCcLinkingContext();
+        CcInfo.get(getConfiguredTarget("//x:foo")).getCcLinkingContext();
     assertThat(
             ccLinkingContext.getLinkerInputs().toList().stream()
                 .flatMap(linkerInput -> getLinkstamps(linkerInput).stream())
@@ -2248,6 +2247,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "tools/build_defs/foo/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
         "def _objc_starlark_library_impl(ctx):",
         "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
         "    features = ['objc-compile']",
@@ -2381,7 +2381,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         """);
     useConfiguration("--platforms=" + MockObjcSupport.DARWIN_X86_64);
 
-    CcInfo ccInfo = getConfiguredTarget("//x:bar").get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(getConfiguredTarget("//x:bar"));
 
     assertThat(
             artifactsToStrings(
@@ -2632,8 +2632,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   private ImmutableList<String> getCcInfoUserLinkFlagsFromTarget(String target)
       throws LabelSyntaxException, RuleErrorException {
-    return getConfiguredTarget(target)
-        .get(CcInfo.PROVIDER)
+    return CcInfo.get(getConfiguredTarget(target))
         .getCcLinkingContext()
         .getLinkerInputs()
         .toList()

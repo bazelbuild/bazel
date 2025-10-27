@@ -140,6 +140,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "toolchain/cc_toolchain_config.bzl",
         """
         load("//tools/cpp:cc_toolchain_config_lib.bzl", "tool_path")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
 
         def _impl(ctx):
             return cc_common.create_cc_toolchain_config_info(

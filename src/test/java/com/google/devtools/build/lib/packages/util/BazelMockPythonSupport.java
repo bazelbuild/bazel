@@ -105,13 +105,15 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.overwrite(
         "rules_python_workspace/python/config_settings/BUILD.bazel",
         "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag')",
+        "load('@rules_python//python/private:flags.bzl', rp_string_flag = 'string_flag')",
         "string_flag(name = 'python_version', build_setting_default = '3.11')",
         "string_flag(name = 'precompile', build_setting_default = 'auto')",
         "string_flag(name = 'py_freethreaded', build_setting_default = 'no')",
         "string_flag(name = 'add_srcs_to_runfiles', build_setting_default = 'auto')",
         "string_flag(name = 'pyc_collection', build_setting_default = 'disabled')",
         "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",
-        "string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python')",
+        "rp_string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python', ",
+        "    values = ['system_python'])",
         "string_flag(name = 'venvs_use_declare_symlink', build_setting_default = 'yes')",
         "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')");
     config.overwrite("rules_python_workspace/python/private/python_bootstrap_template.txt");

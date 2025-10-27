@@ -95,6 +95,9 @@ public abstract class MockCcSupport {
   public static final String EMPTY_CC_TOOLCHAIN =
       Joiner.on("\n")
           .join(
+              "load(\"@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl\","
+                  + " \"CcToolchainConfigInfo\")",
+              "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
               "def _impl(ctx):",
               "    return cc_common.create_cc_toolchain_config_info(",
               "                ctx = ctx,",
@@ -273,6 +276,7 @@ public abstract class MockCcSupport {
             "cc/toolchains/BUILD",
             "cc/toolchains/cc_toolchain.bzl",
             "cc/toolchains/cc_toolchain_alias.bzl",
+            "cc/toolchains/cc_toolchain_config_info.bzl",
             "cc/toolchain_utils.bzl",
             "cc/private/rules_impl/BUILD",
             "cc/private/rules_impl/native.bzl")) {

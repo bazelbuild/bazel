@@ -379,6 +379,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/custom_rule.bzl",
         "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  compilation_provider = java_common.compile(",
@@ -1891,6 +1892,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/rule.bzl",
         """
         load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
         def _impl(ctx):
             cc_info = ctx.attr.dep[CcInfo]
             JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])

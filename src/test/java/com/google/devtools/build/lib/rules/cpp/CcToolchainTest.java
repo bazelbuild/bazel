@@ -742,6 +742,8 @@ public final class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/crosstool_rule.bzl",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         load(
             "//tools/cpp:cc_toolchain_config_lib.bzl",
             "action_config",

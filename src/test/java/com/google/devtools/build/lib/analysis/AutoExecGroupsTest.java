@@ -2018,6 +2018,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonLink_cppLTOActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2088,6 +2090,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonLink_linkstampCompileActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"

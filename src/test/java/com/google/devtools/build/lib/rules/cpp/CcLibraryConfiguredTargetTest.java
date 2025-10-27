@@ -131,7 +131,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   private void assertNoCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    assertThat(target.get(CcInfo.PROVIDER).getCcCompilationContext().getCppModuleMap()).isNull();
+    assertThat(CcInfo.get(target).getCcCompilationContext().getCppModuleMap()).isNull();
   }
 
   public void checkWrongExtensionInArtifactNamePattern(
@@ -165,7 +165,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name='l', srcs=['l.cc'], defines=['V=$(FOO)'], toolchains=[':v'])",
             "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
-    assertThat(l.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines()).contains("V=BAR");
+    assertThat(CcInfo.get(l).getCcCompilationContext().getDefines()).contains("V=BAR");
   }
 
   @Test
@@ -177,8 +177,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name='l', srcs=['l.cc'], local_defines=['V=$(FOO)'], toolchains=[':v'])",
             "make_variable_tester(name='v', variables={'FOO': 'BAR'})");
-    assertThat(l.get(CcInfo.PROVIDER).getCcCompilationContext().getNonTransitiveDefines())
-        .contains("V=BAR");
+    assertThat(CcInfo.get(l).getCcCompilationContext().getNonTransitiveDefines()).contains("V=BAR");
   }
 
   @Test
@@ -248,11 +247,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(archive, implSharedObject, implInterfaceSharedObject);
     assertThat(
             LibraryToLink.getDynamicLibrariesForLinking(
-                hello.get(CcInfo.PROVIDER).getTransitiveCcNativeLibrariesForTests()))
+                CcInfo.get(hello).getTransitiveCcNativeLibrariesForTests()))
         .containsExactly(implInterfaceSharedObjectLink);
     assertThat(
-            hello
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(hello)
                 .getCcLinkingContext()
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
         .containsExactly(implSharedObjectLink);
@@ -298,11 +296,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(archive, sharedObject, implSharedObject);
     assertThat(
             LibraryToLink.getDynamicLibrariesForLinking(
-                hello.get(CcInfo.PROVIDER).getTransitiveCcNativeLibrariesForTests()))
+                CcInfo.get(hello).getTransitiveCcNativeLibrariesForTests()))
         .containsExactly(sharedObjectLink);
     assertThat(
-            hello
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(hello)
                 .getCcLinkingContext()
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
         .containsExactly(implSharedObjectLink);
@@ -322,7 +319,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testEmptyLinkopts() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     assertThat(
-            hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
+            CcInfo.get(hello).getCcLinkingContext().getLinkerInputs().toList().stream()
                 .allMatch(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).isEmpty()))
         .isTrue();
   }
@@ -1007,8 +1004,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     writeSimpleCcLibrary();
 
     ConfiguredTarget lib = getConfiguredTarget("//module:map");
-    Artifact moduleMap =
-        lib.get(CcInfo.PROVIDER).getCcCompilationContext().getCppModuleMap().getArtifact();
+    Artifact moduleMap = CcInfo.get(lib).getCcCompilationContext().getCppModuleMap().getArtifact();
     String moduleMapData = getCppModuleMapData(moduleMap);
     assertThat(moduleMapData).contains("use \"crosstool\"");
     assertThat(moduleMapData).containsMatch("private textual header \".*module\\/a.h\"");
@@ -1478,7 +1474,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   // toolchain runtimes.
   private ImmutableList<LibraryToLink> librariesToLinkExcludingCxxRuntimes(ConfiguredTarget target)
       throws Exception {
-    return target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
+    return CcInfo.get(target).getCcLinkingContext().getLibraries().toList().stream()
         .filter(
             x -> {
               // A LibraryToLink object doesn't have a path we can check.
@@ -1563,8 +1559,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'foo', srcs = ['foo.cc'])");
     Iterable<Artifact> libraries =
-        target
-            .get(CcInfo.PROVIDER)
+        CcInfo.get(target)
             .getCcLinkingContext()
             .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.ifso");
@@ -1587,8 +1582,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'foo', srcs = ['foo.cc'])");
     Iterable<Artifact> libraries =
-        target
-            .get(CcInfo.PROVIDER)
+        CcInfo.get(target)
             .getCcLinkingContext()
             .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin _solib_k8/liba_Slibfoo.ifso");
@@ -1605,8 +1599,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'foo', srcs = ['foo.cc'], linkstatic=1)");
     Iterable<Artifact> libraries =
-        target
-            .get(CcInfo.PROVIDER)
+        CcInfo.get(target)
             .getCcLinkingContext()
             .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
     assertThat(artifactsToStrings(libraries)).isEmpty();
@@ -1710,7 +1703,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo");
     assertThat(
-            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
+            CcInfo.get(target).getCcLinkingContext().getLinkerInputs().toList().stream()
                 .map(x -> LinkerInput.getOwner(x).toString())
                 .filter(x -> !x.startsWith("//third_party/stl"))
                 .collect(ImmutableList.toImmutableList()))
@@ -1818,6 +1811,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "transition/custom_transition.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _custom_transition_impl(settings, attr):
             _ignore = settings, attr
 
@@ -2108,15 +2103,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
     assertThat(
             artifactsToStrings(
-                lib.get(CcInfo.PROVIDER)
-                    .getCcLinkingContext()
-                    .getStaticModeParamsForExecutableLibraries()))
+                CcInfo.get(lib).getCcLinkingContext().getStaticModeParamsForExecutableLibraries()))
         .contains("bin foo/libpublic_dep.a");
     assertThat(
             artifactsToStrings(
-                lib.get(CcInfo.PROVIDER)
-                    .getCcLinkingContext()
-                    .getStaticModeParamsForExecutableLibraries()))
+                CcInfo.get(lib).getCcLinkingContext().getStaticModeParamsForExecutableLibraries()))
         .contains("bin foo/libimplementation_dep.a");
   }
 
@@ -2161,8 +2152,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
     assertThat(
-            lib
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(lib)
                 .getCcDebugInfoContext()
                 .getValue("files", Depset.class)
                 .toList(Artifact.class)
@@ -2170,8 +2160,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .map(Artifact::getFilename))
         .contains("public_dep.dwo");
     assertThat(
-            lib
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(lib)
                 .getCcDebugInfoContext()
                 .getValue("files", Depset.class)
                 .toList(Artifact.class)
@@ -2529,7 +2518,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact sharedObject =
         LinkerInput.getLibraries(
-                hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().get(0))
+                CcInfo.get(hello).getCcLinkingContext().getLinkerInputs().toList().get(0))
             .get(0)
             .getDynamicLibrary();
     SpawnAction action = (SpawnAction) getGeneratingAction(sharedObject);
@@ -2560,7 +2549,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget lib = getConfiguredTarget("//" + longpath + ":lib");
     List<Artifact> libraries =
-        lib.get(CcInfo.PROVIDER)
+        CcInfo.get(lib)
             .getCcLinkingContext()
             .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
     List<String> libraryBaseNames = ActionsTestUtil.baseArtifactNames(libraries);
@@ -2581,8 +2570,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     assertThat(
-            getConfiguredTarget("//foo:lib")
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(getConfiguredTarget("//foo:lib"))
                 .getCcLinkingContext()
                 .getLinkerInputs()
                 .toList()

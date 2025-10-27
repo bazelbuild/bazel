@@ -159,8 +159,7 @@ public class CcCommonTest extends BuildViewTestCase {
     // But we avoid creating .so files for empty libraries,
     // because those have a potentially significant run-time startup cost.
     assertThat(
-            emptylib
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(emptylib)
                 .getCcLinkingContext()
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
@@ -296,8 +295,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "           srcs = ['statically.cc'],",
             "           linkstatic=1)");
     assertThat(
-            statically
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(statically)
                 .getCcLinkingContext()
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
@@ -318,7 +316,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'defineslib',",
             "           srcs = ['defines.cc'],",
             "           defines = ['FOO', 'BAR'])");
-    assertThat(isolatedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(isolatedDefines).getCcCompilationContext().getDefines())
         .containsExactly("FOO", "BAR")
         .inOrder();
   }
@@ -334,7 +332,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "           srcs = ['defines.cc'],",
             "           deps = ['//foo'],",
             "           defines = ['FOO=$(location //foo)'])");
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly(
             String.format("FOO=%s/foo/libfoo.a", getRuleContext(expandedDefines).getBinFragment()));
   }
@@ -349,7 +347,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'expand_srcs',",
             "           srcs = ['defines.cc'],",
             "           defines = ['FOO=$(location defines.cc)'])");
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly("FOO=expanded_defines/defines.cc");
   }
 
@@ -365,7 +363,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "           srcs = ['defines.cc'],",
             "           data = ['//data'],",
             "           defines = ['FOO=$(location //data)'])");
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly("FOO=data/data.txt");
   }
 
@@ -387,7 +385,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "           defines = ['FOO=$(location //data:a)'])");
     String depPath =
         getFilesToBuild(getConfiguredTarget("//data:a")).getSingleton().getExecPathString();
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly(String.format("FOO=%s", depPath));
   }
 
@@ -612,7 +610,7 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
 
     String includesRoot = "bang/bang_includes";
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .containsAtLeast(
             PathFragment.create(includesRoot),
             targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot));
@@ -636,12 +634,11 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
     PathFragment genfilesDir =
         targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
-        .contains(genfilesDir);
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs()).contains(genfilesDir);
 
     useConfiguration("--incompatible_merge_genfiles_directory");
     foo = getConfiguredTarget("//bang:bang");
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .doesNotContain(genfilesDir);
   }
 
@@ -678,13 +675,12 @@ public class CcCommonTest extends BuildViewTestCase {
     String includesRoot = "bang/bang_includes";
     List<PathFragment> expected =
         new ImmutableList.Builder<PathFragment>()
-            .addAll(
-                noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+            .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getSystemIncludeDirs())
         .containsExactlyElementsIn(expected);
   }
 
@@ -719,12 +715,12 @@ public class CcCommonTest extends BuildViewTestCase {
     String includesRoot = "bang/bang_includes";
     ImmutableList<PathFragment> expected =
         new ImmutableList.Builder<PathFragment>()
-            .addAll(noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
+            .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getIncludeDirs())
             .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .containsExactlyElementsIn(expected);
   }
 
@@ -1182,7 +1178,7 @@ public class CcCommonTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
-    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(lib).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("third_party/a/_virtual_includes/a/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
@@ -1214,7 +1210,7 @@ public class CcCommonTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
-    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(lib).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("_virtual_includes/207132b2/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
@@ -1286,13 +1282,9 @@ public class CcCommonTest extends BuildViewTestCase {
         """);
 
     CcCompilationContext relative =
-        getConfiguredTarget("//third_party/a:relative")
-            .get(CcInfo.PROVIDER)
-            .getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//third_party/a:relative")).getCcCompilationContext();
     CcCompilationContext absolute =
-        getConfiguredTarget("//third_party/a:absolute")
-            .get(CcInfo.PROVIDER)
-            .getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//third_party/a:absolute")).getCcCompilationContext();
 
     assertThat(ActionsTestUtil.prettyArtifactNames(relative.getDeclaredIncludeSrcs()))
         .containsExactly("third_party/a/_virtual_includes/relative/b.h", "third_party/a/v1/b.h");
@@ -1312,7 +1304,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='a', hdrs=['b.h'], strip_include_prefix=None)");
     CcCompilationContext ccContext =
-        getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//:a")).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
         .containsExactly("b.h");
   }
@@ -1328,7 +1320,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
     CcCompilationContext ccContext =
-        getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//:a")).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
         .containsExactly("_virtual_includes/a/b.h", "b.h");
   }
@@ -1370,7 +1362,7 @@ public class CcCommonTest extends BuildViewTestCase {
         """);
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//third_party:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//third_party:a")).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("third_party/_virtual_includes/a/third_party/a.h", "third_party/a.h");
   }

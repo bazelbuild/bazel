@@ -790,6 +790,8 @@ function test_reconstructing_cpp_actions() {
   mkdir -p "${package}"
 
   cat > "${package}/lib.bzl" <<EOF
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
 def _actions_test_impl(target, ctx):
     compile_action = None
     archive_action = None

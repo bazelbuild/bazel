@@ -60,8 +60,7 @@ public final class ObjcLibraryAnalysisTest extends AnalysisTestCase {
 
       DerivedArtifact libraryToLink =
           (DerivedArtifact)
-              getConfiguredTarget("//foo:lib")
-                  .get(CcInfo.PROVIDER)
+              CcInfo.get(getConfiguredTarget("//foo:lib"))
                   .getCcLinkingContext()
                   .getLibraries()
                   .getSingleton()

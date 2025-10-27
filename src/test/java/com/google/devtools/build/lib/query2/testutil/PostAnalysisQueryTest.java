@@ -445,6 +445,8 @@ my_rule = rule(
     writeFile(
         "test/toolchain/toolchain_config.bzl",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+        load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
         def _impl(ctx):
             return cc_common.create_cc_toolchain_config_info(
                 ctx = ctx,

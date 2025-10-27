@@ -1310,6 +1310,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         load("//myinfo:myinfo.bzl", "MyInfo")
 
         def _impl(ctx):
@@ -1376,7 +1378,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget lib = getConfiguredTarget("//a:lib");
-    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(lib).getCcCompilationContext();
     assertThat(
             ccCompilationContext.getDeclaredIncludeSrcs().toList().stream()
                 .map(Artifact::getFilename)
@@ -1986,6 +1988,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "load('"
             + TestConstants.RULES_CC
             + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "linker_input = cc_common.create_linker_input(",
         "                 owner=Label('//toplevel'),",
         "                 user_link_flags=[['-first_flag'], ['-second_flag']])",
@@ -5540,7 +5544,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//third_party/bar:starlark_lib");
     assertThat(target).isNotNull();
-    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(target);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
         .contains(
             "bin third_party/bar/_virtual_includes/starlark_lib_suffix/prefix/starlark_lib.h");
@@ -5564,7 +5568,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//third_party/bar:starlark_lib");
     assertThat(target).isNotNull();
-    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(target);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
         .contains("bin third_party/bar/_virtual_includes/starlark_lib_suffix/starlark_lib.h");
   }
@@ -5587,7 +5591,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//third_party/bar:starlark_lib");
     assertThat(target).isNotNull();
-    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(target);
 
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
@@ -5616,7 +5620,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//third_party/bar:starlark_lib");
     assertThat(target).isNotNull();
-    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(target);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
         .contains(
             "bin third_party/bar/_virtual_includes/starlark_lib_suffix/prefix/starlark_lib.h");
@@ -5639,7 +5643,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//third_party/bar:starlark_lib");
     assertThat(target).isNotNull();
-    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(target);
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
@@ -5653,7 +5657,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
-    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(target);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs()))
         .containsAtLeast(
             "src foo/dep2.h", "src foo/starlark_lib.h", "src foo/private_starlark_lib.h");
@@ -5704,7 +5708,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         scratch, "tools/build_defs/foo", "user_link_flags=['-LINKING_OPTION']");
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
-    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getFlattenedUserLinkFlags())
+    assertThat(CcInfo.get(target).getCcLinkingContext().getFlattenedUserLinkFlags())
         .contains("-LINKING_OPTION");
   }
 
@@ -5724,7 +5728,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     assertThat(
-            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
+            CcInfo.get(target).getCcLinkingContext().getLibraries().toList().stream()
                 .filter(LibraryToLink::getAlwayslink)
                 .collect(ImmutableList.toImmutableList()))
         .hasSize(1);
@@ -5736,7 +5740,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     assertThat(
-            target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
+            CcInfo.get(target).getCcLinkingContext().getLibraries().toList().stream()
                 .filter(LibraryToLink::getAlwayslink)
                 .collect(ImmutableList.toImmutableList()))
         .isEmpty();
@@ -5748,8 +5752,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_inputs");
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
-    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getNonCodeInputs().toList())
-        .hasSize(1);
+    assertThat(CcInfo.get(target).getCcLinkingContext().getNonCodeInputs().toList()).hasSize(1);
   }
 
   @Test
@@ -5820,6 +5823,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         bzlFilePath + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _cc_aspect_impl(target, ctx):",
         "    if ctx.attr._cc_toolchain:",
         "      toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
@@ -6246,8 +6251,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getFirst(
-            getConfiguredTarget("//foo:dep")
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(getConfiguredTarget("//foo:dep"))
                 .getCcLinkingContext()
                 .getLibraries()
                 .toList(),
@@ -6308,8 +6312,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getFirst(
-            getConfiguredTarget("//foo:dep")
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(getConfiguredTarget("//foo:dep"))
                 .getCcLinkingContext()
                 .getLibraries()
                 .toList(),
@@ -6374,6 +6377,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/foo.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
         FooInfo = provider(
             fields = ["objects", "pic_objects", "lto_bitcode_files", "pic_lto_bitcode_files"],
         )
@@ -6486,6 +6491,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "tools/build_defs/foo/extension.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _cc_starlark_library_impl(ctx):
             objects = []
@@ -6541,6 +6547,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         extensionDirectory + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
         "def _cc_bin_impl(ctx):",
         "    toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "    feature_configuration = cc_common.configure_features(",
@@ -6634,6 +6642,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "direct/cc_info_extractor.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 
         def _cc_info_extractor_impl(ctx):
             compilation_context = ctx.attr.dep[CcInfo].compilation_context
@@ -6749,6 +6758,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "direct/cc_merger.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
         def _cc_merger_impl(ctx):
             direct_cc_infos = [dep[CcInfo] for dep in ctx.attr.exports]
             cc_infos = [dep[CcInfo] for dep in ctx.attr.deps]
@@ -6812,7 +6823,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget lib = getConfiguredTarget("//direct:merge");
-    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(lib).getCcCompilationContext();
     assertThat(
             baseArtifactNames(
                 ccCompilationContext.getExportingModuleMaps().stream()
@@ -6838,6 +6849,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "direct/cc_merger.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
         def _cc_merger_impl(ctx):
             compilation_contexts = [dep[CcInfo].compilation_context for dep in ctx.attr.deps]
             merged_context = cc_common.merge_compilation_contexts(
@@ -6888,7 +6901,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget lib = getConfiguredTarget("//direct:merge");
-    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(lib).getCcCompilationContext();
     assertThat(
             baseArtifactNames(
                 ccCompilationContext.getExportingModuleMaps().stream()
@@ -6913,6 +6926,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         """
+        load("@rules_cc//cc/common:debug_package_info.bzl", "DebugPackageInfo")
         def _impl(ctx):
             out = ctx.actions.declare_file(ctx.label.name)
             ctx.actions.run_shell(
@@ -7004,7 +7018,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:w");
     assertNoEvents();
     assertThat(target).isNotNull();
-    DebugPackageProvider debugPackageProvider = target.get(DebugPackageProvider.PROVIDER);
+    DebugPackageProvider debugPackageProvider = DebugPackageProvider.get(target);
     assertThat(debugPackageProvider.getStrippedArtifact().getFilename()).isEqualTo("w.stripped");
     assertThat(debugPackageProvider.getUnstrippedArtifact().getFilename()).isEqualTo("w");
     assertThat(debugPackageProvider.getDwpArtifact()).isNull();
@@ -7016,7 +7030,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:w");
     assertNoEvents();
     assertThat(target).isNotNull();
-    DebugPackageProvider debugPackageProvider = target.get(DebugPackageProvider.PROVIDER);
+    DebugPackageProvider debugPackageProvider = DebugPackageProvider.get(target);
     assertThat(debugPackageProvider.getStrippedArtifact().getFilename()).isEqualTo("w.stripped");
     assertThat(debugPackageProvider.getUnstrippedArtifact().getFilename()).isEqualTo("w");
     assertThat(debugPackageProvider.getDwpArtifact().getFilename()).isEqualTo("w.dwp");
@@ -7038,6 +7052,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "my_rules/rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             comp_context = cc_common.create_compilation_context()
             comp_outputs = cc_common.create_compilation_outputs()
@@ -7075,6 +7090,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -7173,6 +7189,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/module_map.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         ModuleMapInfo = provider(fields = ["module_map", "file"])
 
         def _impl(ctx):
@@ -7207,6 +7224,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "a/BUILD",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
         load(":rule.bzl", "crule")
 
@@ -7222,6 +7240,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       scratch.overwriteFile(
           "a/rule.bzl",
           "load('//bazel_internal/test_rules/cc:module_map.bzl', 'ModuleMapInfo')",
+          "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
           "CruleInfo = provider()",
           "def _impl(ctx):",
           "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
@@ -7275,6 +7294,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
+          "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
           "def _impl(ctx):",
           "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
           "  feature_configuration = cc_common.configure_features(",
@@ -7311,6 +7331,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
+          "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
           "def _impl(ctx):",
           "  comp_outputs = cc_common.create_compilation_outputs()",
           "  " + call,
@@ -7356,6 +7377,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
+          "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+          "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
           "def _impl(ctx):",
           "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
           "  feature_configuration = cc_common.configure_features(",
@@ -7403,6 +7426,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/linkstamps.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
         LinkstampsInfo = provider(fields = ["linkstamps"])
 
         def _impl(ctx):
@@ -7454,6 +7478,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
+          "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+          "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
           "load('//bazel_internal/test_rules/cc:linkstamps.bzl',",
           "             'LinkstampsInfo')",
           "def _impl(ctx):",

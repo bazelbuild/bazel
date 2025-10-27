@@ -69,6 +69,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/rule/apple_rules.bzl",
         """
+        load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')
         load("//myinfo:myinfo.bzl", "MyInfo")
 
         def my_rule_impl(ctx):
@@ -242,6 +243,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/rule/apple_rules.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
         def my_rule_impl(ctx):
             dep = ctx.attr.deps[0]
             return [dep[apple_common.Objc], dep[CcInfo]]
@@ -332,6 +334,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/rule/apple_rules.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
         def my_rule_impl(ctx):
             return [CcInfo()]
 
@@ -370,7 +373,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         """);
 
     ConfiguredTarget libTarget = getConfiguredTarget("//test_starlark/apple_starlark:lib");
-    assertThat(libTarget.get(CcInfo.PROVIDER)).isNotNull();
+    assertThat(CcInfo.get(libTarget)).isNotNull();
   }
 
   @Test
@@ -1022,7 +1025,14 @@ swift_binary = rule(
   private ConfiguredTarget createObjcProviderStarlarkTarget(String... implLines) throws Exception {
     String[] impl =
         ObjectArrays.concat(
-            ObjectArrays.concat("def swift_binary_impl(ctx):", implLines),
+            ObjectArrays.concat(
+                new String[] {
+                  "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+                  "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+                  "def swift_binary_impl(ctx):"
+                },
+                implLines,
+                String.class),
             new String[] {
               "swift_binary = rule(",
               "implementation = swift_binary_impl,",

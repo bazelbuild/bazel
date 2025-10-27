@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -27,6 +29,15 @@ import net.starlark.java.eval.EvalException;
 /** Provider for C++ compilation and linking information. */
 public final class CcInfo {
   public static final CcInfoProvider PROVIDER = new CcInfoProvider();
+  public static final RulesCcCcInfoProvider RULES_CC_PROVIDER = new RulesCcCcInfoProvider();
+
+  public static CcInfo get(ConfiguredTarget target) throws RuleErrorException {
+    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    if (ccInfo == null) {
+      ccInfo = target.get(CcInfo.RULES_CC_PROVIDER);
+    }
+    return ccInfo;
+  }
 
   /** A wrapper around the Starlark provider. */
   public static class CcInfoProvider extends StarlarkProviderWrapper<CcInfo> {
@@ -34,6 +45,20 @@ public final class CcInfo {
       super(
           BzlLoadValue.keyForBuiltins(
               Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
+          "CcInfo");
+    }
+
+    @Override
+    public CcInfo wrap(Info value) {
+      return new CcInfo((StarlarkInfo) value);
+    }
+  }
+
+  public static class RulesCcCcInfoProvider extends StarlarkProviderWrapper<CcInfo> {
+    public RulesCcCcInfoProvider() {
+      super(
+          BzlLoadValue.keyForBuild(
+              Label.parseCanonicalUnchecked("@rules_cc+//cc/private:cc_info.bzl")),
           "CcInfo");
     }
 

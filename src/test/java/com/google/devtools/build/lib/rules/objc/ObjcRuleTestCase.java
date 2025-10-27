@@ -192,7 +192,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected CcInfo ccInfoForTarget(String label) throws Exception {
-    CcInfo ccInfo = getConfiguredTarget(label).get(CcInfo.PROVIDER);
+    CcInfo ccInfo = CcInfo.get(getConfiguredTarget(label));
     if (ccInfo != null) {
       return ccInfo;
     }
@@ -240,6 +240,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file(
         "fx/defs.bzl",
         """
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+        load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
         def _custom_static_framework_import_impl(ctx):
             return [
                 CcInfo(
@@ -283,6 +285,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "load('@rules_cc//cc/private/rules_impl:objc_compilation_support.bzl',"
+            + " 'compilation_support')",
         "_CPU_TO_PLATFORM = {",
         "    'darwin_x86_64': '" + MockObjcSupport.DARWIN_X86_64 + "',",
         "    'ios_x86_64': '" + MockObjcSupport.IOS_X86_64 + "',",
@@ -456,7 +462,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        deps = split_deps.get(split_transition_key, [])",
         "        platform_info = child_toolchain[ApplePlatformInfo]",
         "",
-        "        common_variables = apple_common.compilation_support.build_common_variables(",
+        "        common_variables = compilation_support.build_common_variables(",
         "            ctx = ctx,",
         "            toolchain = cc_toolchain,",
         "            deps = deps,",
@@ -822,7 +828,7 @@ cc_toolchain_forwarder = rule(
     scratch.file("x/a.h");
     ruleType.scratchTarget(scratch, "hdrs", "['a.h']", "includes", "['incdir']");
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:x").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//x:x")).getCcCompilationContext();
     ImmutableList<String> declaredIncludeSrcs =
         ccCompilationContext.getDeclaredIncludeSrcs().toList().stream()
             .map(x -> removeConfigFragment(x.getExecPathString()))
@@ -1067,16 +1073,13 @@ cc_toolchain_forwarder = rule(
   protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target)
       throws EvalException, RuleErrorException {
     return Artifact.toRootRelativePaths(
-        target
-            .get(CcInfo.PROVIDER)
-            .getCcLinkingContext()
-            .getStaticModeParamsForDynamicLibraryLibraries());
+        CcInfo.get(target).getCcLinkingContext().getStaticModeParamsForDynamicLibraryLibraries());
   }
 
   protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target)
       throws RuleErrorException {
     return Artifact.toRootRelativePaths(
-        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
+        CcInfo.get(target).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 
   protected static StarlarkInfo getObjcInfo(ConfiguredTarget starlarkTarget)

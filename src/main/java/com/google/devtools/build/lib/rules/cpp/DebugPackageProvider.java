@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -31,6 +33,15 @@ import net.starlark.java.eval.EvalException;
  */
 public final class DebugPackageProvider {
   public static final Provider PROVIDER = new Provider();
+  public static final RulesCcProvider RULES_CC_PROVIDER = new RulesCcProvider();
+
+  public static DebugPackageProvider get(ConfiguredTarget target) throws RuleErrorException {
+    DebugPackageProvider debugPackageProvider = target.get(PROVIDER);
+    if (debugPackageProvider == null) {
+      debugPackageProvider = target.get(RULES_CC_PROVIDER);
+    }
+    return debugPackageProvider;
+  }
 
   private final StarlarkInfo starlarkInfo;
 
@@ -81,6 +92,21 @@ public final class DebugPackageProvider {
       super(
           keyForBuiltins(
               Label.parseCanonicalUnchecked("@_builtins//:common/cc/debug_package_info.bzl")),
+          "DebugPackageInfo");
+    }
+
+    @Override
+    public DebugPackageProvider wrap(Info value) throws RuleErrorException {
+      return new DebugPackageProvider((StarlarkInfo) value);
+    }
+  }
+
+  /** Provider class for {@link DebugPackageProvider} objects. */
+  public static class RulesCcProvider extends StarlarkProviderWrapper<DebugPackageProvider> {
+    public RulesCcProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked("@rules_cc+//cc/private:debug_package_info.bzl")),
           "DebugPackageInfo");
     }
 

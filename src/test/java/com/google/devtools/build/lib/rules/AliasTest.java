@@ -60,7 +60,7 @@ public class AliasTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget b = getConfiguredTarget("//a:b");
-    assertThat(b.get(CcInfo.PROVIDER).getCcCompilationContext()).isNotNull();
+    assertThat(CcInfo.get(b).getCcCompilationContext()).isNotNull();
   }
 
   @Test

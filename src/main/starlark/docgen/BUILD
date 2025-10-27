@@ -33,6 +33,7 @@ starlark_doc_extract(
     src = "java.bzl",
     deps = [
         "@com_google_protobuf//bazel/common:proto_info_bzl",
+        "@rules_cc//cc:core_rules",
         "@rules_java//java:java_single_jar",
         "@rules_java//java/bazel/rules",
     ],

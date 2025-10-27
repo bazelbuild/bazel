@@ -4015,6 +4015,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test/starlark/extension.bzl",
         """
         load('//myinfo:myinfo.bzl', 'MyInfo')
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 
         def _malloc_rule_impl(ctx):
           return [MyInfo(malloc = ctx.attr._custom_malloc)]

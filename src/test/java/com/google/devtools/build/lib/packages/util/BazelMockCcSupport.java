@@ -167,7 +167,30 @@ public final class BazelMockCcSupport extends MockCcSupport {
               """,
               ruleName));
     }
-
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/cc_info.bzl",
+        """
+        load("//cc/private:cc_info.bzl", _CcInfo = "CcInfo")
+        CcInfo = _CcInfo
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/debug_package_info.bzl",
+        """
+        load("//cc/private:debug_package_info.bzl", _DebugPackageInfo = "DebugPackageInfo")
+        DebugPackageInfo = _DebugPackageInfo
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/cc_common.bzl",
+        """
+        load("//cc/private:cc_common.bzl", _cc_common = "cc_common")
+        cc_common = _cc_common
+        """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/toolchains/cc_toolchain_config_info.bzl",
+        """
+        load("//cc/private/toolchain_config:cc_toolchain_config_info.bzl", _CcToolchainConfigInfo = "CcToolchainConfigInfo")
+        CcToolchainConfigInfo = _CcToolchainConfigInfo
+        """);
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");

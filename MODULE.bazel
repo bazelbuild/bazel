@@ -23,13 +23,13 @@ bazel_dep(name = "googletest", version = "1.17.0", repo_name = "com_google_googl
 bazel_dep(name = "grpc-java", version = "1.71.0")
 bazel_dep(name = "grpc", version = "1.73.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "protobuf", version = "32.0", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "33.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_java", version = "8.16.1")
 bazel_dep(name = "rules_jvm_external", version = "6.6")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
-bazel_dep(name = "rules_python", version = "1.4.1")
+bazel_dep(name = "rules_python", version = "1.6.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
@@ -39,8 +39,8 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
-bazel_dep(name = "apple_support", version = "1.23.1")
-bazel_dep(name = "rules_cc", version = "0.2.11")
+bazel_dep(name = "apple_support", version = "1.24.2")
+bazel_dep(name = "rules_cc", version = "0.2.12")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -124,7 +124,7 @@ single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
     patches = ["//third_party:protobuf.patch"],
-    version = "32.0",
+    version = "33.0",
 )
 
 # Remove once the following PRs are available in a grpc-java release.
