@@ -130,4 +130,19 @@ public class DecompressorValueTest {
               expectedExtensions, observedExtensions, copyPasteCode));
     }
   }
+
+  @Test
+  public void getDecompressorByType() throws Exception {
+    DecompressorValue.Decompressor decompressor = DecompressorValue.getDecompressor("zip");
+    assertThat(decompressor).isInstanceOf(ZipDecompressor.class);
+
+    decompressor = DecompressorValue.getDecompressor("deb");
+    assertThat(decompressor).isInstanceOf(ArFunction.class);
+
+    RepositoryFunctionException expected =
+        assertThrows(
+            RepositoryFunctionException.class, () -> DecompressorValue.getDecompressor("baz"));
+    assertThat(expected).hasMessageThat().contains("No decompressor found for type baz");
+    assertThat(expected).hasMessageThat().contains("Available types are: zip, jar");
+  }
 }
