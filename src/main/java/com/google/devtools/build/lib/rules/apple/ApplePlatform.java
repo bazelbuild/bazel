@@ -55,9 +55,9 @@ public enum ApplePlatform implements ApplePlatformApi {
   private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e");
   private static final ImmutableSet<String> VISIONOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("visionos_sim_arm64");
+      ImmutableSet.of("visionos_sim_arm64", "visionos_sim_arm64e");
   private static final ImmutableSet<String> VISIONOS_DEVICE_TARGET_CPUS =
-      ImmutableSet.of("visionos_arm64");
+      ImmutableSet.of("visionos_arm64", "visionos_arm64e");
   private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("watchos_i386", "watchos_x86_64", "watchos_arm64");
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
