@@ -82,7 +82,7 @@ public class CyclesReporter {
         BugReport.sendNonFatalBugReport(
             new IllegalStateException("Cycle " + cycleInfo + " did not start with " + topLevelKey));
       }
-      suppressedCycles |= maybeReportCycle(cycleInfo, topLevelKey, firstCycle, eventHandler);
+      suppressedCycles |= !maybeReportCycle(cycleInfo, topLevelKey, firstCycle, eventHandler);
       firstCycle = false;
     }
     if (suppressedCycles) {
@@ -91,6 +91,7 @@ public class CyclesReporter {
     }
   }
 
+  /** Returns true if it reported the cycle. */
   private boolean maybeReportCycle(
       CycleInfo cycleInfo,
       SkyKey topLevelKey,
