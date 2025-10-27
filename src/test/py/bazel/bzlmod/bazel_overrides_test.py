@@ -124,6 +124,54 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
 
+  def testSingleVersionOverrideWithPatchCmds(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+            # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  version = "1.0",',
+            '  patch_cmds = [',
+            '''    "sed -e 's|aaa@1.0|aaa@1.0 (locally patched with patch_cmds)|' aaa.cc > aaa.cc.new",''',
+            '    "mv aaa.cc.new aaa.cc",',
+            '  ],',
+            ')',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.0 (locally patched with patch_cmds)', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 (locally patched with patch_cmds)', stdout)
+
+  def testSingleVersionOverrideWithPatchAndPatchCmds(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+            # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  version = "1.0",',
+            '  patches = ["//:aaa.patch"],',
+            '  patch_strip = 1,',
+            '  patch_cmds = [',
+            '''    "sed -e 's|locally patched|locally patched with patches and patch_cmds|' aaa.cc > aaa.cc.new",''',
+            '    "mv aaa.cc.new aaa.cc",',
+            '  ],',
+            ')',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.0 (locally patched with patches and patch_cmds)', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 (locally patched with patches and patch_cmds)', stdout)
+
   def testRegistryOverride(self):
     self.writeMainProjectFiles()
     another_registry = BazelRegistry(

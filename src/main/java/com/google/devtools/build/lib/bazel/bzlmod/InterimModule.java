@@ -232,7 +232,9 @@ public abstract class InterimModule extends ModuleBase {
       return repoSpec;
     }
     SingleVersionOverride singleVersion = (SingleVersionOverride) override;
-    if (singleVersion.getPatches().isEmpty()) {
+    if (singleVersion.getPatches().isEmpty()
+        && singleVersion.getPatchCmds().isEmpty()
+        && singleVersion.getPatchStrip() == 0) {
       return repoSpec;
     }
     ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
