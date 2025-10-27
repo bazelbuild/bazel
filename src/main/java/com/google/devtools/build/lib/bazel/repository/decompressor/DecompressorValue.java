@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -23,14 +25,114 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.channels.ClosedByInterruptException;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import net.starlark.java.eval.Starlark;
 
 /**
  * The contents of decompressed archive.
  */
 public class DecompressorValue implements SkyValue {
+
+  private static final ImmutableList<String> ZIP_FORMATS =
+      ImmutableList.<String>builder()
+          .add("zip")
+          .add("jar")
+          .add("war")
+          .add("aar")
+          .add("nupkg")
+          .add("whl")
+          .build();
+
+  private static final ImmutableList<String> TAR_FORMATS =
+      ImmutableList.<String>builder().add("tar").build();
+
+  private static final ImmutableList<String> TAR_GZIP_FORMATS =
+      ImmutableList.<String>builder().add("tar.gz").add("tgz").build();
+
+  private static final ImmutableList<String> GZIP_FORMATS =
+          ImmutableList.<String>builder().add("gz").build();
+
+  private static final ImmutableList<String> TAR_XZ_FORMATS =
+      ImmutableList.<String>builder().add("tar.xz").add("txz").build();
+
+  private static final ImmutableList<String> XZ_FORMATS =
+          ImmutableList.<String>builder().add("xz").build();
+
+  private static final ImmutableList<String> TAR_ZST_FORMATS =
+      ImmutableList.<String>builder().add("tar.zst").add("tzst").build();
+
+  private static final ImmutableList<String> ZST_FORMATS =
+          ImmutableList.<String>builder().add("zst").build();
+
+  private static final ImmutableList<String> TAR_BZ2_FORMATS =
+      ImmutableList.<String>builder().add("tar.bz2").add("tbz").build();
+
+  private static final ImmutableList<String> BZ2_FORMATS =
+          ImmutableList.<String>builder().add("bz2").build();
+
+  private static final ImmutableList<String> AR_FORMATS =
+      ImmutableList.<String>builder().add("ar").add("deb").build();
+
+  private static final ImmutableList<String> SEVENZ_FORMATS =
+      ImmutableList.<String>builder().add("7z").build();
+
+  // List of supported compressor format file extensions with their corresponding Decompressor
+  // instance. The order here is intentional and is the order in which a decompressor is searched
+  // for.
+  private static final ImmutableList<Pair<ImmutableList<String>, Decompressor>> supportedFormats =
+      ImmutableList.<Pair<ImmutableList<String>, Decompressor>>builder()
+          .add(Pair.of(ZIP_FORMATS, ZipDecompressor.INSTANCE))
+          .add(Pair.of(TAR_FORMATS, TarFunction.INSTANCE))
+          .add(Pair.of(TAR_GZIP_FORMATS, TarGzFunction.INSTANCE))
+          .add(Pair.of(GZIP_FORMATS, GzFunction.INSTANCE))
+          .add(Pair.of(TAR_XZ_FORMATS, TarXzFunction.INSTANCE))
+          .add(Pair.of(XZ_FORMATS, XzFunction.INSTANCE))
+          .add(Pair.of(TAR_ZST_FORMATS, TarZstFunction.INSTANCE))
+          .add(Pair.of(ZST_FORMATS, ZstFunction.INSTANCE))
+          .add(Pair.of(TAR_BZ2_FORMATS, TarBz2Function.INSTANCE))
+          .add(Pair.of(BZ2_FORMATS, Bz2Function.INSTANCE))
+          .add(Pair.of(AR_FORMATS, ArFunction.INSTANCE))
+          .add(Pair.of(SEVENZ_FORMATS, SevenZDecompressor.INSTANCE))
+          .build();
+
+  /**
+   * Returns a human-readable string of supported decompressor extensions separated by commas.
+   *
+   * <p>The resulting string looks like:
+   *
+   * <p><code>
+   * [prefix][extension][suffix], [prefix][extension2][suffix] [conjunction] [prefix][extension3][suffix]
+   * </p></code>
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>No prefix/suffix and with the conjunction "and": <code>jar, zip, whl, tgz and ar</code>
+   *   <li>Dot prefix and conjunction "or": <code>.jar, .zip, .whl, .tgz or .ar</code>
+   *   <li>Quote+dot prefix, quote suffix and conjunction "or": <code>
+   *       `.jar`, `.zip`, `.whl`, `.tgz` or `.ar`</code>
+   * </ul>
+   */
+  public static String readableSupportedFormats(String prefix, String suffix, String conjunction) {
+    List<String> allExtensions = allSupportedExtensions(prefix, suffix);
+
+    String commaSeparatedExtensions =
+        allExtensions.subList(0, allExtensions.size() - 1).stream()
+            .collect(Collectors.joining(", "));
+
+    return commaSeparatedExtensions + " " + conjunction + " " + allExtensions.getLast();
+  }
+
+  public static List<String> allSupportedExtensions(String prefix, String suffix) {
+    return supportedFormats.stream()
+        .map(format -> format.first)
+        .flatMap(List::stream)
+        .map(type -> prefix + type + suffix)
+        .collect(Collectors.toList());
+  }
 
   /** Implementation of a decompression algorithm. */
   public interface Decompressor {
@@ -93,44 +195,22 @@ public class DecompressorValue implements SkyValue {
   @VisibleForTesting
   static Decompressor getDecompressor(Path archivePath) throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
-    if (baseName.endsWith(".zip")
-        || baseName.endsWith(".jar")
-        || baseName.endsWith(".war")
-        || baseName.endsWith(".aar")
-        || baseName.endsWith(".nupkg")
-        || baseName.endsWith(".whl")) {
-      return ZipDecompressor.INSTANCE;
-    } else if (baseName.endsWith(".tar")) {
-      return TarFunction.INSTANCE;
-    } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
-      return TarGzFunction.INSTANCE;
-    } else if (baseName.endsWith(".gz")) { // Must be after .tar.gz.
-      return GzFunction.INSTANCE;
-    } else if (baseName.endsWith(".tar.xz") || baseName.endsWith(".txz")) {
-      return TarXzFunction.INSTANCE;
-    } else if (baseName.endsWith(".xz")) { // Must be after .tar.xz.
-      return XzFunction.INSTANCE;
-    } else if (baseName.endsWith(".tar.zst") || baseName.endsWith(".tzst")) {
-      return TarZstFunction.INSTANCE;
-    } else if (baseName.endsWith(".zst")) { // Must be after .tar.zst.
-      return ZstFunction.INSTANCE;
-    } else if (baseName.endsWith(".tar.bz2") || baseName.endsWith(".tbz")) {
-      return TarBz2Function.INSTANCE;
-    } else if (baseName.endsWith(".bz2")) { // Must be after .tar.bz2.
-      return Bz2Function.INSTANCE;
-    } else if (baseName.endsWith(".ar") || baseName.endsWith(".deb")) {
-      return ArFunction.INSTANCE;
-    } else if (baseName.endsWith(".7z")) {
-      return SevenZDecompressor.INSTANCE;
-    } else {
-      throw new RepositoryFunctionException(
-          Starlark.errorf(
-              "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .whl, .tar, .tar.gz, .tgz,"
-                  + " .gz, .tar.xz, .txz, .xz, .tar.zst, .tzst, .zst, .tar.bz2, .tbz, .bz2, .ar,"
-                  + " .deb or .7z suffix (got %s)",
-              archivePath),
-          Transience.PERSISTENT);
+    // Return the corresponding decompressor if the archive's basename ends with a matching
+    // extension. Eg. If the file ends in .tar.gz or .tgz, use the TarGzFunction decompressor.
+    for (Pair<ImmutableList<String>, Decompressor> format : supportedFormats) {
+      ImmutableList<String> fileExtensions = format.first;
+      Decompressor decompressor = format.second;
+      if (fileExtensions.stream().map(type -> "." + type).anyMatch(ext -> baseName.endsWith(ext))) {
+        return decompressor;
+      }
     }
+
+    throw new RepositoryFunctionException(
+        Starlark.errorf(
+            "Expected a file with a %s suffix (got %s)",
+            readableSupportedFormats(/* prefix= */ ".", /* suffix= */ "", /* conjunction= */ "or"),
+            archivePath),
+        Transience.PERSISTENT);
   }
 
   @CanIgnoreReturnValue
