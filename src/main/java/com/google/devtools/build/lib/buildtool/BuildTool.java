@@ -140,6 +140,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -1087,18 +1088,20 @@ public class BuildTool {
       // This is a blocking call. We cannot finish the build until the metadata has been written
       // and at this point there is nothing else to do in the build that could be done in
       // parallel.
-      success =
-          dependenciesProvider
-              .getAnalysisCacheClient()
-              .addTopLevelTargets(
-                  env.getCommandId().toString(),
-                  skycacheMetadataParams.getEvaluatingVersion(),
-                  skycacheMetadataParams.getConfigurationHash(),
-                  skycacheMetadataParams.getBazelVersion(),
-                  skycacheMetadataParams.getTargets(),
-                  skycacheMetadataParams.getConfigFlags())
-              .get(SkycacheMetadataParams.TIMEOUT.toSeconds(), SECONDS);
-    } catch (TimeoutException | ExecutionException e) {
+      RemoteAnalysisMetadataWriter metadataWriter = dependenciesProvider.getMetadataWriter();
+      if (metadataWriter == null) {
+        message = "MetadataAnalysisCacheWriterService is unavailable";
+      } else {
+        success =
+            metadataWriter.addTopLevelTargets(
+                env.getCommandId().toString(),
+                skycacheMetadataParams.getEvaluatingVersion(),
+                skycacheMetadataParams.getConfigurationHash(),
+                skycacheMetadataParams.getBazelVersion(),
+                skycacheMetadataParams.getTargets(),
+                skycacheMetadataParams.getConfigFlags());
+      }
+    } catch (IOException e) {
       // To avoid build failures for a UX-enhancing feature, errors writing build metadata do not
       // cause the build to fail. Instead, we log the error and rely on external monitoring to
       // detect issues with metadata writes.
@@ -1108,8 +1111,10 @@ public class BuildTool {
       env.getReporter().handle(Event.info("Skycache: Successfully wrote metadata to backend"));
     } else {
       env.getReporter()
-          .handle(Event.warn("Skycache: Failed to write metadata to backend:" + message));
-      logger.atSevere().log("Error writing metadata at end of build: %s", message);
+          .handle(
+              Event.warn(
+                  "Skycache: Failed to write metadata to backend"
+                      + (message != null ? ": " + message : "")));
     }
   }
 
@@ -1278,7 +1283,8 @@ public class BuildTool {
 
     private final Future<ObjectCodecs> objectCodecsFuture;
     private final Future<FingerprintValueService> fingerprintValueServiceFuture;
-    @Nullable private final Future<RemoteAnalysisCacheClient> analysisCacheClient;
+    @Nullable private final Future<? extends RemoteAnalysisCacheClient> analysisCacheClient;
+    @Nullable private final Future<? extends RemoteAnalysisMetadataWriter> metadataWriter;
     @Nullable private volatile AnalysisCacheInvalidator analysisCacheInvalidator;
 
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
@@ -1516,6 +1522,7 @@ public class BuildTool {
       servicesSupplier.configure(options, clientId, env.getBuildRequestId(), jsonLogWriter);
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
+      this.metadataWriter = servicesSupplier.getMetadataWriter();
       this.eventHandler = env.getReporter();
       this.skycacheMetadataParams =
           env.getBlazeWorkspace()
@@ -1650,6 +1657,20 @@ public class BuildTool {
         return analysisCacheClient.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         logger.atWarning().withCause(e).log("Unable to initialize analysis cache service");
+        return null;
+      }
+    }
+
+    @Override
+    @Nullable
+    public RemoteAnalysisMetadataWriter getMetadataWriter() {
+      if (metadataWriter == null) {
+        return null;
+      }
+      try {
+        return metadataWriter.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
+      } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        logger.atWarning().withCause(e).log("Unable to initialize metadata writer");
         return null;
       }
     }

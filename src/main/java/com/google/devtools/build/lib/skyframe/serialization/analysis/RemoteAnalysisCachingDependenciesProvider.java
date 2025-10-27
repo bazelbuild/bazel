@@ -74,6 +74,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   RemoteAnalysisCacheClient getAnalysisCacheClient();
 
+  RemoteAnalysisMetadataWriter getMetadataWriter();
+
   /** Returns the JSON log writer or null if this log is not enabled. */
   @Nullable
   RemoteAnalysisJsonLogWriter getJsonLogWriter();
@@ -155,6 +157,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public RemoteAnalysisCacheClient getAnalysisCacheClient() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RemoteAnalysisMetadataWriter getMetadataWriter() {
       throw new UnsupportedOperationException();
     }
 

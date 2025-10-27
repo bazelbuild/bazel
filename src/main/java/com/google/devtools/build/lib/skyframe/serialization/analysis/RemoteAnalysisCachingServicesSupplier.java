@@ -61,7 +61,12 @@ public interface RemoteAnalysisCachingServicesSupplier {
    * <p>This may entail I/O so it is wrapped in a future.
    */
   @Nullable // null if frontier-style invalidation is used instead of the cache service
-  default ListenableFuture<RemoteAnalysisCacheClient> getAnalysisCacheClient() {
+  default ListenableFuture<? extends RemoteAnalysisCacheClient> getAnalysisCacheClient() {
+    return null;
+  }
+
+  @Nullable
+  default ListenableFuture<? extends RemoteAnalysisMetadataWriter> getMetadataWriter() {
     return null;
   }
 

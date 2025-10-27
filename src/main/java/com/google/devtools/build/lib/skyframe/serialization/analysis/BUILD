@@ -34,6 +34,7 @@ java_library(
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_server_state",
         ":remote_analysis_json_log_writer",
+        ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -274,6 +275,7 @@ java_library(
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_json_log_writer",
+        ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//third_party:guava",
@@ -318,6 +320,11 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "remote_analysis_metadata_writer",
+    srcs = ["RemoteAnalysisMetadataWriter.java"],
 )
 
 java_library(

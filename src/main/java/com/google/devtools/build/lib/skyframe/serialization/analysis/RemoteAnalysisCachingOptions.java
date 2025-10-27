@@ -223,11 +223,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "A flag to switch on/off inserting and querying the metadata db (b/425247333). The idea"
-              + " is for this flag to only exist temporarily for a careful rollout of the feature"
-              + " then be deleted later. For writers it requires passing an analysis cache service"
-              + " address.")
+      help = "A flag to switch on/off inserting and querying the metadata db (b/425247333).")
   public boolean analysisCacheEnableMetadataQueries;
 
   @Option(
