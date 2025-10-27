@@ -1122,7 +1122,11 @@ the same path on case-insensitive filesystems.
               .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
               .setRenameFiles(renameFilesMap)
-              .build());
+              .build(),
+          // Type does NOT need to be passed here, as the existing code renames the archive path to
+          // include the type extension. The decompression code then uses the file extension to get
+          // the proper decompressor.
+          /* forceDecompressorType= */ Optional.empty());
       env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
     }
 
@@ -1249,6 +1253,21 @@ the same path on case-insensitive filesystems.
             positional = false,
             named = true,
             defaultValue = "''"),
+        @Param(
+            name = "type",
+            defaultValue = "''",
+            named = true,
+            positional = false,
+            doc =
+                // Since this is an annotation label, the SUPPORTED_DECOMPRESSION_FORMATS string
+                // must be a compile time constant (we can't call a method to get it).
+                """
+                                              The archive type of the downloaded file. By default, the archive type is \
+                                              determined from the file extension of the URL. If the file has no \
+                                              extension, you can explicitly specify either \
+                                              """
+                    + SUPPORTED_DECOMPRESSION_FORMATS
+                    + " here."),
       })
   public void extract(
       Object archive,
@@ -1257,6 +1276,7 @@ the same path on case-insensitive filesystems.
       Dict<?, ?> renameFiles, // <String, String> expected
       String watchArchive,
       String oldStripPrefix,
+      String type,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
@@ -1298,7 +1318,8 @@ the same path on case-insensitive filesystems.
             .setDestinationPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .setRenameFiles(renameFilesMap)
-            .build());
+            .build(),
+        Optional.ofNullable(type).filter(s -> !s.isBlank()));
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 

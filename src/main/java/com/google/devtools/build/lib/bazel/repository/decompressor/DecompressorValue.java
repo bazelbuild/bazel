@@ -213,11 +213,57 @@ public class DecompressorValue implements SkyValue {
         Transience.PERSISTENT);
   }
 
+  /**
+   * Returns a decompressor based on the file type extension.
+   *
+   * <p>Example: {@code getDecompressor("tar.gz")} returns {@link TarGzFunction}.
+   *
+   * <p>The type should NOT have a dot prefix.
+   *
+   * <p>Bad Example: {@code getDecompressor(".tar.gz")} throws {@link RepositoryFunctionException}.
+   */
+  static Decompressor getDecompressor(String type) throws RepositoryFunctionException {
+    for (Pair<ImmutableList<String>, Decompressor> format : supportedFormats) {
+      ImmutableList<String> fileExtensions = format.first;
+      Decompressor decompressor = format.second;
+      if (fileExtensions.stream().anyMatch(type::equals)) {
+        return decompressor;
+      }
+    }
+    throw new RepositoryFunctionException(
+        Starlark.errorf(
+            "No decompressor found for type %s. Available types are: %s",
+            type,
+            readableSupportedFormats(/* prefix= */ "", /* suffix= */ "", /* conjunction= */ "or")),
+        Transience.PERSISTENT);
+  }
+
   @CanIgnoreReturnValue
   public static Path decompress(DecompressorDescriptor descriptor)
       throws RepositoryFunctionException, InterruptedException {
+    return decompress(descriptor, /* forceDecompressorType= */ Optional.empty());
+  }
+
+  /**
+   * Decompresses an archive according to {@link DecompressorDescriptor}.
+   *
+   * @param descriptor contains the information on the archive to decompress, where to decompress to
+   *     and any post-decompression actions to take.
+   * @param forceDecompressorType interpret the archive as this type (eg. "zip" to treat the archive
+   *     file as a zipped file). If <code>forceDecompressorType</code> is given, the specified
+   *     decompressor will be used, otherwise, the decompressor will use the archive's file
+   *     extension to determine an appropriate decompressor.
+   */
+  @CanIgnoreReturnValue
+  public static Path decompress(
+      DecompressorDescriptor descriptor, Optional<String> forceDecompressorType)
+      throws RepositoryFunctionException, InterruptedException {
     try {
-      return getDecompressor(descriptor.archivePath()).decompress(descriptor);
+      if (forceDecompressorType.isPresent()) {
+        return getDecompressor(forceDecompressorType.get()).decompress(descriptor);
+      } else {
+        return getDecompressor(descriptor.archivePath()).decompress(descriptor);
+      }
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException();
     } catch (IOException e) {
