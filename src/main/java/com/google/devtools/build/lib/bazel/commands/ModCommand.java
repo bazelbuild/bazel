@@ -592,8 +592,8 @@ public final class ModCommand implements BlazeCommand {
     if (modOptions.allRepos) {
       // Module repos.
       for (RepositoryName repoName : moduleInspector.moduleKeyToCanonicalNames().values()) {
-        if (repoName.equals(RepositoryName.BAZEL_TOOLS) || repoName.isMain()) {
-          // These repos can't be inspected.
+        if (repoName.isMain()) {
+          // The main repo can't be inspected.
           continue;
         }
         targetToRepoName.put(repoName.getNameWithAt(), repoName);
@@ -613,8 +613,8 @@ public final class ModCommand implements BlazeCommand {
       }
     } else if (modOptions.allVisibleRepos) {
       for (Entry<String, RepositoryName> entry : baseModuleMapping.entries().entrySet()) {
-        if (entry.getValue().equals(RepositoryName.BAZEL_TOOLS) || entry.getValue().isMain()) {
-          // These repos can't be inspected.
+        if (entry.getValue().isMain()) {
+          // The main repo can't be inspected.
           continue;
         }
         targetToRepoName.put("@" + entry.getKey(), entry.getValue());

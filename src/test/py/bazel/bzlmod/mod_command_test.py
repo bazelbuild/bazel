@@ -607,11 +607,15 @@ class ModCommandTest(test_base.TestBase):
       if line.startswith('## '):
         current_key = line[3:-1]  # Remove '## ' prefix and ':' suffix.
 
-      elif line.startswith('  name = "'):
+      elif line.startswith('  name = "') or line.startswith('Builtin or overridden repo located at:'):
         if current_key is None:
           self.fail(f'Found repo without key: {line}')
 
-        repo_name = line[len('  name = "'): -2]  # Remove prefix and '",' suffix.
+        if line.startswith('  name = "'):
+          repo_name = line[len('  name = "'): -2]  # Remove prefix and '",' suffix.
+        else:
+          repo_name = 'builtin or overridden repo'
+
         if current_key in key_to_repo:
           if isinstance(key_to_repo[current_key], str):
             key_to_repo[current_key] = [key_to_repo[current_key], repo_name]
@@ -635,17 +639,20 @@ class ModCommandTest(test_base.TestBase):
           name.startswith('@@'),
           f'Found non-canonical {name} -> {parsed[name]} in output',
       )
-      self.assertEqual(
-          name, '@@' + parsed[name],
-          f'Found non-canonical {name} -> {parsed[name]} in output',
-      )
-      self.assertIsInstance(
-          parsed[name], str,
-          f'Found duplicate name in output: {name} -> {parsed[name]}',
-      )
+      if parsed[name] != "builtin or overridden repo":
+        self.assertEqual(
+            name, '@@' + parsed[name],
+            f'Found non-canonical {name} -> {parsed[name]} in output',
+        )
+        self.assertIsInstance(
+            parsed[name], str,
+            f'Found duplicate name in output: {name} -> {parsed[name]}',
+        )
 
     self.assertContainsSubset(
         [
+            # Built in
+            '@@bazel_tools',
             # Has both versions of direct dependencies
             '@@foo+1.0',
             '@@foo+2.0',
@@ -678,6 +685,7 @@ class ModCommandTest(test_base.TestBase):
 
     self.assertDictEqual(
         {
+            '@bazel_tools': 'builtin or overridden repo',
             '@foo1': 'foo+1.0',
             '@foo2': 'foo+2.0',
             '@ext': 'ext+',
@@ -697,6 +705,7 @@ class ModCommandTest(test_base.TestBase):
 
     self.assertDictEqual(
         {
+            '@bazel_tools': 'builtin or overridden repo',
             '@foo': 'foo+2.0',
             '@bar_from_foo2': 'bar+',
             '@ext_mod': 'ext+',
