@@ -153,6 +153,16 @@ class BazelFetchTest(test_base.TestBase):
     self.assertNotIn('+ext+notConfig', repos_fetched)
     self.assertIn('+ext+IamConfig', repos_fetched)
 
+  # fix for https://github.com/bazelbuild/bazel/issues/27042
+  def testSimpleFetchConfig(self):
+    exit_code, _, stderr = self.RunBazel(
+        ['fetch', '--configure'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    stderr = '\n'.join(stderr)
+    self.assertIn('All external dependencies fetched successfully.', stderr)
+
   def testFetchConfigForce(self):
     self.useMockBuiltinModules()
     self.main_registry.createShModule('aaa', '1.0').createShModule(

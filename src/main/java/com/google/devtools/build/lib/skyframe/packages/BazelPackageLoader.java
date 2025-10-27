@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -183,6 +185,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
               .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
               .put(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)
+              .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
               .put(
                   SkyFunctions.BAZEL_LOCK_FILE,
                   new BazelLockFileFunction(

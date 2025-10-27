@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -184,6 +186,7 @@ public abstract class AnalysisMock extends LoadingMock {
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryFetchFunction(
                 ImmutableMap::of, directories, new LocalRepoContentsCache()))
+        .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
         .put(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(

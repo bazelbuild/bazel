@@ -14,8 +14,12 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
+
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
@@ -33,11 +37,13 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -47,6 +53,11 @@ import net.starlark.java.syntax.Location;
 
 /** Looks up the definition of a repo with the given name. */
 public final class RepoDefinitionFunction implements SkyFunction {
+  private final BlazeDirectories directories;
+
+  public RepoDefinitionFunction(BlazeDirectories directories) {
+    this.directories = directories;
+  }
 
   @Nullable
   @Override
@@ -76,6 +87,16 @@ public final class RepoDefinitionFunction implements SkyFunction {
             RepositoryName.MAIN);
 
     RepositoryName repositoryName = ((RepoDefinitionValue.Key) skyKey).argument();
+
+    // Step 0: Look for repository overrides.
+    Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
+    if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
+      return new RepoDefinitionValue.RepoOverride(overrides.get(repositoryName));
+    }
+    if (repositoryName.equals(RepositoryName.BAZEL_TOOLS)) {
+      return new RepoDefinitionValue.RepoOverride(
+          directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").asFragment());
+    }
 
     // Step 1: Look for repositories defined by non-registry overrides.
     Optional<RepoSpec> repoSpec = checkRepoFromNonRegistryOverrides(root, repositoryName);
