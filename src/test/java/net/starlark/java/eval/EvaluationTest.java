@@ -874,6 +874,25 @@ public final class EvaluationTest {
   }
 
   @Test
+  public void varStatement_evalsAsNoop() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario().setUp("X : int").testLookup("X", null);
+  }
+
+  @Test
+  public void varStatement_canLeaveToplevelSymbolcUninitialized() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario()
+        .setUp(
+            """
+            X : int
+            def f():
+                print(X)
+            """)
+        .testIfErrorContains("global variable 'X' is referenced before assignment", "f()");
+  }
+
+  @Test
   public void castExpression_evalsAsIdentity() throws Exception {
     // The dynamic behavior of `cast` (disregarding type checking) is to return its value unchanged.
     ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());

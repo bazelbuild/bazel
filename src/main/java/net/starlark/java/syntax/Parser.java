@@ -1402,11 +1402,14 @@ final class Parser {
   //                | expr
   //                | load_stmt
   //                | return_stmt
+  //                | var_stmt
   //                | BREAK | CONTINUE | PASS
   //
-  //     assign_stmt = expr ('=' | augassign) expr
+  //     assign_stmt = expr (':' expr)? ('=' | augassign) expr
   //
   //     augassign = '+=' | '-=' | '*=' | '/=' | '%=' | '//=' | '&=' | '|=' | '^=' |'<<=' | '>>='
+  //
+  //     var_stmt = IDENTIFIER ':' expr DOC_COMMENT_TRAILING?
   private Statement parseSmallStatement() {
     // return
     if (token.kind == TokenKind.RETURN) {
@@ -1427,22 +1430,61 @@ final class Parser {
       return parseLoadStatement();
     }
 
+    // All other cases require an expression. Parse it now.
     Expression lhs = parseExpr();
 
-    // type alias; this is the only context in which the identifier `type` may be followed by
-    // another identifier.
+    // Type alias. This is the only context in which an identifier can be immediately followed by
+    // another identifier; the first identifier is the soft keyword `type`.
     if (token.kind == TokenKind.IDENTIFIER && isTypeSoftKeyword(lhs)) {
       return parseTypeAliasStatementTail(lhs);
     }
 
-    // lhs = rhs  or  lhs += rhs
+    // Possible type expression for var statement or assignment.
+    int colonOffset = token.start; // valid only if type != null below.
+    @Nullable Expression type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+
+    // If it's an assignment, the equals or augmented-equals operator will be next.
+    // op == null for ordinary assignment. TODO(adonovan): represent as EQUALS.
     TokenKind op = augmentedAssignments.get(token.kind);
     if (token.kind == TokenKind.EQUALS || op != null) {
+      // Assignment.
       int opOffset = nextToken();
       Expression rhs = parseExpr();
+      // Validate usage of type annotation if present.
+      if (type != null) {
+        if (!(lhs instanceof Identifier)) {
+          syntaxError(
+              colonOffset,
+              TokenKind.COLON,
+              null,
+              "type annotations must have a single identifier on the left-hand side");
+          type = null;
+        }
+        if (op != null) {
+          syntaxError(
+              colonOffset,
+              TokenKind.COLON,
+              null,
+              "type annotations not allowed on augmented assignment statements");
+          type = null;
+        }
+      }
       // op == null for ordinary assignment. TODO(adonovan): represent as EQUALS.
-      return new AssignmentStatement(locs, lhs, op, opOffset, rhs);
+      return new AssignmentStatement(locs, lhs, type, op, opOffset, rhs);
+    } else if (type != null) {
+      // Var statement.
+      if (!(lhs instanceof Identifier id)) {
+        syntaxError(
+            colonOffset,
+            TokenKind.COLON,
+            null,
+            "type annotations must have a single identifier on the left-hand side");
+        return new ExpressionStatement(
+            locs, makeErrorExpression(lhs.getStartOffset(), type.getEndOffset()));
+      }
+      return new VarStatement(locs, id, type);
     } else {
+      // Not an assignment or var statement, so must be an expression.
       return new ExpressionStatement(locs, lhs);
     }
   }
