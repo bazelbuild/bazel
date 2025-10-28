@@ -523,14 +523,6 @@ def _build_fully_linked_variable_extensions(archive, libs):
     extensions["imported_library_exec_paths"] = []
     return extensions
 
-def _get_static_library_for_linking(library_to_link):
-    if library_to_link.static_library:
-        return library_to_link.static_library
-    elif library_to_link.pic_static_library:
-        return library_to_link.pic_static_library
-    else:
-        return None
-
 def _get_library_for_linking(library_to_link):
     if library_to_link.static_library:
         return library_to_link.static_library
@@ -1004,8 +996,6 @@ def _register_configuration_specific_link_actions_with_objc_variables(
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,
     build_common_variables = _build_common_variables,
-    get_library_for_linking = _get_library_for_linking,
-    get_static_library_for_linking = _get_static_library_for_linking,
     validate_attributes = _validate_attributes,
     register_fully_link_action = _register_fully_link_action,
     register_configuration_specific_link_actions = _register_configuration_specific_link_actions,
