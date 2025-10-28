@@ -315,7 +315,7 @@ def _create_transitive_linking_actions(
     # entries during linking process.
     for libs in precompiled_files[:]:
         for artifact in libs:
-            if _matches([".so", ".dylib", ".dll", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or cc_helper.is_valid_shared_library_artifact(artifact):
+            if _matches([".so", ".dylib", ".dll", ".pyd", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or cc_helper.is_valid_shared_library_artifact(artifact):
                 library_to_link = cc_common.create_library_to_link(
                     actions = ctx.actions,
                     feature_configuration = feature_configuration,
@@ -461,7 +461,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     # the target name.
     # This is no longer necessary, the toolchain can figure out the correct file extensions.
     target_name = ctx.label.name
-    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or cc_helper.is_valid_shared_library_name(target_name))
+    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll", ".pyd"], target_name) or cc_helper.is_valid_shared_library_name(target_name))
     binary = None
     is_dbg_build = (cc_toolchain._cpp_configuration.compilation_mode() == "dbg")
     if has_legacy_link_shared_name:
