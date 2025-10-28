@@ -14,19 +14,12 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import java.util.List;
-import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -43,28 +36,5 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   public AppleConfiguration getAppleConfig(BuildConfigurationValue buildConfiguration)
       throws EvalException {
     return buildConfiguration.getFragment(AppleConfiguration.class);
-  }
-
-  @StarlarkMethod(
-      name = "get_split_build_configs",
-      documented = false,
-      parameters = {@Param(name = "ctx", positional = true, named = true)})
-  public Dict<String, BuildConfigurationValue> getSplitBuildConfigs(
-      StarlarkRuleContext starlarkRuleContext) throws EvalException {
-    Map<Optional<String>, List<ConfiguredTargetAndData>> ctads =
-        starlarkRuleContext
-            .getRuleContext()
-            .getRulePrerequisitesCollection()
-            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR);
-    Dict.Builder<String, BuildConfigurationValue> result = Dict.builder();
-    for (Optional<String> splitTransitionKey : ctads.keySet()) {
-      if (!splitTransitionKey.isPresent()) {
-        throw new EvalException("unexpected empty key in split transition");
-      }
-      result.put(
-          splitTransitionKey.get(),
-          Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
-    }
-    return result.buildImmutable();
   }
 }

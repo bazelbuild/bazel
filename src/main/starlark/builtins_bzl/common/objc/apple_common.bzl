@@ -37,6 +37,4 @@ apple_common = struct(
     dotted_version = lambda version: native_apple_common.dotted_version(version),
     compilation_support = compilation_support,
     get_apple_config = lambda config: native_objc_internal.get_apple_config(config),
-    # This is only used by mock apple_binary in the tests.
-    get_split_build_configs = lambda ctx: native_objc_internal.get_split_build_configs(ctx),
 )
