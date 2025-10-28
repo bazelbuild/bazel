@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.stream.Stream;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
@@ -115,7 +117,7 @@ public class AttributeUtils {
       if (attrValues[i] == null) {
         attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
       }
-      var maybeFirstNonVisibleLabel = nonVisibleLabelsIn(attrValues[i]).findFirst();
+      var maybeFirstNonVisibleLabel = nonVisibleLabelsIn(attrValues[i]);
       if (maybeFirstNonVisibleLabel.isPresent()) {
         var firstNonVisibleLabel = maybeFirstNonVisibleLabel.get();
         throw ExternalDepsException.withCallStackAndMessage(
@@ -135,15 +137,26 @@ public class AttributeUtils {
     return ImmutableList.copyOf(attrValues);
   }
 
-  private static Stream<Label> nonVisibleLabelsIn(Object nativeAttrValue) {
+  private static Optional<Label> nonVisibleLabelsIn(Object nativeAttrValue) {
     return switch (nativeAttrValue) {
-      case Label label when !label.getRepository().isVisible() -> Stream.of(label);
-      case List<?> list ->
-          list.stream()
-              .flatMap(AttributeUtils::nonVisibleLabelsIn);
-      case Map<?, ?> map ->
-          Stream.concat(map.keySet().stream(), map.values().stream()).flatMap(AttributeUtils::nonVisibleLabelsIn);
-      case null, default -> Stream.of();
+      case Label label when !label.getRepository().isVisible() -> Optional.of(label);
+      case List<?> list -> {
+        for (Object item : list) {
+          if (item instanceof Label label && !label.getRepository().isVisible()) {
+            yield Optional.of(label);
+          }
+        }
+        yield Optional.empty();
+      }
+      case Map<?, ?> map -> {
+        for (Object keyOrValue : Iterables.concat(map.keySet(), map.values())) {
+          if (keyOrValue instanceof Label label && !label.getRepository().isVisible()) {
+            yield Optional.of(label);
+          }
+        }
+        yield Optional.empty();
+      }
+      case null, default -> Optional.empty();
     };
   }
 }
