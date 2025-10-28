@@ -1256,8 +1256,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
         def _impl(ctx):
             conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
-            ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
-            tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+            ios = apple_common.platform.ios_simulator
+            tvos = apple_common.platform.tvos_simulator
             return MyInfo(
                 xcode = conf.xcode_version(),
                 ios_sdk = conf.sdk_version_for_platform(ios),
@@ -1354,8 +1354,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
         def _impl(ctx):
             conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
-            ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
-            tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+            ios = apple_common.platform.ios_simulator
+            tvos = apple_common.platform.tvos_simulator
             return MyInfo(
                 xcode = conf.xcode_version(),
                 ios_sdk = conf.sdk_version_for_platform(ios),
@@ -1439,8 +1439,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
         def _impl(ctx):
             conf = ctx.attr._xcode[apple_common.XcodeVersionConfig]
-            ios = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
-            tvos = ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.tvos)
+            ios = apple_common.platform.ios_simulator
+            tvos = apple_common.platform.tvos_simulator
             return MyInfo(
                 xcode = conf.xcode_version(),
                 ios_sdk = conf.sdk_version_for_platform(ios),

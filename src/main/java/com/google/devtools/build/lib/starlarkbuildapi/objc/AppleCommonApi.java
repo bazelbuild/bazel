@@ -55,12 +55,7 @@ public interface AppleCommonApi<
               + "<li><code>visionos</code></li>" //
               + "<li><code>watchos</code></li>" //
               + "</ul><p>" //
-              + "These values can be passed to methods that expect a platform type, like the"
-              + " 'apple' configuration fragment's <a"
-              + " href='../fragments/apple.html#multi_arch_platform'>multi_arch_platform</a>"
-              + " method.<p>Example:<p><pre class='language-python'>\n"
-              + "ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)\n"
-              + "</pre>",
+              + "These values can be passed to methods that expect a platform type.",
       structField = true)
   default StructApi getPlatformTypeStruct() {
     throw new UnsupportedOperationException(); // just for docs
