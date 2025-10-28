@@ -88,12 +88,12 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
         )
         """);
     mockFS.throwIOExceptionFor = PathFragment.create("/workspace/foo/BUILD");
-    invalidatePackages(/*alsoConfigs=*/ false); // We don't want to fail early on config creation.
+    invalidatePackages(/* alsoConfigs= */ false); // We don't want to fail early on config creation.
 
     SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     Throwable e = errorInfo.getException();
@@ -109,7 +109,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     scratch.file("/a_remote_repo/remote_pkg/foo.bzl", "load(':bar.bzl', 'CONST')");
     scratch.file("/a_remote_repo/remote_pkg/bar.bzl", "CONST = 17");
 
-    invalidatePackages(/*alsoConfigs=*/ false); // Repository shuffling messes with toolchains.
+    invalidatePackages(/* alsoConfigs= */ false); // Repository shuffling messes with toolchains.
     SkyKey skyKey =
         BzlCompileValue.key(
             Root.fromPath(repoPath),
@@ -149,7 +149,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     BzlCompileValue bzlCompileValue = result.get(skyKey);
     assertThat(bzlCompileValue.lookupSuccessful()).isTrue();
 
@@ -213,5 +213,27 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     assertContainsEvent(
         "ERROR /workspace/pkg/foo.bzl: not a valid UTF-8 encoded file; this can lead to"
             + " inconsistent behavior and will be disallowed in a future version of Bazel");
+  }
+
+  @Test
+  public void testBzlFileTouched_changePruned() throws Exception {
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl", "x = 1");
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThat(result.get(skyKey).lookupSuccessful()).isTrue();
+    assertNoEvents();
+
+    // Touch the file without changing its contents.
+    scratch.overwriteFile("pkg/foo.bzl", "x = 1");
+
+    invalidatePackages(/* alsoConfigs= */ false);
+    result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThat(result.get(skyKey).lookupSuccessful()).isTrue();
+    assertNoEvents();
   }
 }

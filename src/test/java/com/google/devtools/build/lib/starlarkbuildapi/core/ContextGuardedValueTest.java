@@ -95,8 +95,7 @@ public final class ContextGuardedValueTest {
   }
 
   private Object createClientData(String callerLabelStr) {
-    return BazelCompileContext.create(
-        Label.parseCanonicalUnchecked(callerLabelStr), "unused_caller.bzl");
+    return BazelCompileContext.create(Label.parseCanonicalUnchecked(callerLabelStr));
   }
 
   private GuardedValue createGuard(Object clientData, String... allowedLabelStrs) throws Exception {

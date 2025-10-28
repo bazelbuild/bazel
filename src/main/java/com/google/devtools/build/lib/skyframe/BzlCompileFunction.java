@@ -228,8 +228,7 @@ public class BzlCompileFunction implements SkyFunction {
     } else {
       // The BazelCompileContext holds additional contextual info to be associated with the Module
       // The information is used to filter predeclareds
-      BazelCompileContext bazelCompileContext =
-          BazelCompileContext.create(key.label, file.getName());
+      BazelCompileContext bazelCompileContext = BazelCompileContext.create(key.label);
       module = Module.withPredeclaredAndData(semantics, predeclared, bazelCompileContext);
     }
     try {
