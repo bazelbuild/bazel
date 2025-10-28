@@ -63,6 +63,7 @@ java_library(
         "TypeAliasStatement.java",
         "TypeApplication.java",
         "UnaryOperatorExpression.java",
+        "VarStatement.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     # Do not add Bazel or Google dependencies here!

@@ -250,6 +250,13 @@ public final class NodePrinterTest {
   }
 
   @Test
+  public void assignmentStatementWithTypeAnnotation() throws SyntaxError.Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertStmtIndentedPrettyMatches("x : T = y", "  x : T = y\n");
+    assertStmtTostringMatches("x : T = y", "x : T = y\n");
+  }
+
+  @Test
   public void expressionStatement() throws SyntaxError.Exception {
     assertStmtIndentedPrettyMatches("5", "  5\n");
     assertStmtTostringMatches("5", "5\n");
@@ -496,6 +503,13 @@ public final class NodePrinterTest {
         "load(\"foo.bzl\", a=\"A\", \"B\")", "  load(\"foo.bzl\", a=\"A\", \"B\")\n");
     assertStmtTostringMatches(
         "load(\"foo.bzl\", a=\"A\", \"B\")\n", "load(\"foo.bzl\", a=\"A\", \"B\")\n");
+  }
+
+  @Test
+  public void varStatement() throws SyntaxError.Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertStmtIndentedPrettyMatches("x : T", "  x : T\n");
+    assertStmtTostringMatches("x : T\n", "x : T\n");
   }
 
   @Test

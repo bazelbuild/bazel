@@ -62,10 +62,20 @@ public final class ParserTest {
     ParserInput input = ParserInput.fromLines(src);
     try {
       Expression.parse(input, fileOptions);
-      throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
+      throw new AssertionError("parseExpressionError() succeeded unexpectedly: " + src);
     } catch (SyntaxError.Exception ex) {
-      return ex.errors().get(0).message();
+      return ex.errors().get(0).toString();
     }
+  }
+
+  // Parses the statement, asserts that parsing fails, and returns the first error message.
+  private String parseStatementError(String src) throws SyntaxError.Exception {
+    ParserInput input = ParserInput.fromLines(src);
+    StarlarkFile file = StarlarkFile.parse(input, fileOptions);
+    if (file.ok()) {
+      throw new AssertionError("parseStatementError() succeeded unexpectedly: " + src);
+    }
+    return file.errors().get(0).toString();
   }
 
   // Joins the lines, parse, and returns a type expression.
@@ -79,9 +89,9 @@ public final class ParserTest {
     ParserInput input = ParserInput.fromLines(src);
     try {
       Expression.parseTypeExpression(input, fileOptions);
-      throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
+      throw new AssertionError("parseTypeExpressionError() succeeded unexpectedly: " + src);
     } catch (SyntaxError.Exception ex) {
-      return ex.errors().get(0).message();
+      return ex.errors().get(0).toString();
     }
   }
 
@@ -494,6 +504,89 @@ public final class ParserTest {
     assertThat(parseStatements("x &= 1").toString()).isEqualTo("[x &= 1\n]");
     assertThat(parseStatements("x <<= 1").toString()).isEqualTo("[x <<= 1\n]");
     assertThat(parseStatements("x >>= 1").toString()).isEqualTo("[x >>= 1\n]");
+  }
+
+  @Test
+  public void testVarAnnotation_basic() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+
+    Statement stmt = parseStatement("x : T");
+    assertThat(stmt).isInstanceOf(VarStatement.class);
+    assertThat(((VarStatement) stmt).getType().toString()).isEqualTo("T");
+
+    stmt = parseStatement("x : T = 123");
+    assertThat(stmt).isInstanceOf(AssignmentStatement.class);
+    assertThat(((AssignmentStatement) stmt).getType().toString()).isEqualTo("T");
+  }
+
+  @Test
+  public void testVarAnnotation_requiresTypeSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    assertThat(parseStatementError("x : T"))
+        .contains("syntax error at ':': type annotations are disallowed");
+    assertThat(parseStatementError("x : T = 123"))
+        .contains("syntax error at ':': type annotations are disallowed");
+  }
+
+  @Test
+  public void testVarAnnotation_takesOneIdentifier() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+
+    // Complaint located at colon at column 6.
+    String errMessage =
+        ":1:6: syntax error at ':': type annotations must have a single identifier on the"
+            + " left-hand side";
+
+    assertThat(parseStatementError("x, y : T")).contains(errMessage);
+    assertThat(parseStatementError("x, y : T = 123")).contains(errMessage);
+
+    // This is *not* parsed as `x : (T, y)`, even though it might look unambiguous. Doing so would
+    // require knowing what the comma is before we know whether we're in a VarStatement or
+    // assignment statement. It's also not allowed by Python.
+    assertThat(parseStatementError("x : T, y"))
+        .contains(":1:6: syntax error at ',': expected newline");
+    assertThat(parseStatementError("x : T, y = 123"))
+        .contains(":1:6: syntax error at ',': expected newline");
+
+    assertThat(parseStatementError("x[0] : T")).contains(errMessage);
+    assertThat(parseStatementError("x[0] : T = 123")).contains(errMessage);
+
+    // Only applicable to assignment, not VarStatement.
+    assertThat(parseStatementError("(x : T, y) = 123"))
+        // TODO: #27370 - Is there a reasonable way to produce a more informative error message
+        // here, e.g. "type annotations are only allowed in assignment statements or variable
+        // declarations"?
+        .contains(":1:4: syntax error at ':': expected )");
+  }
+
+  @Test
+  public void testVarAnnotation_notAllowedOnAugmentedAssignment() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertThat(parseStatementError("x : T += 123"))
+        .contains(
+            ":1:3: syntax error at ':': type annotations not allowed on augmented assignment"
+                + " statements");
+  }
+
+  @Test
+  public void testVarAnnotation_illegalTypeExpression_allowedWithFlag() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+    assertThat(((VarStatement) parseStatement("x : (lambda x: x)")).getType())
+        .isInstanceOf(LambdaExpression.class);
+    assertThat(((AssignmentStatement) parseStatement("x : (lambda x: x) = 123")).getType())
+        .isInstanceOf(LambdaExpression.class);
+  }
+
+  @Test
+  public void testAssignWithAnnotation_illegalTypeExpression_disallowedWithoutFlag()
+      throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(false).build());
+    assertThat(parseStatementError("x : (lambda x: x)"))
+        .contains(":1:5: syntax error at '(': expected a type");
+    assertThat(parseStatementError("x : (lambda x: x) = 123"))
+        .contains(":1:5: syntax error at '(': expected a type");
   }
 
   @Test

@@ -507,7 +507,23 @@ public final class Resolver extends NodeVisitor {
     switch (stmt.kind()) {
       case ASSIGNMENT:
         AssignmentStatement assignStmt = (AssignmentStatement) stmt;
-        createBindingsForLHS(assignStmt.getLHS(), assignStmt.getDocComments());
+        if (assignStmt.getType() != null) {
+          bind(
+              (Identifier) assignStmt.getLHS(),
+              /* isLoad= */ false,
+              /* hasType= */ true,
+              assignStmt.getDocComments());
+        } else {
+          createBindingsForLHS(assignStmt.getLHS(), assignStmt.getDocComments());
+        }
+        break;
+      case VAR:
+        VarStatement varStmt = (VarStatement) stmt;
+        bind(
+            varStmt.getIdentifier(),
+            /* isLoad= */ false,
+            /* hasType= */ true,
+            varStmt.getDocComments());
         break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
@@ -518,12 +534,24 @@ public final class Resolver extends NodeVisitor {
         break;
       case FOR:
         ForStatement forStmt = (ForStatement) stmt;
-        createBindingsForLHS(forStmt.getVars());
+        createBindingsForLHS(forStmt.getVars(), /* docComments= */ null);
         createBindingsForBlock(forStmt.getBody());
         break;
       case DEF:
         DefStatement def = (DefStatement) stmt;
-        bind(def.getIdentifier(), /*isLoad=*/ false);
+        // Def statements are considered to supply a type annotation on the function identifier
+        // iff they have at least one piece of type syntax in their signature -- a type annotation
+        // on a parameter or return value, or a list of generic type variables.
+        // .
+        boolean hasType =
+            def.getParameters().stream().anyMatch(p -> p.getType() != null)
+                || def.getReturnType() != null
+                || !def.getTypeParameters().isEmpty();
+        bind(
+            def.getIdentifier(),
+            /* isLoad= */ false,
+            /* hasType= */ hasType,
+            /* docComments= */ null);
         break;
       case LOAD:
         LoadStatement load = (LoadStatement) stmt;
@@ -539,7 +567,7 @@ public final class Resolver extends NodeVisitor {
           // even if options.allowToplevelRebinding.
           Identifier local = b.getLocalName();
           if (names.add(local.getName())) {
-            bind(local, /*isLoad=*/ true);
+            bind(local, /* isLoad= */ true, /* hasType= */ false, /* docComments= */ null);
           } else {
             errorf(local, "load statement defines '%s' more than once", local.getName());
           }
@@ -554,14 +582,15 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  /**
+   * Calls {@link #bind} for appropriate identifiers of the LHS of an assignment.
+   *
+   * <p>This is only appropriate when no type annotation applies.
+   */
   private void createBindingsForLHS(Expression lhs, @Nullable DocComments docComments) {
     for (Identifier id : Identifier.boundIdentifiers(lhs)) {
-      bind(id, /* isLoad= */ false, docComments);
+      bind(id, /* isLoad= */ false, /* hasType= */ false, docComments);
     }
-  }
-
-  private void createBindingsForLHS(Expression lhs) {
-    createBindingsForLHS(lhs, /* docComments= */ null);
   }
 
   private void assign(Expression lhs) {
@@ -703,7 +732,7 @@ public final class Resolver extends NodeVisitor {
 
     for (Comprehension.Clause clause : clauses) {
       if (clause instanceof Comprehension.For forClause) {
-        createBindingsForLHS(forClause.getVars());
+        createBindingsForLHS(forClause.getVars(), /* docComments= */ null);
       }
     }
     for (int i = 0; i < clauses.size(); i++) {
@@ -768,6 +797,11 @@ public final class Resolver extends NodeVisitor {
     }
 
     assign(node.getLHS());
+  }
+
+  @Override
+  public void visit(VarStatement node) {
+    assign(node.getIdentifier());
   }
 
   @Override
@@ -1149,7 +1183,14 @@ public final class Resolver extends NodeVisitor {
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
-    if (bind(param.getIdentifier(), /*isLoad=*/ false)) {
+    if (!bind(
+        param.getIdentifier(),
+        /* isLoad= */ false,
+        // We set hasType to false, even if there is a param annotation. This is to avoid
+        // complaining that an erroneous duplicated parameter has a type annotation, when we should
+        // really just be complaining about the fact the param was duplicated at all.
+        /* hasType= */ false,
+        /* docComments= */ null)) {
       errorf(param, "duplicate parameter: %s", param.getName());
     }
     params.add(param);
@@ -1157,9 +1198,15 @@ public final class Resolver extends NodeVisitor {
 
   /**
    * Process a binding use of a name by adding a binding to the current block if not already bound,
-   * and associate the identifier with it. Reports whether the name was already bound in this block.
+   * and associate the identifier with it.
+   *
+   * @param hasType true if this binding use has a type annotation associated with it and is not a
+   *     function parameter; an error is reported when hasType is true but the binding already
+   *     exists in this block.
+   * @return true if the name was newly bound in this block, or false if it already existed
    */
-  private boolean bind(Identifier id, boolean isLoad, @Nullable DocComments docComments) {
+  private boolean bind(
+      Identifier id, boolean isLoad, boolean hasType, @Nullable DocComments docComments) {
     String name = id.getName();
     boolean isNew = false;
     Binding bind;
@@ -1223,11 +1270,21 @@ public final class Resolver extends NodeVisitor {
     }
 
     id.setBinding(bind);
-    return !isNew;
-  }
 
-  private boolean bind(Identifier id, boolean isLoad) {
-    return bind(id, isLoad, /* docComments= */ null);
+    if (hasType && !isNew) {
+      if (bind.isSyntactic) {
+        errorf(
+            id, "type annotation on '%s' may only appear at its first declaration", id.getName());
+        errorf(bind.first, "'%s' first declared here", id.getName());
+      } else {
+        // The binding already exists and yet had no definition in this syntax tree. This shouldn't
+        // really be possible -- any binding that we should be shadowing would've be introduced by
+        // `use()` in the `visit()` traversal, which hasn't run yet.
+        errorf(id, "symbol '%s' cannot be annotated with a type", id.getName());
+      }
+    }
+
+    return isNew;
   }
 
   // Report conflicting top-level bindings of same scope, unless options.allowToplevelRebinding.

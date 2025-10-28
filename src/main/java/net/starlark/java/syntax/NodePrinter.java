@@ -164,6 +164,11 @@ final class NodePrinter {
         {
           AssignmentStatement stmt = (AssignmentStatement) s;
           printExpr(stmt.getLHS());
+          Expression type = stmt.getType();
+          if (type != null) {
+            buf.append(" : ");
+            printExpr(type);
+          }
           buf.append(' ');
           if (stmt.isAugmented()) {
             buf.append(stmt.getOperator());
@@ -285,6 +290,16 @@ final class NodePrinter {
           }
           buf.append(" = ");
           printExpr(stmt.getDefinition(), /* canSkipParenthesis= */ true);
+          buf.append('\n');
+          break;
+        }
+
+      case VAR:
+        {
+          VarStatement stmt = (VarStatement) s;
+          printExpr(stmt.getIdentifier());
+          buf.append(" : ");
+          printExpr(stmt.getType());
           buf.append('\n');
           break;
         }

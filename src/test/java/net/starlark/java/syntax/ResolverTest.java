@@ -40,10 +40,7 @@ public class ResolverTest {
 
   // Assertions that parsing and resolution succeeds.
   private void assertValid(String... lines) throws SyntaxError.Exception {
-    StarlarkFile file = resolveFile(lines);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
+    getValidFile(lines);
   }
 
   // Asserts that parsing of the program succeeds but resolution fails
@@ -51,6 +48,14 @@ public class ResolverTest {
   private void assertInvalid(String expectedError, String... lines) throws SyntaxError.Exception {
     List<SyntaxError> errors = getResolutionErrors(lines);
     assertContainsError(errors, expectedError);
+  }
+
+  private StarlarkFile getValidFile(String... lines) throws SyntaxError.Exception {
+    StarlarkFile file = resolveFile(lines);
+    if (!file.ok()) {
+      throw new SyntaxError.Exception(file.errors());
+    }
+    return file;
   }
 
   // Returns the non-empty list of resolution errors of the program.
@@ -456,6 +461,8 @@ public class ResolverTest {
     assertThat(errors.get(0).message()).isEqualTo("name 'undef' is not defined");
   }
 
+  // TODO: #27370 - Add resolver behavior for type expressions, add bindingScopeAndIndex tests here.
+
   @Test
   public void testBindingScopeAndIndex_basic() throws Exception {
     checkBindings(
@@ -537,33 +544,213 @@ public class ResolverTest {
   }
 
   @Test
+  public void testBindingScopeAndIndex_varStatement() throws Exception {
+    options.allowTypeSyntax(true);
+    checkBindings(
+        // Var statement creates a binding, even in the absence of assignment.
+        "xᴳ₀ : T",
+        // Var statement can shadow predeclared.
+        "preᴳ₁ : T",
+        "def fᴳ₂():",
+        "  xᴳ₀",
+        "  preᴳ₁");
+  }
+
+  @Test
   public void testDocComments() throws Exception {
+    options.allowTypeSyntax(true);
     StarlarkFile file =
-        resolveFile(
+        getValidFile(
             """
             #: Doc for FOO
             #: multiline
             FOO = 1
+
             BAR, BAZ = (2, 3)  #: Applies to LHS list
+
+            #: Applies to var annotation without initialier
+            QUX : T
+            QUUX : T #: And the trailing version...
             """);
 
-    assertThat(file.docCommentsMap.keySet()).containsExactly("FOO", "BAR", "BAZ").inOrder();
-    assertThat(file.docCommentsMap.get("FOO").getText()).isEqualTo("Doc for FOO\nmultiline");
-    assertThat(file.docCommentsMap.get("BAR").getText()).isEqualTo("Applies to LHS list");
-    assertThat(file.docCommentsMap.get("BAZ").getText()).isEqualTo("Applies to LHS list");
+    assertThat(file.docCommentsMap.keySet())
+        .containsExactly("FOO", "BAR", "BAZ", "QUX", "QUUX")
+        .inOrder();
+    assertThat(file.docCommentsMap.values().stream().map(DocComments::getText))
+        .containsExactly(
+            "Doc for FOO\nmultiline",
+            "Applies to LHS list",
+            "Applies to LHS list",
+            "Applies to var annotation without initialier",
+            "And the trailing version...")
+        .inOrder();
   }
 
   @Test
   public void testTypeAliasStatement_mustBeAtTopLevel() throws Exception {
     options.allowTypeSyntax(true);
-    StarlarkFile file =
-        resolveFile(
+    assertInvalid(
+        ":2:3: type alias statement not at top level",
+        """
+        def f():
+          type X = int
+        """);
+  }
+
+  @Test
+  public void testMultipleTypeAnnotationsDisallowed_topLevel() throws Exception {
+    options.allowTypeSyntax(true);
+    List<SyntaxError> errors =
+        getResolutionErrors(
+            // All four permutations of VarStatement vs annotated assignment statement.
+            """
+            a : int
+            a : str
+
+            b : int = 123
+            b : str
+
+            c : int
+            c : str = "abc"
+
+            d : int = 123
+            d : str = "abc"
+            """);
+    assertContainsError(errors, ":2:1: 'a' redeclared at top level");
+    assertContainsError(errors, ":5:1: 'b' redeclared at top level");
+    assertContainsError(errors, ":8:1: 'c' redeclared at top level");
+    assertContainsError(errors, ":11:1: 'd' redeclared at top level");
+  }
+
+  @Test
+  public void testMultipleTypeAnnotationsDisallowed_localLevel() throws Exception {
+    // Same as testMultipleTypeAnnotationsDisallowed_topLevel but inside a function, where
+    // reassignment is always allowed.
+    options.allowTypeSyntax(true);
+    List<SyntaxError> errors =
+        getResolutionErrors(
+            // All four permutations of VarStatement vs annotated assignment statement.
             """
             def f():
-              type X = int
+                a : int
+                a : str
+
+                b : int = 123
+                b : str
+
+                c : int
+                c : str = "abc"
+
+                d : int = 123
+                d : str = "abc"
             """);
-    assertThat(file.ok()).isFalse();
-    assertContainsError(file.errors(), ":2:3: type alias statement not at top level");
+    assertContainsError(errors, "type annotation on 'a' may only appear at its first declaration");
+    assertContainsError(errors, "type annotation on 'b' may only appear at its first declaration");
+    assertContainsError(errors, "type annotation on 'c' may only appear at its first declaration");
+    assertContainsError(errors, "type annotation on 'd' may only appear at its first declaration");
+  }
+
+  @Test
+  public void testMultipleTypeAnnotationsDisallowed_defStatement() throws Exception {
+    options.allowTypeSyntax(true);
+
+    assertValid(
+        """
+        def f():
+            # Redefinition is allowed (but bad style) if second definition has no type
+            # annotation.
+            def a(x : int):
+                pass
+            def a(x):
+                pass
+        """);
+
+    List<SyntaxError> errors =
+        getResolutionErrors(
+            """
+            def f():
+                # Second definition may not have a type annotation, even if first definition has
+                # none.
+                def b(x):
+                    pass
+                def b(x : int):
+                    pass
+
+                # Return type annotation counts too.
+                def c(x):
+                    pass
+                def c(x) -> int:
+                    pass
+
+                # Even generic type vars count.
+                def d(x):
+                    pass
+                def d[T](x):
+                    pass
+            """);
+    // TODO: #27371 - For the case of redefining a function, the error message is a little
+    // confusing. But this is also a pretty rare case.
+    assertContainsError(errors, "type annotation on 'b' may only appear at its first declaration");
+    assertContainsError(errors, "type annotation on 'c' may only appear at its first declaration");
+    assertContainsError(errors, "type annotation on 'd' may only appear at its first declaration");
+  }
+
+  @Test
+  public void testSingleAnnotationWithReassignmentIsAllowed() throws Exception {
+    options.allowTypeSyntax(true);
+    assertValid(
+        """
+        def f():
+            a : int
+            a = 123
+        """);
+  }
+
+  @Test
+  public void testAnnotationFollowedByAssignmentStillCountsAsRedeclaration() throws Exception {
+    options.allowTypeSyntax(true);
+    assertInvalid(
+        "'a' redeclared at top level",
+        """
+        a : int
+        a = 123
+        """);
+  }
+
+  @Test
+  public void testVarStatementMustPreceedAssignment() throws Exception {
+    options.allowTypeSyntax(true);
+    assertInvalid(
+        "type annotation on 'x' may only appear at its first declaration",
+        """
+        def f():
+            x = 123
+            x : int
+        """);
+  }
+
+  @Test
+  public void onlyFirstAssignmentMayBeAnnotated() throws Exception {
+    options.allowTypeSyntax(true);
+    assertInvalid(
+        "type annotation on 'x' may only appear at its first declaration",
+        """
+        def f():
+            x = 123
+            x : int = 123
+        """);
+  }
+
+  @Test
+  public void cannotAnnotateParamInBody() throws Exception {
+    options.allowTypeSyntax(true);
+    assertInvalid(
+        "type annotation on 'x' may only appear at its first declaration",
+        """
+        def f(x):
+            # Invalid even though x has no type annotation above.
+            x : int
+        """);
   }
 
   @Test
@@ -635,6 +822,13 @@ public class ResolverTest {
             out[0].substring(0, id.getEndOffset())
                 + suffix
                 + out[0].substring(id.getEndOffset() + 2);
+      }
+
+      @Override
+      public void visit(VarStatement varStatement) {
+        visit(varStatement.getIdentifier());
+        // Don't visit type expression, it isn't processed.
+        // TODO: #27370 - Include the type expression in these tests.
       }
     }.visit(file);
     assertThat(out[0]).isEqualTo(src);

@@ -316,6 +316,8 @@ final class Eval {
         return execReturn(fr, (ReturnStatement) st);
       case TYPE_ALIAS:
         return TokenKind.PASS;
+      case VAR:
+        return TokenKind.PASS;
     }
     throw new IllegalArgumentException("unexpected statement: " + st.kind());
   }
