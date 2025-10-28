@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -258,6 +260,20 @@ public final class MerkleTreeComputer {
       RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException, InterruptedException, LostInputsExecException {
+    try (SilentCloseable c = Profiler.instance().profile("MerkleTreeComputer.buildForSpawn")) {
+      return doBuildForSpawn(
+          spawn, toolInputs, scrubber, spawnExecutionContext, remotePathResolver, blobPolicy);
+    }
+  }
+
+  private MerkleTree doBuildForSpawn(
+      Spawn spawn,
+      Set<PathFragment> toolInputs,
+      @Nullable Scrubber scrubber,
+      SpawnExecutionContext spawnExecutionContext,
+      RemotePathResolver remotePathResolver,
+      BlobPolicy blobPolicy)
+      throws IOException, InterruptedException, LostInputsExecException {
     // The scrubber is a per-invocation setting and invocations do not overlap, so it can be tracked
     // in a static variable.
     if (!Objects.equals(scrubber, lastScrubber)) {
@@ -379,21 +395,23 @@ public final class MerkleTreeComputer {
    */
   public MerkleTree.Uploadable buildForFiles(Map<PathFragment, Path> inputs)
       throws IOException, InterruptedException {
-    // BlobPolicy.KEEP_AND_REUPLOAD always results in a MerkleTree.Uploadable.
-    return (MerkleTree.Uploadable)
-        getFromFuture(
-            build(
-                Lists.transform(
-                    ImmutableList.sortedCopyOf(
-                        Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
-                    e -> entry(e.getKey(), new ActionInputWithPath(e.getValue()))),
-                alwaysFalse(),
-                /* spawnScrubber= */ null,
-                StaticInputMetadataProvider.empty(),
-                actionInputWithPathResolver,
-                /* remoteActionExecutionContext= */ null,
-                /* remotePathResolver= */ null,
-                BlobPolicy.KEEP_AND_REUPLOAD));
+    try (SilentCloseable c = Profiler.instance().profile("MerkleTreeComputer.buildForFiles")) {
+      // BlobPolicy.KEEP_AND_REUPLOAD always results in a MerkleTree.Uploadable.
+      return (MerkleTree.Uploadable)
+          getFromFuture(
+              build(
+                  Lists.transform(
+                      ImmutableList.sortedCopyOf(
+                          Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
+                      e -> entry(e.getKey(), new ActionInputWithPath(e.getValue()))),
+                  alwaysFalse(),
+                  /* spawnScrubber= */ null,
+                  StaticInputMetadataProvider.empty(),
+                  actionInputWithPathResolver,
+                  /* remoteActionExecutionContext= */ null,
+                  /* remotePathResolver= */ null,
+                  BlobPolicy.KEEP_AND_REUPLOAD));
+    }
   }
 
   private ListenableFuture<MerkleTree> build(

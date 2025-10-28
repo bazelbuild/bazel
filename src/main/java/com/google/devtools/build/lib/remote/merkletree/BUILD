@@ -22,6 +22,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote:scrubber",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
