@@ -291,7 +291,7 @@ def _add_dynamic_library_to_link(
     )
     if shared_library and has_compatible_name:
         lib_name = name.removeprefix("lib").removesuffix(".so").removesuffix(".dylib") \
-            .removesuffix(".dll")
+            .removesuffix(".dll").removesuffix(".pyd")
         libraries_to_link_values.append(
             _NamedLibraryInfo(
                 type = _TYPE.DYNAMIC_LIBRARY,
