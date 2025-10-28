@@ -457,52 +457,83 @@ public class ResolverTest {
   }
 
   @Test
-  public void testBindingScopeAndIndex() throws Exception {
+  public void testBindingScopeAndIndex_basic() throws Exception {
     checkBindings(
-        "xᴳ₀ = 0", //
-        "yᴳ₁ = 1",
-        "zᴳ₂ = 2",
-        "xᴳ₀(xᴳ₀, yᴳ₁, preᴾ₀)",
-        "[xᴸ₀ for xᴸ₀ in xᴳ₀ if yᴳ₁]",
-        "def fᴳ₃(xᴸ₀ = xᴳ₀):",
-        "  xᴸ₀ = yᴸ₁",
-        "  yᴸ₁ = zᴳ₂");
+        // Assign successive indices.
+        "xᴳ₀ = 0",
+        // Visit LHS.
+        "yᴳ₁, zᴳ₂ = 1, 2",
+        // Visit function identifiers and subscripts, don't visit field names, resolve predeclareds.
+        "xᴳ₀(yᴳ₁.f  , preᴾ₀[zᴳ₂])");
+  }
 
+  @Test
+  public void testBindingScopeAndIndex_bindingAfterFirstUse() throws Exception {
+    checkBindings(
+        // Use before definition. (Dynamically invalid, but resolves just fine.)
+        "xᴳ₀",
+        "xᴳ₀ = 0",
+        // Same in local scope, but permit reassignment.
+        "def fᴳ₁():",
+        "  yᴸ₀",
+        "  yᴸ₀ = 0",
+        "  yᴸ₀ = 0",
+        "  yᴸ₀");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_functionBlock() throws Exception {
+    checkBindings(
+        "xᴳ₀ = 0",
+        "yᴳ₁ = 1",
+        // Default expr resolves outside function block, for all params.
+        "def fᴳ₂(xᴸ₀ = xᴳ₀, zᴸ₁ = xᴳ₀):",
+        // Param available within function block, and shadows global.
+        "  xᴸ₀",
+        "  zᴸ₁ = 1",
+        // New bindings in body are local to function block.
+        "  wᴸ₂ = 2",
+        // Global is referenced directly without cell/free indirection.
+        "  yᴳ₁",
+        // Can resolve recursive reference to current function.
+        "  fᴳ₂");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_nestedFunctions() throws Exception {
+    checkBindings(
+        "aᴳ₀ = 0", // a used in nested function but not a cell because it's global
+        "bᴳ₁ = 1", // b not used in nested function
+        "def fᴳ₂():",
+        "  cᶜ₀ = aᴳ₀", // c used in nested function, so made a cell; still increments index
+        "  dᴸ₁ = 1", // d not used in nested function, remains local
+        "  def gᴸ₂():",
+        "    cᶠ₀", // use of enclosing local becomes free; does not increment index
+        "    eᴸ₀ = 1");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_comprehensions() throws Exception {
+    checkBindings(
+        "xᴳ₀ = 0",
+        "yᴳ₁ = 0",
+        // Comprehensions have their own block.
+        // First for-clause resolved outside of this block.
+        // Subsequent for-clauses resolved inside this block.
+        "[xᴸ₀ for xᴸ₀ in xᴳ₀ for xᴸ₀ in xᴸ₀ if yᴳ₁]");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_loads() throws Exception {
     // Load statements create file-local bindings.
     // Functions that reference load bindings are closures.
     checkBindings(
-        "load('module', aᶜ₀='a', bᴸ₁='b')", //
-        "aᶜ₀, bᴸ₁",
-        "def fᴳ₀(): aᶠ₀");
-
-    // If a name is bound globally, all toplevel references
-    // resolve to it, even those that precede it.
-    checkBindings("preᴾ₀");
-    checkBindings("preᴳ₀; preᴳ₀=1; preᴳ₀");
-
-    checkBindings(
-        "aᴳ₀, bᴳ₁ = 0, 0", //
-        "def fᴳ₂(aᴸ₀=bᴳ₁):",
-        "  aᴸ₀, bᴳ₁",
-        "  [(aᴸ₁, bᴳ₁) for aᴸ₁ in aᴸ₀]");
-
-    // Nested functions have lexical scope.
-    checkBindings(
-        "def fᴳ₀(aᴸ₀, bᶜ₁):", // b is a cell: an indirect local shared with nested functions
-        "  aᴸ₀",
-        "  def gᴸ₂(cᴸ₀):",
-        "    bᶠ₀, cᴸ₀"); // b is a free var: a reference to a cell of an outer function
-
-    // Multiply nested functions.
-    checkBindings(
-        "load('module', aᶜ₀='a')",
-        "bᴳ₀ = 0",
-        "def fᴳ₁(cᶜ₀):",
-        "  aᶠ₀, bᴳ₀, cᶜ₀",
-        "  def gᶜ₁(dᶜ₀):",
-        "    aᶠ₀, bᴳ₀, cᶠ₁, dᶜ₀, fᴳ₁",
-        "    def hᶜ₁(eᴸ₀):",
-        "      aᶠ₀, bᴳ₀, cᶠ₁, dᶠ₂, eᴸ₀, fᴳ₁, gᶠ₃, hᶠ₄");
+        """
+        load('module', aᶜ₀='a', bᴸ₁='b')
+        aᶜ₀, bᴸ₁
+        def fᴳ₀():
+          aᶠ₀
+        """);
   }
 
   @Test
@@ -592,10 +623,17 @@ public class ResolverTest {
       @Override
       public void visit(Identifier id) {
         // Replace ...x__... with ...xᴸ₀...
+        Resolver.Binding binding = id.getBinding();
+        String suffix = "";
+        if (binding != null) {
+          suffix += "ᴸᴳᶜᶠᴾᵁ".charAt(binding.getScope().ordinal()); // follow order of enum
+          suffix += "₀₁₂₃₄₅₆₇₈₉".charAt(binding.getIndex()); // 10 is plenty
+        } else {
+          suffix = "  ";
+        }
         out[0] =
             out[0].substring(0, id.getEndOffset())
-                + "ᴸᴳᶜᶠᴾᵁ".charAt(id.getBinding().getScope().ordinal()) // follow order of enum
-                + "₀₁₂₃₄₅₆₇₈₉".charAt(id.getBinding().getIndex()) // 10 is plenty
+                + suffix
                 + out[0].substring(id.getEndOffset() + 2);
       }
     }.visit(file);

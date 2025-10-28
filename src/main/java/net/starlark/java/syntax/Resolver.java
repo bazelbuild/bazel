@@ -576,6 +576,7 @@ public final class Resolver extends NodeVisitor {
       }
     } else if (lhs instanceof DotExpression) {
       visit(((DotExpression) lhs).getObject());
+      // Do not visit the field. It is an identifier but does not correspond to a binding.
     } else {
       errorf(lhs, "cannot assign to '%s'", lhs);
     }
@@ -682,7 +683,7 @@ public final class Resolver extends NodeVisitor {
   @Override
   public void visit(DotExpression node) {
     visit(node.getObject());
-    // Do not visit the field.
+    // Do not visit the field. It is an identifier but does not correspond to a binding.
   }
 
   @Override

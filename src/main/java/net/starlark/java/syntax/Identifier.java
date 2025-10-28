@@ -24,7 +24,7 @@ public final class Identifier extends Expression {
   private final String name;
   private final int nameOffset;
 
-  // set by Resolver
+  // Set by Resolver if applicable.
   @Nullable private Resolver.Binding binding;
 
   Identifier(FileLocations locs, String name, int nameOffset) {
