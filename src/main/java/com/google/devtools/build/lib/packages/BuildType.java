@@ -722,7 +722,7 @@ public final class BuildType {
       // directly on that type.
       List<SelectorValue> selectorValueList = new ArrayList<>();
       for (Selector<T> element : elements) {
-        selectorValueList.add(new SelectorValue(element.mapCopy(), element.getNoMatchError()));
+        selectorValueList.add(new SelectorValue(ImmutableMap.copyOf(element.mapCopy()), element.getNoMatchError()));
       }
       try {
         printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));

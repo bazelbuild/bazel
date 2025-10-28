@@ -1753,7 +1753,6 @@ public final class Attribute implements Comparable<Attribute> {
               + "configuration.");
       return new LabelLateBoundDefault<>(fragmentClass, defaultValueEvaluator, resolver);
     }
-
   }
 
   /** A {@link LateBoundDefault} for a {@link List} of {@link Label} objects. */
