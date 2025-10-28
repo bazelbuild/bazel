@@ -91,6 +91,7 @@ _TARGET_CPUS_BY_PLATFORM = {
         "watchos_i386": True,
         "watchos_x86_64": True,
         "watchos_arm64": True,
+        "watchos_sim_arm64e": True,
     },
     "watchos_device": {
         "watchos_armv7k": True,
