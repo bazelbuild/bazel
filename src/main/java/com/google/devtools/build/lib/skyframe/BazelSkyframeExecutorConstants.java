@@ -45,7 +45,7 @@ public class BazelSkyframeExecutorConstants {
       new DiffCheckNotificationOptions() {
         @Override
         public String getStatusMessage() {
-          return "File changes detected. Checking all source files for changes.";
+          return "Checking for file changes...";
         }
 
         @Override
