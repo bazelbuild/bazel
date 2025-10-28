@@ -84,6 +84,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -930,6 +931,8 @@ public final class MerkleTreeComputer {
     } catch (InterruptedException e) {
       future.cancel(/* mayInterruptIfRunning= */ true);
       throw e;
+    } catch (CancellationException e) {
+      throw new InterruptedException();
     } catch (ExecutionException e) {
       if (e.getCause() instanceof WrappedException wrappedException) {
         wrappedException.unwrapAndThrow();
