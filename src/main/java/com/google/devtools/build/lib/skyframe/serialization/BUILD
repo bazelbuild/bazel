@@ -141,7 +141,6 @@ java_library(
     srcs = ["SerializationConstants.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
     ],
 )
 

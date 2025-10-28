@@ -253,7 +253,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -469,7 +468,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   // A Semaphore to limit the number of in-flight execution of certain SkyFunctions to prevent OOM.
   // TODO(b/185987566): Remove this semaphore.
-  private static final int DEFAULT_SEMAPHORE_SIZE = ResourceUsage.getAvailableProcessors();
+  private static final int DEFAULT_SEMAPHORE_SIZE = Runtime.getRuntime().availableProcessors();
   private final AtomicReference<Semaphore> cpuBoundSemaphore =
       new AtomicReference<>(new Semaphore(DEFAULT_SEMAPHORE_SIZE));
 
@@ -1085,7 +1084,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // permitted.
       EvaluationResult<?> result =
           evaluate(
-              ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(), eventHandler);
+              ImmutableList.of(key),
+              true,
+              Runtime.getRuntime().availableProcessors(),
+              eventHandler);
       if (!result.hasError()) {
         return checkNotNull(result.get(key), "%s %s", result, key);
       }
@@ -2540,7 +2542,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluate(
             TopLevelActionLookupConflictFindingFunction.keys(keys, topLevelArtifactContext),
             /* keepGoing= */ true,
-            /* numThreads= */ ResourceUsage.getAvailableProcessors(),
+            /* numThreads= */ Runtime.getRuntime().availableProcessors(),
             eventHandler);
 
     // Remove top-level action-conflict detection values for memory efficiency. Non-top-level ones
@@ -2657,7 +2659,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluate(
             Iterables.transform(artifacts, ActionLookupConflictFindingValue::key),
             /* keepGoing= */ true,
-            /* numThreads= */ ResourceUsage.getAvailableProcessors(),
+            /* numThreads= */ Runtime.getRuntime().availableProcessors(),
             eventHandler);
 
     // Remove remaining action-conflict detection values immediately for memory efficiency.
@@ -2708,7 +2710,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           evaluate(
               ImmutableList.of(lookupKey),
               /* keepGoing= */ false,
-              /* numThreads= */ ResourceUsage.getAvailableProcessors(),
+              /* numThreads= */ Runtime.getRuntime().availableProcessors(),
               eventHandler);
       if (result.hasError()) {
         return null;

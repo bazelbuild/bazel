@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutp
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -741,7 +740,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             EvaluationContext evaluationContext =
                 newEvaluationContextBuilder()
                     .setKeepGoing(false)
-                    .setParallelism(ResourceUsage.getAvailableProcessors())
+                    .setParallelism(Runtime.getRuntime().availableProcessors())
                     .setEventHandler(eventHandler)
                     .build();
             memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
