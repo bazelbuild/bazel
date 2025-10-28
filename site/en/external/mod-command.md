@@ -48,8 +48,8 @@ The available subcommands and their respective required arguments are:
 
 *   `show_repo <arg>...`: Displays the definition of the specified repos (see
     [example](#mod-example6)). Use `--all_repos` to show definitions of all
-    repos in the entire workspace, or `--all_visible_repos` to show definitions
-    of all repos visible from the `--base_module`.
+    repos in the entire dependency graph, or `--all_visible_repos` to show
+    definitions of all repos visible from the `--base_module`.
 
 *   `show_extension <extension>...`: Displays information about each of the
     specified extensions: a list of the generated repos along with the modules
