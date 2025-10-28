@@ -98,6 +98,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "embedded_tools/tools/jdk/launcher_flag_alias.bzl",
         """
+        load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+        load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
         _providers = [CcInfo, cc_common.launcher_provider]
 
         def _impl(ctx):

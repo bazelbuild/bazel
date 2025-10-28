@@ -1919,6 +1919,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -1969,6 +1970,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2153,6 +2155,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_cppCompileActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2209,6 +2212,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_moduleActionsExecuteOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2281,6 +2285,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_codeGenModuleActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2353,6 +2358,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_compileHeaderActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"
@@ -2426,6 +2432,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void ccCommonCompile_treeArtifactActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _use_cpp_toolchain():",
         "   return [",
         "      config_common.toolchain_type('"

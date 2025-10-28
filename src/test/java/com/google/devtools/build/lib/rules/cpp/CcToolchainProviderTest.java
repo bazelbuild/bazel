@@ -54,6 +54,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file(
         "test/rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         MyInfo = provider()
 
         def _impl(ctx):

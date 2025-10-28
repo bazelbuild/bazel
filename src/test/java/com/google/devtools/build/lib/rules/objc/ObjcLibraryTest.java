@@ -2248,6 +2248,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "tools/build_defs/foo/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _objc_starlark_library_impl(ctx):",
         "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
         "    features = ['objc-compile']",

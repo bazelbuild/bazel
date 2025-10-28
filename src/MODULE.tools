@@ -39,7 +39,7 @@ bazel_dep(name = "rules_python", version = "1.6.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "apple_support", version = "1.24.2", repo_name = None)
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None) # version bump, older versions contribute lockfile entries
-bazel_dep(name = "rules_swift", version = "2.8.2", repo_name = None) # version bump, older versions don't load JavaInfo
+bazel_dep(name = "rules_swift", version = "3.1.2") # version bump, older versions don't load CcInfo
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None) # version bump, fixes errors with older compilers
 # add rules_android
 

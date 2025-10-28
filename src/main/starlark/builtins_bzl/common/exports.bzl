@@ -14,28 +14,18 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
-load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
-load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
-load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
-load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
-load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
-load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
-load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
-load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/debug_package_info.bzl", "DebugPackageInfo")
-load(":common/cc/toolchain_config/cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/apple_common.bzl", "apple_common")
+load(":common/xcode/available_xcodes.bzl", "available_xcodes")
+load(":common/xcode/xcode_config.bzl", "xcode_config")
+load(":common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
+load(":common/xcode/xcode_version.bzl", "xcode_version")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
-    "DebugPackageInfo": DebugPackageInfo,
-    "CcInfo": CcInfo,
-    "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
-    "CcToolchainConfigInfo": CcToolchainConfigInfo,
-    "cc_common": cc_common,
     "apple_common": apple_common,
     "proto_common_do_not_use": struct(
         INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =

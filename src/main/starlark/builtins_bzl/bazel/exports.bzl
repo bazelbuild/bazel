@@ -14,8 +14,9 @@
 
 """Exported builtins symbols that are specific to OSS Bazel."""
 
-load("@_builtins//:common/python/py_internal.bzl", "py_internal")
+load(":common/cc/cc_common_bazel.bzl", "cc_common")
 load(":common/java/java_common.bzl", "java_common_export_for_bazel")
+load(":common/python/py_internal.bzl", "py_internal")
 
 _REMOVED_RULES = [
     "cc_binary",
@@ -44,6 +45,7 @@ def _removed_rule_failure(**_kwargs):
 exported_toplevels = {
     "py_internal": py_internal,
     "java_common": java_common_export_for_bazel,
+    "cc_common": cc_common,
 }
 
 exported_rules = {

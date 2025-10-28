@@ -683,6 +683,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "test_starlark/cc_toolchain_forwarder.bzl",
 """
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 load(":apple_binary_starlark.bzl", "ApplePlatformInfo")
 
 def _target_os_from_rule_ctx(ctx):

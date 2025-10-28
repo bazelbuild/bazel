@@ -65,6 +65,9 @@ public class CompileCommandLineTest extends BuildViewTestCase {
         "    'flag_set',",
         "    'tool',",
         ")",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl',"
+            + " 'CcToolchainConfigInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _impl(ctx):",
         "    return cc_common.create_cc_toolchain_config_info(",
         "        ctx = ctx,",
@@ -82,6 +85,8 @@ public class CompileCommandLineTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "bazel_internal/test_rules/cc/ctf_rule.bzl",
         """
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         MyInfo = provider()
         def _impl(ctx):
           return [MyInfo(f = cc_common.cc_toolchain_features(

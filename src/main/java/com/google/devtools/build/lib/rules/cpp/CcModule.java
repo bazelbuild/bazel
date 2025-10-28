@@ -208,6 +208,7 @@ public abstract class CcModule
     // Allow direct access to cc_common.bzl and to C++ linking code that can't use cc_common.bzl
     // directly without creating a cycle.
     if (!label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common.bzl")
+        && !label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common_bazel.bzl")
         && !label.getCanonicalForm().contains("_builtins//:common/cc/compile")
         && !label.getCanonicalForm().contains("_builtins//:common/cc/link")
         && !label.getCanonicalForm().contains("_builtins//:common/cc/toolchain_config")) {

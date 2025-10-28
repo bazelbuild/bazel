@@ -178,7 +178,9 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
         "    'flag_group',",
         "    'flag_set',",
         ")",
-        "",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl',"
+            + " 'CcToolchainConfigInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _impl(ctx):",
         "    return cc_common.create_cc_toolchain_config_info(",
         "        ctx = ctx,",
@@ -197,6 +199,8 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
     scratch.overwriteFile(
         "bazel_internal/test_rules/cc/ctf_rule.bzl",
         """
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         MyInfo = provider()
         def _impl(ctx):
           return [MyInfo(f = cc_common.cc_toolchain_features(

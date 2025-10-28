@@ -188,6 +188,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "load('"
             + TestConstants.RULES_CC
             + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "CruleInfo = provider(fields=['static', 'dynamic'])",
         "def _impl(ctx):",
         "  toolchain = find_cc_toolchain(ctx)",
@@ -305,6 +306,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "load('"
             + TestConstants.RULES_CC
             + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
@@ -365,6 +367,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
@@ -417,6 +420,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
@@ -468,6 +472,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
@@ -516,6 +521,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "load('"
             + TestConstants.RULES_CC
             + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _impl(ctx):",
         "  toolchain = find_cc_toolchain(ctx)",
         "  feature_configuration = cc_common.configure_features(",
@@ -574,6 +580,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + TestConstants.RULES_CC
             + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _impl(ctx):",
         "  toolchain = find_cc_toolchain(ctx)",
         "  feature_configuration = cc_common.configure_features(",
@@ -630,6 +637,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
@@ -681,6 +689,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
@@ -732,6 +741,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)
@@ -791,6 +801,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "PREPROCESS_ASSEMBLE_ACTION_NAME",
             "STRIP_ACTION_NAME",
         )
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
@@ -1238,6 +1249,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a" + pkgSuffix + "/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _impl(ctx):",
         "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
         "  feature_configuration = cc_common.configure_features(",
@@ -1457,6 +1469,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             compilation_context = cc_common.create_compilation_context()
 
@@ -1485,6 +1498,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             compilation_context = cc_common.create_compilation_context(headers = [])
 
@@ -1511,6 +1525,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "test/my_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_common.create_compilation_outputs(
                 objects = depset([1, 2]),
@@ -1538,6 +1553,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "test/my_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_common.create_compilation_outputs()
 
@@ -1561,6 +1577,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "test/my_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             obj = ctx.actions.declare_file("foo.o")
             thin_link_obj = ctx.actions.declare_file("foo.indexing.o")
@@ -1578,7 +1595,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCreateLtoCompilationContext() throws Exception {
-    String rustPrefix = "rust/private";
+    String rustPrefix = "third_party/bazel_rules/rules_rust/rust/private";
     scratch.file(
         rustPrefix + "/BUILD",
         """
@@ -1589,6 +1606,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         rustPrefix + "/my_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             obj = ctx.actions.declare_file("foo.o")
             thin_link_obj = ctx.actions.declare_file("foo.indexing.o")
@@ -4933,6 +4951,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "variable_with_value",
             "with_feature_set",
         )
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
 
         def _impl(ctx):
             return cc_common.create_cc_toolchain_config_info(
@@ -4978,7 +4998,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
+    CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.get(target);
     assertThat(ccToolchainConfigInfo).isNotNull();
   }
 
@@ -5003,7 +5023,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupStarlarkRuleForStringFieldsTesting("");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
+    CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.get(target);
     assertThat(ccToolchainConfigInfo).isNotNull();
   }
 
@@ -5021,6 +5041,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratch.file(
         "foo/crosstool.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl',"
+            + " 'CcToolchainConfigInfo')",
         "def _impl(ctx):",
         "    return cc_common.create_cc_toolchain_config_info(",
         "    ctx = ctx,",
@@ -5066,6 +5089,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "variable_with_value",
             "with_feature_set",
         )
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
 
         def _impl(ctx):
             return cc_common.create_cc_toolchain_config_info(
@@ -5109,7 +5134,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
+    CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.get(target);
     ImmutableSet<String> featureNames =
         ccToolchainConfigInfo.getFeatures().stream()
             .map(Feature::getName)
@@ -5144,6 +5169,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "variable_with_value",
             "with_feature_set",
         )
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
 
         def _impl(ctx):
             return cc_common.create_cc_toolchain_config_info(
@@ -5189,7 +5216,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo = target.get(CcToolchainConfigInfo.PROVIDER);
+    CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.get(target);
     ImmutableList<String> featureNames =
         ccToolchainConfigInfo.getFeatures().stream()
             .map(Feature::getName)
@@ -5225,6 +5252,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
@@ -7053,6 +7081,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "my_rules/rule.bzl",
         """
         load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')
         def _impl(ctx):
             comp_context = cc_common.create_compilation_context()
             comp_outputs = cc_common.create_compilation_outputs()
@@ -7091,6 +7120,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "bazel_internal/test_rules/cc/rule.bzl",
         """
         load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
+        load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')
+
         def _impl(ctx):
             toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -7120,8 +7151,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//b:b_lib");
     assertThat(
-            target
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(target)
                 .getCcDebugInfoContext()
                 .getValue("files", Depset.class)
                 .toList(Artifact.class)
@@ -7129,11 +7159,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                 .map(Artifact::getFilename))
         .containsExactly("b_lib.dwo");
     assertThat(
-            target
-                .get(CcInfo.PROVIDER)
-                .getCcDebugInfoContext()
-                .getValue("pic_files", Depset.class)
-                .toList())
+            CcInfo.get(target).getCcDebugInfoContext().getValue("pic_files", Depset.class).toList())
         .isEmpty();
   }
 
@@ -7630,6 +7656,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   private String getVariablesExtensionStarlarkRule(String call, String dictionaryEntries) {
     return Joiner.on("\n")
         .join(
+            "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
             "def _impl(ctx):",
             "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
             "  feature_configuration = cc_common.configure_features(",
@@ -7705,6 +7732,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       throws Exception {
     scratch.overwriteFile(
         "b/rule.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _impl(ctx):",
         "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
         "  feature_configuration = cc_common.configure_features(",
@@ -7799,6 +7827,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -7843,6 +7872,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -7882,6 +7912,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_common.create_compilation_outputs(
                 objects = None,
@@ -7918,6 +7949,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -7961,6 +7993,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -8004,6 +8037,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -8049,6 +8083,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
             feature_configuration = cc_common.configure_features(
@@ -8090,6 +8125,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_common.check_private_api(allowlist = [])
             return []
@@ -8119,6 +8155,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_common.create_compilation_outputs(dwo_objects = depset())
             return []
@@ -8146,6 +8183,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_common.create_compilation_outputs(pic_dwo_objects = depset())
             return []
@@ -8173,6 +8211,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test_rules/cc/custom_rule.bzl",
         """
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         def _impl(ctx):
             cc_common.create_compilation_outputs(
                 dwo_objects = depset(),

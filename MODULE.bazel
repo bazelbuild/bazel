@@ -53,7 +53,7 @@ bazel_dep(name = "remoteapis", version = "")
 
 # Indirect module dependencies. Minimal versions are specified for compatibility; repo_name=None avoids accidental usages
 bazel_dep(name = "buildozer", version = "8.2.0.bcr.1", repo_name = None)  # Keep in sync with MODULE.tools
-bazel_dep(name = "rules_swift", version = "2.8.2", repo_name = None)
+bazel_dep(name = "rules_swift", version = "3.1.2") # with repo_name = None, version drops to 2.4.0
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None)
 bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
 

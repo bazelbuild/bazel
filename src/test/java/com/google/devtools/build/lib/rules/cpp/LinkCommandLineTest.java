@@ -74,6 +74,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
   private CcToolchainFeatures buildMockFeatures() throws Exception {
     scratch.overwriteFile(
         "crosstool.bzl",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "def _impl(ctx):",
         "    return cc_common.create_cc_toolchain_config_info(",
         "        ctx = ctx,",
@@ -98,6 +99,8 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     scratch.overwriteFile(
         "bazel_internal/test_rules/cc/ctf_rule.bzl",
         """
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         MyInfo = provider()
         def _impl(ctx):
           return [MyInfo(f = cc_common.cc_toolchain_features(

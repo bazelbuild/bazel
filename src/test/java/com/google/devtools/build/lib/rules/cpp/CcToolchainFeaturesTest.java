@@ -81,6 +81,9 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         "    'variable_with_value',",
         "    'with_feature_set',",
         ")",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl',"
+            + " 'CcToolchainConfigInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "",
         "def _impl(ctx):",
         "    return cc_common.create_cc_toolchain_config_info(",
@@ -100,6 +103,8 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "bazel_internal/test_rules/cc/ctf_rule.bzl",
         """
+        load('@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl', 'CcToolchainConfigInfo')
+        load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
         MyInfo = provider()
         def _impl(ctx):
           return [MyInfo(f = cc_common.cc_toolchain_features(

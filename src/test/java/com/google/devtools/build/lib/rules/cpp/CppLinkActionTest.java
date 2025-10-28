@@ -755,6 +755,7 @@ action_configs = [action_config(
         "bazel_internal/test_rules/cc/link_rule.bzl",
 """
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 def _impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
@@ -800,6 +801,7 @@ cc_link_rule = rule(
         "bazel_internal/test_rules/cc/link_rule.bzl",
 """
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 def _impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
@@ -848,6 +850,7 @@ cc_link_rule = rule(
         "bazel_internal/test_rules/cc/foo.bzl",
 """
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')
 def _impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
     feature_configuration = cc_common.configure_features(

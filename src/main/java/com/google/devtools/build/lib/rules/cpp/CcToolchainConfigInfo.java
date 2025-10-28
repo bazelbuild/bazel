@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.actionConfigFromStarlark;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.featureFromStarlark;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
@@ -38,6 +40,16 @@ public class CcToolchainConfigInfo {
 
   /** Singleton provider instance for {@link CcToolchainConfigInfo}. */
   public static final Provider PROVIDER = new Provider();
+
+  public static final RulesCcProvider RULES_CC_PROVIDER = new RulesCcProvider();
+
+  public static CcToolchainConfigInfo get(ConfiguredTarget target) throws RuleErrorException {
+    CcToolchainConfigInfo info = target.get(PROVIDER);
+    if (info == null) {
+      info = target.get(RULES_CC_PROVIDER);
+    }
+    return info;
+  }
 
   private final StarlarkInfo actual;
 
@@ -87,6 +99,23 @@ public class CcToolchainConfigInfo {
           keyForBuiltins(
               Label.parseCanonicalUnchecked(
                   "@_builtins//:common/cc/toolchain_config/cc_toolchain_config_info.bzl")),
+          "CcToolchainConfigInfo");
+    }
+
+    @Override
+    public CcToolchainConfigInfo wrap(Info value) throws RuleErrorException {
+      return new CcToolchainConfigInfo((StarlarkInfo) value);
+    }
+  }
+
+  /** Provider class for {@link CcToolchainConfigInfo} objects. */
+  public static class RulesCcProvider extends StarlarkProviderWrapper<CcToolchainConfigInfo> {
+
+    private RulesCcProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_cc+//cc/private/toolchain_config:cc_toolchain_config_info.bzl")),
           "CcToolchainConfigInfo");
     }
 
