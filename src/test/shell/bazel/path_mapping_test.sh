@@ -746,6 +746,7 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
     --features=thin_lto \
+    --features=use_lto_native_object_directory \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hello, lib1!'
@@ -762,6 +763,7 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
     --features=thin_lto \
+    --features=use_lto_native_object_directory \
     -s \
     "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
 
