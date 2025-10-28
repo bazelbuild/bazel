@@ -745,6 +745,7 @@ EOF
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
+    --features=thin_lto \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hello, lib1!'
@@ -760,6 +761,7 @@ EOF
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
+    --features=thin_lto \
     -s \
     "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
 
