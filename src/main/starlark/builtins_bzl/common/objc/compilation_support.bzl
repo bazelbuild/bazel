@@ -515,14 +515,6 @@ def _generate_extra_module_map(
         name = common_variables.ctx.label.name,
     )
 
-def _build_fully_linked_variable_extensions(archive, libs):
-    extensions = {}
-    extensions["fully_linked_archive_path"] = archive.path
-    extensions["objc_library_exec_paths"] = [lib.path for lib in libs]
-    extensions["cc_library_exec_paths"] = []
-    extensions["imported_library_exec_paths"] = []
-    return extensions
-
 def _get_library_for_linking(library_to_link):
     if library_to_link.static_library:
         return library_to_link.static_library
@@ -538,30 +530,6 @@ def _get_libraries_for_linking(libraries_to_link):
     for library_to_link in libraries_to_link:
         libraries.append(_get_library_for_linking(library_to_link))
     return libraries
-
-def _register_fully_link_action(name, common_variables, cc_linking_context):
-    ctx = common_variables.ctx
-    feature_configuration = _build_feature_configuration(common_variables, False, False)
-
-    libraries_to_link = cc_helper.libraries_from_linking_context(cc_linking_context).to_list()
-    libraries = _get_libraries_for_linking(libraries_to_link)
-
-    output_archive = ctx.actions.declare_file(name + ".a")
-    extensions = _build_fully_linked_variable_extensions(
-        output_archive,
-        libraries,
-    )
-
-    return cc_common.link(
-        name = name,
-        actions = ctx.actions,
-        feature_configuration = feature_configuration,
-        cc_toolchain = common_variables.toolchain,
-        language = "objc",
-        additional_inputs = libraries,
-        output_type = "archive",
-        variables_extension = extensions,
-    )
 
 def _register_obj_filelist_action(ctx, build_config, obj_files):
     """
@@ -997,6 +965,5 @@ compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,
     build_common_variables = _build_common_variables,
     validate_attributes = _validate_attributes,
-    register_fully_link_action = _register_fully_link_action,
     register_configuration_specific_link_actions = _register_configuration_specific_link_actions,
 )
