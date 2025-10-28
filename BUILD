@@ -37,6 +37,7 @@ filegroup(
         ],
     ) + [
         "//:MODULE.bazel.lock.dist",
+        "//docs:srcs",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
