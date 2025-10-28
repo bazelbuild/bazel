@@ -1222,11 +1222,6 @@ public class CcToolchainFeatures implements StarlarkValue {
       return requestedFeatures;
     }
 
-    /** @return true if tool_path in action_config points to a real tool, not a dummy placeholder */
-    public boolean hasConfiguredLinkerPathInActionConfig() {
-      return isEnabled("has_configured_linker_path");
-    }
-
     /** @return whether an action config for the blaze action with the given name is enabled. */
     boolean actionIsConfigured(String actionName) {
       return enabledActionConfigActionNames.contains(actionName);
