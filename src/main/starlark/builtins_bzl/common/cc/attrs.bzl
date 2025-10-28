@@ -290,6 +290,7 @@ Whether to encode build information into the binary. Possible values:
 <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
 """ + semantics.stamp_extra_docs
 
+# buildifier: disable=attr-licenses
 cc_binary_attrs = common_attrs | {
     "deps": attr.label_list(
         allow_files = semantics.ALLOWED_FILES_IN_DEPS,
