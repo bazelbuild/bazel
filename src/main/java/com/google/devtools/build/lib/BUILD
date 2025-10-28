@@ -410,6 +410,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:symlink_definition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:baseline_options_value",
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
