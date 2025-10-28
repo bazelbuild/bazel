@@ -86,7 +86,7 @@ public final class MockProtoSupport {
     config.create(
         "third_party/protobuf/bazel/flags/BUILD",
         """
-        load("//third_party/bazel_skylib/rules:common_settings.bzl", "bool_flag")
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
         cc_binary(
             name = "empty",
@@ -101,7 +101,7 @@ public final class MockProtoSupport {
     config.create(
         "third_party/protobuf/bazel/flags/cc/BUILD",
         """
-        load("//third_party/bazel_skylib/rules:common_settings.bzl", "bool_flag")
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
         bool_flag(
             name = "dual_proto_modules",

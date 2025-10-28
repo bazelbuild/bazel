@@ -45,7 +45,9 @@ import org.junit.runners.JUnit4;
 public class ObjcStarlarkTest extends ObjcRuleTestCase {
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          keyForBuild(Label.parseCanonicalUnchecked("//test_starlark:apple_binary_starlark.bzl")),
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "//third_party/bazel_rules/rules_apple:apple_binary_starlark.bzl")),
           "AppleExecutableBinaryInfo");
 
   @Before
