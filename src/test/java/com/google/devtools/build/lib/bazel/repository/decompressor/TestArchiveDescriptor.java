@@ -66,21 +66,24 @@ public class TestArchiveDescriptor {
   }
 
   DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
-    FileSystem testFS =
-        OS.getCurrent() == OS.WINDOWS
-            ? new JavaIoFileSystem(DigestHashFunction.SHA256)
-            : new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    FileSystem testFs = getFileSystem();
 
     // do not rely on TestConstants.JAVATESTS_ROOT end with slash, but ensure separators
     // are not duplicated
     String path =
         (TestConstants.JAVATESTS_ROOT + PATH_TO_TEST_ARCHIVE + archiveName).replace("//", "/");
-    Path tarballPath = testFS.getPath(Runfiles.create().rlocation(path));
+    Path tarballPath = testFs.getPath(Runfiles.preload().withSourceRepository("").rlocation(path));
 
-    Path workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
+    Path workingDir = testFs.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     Path outDir = workingDir.getRelative(outDirName);
 
     return DecompressorDescriptor.builder().setDestinationPath(outDir).setArchivePath(tarballPath);
+  }
+
+  public static FileSystem getFileSystem() {
+    return OS.getCurrent() == OS.WINDOWS
+        ? new JavaIoFileSystem(DigestHashFunction.SHA256)
+        : new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
   }
 
   /** Validate the content of the output directory */
