@@ -1,0 +1,62 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.4.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.subrule_ctx">subrule_ctx</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/analysis/starlark/StarlarkSubrule.java" %}
+{% dynamic setvar version "8.4.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/subrule_ctx" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A context object passed to the implementation function of a subrule.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#actions">actions</a>
+  </li>
+      <li>
+    <a href="#fragments">fragments</a>
+  </li>
+      <li>
+    <a href="#label">label</a>
+  </li>
+      <li>
+    <a href="#toolchains">toolchains</a>
+  </li>
+  </ul>
+
+      <h2 id="actions">actions</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/actions.html">actions</a> subrule_ctx.actions</pre></p>
+
+    Contains methods for declaring output files and the actions that produce them
+
+
+        <h2 id="fragments">fragments</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/fragments.html">fragments</a> subrule_ctx.fragments</pre></p>
+
+    Allows access to configuration fragments in target configuration.
+
+
+        <h2 id="label">label</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/Label.html">Label</a> subrule_ctx.label</pre></p>
+
+    The label of the target currently being analyzed
+
+
+        <h2 id="toolchains">toolchains</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/ToolchainContext.html">ToolchainContext</a> subrule_ctx.toolchains</pre></p>
+
+    Contains methods for declaring output files and the actions that produce them
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

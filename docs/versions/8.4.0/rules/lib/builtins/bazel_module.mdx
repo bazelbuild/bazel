@@ -1,0 +1,62 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.4.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.bazel_module">bazel_module</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/bazel/bzlmod/StarlarkBazelModule.java" %}
+{% dynamic setvar version "8.4.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/bazel_module" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+Represents a Bazel module in the external dependency graph.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#is_root">is_root</a>
+  </li>
+      <li>
+    <a href="#name">name</a>
+  </li>
+      <li>
+    <a href="#tags">tags</a>
+  </li>
+      <li>
+    <a href="#version">version</a>
+  </li>
+  </ul>
+
+      <h2 id="is_root">is_root</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> bazel_module.is_root</pre></p>
+
+    Whether this module is the root module.
+
+
+        <h2 id="name">name</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> bazel_module.name</pre></p>
+
+    The name of the module.
+
+
+        <h2 id="tags">tags</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/bazel_module_tags.html">bazel_module_tags</a> bazel_module.tags</pre></p>
+
+    The tags in the module related to the module extension currently being processed.
+
+
+        <h2 id="version">version</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> bazel_module.version</pre></p>
+
+    The version of the module.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

@@ -1,0 +1,191 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.4.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.apple_common">apple_common</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc/AppleCommonApi.java" %}
+{% dynamic setvar version "8.4.0" %}
+{% dynamic setvar original_path "/rules/lib/toplevel/apple_common" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+Functions for Starlark to access internals of the apple rule implementations.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#apple_host_system_env">apple_host_system_env</a>
+  </li>
+      <li>
+    <a href="#apple_toolchain">apple_toolchain</a>
+  </li>
+      <li>
+    <a href="#dotted_version">dotted_version</a>
+  </li>
+      <li>
+    <a href="#platform">platform</a>
+  </li>
+      <li>
+    <a href="#platform_type">platform_type</a>
+  </li>
+      <li>
+    <a href="#target_apple_env">target_apple_env</a>
+  </li>
+      <li>
+    <a href="#XcodeProperties">XcodeProperties</a>
+  </li>
+      <li>
+    <a href="#XcodeVersionConfig">XcodeVersionConfig</a>
+  </li>
+  </ul>
+
+      <h2 id="apple_host_system_env">apple_host_system_env</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/dict.html">dict</a> apple_common.apple_host_system_env(xcode_config)</pre></p>
+
+    Returns a <a href='../core/dict.html'>dict</a> of environment variables that should be set for actions that need to run build tools on an Apple host system, such as the  version of Xcode that should be used. The keys are variable names and the values  are their corresponding values.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="apple_host_system_env.xcode_config">
+              <code>xcode_config</code>
+            </td>
+            <td>
+                                     required<br/>
+                          A provider containing information about the Xcode configuration.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="apple_toolchain">apple_toolchain</h2>
+        <p><pre class="rule-signature">unknown apple_common.apple_toolchain()</pre></p>
+
+    Utilities for resolving items from the apple toolchain.
+
+
+        <h2 id="dotted_version">dotted_version</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/DottedVersion.html">DottedVersion</a> apple_common.dotted_version(version)</pre></p>
+
+    Creates a new <a href="../builtins/DottedVersion.html">DottedVersion</a> instance.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="dotted_version.version">
+              <code>version</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>;
+                                     required<br/>
+                          The string representation of the DottedVersion.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="platform">platform</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/struct.html">struct</a> apple_common.platform</pre></p>
+
+    An enum-like struct that contains the following fields corresponding to Apple platforms:<br><ul><li><code>ios_device</code></li><li><code>ios_simulator</code></li><li><code>macos</code></li><li><code>tvos_device</code></li><li><code>tvos_simulator</code></li><li><code>visionos_device</code></li><li><code>visionos_simulator</code></li><li><code>watchos_device</code></li><li><code>watchos_simulator</code></li></ul><p>These values can be passed to methods that expect a platform, like <a href='../providers/XcodeVersionConfig.html#sdk_version_for_platform'>XcodeVersionConfig.sdk_version_for_platform</a>.
+
+
+        <h2 id="platform_type">platform_type</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/struct.html">struct</a> apple_common.platform_type</pre></p>
+
+    An enum-like struct that contains the following fields corresponding to Apple platform types:<br><ul><li><code>ios</code></li><li><code>macos</code></li><li><code>tvos</code></li><li><code>visionos</code></li><li><code>watchos</code></li></ul><p>These values can be passed to methods that expect a platform type, like the 'apple' configuration fragment's <a href='../fragments/apple.html#multi_arch_platform'>multi_arch_platform</a> method.<p>Example:<p><pre class='language-python'>
+ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)
+</pre>
+
+
+        <h2 id="target_apple_env">target_apple_env</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/dict.html">dict</a> apple_common.target_apple_env(xcode_config, platform)</pre></p>
+
+    Returns a <code>dict</code> of environment variables that should be set for actions that build targets of the given Apple platform type. For example, this dictionary contains variables that denote the platform name and SDK version with which to build. The keys are variable names and the values are their corresponding values.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="target_apple_env.xcode_config">
+              <code>xcode_config</code>
+            </td>
+            <td>
+                                     required<br/>
+                          A provider containing information about the Xcode configuration.
+            </td>
+          </tr>
+                  <tr>
+            <td id="target_apple_env.platform">
+              <code>platform</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The apple platform.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="XcodeProperties">XcodeProperties</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/Provider.html">Provider</a> apple_common.XcodeProperties</pre></p>
+
+    The constructor/key for the <code>XcodeVersionProperties</code> provider.<p>If a target propagates the <code>XcodeVersionProperties</code> provider, use this as the key with which to retrieve it. Example:<br><pre class='language-python'>
+dep = ctx.attr.deps[0]
+p = dep[apple_common.XcodeVersionProperties]
+</pre>
+
+
+        <h2 id="XcodeVersionConfig">XcodeVersionConfig</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/Provider.html">Provider</a> apple_common.XcodeVersionConfig</pre></p>
+
+    The constructor/key for the <code>XcodeVersionConfig</code> provider.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

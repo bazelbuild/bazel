@@ -1,0 +1,93 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.4.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.transition">transition</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config/ConfigurationTransitionApi.java" %}
+{% dynamic setvar version "8.4.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/transition" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+<p>Represents a configuration transition across a dependency edge. For example, if <code>//package:foo</code> depends on <code>//package:bar</code> with a configuration transition, then the configuration of these two targets will differ: <code>//package:bar</code>'s transition will be determined by that of <code>//package:foo</code>, as subject to the function defined by a transition object.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#transition">transition</a>
+  </li>
+  </ul>
+
+      <h2 id="transition">transition</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/transition.html">transition</a> transition(implementation, inputs, outputs)</pre></p>
+
+    A transition that reads a set of input build settings and writes a set of output build settings.<p>Example:</p><p><pre class="language-python">
+def _transition_impl(settings, attr):
+    # This transition just reads the current CPU value as a demonstration.
+    # A real transition could incorporate this into its followup logic.
+    current_cpu = settings["//command_line_option:cpu"]
+    return {"//command_line_option:compilation_mode": "dbg"}
+
+build_in_debug_mode = transition(
+    implementation = _transition_impl,
+    inputs = ["//command_line_option:cpu"],
+    outputs = ["//command_line_option:compilation_mode"],
+)</pre></p><p>For more details see <a href="https://bazel.build/versions/8.4.0/rules/config#user-defined-transitions">here</a>.</p>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="transition.implementation">
+              <code>implementation</code>
+            </td>
+            <td>
+                          callable;
+                                     required<br/>
+                          The function implementing this transition. This function always has two parameters: <code>settings</code> and <code>attr</code>. The <code>settings</code> param is a dictionary whose set of keys is defined by the inputs parameter. So, for each build setting <code>--//foo=bar</code>, if <code>inputs</code> contains <code>//foo</code>, <code>settings</code> will have an entry <code>settings['//foo']='bar'</code>.<p>The <code>attr</code> param is a reference to <code>ctx.attr</code>. This gives the implementation function access to the rule's attributes to make attribute-parameterized transitions possible.<p>This function must return a <code>dict</code> from build setting identifier to build setting value; this represents the configuration transition: for each entry in the returned <code>dict</code>, the transition updates that setting to the new value. All other settings are unchanged. This function can also return a <code>list</code> of <code>dict</code>s or a <code>dict</code> of <code>dict</code>s in the case of a split transition.
+            </td>
+          </tr>
+                  <tr>
+            <td id="transition.inputs">
+              <code>inputs</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          List of build settings that can be read by this transition. This becomes the key set of the settings parameter of the implementation function parameter.
+            </td>
+          </tr>
+                  <tr>
+            <td id="transition.outputs">
+              <code>outputs</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          List of build settings that can be written by this transition. This must be a superset of the key set of the dictionary returned by this transition.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

@@ -1,0 +1,274 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.4.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title">Bazel BUILD Encyclopedia of Functions</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/overview.vm" %}
+{% dynamic setvar version "8.4.0" %}
+{% dynamic setvar original_path "/reference/be/overview" %}
+{% include "_buttons.html" %}
+<h2>Concepts and terminology</h2>
+
+<ul>
+  <li>
+    <a href="/versions/8.4.0/reference/be/common-definitions">Common definitions</a>
+    <ul>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#sh-tokenization">Bourne shell tokenization</a></li>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#label-expansion">Label expansion</a></li>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#typical-attributes">Typical attributes for most rules</a></li>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#common-attributes">Common attributes for all rules</a></li>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#common-attributes-tests">Common attributes for tests</a></li>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#common-attributes-binaries">Common attributes for binaries</a></li>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#configurable-attributes">Configurable attributes</a></li>
+      <li><a href="/versions/8.4.0/reference/be/common-definitions#implicit-outputs">Implicit output targets</a></li>
+    </ul>
+  </li>
+  <li>
+    <a href="/versions/8.4.0/reference/be/make-variables">"Make" variables</a>
+    <ul class="be-toc">
+      <li><a href="/versions/8.4.0/reference/be/make-variables#use">Use</a></li>
+
+    </ul>
+  </li>
+</ul>
+
+<h2>Functions</h2>
+
+<ul class="be-toc">
+  <li><a href="/versions/8.4.0/reference/be/functions.html#package">package</a></li>
+  <li><a href="/versions/8.4.0/reference/be/functions.html#package_group">package_group</a></li>
+
+  <li><a href="/versions/8.4.0/reference/be/functions.html#exports_files">exports_files</a></li>
+  <li><a href="/versions/8.4.0/reference/be/functions.html#glob">glob</a></li>
+  <li><a href="/versions/8.4.0/reference/be/functions.html#select">select</a></li>
+  <li><a href="/versions/8.4.0/rules/lib/globals/workspace#workspace">workspace</a></li>
+</ul>
+
+<h2>Rules</h2>
+
+Native rules ship with the Bazel binary and do not require a <code>load</code> statement.
+Native rules are available globally in BUILD files. In .bzl files, you can find them in
+the <code>native</code> module.
+
+For non-native Starlark rules that ship separately from Bazel, see the list of
+<a href="/versions/8.4.0/rules/rules#recommended-rules">recommended rules</a>.
+
+<h3>Language-specific native rules</h3>
+
+
+<table class="table table-condensed table-striped" summary="Table of rules sorted by language">
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Binary rules</th>
+      <th>Library rules</th>
+      <th>Test rules</th>
+      <th>Other rules</th>
+    </tr>
+  </thead>
+  <tbody>
+            <tr>
+        <td class="lang">C / C++</td>
+                    <td>
+                    <a href="c-cpp.html#cc_binary">cc_binary</a>
+          <br />
+                </td>
+              <td>
+                    <a href="c-cpp.html#cc_import">cc_import</a>
+          <br />
+                    <a href="c-cpp.html#cc_library">cc_library</a>
+          <br />
+                    <a href="c-cpp.html#cc_shared_library">cc_shared_library</a>
+          <br />
+                    <a href="c-cpp.html#cc_static_library">cc_static_library</a>
+          <br />
+                </td>
+              <td>
+                    <a href="c-cpp.html#cc_test">cc_test</a>
+          <br />
+                </td>
+              <td>
+                    <a href="c-cpp.html#cc_toolchain">cc_toolchain</a>
+          <br />
+                    <a href="c-cpp.html#cc_toolchain_suite">cc_toolchain_suite</a>
+          <br />
+                    <a href="c-cpp.html#fdo_prefetch_hints">fdo_prefetch_hints</a>
+          <br />
+                    <a href="c-cpp.html#fdo_profile">fdo_profile</a>
+          <br />
+                    <a href="c-cpp.html#memprof_profile">memprof_profile</a>
+          <br />
+                    <a href="c-cpp.html#propeller_optimize">propeller_optimize</a>
+          <br />
+                </td>
+            </tr>
+                <tr>
+        <td class="lang">Java</td>
+                    <td>
+                    <a href="java.html#java_binary">java_binary</a>
+          <br />
+                </td>
+              <td>
+                    <a href="java.html#java_import">java_import</a>
+          <br />
+                    <a href="java.html#java_library">java_library</a>
+          <br />
+                </td>
+              <td>
+                    <a href="java.html#java_test">java_test</a>
+          <br />
+                </td>
+              <td>
+                    <a href="java.html#java_package_configuration">java_package_configuration</a>
+          <br />
+                    <a href="java.html#java_plugin">java_plugin</a>
+          <br />
+                    <a href="java.html#java_runtime">java_runtime</a>
+          <br />
+                    <a href="java.html#java_toolchain">java_toolchain</a>
+          <br />
+                </td>
+            </tr>
+                <tr>
+        <td class="lang">Objective-C</td>
+                    <td>
+                </td>
+              <td>
+                    <a href="objective-c.html#objc_import">objc_import</a>
+          <br />
+                    <a href="objective-c.html#objc_library">objc_library</a>
+          <br />
+                </td>
+              <td>
+                </td>
+              <td>
+                </td>
+            </tr>
+                <tr>
+        <td class="lang">Protocol Buffer</td>
+                    <td>
+                </td>
+              <td>
+                    <a href="protocol-buffer.html#cc_proto_library">cc_proto_library</a>
+          <br />
+                    <a href="protocol-buffer.html#java_lite_proto_library">java_lite_proto_library</a>
+          <br />
+                    <a href="protocol-buffer.html#java_proto_library">java_proto_library</a>
+          <br />
+                    <a href="protocol-buffer.html#proto_library">proto_library</a>
+          <br />
+                    <a href="protocol-buffer.html#py_proto_library">py_proto_library</a>
+          <br />
+                </td>
+              <td>
+                </td>
+              <td>
+                    <a href="protocol-buffer.html#proto_lang_toolchain">proto_lang_toolchain</a>
+          <br />
+                    <a href="protocol-buffer.html#proto_toolchain">proto_toolchain</a>
+          <br />
+                </td>
+            </tr>
+                <tr>
+        <td class="lang">Python</td>
+                    <td>
+                    <a href="python.html#py_binary">py_binary</a>
+          <br />
+                </td>
+              <td>
+                    <a href="python.html#py_library">py_library</a>
+          <br />
+                </td>
+              <td>
+                    <a href="python.html#py_test">py_test</a>
+          <br />
+                </td>
+              <td>
+                    <a href="python.html#py_runtime">py_runtime</a>
+          <br />
+                </td>
+            </tr>
+                <tr>
+        <td class="lang">Shell</td>
+                    <td>
+                    <a href="shell.html#sh_binary">sh_binary</a>
+          <br />
+                </td>
+              <td>
+                    <a href="shell.html#sh_library">sh_library</a>
+          <br />
+                </td>
+              <td>
+                    <a href="shell.html#sh_test">sh_test</a>
+          <br />
+                </td>
+              <td>
+                </td>
+            </tr>
+        </tbody>
+
+</table>
+<h3>Language-agnostic native rules</h3>
+
+<table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+            <tr>
+        <td class="lang">Extra Actions</td>
+        <td>
+          <ul class="hlist">
+                      <li>  <a href="extra-actions.html#action_listener">action_listener</a>
+                      <li>  <a href="extra-actions.html#extra_action">extra_action</a>
+                    </ul>
+        </td>
+      </tr>
+                <tr>
+        <td class="lang">General</td>
+        <td>
+          <ul class="hlist">
+                      <li>  <a href="general.html#alias">alias</a>
+                      <li>  <a href="general.html#config_setting">config_setting</a>
+                      <li>  <a href="general.html#filegroup">filegroup</a>
+                      <li>  <a href="general.html#genquery">genquery</a>
+                      <li>  <a href="general.html#genrule">genrule</a>
+                      <li>  <a href="general.html#starlark_doc_extract">starlark_doc_extract</a>
+                      <li>  <a href="general.html#test_suite">test_suite</a>
+                    </ul>
+        </td>
+      </tr>
+                <tr>
+        <td class="lang">Platforms and Toolchains</td>
+        <td>
+          <ul class="hlist">
+                      <li>  <a href="platforms-and-toolchains.html#constraint_setting">constraint_setting</a>
+                      <li>  <a href="platforms-and-toolchains.html#constraint_value">constraint_value</a>
+                      <li>  <a href="platforms-and-toolchains.html#platform">platform</a>
+                      <li>  <a href="platforms-and-toolchains.html#toolchain">toolchain</a>
+                      <li>  <a href="platforms-and-toolchains.html#toolchain_type">toolchain_type</a>
+                    </ul>
+        </td>
+      </tr>
+                <tr>
+        <td class="lang">Workspace</td>
+        <td>
+          <ul class="hlist">
+                      <li>  <a href="workspace.html#bind">bind</a>
+                      <li>  <a href="workspace.html#local_repository">local_repository</a>
+                      <li>  <a href="workspace.html#new_local_repository">new_local_repository</a>
+                    </ul>
+        </td>
+      </tr>
+        </tbody>
+
+</table>
+</body>
+</html>
