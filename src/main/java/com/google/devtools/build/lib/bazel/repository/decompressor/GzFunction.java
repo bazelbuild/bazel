@@ -25,7 +25,7 @@ public class GzFunction extends CompressedFunction {
     if (fileName != null && !fileName.isBlank()) {
       // filename should be the simple basename + ext, but convert to a PathFragment and run
       // getBaseName to ensure that any path separators and uplevel references are dropped.
-      return PathFragment.create(fileName).getBaseName().toString();
+      return PathFragment.create(fileName).getBaseName();
     }
     return GzipUtils.getUncompressedFileName(compressedFileName);
   }

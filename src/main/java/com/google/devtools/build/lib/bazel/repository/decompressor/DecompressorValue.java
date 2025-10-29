@@ -126,7 +126,7 @@ public class DecompressorValue implements SkyValue {
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .whl, .tar, .tar.gz, .tgz, .gz,"
-                  + " .tar.xz, .xz, .tar.zst, .tzst, .zst, .tar.bz2, .tbz, .bz2, .ar, .deb or .7z suffix (got %s)",
+                  + " .tar.xz, .txz, .xz, .tar.zst, .tzst, .zst, .tar.bz2, .tbz, .bz2, .ar, .deb or .7z suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }
