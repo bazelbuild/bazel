@@ -899,7 +899,8 @@ public class HttpDownloaderTest {
               output,
               clientEnv,
               context,
-              downloadPhaser);
+              downloadPhaser,
+              /* mayHardlink= */ true);
       Path downloadedPath = downloadManager.finalizeDownload(future);
       // Should not be in the download phase.
       assertThat(downloadPhaser.getPhase()).isNotEqualTo(0);

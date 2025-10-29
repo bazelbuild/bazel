@@ -824,7 +824,10 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               outputPath.getPath(),
               envVariables,
               identifyingStringForLogging,
-              downloadPhaser);
+              downloadPhaser,
+              // The repo rule may modify the file after the download, so we cannot guarantee that
+              // hardlinking is safe.
+              /* mayHardlink= */ false);
       download =
           new PendingDownload(
               executable,
@@ -1061,7 +1064,10 @@ the same path on case-insensitive filesystems.
               downloadDirectory,
               envVariables,
               identifyingStringForLogging,
-              downloadPhaser);
+              downloadPhaser,
+              // The archive is not going to be modified and not accessible to the user, so its safe
+              // to hardlink.
+              /* mayHardlinks= */ true);
       // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
       // executor.
       PendingDownload pendingTask =
