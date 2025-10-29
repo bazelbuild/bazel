@@ -58,6 +58,8 @@ public class NodeVisitor {
     visit(node.getValue());
   }
 
+  public void visit(Ellipsis node) {}
+
   public void visit(Identifier node) {}
 
   public void visit(Comprehension node) {

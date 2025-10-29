@@ -34,6 +34,8 @@ public enum TokenKind {
   DEL("del"),
   DOT("."),
   ELIF("elif"),
+  /** Valid only in type expressions. */
+  ELLIPSIS("..."),
   ELSE("else"),
   EOF("EOF"),
   EQUALS("="),
