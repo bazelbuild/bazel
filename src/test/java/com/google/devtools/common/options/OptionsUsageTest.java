@@ -619,6 +619,8 @@ public final class OptionsUsageTest {
                \s
                 paragraph 2
                \s
+                `<HTML> "syntax" 'within' &codeblocks&`
+               \s
                 [ref]: /url (title)
                 [shorthand reference link]: /url (title)
                 [`complex` shorthand reference link]: /url (title)
@@ -655,6 +657,7 @@ public final class OptionsUsageTest {
             </ol>
             <p>paragraph 1</p>
             <p>paragraph 2</p>
+            <p><code>&lt;HTML&gt; &quot;syntax&quot; 'within' &amp;codeblocks&amp;</code></p>
             </dd>
             """);
   }

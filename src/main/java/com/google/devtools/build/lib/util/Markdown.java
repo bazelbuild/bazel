@@ -20,7 +20,7 @@ import org.commonmark.renderer.html.HtmlRenderer;
 /** Helpers for markdown. */
 public class Markdown {
   private static final Parser PARSER = Parser.builder().build();
-  private static final HtmlRenderer HTML_RENDERER = HtmlRenderer.builder().build();
+  private static final HtmlRenderer HTML_RENDERER = HtmlRenderer.builder().escapeHtml(true).build();
 
   /** Parses a string as markdown and renders it as HTML. */
   public static String renderToHtml(String md) {
