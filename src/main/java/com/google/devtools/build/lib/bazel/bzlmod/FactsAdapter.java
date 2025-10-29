@@ -34,12 +34,18 @@ import net.starlark.java.lib.json.Json;
 public class FactsAdapter extends TypeAdapter<Facts> {
 
   private final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
+  private final StarlarkSemantics semantics =
+      StarlarkSemantics.builder()
+          // Ensure that UTF-8 strings are encoded correctly, matching the default semantics derived
+          // from BuildLanguageOptions.
+          .setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, true)
+          .build();
 
   @Override
   public void write(JsonWriter out, Facts facts) throws IOException {
     String json;
-    try {
-      json = Json.INSTANCE.encode(facts.value());
+    try (var mu = Mutability.create("FactsAdapter")) {
+      json = Json.INSTANCE.encode(facts.value(), StarlarkThread.createTransient(mu, semantics));
     } catch (EvalException | InterruptedException e) {
       throw new IllegalStateException(
           "Unexpected error while serializing facts (%s): %s"
@@ -54,14 +60,7 @@ public class FactsAdapter extends TypeAdapter<Facts> {
   public Facts read(JsonReader in) throws IOException {
     var jsonString = gson.toJson(JsonParser.parseReader(in));
     try (var mu = Mutability.create("FactsAdapter")) {
-      var starlarkThread =
-          StarlarkThread.createTransient(
-              mu,
-              StarlarkSemantics.builder()
-                  // Ensure that UTF-8 strings are encoded correctly, matching the default semantics
-                  // derived from BuildLanguageOptions.
-                  .setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, true)
-                  .build());
+      var starlarkThread = StarlarkThread.createTransient(mu, semantics);
       return Facts.validateAndCreate(
           Json.INSTANCE.decode(jsonString, Starlark.UNBOUND, starlarkThread));
     } catch (EvalException e) {

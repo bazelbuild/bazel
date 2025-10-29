@@ -2115,6 +2115,52 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testJsonFileEncoding() throws Exception {
+    // Test that File objects can be encoded as JSON
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rule.bzl", "test_rule")
+        test_rule(
+            name = "test",
+            src = "test.txt",
+        )
+        """);
+
+    scratch.file(
+        "test/rule.bzl",
+        """
+        def _impl(ctx):
+            input = {"file": ctx.file.src, "other": True}
+            expected_output = {
+                "file": {
+                    "path": ctx.file.src.path,
+                    "short_path": ctx.file.src.short_path,
+                    "root": ctx.file.src.root.path,
+                },
+                "other": True
+            }
+            encoded = json.encode(input)
+            decoded = json.decode(encoded)
+
+            if decoded != expected_output:
+                fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(expected_output, decoded))
+
+            return []
+
+        test_rule = rule(
+            implementation = _impl,
+            attrs = {"src": attr.label(allow_single_file=True, mandatory=True)}
+        )
+        """);
+
+    scratch.file("test/test.txt", "test content");
+
+    var unused = createRuleContext("//test:test");
+    // The rule implementation tests the JSON encoding internally
+  }
+
+  @Test
   public void testLabelAttrWrongDefault() throws Exception {
     ev.checkEvalErrorContains(
         "got value of type 'int', want 'Label, string, LateBoundDefault, function, or NoneType'",
