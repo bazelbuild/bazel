@@ -30,7 +30,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
+import java.nio.file.NotLinkException;
 import java.security.SecureRandom;
 import java.util.Collection;
 import java.util.Iterator;
@@ -44,6 +50,15 @@ public abstract class FileSystem {
   // The maximum number of symbolic links that may be traversed by resolveSymbolicLinks() while
   // canonicalizing a path before it gives up and throws a FileSymlinkLoopException.
   public static final int MAX_SYMLINKS = 32;
+
+  // Standard error message suffixes to be used for consistency across different FileSystem
+  // implementations.
+  protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
+  protected static final String ERR_FILE_EXISTS = " (File exists)";
+  protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
+  protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
+  protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
+  protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
 
   private final DigestHashFunction digestFunction;
 
@@ -795,6 +810,55 @@ public abstract class FileSystem {
   public java.nio.file.Path getNioPath(PathFragment path) {
     throw new UnsupportedOperationException(
         "getNioPath() not supported for " + getClass().getName());
+  }
+
+  /**
+   * Translates common java.nio.file IOExceptions into the equivalent java.io IOExceptions with
+   * consistent error messages.
+   */
+  protected static IOException translateNioToIoException(PathFragment path, IOException e) {
+    if (!(e instanceof FileSystemException fileSystemException)) {
+      return e;
+    }
+    String prefix = "";
+    if (fileSystemException.getFile() != null) {
+      prefix = fileSystemException.getFile();
+    }
+    if (fileSystemException.getOtherFile() != null) {
+      prefix += " -> " + fileSystemException.getOtherFile();
+    }
+    return switch (e) {
+      case AccessDeniedException unused -> {
+        FileAccessException newException = new FileAccessException(prefix + ERR_PERMISSION_DENIED);
+        newException.initCause(e);
+        yield newException;
+      }
+      case DirectoryNotEmptyException unused ->
+          new IOException(prefix + ERR_DIRECTORY_NOT_EMPTY, e);
+      case FileAlreadyExistsException unused -> new IOException(prefix + ERR_FILE_EXISTS, e);
+      case NoSuchFileException unused -> {
+        FileNotFoundException newException =
+            new FileNotFoundException(prefix + ERR_NO_SUCH_FILE_OR_DIR);
+        newException.initCause(e);
+        yield newException;
+      }
+      case NotDirectoryException unused -> new IOException(prefix + ERR_NOT_A_DIRECTORY, e);
+      case NotLinkException unused -> new NotASymlinkException(path, e);
+      // Rewrite exception messages to be identical to the ones produced by the native Unix
+      // filesystem implementation. Bazel forces the root locale for the JVM, so the error messages
+      // should be stable. Some of the exceptions caught above can also appear as untyped
+      // FileSystemExceptions, so we need to catch those as well.
+      case FileSystemException unused
+          when fileSystemException.getReason().equals("Is a directory") ->
+          new IOException(prefix + ERR_IS_DIRECTORY, e);
+      case FileSystemException unused
+          when fileSystemException.getReason().equals("Not a directory") ->
+          new IOException(prefix + ERR_NOT_A_DIRECTORY, e);
+      case FileSystemException unused
+          when fileSystemException.getReason().equals("Directory not empty") ->
+          new IOException(prefix + ERR_DIRECTORY_NOT_EMPTY, e);
+      default -> fileSystemException;
+    };
   }
 
   /**
