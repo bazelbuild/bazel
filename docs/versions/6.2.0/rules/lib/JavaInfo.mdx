@@ -1,0 +1,433 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.JavaInfo">JavaInfo</h1>
+
+<!-- {% raw %} -->
+
+A provider encapsulating information about Java and Java-like targets.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#JavaInfo">JavaInfo</a>
+  </li>
+      <li>
+    <a href="#annotation_processing">annotation_processing</a>
+  </li>
+      <li>
+    <a href="#api_generating_plugins">api_generating_plugins</a>
+  </li>
+      <li>
+    <a href="#compilation_info">compilation_info</a>
+  </li>
+      <li>
+    <a href="#compile_jars">compile_jars</a>
+  </li>
+      <li>
+    <a href="#full_compile_jars">full_compile_jars</a>
+  </li>
+      <li>
+    <a href="#java_outputs">java_outputs</a>
+  </li>
+      <li>
+    <a href="#module_flags_info">module_flags_info</a>
+  </li>
+      <li>
+    <a href="#outputs">outputs</a>
+  </li>
+      <li>
+    <a href="#plugins">plugins</a>
+  </li>
+      <li>
+    <a href="#runtime_output_jars">runtime_output_jars</a>
+  </li>
+      <li>
+    <a href="#source_jars">source_jars</a>
+  </li>
+      <li>
+    <a href="#to_json">to_json</a>
+  </li>
+      <li>
+    <a href="#to_proto">to_proto</a>
+  </li>
+      <li>
+    <a href="#transitive_compile_time_jars">transitive_compile_time_jars</a>
+  </li>
+      <li>
+    <a href="#transitive_deps">transitive_deps</a>
+  </li>
+      <li>
+    <a href="#transitive_native_libraries">transitive_native_libraries</a>
+  </li>
+      <li>
+    <a href="#transitive_runtime_deps">transitive_runtime_deps</a>
+  </li>
+      <li>
+    <a href="#transitive_runtime_jars">transitive_runtime_jars</a>
+  </li>
+      <li>
+    <a href="#transitive_source_jars">transitive_source_jars</a>
+  </li>
+  </ul>
+
+      <h2 id="JavaInfo">JavaInfo</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="JavaInfo.html">JavaInfo</a> JavaInfo(output_jar, compile_jar, source_jar=None, compile_jdeps=None, generated_class_jar=None, generated_source_jar=None, native_headers_jar=None, manifest_proto=None, neverlink=False, deps=[], runtime_deps=[], exports=[], exported_plugins=[], jdeps=None, native_libraries=[])</pre></p>
+
+    The <code>JavaInfo</code> constructor.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="JavaInfo.output_jar">
+              <code>output_jar</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The jar that was created as a result of a compilation (e.g. javac, scalac, etc).
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.compile_jar">
+              <code>compile_jar</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     required<br/>
+                          A jar that is added as the compile-time dependency in lieu of <code>output_jar</code>. Typically this is the ijar produced by <code><a class="anchor" href="java_common.html#run_ijar">run_ijar</a></code>. If you cannot use ijar, consider instead using the output of <code><a class="anchor" href="java_common.html#stamp_jar">stamp_ijar</a></code>. If you do not wish to use either, you can simply pass <code>output_jar</code>. There are a couple of special cases when this parameter may be set to <code>None</code>, for example adding a jar with resources or when used in a terminal rule like <code>java_binary</code>.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.source_jar">
+              <code>source_jar</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          The source jar that was used to create the output jar. Use <code><a class="anchor" href="java_common.html#pack_sources">pack_sources</a></code> to produce this source jar.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.compile_jdeps">
+              <code>compile_jdeps</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          jdeps information about compile time dependencies to be consumed by JavaCompileAction. This should be a binary proto encoded using the deps.proto protobuf included with Bazel.  If available this file is typically produced by a header compiler.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.generated_class_jar">
+              <code>generated_class_jar</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A jar file containing class files compiled from sources generated during annotation processing.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.generated_source_jar">
+              <code>generated_source_jar</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          The source jar that was created as a result of annotation processing.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.native_headers_jar">
+              <code>native_headers_jar</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A jar containing CC header files supporting native method implementation (typically output of javac -h).
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.manifest_proto">
+              <code>manifest_proto</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Manifest information for the rule output (if available). This should be a binary proto encoded using the manifest.proto protobuf included with Bazel.  IDEs and other tools can use this information for more efficient processing.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.neverlink">
+              <code>neverlink</code>
+            </td>
+            <td>
+                                     default = False<br/>
+                          If true only use this library for compilation and not at runtime.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.deps">
+              <code>deps</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="JavaInfo.html">JavaInfo</a>s</code>;
+                                     default = []<br/>
+                          Compile time dependencies that were used to create the output jar.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.runtime_deps">
+              <code>runtime_deps</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="JavaInfo.html">JavaInfo</a>s</code>;
+                                     default = []<br/>
+                          Runtime dependencies that are needed for this library.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.exports">
+              <code>exports</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="JavaInfo.html">JavaInfo</a>s</code>;
+                                     default = []<br/>
+                          Libraries to make available for users of this library. See also <a class="anchor" href="/versions/6.2.0/reference/be/java.html#java_library.exports">java_library.exports</a>.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.exported_plugins">
+              <code>exported_plugins</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="JavaPluginInfo.html">JavaPluginInfo</a>s</code>;
+                                     default = []<br/>
+                          A list of exported plugins. Optional.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.jdeps">
+              <code>jdeps</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          jdeps information for the rule output (if available). This should be a binary proto encoded using the deps.proto protobuf included with Bazel.  If available this file is typically produced by a compiler. IDEs and other tools can use this information for more efficient processing.
+            </td>
+          </tr>
+                  <tr>
+            <td id="JavaInfo.native_libraries">
+              <code>native_libraries</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="CcInfo.html">CcInfo</a>s</code>;
+                                     default = []<br/>
+                          CC native library dependencies that are needed for this library.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="annotation_processing">annotation_processing</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="java_annotation_processing.html">java_annotation_processing</a> JavaInfo.annotation_processing</pre></p>
+
+    Returns information about annotation processors applied on this Java/Java-like target.<p>Deprecated: Please use <code>plugins</code> instead (which returns information about annotation processors to be applied by consuming targets).
+
+         May return <code>None</code>.
+
+        <h2 id="api_generating_plugins">api_generating_plugins</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="JavaPluginData.html">JavaPluginData</a> JavaInfo.api_generating_plugins</pre></p>
+
+    Returns data about API generating plugins defined or exported by this target. <p>Those annotation processors are applied to a Java target before producing its header jars (which contain method signatures). When no API plugins are present, header jars are generated from the sources, reducing critical path. <p>The <code>api_generating_plugins</code> is a subset of <code>plugins</code>.
+
+
+        <h2 id="compilation_info">compilation_info</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="java_compilation_info.html">java_compilation_info</a> JavaInfo.compilation_info</pre></p>
+
+    Returns compilation information for this Java/Java-like target.
+
+         May return <code>None</code>.
+
+        <h2 id="compile_jars">compile_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.compile_jars</pre></p>
+
+    Returns the Jars required by this target directly at compile time. They can be interface jars (ijar or hjar), regular jars or both, depending on whether rule implementations chose to create interface jars or not.
+
+
+        <h2 id="full_compile_jars">full_compile_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.full_compile_jars</pre></p>
+
+    Returns the regular, full compile time Jars required by this target directly. They can be <ul><li> the corresponding regular Jars of the interface Jars returned by <code><a class="anchor" href="JavaInfo.html#compile_jars">JavaInfo.compile_jars</a></code></li><li> the regular (full) Jars returned by <code><a class="anchor" href="JavaInfo.html#compile_jars">JavaInfo.compile_jars</a></code></li></ul><p>Note: <code><a class="anchor" href="JavaInfo.html#compile_jars">JavaInfo.compile_jars</a></code> can return a mix of interface Jars and regular Jars.<p>Only use this method if interface Jars don't work with your rule set(s) (e.g. some Scala targets) If you're working with Java-only targets it's preferable to use interface Jars via <code><a class="anchor" href="JavaInfo.html#compile_jars">JavaInfo.compile_jars</a></code></li>
+
+
+        <h2 id="java_outputs">java_outputs</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">list</a> JavaInfo.java_outputs</pre></p>
+
+    Returns information about outputs of this Java/Java-like target.
+
+
+        <h2 id="module_flags_info">module_flags_info</h2>
+        <p><pre class="rule-signature">JavaModuleFlagsProvider JavaInfo.module_flags_info</pre></p>
+
+    Returns the Java module flag configuration.
+
+
+        <h2 id="outputs">outputs</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="java_output_jars.html">java_output_jars</a> JavaInfo.outputs</pre></p>
+
+    Returns information about outputs of this Java/Java-like target. Deprecated: use java_outputs.
+
+         May return <code>None</code>.
+
+        <h2 id="plugins">plugins</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="JavaPluginData.html">JavaPluginData</a> JavaInfo.plugins</pre></p>
+
+    Returns data about all plugins that a consuming target should apply.<p>This is typically either a <code>java_plugin</code> itself or a <code>java_library</code> exporting one or more plugins. <p>A <code>java_library</code> runs annotation processing with all plugins from this field appearing in <code>deps</code> and <code>plugins</code> attributes.
+
+
+        <h2 id="runtime_output_jars">runtime_output_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">sequence</a> JavaInfo.runtime_output_jars</pre></p>
+
+    Returns a list of runtime Jars created by this Java/Java-like target.
+
+
+        <h2 id="source_jars">source_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">sequence</a> JavaInfo.source_jars</pre></p>
+
+    Returns a list of Jars with all the source files (including those generated by annotations) of the target  itself, i.e. NOT including the sources of the transitive dependencies.
+
+
+        <h2 id="to_json">to_json</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> JavaInfo.to_json()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:<br><pre class=language-python>struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+</pre>.<p>Deprecated: instead, use json.encode(x) or json.encode_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+
+        <h2 id="to_proto">to_proto</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> JavaInfo.to_proto()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:<br><pre class=language-python>struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+</pre><p>Deprecated: use proto.encode_text(x) instead.
+
+
+        <h2 id="transitive_compile_time_jars">transitive_compile_time_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.transitive_compile_time_jars</pre></p>
+
+    Returns the transitive set of Jars required to build the target.
+
+
+        <h2 id="transitive_deps">transitive_deps</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.transitive_deps</pre></p>
+
+    Deprecated: Please use <code><a class="anchor" href="JavaInfo.html#transitive_compile_time_jars">JavaInfo.transitive_compile_time_jars</a></code> instead. It returns the same value.
+
+
+        <h2 id="transitive_native_libraries">transitive_native_libraries</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.transitive_native_libraries</pre></p>
+
+    Returns the transitive set of CC native libraries required by the target.
+
+
+        <h2 id="transitive_runtime_deps">transitive_runtime_deps</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.transitive_runtime_deps</pre></p>
+
+    Deprecated: please use <code><a class="anchor" href="JavaInfo.html#transitive_runtime_jars">JavaInfo.transitive_runtime_jars</a></code> instead. It returns the same value
+
+
+        <h2 id="transitive_runtime_jars">transitive_runtime_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.transitive_runtime_jars</pre></p>
+
+    Returns a transitive set of Jars required on the target's runtime classpath.
+
+
+        <h2 id="transitive_source_jars">transitive_source_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="depset.html">depset</a> JavaInfo.transitive_source_jars</pre></p>
+
+    Returns the Jars containing source files of the current target and all of its transitive dependencies.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

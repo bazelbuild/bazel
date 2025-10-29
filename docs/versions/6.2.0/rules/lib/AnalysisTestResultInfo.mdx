@@ -1,0 +1,84 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.AnalysisTestResultInfo">AnalysisTestResultInfo</h1>
+
+<!-- {% raw %} -->
+
+Encapsulates the result of analyis-phase testing. Build targets which return an instance of this provider signal to the build system that it should generate a 'stub' test executable which generates the equivalent test result. Analysis test rules (rules created with <code>analysis_test=True</code> <b>must</b> return an instance of this provider, and non-analysis-phase test rules <b>cannot</b> return this provider.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#AnalysisTestResultInfo">AnalysisTestResultInfo</a>
+  </li>
+      <li>
+    <a href="#message">message</a>
+  </li>
+      <li>
+    <a href="#success">success</a>
+  </li>
+  </ul>
+
+      <h2 id="AnalysisTestResultInfo">AnalysisTestResultInfo</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="AnalysisTestResultInfo.html">AnalysisTestResultInfo</a> AnalysisTestResultInfo(success, message)</pre></p>
+
+    The <code>AnalysisTestResultInfo</code> constructor.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="AnalysisTestResultInfo.success">
+              <code>success</code>
+            </td>
+            <td>
+                                     required<br/>
+                          If true, then the analysis-phase test represented by this target should pass. If false, the test should fail.
+            </td>
+          </tr>
+                  <tr>
+            <td id="AnalysisTestResultInfo.message">
+              <code>message</code>
+            </td>
+            <td>
+                                     required<br/>
+                          A descriptive message containing information about the test and its success/failure.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="message">message</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> AnalysisTestResultInfo.message</pre></p>
+
+    A descriptive message containing information about the test and its success/failure.
+
+
+        <h2 id="success">success</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="bool.html">bool</a> AnalysisTestResultInfo.success</pre></p>
+
+    If true, then the analysis-phase test represented by this target passed. If false, the test failed.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

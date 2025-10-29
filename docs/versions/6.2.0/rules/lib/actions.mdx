@@ -1,0 +1,780 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.actions">actions</h1>
+
+<!-- {% raw %} -->
+
+Module providing functions to create actions. Access this module using <a href="ctx.html#actions"><code>ctx.actions</code></a>.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#args">args</a>
+  </li>
+      <li>
+    <a href="#declare_directory">declare_directory</a>
+  </li>
+      <li>
+    <a href="#declare_file">declare_file</a>
+  </li>
+      <li>
+    <a href="#declare_symlink">declare_symlink</a>
+  </li>
+      <li>
+    <a href="#do_nothing">do_nothing</a>
+  </li>
+      <li>
+    <a href="#expand_template">expand_template</a>
+  </li>
+      <li>
+    <a href="#run">run</a>
+  </li>
+      <li>
+    <a href="#run_shell">run_shell</a>
+  </li>
+      <li>
+    <a href="#symlink">symlink</a>
+  </li>
+      <li>
+    <a href="#template_dict">template_dict</a>
+  </li>
+      <li>
+    <a href="#write">write</a>
+  </li>
+  </ul>
+
+      <h2 id="args">args</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="Args.html">Args</a> actions.args()</pre></p>
+
+    Returns an Args object that can be used to build memory-efficient command lines.
+
+
+        <h2 id="declare_directory">declare_directory</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> actions.declare_directory(filename, *, sibling=None)</pre></p>
+
+    Declares that the rule or aspect creates a directory with the given name, in the current package. You must create an action that generates the directory. The contents of the directory are not directly accessible from Starlark, but can be expanded in an action command with <a href="Args.html#add_all"><code>Args.add_all()</code></a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="declare_directory.filename">
+              <code>filename</code>
+            </td>
+            <td>
+                                     required<br/>
+                          If no 'sibling' provided, path of the new directory, relative to the current package. Otherwise a base name for a file ('sibling' defines a directory).
+            </td>
+          </tr>
+                  <tr>
+            <td id="declare_directory.sibling">
+              <code>sibling</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A file that lives in the same directory as the newly declared directory. The file must be in the current package.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="declare_file">declare_file</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> actions.declare_file(filename, *, sibling=None)</pre></p>
+
+    Declares that the rule or aspect creates a file with the given filename. If <code>sibling</code> is not specified, the file name is relative to the package directory, otherwise the file is in the same directory as <code>sibling</code>. Files cannot be created outside of the current package.<p>Remember that in addition to declaring a file, you must separately create an action that emits the file. Creating that action will require passing the returned <code>File</code> object to the action's construction function.<p>Note that <a href='https://bazel.build/versions/6.2.0/rules/rules#files'>predeclared output files</a> do not need to be (and cannot be) declared using this function. You can obtain their <code>File</code> objects from <a href="ctx.html#outputs"><code>ctx.outputs</code></a> instead. <a href="https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl">See example of use</a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="declare_file.filename">
+              <code>filename</code>
+            </td>
+            <td>
+                                     required<br/>
+                          If no 'sibling' provided, path of the new file, relative to the current package. Otherwise a base name for a file ('sibling' determines a directory).
+            </td>
+          </tr>
+                  <tr>
+            <td id="declare_file.sibling">
+              <code>sibling</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A file that lives in the same directory as the newly created file. The file must be in the current package.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="declare_symlink">declare_symlink</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> actions.declare_symlink(filename, *, sibling=None)</pre></p>
+
+    <p><b>Experimental</b>. This parameter is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting <code>--experimental_allow_unresolved_symlinks</code></p> <p>Declares that the rule or aspect creates a symlink with the given name in the current package. You must create an action that generates this symlink. Bazel will never dereference this symlink and will transfer it verbatim to sandboxes or remote executors.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="declare_symlink.filename">
+              <code>filename</code>
+            </td>
+            <td>
+                                     required<br/>
+                          If no 'sibling' provided, path of the new symlink, relative to the current package. Otherwise a base name for a file ('sibling' defines a directory).
+            </td>
+          </tr>
+                  <tr>
+            <td id="declare_symlink.sibling">
+              <code>sibling</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A file that lives in the same directory as the newly declared symlink.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="do_nothing">do_nothing</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="globals.html#None">None</a> actions.do_nothing(mnemonic, inputs=[])</pre></p>
+
+    Creates an empty action that neither executes a command nor produces any output, but that is useful for inserting 'extra actions'.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="do_nothing.mnemonic">
+              <code>mnemonic</code>
+            </td>
+            <td>
+                                     required<br/>
+                          A one-word description of the action, for example, CppCompile or GoLink.
+            </td>
+          </tr>
+                  <tr>
+            <td id="do_nothing.inputs">
+              <code>inputs</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="File.html">File</a>s; or <a class="anchor" href="depset.html">depset</a></code>;
+                                     default = []<br/>
+                          List of the input files of the action.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="expand_template">expand_template</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="globals.html#None">None</a> actions.expand_template(template, output, substitutions={}, is_executable=False, computed_substitutions=unbound)</pre></p>
+
+    Creates a template expansion action. When the action is executed, it will generate a file based on a template. Parts of the template will be replaced using the <code>substitutions</code> dictionary, in the order the substitutions are specified. Whenever a key of the dictionary appears in the template (or a result of a previous substitution), it is replaced with the associated value. There is no special syntax for the keys. You may, for example, use curly braces to avoid conflicts (for example, <code>{KEY}</code>). <a href="https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl">See example of use</a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="expand_template.template">
+              <code>template</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The template file, which is a UTF-8 encoded text file.
+            </td>
+          </tr>
+                  <tr>
+            <td id="expand_template.output">
+              <code>output</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The output file, which is a UTF-8 encoded text file.
+            </td>
+          </tr>
+                  <tr>
+            <td id="expand_template.substitutions">
+              <code>substitutions</code>
+            </td>
+            <td>
+                                     default = {}<br/>
+                          Substitutions to make when expanding the template.
+            </td>
+          </tr>
+                  <tr>
+            <td id="expand_template.is_executable">
+              <code>is_executable</code>
+            </td>
+            <td>
+                                     default = False<br/>
+                          Whether the output file should be executable.
+            </td>
+          </tr>
+                  <tr>
+            <td id="expand_template.computed_substitutions">
+              <code>computed_substitutions</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="TemplateDict.html">TemplateDict</a></code>;
+                                     default = unbound<br/>
+                          <b>Experimental</b>. This parameter is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting <code>--+experimental_lazy_template_expansion</code> <br>Experimental: Substitutions to make when expanding the template.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="run">run</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="globals.html#None">None</a> actions.run(outputs, inputs=[], unused_inputs_list=None, executable, tools=unbound, arguments=[], mnemonic=None, progress_message=None, use_default_shell_env=False, env=None, execution_requirements=None, input_manifests=None, exec_group=None, shadowed_action=None, resource_set=None, toolchain=None)</pre></p>
+
+    Creates an action that runs an executable. <a href="https://github.com/bazelbuild/examples/tree/main/rules/actions_run/execute.bzl">See example of use</a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="run.outputs">
+              <code>outputs</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="File.html">File</a>s</code>;
+                                     required<br/>
+                          List of the output files of the action.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.inputs">
+              <code>inputs</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="File.html">File</a>s; or <a class="anchor" href="depset.html">depset</a></code>;
+                                     default = []<br/>
+                          List or depset of the input files of the action.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.unused_inputs_list">
+              <code>unused_inputs_list</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          File containing list of inputs unused by the action. <p>The content of this file (generally one of the outputs of the action) corresponds to  the list of input files that were not used during the whole action execution. Any change in those files must not affect in any way the outputs of the action.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.executable">
+              <code>executable</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="string.html">string</a>; or <a class="anchor" href="FilesToRunProvider.html">FilesToRunProvider</a></code>;
+                                     required<br/>
+                          The executable file to be called by the action.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.tools">
+              <code>tools</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a>; or <a class="anchor" href="depset.html">depset</a></code>;
+                                     default = unbound<br/>
+                          List or depset of any tools needed by the action. Tools are inputs with additional runfiles that are automatically made available to the action. When a list is provided, it can be a heterogenous collection of Files, FilesToRunProvider instances, or depsets of Files. Files which are directly in the list and come from ctx.executable will have their runfiles automatically added. When a depset is provided, it must contain only Files. In both cases, files within depsets are not cross-referenced with ctx.executable for runfiles.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.arguments">
+              <code>arguments</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a></code>;
+                                     default = []<br/>
+                          Command line arguments of the action. Must be a list of strings or <a href="actions.html#args"><code>actions.args()</code></a> objects.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.mnemonic">
+              <code>mnemonic</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A one-word description of the action, for example, CppCompile or GoLink.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.progress_message">
+              <code>progress_message</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Progress message to show to the user during the build, for example, "Compiling foo.cc to create foo.o". The message may contain <code>%{label}</code>, <code>%{input}</code>, or <code>%{output}</code> patterns, which are substituted with label string, first input, or output's path, respectively. Prefer to use patterns instead of static strings, because the former are more efficient.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.use_default_shell_env">
+              <code>use_default_shell_env</code>
+            </td>
+            <td>
+                                     default = False<br/>
+                          Whether the action should use the built in shell environment or not.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.env">
+              <code>env</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="dict.html">dict</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Sets the dictionary of environment variables.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.execution_requirements">
+              <code>execution_requirements</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="dict.html">dict</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Information for scheduling the action. See <a href="/versions/6.2.0/reference/be/common-definitions#common.tags">tags</a> for useful keys.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.input_manifests">
+              <code>input_manifests</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          (Experimental) sets the input runfiles metadata; they are typically generated by resolve_command.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.exec_group">
+              <code>exec_group</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Runs the action on the given exec group's execution platform. If none, uses the target's default execution platform.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.shadowed_action">
+              <code>shadowed_action</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="Action.html">Action</a></code>;
+                                     default = None<br/>
+                          Runs the action using the given shadowed action's inputs and environment added to the action's inputs list and environment. The action environment can overwrite any of the shadowed action's environment variables. If none, uses only the action's inputs and given environment.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.resource_set">
+              <code>resource_set</code>
+            </td>
+            <td>
+                          <code>callable; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A callback function that returns a resource set dictionary, used to estimate resource usage at execution time if this action is run locally.<p>The function accepts two positional arguments: a string representing an OS name (e.g. "osx"), and an integer representing the number of inputs to the action. The returned dictionary may contain the following entries, each of which may be a float or an int:<ul><li>"cpu": number of CPUs; default 1<li>"memory": in MB; default 250<li>"local_test": number of local tests; default 1</ul><p>If this parameter is set to <code>None</code> or if <code>--experimental_action_resource_set</code> is false, the default values are used.<p>The callback must be top-level (lambda and nested functions aren't allowed).
+            </td>
+          </tr>
+                  <tr>
+            <td id="run.toolchain">
+              <code>toolchain</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="Label.html">Label</a>; or <a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          <p>Toolchain type of the executable or tools used in this action. The parameter must be set, so that, the action executes on the correct execution platform. </p><p>It's a no-op right now, but we recommend to set it when a toolchain is used, because it will be required in the future Bazel releases.</p><p>Note that the rule which creates this action needs to define this toolchain inside its 'rule()' function.</p><p>When `toolchain` and `exec_group` parameters are both set, `exec_group` will be used. An error is raised in case the `exec_group` doesn't specify the same.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="run_shell">run_shell</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="globals.html#None">None</a> actions.run_shell(outputs, inputs=[], tools=unbound, arguments=[], mnemonic=None, command, progress_message=None, use_default_shell_env=False, env=None, execution_requirements=None, input_manifests=None, exec_group=None, shadowed_action=None, resource_set=None, toolchain=None)</pre></p>
+
+    Creates an action that runs a shell command. <a href="https://github.com/bazelbuild/examples/tree/main/rules/shell_command/rules.bzl">See example of use</a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="run_shell.outputs">
+              <code>outputs</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="File.html">File</a>s</code>;
+                                     required<br/>
+                          List of the output files of the action.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.inputs">
+              <code>inputs</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="File.html">File</a>s; or <a class="anchor" href="depset.html">depset</a></code>;
+                                     default = []<br/>
+                          List or depset of the input files of the action.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.tools">
+              <code>tools</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="File.html">File</a>s; or <a class="anchor" href="depset.html">depset</a></code>;
+                                     default = unbound<br/>
+                          List or depset of any tools needed by the action. Tools are inputs with additional runfiles that are automatically made available to the action. The list can contain Files or FilesToRunProvider instances.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.arguments">
+              <code>arguments</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a></code>;
+                                     default = []<br/>
+                          Command line arguments of the action. Must be a list of strings or <a href="actions.html#args"><code>actions.args()</code></a> objects.<p>Bazel passes the elements in this attribute as arguments to the command.The command can access these arguments using shell variable substitutions such as <code>$1</code>, <code>$2</code>, etc. Note that since Args objects are flattened before indexing, if there is an Args object of unknown size then all subsequent strings will be at unpredictable indices. It may be useful to use <code>$@</code> (to retrieve all arguments) in conjunction with Args objects of indeterminate size.<p>In the case where <code>command</code> is a list of strings, this parameter may not be used.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.mnemonic">
+              <code>mnemonic</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A one-word description of the action, for example, CppCompile or GoLink.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.command">
+              <code>command</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code>;
+                                     required<br/>
+                          Shell command to execute. This may either be a string (preferred) or a sequence of strings <b>(deprecated)</b>.<p>If <code>command</code> is a string, then it is executed as if by <code>sh -c &lt;command&gt; "" &lt;arguments&gt;</code> -- that is, the elements in <code>arguments</code> are made available to the command as <code>$1</code>, <code>$2</code> (or <code>%1</code>, <code>%2</code> if using Windows batch), etc. If <code>arguments</code> contains any <a href="actions.html#args"><code>actions.args()</code></a> objects, their contents are appended one by one to the command line, so <code>$</code><i>i</i> can refer to individual strings within an Args object. Note that if an Args object of unknown size is passed as part of <code>arguments</code>, then the strings will be at unknown indices; in this case the <code>$@</code> shell substitution (retrieve all arguments) may be useful.<p><b>(Deprecated)</b> If <code>command</code> is a sequence of strings, the first item is the executable to run and the remaining items are its arguments. If this form is used, the <code>arguments</code> parameter must not be supplied. <i>Note that this form is deprecated and will soon be removed. It is disabled with `--incompatible_run_shell_command_string`. Use this flag to verify your code is compatible. </i><p>Bazel uses the same shell to execute the command as it does for genrules.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.progress_message">
+              <code>progress_message</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Progress message to show to the user during the build, for example, "Compiling foo.cc to create foo.o". The message may contain <code>%{label}</code>, <code>%{input}</code>, or <code>%{output}</code> patterns, which are substituted with label string, first input, or output's path, respectively. Prefer to use patterns instead of static strings, because the former are more efficient.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.use_default_shell_env">
+              <code>use_default_shell_env</code>
+            </td>
+            <td>
+                                     default = False<br/>
+                          Whether the action should use the built in shell environment or not.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.env">
+              <code>env</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="dict.html">dict</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Sets the dictionary of environment variables.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.execution_requirements">
+              <code>execution_requirements</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="dict.html">dict</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Information for scheduling the action. See <a href="/versions/6.2.0/reference/be/common-definitions#common.tags">tags</a> for useful keys.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.input_manifests">
+              <code>input_manifests</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="list.html">sequence</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          (Experimental) sets the input runfiles metadata; they are typically generated by resolve_command.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.exec_group">
+              <code>exec_group</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Runs the action on the given exec group's execution platform. If none, uses the target's default execution platform.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.shadowed_action">
+              <code>shadowed_action</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="Action.html">Action</a></code>;
+                                     default = None<br/>
+                          Runs the action using the given shadowed action's discovered inputs added to the action's inputs list. If none, uses only the action's inputs.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.resource_set">
+              <code>resource_set</code>
+            </td>
+            <td>
+                          <code>callable; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          A callback function for estimating resource usage if run locally. See<a href="#run.resource_set"><code>ctx.actions.run()</code></a>.
+            </td>
+          </tr>
+                  <tr>
+            <td id="run_shell.toolchain">
+              <code>toolchain</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="Label.html">Label</a>; or <a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          <p>Toolchain type of the executable or tools used in this action. The parameter must be set, so that, the action executes on the correct execution platform. </p><p>It's a no-op right now, but we recommend to set it when a toolchain is used, because it will be required in the future Bazel releases.</p><p>Note that the rule which creates this action needs to define this toolchain inside its 'rule()' function.</p><p>When `toolchain` and `exec_group` parameters are both set, `exec_group` will be used. An error is raised in case the `exec_group` doesn't specify the same. toolchain.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="symlink">symlink</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="globals.html#None">None</a> actions.symlink(output, target_file=None, target_path=None, is_executable=False, progress_message=None)</pre></p>
+
+    Creates an action that writes a symlink in the file system.<p>This function must be called with exactly one of <code>target_file</code> or <code>target_path</code> specified.</p><p>When you use <code>target_file</code>, declare <code>output</code> with <a href="#declare_file"><code>declare_file()</code></a> or <a href="#declare_directory"><code>declare_directory()</code></a> and match the type of <code>target_file</code>. This makes the symlink point to <code>target_file</code>. Bazel invalidates the output of this action whenever the target of the symlink or its contents change.</p><p>Otherwise, when you use <code>target_path</code>, declare <code>output</code> with <a href="#declare_symlink"><code>declare_symlink()</code></a>). In this case, the symlink points to <code>target_path</code>. Bazel never resolves the symlink and the output of this action is invalidated only when the text contents of the symlink (that is, the value of <code>readlink()</code>) changes. In particular, this can be used to create a dangling symlink.</p>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="symlink.output">
+              <code>output</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The output of this action.
+            </td>
+          </tr>
+                  <tr>
+            <td id="symlink.target_file">
+              <code>target_file</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="File.html">File</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          The File that the output symlink will point to.
+            </td>
+          </tr>
+                  <tr>
+            <td id="symlink.target_path">
+              <code>target_path</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          (Experimental) The exact path that the output symlink will point to. No normalization or other processing is applied. Access to this feature requires setting <code>--experimental_allow_unresolved_symlinks</code>.
+            </td>
+          </tr>
+                  <tr>
+            <td id="symlink.is_executable">
+              <code>is_executable</code>
+            </td>
+            <td>
+                                     default = False<br/>
+                          May only be used with <code>target_file</code>, not <code>target_path</code>. If true, when the action is executed, the <code>target_file</code>'s path is checked to confirm that it is executable, and an error is reported if it is not. Setting <code>is_executable</code> to False does not mean the target is not executable, just that no verification is done.<p>This feature does not make sense for <code>target_path</code> because dangling symlinks might not exist at build time.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="symlink.progress_message">
+              <code>progress_message</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="globals.html#None">None</a></code>;
+                                     default = None<br/>
+                          Progress message to show to the user during the build.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="template_dict">template_dict</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="TemplateDict.html">TemplateDict</a> actions.template_dict()</pre></p>
+
+    <b>Experimental</b>. This API is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting <code>--+experimental_lazy_template_expansion</code> <br>Experimental: Returns a TemplateDict object for memory-efficient template expansion.
+
+
+        <h2 id="write">write</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="globals.html#None">None</a> actions.write(output, content, is_executable=False)</pre></p>
+
+    Creates a file write action. When the action is executed, it will write the given content to a file. This is used to generate files using information available in the analysis phase. If the file is large and with a lot of static content, consider using <a href="#expand_template"><code>expand_template</code></a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="write.output">
+              <code>output</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The output file.
+            </td>
+          </tr>
+                  <tr>
+            <td id="write.content">
+              <code>content</code>
+            </td>
+            <td>
+                          <code><a class="anchor" href="string.html">string</a>; or <a class="anchor" href="Args.html">Args</a></code>;
+                                     required<br/>
+                          the contents of the file. May be a either a string or an <a href="actions.html#args"><code>actions.args()</code></a> object.
+            </td>
+          </tr>
+                  <tr>
+            <td id="write.is_executable">
+              <code>is_executable</code>
+            </td>
+            <td>
+                                     default = False<br/>
+                          Whether the output file should be executable.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
