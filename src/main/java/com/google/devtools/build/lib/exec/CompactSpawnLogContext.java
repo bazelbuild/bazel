@@ -275,9 +275,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             outputLoggingFailed.set(true);
             warned = true;
             logger.at(Level.INFO).log(
-                "Failed to log outputs of %s %s: %s%s",
+                "Failed to log outputs of spawn with mnemonic %s and primary output %s: %s%s",
                 spawn.getMnemonic(),
-                spawn.getOutputFiles().iterator().next().getExecPathString(),
+                Iterables.getFirst(spawn.getOutputFiles(), /* not reached */ null),
                 e.getMessage(),
                 verboseFailures
                     ? "\n" + getStackTraceAsString(e)
