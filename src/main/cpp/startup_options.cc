@@ -21,6 +21,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/jvm_module_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -156,6 +157,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("server_jvm_out");
   RegisterUnaryStartupFlag("failure_detail_out");
   RegisterUnaryStartupFlag("experimental_cgroup_parent");
+  RegisterUnaryStartupFlag("extra_classpath");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -279,6 +281,9 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string &argstr,
              nullptr) {
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
+  } else if ((value = GetUnaryOption(arg, next_arg, "--extra_classpath"))) {
+    extra_classpath = value;
+    option_sources["extra_classpath"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--io_nice_level")) !=
              nullptr) {
     if (!blaze_util::safe_strto32(value, &io_nice_level) || io_nice_level > 7) {
@@ -569,8 +574,21 @@ void StartupOptions::AddJVMArgumentPrefix(const blaze_util::Path &javabase,
 void StartupOptions::AddJVMArgumentSuffix(
     const blaze_util::Path &real_install_dir, const string &jar_path,
     std::vector<string> *result) const {
-  result->push_back("-jar");
-  result->push_back(real_install_dir.GetRelative(jar_path).AsJvmArgument());
+  if (extra_classpath.empty()) {
+    result->push_back("-jar");
+    result->push_back(real_install_dir.GetRelative(jar_path).AsJvmArgument());
+  } else {
+    string classpath = real_install_dir.GetRelative(jar_path).AsJvmArgument() +
+                       kListSeparator + extra_classpath;
+    // Since we're not executing the server jar directly, we must manually set
+    // module opening directives on the command line.
+    for (const auto& option : getJvmModuleOptions()) {
+      result->push_back(option);
+    }
+    result->push_back("-cp");
+    result->push_back(classpath);
+    result->push_back("com.google.devtools.build.lib.bazel.Bazel");
+  }
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(

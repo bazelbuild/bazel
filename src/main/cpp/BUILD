@@ -193,6 +193,22 @@ cc_library(
     ],
 )
 
+genrule(
+    name = "jvm_module_options_h",
+    srcs = [
+        "generate_jvm_module_options.sh",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+    ],
+    outs = ["jvm_module_options.h"],
+    cmd = "$(location generate_jvm_module_options.sh) $(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar) $(OUTS)",
+)
+
+cc_library(
+    name = "jvm_module_options",
+    hdrs = [":jvm_module_options_h"],
+    includes = ["."],
+)
+
 cc_library(
     name = "startup_options",
     srcs = ["startup_options.cc"],
@@ -203,6 +219,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
+        ":jvm_module_options",
         ":workspace_layout",
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",

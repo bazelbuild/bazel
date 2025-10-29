@@ -171,6 +171,8 @@ class StartupOptions {
 
   std::vector<std::string> host_jvm_args;
 
+  std::string extra_classpath;
+
   bool batch;
 
   // From the man page: "This policy is useful for workloads that are

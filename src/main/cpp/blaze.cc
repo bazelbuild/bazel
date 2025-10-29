@@ -576,6 +576,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
       result.push_back("--host_jvm_args=" + arg);
     }
   }
+  if (!startup_options.extra_classpath.empty()) {
+    result.push_back("--extra_classpath=" + startup_options.extra_classpath);
+  }
 
   // Pass in invocation policy as a startup argument for batch mode only.
   if (startup_options.batch && !startup_options.invocation_policy.empty()) {
