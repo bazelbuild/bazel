@@ -84,7 +84,9 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
     # Python rules
-    ("", "third_party/bazel_rules/rules_python/google"),
+    ("", "third_party/bazel_rules/rules_python"),
+    # Various
+    ("", "research/colab"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 _CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
