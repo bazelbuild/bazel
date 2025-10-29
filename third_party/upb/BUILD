@@ -22,4 +22,6 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
-package(default_visibility = ["//visibility:public"])
+exports_files([
+    "01_remove_werror.patch",
+])
