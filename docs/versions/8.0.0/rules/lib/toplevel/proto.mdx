@@ -1,0 +1,114 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.0.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.proto">proto</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/packages/Proto.java" %}
+{% dynamic setvar version "8.0.0" %}
+{% dynamic setvar original_path "/rules/lib/toplevel/proto" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A module for protocol message processing.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#encode_text">encode_text</a>
+  </li>
+  </ul>
+
+      <h2 id="encode_text">encode_text</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> proto.encode_text(x)</pre></p>
+
+    Returns the struct argument's encoding as a text-format protocol message.
+The data structure must be recursively composed of strings, ints, floats, or bools, or structs, sequences, and dicts of these types.
+<p>A struct is converted to a message. Fields are emitted in name order.
+Each struct field whose value is None is ignored.
+<p>A sequence (such as a list or tuple) is converted to a repeated field.
+Its elements must not be sequences or dicts.
+<p>A dict is converted to a repeated field of messages with fields named 'key' and 'value'.
+Entries are emitted in iteration (insertion) order.
+The dict's keys must be strings or ints, and its values must not be sequences or dicts.
+Examples:<br><pre class=language-python>proto.encode_text(struct(field=123))
+# field: 123
+
+proto.encode_text(struct(field=True))
+# field: true
+
+proto.encode_text(struct(field=[1, 2, 3]))
+# field: 1
+# field: 2
+# field: 3
+
+proto.encode_text(struct(field='text', ignored_field=None))
+# field: "text"
+
+proto.encode_text(struct(field=struct(inner_field='text', ignored_field=None)))
+# field {
+#   inner_field: "text"
+# }
+
+proto.encode_text(struct(field=[struct(inner_field=1), struct(inner_field=2)]))
+# field {
+#   inner_field: 1
+# }
+# field {
+#   inner_field: 2
+# }
+
+proto.encode_text(struct(field=struct(inner_field=struct(inner_inner_field='text'))))
+# field {
+#    inner_field {
+#     inner_inner_field: "text"
+#   }
+# }
+
+proto.encode_text(struct(foo={4: 3, 2: 1}))
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+</pre>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="encode_text.x">
+              <code>x</code>
+            </td>
+            <td>
+                          structure;
+                                     required<br/>
+
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

@@ -1,0 +1,23 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.0.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.fragments">fragments</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/FragmentCollectionApi.java" %}
+{% dynamic setvar version "8.0.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/fragments" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A collection of configuration fragments available in the current rule implementation context. Access a specific fragment by its field name. For example, <code>ctx.fragments.java</code> <p>Only configuration fragments which are declared in the rule definition may be accessed in this collection.</p><p>See the <a href="../fragments.html">configuration fragment reference</a> for a list of available fragments and the <a href="https://bazel.build/versions/8.0.0/extending/rules#configuration_fragments">rules documentation</a> for how to use them.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
