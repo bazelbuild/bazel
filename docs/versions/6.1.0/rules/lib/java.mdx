@@ -1,0 +1,94 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.1.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.java">java</h1>
+
+<!-- {% raw %} -->
+
+A java compiler configuration.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#default_javac_flags">default_javac_flags</a>
+  </li>
+      <li>
+    <a href="#default_jvm_opts">default_jvm_opts</a>
+  </li>
+      <li>
+    <a href="#disallow_java_import_empty_jars">disallow_java_import_empty_jars</a>
+  </li>
+      <li>
+    <a href="#multi_release_deploy_jars">multi_release_deploy_jars</a>
+  </li>
+      <li>
+    <a href="#one_version_enforcement_level">one_version_enforcement_level</a>
+  </li>
+      <li>
+    <a href="#plugins">plugins</a>
+  </li>
+      <li>
+    <a href="#run_android_lint">run_android_lint</a>
+  </li>
+      <li>
+    <a href="#strict_java_deps">strict_java_deps</a>
+  </li>
+  </ul>
+
+      <h2 id="default_javac_flags">default_javac_flags</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">list</a> java.default_javac_flags</pre></p>
+
+    The default flags for the Java compiler.
+
+
+        <h2 id="default_jvm_opts">default_jvm_opts</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">list</a> java.default_jvm_opts</pre></p>
+
+    Additional options to pass to the Java VM for each java_binary target
+
+
+        <h2 id="disallow_java_import_empty_jars">disallow_java_import_empty_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="bool.html">bool</a> java.disallow_java_import_empty_jars()</pre></p>
+
+    Returns true if empty java_import jars are not allowed.
+
+
+        <h2 id="multi_release_deploy_jars">multi_release_deploy_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="bool.html">bool</a> java.multi_release_deploy_jars</pre></p>
+
+    The value of the --incompatible_multi_release_deploy_jars flag.
+
+
+        <h2 id="one_version_enforcement_level">one_version_enforcement_level</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> java.one_version_enforcement_level</pre></p>
+
+    The value of the --experimental_one_version_enforcement flag.
+
+
+        <h2 id="plugins">plugins</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">list</a> java.plugins</pre></p>
+
+    A list containing the labels provided with --plugins, if any.
+
+
+        <h2 id="run_android_lint">run_android_lint</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="bool.html">bool</a> java.run_android_lint</pre></p>
+
+    The value of the --experimental_run_android_lint_on_java_rules flag.
+
+
+        <h2 id="strict_java_deps">strict_java_deps</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> java.strict_java_deps</pre></p>
+
+    The value of the strict_java_deps flag.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
