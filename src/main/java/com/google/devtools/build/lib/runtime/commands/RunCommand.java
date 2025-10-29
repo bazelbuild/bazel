@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -86,6 +87,8 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
+import com.google.devtools.build.lib.util.CommandDescriptionForm;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
@@ -318,13 +321,42 @@ public class RunCommand implements BlazeCommand {
     if (runOptions.scriptPath != null) {
       return handleScriptPath(runOptions, execRequest, runCommandLine, env, builtTargets);
     }
-    if (runOptions.runBuiltTarget) {
-      env.getReporter()
-          .handle(Event.info(null, "Running command line: " + runCommandLine.getPrettyArgs()));
+
+    ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
+    ActionExecutionContext.ShowSubcommands showSubcommands = executionOptions.showSubcommands;
+
+    String commandDescription;
+    if (showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE) {
+      String shExecutable = null;
+      if (runCommandLine.requiresShExecutable()) {
+        try {
+          shExecutable =
+              getShellExecutableOrThrow(env, builtTargets.configuration, "", builtTargets.stopTime);
+        } catch (RunCommandException e) {
+          return e.result;
+        }
+      }
+      ImmutableList<String> args = runCommandLine.getArgs(shExecutable);
+      commandDescription =
+          CommandFailureUtils.describeCommand(
+              CommandDescriptionForm.COMPLETE,
+              showSubcommands == ActionExecutionContext.ShowSubcommands.PRETTY_PRINT,
+              args,
+              finalRunEnv,
+              ImmutableList.copyOf(runCommandLine.getEnvironmentVariablesToClear()),
+              runCommandLine.getWorkingDir().getPathString(),
+              /* configurationChecksum= */ null,
+              /* executionPlatformLabel= */ null,
+              /* spawnRunner= */ null);
     } else {
-      env.getReporter()
-          .handle(Event.info(null, "Runnable command line: " + runCommandLine.getPrettyArgs()));
+      commandDescription = runCommandLine.getPrettyArgs();
     }
+
+    String prefix = runOptions.runBuiltTarget ? "Running" : "Runnable";
+    String separator =
+        showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE ? ":\n" : ": ";
+    env.getReporter()
+        .handle(Event.info(null, prefix + " command line" + separator + commandDescription));
 
     try {
       env.getReporter()
