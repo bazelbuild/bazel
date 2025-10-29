@@ -1,0 +1,131 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.5.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.java_output">java_output</h1>
+
+<!-- {% raw %} -->
+
+The outputs of Java compilation.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#class_jar">class_jar</a>
+  </li>
+      <li>
+    <a href="#compile_jar">compile_jar</a>
+  </li>
+      <li>
+    <a href="#compile_jdeps">compile_jdeps</a>
+  </li>
+      <li>
+    <a href="#generated_class_jar">generated_class_jar</a>
+  </li>
+      <li>
+    <a href="#generated_source_jar">generated_source_jar</a>
+  </li>
+      <li>
+    <a href="#ijar">ijar</a>
+  </li>
+      <li>
+    <a href="#jdeps">jdeps</a>
+  </li>
+      <li>
+    <a href="#manifest_proto">manifest_proto</a>
+  </li>
+      <li>
+    <a href="#native_headers_jar">native_headers_jar</a>
+  </li>
+      <li>
+    <a href="#source_jar">source_jar</a>
+  </li>
+      <li>
+    <a href="#source_jars">source_jars</a>
+  </li>
+  </ul>
+
+      <h2 id="class_jar">class_jar</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.class_jar</pre></p>
+
+    A classes jar file.
+
+
+        <h2 id="compile_jar">compile_jar</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.compile_jar</pre></p>
+
+    An interface jar file.
+
+         May return <code>None</code>.
+
+        <h2 id="compile_jdeps">compile_jdeps</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.compile_jdeps</pre></p>
+
+    Compile time dependencies information (deps.proto file).
+
+         May return <code>None</code>.
+
+        <h2 id="generated_class_jar">generated_class_jar</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.generated_class_jar</pre></p>
+
+    A jar file containing class files compiled from sources generated during annotation processing.
+
+         May return <code>None</code>.
+
+        <h2 id="generated_source_jar">generated_source_jar</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.generated_source_jar</pre></p>
+
+    The source jar that was created as a result of annotation processing.
+
+         May return <code>None</code>.
+
+        <h2 id="ijar">ijar</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.ijar</pre></p>
+
+    Deprecated: Please use compile_jar.
+
+         May return <code>None</code>.
+
+        <h2 id="jdeps">jdeps</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.jdeps</pre></p>
+
+    A manifest proto file. The protobuf file containing the manifest generated from JavaBuilder.
+
+         May return <code>None</code>.
+
+        <h2 id="manifest_proto">manifest_proto</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.manifest_proto</pre></p>
+
+    A manifest proto file. The protobuf file containing the manifest generated from JavaBuilder.
+
+         May return <code>None</code>.
+
+        <h2 id="native_headers_jar">native_headers_jar</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.native_headers_jar</pre></p>
+
+    A jar containing CC header files supporting native method implementation.
+
+         May return <code>None</code>.
+
+        <h2 id="source_jar">source_jar</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="File.html">File</a> java_output.source_jar</pre></p>
+
+    Deprecated: Please use source_jars instead.
+
+         May return <code>None</code>.
+
+        <h2 id="source_jars">source_jars</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">sequence</a> java_output.source_jars</pre></p>
+
+    A list of sources archive files.
+
+         May return <code>None</code>.
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

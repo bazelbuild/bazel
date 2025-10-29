@@ -1,0 +1,57 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.5.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.DirectoryExpander">DirectoryExpander</h1>
+
+<!-- {% raw %} -->
+
+Expands directories created by <a href='actions.html#declare_directory'><code>ctx.actions.declare_directory</code></a> during the execution phase. This is useful to expand directories in <a href='Args.html#add_all.map_each'><code>map_each</code></a>.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#expand">expand</a>
+  </li>
+  </ul>
+
+      <h2 id="expand">expand</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">list</a> DirectoryExpander.expand(file)</pre></p>
+
+    If the given <code>File</code> is a directory, this returns a list of <code>File</code>s recursively underneath the directory. Otherwise, this returns a list containing just the given <code>File</code> itself.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="expand.file">
+              <code>file</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The directory or file to expand.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
