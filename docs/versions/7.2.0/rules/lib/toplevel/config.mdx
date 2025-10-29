@@ -1,0 +1,224 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.config">config</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/StarlarkConfigApi.java" %}
+{% dynamic setvar version "7.2.0" %}
+{% dynamic setvar original_path "/rules/lib/toplevel/config" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+This is a top-level module for creating configuration transitions and build setting descriptors which describe what kind of build setting (if any) a rule is. <p>ex: the following rule is marked as a build setting by setting the <code>build_setting</code> parameter of the <code>rule()</code> function. Specifically it is a build setting of type <code>int</code> and is a <code>flag</code> which means this build setting is callable on the command line.<br><pre class=language-python>  my_rule = rule(
+    implementation = _impl,
+    build_setting = config.int(flag = True),
+    ...
+  )</pre>
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#bool">bool</a>
+  </li>
+      <li>
+    <a href="#exec">exec</a>
+  </li>
+      <li>
+    <a href="#int">int</a>
+  </li>
+      <li>
+    <a href="#string">string</a>
+  </li>
+      <li>
+    <a href="#string_list">string_list</a>
+  </li>
+  </ul>
+
+      <h2 id="bool">bool</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/BuildSetting.html">BuildSetting</a> config.bool(flag=False)</pre></p>
+
+    A bool-typed build setting
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="bool.flag">
+              <code>flag</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          Whether or not this build setting is callable on the command line.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="exec">exec</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/ExecTransitionFactory.html">ExecTransitionFactory</a> config.exec(exec_group=None)</pre></p>
+
+    Creates an execution transition.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="exec.exec_group">
+              <code>exec_group</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The name of the exec group whose execution platform this transition will use. If not provided, this exec transition will use the target's default execution platform.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="int">int</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/BuildSetting.html">BuildSetting</a> config.int(flag=False)</pre></p>
+
+    An integer-typed build setting
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="int.flag">
+              <code>flag</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          Whether or not this build setting is callable on the command line.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="string">string</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/BuildSetting.html">BuildSetting</a> config.string(flag=False, allow_multiple=False)</pre></p>
+
+    A string-typed build setting
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="string.flag">
+              <code>flag</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          Whether or not this build setting is callable on the command line.
+            </td>
+          </tr>
+                  <tr>
+            <td id="string.allow_multiple">
+              <code>allow_multiple</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          Deprecated, use a <code>string_list</code> setting with <code>repeatable = True</code> instead. If set, this flag is allowed to be set multiple times on the command line. The Value of the flag as accessed in transitions and build setting implementation function will be a list of strings. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="string_list">string_list</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/BuildSetting.html">BuildSetting</a> config.string_list(flag=False, repeatable=False)</pre></p>
+
+    A string list-typed build setting. On the command line pass a list using comma-separated value like <code>--//my/setting=foo,bar</code>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="string_list.flag">
+              <code>flag</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          Whether or not this build setting is callable on the command line.
+            </td>
+          </tr>
+                  <tr>
+            <td id="string_list.repeatable">
+              <code>repeatable</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          If set, instead of expecting a comma-separated value, this flag is allowed to be set multiple times on the command line with each individual value treated as a single string to add to the list value. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

@@ -1,0 +1,62 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.LinkerInput">LinkerInput</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/LinkerInputApi.java" %}
+{% dynamic setvar version "7.2.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/LinkerInput" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+Either libraries, flags or other files that may be passed to the linker as inputs.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#additional_inputs">additional_inputs</a>
+  </li>
+      <li>
+    <a href="#libraries">libraries</a>
+  </li>
+      <li>
+    <a href="#owner">owner</a>
+  </li>
+      <li>
+    <a href="#user_link_flags">user_link_flags</a>
+  </li>
+  </ul>
+
+      <h2 id="additional_inputs">additional_inputs</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> LinkerInput.additional_inputs</pre></p>
+
+    Returns the depset of additional inputs, e.g.: linker scripts.
+
+
+        <h2 id="libraries">libraries</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> LinkerInput.libraries</pre></p>
+
+    Returns the depset of <code>LibraryToLink</code>. May return a list but this is deprecated. See #8118.
+
+
+        <h2 id="owner">owner</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/Label.html">Label</a> LinkerInput.owner</pre></p>
+
+    Returns the owner of this LinkerInput.
+
+
+        <h2 id="user_link_flags">user_link_flags</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> LinkerInput.user_link_flags</pre></p>
+
+    Returns the list of user link flags passed as strings.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

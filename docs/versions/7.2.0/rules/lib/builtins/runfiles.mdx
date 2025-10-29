@@ -1,0 +1,133 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.runfiles">runfiles</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/RunfilesApi.java" %}
+{% dynamic setvar version "7.2.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/runfiles" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A container of information regarding a set of files required at runtime execution. This object should be passed via <a href="../providers/DefaultInfo.html">DefaultInfo</a> in order to tell the build system about the runfiles needed by the outputs produced by the rule. <p>See <a href="https://bazel.build/versions/7.2.0/extending/rules#runfiles">runfiles guide</a> for details.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#empty_filenames">empty_filenames</a>
+  </li>
+      <li>
+    <a href="#files">files</a>
+  </li>
+      <li>
+    <a href="#merge">merge</a>
+  </li>
+      <li>
+    <a href="#merge_all">merge_all</a>
+  </li>
+      <li>
+    <a href="#root_symlinks">root_symlinks</a>
+  </li>
+      <li>
+    <a href="#symlinks">symlinks</a>
+  </li>
+  </ul>
+
+      <h2 id="empty_filenames">empty_filenames</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/depset.html">depset</a> runfiles.empty_filenames</pre></p>
+
+    Returns names of empty files to create.
+
+
+        <h2 id="files">files</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/depset.html">depset</a> runfiles.files</pre></p>
+
+    Returns the set of runfiles as files.
+
+
+        <h2 id="merge">merge</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/runfiles.html">runfiles</a> runfiles.merge(other)</pre></p>
+
+    Returns a new runfiles object that includes all the contents of this one and the argument.<p><i>Note:</i> When you have many runfiles objects to merge, use <a href='#merge_all'><code>merge_all()</code></a> rather than calling <code>merge</code> in a loop. This avoids constructing deep depset structures which can cause build failures.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="merge.other">
+              <code>other</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The runfiles object to merge into this.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="merge_all">merge_all</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/runfiles.html">runfiles</a> runfiles.merge_all(other)</pre></p>
+
+    Returns a new runfiles object that includes all the contents of this one and of the runfiles objects in the argument.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="merge_all.other">
+              <code>other</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../builtins/runfiles.html">runfiles</a>s;
+                                     required<br/>
+                          The sequence of runfiles objects to merge into this.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="root_symlinks">root_symlinks</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/depset.html">depset</a> runfiles.root_symlinks</pre></p>
+
+    Returns the set of root symlinks.
+
+
+        <h2 id="symlinks">symlinks</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/depset.html">depset</a> runfiles.symlinks</pre></p>
+
+    Returns the set of symlinks.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
