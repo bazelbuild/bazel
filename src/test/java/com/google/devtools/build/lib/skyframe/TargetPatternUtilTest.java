@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -60,7 +61,7 @@ public class TargetPatternUtilTest extends BuildViewTestCase {
       throws Exception {
     ExpansionPatternProvider.createBuildFiles(scratch);
 
-    ImmutableList<Label> result = expandTargetPattern(rawPatterns, FilteringPolicies.NO_FILTER);
+    ImmutableSet<Label> result = expandTargetPattern(rawPatterns, FilteringPolicies.NO_FILTER);
     assertThat(result).containsExactlyElementsIn(expectedLabels);
   }
 
@@ -167,7 +168,7 @@ public class TargetPatternUtilTest extends BuildViewTestCase {
   }
 
   // Test setup and methods.
-  private ImmutableList<Label> expandTargetPattern(
+  private ImmutableSet<Label> expandTargetPattern(
       ImmutableList<String> rawPatterns, FilteringPolicy filteringPolicy)
       throws InterruptedException {
     ExpandTargetPatternKey key = new ExpandTargetPatternKey(rawPatterns, filteringPolicy);
@@ -233,7 +234,7 @@ public class TargetPatternUtilTest extends BuildViewTestCase {
   }
 
   @AutoCodec
-  record ExpandTargetPatternValue(ImmutableList<Label> result) implements SkyValue {}
+  record ExpandTargetPatternValue(ImmutableSet<Label> result) implements SkyValue {}
 
   private static final class ExpandTargetPatternFunction implements SkyFunction {
 
@@ -257,7 +258,7 @@ public class TargetPatternUtilTest extends BuildViewTestCase {
       try {
         ImmutableList<SignedTargetPattern> signedTargetPatterns =
             TargetPatternUtil.parseAllSigned(key.rawPatterns(), targetPatternParser);
-        ImmutableList<Label> labels =
+        ImmutableSet<Label> labels =
             TargetPatternUtil.expandTargetPatterns(
                 env, signedTargetPatterns, key.filteringPolicy());
         if (env.valuesMissing()) {
