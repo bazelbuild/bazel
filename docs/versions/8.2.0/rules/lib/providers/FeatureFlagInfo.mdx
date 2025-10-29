@@ -1,0 +1,82 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.FeatureFlagInfo">FeatureFlagInfo</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config/ConfigFeatureFlagProviderApi.java" %}
+{% dynamic setvar version "8.2.0" %}
+{% dynamic setvar original_path "/rules/lib/providers/FeatureFlagInfo" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A provider used to access information about config_feature_flag rules.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#error">error</a>
+  </li>
+      <li>
+    <a href="#is_valid_value">is_valid_value</a>
+  </li>
+      <li>
+    <a href="#value">value</a>
+  </li>
+  </ul>
+
+      <h2 id="error">error</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> FeatureFlagInfo.error</pre></p>
+
+    If non-None, this error was generated when trying to compute current value of flag.
+
+         May return <code>None</code>.
+
+        <h2 id="is_valid_value">is_valid_value</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> FeatureFlagInfo.is_valid_value(value)</pre></p>
+
+    The value of the flag in the configuration used by the flag rule.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="is_valid_value.value">
+              <code>value</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>;
+                                     required<br/>
+                          String, the value to check for validity for this flag.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="value">value</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> FeatureFlagInfo.value</pre></p>
+
+    The current value of the flag in the flag's current configuration. None if there is an error.
+
+         May return <code>None</code>.
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

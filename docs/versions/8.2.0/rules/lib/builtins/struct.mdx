@@ -1,0 +1,62 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.struct">struct</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core/StructApi.java" %}
+{% dynamic setvar version "8.2.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/struct" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A generic object with fields.<p>Structs fields cannot be reassigned once the struct is created. Two structs are equal if they have the same fields and if corresponding field values are equal.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#struct">struct</a>
+  </li>
+  </ul>
+
+      <h2 id="struct">struct</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/struct.html">struct</a> struct(**kwargs)</pre></p>
+
+    Creates an immutable struct using the keyword arguments as attributes. It is used to group multiple values together. Example:<br><pre class="language-python">s = struct(x = 2, y = 3)
+return s.x + getattr(s, "y")  # returns 5</pre>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="struct.kwargs">
+              <code>kwargs</code>
+            </td>
+            <td>
+                                     default is <code>{}</code><br/>
+                          Dictionary of arguments.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

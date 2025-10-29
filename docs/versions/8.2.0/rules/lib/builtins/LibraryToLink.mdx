@@ -1,0 +1,135 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.LibraryToLink">LibraryToLink</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/LibraryToLinkApi.java" %}
+{% dynamic setvar version "8.2.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/LibraryToLink" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A library the user can link against.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#alwayslink">alwayslink</a>
+  </li>
+      <li>
+    <a href="#dynamic_library">dynamic_library</a>
+  </li>
+      <li>
+    <a href="#interface_library">interface_library</a>
+  </li>
+      <li>
+    <a href="#lto_bitcode_files">lto_bitcode_files</a>
+  </li>
+      <li>
+    <a href="#objects">objects</a>
+  </li>
+      <li>
+    <a href="#pic_lto_bitcode_files">pic_lto_bitcode_files</a>
+  </li>
+      <li>
+    <a href="#pic_objects">pic_objects</a>
+  </li>
+      <li>
+    <a href="#pic_static_library">pic_static_library</a>
+  </li>
+      <li>
+    <a href="#resolved_symlink_dynamic_library">resolved_symlink_dynamic_library</a>
+  </li>
+      <li>
+    <a href="#resolved_symlink_interface_library">resolved_symlink_interface_library</a>
+  </li>
+      <li>
+    <a href="#static_library">static_library</a>
+  </li>
+  </ul>
+
+      <h2 id="alwayslink">alwayslink</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> LibraryToLink.alwayslink</pre></p>
+
+    Whether to link the static library/objects in the --whole_archive block.
+
+
+        <h2 id="dynamic_library">dynamic_library</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/File.html">File</a> LibraryToLink.dynamic_library</pre></p>
+
+    <code>Artifact</code> of dynamic library to be linked. Always used for runtime and used for linking if <code>interface_library</code> is not passed.
+
+         May return <code>None</code>.
+
+        <h2 id="interface_library">interface_library</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/File.html">File</a> LibraryToLink.interface_library</pre></p>
+
+    <code>Artifact</code> of interface library to be linked.
+
+         May return <code>None</code>.
+
+        <h2 id="lto_bitcode_files">lto_bitcode_files</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> LibraryToLink.lto_bitcode_files</pre></p>
+
+    <code>List</code> of LTO bitcode files in the library.
+
+         May return <code>None</code>.
+
+        <h2 id="objects">objects</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> LibraryToLink.objects</pre></p>
+
+    <code>List</code> of object files in the library.
+
+         May return <code>None</code>.
+
+        <h2 id="pic_lto_bitcode_files">pic_lto_bitcode_files</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> LibraryToLink.pic_lto_bitcode_files</pre></p>
+
+    <code>List</code> of pic LTO bitcode files in the library.
+
+         May return <code>None</code>.
+
+        <h2 id="pic_objects">pic_objects</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> LibraryToLink.pic_objects</pre></p>
+
+    <code>List</code> of pic object files in the library.
+
+         May return <code>None</code>.
+
+        <h2 id="pic_static_library">pic_static_library</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/File.html">File</a> LibraryToLink.pic_static_library</pre></p>
+
+    <code>Artifact</code> of pic static library to be linked.
+
+         May return <code>None</code>.
+
+        <h2 id="resolved_symlink_dynamic_library">resolved_symlink_dynamic_library</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/File.html">File</a> LibraryToLink.resolved_symlink_dynamic_library</pre></p>
+
+    The resolved <code>Artifact</code> of the dynamic library to be linked if <code>dynamic_library</code> is a symlink, otherwise this is None.
+
+         May return <code>None</code>.
+
+        <h2 id="resolved_symlink_interface_library">resolved_symlink_interface_library</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/File.html">File</a> LibraryToLink.resolved_symlink_interface_library</pre></p>
+
+    The resolved <code>Artifact</code> of the interface library to be linked if <code>interface_library</code> is a symlink, otherwise this is None.
+
+         May return <code>None</code>.
+
+        <h2 id="static_library">static_library</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/File.html">File</a> LibraryToLink.static_library</pre></p>
+
+    <code>Artifact</code> of static library to be linked.
+
+         May return <code>None</code>.
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

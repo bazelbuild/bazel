@@ -1,0 +1,35 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.2.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.CcToolchainConfigInfo">CcToolchainConfigInfo</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcToolchainConfigInfoApi.java" %}
+{% dynamic setvar version "8.2.0" %}
+{% dynamic setvar original_path "/rules/lib/providers/CcToolchainConfigInfo" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+Additional layer of configurability for C++ rules. Encapsulates platform-dependent specifics of C++ actions through features and action configs. It is used to configure the C++ toolchain, and later on for command line construction. Replaces the functionality of CROSSTOOL file.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#proto">proto</a>
+  </li>
+  </ul>
+
+      <h2 id="proto">proto</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> CcToolchainConfigInfo.proto</pre></p>
+
+    Returns CToolchain text proto from the CcToolchainConfigInfo data.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
