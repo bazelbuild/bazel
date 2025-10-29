@@ -1732,6 +1732,20 @@ public final class ParserTest {
   }
 
   @Test
+  public void testEllipsisNotAllowedInValueExpressions() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    assertThat(parseExpressionError("print(...)"))
+        .contains("ellipsis ('...') is not allowed outside type expressions");
+  }
+
+  @Test
+  public void testEllipsisAllowedInTypeExpressions() throws Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+    parseStatement("x : Tuple[int, ...]");
+  }
+
+  @Test
   public void testCastExpression_basicFunctionality() throws Exception {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     CastExpression cast = (CastExpression) parseExpression("cast(list[int], foo())");

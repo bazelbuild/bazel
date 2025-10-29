@@ -29,6 +29,7 @@ java_library(
         "DictExpression.java",
         "DocComments.java",
         "DotExpression.java",
+        "Ellipsis.java",
         "Expression.java",
         "ExpressionStatement.java",
         "FileLocations.java",

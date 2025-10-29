@@ -44,6 +44,8 @@ public enum TokenKind {
   DOC_COMMENT_TRAILING("trailing #: "),
   DOT("."),
   ELIF("elif"),
+  /** Valid only in type expressions. */
+  ELLIPSIS("..."),
   ELSE("else"),
   EOF("EOF"),
   EQUALS("="),

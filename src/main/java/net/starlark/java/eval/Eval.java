@@ -590,8 +590,10 @@ final class Eval {
         return ((StringLiteral) expr).getValue();
       case UNARY_OPERATOR:
         return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
+      case ELLIPSIS:
       case TYPE_APPLICATION:
-        // fall through
+        // fall through, these only appear in type expressions and should be unreachable from
+        // evaluated code.
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
   }

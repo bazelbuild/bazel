@@ -392,6 +392,17 @@ public final class NodePrinterTest {
   }
 
   @Test
+  public void ellipsisExpression() throws SyntaxError.Exception {
+    setFileOptions(
+        FileOptions.builder().allowTypeSyntax(true).allowArbitraryTypeExpressions(true).build());
+    // Use `def` rather than `type` to wrap the type expression, because `type`'s toString()
+    // introduces its own metasyntactic "..." placeholder.
+    assertStmtTostringMatches(
+        "def f(x:Callable[...,int]): pass", "def f(x: Callable[(..., int)]): ...\n");
+    assertStmtIndentedPrettyMatches("type x=...", "  type x = ...\n");
+  }
+
+  @Test
   public void castExpression() throws SyntaxError.Exception {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     assertExprPrettyMatches("cast(list[int],foo())", "cast(list[int], foo())");

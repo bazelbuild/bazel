@@ -412,6 +412,12 @@ final class NodePrinter {
           break;
         }
 
+      case ELLIPSIS:
+        {
+          buf.append("...");
+          break;
+        }
+
       case IDENTIFIER:
         buf.append(((Identifier) expr).getName());
         break;

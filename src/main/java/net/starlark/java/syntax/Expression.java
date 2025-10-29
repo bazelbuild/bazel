@@ -36,6 +36,7 @@ public abstract class Expression extends Node {
     DOT,
     CALL,
     CAST,
+    ELLIPSIS,
     FLOAT_LITERAL,
     IDENTIFIER,
     INDEX,

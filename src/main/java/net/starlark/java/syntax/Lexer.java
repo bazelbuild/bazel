@@ -859,10 +859,10 @@ final class Lexer {
             }
           }
 
-          // int or float literal, or dot
+          // int or float literal, or dot, or ellipsis
           if (c == '.' || isdigit(c)) {
             pos--; // unconsume
-            scanNumberOrDot(c);
+            scanNumberOrDotOrEllipsis(c);
             break;
           }
 
@@ -890,22 +890,28 @@ final class Lexer {
     setToken(TokenKind.EOF, pos, pos);
   }
 
-  // Scans a number (INT or FLOAT) or DOT.
+  // Scans a number (INT or FLOAT) or DOT or ELLIPSIS.
   // Precondition: c == peek(0) (a dot or digit)
   //
   // TODO(adonovan): make this the precondition for all scan functions;
-  // currenly most assume their argument c has been consumed already.
-  private void scanNumberOrDot(int c) {
+  // currently most assume their argument c has been consumed already.
+  private void scanNumberOrDotOrEllipsis(int c) {
     int start = this.pos;
     boolean fraction = false;
     boolean exponent = false;
 
     if (c == '.') {
-      // dot or start of fraction
+      // dot or ellipsis or start of fraction
       if (!isdigit(peek(1))) {
-        pos++; // consume '.'
-        setToken(TokenKind.DOT, start, pos);
-        return;
+        if (peek(1) == '.' && peek(2) == '.') {
+          pos += 3; // consume '...'
+          setToken(TokenKind.ELLIPSIS, start, pos);
+          return;
+        } else {
+          pos++; // consume '.'
+          setToken(TokenKind.DOT, start, pos);
+          return;
+        }
       }
       fraction = true;
 

@@ -97,12 +97,12 @@ final class Parser {
   /** "type" is a keyword iff it precedes an identifier (such as in a type alias expression). */
   private static final String TYPE_SOFT_KEYWORD = "type";
 
+  private static final boolean DEBUGGING = false;
+
   /** Current lookahead token. May be mutated by the parser. */
   private final Lexer token; // token.kind is a prettier alias for lexer.kind
 
   private final FileOptions options;
-
-  private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
   private final FileLocations locs;
@@ -114,6 +114,10 @@ final class Parser {
    * so should be accessed via {@link #getDocCommentBlockOnPreviousLine}.
    */
   private DocComments mostRecentDocCommentBlock = null;
+
+  // State tracking whether we're currently parsing a type expression.
+  // Used for conditionally allowing the Ellipsis token.
+  private boolean insideTypeExpr = false;
 
   // TODO(adonovan): opt: compute this by subtraction.
   private static final Map<TokenKind, TokenKind> augmentedAssignments =
@@ -666,6 +670,7 @@ final class Parser {
   //          | dict_expression
   //          | '-' primary_with_suffix
   //          | cast_expression
+  //          | ellipsis                   // if in type expression
   private Expression parsePrimary() {
     switch (token.kind) {
       case INT:
@@ -748,6 +753,14 @@ final class Parser {
 
       case CAST:
         return parseCastExpression();
+
+      case ELLIPSIS:
+        if (!insideTypeExpr) {
+          syntaxError("ellipsis ('...') is not allowed outside type expressions");
+          // Fall-through, may as well emit this instead of makeErrorExpression().
+        }
+        int offset = nextToken();
+        return new Ellipsis(locs, offset);
 
       default:
         {
@@ -1056,13 +1069,17 @@ final class Parser {
   // parser to never fail on parsing a type annotation it doesn't recognize (e.g. supported by a
   // future version of Bazel), so long as it's valid expression syntax.
   private Expression parseTypeExprWithFallback() {
+    Expression result;
+    this.insideTypeExpr = true;
     if (options.allowArbitraryTypeExpressions()) {
       // parseTest, because allowing unparenthesized tuples here would consume subsequent params in
       // function signatures.
-      return parseTest();
+      result = parseTest();
     } else {
-      return parseTypeExpr();
+      result = parseTypeExpr();
     }
+    this.insideTypeExpr = false;
+    return result;
   }
 
   // TypeExpr = TypeAtom {'|' TypeAtom}.
