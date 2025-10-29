@@ -99,12 +99,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         // Otherwise, create a junction.
         WindowsFileOperations.createJunction(link.toString(), target.toString());
       }
-    } catch (FileAlreadyExistsException e) {
-      throw new IOException(linkPath + ERR_FILE_EXISTS, e);
-    } catch (AccessDeniedException e) {
-      throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
-    } catch (NoSuchFileException e) {
-      throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
+    } catch (IOException e) {
+      throw translateNioToIoException(linkPath, e);
     }
   }
 
