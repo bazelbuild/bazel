@@ -1,0 +1,27 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.1.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.Provider">Provider</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core/ProviderApi.java" %}
+{% dynamic setvar version "7.1.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/Provider" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A constructor for simple value objects, known as provider instances.<br>This value has a dual purpose:  <ul>     <li>It is a function that can be called to construct 'struct'-like values:<pre class="language-python">DataInfo = provider()
+d = DataInfo(x = 2, y = 3)
+print(d.x + d.y) # prints 5</pre>     Note: Some providers, defined internally, do not allow instance creation     </li>     <li>It is a <i>key</i> to access a provider instance on a        <a href="../builtins/Target.html">Target</a><pre class="language-python">DataInfo = provider()
+def _rule_impl(ctx)
+  ... ctx.attr.dep[DataInfo]</pre>     </li>  </ul>Create a new <code>Provider</code> using the <a href="../globals/bzl.html#provider">provider</a> function.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

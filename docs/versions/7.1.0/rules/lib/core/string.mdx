@@ -1,0 +1,1044 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.1.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.string">string</h1>
+
+{% dynamic setvar source_file "src/main/java/net/starlark/java/eval/StringModule.java" %}
+{% dynamic setvar version "7.1.0" %}
+{% dynamic setvar original_path "/rules/lib/core/string" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A language built-in type to support strings. Examples of string literals:<br><pre class="language-python">a = 'abc\ndef'
+b = "ab'cd"
+c = """multiline string"""
+
+# Strings support slicing (negative index starts from the end):
+x = "hello"[2:4]  # "ll"
+y = "hello"[1:-1]  # "ell"
+z = "hello"[:4]  # "hell"# Slice steps can be used, too:
+s = "hello"[::2] # "hlo"
+t = "hello"[3:0:-1] # "lle"
+</pre>Strings are not directly iterable, use the <code>.elems()</code> method to iterate over their characters. Examples:<br><pre class="language-python">"bc" in "abcd"   # evaluates to True
+x = [c for c in "abc".elems()]  # x == ["a", "b", "c"]</pre>
+Implicit concatenation of strings is not allowed; use the <code>+</code> operator instead. Comparison operators perform a lexicographical comparison; use <code>==</code> to test for equality.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#capitalize">capitalize</a>
+  </li>
+      <li>
+    <a href="#count">count</a>
+  </li>
+      <li>
+    <a href="#elems">elems</a>
+  </li>
+      <li>
+    <a href="#endswith">endswith</a>
+  </li>
+      <li>
+    <a href="#find">find</a>
+  </li>
+      <li>
+    <a href="#format">format</a>
+  </li>
+      <li>
+    <a href="#index">index</a>
+  </li>
+      <li>
+    <a href="#isalnum">isalnum</a>
+  </li>
+      <li>
+    <a href="#isalpha">isalpha</a>
+  </li>
+      <li>
+    <a href="#isdigit">isdigit</a>
+  </li>
+      <li>
+    <a href="#islower">islower</a>
+  </li>
+      <li>
+    <a href="#isspace">isspace</a>
+  </li>
+      <li>
+    <a href="#istitle">istitle</a>
+  </li>
+      <li>
+    <a href="#isupper">isupper</a>
+  </li>
+      <li>
+    <a href="#join">join</a>
+  </li>
+      <li>
+    <a href="#lower">lower</a>
+  </li>
+      <li>
+    <a href="#lstrip">lstrip</a>
+  </li>
+      <li>
+    <a href="#partition">partition</a>
+  </li>
+      <li>
+    <a href="#removeprefix">removeprefix</a>
+  </li>
+      <li>
+    <a href="#removesuffix">removesuffix</a>
+  </li>
+      <li>
+    <a href="#replace">replace</a>
+  </li>
+      <li>
+    <a href="#rfind">rfind</a>
+  </li>
+      <li>
+    <a href="#rindex">rindex</a>
+  </li>
+      <li>
+    <a href="#rpartition">rpartition</a>
+  </li>
+      <li>
+    <a href="#rsplit">rsplit</a>
+  </li>
+      <li>
+    <a href="#rstrip">rstrip</a>
+  </li>
+      <li>
+    <a href="#split">split</a>
+  </li>
+      <li>
+    <a href="#splitlines">splitlines</a>
+  </li>
+      <li>
+    <a href="#startswith">startswith</a>
+  </li>
+      <li>
+    <a href="#strip">strip</a>
+  </li>
+      <li>
+    <a href="#title">title</a>
+  </li>
+      <li>
+    <a href="#upper">upper</a>
+  </li>
+  </ul>
+
+      <h2 id="capitalize">capitalize</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.capitalize()</pre></p>
+
+    Returns a copy of the string with its first character (if any) capitalized and the rest lowercased. This method does not support non-ascii characters.
+
+
+        <h2 id="count">count</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/int.html">int</a> string.count(sub, start=0, end=None)</pre></p>
+
+    Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to <code>[start:end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="count.sub">
+              <code>sub</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The substring to count.
+            </td>
+          </tr>
+                  <tr>
+            <td id="count.start">
+              <code>start</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>0</code><br/>
+                          Restrict to search from this position.
+            </td>
+          </tr>
+                  <tr>
+            <td id="count.end">
+              <code>end</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          optional position before which to restrict to search.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="elems">elems</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> string.elems()</pre></p>
+
+    Returns an iterable value containing successive 1-element substrings of the string. Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the returned value might not be a list.
+
+
+        <h2 id="endswith">endswith</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.endswith(sub, start=0, end=None)</pre></p>
+
+    Returns True if the string ends with <code>sub</code>, otherwise False, optionally restricting to <code>[start:end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="endswith.sub">
+              <code>sub</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../core/tuple.html">tuple</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          The suffix (or tuple of alternative suffixes) to match.
+            </td>
+          </tr>
+                  <tr>
+            <td id="endswith.start">
+              <code>start</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>0</code><br/>
+                          Test beginning at this position.
+            </td>
+          </tr>
+                  <tr>
+            <td id="endswith.end">
+              <code>end</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          optional position at which to stop comparing.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="find">find</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/int.html">int</a> string.find(sub, start=0, end=None)</pre></p>
+
+    Returns the first index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to <code>[start:end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="find.sub">
+              <code>sub</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The substring to find.
+            </td>
+          </tr>
+                  <tr>
+            <td id="find.start">
+              <code>start</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>0</code><br/>
+                          Restrict to search from this position.
+            </td>
+          </tr>
+                  <tr>
+            <td id="find.end">
+              <code>end</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          optional position before which to restrict to search.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="format">format</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.format(*args, **kwargs)</pre></p>
+
+    Perform string interpolation. Format strings contain replacement fields surrounded by curly braces <code>&#123;&#125;</code>. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: <code>&#123;&#123;</code> and <code>&#125;&#125;</code>A replacement field can be either a name, a number, or empty. Values are converted to strings using the <a href="../globals/all.html#str">str</a> function.<pre class="language-python"># Access in order:
+"&#123;&#125; < &#123;&#125;".format(4, 5) == "4 < 5"
+# Access by position:
+"{1}, {0}".format(2, 1) == "1, 2"
+# Access by name:
+"x{key}x".format(key = 2) == "x2x"</pre>
+
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="format.args">
+              <code>args</code>
+            </td>
+            <td>
+                                     default is <code>()</code><br/>
+                          List of arguments.
+            </td>
+          </tr>
+                  <tr>
+            <td id="format.kwargs">
+              <code>kwargs</code>
+            </td>
+            <td>
+                                     default is <code>{}</code><br/>
+                          Dictionary of arguments.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="index">index</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/int.html">int</a> string.index(sub, start=0, end=None)</pre></p>
+
+    Returns the first index where <code>sub</code> is found, or raises an error if no such  index exists, optionally restricting to <code>[start:end]</code><code>start</code> being inclusive and <code>end</code> being exclusive.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="index.sub">
+              <code>sub</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The substring to find.
+            </td>
+          </tr>
+                  <tr>
+            <td id="index.start">
+              <code>start</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>0</code><br/>
+                          Restrict to search from this position.
+            </td>
+          </tr>
+                  <tr>
+            <td id="index.end">
+              <code>end</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          optional position before which to restrict to search.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="isalnum">isalnum</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.isalnum()</pre></p>
+
+    Returns True if all characters in the string are alphanumeric ([a-zA-Z0-9]) and there is at least one character.
+
+
+        <h2 id="isalpha">isalpha</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.isalpha()</pre></p>
+
+    Returns True if all characters in the string are alphabetic ([a-zA-Z]) and there is at least one character.
+
+
+        <h2 id="isdigit">isdigit</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.isdigit()</pre></p>
+
+    Returns True if all characters in the string are digits ([0-9]) and there is at least one character.
+
+
+        <h2 id="islower">islower</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.islower()</pre></p>
+
+    Returns True if all cased characters in the string are lowercase and there is at least one character.
+
+
+        <h2 id="isspace">isspace</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.isspace()</pre></p>
+
+    Returns True if all characters are white space characters and the string contains at least one character.
+
+
+        <h2 id="istitle">istitle</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.istitle()</pre></p>
+
+    Returns True if the string is in title case and it contains at least one character. This means that every uppercase character must follow an uncased one (e.g. whitespace) and every lowercase character must follow a cased one (e.g. uppercase or lowercase).
+
+
+        <h2 id="isupper">isupper</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.isupper()</pre></p>
+
+    Returns True if all cased characters in the string are uppercase and there is at least one character.
+
+
+        <h2 id="join">join</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.join(elements)</pre></p>
+
+    Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class="language-python">"|".join(["a", "b", "c"]) == "a|b|c"</pre>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="join.elements">
+              <code>elements</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The objects to join.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="lower">lower</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.lower()</pre></p>
+
+    Returns the lower case version of this string.
+
+
+        <h2 id="lstrip">lstrip</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.lstrip(chars=None)</pre></p>
+
+    Returns a copy of the string where leading characters that appear in <code>chars</code> are removed. Note that <code>chars</code> is not a prefix: all combinations of its value are removed:<pre class="language-python">"abcba".lstrip("ba") == "cba"</pre>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="lstrip.chars">
+              <code>chars</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The characters to remove, or all whitespace if None.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="partition">partition</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/tuple.html">tuple</a> string.partition(sep)</pre></p>
+
+    Splits the input string at the first occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element tuple of the form (before, separator, after). If the input string does not contain the separator, partition returns (self, '', '').
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="partition.sep">
+              <code>sep</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The string to split on.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="removeprefix">removeprefix</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.removeprefix(prefix)</pre></p>
+
+    If the string starts with <code>prefix</code>, returns a new string with the prefix removed. Otherwise, returns the string.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="removeprefix.prefix">
+              <code>prefix</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The prefix to remove if present.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="removesuffix">removesuffix</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.removesuffix(suffix)</pre></p>
+
+    If the string ends with <code>suffix</code>, returns a new string with the suffix removed. Otherwise, returns the string.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="removesuffix.suffix">
+              <code>suffix</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The suffix to remove if present.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="replace">replace</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.replace(old, new, count=-1)</pre></p>
+
+    Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>count</code>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="replace.old">
+              <code>old</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The string to be replaced.
+            </td>
+          </tr>
+                  <tr>
+            <td id="replace.new">
+              <code>new</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The string to replace with.
+            </td>
+          </tr>
+                  <tr>
+            <td id="replace.count">
+              <code>count</code>
+            </td>
+            <td>
+                                     default is <code>-1</code><br/>
+                          The maximum number of replacements. If omitted, or if the value is negative, there is no limit.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="rfind">rfind</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/int.html">int</a> string.rfind(sub, start=0, end=None)</pre></p>
+
+    Returns the last index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to <code>[start:end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rfind.sub">
+              <code>sub</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The substring to find.
+            </td>
+          </tr>
+                  <tr>
+            <td id="rfind.start">
+              <code>start</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>0</code><br/>
+                          Restrict to search from this position.
+            </td>
+          </tr>
+                  <tr>
+            <td id="rfind.end">
+              <code>end</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          optional position before which to restrict to search.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="rindex">rindex</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/int.html">int</a> string.rindex(sub, start=0, end=None)</pre></p>
+
+    Returns the last index where <code>sub</code> is found, or raises an error if no such index exists, optionally restricting to <code>[start:end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rindex.sub">
+              <code>sub</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The substring to find.
+            </td>
+          </tr>
+                  <tr>
+            <td id="rindex.start">
+              <code>start</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>0</code><br/>
+                          Restrict to search from this position.
+            </td>
+          </tr>
+                  <tr>
+            <td id="rindex.end">
+              <code>end</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          optional position before which to restrict to search.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="rpartition">rpartition</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/tuple.html">tuple</a> string.rpartition(sep)</pre></p>
+
+    Splits the input string at the last occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element tuple of the form (before, separator, after). If the input string does not contain the separator, rpartition returns ('', '', self).
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rpartition.sep">
+              <code>sep</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The string to split on.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="rsplit">rsplit</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">list</a> string.rsplit(sep, maxsplit=None)</pre></p>
+
+    Returns a list of all the words in the string, using <code>sep</code> as the separator, optionally limiting the number of splits to <code>maxsplit</code>. Except for splitting from the right, this method behaves like split().
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rsplit.sep">
+              <code>sep</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The string to split on.
+            </td>
+          </tr>
+                  <tr>
+            <td id="rsplit.maxsplit">
+              <code>maxsplit</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The maximum number of splits.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="rstrip">rstrip</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.rstrip(chars=None)</pre></p>
+
+    Returns a copy of the string where trailing characters that appear in <code>chars</code> are removed. Note that <code>chars</code> is not a suffix: all combinations of its value are removed:<pre class="language-python">"abcbaa".rstrip("ab") == "abc"</pre>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rstrip.chars">
+              <code>chars</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The characters to remove, or all whitespace if None.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="split">split</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">list</a> string.split(sep, maxsplit=None)</pre></p>
+
+    Returns a list of all the words in the string, using <code>sep</code> as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="split.sep">
+              <code>sep</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The string to split on.
+            </td>
+          </tr>
+                  <tr>
+            <td id="split.maxsplit">
+              <code>maxsplit</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The maximum number of splits.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="splitlines">splitlines</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> string.splitlines(keepends=False)</pre></p>
+
+    Splits the string at line boundaries ('\n', '\r\n', '\r') and returns the result as a new mutable list.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="splitlines.keepends">
+              <code>keepends</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          Whether the line breaks should be included in the resulting list.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="startswith">startswith</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> string.startswith(sub, start=0, end=None)</pre></p>
+
+    Returns True if the string starts with <code>sub</code>, otherwise False, optionally restricting to <code>[start:end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="startswith.sub">
+              <code>sub</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../core/tuple.html">tuple</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          The prefix (or tuple of alternative prefixes) to match.
+            </td>
+          </tr>
+                  <tr>
+            <td id="startswith.start">
+              <code>start</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>0</code><br/>
+                          Test beginning at this position.
+            </td>
+          </tr>
+                  <tr>
+            <td id="startswith.end">
+              <code>end</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          Stop comparing at this position.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="strip">strip</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.strip(chars=None)</pre></p>
+
+    Returns a copy of the string where leading or trailing characters that appear in <code>chars</code> are removed. Note that <code>chars</code> is neither a prefix nor a suffix: all combinations of its value are removed:<pre class="language-python">"aabcbcbaa".strip("ab") == "cbc"</pre>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="strip.chars">
+              <code>chars</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The characters to remove, or all whitespace if None.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="title">title</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.title()</pre></p>
+
+    Converts the input string into title case, i.e. every word starts with an uppercase letter while the remaining letters are lowercase. In this context, a word means strictly a sequence of letters. This method does not support supplementary Unicode characters.
+
+
+        <h2 id="upper">upper</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> string.upper()</pre></p>
+
+    Returns the upper case version of this string.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
