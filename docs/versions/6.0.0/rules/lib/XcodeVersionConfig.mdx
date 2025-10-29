@@ -1,0 +1,308 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.0.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.XcodeVersionConfig">XcodeVersionConfig</h1>
+
+<!-- {% raw %} -->
+
+The set of Apple versions computed from command line options and the xcode_config rule.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#XcodeVersionConfig">XcodeVersionConfig</a>
+  </li>
+      <li>
+    <a href="#availability">availability</a>
+  </li>
+      <li>
+    <a href="#execution_info">execution_info</a>
+  </li>
+      <li>
+    <a href="#minimum_os_for_platform_type">minimum_os_for_platform_type</a>
+  </li>
+      <li>
+    <a href="#sdk_version_for_platform">sdk_version_for_platform</a>
+  </li>
+      <li>
+    <a href="#to_json">to_json</a>
+  </li>
+      <li>
+    <a href="#to_proto">to_proto</a>
+  </li>
+      <li>
+    <a href="#xcode_version">xcode_version</a>
+  </li>
+  </ul>
+
+      <h2 id="XcodeVersionConfig">XcodeVersionConfig</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="XcodeVersionConfig.html">XcodeVersionConfig</a> XcodeVersionConfig(iosSdkVersion, iosMinimumOsVersion, watchosSdkVersion, watchosMinimumOsVersion, tvosSdkVersion, tvosMinimumOsVersion, macosSdkVersion, macosMinimumOsVersion, xcodeVersion)</pre></p>
+
+    Returns the Xcode info that is associated with this target
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="XcodeVersionConfig.iosSdkVersion">
+              <code>iosSdkVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The ios SDK version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.iosMinimumOsVersion">
+              <code>iosMinimumOsVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The ios minimum os version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.watchosSdkVersion">
+              <code>watchosSdkVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The watchos SDK version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.watchosMinimumOsVersion">
+              <code>watchosMinimumOsVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The watchos minimum os version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.tvosSdkVersion">
+              <code>tvosSdkVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The tvos SDK version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.tvosMinimumOsVersion">
+              <code>tvosMinimumOsVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The tvos minimum os version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.macosSdkVersion">
+              <code>macosSdkVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The macos SDK version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.macosMinimumOsVersion">
+              <code>macosMinimumOsVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The macos minimum os version.
+            </td>
+          </tr>
+                  <tr>
+            <td id="XcodeVersionConfig.xcodeVersion">
+              <code>xcodeVersion</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The selected Xcode version from this config.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="availability">availability</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> XcodeVersionConfig.availability()</pre></p>
+
+    Returns the availability of this Xcode version, 'remote' if the version is only available remotely, 'local' if the version is only available locally, 'both' if the version is available both locally and remotely, or 'unknown' if the availability could not be determined.
+
+
+        <h2 id="execution_info">execution_info</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="dict.html">dict</a> XcodeVersionConfig.execution_info()</pre></p>
+
+    Returns the execution requirements for actions that use this Xcode config.
+
+
+        <h2 id="minimum_os_for_platform_type">minimum_os_for_platform_type</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="DottedVersion.html">DottedVersion</a> XcodeVersionConfig.minimum_os_for_platform_type(platform_type)</pre></p>
+
+    The minimum compatible OS version for target simulator and devices for a particular platform type.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="minimum_os_for_platform_type.platform_type">
+              <code>platform_type</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The apple platform type.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="sdk_version_for_platform">sdk_version_for_platform</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="DottedVersion.html">DottedVersion</a> XcodeVersionConfig.sdk_version_for_platform(platform)</pre></p>
+
+    The version of the platform SDK that will be used to build targets for the given platform.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="sdk_version_for_platform.platform">
+              <code>platform</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The apple platform.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="to_json">to_json</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> XcodeVersionConfig.to_json()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:<br><pre class=language-python>struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+</pre>.<p>Deprecated: instead, use json.encode(x) or json.encode_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+
+        <h2 id="to_proto">to_proto</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> XcodeVersionConfig.to_proto()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:<br><pre class=language-python>struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+</pre><p>Deprecated: use proto.encode_text(x) instead.
+
+
+        <h2 id="xcode_version">xcode_version</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="DottedVersion.html">DottedVersion</a> XcodeVersionConfig.xcode_version()</pre></p>
+
+    Returns the Xcode version that is being used to build.<p>This will return <code>None</code> if no Xcode versions are available.
+
+         May return <code>None</code>.
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
