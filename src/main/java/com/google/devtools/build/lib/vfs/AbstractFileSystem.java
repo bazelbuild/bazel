@@ -14,6 +14,7 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
@@ -62,7 +63,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(getIoFile(path));
+    return new FileInputStream(checkNotNull(getIoFile(path)));
   }
 
   /** Returns either normal or profiled FileInputStream. */

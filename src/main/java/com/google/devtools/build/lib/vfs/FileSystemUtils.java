@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.devtools.build.lib.vfs.FileSystem.translateNioToIoException;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -374,6 +377,18 @@ public class FileSystemUtils {
    */
   @ThreadSafe  // but not atomic
   public static void copyFile(Path from, Path to) throws IOException {
+    var fromNio = from.getFileSystem().getNioPath(from.asFragment());
+    var toNio = to.getFileSystem().getNioPath(to.asFragment());
+    if (fromNio != null && toNio != null) {
+      // Fast path: Files.copy uses various optimizations such as kernel buffers (sendfile on Unix)
+      // or copy-on-write (clonefile on macOS, copy_file_range on Linux with a supported file system).
+      try {
+        java.nio.file.Files.copy(fromNio, toNio, REPLACE_EXISTING, COPY_ATTRIBUTES);
+      } catch (IOException e) {
+        throw translateNioToIoException(from.asFragment(), e);
+      }
+      return;
+    }
     try {
       to.delete();
     } catch (IOException e) {
