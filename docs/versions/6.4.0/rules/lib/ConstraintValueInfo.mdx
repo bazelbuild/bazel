@@ -1,0 +1,103 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.4.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.ConstraintValueInfo">ConstraintValueInfo</h1>
+
+<!-- {% raw %} -->
+
+A value for a constraint setting that can be used to define a platform. See <a href='/versions/6.4.0/docs/platforms#defining-constraints-and-platforms'>Defining Constraints and Platforms</a> for more information.<br/><i>Note: This API is experimental and may change at any time. It is disabled by default, but may be enabled with <code>--experimental_platforms_api</code></i>
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#to_json">to_json</a>
+  </li>
+      <li>
+    <a href="#to_proto">to_proto</a>
+  </li>
+  </ul>
+
+      <h2 id="to_json">to_json</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> ConstraintValueInfo.to_json()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:<br><pre class=language-python>struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+</pre>.<p>Deprecated: instead, use json.encode(x) or json.encode_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+
+        <h2 id="to_proto">to_proto</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="string.html">string</a> ConstraintValueInfo.to_proto()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:<br><pre class=language-python>struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+</pre><p>Deprecated: use proto.encode_text(x) instead.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
