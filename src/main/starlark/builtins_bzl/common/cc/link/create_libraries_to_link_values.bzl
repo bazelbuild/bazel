@@ -15,6 +15,7 @@
 """Goes over LibraryToLinks and produces LibraryToLinkValue-s."""
 
 load(":common/cc/cc_helper_internal.bzl", "is_shared_library", "is_versioned_shared_library")
+load(":common/paths.bzl", "paths")
 
 # Types of LibraryToLinkValues
 _TYPE = struct(
@@ -352,7 +353,7 @@ def process_objects_for_lto(
         for orig_object in object_files:
             object = lto_map.pop(orig_object, orig_object)
             mapped_object_files.append(object)
-            if object == orig_object or object.short_path.startswith(shared_non_lto_obj_root_prefix):
+            if object == orig_object or paths.root_relative_path(object).startswith(shared_non_lto_obj_root_prefix):
                 remaining_object_files.append(object)
     else:
         mapped_object_files = [lto_map.pop(obj, obj) for obj in object_files] if lto_map else object_files

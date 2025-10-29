@@ -2207,4 +2207,63 @@ EOF
   expect_log "Hello from main.cpp"
 }
 
+# TODO(ilist@): enable when rules_cc are released and upgraded
+function disabled_test_external_repo_lto() {
+  add_rules_cc "MODULE.bazel"
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  touch "$REPO_PATH/REPO.bazel"
+  mkdir "$REPO_PATH/foo"
+  cat > "$REPO_PATH/foo/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(
+  name = "foo",
+  srcs = [
+    "foo.cc",
+  ],
+  hdrs = [
+    "foo.h",
+  ],
+)
+EOF
+  cat > "$REPO_PATH/foo/foo.cc" <<'EOF'
+#include "foo.h"
+
+int main() {
+  sayhello();
+}
+EOF
+  cat > "$REPO_PATH/foo/foo.h" <<'EOF'
+#include <stdio.h>
+
+void sayhello() {
+  printf("hello\n");
+}
+EOF
+
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name = 'repo', path='$REPO_PATH')
+EOF
+  cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+cc_binary(
+  name = "main",
+  srcs = ["main.cc"],
+  deps = ["@repo//foo:foo"],
+)
+EOF
+  cat > main.cc <<'EOF'
+#include "foo/foo.h"
+int main() {
+  sayhello();
+}
+EOF
+
+  bazel build --features=thin_lto @repo//foo \
+    > "$TEST_log" || fail "expected build success"
+  bazel build --features=thin_lto --experimental_sibling_repository_layout @repo//foo \
+    > "$TEST_log" || fail "expected build success"
+}
+
 run_suite "cc_integration_test"
