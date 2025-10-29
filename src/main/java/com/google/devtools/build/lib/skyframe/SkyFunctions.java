@@ -23,7 +23,6 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("PRECOMPUTED");
   public static final SkyFunctionName CLIENT_ENVIRONMENT_VARIABLE =
       SkyFunctionName.createNonHermetic("CLIENT_ENVIRONMENT_VARIABLE");
-  static final SkyFunctionName ACTION_SKETCH = SkyFunctionName.createHermetic("ACTION_SKETCH");
   public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
       SkyFunctionName.createHermetic("ACTION_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
