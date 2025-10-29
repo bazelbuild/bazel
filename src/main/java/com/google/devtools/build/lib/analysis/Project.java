@@ -332,17 +332,6 @@ public final class Project {
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
-    // Fail on mixed-project builds with explicit --scl_config settings. We could loosen this
-    // restriction if desired. For example, if all --scl_configs resolve to the same values.
-    if (!Strings.isNullOrEmpty(sclConfig)
-        && (activeProjects.projectFilesToTargetLabels.size() > 1
-            || activeProjects.partialProjectBuild())) {
-      throw new InvalidConfigurationException(
-          "Can't set --scl_config for a %s. %s"
-              .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails),
-          Code.INVALID_BUILD_OPTIONS);
-    }
-
     var flagSetKeys =
         activeProjects.projectFilesToTargetLabels.keySet().stream()
             .map(
@@ -365,14 +354,19 @@ public final class Project {
           Code.INVALID_BUILD_OPTIONS);
     }
 
-    // We can only have multiple configs if they're default configs (i.e. the build didn't set
-    // --scl_config). Permit this as long as they all produce the same value, ignoring projects with
+    // Permit multiple configs as long as they all produce the same value, ignoring projects with
     // no project files.
     ImmutableSet<ImmutableSet<String>> uniqueConfigs =
         result.values().stream()
             .map(v -> ((FlagSetValue) v).getOptionsFromFlagset())
             .collect(toImmutableSet());
     if (uniqueConfigs.size() > 1) {
+      if (!Strings.isNullOrEmpty(sclConfig)) {
+        throw new InvalidConfigurationException(
+            "--scl_config=%s resolves to conflicting flagsets: %s"
+                .formatted(sclConfig, activeProjects.differentProjectsDetails),
+            Code.INVALID_BUILD_OPTIONS);
+      }
       throw new InvalidConfigurationException(
           "Mismatching default configs for a %s. %s"
               .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails),

@@ -159,10 +159,7 @@ EOF
   bazel test //test:test_suite  &> "$TEST_log" || fail "expected success"
 }
 
-# TODO: steinman - Consider changing this behavior. We allow it if we're relying
-# on the default config. Should this be different if we're explicitly setting
-# --scl_config?
-function test_scl_config_plus_external_target_with_no_projectscl_in_test_suite_fails() {
+function test_scl_config_plus_external_target_with_no_projectscl_in_test_suite_passes() {
   add_rules_shell "MODULE.bazel"
   mkdir -p test
   cat > test/PROJECT.scl <<EOF
@@ -176,7 +173,7 @@ project = project_pb2.Project.create(
       buildable_unit_pb2.BuildableUnit.create(
           name = "test_config",
           flags = ["--define=foo=bar"],
-          is_default = True,
+          is_default = False,
       )
   ],
 )
@@ -199,14 +196,14 @@ echo hi
 EOF
 
   bazel build --nobuild //test:test_suite //other:other --scl_config=test_config \
-    &> "$TEST_log" && fail "expected build to fail"
-  expect_log "Can't set --scl_config for a build where only some targets have projects"
+    &> "$TEST_log" || fail "expected build to suuceed"
+  expect_log "Applying flags from the config.*--define=foo=bar"
 
   # Expect same result for test command. Since test commands may expand test
   # suites with different logic, it's not enough to check the build command.
   bazel test //test:test_suite //other:other --scl_config=test_config \
-    &> "$TEST_log" && fail "expected test to fail"
-  expect_log "Can't set --scl_config for a build where only some targets have projects"
+    &> "$TEST_log" || fail "expected test to succeed"
+  expect_log "Applying flags from the config.*--define=foo=bar"
 }
 
 function test_scl_config_plus_external_target_with_conflicting_projectscl_in_test_suite_fails() {
@@ -225,7 +222,7 @@ project = project_pb2.Project.create(
       buildable_unit_pb2.BuildableUnit.create(
           name = "test_config",
           flags = ["--define=foo=bar"],
-          is_default = True,
+          is_default = False,
       )
   ],
 )
@@ -246,7 +243,7 @@ project = project_pb2.Project.create(
       buildable_unit_pb2.BuildableUnit.create(
           name = "test_config",
           flags = ["--define=foo=baz"],
-          is_default = True,
+          is_default = False,
       )
   ],
 )
@@ -266,16 +263,16 @@ EOF
 
   bazel build --nobuild //test:test_suite //other:other --scl_config=test_config \
     &> "$TEST_log" && fail "expected build to fail"
-  expect_log "Can't set --scl_config for a multi-project build."
+  expect_log "--scl_config=test_config resolves to conflicting flagsets."
 
   # Expect same result for test command. Since test commands may expand test
   # suites with different logic, it's not enough to check the build command.
    bazel test //test:test_suite //other:other --scl_config=test_config \
     &> "$TEST_log" && fail "expected test to fail"
-  expect_log "Can't set --scl_config for a multi-project build."
+  expect_log "--scl_config=test_config resolves to conflicting flagsets."
 }
 
-function test_multi_project_builds_fail_with_scl_config(){
+function test_multi_project_builds_succeed_with_matching_explicit_configs(){
   mkdir -p test1
   cat > test1/PROJECT.scl <<EOF
 load(
@@ -284,12 +281,12 @@ load(
   "project_pb2",
 )
 project = project_pb2.Project.create(
-  enforcement_policy = "strict",
+  enforcement_policy = "warn",
   buildable_units = [
       buildable_unit_pb2.BuildableUnit.create(
           name = "test_config",
           flags = ["--define=foo=bar"],
-          is_default = True,
+          is_default = False,
       )
   ],
 )
@@ -298,32 +295,93 @@ EOF
 genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
 EOF
 
-  mkdir -p test2
-  cat > test2/PROJECT.scl <<EOF
+  mkdir -p sameFlagsDifferentProject
+  cat > sameFlagsDifferentProject/PROJECT.scl <<EOF
 load(
   "//third_party/bazel/src/main/protobuf/project:project_proto.scl",
   "buildable_unit_pb2",
   "project_pb2",
 )
 project = project_pb2.Project.create(
-  enforcement_policy = "strict",
+  enforcement_policy = "warn",
   buildable_units = [
       buildable_unit_pb2.BuildableUnit.create(
           name = "test_config",
           flags = ["--define=foo=bar"],
-          is_default = True,
+          is_default = False,
       )
   ],
 )
 EOF
-  cat > test2/BUILD <<EOF
+  cat > sameFlagsDifferentProject/BUILD <<EOF
 genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
 EOF
 
-  bazel build --nobuild //test1:g //test2:h --scl_config=test_config \
+  mkdir -p noProject
+  cat > noProject/BUILD <<EOF
+genrule(name='i', outs=['i.txt'], cmd='echo \$(foo) > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //sameFlagsDifferentProject:h //noProject:i --scl_config=test_config \
+    &> "$TEST_log" || fail "expected build to succeed"
+
+  expect_log "Applying flags from the config.*--define=foo=bar"
+}
+
+function test_multi_project_builds_fail_with_missing_explicit_config(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+load(
+  "//third_party/bazel/src/main/protobuf/project:project_proto.scl",
+  "buildable_unit_pb2",
+  "project_pb2",
+)
+project = project_pb2.Project.create(
+  enforcement_policy = "warn",
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "test_config",
+          flags = ["--define=foo=bar"],
+          is_default = False,
+      )
+  ],
+)
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p sameFlagsDifferentProject
+  cat > sameFlagsDifferentProject/PROJECT.scl <<EOF
+load(
+  "//third_party/bazel/src/main/protobuf/project:project_proto.scl",
+  "buildable_unit_pb2",
+  "project_pb2",
+)
+project = project_pb2.Project.create(
+  enforcement_policy = "warn",
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "other_config",
+          flags = ["--define=foo=bar"],
+          is_default = False,
+      )
+  ],
+)
+EOF
+  cat > sameFlagsDifferentProject/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p noProject
+  cat > noProject/BUILD <<EOF
+genrule(name='i', outs=['i.txt'], cmd='echo \$(foo) > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //sameFlagsDifferentProject:h //noProject:i --scl_config=test_config \
     &> "$TEST_log" && fail "expected build to fail"
 
-  expect_log "Can't set --scl_config for a multi-project build."
+  expect_log "--scl_config=test_config is not a valid configuration for this project."
 }
 
 function test_multi_project_builds_succeed_with_consistent_default_config(){
@@ -564,58 +622,6 @@ EOF
   expect_log "Mismatching default configs for a multi-project build."
   }
 
-
-function test_partial_project_builds_fail_with_matching_explicit_config(){
-  mkdir -p test1
-  cat > test1/PROJECT.scl <<EOF
-load(
-  "//third_party/bazel/src/main/protobuf/project:project_proto.scl",
-  "buildable_unit_pb2",
-  "project_pb2",
-)
-project = project_pb2.Project.create(
-  buildable_units = [
-      buildable_unit_pb2.BuildableUnit.create(
-          name = "test_config",
-          flags = ["--define=foo=bar"],
-      )
-  ],
-)
-EOF
-  cat > test1/BUILD <<EOF
-genrule(name='f', outs=['f.txt'], cmd='echo \$(foo) > \$@')
-EOF
-
-mkdir -p sameFlagsDifferentProject
-  cat > sameFlagsDifferentProject/PROJECT.scl <<EOF
-load(
-  "//third_party/bazel/src/main/protobuf/project:project_proto.scl",
-  "buildable_unit_pb2",
-  "project_pb2",
-)
-project = project_pb2.Project.create(
-  buildable_units = [
-      buildable_unit_pb2.BuildableUnit.create(
-          name = "test_config",
-          flags = ["--define=foo=bar"],
-      )
-  ],
-)
-EOF
-  cat > sameFlagsDifferentProject/BUILD <<EOF
-genrule(name='g', outs=['g.txt'], cmd='echo \$(foo) > \$@')
-EOF
-
-  mkdir -p noproject
-  cat > noproject/BUILD <<EOF
-genrule(name='h', outs=['h.txt'], cmd='echo \$(foo) > \$@')
-EOF
-
-
-  bazel build --strategy=Genrule=local --enforce_project_configs //test1:f //sameFlagsDifferentProject:g //noproject:h --scl_config=test_config \
-&> "$TEST_log" && fail "expected build to fail"
-  expect_log "Can't set --scl_config for a multi-project build"
-}
 
 function test_partial_project_builds_fail_with_multiple_conflicting_default_configs(){
   mkdir -p test1
