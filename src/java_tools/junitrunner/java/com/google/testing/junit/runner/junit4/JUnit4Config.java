@@ -90,7 +90,7 @@ class JUnit4Config {
       return false; // Don't install over the specified security manager
     }
     return Boolean.valueOf(
-        systemProperties.getProperty(SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY, "true"));
+        systemProperties.getProperty(SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY, "false"));
   }
 
   /**

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.blackbox.bazel;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,6 +70,12 @@ public class DefaultToolsSetup implements ToolsSetup {
     if (sharedRepoCache != null) {
       lines.add("common --repository_cache=" + sharedRepoCache);
       lines.add("common --experimental_repository_cache_hardlinks");
+    }
+
+    if (OS.getCurrent() == OS.DARWIN) {
+      // Prefer ipv6 network on macOS
+      lines.add("startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true");
+      lines.add("build --jvmopt=-Djava.net.preferIPv6Addresses");
     }
 
     context.write(".bazelrc", lines);

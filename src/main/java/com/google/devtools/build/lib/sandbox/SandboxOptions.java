@@ -386,12 +386,12 @@ public class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_sandbox_hermetic_tmp",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If set to true, each Linux sandbox will have its own dedicated empty directory mounted"
-              + " as /tmp rather thansharing /tmp with the host filesystem. Use"
+              + " as /tmp rather than sharing /tmp with the host filesystem. Use"
               + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
   public boolean sandboxHermeticTmp;
 

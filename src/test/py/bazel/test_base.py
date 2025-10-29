@@ -108,6 +108,12 @@ class TestBase(unittest.TestCase):
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
         f.write('common --experimental_repository_cache_hardlinks\n')
+
+      if TestBase.IsDarwin():
+        # Prefer ipv6 network on macOS
+        f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
+        f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
+
     os.chdir(self._test_cwd)
 
   def tearDown(self):
@@ -212,6 +218,11 @@ class TestBase(unittest.TestCase):
   def IsWindows():
     """Returns true if the current platform is Windows."""
     return os.name == 'nt'
+
+  @staticmethod
+  def IsDarwin():
+    """Returns true if the current platform is Darwin/macOS."""
+    return sys.platform == 'darwin'
 
   @staticmethod
   def IsUnix():
@@ -507,7 +518,7 @@ class TestBase(unittest.TestCase):
         ]
 
         if not allow_failure:
-          self.AssertExitCode(exit_code, 0, stderr_lines)
+          self.AssertExitCode(exit_code, 0, stderr_lines, stdout_lines)
 
         return exit_code, stdout_lines, stderr_lines
 

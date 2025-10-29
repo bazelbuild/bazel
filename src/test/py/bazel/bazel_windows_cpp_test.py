@@ -900,26 +900,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
-  def testBuildArmCppBinaryWithMsvcCL(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
-    self.ScratchFile('main.cc', [
-        'int main() {',
-        '  return 0;',
-        '}',
-    ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--cpu=x64_arm_windows',
-        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
-    ])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('arm\\cl.exe', '\n'.join(stderr))
-
   def testBuildArm64CppBinaryWithMsvcCLAndCpuX64Arm64Windows(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [

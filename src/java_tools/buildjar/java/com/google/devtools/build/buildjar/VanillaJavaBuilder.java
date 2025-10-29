@@ -176,7 +176,9 @@ public class VanillaJavaBuilder implements Closeable {
                 new PrintWriter(output, true),
                 fileManager,
                 diagnosticCollector,
-                JavacOptions.removeBazelSpecificFlags(optionsParser.getJavacOpts()),
+                JavacOptions.removeBazelSpecificFlags(
+                    JavacOptions.normalizeOptionsWithNormalizers(
+                        optionsParser.getJavacOpts(), new JavacOptions.ReleaseOptionNormalizer())),
                 ImmutableList.<String>of() /*classes*/,
                 sources);
         setProcessors(optionsParser, fileManager, task);

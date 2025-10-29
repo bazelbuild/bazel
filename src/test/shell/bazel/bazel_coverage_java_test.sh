@@ -56,8 +56,10 @@ fi
 
 if [[ $# -gt 0 ]]; then
     JAVA_RUNTIME_VERSION="$1"; shift
-    add_to_bazelrc "build --java_runtime_version=${JAVA_RUNTIME_VERSION}"
-    add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
+    add_to_bazelrc "build --java_language_version=${JAVA_RUNTIME_VERSION}"
+    add_to_bazelrc "build --java_runtime_version=remotejdk_${JAVA_RUNTIME_VERSION}"
+    add_to_bazelrc "build --tool_java_language_version=${JAVA_RUNTIME_VERSION}"
+    add_to_bazelrc "build --tool_java_runtime_version=remotejdk_${JAVA_RUNTIME_VERSION}"
 fi
 
 function set_up() {

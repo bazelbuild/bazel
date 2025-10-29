@@ -14,6 +14,65 @@
 
 """Rules to create a release archive"""
 
+load(
+    "//tools:build_defs.bzl",
+    _MINIMUM_JAVA_RUNTIME_VERSION = "MINIMUM_JAVA_RUNTIME_VERSION",
+    _MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = \
+        "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION",
+)
+
+MINIMUM_JAVA_RUNTIME_VERSION = _MINIMUM_JAVA_RUNTIME_VERSION
+MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION = (
+    _MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION
+)
+
+_java_language_version_transition = transition(
+    implementation = lambda settings, attr: {
+        "//command_line_option:java_language_version": (
+            str(attr.java_language_version)
+        ),
+        # Don't warn about targeting very old Java versions.
+        "//command_line_option:javacopt": (
+            "-Xlint:-options"
+            if attr.java_language_version == str(MINIMUM_JAVA_RUNTIME_VERSION)
+            else []
+        ),
+    },
+    inputs = [],
+    outputs = [
+        "//command_line_option:java_language_version",
+        "//command_line_option:javacopt",
+    ],
+)
+
+_transitioned_java_version_files = rule(
+    implementation = lambda ctx: [DefaultInfo(files = depset(ctx.files.srcs))],
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            cfg = _java_language_version_transition,
+            mandatory = True,
+        ),
+        "java_language_version": attr.int(mandatory = True),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+)
+
+def transitioned_java_version_filegroup(
+        *,
+        name,
+        java_language_version,
+        srcs,
+        visibility):
+    _transitioned_java_version_files(
+        name = name,
+        java_language_version = java_language_version,
+        srcs = srcs,
+        visibility = visibility,
+    )
+
 def release_archive(name, srcs = [], src_map = {}, package_dir = "-", deps = [], **kwargs):
     """ Creates an zip of the srcs, and renamed label artifacts.
 
