@@ -1,0 +1,31 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/6.3.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.depset">depset</h1>
+
+<!-- {% raw %} -->
+
+<p>A specialized data structure that supports efficient merge operations and has a defined traversal order. Commonly used for accumulating data from transitive dependencies in rules and aspects. For more information see <a href="/versions/6.3.0/rules/depsets">here</a>. <p>The elements of a depset must be hashable and all of the same type (as defined by the built-in type(x) function), but depsets are not simply hash sets and do not support fast membership tests. If you need a general set datatype, you can simulate one using a dictionary where all keys map to <code>True</code>.<p>Depsets are immutable. They should be created using their <a href="globals.html#depset">constructor function</a> and merged or augmented with other depsets via the <code>transitive</code> argument. <p>The <code>order</code> parameter determines the kind of traversal that is done to convert the depset to an iterable. There are four possible values:<ul><li><code>"default"</code> (formerly <code>"stable"</code>): Order is unspecified (but deterministic).</li><li><code>"postorder"</code> (formerly <code>"compile"</code>): A left-to-right post-ordering. Precisely, this recursively traverses all children leftmost-first, then the direct elements leftmost-first.</li><li><code>"preorder"</code> (formerly <code>"naive_link"</code>): A left-to-right pre-ordering. Precisely, this traverses the direct elements leftmost-first, then recursively traverses the children leftmost-first.</li><li><code>"topological"</code> (formerly <code>"link"</code>): A topological ordering from the root down to the leaves. There is no left-to-right guarantee.</li></ul><p>Two depsets may only be merged if either both depsets have the same order, or one of them has <code>"default"</code> order. In the latter case the resulting depset's order will be the same as the other's order.<p>Depsets may contain duplicate values but these will be suppressed when iterating (using <code>to_list()</code>). Duplicates may interfere with the ordering semantics.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#to_list">to_list</a>
+  </li>
+  </ul>
+
+      <h2 id="to_list">to_list</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="list.html">list</a> depset.to_list()</pre></p>
+
+    Returns a list of the elements, without duplicates, in the depset's traversal order. Note that order is unspecified (but deterministic) for elements that were added more than once to the depset. Order is also unspecified for <code>"default"</code>-ordered depsets, and for elements of child depsets whose order differs from that of the parent depset. The list is a copy; modifying it has no effect on the depset and vice versa.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
