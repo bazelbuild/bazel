@@ -101,11 +101,12 @@ public class GzFunctionTest {
 
       com.google.devtools.build.lib.bazel.repository.decompressor.GzFunction fn =
           new com.google.devtools.build.lib.bazel.repository.decompressor.GzFunction();
-      InputStream decompressorStream =
-          fn.getDecompressorStream(new BufferedInputStream(Files.newInputStream(testGzipFile), 32));
-
-      String uncompressedFilename = fn.getUncompressedFileName(decompressorStream, ARCHIVE_NAME);
-      assertThat(uncompressedFilename).isEqualTo(expectedUncompressedFilename);
+      try (InputStream decompressorStream =
+          fn.getDecompressorStream(
+              new BufferedInputStream(Files.newInputStream(testGzipFile), 32))) {
+        String uncompressedFilename = fn.getUncompressedFileName(decompressorStream, ARCHIVE_NAME);
+        assertThat(uncompressedFilename).isEqualTo(expectedUncompressedFilename);
+      }
     }
   }
 
@@ -115,11 +116,10 @@ public class GzFunctionTest {
 
     @Test
     public void setLastModifiedTime() throws IOException {
-      // Create a test file in a temp directory.
-      Path tmpDir = Paths.get(TestUtils.tmpDir()).resolve(name.getMethodName());
-      tmpDir.toFile().mkdirs();
-      File testFile = new File(tmpDir.toFile(), "test_file");
-      testFile.createNewFile();
+      FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+      com.google.devtools.build.lib.vfs.Path tmpDir = TestUtils.createUniqueTmpDir(testFs);
+      File testFile = new File(tmpDir.getPathFile(), "test_file");
+      assertThat(testFile.createNewFile()).isTrue();
 
       // Set the modified time gzip metadata.
       GregorianCalendar testDate = new GregorianCalendar(2000, Calendar.FEBRUARY, 14, 3, 7, 14);
@@ -132,12 +132,12 @@ public class GzFunctionTest {
       Path testGzipFile = createTestGzipFile(name.getMethodName(), "test.txt.gz", parameters);
       com.google.devtools.build.lib.bazel.repository.decompressor.GzFunction fn =
           new com.google.devtools.build.lib.bazel.repository.decompressor.GzFunction();
-      FileSystem testFS = TestArchiveDescriptor.getFileSystem();
-      InputStream decompressorStream =
-          fn.getDecompressorStream(new BufferedInputStream(Files.newInputStream(testGzipFile), 32));
-
-      // Calling set attributes will set the modified time according to the metadata.
-      fn.setFileAttributes(decompressorStream, testFS.getPath(testFile.getCanonicalPath()));
+      try (InputStream decompressorStream =
+          fn.getDecompressorStream(
+              new BufferedInputStream(Files.newInputStream(testGzipFile), 32))) {
+        // Calling set attributes will set the modified time according to the metadata.
+        fn.setFileAttributes(decompressorStream, testFs.getPath(testFile.getCanonicalPath()));
+      }
 
       // There was an error in Apache Commons Compress where the time was improperly divided by
       // 1000, thus losing 3 digits of precision. This replicates that wrong behavior until we
