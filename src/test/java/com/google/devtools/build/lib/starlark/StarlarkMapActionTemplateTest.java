@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -171,6 +172,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void doSimpleMappingWithAdditionalInputsAndParams() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -208,6 +210,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void multipleInputDirectories() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -241,6 +244,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void multipleOutputDirectories() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -276,6 +280,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void outputDirectoriesCanBeChainedToSubsequentMapDirectoryCalls() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -337,6 +342,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void executionRequirementsPropagatedToExpandedActions() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -377,6 +383,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void actionEnvironmentPropagatedToExpandedActions() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -462,6 +469,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   @TestParameters("{value: 'set()', errorType: 'set'}")
   // Only boolean integer and strings are allowed in additional_params.
   public void disallowedAdditionalParams(String value, String errorType) throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         String.format(
@@ -504,6 +512,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   @TestParameters("{inputs: '{}', outputs: '{\"output_dir\": output_dir}', errorType: 'input'}")
   public void emptyInputOrOutputDirectoriesNotAllowed(
       String inputs, String outputs, String errorType) throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         String.format(
@@ -533,6 +542,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void failingImplementation() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -566,6 +576,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void cannotDeclareFileInNonOutputDirectory() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         """
@@ -601,6 +612,8 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
 
   @Test
   public void actionConflicts_conflictingOutputsInSameDirectory() throws Exception {
+    // Don't check serialization here, since the action conflict only occurs during execution,
+    // but serialization checks end up throwing (due to action conflicts) before we get there.
     write(
         "test/rule_def.bzl",
         """
@@ -651,6 +664,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   @TestParameters("{output: 'some_file', path: 'test/some_file'}")
   public void actionConflicts_conflictingOutputsFromOtherContext(String output, String path)
       throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         String.format(
@@ -717,6 +731,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   @TestParameters("{value: '(1, 2)', repr: '\\(1, 2\\)'}")
   public void implementationWithNonNoneReturnValueDisallowed(String value, String repr)
       throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         String.format(
@@ -760,6 +775,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   public void nonTopLevelImplementationsDisallowed(
       @TestParameter({"non_top_level_impl", "lambda_impl"}) String implementation)
       throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
         "test/rule_def.bzl",
         String.format(

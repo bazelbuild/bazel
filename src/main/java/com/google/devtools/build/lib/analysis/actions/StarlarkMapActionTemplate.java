@@ -102,7 +102,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   private final ImmutableMap<String, String> executionRequirements;
   private final OutputPathsMode outputPathsMode;
   private final ActionEnvironment env;
-  private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
+  private final RepositoryMapping repoMapping;
   private final String expandedActionsMnemonic;
   private final StarlarkFunction implementation;
   private final StarlarkSemantics semantics;
@@ -124,7 +124,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       StarlarkFunction implementation,
       StarlarkSemantics semantics,
       SymbolGenerator<?> symbolGenerator)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     NestedSetBuilder<Artifact> allInputsNsBuilder = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> toolsNsBuilder = NestedSetBuilder.<Artifact>stableOrder();
     this.actionOwner = actionOwner;
@@ -149,7 +149,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     this.executionRequirements = executionRequirements;
     this.outputPathsMode = outputPathsMode;
     this.env = env;
-    this.repoMappingSupplier = repoMappingSupplier;
+    this.repoMapping = repoMappingSupplier.get();
     this.expandedActionsMnemonic = expandedActionsMnemonic;
     this.implementation = implementation;
     this.semantics = semantics;
@@ -224,7 +224,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             actionOwner,
             artifactOwner,
             spawnActionBuilder,
-            repoMappingSupplier,
+            () -> repoMapping,
             ImmutableSet.copyOf(outputDirectories.values()));
 
     ImmutableMap.Builder<String, ExpandedDirectory> expandedDirectories = ImmutableMap.builder();
