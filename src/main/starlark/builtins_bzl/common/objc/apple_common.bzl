@@ -22,7 +22,6 @@ load(":common/objc/objc_info.bzl", "ObjcInfo")
 load(":common/xcode/providers.bzl", "XcodeVersionInfo", "XcodeVersionPropertiesInfo")
 
 native_apple_common = _builtins.internal.apple_common
-native_objc_internal = _builtins.internal.objc_internal
 
 apple_common = struct(
     apple_toolchain = lambda: apple_toolchain,
@@ -36,5 +35,4 @@ apple_common = struct(
     new_objc_provider = ObjcInfo,
     dotted_version = lambda version: native_apple_common.dotted_version(version),
     compilation_support = compilation_support,
-    get_apple_config = lambda config: native_objc_internal.get_apple_config(config),
 )

@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
-import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -234,8 +233,6 @@ public class BazelRuleClassProvider {
               .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
 
-          builder.addStarlarkBuiltinsInternal(
-              ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
           builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
 
           // Add the package() function.
