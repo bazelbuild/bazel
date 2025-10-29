@@ -16,6 +16,7 @@
 """
 
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_postmark.bzl", "postmark")
 load(":common/cc/cc_shared_library.bzl", "dynamic_deps_attrs")
 load(":common/cc/semantics.bzl", "semantics")
 
@@ -291,7 +292,7 @@ Whether to encode build information into the binary. Possible values:
 """ + semantics.stamp_extra_docs
 
 # buildifier: disable=attr-licenses
-cc_binary_attrs = common_attrs | {
+cc_binary_attrs = common_attrs | postmark.get_attrs() | {
     "deps": attr.label_list(
         allow_files = semantics.ALLOWED_FILES_IN_DEPS,
         allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_WITH_WARNINGS_IN_DEPS,

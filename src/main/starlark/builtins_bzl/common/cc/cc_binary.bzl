@@ -20,6 +20,7 @@ load(":common/cc/cc_debug_helper.bzl", "create_debug_packager_actions")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
+load(":common/cc/cc_postmark.bzl", "postmark")
 load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "dynamic_deps_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
 load(":common/cc/debug_package_info.bzl", "DebugPackageInfo")
 load(":common/cc/semantics.bzl", "semantics")
@@ -295,7 +296,8 @@ def _create_transitive_linking_actions(
         additional_linkopts,
         additional_make_variable_substitutions,
         link_variables,
-        additional_outputs):
+        additional_outputs,
+        stamp):
     cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(objects = None, pic_objects = None)
     deps_cc_info = CcInfo(linking_context = deps_cc_linking_context)
     libraries_for_current_cc_linking_context = []
@@ -365,7 +367,7 @@ def _create_transitive_linking_actions(
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         compilation_outputs = cc_compilation_outputs_with_only_objects,
-        stamp = cc_helper.is_stamping_enabled(ctx),
+        stamp = int(stamp),
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
         name = ctx.label.name,
@@ -617,6 +619,16 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     if extra_link_time_libraries != None:
         linker_inputs_extra, runtime_libraries_extra = cc_common.build_extra_link_time_libraries(extra_libraries = extra_link_time_libraries, ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
 
+    use_postmark = postmark.get_use_postmark(ctx)
+    output_binary_for_linking = binary
+    link_stamp = cc_helper.is_stamping_enabled(ctx)
+    if use_postmark:
+        output_binary_for_linking = ctx.actions.declare_file(
+            "unstamped_" + binary.basename,
+            sibling = binary,
+        )
+        link_stamp = False
+
     cc_linking_outputs_binary, cc_launcher_info, deps_cc_linking_context = _create_transitive_linking_actions(
         ctx,
         cc_toolchain,
@@ -625,7 +637,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         cc_compilation_outputs,
         additional_linker_inputs,
         cc_linking_outputs,
-        binary,
+        output_binary_for_linking,
         deps_cc_linking_context,
         linker_inputs_extra,
         link_compile_output_separately,
@@ -635,7 +647,16 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         additional_make_variable_substitutions,
         link_variables,
         additional_linker_outputs,
+        stamp = link_stamp,
     )
+
+    if use_postmark:
+        postmark.add_action(
+            ctx,
+            cc_toolchain,
+            binary,
+            output_binary_for_linking,
+        )
 
     cc_linking_outputs_binary_library = cc_linking_outputs_binary.library_to_link
     libraries = []
@@ -793,6 +814,10 @@ ALLOWED_SRC_FILES.extend(cc_helper.extensions.SHARED_LIBRARY)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.OBJECT_FILE)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_OBJECT_FILE)
 
+def _cc_binary_initializer(**kwargs):
+    kwargs = postmark.initializer(**kwargs)
+    return dynamic_deps_initializer(**kwargs)
+
 def _impl(ctx):
     binary_info, providers = cc_binary_impl(ctx, [])
 
@@ -815,7 +840,7 @@ def _impl(ctx):
 
 cc_binary = rule(
     implementation = _impl,
-    initializer = dynamic_deps_initializer,
+    initializer = _cc_binary_initializer,
     doc = """
 <p>It produces an executable binary.</p>
 

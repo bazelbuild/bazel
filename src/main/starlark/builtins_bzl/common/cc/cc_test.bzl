@@ -18,6 +18,7 @@ load(":common/cc/attrs.bzl", "cc_binary_attrs", "linkstatic_doc", "stamp_doc")
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_postmark.bzl", "postmark")
 load(":common/cc/cc_shared_library.bzl", "dynamic_deps_initializer")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
@@ -113,6 +114,7 @@ def cc_test_initializer(**kwargs):
 
     if "linkstatic" not in kwargs:
         kwargs["linkstatic"] = semantics.get_linkstatic_default_for_test()
+    kwargs = postmark.initializer(**kwargs)
 
     return dynamic_deps_initializer(**kwargs)
 
