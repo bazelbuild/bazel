@@ -21,6 +21,7 @@ import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,6 +39,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.Platform;
@@ -66,11 +69,14 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A {@link SpawnLogContext} implementation that produces a log in compact format. */
 public class CompactSpawnLogContext extends SpawnLogContext {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final Comparator<ExecLogEntry.File> EXEC_LOG_ENTRY_FILE_COMPARATOR =
       Comparator.comparing(ExecLogEntry.File::getPath);
@@ -146,6 +152,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
   private final UUID invocationId;
+  private final ExtendedEventHandler reporter;
+  private final AtomicBoolean outputLoggingFailed = new AtomicBoolean(false);
 
   // Maps a key identifying an entry into its ID.
   // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
@@ -170,7 +178,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
-      UUID invocationId)
+      UUID invocationId,
+      ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     this.execRoot = execRoot;
     this.workspaceName = workspaceName;
@@ -179,6 +188,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
     this.invocationId = invocationId;
+    this.reporter = reporter;
     this.outputStream = getOutputStream(outputPath);
 
     logInvocation();
@@ -236,19 +246,32 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       }
       builder.setMnemonic(spawn.getMnemonic());
 
+      boolean warned = false;
       for (ActionInput output : spawn.getOutputFiles()) {
-        Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
-        if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
-          builder.addOutputsBuilder().setOutputId(logFile(output, path, inputMetadataProvider));
-        } else if (output.isDirectory() && path.isDirectory()) {
-          builder
-              .addOutputsBuilder()
-              .setOutputId(logDirectory(output, path, inputMetadataProvider));
-        } else if (output.isSymlink() && path.isSymbolicLink()) {
-          builder.addOutputsBuilder().setOutputId(logUnresolvedSymlink(output, path));
-        } else {
-          builder.addOutputsBuilder().setInvalidOutputPath(output.getExecPathString());
+        var path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
+        var outputBuilder = ExecLogEntry.Output.newBuilder();
+        try {
+          if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
+            outputBuilder.setOutputId(logFile(output, path, inputMetadataProvider));
+          } else if (output.isDirectory() && path.isDirectory()) {
+            outputBuilder.setOutputId(logDirectory(output, path, inputMetadataProvider));
+          } else if (output.isSymlink() && path.isSymbolicLink()) {
+            outputBuilder.setOutputId(logUnresolvedSymlink(output, path));
+          } else {
+            outputBuilder.setInvalidOutputPath(output.getExecPathString());
+          }
+        } catch (IOException e) {
+          if (!warned) {
+            outputLoggingFailed.set(true);
+            warned = true;
+            logger.atInfo().withCause(e).log(
+                "Failed to log outputs of spawn with mnemonic %s and primary output %s",
+                spawn.getMnemonic(),
+                Iterables.getFirst(spawn.getOutputFiles(), /* not reached */ null));
+          }
+          outputBuilder.setInvalidOutputPath(output.getExecPathString());
         }
+        builder.addOutputs(outputBuilder);
       }
 
       builder.setExitCode(result.exitCode());
@@ -727,6 +750,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
   @Override
   public void close() throws IOException {
+    if (outputLoggingFailed.get()) {
+      reporter.handle(
+          Event.warn(
+              "The compact execution log is incomplete because some outputs could not be read."
+                  + " Refer to the server log file for details."));
+    }
     outputStream.close();
   }
 }

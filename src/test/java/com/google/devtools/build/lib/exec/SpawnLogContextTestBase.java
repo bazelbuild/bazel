@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -117,6 +118,7 @@ public abstract class SpawnLogContextTestBase {
   protected ArtifactRoot externalSourceRoot;
   protected ArtifactRoot externalOutputDir;
   protected BuildConfigurationValue configuration;
+  protected StoredEventHandler storedEventHandler;
 
   @TestParameter public boolean siblingRepositoryLayout;
 
@@ -161,6 +163,7 @@ public abstract class SpawnLogContextTestBase {
         ArtifactRoot.asExternalSourceRoot(
             Root.fromPath(externalRoot.getChild(externalRepo.getName())));
     externalOutputDir = configuration.getBinDirectory(externalRepo);
+    storedEventHandler = new StoredEventHandler();
   }
 
   // A fake action filesystem that provides a fast digest, but refuses to compute it from the
