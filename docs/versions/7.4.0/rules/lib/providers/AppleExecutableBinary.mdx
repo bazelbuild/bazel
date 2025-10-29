@@ -1,0 +1,134 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.4.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.AppleExecutableBinary">AppleExecutableBinary</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc/AppleExecutableBinaryApi.java" %}
+{% dynamic setvar version "7.4.0" %}
+{% dynamic setvar original_path "/rules/lib/providers/AppleExecutableBinary" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A provider containing the executable binary output that was built using an apple_binary target with the 'executable' type.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#binary">binary</a>
+  </li>
+      <li>
+    <a href="#cc_info">cc_info</a>
+  </li>
+      <li>
+    <a href="#objc">objc</a>
+  </li>
+      <li>
+    <a href="#to_json">to_json</a>
+  </li>
+      <li>
+    <a href="#to_proto">to_proto</a>
+  </li>
+  </ul>
+
+      <h2 id="binary">binary</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/File.html">File</a> AppleExecutableBinary.binary</pre></p>
+
+    The executable binary file output by apple_binary.
+
+
+        <h2 id="cc_info">cc_info</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../providers/CcInfo.html">CcInfo</a> AppleExecutableBinary.cc_info</pre></p>
+
+    A provider which contains information about the transitive dependencies linked into the binary.
+
+
+        <h2 id="objc">objc</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../providers/ObjcProvider.html">ObjcProvider</a> AppleExecutableBinary.objc</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_objc_provider_remove_linking_info</code>. Use this flag to verify your code is compatible with its imminent removal. <br>A provider which contains information about the transitive dependencies linked into the binary.
+
+
+        <h2 id="to_json">to_json</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> AppleExecutableBinary.to_json()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:<br><pre class=language-python>struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+</pre>.<p>Deprecated: instead, use json.encode(x) or json.encode_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+
+        <h2 id="to_proto">to_proto</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> AppleExecutableBinary.to_proto()</pre></p>
+
+    <b>Deprecated</b>. This API is deprecated and will be removed soon. Please do not depend on it. It is <i>disabled</i> with <code>---incompatible_struct_has_no_methods</code>. Use this flag to verify your code is compatible with its imminent removal. <br>Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:<br><pre class=language-python>struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+</pre><p>Deprecated: use proto.encode_text(x) instead.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
