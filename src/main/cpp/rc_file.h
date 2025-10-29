@@ -15,6 +15,7 @@
 #define BAZEL_SRC_MAIN_CPP_RC_FILE_H_
 
 #include <memory>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -44,7 +45,7 @@ class RcFile {
   static std::unique_ptr<RcFile> Parse(
       const std::string& filename, const WorkspaceLayout* workspace_layout,
       const std::string& workspace, ParseError* error, std::string* error_text,
-      ReadFileFn read_file = &ReadFileDefault,
+      const std::string &build_label, ReadFileFn read_file = &ReadFileDefault,
       CanonicalizePathFn canonicalize_path = &CanonicalizePathDefault);
 
   // Movable and copyable.
@@ -69,6 +70,7 @@ class RcFile {
   ParseError ParseFile(const std::string& filename,
                        const std::string& workspace,
                        const WorkspaceLayout& workspace_layout,
+                       const std::string& build_label,
                        ReadFileFn read_file,
                        CanonicalizePathFn canonicalize_path,
                        std::vector<std::string>& import_stack,
@@ -86,6 +88,8 @@ class RcFile {
   OptionMap options_;
 };
 
+std::string ReplaceBuildVars(const std::string& build_label,
+                                      absl::string_view import_filename);
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_RC_FILE_H_

@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <optional>
+#include <regex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -31,6 +32,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -43,18 +45,20 @@ static constexpr absl::string_view kCommandTryImport = "try-import";
 /*static*/ std::unique_ptr<RcFile> RcFile::Parse(
     const std::string& filename, const WorkspaceLayout* workspace_layout,
     const std::string& workspace, ParseError* error, std::string* error_text,
-    ReadFileFn read_file, CanonicalizePathFn canonicalize_path) {
+    const std::string& build_label, ReadFileFn read_file,
+    CanonicalizePathFn canonicalize_path) {
   auto rcfile = absl::WrapUnique(new RcFile());
   std::vector<std::string> initial_import_stack = {filename};
-  *error = rcfile->ParseFile(filename, workspace, *workspace_layout, read_file,
-                             canonicalize_path, initial_import_stack,
-                             error_text);
+  *error = rcfile->ParseFile(filename, workspace, *workspace_layout,
+                             build_label, read_file, canonicalize_path,
+                             initial_import_stack, error_text);
   return (*error == ParseError::NONE) ? std::move(rcfile) : nullptr;
 }
 
 RcFile::ParseError RcFile::ParseFile(const std::string& filename,
                                      const std::string& workspace,
                                      const WorkspaceLayout& workspace_layout,
+                                     const std::string& build_label,
                                      ReadFileFn read_file,
                                      CanonicalizePathFn canonicalize_path,
                                      std::vector<std::string>& import_stack,
@@ -109,17 +113,24 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
       return ParseError::INVALID_FORMAT;
     }
 
-    std::string& import_filename = words[1];
+    std::string import_filename = ReplaceBuildVars(build_label, words[1]);
     if (absl::StartsWith(import_filename, WorkspaceLayout::kWorkspacePrefix)) {
       const auto resolved_filename =
           workspace_layout.ResolveWorkspaceRelativeRcFilePath(workspace,
                                                               import_filename);
       if (!resolved_filename.has_value()) {
         if (command == kCommandImport) {
+          // If build variables were replaced in the filename, print out the
+          // evaluated path so they know the file lookup that was attempted.
+          std::string evaluated_line = ReplaceBuildVars(build_label, line);
+          std::string evaluated_warning;
+          if (line != evaluated_line) {
+            evaluated_warning = absl::StrFormat("file evaluated to '%s' - ", evaluated_line);
+          }
           *error_text = absl::StrFormat(
               "Nonexistent path in import declaration in config file '%s': '%s'"
-              " (are you in your source checkout/WORKSPACE?)",
-              canonical_filename, line);
+              " (%sare you in your source checkout/WORKSPACE?)",
+              canonical_filename, line, evaluated_warning);
           return ParseError::INVALID_FORMAT;
         }
         // For try-import, we ignore it if we couldn't find a file.
@@ -144,8 +155,8 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
 
     import_stack.push_back(import_filename);
     if (ParseError parse_error =
-            ParseFile(import_filename, workspace, workspace_layout, read_file,
-                      canonicalize_path, import_stack, error_text);
+            ParseFile(import_filename, workspace, workspace_layout, build_label,
+                      read_file, canonicalize_path, import_stack, error_text);
         parse_error != ParseError::NONE) {
       if (parse_error == ParseError::UNREADABLE_FILE &&
           command == kCommandTryImport) {
@@ -174,6 +185,61 @@ bool RcFile::ReadFileDefault(const std::string& filename, std::string* contents,
 
 std::string RcFile::CanonicalizePathDefault(const std::string& filename) {
   return blaze_util::MakeCanonical(filename.c_str());
+}
+namespace {
+// When the build label can't be parsed into a proper semantic version (per
+// semver.org), this will be the value for each of the variables below.
+constexpr char kNoVersion[] = "no_version";
+// Variables that can be interpolated in .bazelrc when importing files.
+constexpr char kBazelVersion[] =
+    "%bazel.version%"; // The full build label Eg. 8.4.2 or 9.0.0-pre.20251022.1
+constexpr char kBazelVersionMajor[] =
+    "%bazel.version.major%"; // Eg. "8" in 8.4.2
+constexpr char kBazelVersionMinor[] =
+    "%bazel.version.minor%"; // Eg. "4" in 8.4.2
+constexpr char kBazelVersionPatch[] =
+    "%bazel.version.patch%"; // Eg. "2" in 8.4.2
+constexpr char kBazelVersionPrerelease[] =
+    "%bazel.version.prerelease%"; // Eg. "pre.20251022" in 9.0.0-pre.20251022
+constexpr char kBazelVersionBuildMetadata[] =
+    "%bazel.version.buildmetadata%"; // Eg. "c0075e8a6b" in 9.0.0+c0075e8a6b
+constexpr char kBazelVersionMajorMinor[] =
+    "%bazel.version.major.minor%"; // Eg. "8.4" in 8.4.2
+constexpr char kBazelVersionMajorMinorPatch[] =
+    "%bazel.version.major.minor.patch%"; // Eg. "9.0.0" in 9.0.0-pre.20251022.1
+
+// Semantic version regex copied verbatim from
+// https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+const std::regex kSemverRe(
+    R"(^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$)");
+}  // namespace
+
+std::string ReplaceBuildVars(const std::string& build_label,
+                             absl::string_view import_filename) {
+  std::string version = kNoVersion;
+  std::string major = kNoVersion;
+  std::string minor = kNoVersion;
+  std::string patch = kNoVersion;
+  std::string prerelease = kNoVersion;
+  std::string buildmetadata = kNoVersion;
+  if (std::smatch m; std::regex_match (build_label, m, kSemverRe)) {
+    version = m[0];
+    major = m[1];
+    minor = m[2];
+    patch = m[3];
+    prerelease = m[4];
+    buildmetadata = m[5];
+  }
+  return absl::StrReplaceAll(
+      import_filename,
+      {{kBazelVersion, version},
+       {kBazelVersionMajor, major},
+       {kBazelVersionMinor, minor},
+       {kBazelVersionPatch, patch},
+       {kBazelVersionPrerelease, prerelease},
+       {kBazelVersionBuildMetadata, buildmetadata},
+       {kBazelVersionMajorMinor, absl::StrCat(major, ".", minor)},
+       {kBazelVersionMajorMinorPatch, absl::StrCat(major, ".", minor, "." + patch)}});
 }
 
 }  // namespace blaze

@@ -1481,9 +1481,7 @@ void PrintBazelLeaf() {
   printf("%s\n", leaf.c_str());
 }
 
-void PrintVersionInfo(const string &self_path, const string &product_name) {
-  string build_label;
-  ExtractBuildLabel(self_path, &build_label);
+void PrintVersionInfo(const string &build_label, const string &product_name) {
   printf("%s %s\n", product_name.c_str(), build_label.c_str());
 }
 
@@ -1495,7 +1493,8 @@ static void RunLauncher(const string &self_path,
                         const WorkspaceLayout &workspace_layout,
                         const string &workspace, LoggingInfo *logging_info,
                         StartupInterceptor *interceptor,
-                        CommandExtensionAdder *command_extension_adder) {
+                        CommandExtensionAdder *command_extension_adder,
+                        const string &build_label) {
   blaze_server = new BlazeServer(startup_options, command_extension_adder);
 
   const std::optional<DurationMillis> command_wait_duration =
@@ -1566,8 +1565,6 @@ static void RunLauncher(const string &self_path,
                  option_processor, startup_options, logging_info,
                  extract_data_duration, command_wait_duration, blaze_server);
   } else {
-    string build_label;
-    ExtractBuildLabel(self_path, &build_label);
     RunClientServerMode(
         server_exe, server_exe_args, server_dir, workspace_layout, workspace,
         option_processor, startup_options, logging_info, extract_data_duration,
@@ -1593,8 +1590,15 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     return blaze_exit_code::SUCCESS;
   }
 
+  // Extract build_label to be used in two places:
+  // 1) PrintVersionInfo()
+  // 2) Resolving %bazel.version*% variables in .bazelrc files.
+  string build_label;
+  ExtractBuildLabel(self_path, &build_label);
+  option_processor->SetBuildLabel(build_label);
+
   if (argc == 2 && strcmp(argv[1], "--version") == 0) {
-    PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());
+    PrintVersionInfo(build_label, option_processor->GetLowercaseProductName());
     return blaze_exit_code::SUCCESS;
   }
 
@@ -1671,7 +1675,7 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
               *option_processor, *workspace_layout, workspace, &logging_info,
-              interceptor, command_extension_adder);
+              interceptor, command_extension_adder, build_label);
   return 0;
 }
 
