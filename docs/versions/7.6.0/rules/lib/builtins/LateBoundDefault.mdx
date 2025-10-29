@@ -1,0 +1,23 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.6.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.LateBoundDefault">LateBoundDefault</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/LateBoundDefaultApi.java" %}
+{% dynamic setvar version "7.6.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/LateBoundDefault" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+Represents a late-bound default attribute value of type 'Label'. The value of a LateBoundDefault is only resolvable in the context of a rule implementation function, and depends on the current build configuration. For example, a LateBoundDefault might represent the Label of the java toolchain in the current build configuration. <p>See <a href="../globals/bzl.html#configuration_field">configuration_field</a> for example usage.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

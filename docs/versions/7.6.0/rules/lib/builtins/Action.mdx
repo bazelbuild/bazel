@@ -1,0 +1,102 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.6.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.Action">Action</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/ActionApi.java" %}
+{% dynamic setvar version "7.6.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/Action" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+An action created during rule analysis.<p>This object is visible for the purpose of testing, and may be obtained from an <code>Actions</code> provider. It is normally not necessary to access <code>Action</code> objects or their fields within a rule's implementation function. You may instead want to see the <a href='https://bazel.build/versions/7.6.0/extending/rules#actions'>Rules page</a> for a general discussion of how to use actions when defining custom rules, or the <a href='../builtins/actions.html'>API reference</a> for creating actions.<p>Some fields of this object are only applicable for certain kinds of actions. Fields that are inapplicable are set to <code>None</code>.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#args">args</a>
+  </li>
+      <li>
+    <a href="#argv">argv</a>
+  </li>
+      <li>
+    <a href="#content">content</a>
+  </li>
+      <li>
+    <a href="#env">env</a>
+  </li>
+      <li>
+    <a href="#inputs">inputs</a>
+  </li>
+      <li>
+    <a href="#mnemonic">mnemonic</a>
+  </li>
+      <li>
+    <a href="#outputs">outputs</a>
+  </li>
+      <li>
+    <a href="#substitutions">substitutions</a>
+  </li>
+  </ul>
+
+      <h2 id="args">args</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> Action.args</pre></p>
+
+    A list of frozen <a href="../builtins/Args.html">Args</a> objects containing information about the action arguments. These objects contain accurate argument information, including arguments involving expanded action output directories. However, <a href="../builtins/Args.html">Args</a> objects are not readable in the analysis phase. For a less accurate account of arguments which is available in the analysis phase, see <a href="#argv">argv</a>. <p>Note that some types of actions do not yet support exposure of this field. For such action types, this is <code>None</code>.
+
+         May return <code>None</code>.
+
+        <h2 id="argv">argv</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> Action.argv</pre></p>
+
+    For actions created by <a href="../builtins/actions.html#run">ctx.actions.run()</a> or <a href="../builtins/actions.html#run_shell">ctx.actions.run_shell()</a>  an immutable list of the arguments for the command line to be executed. Note that for shell actions the first two arguments will be the shell path and <code>"-c"</code>.
+
+         May return <code>None</code>.
+
+        <h2 id="content">content</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> Action.content</pre></p>
+
+    For actions created by <a href="../builtins/actions.html#write">ctx.actions.write()</a> or <a href="../builtins/actions.html#expand_template">ctx.actions.expand_template()</a>, the contents of the file to be written, if those contents can be computed during  the analysis phase. The value is <code>None</code> if the contents cannot be determined until the execution phase, such as when a directory in an <a href="../builtins/Args.html">Args</a> object needs to be expanded.
+
+         May return <code>None</code>.
+
+        <h2 id="env">env</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/dict.html">dict</a> Action.env</pre></p>
+
+    The 'fixed' environment variables for this action. This includes only environment settings which are explicitly set by the action definition, and thus omits settings which are only pre-set in the execution environment.
+
+
+        <h2 id="inputs">inputs</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/depset.html">depset</a> Action.inputs</pre></p>
+
+    A set of the input files of this action.
+
+
+        <h2 id="mnemonic">mnemonic</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> Action.mnemonic</pre></p>
+
+    The mnemonic for this action.
+
+
+        <h2 id="outputs">outputs</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/depset.html">depset</a> Action.outputs</pre></p>
+
+    A set of the output files of this action.
+
+
+        <h2 id="substitutions">substitutions</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/dict.html">dict</a> Action.substitutions</pre></p>
+
+    For actions created by <a href="../builtins/actions.html#expand_template">ctx.actions.expand_template()</a>, an immutable dict holding the substitution mapping.
+
+         May return <code>None</code>.
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
