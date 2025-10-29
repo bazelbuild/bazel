@@ -112,7 +112,8 @@ public final class SpawnLogModule extends BlazeModule {
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 env.getXattrProvider(),
-                env.getCommandId());
+                env.getCommandId(),
+                env.getReporter());
       } catch (InterruptedException e) {
         env.getReporter()
             .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
