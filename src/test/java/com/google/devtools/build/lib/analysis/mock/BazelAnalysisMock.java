@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
@@ -53,7 +54,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public void setupMockClientInternal(MockToolsConfig config) throws IOException {
-    config.create("local_config_xcode_workspace/BUILD", "xcode_config(name = 'host_xcodes')");
+    config.create(
+        "local_config_xcode_workspace/BUILD",
+        "load('@build_bazel_apple_support//xcode:xcode_config.bzl', 'xcode_config')",
+        "xcode_config(name = 'host_xcodes')");
+    MockObjcSupport.setupXcodeRules(config);
     config.create(
         "local_config_xcode_workspace/MODULE.bazel", "module(name = 'local_config_xcode')");
     config.create("third_party/protobuf/BUILD");

@@ -73,6 +73,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
         "examples/apple_starlark/BUILD",
         """
         load("//test_starlark/rule:apple_rules.bzl", "my_rule")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
 
         package(default_visibility = ["//visibility:public"])
 
@@ -109,6 +110,8 @@ public final class XcodeVersionTest extends BuildViewTestCase {
     scratch.file(
         "examples/apple/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         package(default_visibility = ["//visibility:public"])
 
         xcode_version(

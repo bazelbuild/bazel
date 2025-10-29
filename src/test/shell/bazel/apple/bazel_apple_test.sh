@@ -112,8 +112,15 @@ function test_host_available_xcodes() {
 }
 
 function test_xcode_config_select() {
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "apple_support", version = "1.24.2")
+EOF
+
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@apple_support//xcode:xcode_config.bzl", "xcode_config")
+load("@apple_support//xcode:xcode_version.bzl", "xcode_version")
+
 xcode_config(
     name = "xcodes",
     default = ":version10",

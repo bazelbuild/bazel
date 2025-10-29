@@ -65,8 +65,6 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-xcode_config_alias(name = "current_xcode_config")
-
 xcode_version_flag(name = "xcode_version_flag")
 
 [

@@ -55,7 +55,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   @Test
   public void testEmptyConfig_noVersionFlag() throws Exception {
-    scratch.file("xcode/BUILD", "xcode_config(name = 'foo',)");
+    scratch.file(
+        "xcode/BUILD",
+        "load('@build_bazel_apple_support//xcode:xcode_config.bzl', 'xcode_config')",
+        "xcode_config(name = 'foo',)");
     useConfiguration("--xcode_version_config=//xcode:foo");
 
     assertIosSdkVersion(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
@@ -83,6 +86,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:available_xcodes.bzl", "available_xcodes")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -130,6 +137,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:available_xcodes.bzl", "available_xcodes")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -173,6 +184,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:available_xcodes.bzl", "available_xcodes")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+
         xcode_config(
             name = "foo",
             remote_versions = ":remote",
@@ -676,6 +691,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "xcode/BUILD",
         """
         load("//test_starlark:version_retriever.bzl", "version_retriever")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:xcode_config_alias.bzl", "xcode_config_alias")
 
         version_retriever(
             name = "flag_propagator",
@@ -776,6 +794,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "xcode/BUILD",
         """
         load("//test_starlark:version_retriever.bzl", "version_retriever")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:xcode_config_alias.bzl", "xcode_config_alias")
 
         version_retriever(
             name = "flag_propagator",
@@ -908,6 +929,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         xcode_config(
             name = "foo",
             versions = [":version512"],
@@ -1001,6 +1025,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -1046,6 +1073,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -1106,6 +1136,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -1166,6 +1199,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -1229,6 +1265,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "test_starlark/BUILD",
         """
         load("//test_starlark:r.bzl", "r")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:xcode_config_alias.bzl", "xcode_config_alias")
 
         xcode_config_alias(name = "a")
 
@@ -1307,6 +1346,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "test_starlark/BUILD",
         """
         load("//test_starlark:r.bzl", "r")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:available_xcodes.bzl", "available_xcodes")
+        load("@build_bazel_apple_support//xcode:xcode_config_alias.bzl", "xcode_config_alias")
 
         xcode_config_alias(name = "a")
 
@@ -1395,6 +1438,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "test_starlark/BUILD",
         """
         load("//test_starlark:r.bzl", "r")
+        load("@build_bazel_apple_support//xcode:available_xcodes.bzl", "available_xcodes")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_config_alias.bzl", "xcode_config_alias")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
 
         xcode_config_alias(name = "a")
 
@@ -1477,6 +1524,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -1504,6 +1554,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+
         xcode_config(
             name = "foo",
             default = ":version512",
@@ -1559,6 +1612,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "test_starlark/BUILD",
         """
         load("//test_starlark:provider_grabber.bzl", "provider_grabber")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
 
         xcode_config(
             name = "config1",
@@ -1635,6 +1690,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
         """
         load("@rules_java//java:defs.bzl", "java_library")
         load("//test_starlark:provider_grabber.bzl", "provider_grabber")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
 
         xcode_config(
             name = "config1",

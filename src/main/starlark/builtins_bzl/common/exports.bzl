@@ -16,10 +16,6 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/apple_common.bzl", "apple_common")
-load(":common/xcode/available_xcodes.bzl", "available_xcodes")
-load(":common/xcode/xcode_config.bzl", "xcode_config")
-load(":common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
-load(":common/xcode/xcode_version.bzl", "xcode_version")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -39,12 +35,7 @@ exported_toplevels = {
 #   on the Bazel command line
 # * no leading symbol means the Starlark rule is used and can't be overridden
 # * leading `-` means the Starlark rule exists, but is not used by default
-exported_rules = {
-    "xcode_version": xcode_version,
-    "available_xcodes": available_xcodes,
-    "xcode_config": xcode_config,
-    "xcode_config_alias": xcode_config_alias,
-}
+exported_rules = {}
 
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {

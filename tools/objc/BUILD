@@ -1,3 +1,4 @@
+load("@apple_support//xcode:xcode_config.bzl", "xcode_config")
 load("@rules_cc//cc:objc_library.bzl", "objc_library")
 
 package(default_visibility = ["//visibility:public"])

@@ -93,7 +93,10 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir,
         print(error_msg)
     return build_contents
 
-VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
+VERSION_CONFIG_STUB = """
+load("@apple_support//xcode:xcode_config.bzl", "xcode_config")
+xcode_config(name = 'host_xcodes')
+"""
 
 def run_xcode_locator(repository_ctx, xcode_locator_src_label):
     """Generates xcode-locator from source and runs it.
@@ -230,7 +233,11 @@ def _darwin_build_file(repository_ctx):
         )
     default_xcode_target = ""
     target_names = []
-    buildcontents = ""
+    buildcontents = """
+load("@apple_support//xcode:xcode_config.bzl", "xcode_config")
+load("@apple_support//xcode:available_xcodes.bzl", "available_xcodes")
+load("@apple_support//xcode:xcode_version.bzl", "xcode_version")
+"""
 
     for toolchain in toolchains:
         version = toolchain.version
