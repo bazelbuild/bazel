@@ -1,0 +1,35 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.3.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.wasm_module">wasm_module</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/bazel/repository/starlark/StarlarkWasmModule.java" %}
+{% dynamic setvar version "8.3.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/wasm_module" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A WebAssembly module loaded by <code>repository_ctx.load_wasm()</code>.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#path">path</a>
+  </li>
+  </ul>
+
+      <h2 id="path">path</h2>
+        <p><pre class="rule-signature">unknown wasm_module.path</pre></p>
+
+    The path this WebAssembly module was loaded from.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

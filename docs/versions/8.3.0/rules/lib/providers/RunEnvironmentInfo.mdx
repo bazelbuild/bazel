@@ -1,0 +1,44 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.3.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.RunEnvironmentInfo">RunEnvironmentInfo</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/RunEnvironmentInfoApi.java" %}
+{% dynamic setvar version "8.3.0" %}
+{% dynamic setvar original_path "/rules/lib/providers/RunEnvironmentInfo" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A provider that can be returned from executable rules to control the environment in which their executable is executed.
+
+<h2>Members</h2>
+<ul>
+      <li>
+    <a href="#environment">environment</a>
+  </li>
+      <li>
+    <a href="#inherited_environment">inherited_environment</a>
+  </li>
+  </ul>
+
+        <h2 id="environment">environment</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/dict.html">dict</a> RunEnvironmentInfo.environment</pre></p>
+
+    A map of string keys and values that represent environment variables and their values. These will be made available when the target that returns this provider is executed, either as a test or via the run command.
+
+
+        <h2 id="inherited_environment">inherited_environment</h2>
+        <p><pre class="rule-signature">List RunEnvironmentInfo.inherited_environment</pre></p>
+
+    A sequence of names of environment variables. These variables are made  available with their current value taken from the shell environment when the target that returns this provider is executed, either as a test or via the run command. If a variable is contained in both <code>environment</code> and <code>inherited_environment</code>, the value inherited from the shell environment will take precedence if set.
+
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

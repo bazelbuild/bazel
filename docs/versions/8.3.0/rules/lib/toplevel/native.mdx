@@ -1,0 +1,390 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/8.3.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.native">native</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/starlarkbuildapi/StarlarkNativeModuleApi.java" %}
+{% dynamic setvar version "8.3.0" %}
+{% dynamic setvar original_path "/rules/lib/toplevel/native" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+A built-in module to support native rules and other package helper functions. All native rules appear as functions in this module, e.g. <code>native.cc_library</code>. Note that the native module is only available in the loading phase (i.e. for macros, not for rule implementations). Attributes will ignore <code>None</code> values, and treat them as if the attribute was unset.<br>The following functions are also available:
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#existing_rule">existing_rule</a>
+  </li>
+      <li>
+    <a href="#existing_rules">existing_rules</a>
+  </li>
+      <li>
+    <a href="#exports_files">exports_files</a>
+  </li>
+      <li>
+    <a href="#glob">glob</a>
+  </li>
+      <li>
+    <a href="#module_name">module_name</a>
+  </li>
+      <li>
+    <a href="#module_version">module_version</a>
+  </li>
+      <li>
+    <a href="#package_group">package_group</a>
+  </li>
+      <li>
+    <a href="#package_name">package_name</a>
+  </li>
+      <li>
+    <a href="#package_relative_label">package_relative_label</a>
+  </li>
+      <li>
+    <a href="#repo_name">repo_name</a>
+  </li>
+      <li>
+    <a href="#repository_name">repository_name</a>
+  </li>
+      <li>
+    <a href="#subpackages">subpackages</a>
+  </li>
+  </ul>
+
+      <h2 id="existing_rule">existing_rule</h2>
+        <p><pre class="rule-signature">unknown native.existing_rule(name)</pre></p>
+
+    Returns an immutable dict-like object that describes the attributes of a rule instantiated in this thread's package, or <code>None</code> if no rule instance of that name exists.<p>Here, an <em>immutable dict-like object</em> means a deeply immutable object <code>x</code> supporting dict-like iteration, <code>len(x)</code>, <code>name in x</code>, <code>x[name]</code>, <code>x.get(name)</code>, <code>x.items()</code>, <code>x.keys()</code>, and <code>x.values()</code>.<p>The result contains an entry for each attribute, with the exception of private ones (whose names do not start with a letter) and a few unrepresentable legacy attribute types. In addition, the dict contains entries for the rule instance's <code>name</code> and <code>kind</code> (for example, <code>'cc_binary'</code>).<p>The values of the result represent attribute values as follows:<ul><li>Attributes of type str, int, and bool are represented as is.</li><li>Labels are converted to strings of the form <code>':foo'</code> for targets in the same package or <code>'//pkg:name'</code> for targets in a different package.</li><li>Lists are represented as tuples, and dicts are converted to new, mutable dicts. Their elements are recursively converted in the same fashion.</li><li><code>select</code> values are returned with their contents transformed as described above.</li><li>Attributes for which no value was specified during rule instantiation and whose default value is computed are excluded from the result. (Computed defaults cannot be computed until the analysis phase.).</li></ul><p>If possible, avoid using this function. It makes BUILD files brittle and order-dependent. Also, beware that it differs subtly from the two other conversions of rule attribute values from internal form to Starlark: one used by computed defaults, the other used by <code>ctx.attr.foo</code>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="existing_rule.name">
+              <code>name</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>;
+                                     required<br/>
+                          The name of the target.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="existing_rules">existing_rules</h2>
+        <p><pre class="rule-signature">unknown native.existing_rules()</pre></p>
+
+    Returns an immutable dict-like object describing the rules so far instantiated in this thread's package. Each entry of the dict-like object maps the name of the rule instance to the result that would be returned by <code>existing_rule(name)</code>.<p>Here, an <em>immutable dict-like object</em> means a deeply immutable object <code>x</code> supporting dict-like iteration, <code>len(x)</code>, <code>name in x</code>, <code>x[name]</code>, <code>x.get(name)</code>, <code>x.items()</code>, <code>x.keys()</code>, and <code>x.values()</code>.<p><em>Note: If possible, avoid using this function. It makes BUILD files brittle and order-dependent.
+
+
+        <h2 id="exports_files">exports_files</h2>
+        <p><pre class="rule-signature"><code>None</code> native.exports_files(srcs, visibility=None, licenses=None)</pre></p>
+
+    Specifies a list of files belonging to this package that are exported to other packages.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="exports_files.srcs">
+              <code>srcs</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          The list of files to export.
+            </td>
+          </tr>
+                  <tr>
+            <td id="exports_files.visibility">
+              <code>visibility</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package.
+            </td>
+          </tr>
+                  <tr>
+            <td id="exports_files.licenses">
+              <code>licenses</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          Licenses to be specified.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="glob">glob</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> native.glob(include=[], exclude=[], exclude_directories=1, allow_empty=unbound)</pre></p>
+
+    Glob returns a new, mutable, sorted list of every file in the current package that:<ul>
+<li>Matches at least one pattern in <code>include</code>.</li>
+<li>Does not match any of the patterns in <code>exclude</code> (default <code>[]</code>).</li></ul>
+If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>), files of type directory will be omitted from the results (default <code>1</code>).
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="glob.include">
+              <code>include</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     default is <code>[]</code><br/>
+                          The list of glob patterns to include.
+            </td>
+          </tr>
+                  <tr>
+            <td id="glob.exclude">
+              <code>exclude</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     default is <code>[]</code><br/>
+                          The list of glob patterns to exclude.
+            </td>
+          </tr>
+                  <tr>
+            <td id="glob.exclude_directories">
+              <code>exclude_directories</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/int.html">int</a>;
+                                     default is <code>1</code><br/>
+                          A flag whether to exclude directories or not.
+            </td>
+          </tr>
+                  <tr>
+            <td id="glob.allow_empty">
+              <code>allow_empty</code>
+            </td>
+            <td>
+                                     default is <code>unbound</code><br/>
+                          Whether we allow glob patterns to match nothing. If `allow_empty` is False, each individual include pattern must match something and also the final result must be non-empty (after the matches of the `exclude` patterns are excluded).
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="module_name">module_name</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> native.module_name()</pre></p>
+
+    The name of the Bazel module associated with the repo this package is in. If this package is from a repo defined in WORKSPACE instead of MODULE.bazel, this is empty. For repos generated by module extensions, this is the name of the module hosting the extension. It's the same as the <code>module.name</code> field seen in <code>module_ctx.modules</code>.
+
+         May return <code>None</code>.
+
+        <h2 id="module_version">module_version</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> native.module_version()</pre></p>
+
+    The version of the Bazel module associated with the repo this package is in. If this package is from a repo defined in WORKSPACE instead of MODULE.bazel, this is empty. For repos generated by module extensions, this is the version of the module hosting the extension. It's the same as the <code>module.version</code> field seen in <code>module_ctx.modules</code>.
+
+         May return <code>None</code>.
+
+        <h2 id="package_group">package_group</h2>
+        <p><pre class="rule-signature"><code>None</code> native.package_group(name, packages=[], includes=[])</pre></p>
+
+    This function defines a set of packages and assigns a label to the group. The label can be referenced in <code>visibility</code> attributes.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="package_group.name">
+              <code>name</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>;
+                                     required<br/>
+                          The unique name for this rule.
+            </td>
+          </tr>
+                  <tr>
+            <td id="package_group.packages">
+              <code>packages</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     default is <code>[]</code><br/>
+                          A complete enumeration of packages in this group.
+            </td>
+          </tr>
+                  <tr>
+            <td id="package_group.includes">
+              <code>includes</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     default is <code>[]</code><br/>
+                          Other package groups that are included in this one.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="package_name">package_name</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> native.package_name()</pre></p>
+
+    The name of the package being evaluated, without the repository name. For example, in the BUILD file <code>some/package/BUILD</code>, its value will be <code>some/package</code>. If the BUILD file calls a function defined in a .bzl file, <code>package_name()</code> will match the caller BUILD file package.
+
+
+        <h2 id="package_relative_label">package_relative_label</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/Label.html">Label</a> native.package_relative_label(input)</pre></p>
+
+    Converts the input string into a <a href='../builtins/Label.html'>Label</a> object, in the context of the package currently being initialized (that is, the <code>BUILD</code> file for which the current macro is executing). If the input is already a <code>Label</code>, it is returned unchanged.<p>This function may only be called while evaluating a BUILD file and the macros it directly or indirectly calls; it may not be called in (for instance) a rule implementation function. <p>The result of this function is the same <code>Label</code> value as would be produced by passing the given string to a label-valued attribute of a target declared in the BUILD file. <p><i>Usage note:</i> The difference between this function and <a href='../builtins/Label.html#Label'>Label()</a></code> is that <code>Label()</code> uses the context of the package of the <code>.bzl</code> file that called it, not the package of the <code>BUILD</code> file. Use <code>Label()</code> when you need to refer to a fixed target that is hardcoded into the macro, such as a compiler. Use <code>package_relative_label()</code> when you need to normalize a label string supplied by the BUILD file to a <code>Label</code> object. (There is no way to convert a string to a <code>Label</code> in the context of a package other than the BUILD file or the calling .bzl file. For that reason, outer macros should always prefer to pass Label objects to inner macros rather than label strings.)
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="package_relative_label.input">
+              <code>input</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../builtins/Label.html">Label</a>;
+                                     required<br/>
+                          The input label string or Label object. If a Label object is passed, it's returned as is.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="repo_name">repo_name</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> native.repo_name()</pre></p>
+
+    The canonical name of the repository containing the package currently being evaluated, with no leading at-signs.
+
+
+        <h2 id="repository_name">repository_name</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> native.repository_name()</pre></p>
+
+    <b>Experimental</b>. This API is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting <code>--+incompatible_enable_deprecated_label_apis</code> <br><strong>Deprecated.</strong> Prefer to use <a href="#repo_name"><code>repo_name</code></a> instead, which doesn't contain the spurious leading at-sign, but behaves identically otherwise.<p>The canonical name of the repository containing the package currently being evaluated, with a single at-sign (<code>@</code>) prefixed. For example, in packages that are called into existence by the WORKSPACE stanza <code>local_repository(name='local', path=...)</code> it will be set to <code>@local</code>. In packages in the main repository, it will be set to <code>@</code>.
+
+
+        <h2 id="subpackages">subpackages</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">sequence</a> native.subpackages(include, exclude=[], allow_empty=False)</pre></p>
+
+    Returns a new mutable list of every direct subpackage of the current package, regardless of file-system directory depth. List returned is sorted and contains the names of subpackages relative to the current package. It is advised to prefer using the methods in bazel_skylib.subpackages module rather than calling this function directly.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="subpackages.include">
+              <code>include</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          The list of glob patterns to include in subpackages scan.
+            </td>
+          </tr>
+                  <tr>
+            <td id="subpackages.exclude">
+              <code>exclude</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     default is <code>[]</code><br/>
+                          The list of glob patterns to exclude from subpackages scan.
+            </td>
+          </tr>
+                  <tr>
+            <td id="subpackages.allow_empty">
+              <code>allow_empty</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/bool.html">bool</a>;
+                                     default is <code>False</code><br/>
+                          Whether we fail if the call returns an empty list. By default empty list indicates potential error in BUILD file where the call to subpackages() is superflous.  Setting to true allows this function to succeed in that case.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
