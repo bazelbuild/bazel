@@ -1,0 +1,633 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.0.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.module_ctx">module_ctx</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/lib/bazel/bzlmod/ModuleExtensionContext.java" %}
+{% dynamic setvar version "7.0.0" %}
+{% dynamic setvar original_path "/rules/lib/builtins/module_ctx" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+The context of the module extension containing helper functions and information about pertinent tags across the dependency graph. You get a module_ctx object as an argument to the <code>implementation</code> function when you create a module extension.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#download">download</a>
+  </li>
+      <li>
+    <a href="#download_and_extract">download_and_extract</a>
+  </li>
+      <li>
+    <a href="#execute">execute</a>
+  </li>
+      <li>
+    <a href="#extension_metadata">extension_metadata</a>
+  </li>
+      <li>
+    <a href="#file">file</a>
+  </li>
+      <li>
+    <a href="#is_dev_dependency">is_dev_dependency</a>
+  </li>
+      <li>
+    <a href="#modules">modules</a>
+  </li>
+      <li>
+    <a href="#os">os</a>
+  </li>
+      <li>
+    <a href="#path">path</a>
+  </li>
+      <li>
+    <a href="#read">read</a>
+  </li>
+      <li>
+    <a href="#report_progress">report_progress</a>
+  </li>
+      <li>
+    <a href="#root_module_has_non_dev_dependency">root_module_has_non_dev_dependency</a>
+  </li>
+      <li>
+    <a href="#which">which</a>
+  </li>
+  </ul>
+
+      <h2 id="download">download</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/struct.html">struct</a> module_ctx.download(url, output='', sha256='', executable=False, allow_fail=False, canonical_id='', auth={}, *, integrity='')</pre></p>
+
+    Downloads a file to the output path for the provided url and returns a struct containing <code>success</code>, a flag which is <code>true</code> if the download completed successfully, and if successful, a hash of the file with the fields <code>sha256</code> and <code>integrity</code>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="download.url">
+              <code>url</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or Iterable of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          List of mirror URLs referencing the same file.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download.output">
+              <code>output</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../builtins/Label.html">Label</a>; or <a class="anchor" href="../builtins/path.html">path</a>;
+                                     default is <code>''</code><br/>
+                          path to the output file, relative to the repository directory.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download.sha256">
+              <code>sha256</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          the expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download.executable">
+              <code>executable</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          set the executable flag on the created file, false by default.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download.allow_fail">
+              <code>allow_fail</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          If set, indicate the error in the return value instead of raising an error for failed downloads
+            </td>
+          </tr>
+                  <tr>
+            <td id="download.canonical_id">
+              <code>canonical_id</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id
+            </td>
+          </tr>
+                  <tr>
+            <td id="download.auth">
+              <code>auth</code>
+            </td>
+            <td>
+                                     default is <code>{}</code><br/>
+                          An optional dict specifying authentication information for some of the URLs.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download.integrity">
+              <code>integrity</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="download_and_extract">download_and_extract</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/struct.html">struct</a> module_ctx.download_and_extract(url, output='', sha256='', type='', stripPrefix='', allow_fail=False, canonical_id='', auth={}, *, integrity='', rename_files={})</pre></p>
+
+    Downloads a file to the output path for the provided url, extracts it, and returns a struct containing <code>success</code>, a flag which is <code>true</code> if the download completed successfully, and if successful, a hash of the file with the fields <code>sha256</code> and <code>integrity</code>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="download_and_extract.url">
+              <code>url</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or Iterable of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          List of mirror URLs referencing the same file.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.output">
+              <code>output</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../builtins/Label.html">Label</a>; or <a class="anchor" href="../builtins/path.html">path</a>;
+                                     default is <code>''</code><br/>
+                          path to the directory where the archive will be unpacked, relative to the repository directory.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.sha256">
+              <code>sha256</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          the expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given hash; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.type">
+              <code>type</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          the archive type of the downloaded file. By default, the archive type is determined from the file extension of the URL. If the file has no extension, you can explicitly specify either "zip", "jar", "war", "aar", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.stripPrefix">
+              <code>stripPrefix</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          a directory prefix to strip from the extracted files.
+Many archives contain a top-level directory that contains all files in the archive. Instead of needing to specify this prefix over and over in the <code>build_file</code>, this field can be used to strip it from extracted files.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.allow_fail">
+              <code>allow_fail</code>
+            </td>
+            <td>
+                                     default is <code>False</code><br/>
+                          If set, indicate the error in the return value instead of raising an error for failed downloads
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.canonical_id">
+              <code>canonical_id</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.auth">
+              <code>auth</code>
+            </td>
+            <td>
+                                     default is <code>{}</code><br/>
+                          An optional dict specifying authentication information for some of the URLs.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.integrity">
+              <code>integrity</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping.
+            </td>
+          </tr>
+                  <tr>
+            <td id="download_and_extract.rename_files">
+              <code>rename_files</code>
+            </td>
+            <td>
+                                     default is <code>{}</code><br/>
+                          An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="execute">execute</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/exec_result.html">exec_result</a> module_ctx.execute(arguments, timeout=600, environment={}, quiet=True, working_directory="")</pre></p>
+
+    Executes the command given by the list of arguments. The execution time of the command is limited by <code>timeout</code> (in seconds, default 600 seconds). This method returns an <code>exec_result</code> structure containing the output of the command. The <code>environment</code> map can be used to override some environment variables to be passed to the process.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="execute.arguments">
+              <code>arguments</code>
+            </td>
+            <td>
+                                     required<br/>
+                          List of arguments, the first element should be the path to the program to execute.
+            </td>
+          </tr>
+                  <tr>
+            <td id="execute.timeout">
+              <code>timeout</code>
+            </td>
+            <td>
+                                     default is <code>600</code><br/>
+                          maximum duration of the command in seconds (default is 600 seconds).
+            </td>
+          </tr>
+                  <tr>
+            <td id="execute.environment">
+              <code>environment</code>
+            </td>
+            <td>
+                                     default is <code>{}</code><br/>
+                          force some environment variables to be set to be passed to the process.
+            </td>
+          </tr>
+                  <tr>
+            <td id="execute.quiet">
+              <code>quiet</code>
+            </td>
+            <td>
+                                     default is <code>True</code><br/>
+                          If stdout and stderr should be printed to the terminal.
+            </td>
+          </tr>
+                  <tr>
+            <td id="execute.working_directory">
+              <code>working_directory</code>
+            </td>
+            <td>
+                                     default is <code>""</code><br/>
+                          Working directory for command execution.
+Can be relative to the repository root or absolute.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="extension_metadata">extension_metadata</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/extension_metadata.html">extension_metadata</a> module_ctx.extension_metadata(root_module_direct_deps=None, root_module_direct_dev_deps=None)</pre></p>
+
+    Constructs an opaque object that can be returned from the module extension's implementation function to provide metadata about the repositories generated by the extension to Bazel.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="extension_metadata.root_module_direct_deps">
+              <code>root_module_direct_deps</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s; or <a class="anchor" href="../core/string.html">string</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The names of the repositories that the extension considers to be direct dependencies of the root module. If the root module imports additional repositories or does not import all of these repositories via <a href="../globals/module.html#use_repo"><code>use_repo</code></a>, Bazel will print a warning and a fixup command when the extension is evaluated.<p>If one of <code>root_module_direct_deps</code> and <code>root_module_direct_dev_deps</code> is specified, the other has to be as well. The lists specified by these two parameters must be disjoint.<p>Exactly one of <code>root_module_direct_deps</code> and <code>root_module_direct_dev_deps</code> can be set to the special value <code>"all"</code>, which is treated as if a list with the names of all repositories generated by the extension was specified as the value.
+            </td>
+          </tr>
+                  <tr>
+            <td id="extension_metadata.root_module_direct_dev_deps">
+              <code>root_module_direct_dev_deps</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s; or <a class="anchor" href="../core/string.html">string</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The names of the repositories that the extension considers to be direct dev dependencies of the root module. If the root module imports additional repositories or does not import all of these repositories via <a href="../globals/module.html#use_repo"><code>use_repo</code></a> on an extension proxy created with <code><a href="../globals/module.html#use_extension">use_extension</a>(..., dev_dependency = True)</code>, Bazel will print a warning and a fixup command when the extension is evaluated.<p>If one of <code>root_module_direct_deps</code> and <code>root_module_direct_dev_deps</code> is specified, the other has to be as well. The lists specified by these two parameters must be disjoint.<p>Exactly one of <code>root_module_direct_deps</code> and <code>root_module_direct_dev_deps</code> can be set to the special value <code>"all"</code>, which is treated as if a list with the names of all repositories generated by the extension was specified as the value.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="file">file</h2>
+        <p><pre class="rule-signature"><code>None</code> module_ctx.file(path, content='', executable=True, legacy_utf8=True)</pre></p>
+
+    Generates a file in the repository directory with the provided content.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="file.path">
+              <code>path</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../builtins/Label.html">Label</a>; or <a class="anchor" href="../builtins/path.html">path</a>;
+                                     required<br/>
+                          path of the file to create, relative to the repository directory.
+            </td>
+          </tr>
+                  <tr>
+            <td id="file.content">
+              <code>content</code>
+            </td>
+            <td>
+                                     default is <code>''</code><br/>
+                          the content of the file to create, empty by default.
+            </td>
+          </tr>
+                  <tr>
+            <td id="file.executable">
+              <code>executable</code>
+            </td>
+            <td>
+                                     default is <code>True</code><br/>
+                          set the executable flag on the created file, true by default.
+            </td>
+          </tr>
+                  <tr>
+            <td id="file.legacy_utf8">
+              <code>legacy_utf8</code>
+            </td>
+            <td>
+                                     default is <code>True</code><br/>
+                          encode file content to UTF-8, true by default. Future versions will change the default and remove this parameter.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="is_dev_dependency">is_dev_dependency</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> module_ctx.is_dev_dependency(tag)</pre></p>
+
+    Returns whether the given tag was specified on the result of a <a href="../globals/module.html#use_extension">use_extension</a> call with <code>devDependency = True</code>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="is_dev_dependency.tag">
+              <code>tag</code>
+            </td>
+            <td>
+                          bazel_module_tag;
+                                     required<br/>
+                          A tag obtained from <a href="../builtins/bazel_module.html#tags">bazel_module.tags</a>.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="modules">modules</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/list.html">list</a> module_ctx.modules</pre></p>
+
+    A list of all the Bazel modules in the external dependency graph that use this module extension, each of which is a <a href="../builtins/bazel_module.html">bazel_module</a> object that exposes all the tags it specified for this extension. The iteration order of this dictionary is guaranteed to be the same as breadth-first search starting from the root module.
+
+
+        <h2 id="os">os</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/repository_os.html">repository_os</a> module_ctx.os</pre></p>
+
+    A struct to access information from the system.
+
+
+        <h2 id="path">path</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/path.html">path</a> module_ctx.path(path)</pre></p>
+
+    Returns a path from a string, label or path. If the path is relative, it will resolve relative to the repository directory. If the path is a label, it will resolve to the path of the corresponding file. Note that remote repositories are executed during the analysis phase and thus cannot depends on a target result (the label should point to a non-generated file). If path is a path, it will return that path as is.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="path.path">
+              <code>path</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../builtins/Label.html">Label</a>; or <a class="anchor" href="../builtins/path.html">path</a>;
+                                     required<br/>
+                          string, label or path from which to create a path from
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="read">read</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/string.html">string</a> module_ctx.read(path)</pre></p>
+
+    Reads the content of a file on the filesystem.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="read.path">
+              <code>path</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <a class="anchor" href="../builtins/Label.html">Label</a>; or <a class="anchor" href="../builtins/path.html">path</a>;
+                                     required<br/>
+                          path of the file to read from.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="report_progress">report_progress</h2>
+        <p><pre class="rule-signature"><code>None</code> module_ctx.report_progress(status='')</pre></p>
+
+    Updates the progress status for the fetching of this repository or module extension
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="report_progress.status">
+              <code>status</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>;
+                                     default is <code>''</code><br/>
+                          string describing the current status of the fetch progress
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="root_module_has_non_dev_dependency">root_module_has_non_dev_dependency</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../core/bool.html">bool</a> module_ctx.root_module_has_non_dev_dependency</pre></p>
+
+    Whether the root module uses this extension as a non-dev dependency.
+
+
+        <h2 id="which">which</h2>
+        <p><pre class="rule-signature"><a class="anchor" href="../builtins/path.html">path</a> module_ctx.which(program)</pre></p>
+
+    Returns the path of the corresponding program or None if there is no such program in the path.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="which.program">
+              <code>program</code>
+            </td>
+            <td>
+                                     required<br/>
+                          Program to find in the path.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+         May return <code>None</code>.
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->
