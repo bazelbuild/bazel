@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,6 +27,8 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -36,6 +40,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -48,6 +53,7 @@ public final class SymlinkAction extends AbstractAction {
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
   @Nullable private final PathFragment inputPath;
+
   @Nullable private final String progressMessage;
 
   enum TargetType {
@@ -77,7 +83,7 @@ public final class SymlinkAction extends AbstractAction {
 
   public static SymlinkAction toArtifact(
       ActionOwner owner, Artifact input, Artifact output, String progressMessage) {
-    return toArtifact(owner, input, output, progressMessage, /*useExecRootForSource=*/ false);
+    return toArtifact(owner, input, output, progressMessage, /* useExecRootForSource= */ false);
   }
 
   /**
@@ -211,7 +217,7 @@ public final class SymlinkAction extends AbstractAction {
       // small amount of overhead.
       outputPath.delete();
 
-      outputPath.createSymbolicLink(srcPath);
+      outputPath.createSymbolicLink(srcPath, getSymlinkTargetType(actionExecutionContext));
     } catch (IOException e) {
       String message =
           String.format(
@@ -238,6 +244,22 @@ public final class SymlinkAction extends AbstractAction {
     }
 
     return ActionResult.EMPTY;
+  }
+
+  private SymlinkTargetType getSymlinkTargetType(ActionExecutionContext actionExecutionContext)
+      throws IOException {
+    Artifact primaryInput = getPrimaryInput();
+    if (primaryInput == null) {
+      return SymlinkTargetType.UNSPECIFIED;
+    }
+    FileArtifactValue metadata =
+        checkNotNull(
+            actionExecutionContext.getInputMetadataProvider().getInputMetadata(primaryInput),
+            "missing metadata for %s",
+            primaryInput);
+    return metadata.getType() == FileStateType.DIRECTORY
+        ? SymlinkTargetType.DIRECTORY
+        : SymlinkTargetType.FILE;
   }
 
   private void maybeVerifyTargetIsExecutable(ActionExecutionContext actionExecutionContext)
