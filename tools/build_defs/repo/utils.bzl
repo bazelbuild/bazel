@@ -220,6 +220,25 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
         ctx.delete(patchfile)
     ctx.delete(ctx.path(_REMOTE_PATCH_DIR))
 
+    # Support for the remote_module_file_urls attribute, which is only meant for
+    # internal use by Bazel when defining a Bazel module repository.
+    # Download the module file after applying remote (i.e., registry) patches
+    # since modules may decide to patch their packaged module and the patch may
+    # not apply to the file checked in to the registry.
+    # Download the module file before applying local patches since users should
+    # still be able to modify it via a single_version_override.
+    remote_module_file_urls = getattr(ctx.attr, "remote_module_file_urls", [])
+    if remote_module_file_urls:
+        if not ctx.attr.remote_module_file_integrity:
+            fail("remote_module_file_integrity must be set when remote_module_file_urls is set")
+        ctx.delete("MODULE.bazel")
+        ctx.download(
+            remote_module_file_urls,
+            "MODULE.bazel",
+            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
+            integrity = ctx.attr.remote_module_file_integrity,
+        )
+
     # Apply local patches
     if native_patch and _use_native_patch(patch_args):
         if patch_args:
