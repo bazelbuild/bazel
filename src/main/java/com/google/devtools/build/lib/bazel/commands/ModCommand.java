@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg.ExtensionArgConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.InvalidArgumentException;
@@ -93,6 +94,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -136,6 +138,43 @@ public final class ModCommand implements BlazeCommand {
     return result;
   }
 
+  private void validateArgs(ModSubcommand subcommand, ModOptions modOptions, List<String> args)
+      throws InvalidArgumentException {
+
+    // More validations can be added here in the future...
+
+    if (subcommand == ModSubcommand.SHOW_REPO) {
+      int selectedModes = 0;
+      if (modOptions.allRepos) {
+        selectedModes++;
+      }
+      if (modOptions.allVisibleRepos) {
+        selectedModes++;
+      }
+      if (!args.isEmpty()) {
+        selectedModes++;
+      }
+      if (selectedModes > 1) {
+        throw new InvalidArgumentException(
+            "the 'show_repo' command requires exactly one of --all_repos, --all_visible_repos, or a"
+                + " list of repo arguments",
+            Code.TOO_MANY_ARGUMENTS);
+      }
+    } else {
+      if (modOptions.allRepos) {
+        throw new InvalidArgumentException(
+            String.format("the '%s' command doesn't take the --all_repos option", subcommand),
+            Code.INVALID_ARGUMENTS);
+      }
+      if (modOptions.allVisibleRepos) {
+        throw new InvalidArgumentException(
+            String.format(
+                "the '%s' command doesn't take the --all_visible_repos option", subcommand),
+            Code.INVALID_ARGUMENTS);
+      }
+    }
+  }
+
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
     ModOptions modOptions = options.getOptions(ModOptions.class);
     Preconditions.checkArgument(modOptions != null);
@@ -158,6 +197,14 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
     }
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
+
+    // Validate and parse args as early as possible, so we don't have to
+    // wait for Skyframe evaluations to happen before failing due to a simple error.
+    try {
+      validateArgs(subcommand, modOptions, args);
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
+    }
 
     ImmutableList.Builder<RepositoryMappingValue.Key> repositoryMappingKeysBuilder =
         ImmutableList.builder();
@@ -332,28 +379,8 @@ public final class ModCommand implements BlazeCommand {
           }
         }
         case SHOW_REPO -> {
-          ImmutableMap.Builder<String, RepositoryName> targetToRepoName =
-              new ImmutableMap.Builder<>();
-          for (String arg : args) {
-            try {
-              targetToRepoName.putAll(
-                  ModuleArgConverter.INSTANCE
-                      .convert(arg)
-                      .resolveToRepoNames(
-                          moduleInspector.modulesIndex(),
-                          moduleInspector.depGraph(),
-                          moduleInspector.moduleKeyToCanonicalNames(),
-                          baseModuleMapping));
-            } catch (InvalidArgumentException | OptionsParsingException e) {
-              throw new InvalidArgumentException(
-                  String.format(
-                      "In repo argument %s: %s (Note that unused modules cannot be used here)",
-                      arg, e.getMessage()),
-                  Code.INVALID_ARGUMENTS,
-                  e);
-            }
-          }
-          argsAsRepos = targetToRepoName.buildKeepingLast();
+          argsAsRepos =
+              getReposToShow(modOptions, moduleInspector, depGraphValue, baseModuleMapping, args);
         }
         case SHOW_EXTENSION -> {
           ImmutableSortedSet.Builder<ModuleExtensionId> extensionsBuilder =
@@ -556,6 +583,71 @@ public final class ModCommand implements BlazeCommand {
               moduleInspector.errors().size(), moduleInspector.errors().size() == 1 ? "" : "s"),
           Code.ERROR_DURING_GRAPH_INSPECTION);
     }
+  }
+
+  private ImmutableMap<String, RepositoryName> getReposToShow(
+      ModOptions modOptions,
+      BazelModuleInspectorValue moduleInspector,
+      BazelDepGraphValue depGraphValue,
+      RepositoryMapping baseModuleMapping,
+      List<String> args)
+      throws InvalidArgumentException {
+
+    ImmutableMap.Builder<String, RepositoryName> targetToRepoName = new ImmutableMap.Builder<>();
+
+    if (modOptions.allRepos) {
+      // Module repos.
+      for (RepositoryName repoName : moduleInspector.moduleKeyToCanonicalNames().values()) {
+        if (repoName.isMain()) {
+          // The main repo can't be inspected.
+          continue;
+        }
+        targetToRepoName.put(repoName.getNameWithAt(), repoName);
+      }
+
+      // Extension repos.
+      for (Map.Entry<ModuleExtensionId, Collection<String>> extensionRepos :
+          moduleInspector.extensionToRepoInternalNames().asMap().entrySet()) {
+        String extensionUniqueName =
+            depGraphValue.getExtensionUniqueNames().get(extensionRepos.getKey());
+
+        for (String internalName : extensionRepos.getValue()) {
+          RepositoryName repoName =
+              SingleExtensionValue.repositoryName(extensionUniqueName, internalName);
+          targetToRepoName.put(repoName.getNameWithAt(), repoName);
+        }
+      }
+    } else if (modOptions.allVisibleRepos) {
+      for (Entry<String, RepositoryName> entry : baseModuleMapping.entries().entrySet()) {
+        if (entry.getValue().isMain()) {
+          // The main repo can't be inspected.
+          continue;
+        }
+        targetToRepoName.put("@" + entry.getKey(), entry.getValue());
+      }
+    } else {
+      // Resolve explicitly specified repos.
+      for (String arg : args) {
+        try {
+          targetToRepoName.putAll(
+              ModuleArgConverter.INSTANCE
+                  .convert(arg)
+                  .resolveToRepoNames(
+                      moduleInspector.modulesIndex(),
+                      moduleInspector.depGraph(),
+                      moduleInspector.moduleKeyToCanonicalNames(),
+                      baseModuleMapping));
+        } catch (InvalidArgumentException | OptionsParsingException e) {
+          throw new InvalidArgumentException(
+              String.format(
+                  "In repo argument %s: %s (Note that unused modules cannot be used here)",
+                  arg, e.getMessage()),
+              Code.INVALID_ARGUMENTS,
+              e);
+        }
+      }
+    }
+    return targetToRepoName.buildKeepingLast();
   }
 
   private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
