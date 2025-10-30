@@ -876,6 +876,68 @@ public abstract class FileSystem {
     };
   }
 
+  // Mapping from FileSystemException reason strings on various platforms to the corresponding Unix
+  // error message that Bazel's own filesystem implementations produce. Bazel forces the root locale
+  // for the JVM, so the error messages should be stable per OS.
+  // This map is best-effort and almost certainly incomplete, especially on Windows.
+  private static final Map<String, String> reasonToUnixError =
+      ImmutableMap.of(
+          // Unix
+          "Is a directory",
+          ERR_IS_DIRECTORY,
+          "Not a directory",
+          ERR_NOT_A_DIRECTORY,
+          "Directory not empty",
+          ERR_DIRECTORY_NOT_EMPTY,
+          // Windows
+          // https://github.com/bazelbuild/bazel/pull/27458#discussion_r2478544279
+          // https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
+          "The directory is not empty.",
+          ERR_DIRECTORY_NOT_EMPTY);
+
+  /**
+   * Translates common java.nio.file IOExceptions into the equivalent java.io IOExceptions with
+   * consistent error messages.
+   */
+  protected static IOException translateNioToIoException(PathFragment path, IOException e) {
+    if (!(e instanceof FileSystemException fileSystemException)) {
+      return e;
+    }
+    String prefix = "";
+    if (fileSystemException.getFile() != null) {
+      prefix = fileSystemException.getFile();
+    }
+    if (fileSystemException.getOtherFile() != null) {
+      prefix += " -> " + fileSystemException.getOtherFile();
+    }
+    return switch (e) {
+      case AccessDeniedException unused -> {
+        FileAccessException newException = new FileAccessException(prefix + ERR_PERMISSION_DENIED);
+        newException.initCause(e);
+        yield newException;
+      }
+      case DirectoryNotEmptyException unused ->
+          new IOException(prefix + ERR_DIRECTORY_NOT_EMPTY, e);
+      case FileAlreadyExistsException unused -> new IOException(prefix + ERR_FILE_EXISTS, e);
+      case NoSuchFileException unused -> {
+        FileNotFoundException newException =
+            new FileNotFoundException(prefix + ERR_NO_SUCH_FILE_OR_DIR);
+        newException.initCause(e);
+        yield newException;
+      }
+      case NotDirectoryException unused -> new IOException(prefix + ERR_NOT_A_DIRECTORY, e);
+      case NotLinkException unused -> new NotASymlinkException(path, e);
+      // Rewrite exception messages to be identical to the ones produced by the native Unix
+      // filesystem implementation. Some of the exceptions caught above can also appear as untyped
+      // FileSystemExceptions and are thus included in reasonToUnixError.
+      case FileSystemException fse -> {
+        String unixError = reasonToUnixError.get(fse.getReason());
+        yield unixError != null ? new IOException(prefix + unixError, e) : fileSystemException;
+      }
+      default -> fileSystemException;
+    };
+  }
+
   /**
    * Returns the path of a new temporary directory with the given prefix created under the given
    * parent path, but <b>not</b> necessarily with secure permissions.
