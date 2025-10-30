@@ -41,28 +41,30 @@ inline std::vector<std::string> getJvmModuleOptions() {
   return {
 EOF
 
-# Extract options from manifest
-# We first join continuation lines in the manifest, then grep for the headers we
-# care about, and then process them.
-unzip -p "${JAR_FILE}" META-INF/MANIFEST.MF 2>/dev/null | \
-    sed -e 's/\r$//' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n / /g' | \
-    grep -E '^(Add-Exports|Add-Opens):' | \
-    while read -r line; do
-        if [[ "$line" =~ ^Add-Exports: ]]; then
-            key="--add-exports"
-            values="${line#Add-Exports: }"
-        elif [[ "$line" =~ ^Add-Opens: ]]; then
-            key="--add-opens"
-            values="${line#Add-Opens: }"
-        else
-            continue
-        fi
-        for val in $values; do
-            echo "    \"$key\", \"$val=ALL-UNNAMED\"," >> "${OUTPUT_FILE}"
-        done
-    done || true
-# The '|| true' is to prevent build failures if grep finds nothing, which would cause
-# the read to fail and the pipe to exit with a non-zero status.
+if [[ -f "${JAR_FILE}" ]]; then
+  # Extract options from manifest:
+  # We first join continuation lines in the manifest, then grep for the headers we
+  # care about, and then process them.
+  unzip -p "${JAR_FILE}" META-INF/MANIFEST.MF 2>/dev/null | \
+      sed -e 's/\r$//' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n / /g' | \
+      grep -E '^(Add-Exports|Add-Opens):' | \
+      while read -r line; do
+          if [[ "$line" =~ ^Add-Exports: ]]; then
+              key="--add-exports"
+              values="${line#Add-Exports: }"
+          elif [[ "$line" =~ ^Add-Opens: ]]; then
+              key="--add-opens"
+              values="${line#Add-Opens: }"
+          else
+              continue
+          fi
+          for val in $values; do
+              echo "    \"$key\", \"$val=ALL-UNNAMED\"," >> "${OUTPUT_FILE}"
+          done
+      done || true
+  # The '|| true' is to prevent build failures if grep finds nothing, which would cause
+  # the read to fail and the pipe to exit with a non-zero status.
+fi
 
 cat >> "${OUTPUT_FILE}" <<'EOF'
   };
