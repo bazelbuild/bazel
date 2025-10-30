@@ -495,12 +495,10 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
-    // The number of concurrent requests for one connection to a gRPC server is limited by
-    // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
-    // each connection should be fairly well. The number of connections opened by one channel is
-    // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
-    // max concurrency per connection is 100.
-    int maxConcurrencyPerConnection = 100;
+    int maxConcurrencyPerConnection = 0;
+    if (remoteOptions.remoteMaxConcurrencyPerConnection > 0) {
+      maxConcurrencyPerConnection = remoteOptions.remoteMaxConcurrencyPerConnection;
+    }
     int maxConnections = 0;
     if (remoteOptions.remoteMaxConnections > 0) {
       maxConnections = remoteOptions.remoteMaxConnections;
