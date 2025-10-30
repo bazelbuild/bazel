@@ -131,7 +131,8 @@ public class DownloadManager {
       Path output,
       Map<String, String> clientEnv,
       String context,
-      Phaser downloadPhaser) {
+      Phaser downloadPhaser,
+      boolean mayHardlink) {
     return executorService.submit(
         () -> {
           if (downloadPhaser.register() != 0) {
@@ -148,7 +149,8 @@ public class DownloadManager {
                 type,
                 output,
                 clientEnv,
-                context);
+                context,
+                mayHardlink);
           } finally {
             downloadPhaser.arrive();
           }
@@ -179,6 +181,8 @@ public class DownloadManager {
    * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
    * @param clientEnv environment variables in shell issuing this command
    * @param context the context in which the file was fetched; used only for reporting
+   * @param mayHardlink whether the output is known not to be modified after download and thus may
+   *     be created as a hardlink to the cache copy
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
@@ -192,7 +196,8 @@ public class DownloadManager {
       Optional<String> type,
       Path output,
       Map<String, String> clientEnv,
-      String context)
+      String context,
+      boolean mayHardlink)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -253,7 +258,7 @@ public class DownloadManager {
 
         try {
           Path cachedDestination =
-              downloadCache.get(cacheKey, destination, cacheKeyType, canonicalId);
+              downloadCache.get(cacheKey, destination, cacheKeyType, canonicalId, mayHardlink);
           if (cachedDestination != null) {
             // Cache hit!
             eventHandler.post(new DownloadCacheHitEvent(context, cacheKey, mainUrl));

@@ -162,7 +162,9 @@ public class DownloadCacheTest {
 
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
-    Path actualTargetPath = downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    Path actualTargetPath =
+        downloadCache.get(
+            hash, targetPath, keyType, /* canonicalId= */ null, /* mayHardlink= */ true);
 
     // Check that the contents are the same.
     assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
@@ -177,7 +179,9 @@ public class DownloadCacheTest {
   public void testGetNullCacheValue() throws Exception {
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
-    Path actualTargetPath = downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    Path actualTargetPath =
+        downloadCache.get(
+            hash, targetPath, keyType, /* canonicalId= */ null, /* mayHardlink= */ true);
 
     assertThat(actualTargetPath).isNull();
   }
@@ -203,7 +207,7 @@ public class DownloadCacheTest {
     thrown.expectMessage("does not match expected");
     thrown.expectMessage("Please delete the directory");
 
-    downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null, /* mayHardlink= */ true);
   }
 
   @Test
@@ -247,13 +251,17 @@ public class DownloadCacheTest {
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
 
-    Path lookupWithSameId = downloadCache.get(hash, targetPath, keyType, "fooid");
+    Path lookupWithSameId =
+        downloadCache.get(hash, targetPath, keyType, "fooid", /* mayHardlink= */ true);
     assertThat(lookupWithSameId).isEqualTo(targetPath);
 
-    Path lookupOtherId = downloadCache.get(hash, targetPath, keyType, "barid");
+    Path lookupOtherId =
+        downloadCache.get(hash, targetPath, keyType, "barid", /* mayHardlink= */ true);
     assertThat(lookupOtherId).isNull();
 
-    Path lookupNoId = downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    Path lookupNoId =
+        downloadCache.get(
+            hash, targetPath, keyType, /* canonicalId= */ null, /* mayHardlink= */ true);
     assertThat(lookupNoId).isEqualTo(targetPath);
   }
 }
