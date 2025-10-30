@@ -29,7 +29,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository:srcs",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/stubs:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test:srcs",
     ],
     visibility = ["//src:__subpackages__"],
