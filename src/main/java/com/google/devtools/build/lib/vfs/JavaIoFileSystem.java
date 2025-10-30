@@ -24,12 +24,9 @@ import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.AccessDeniedException;
-import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -53,12 +50,6 @@ public class JavaIoFileSystem extends AbstractFileSystem {
       new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final Clock clock;
-
-  protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
-  protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
-  protected static final String ERR_FILE_EXISTS = " (File exists)";
-  protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
-  protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
 
   public JavaIoFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
@@ -289,12 +280,8 @@ public class JavaIoFileSystem extends AbstractFileSystem {
       Files.createSymbolicLink(
           nioPath,
           Paths.get(StringEncoding.internalToPlatform(targetFragment.getSafePathString())));
-    } catch (java.nio.file.FileAlreadyExistsException e) {
-      throw new IOException(linkPath + ERR_FILE_EXISTS, e);
-    } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
-    } catch (java.nio.file.NoSuchFileException e) {
-      throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
+    } catch (IOException e) {
+      throw translateNioToIoException(linkPath, e);
     }
   }
 
@@ -305,10 +292,8 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     try {
       String link = Files.readSymbolicLink(nioPath).toString();
       return PathFragment.create(StringEncoding.platformToInternal(link));
-    } catch (java.nio.file.NotLinkException e) {
-      throw new NotASymlinkException(path, e);
-    } catch (java.nio.file.NoSuchFileException e) {
-      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, path.getPathString());
     }
@@ -318,32 +303,11 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
     java.nio.file.Path source = getNioPath(sourcePath);
     java.nio.file.Path target = getNioPath(targetPath);
-    // Replace NIO exceptions with the types used by the native Unix filesystem implementation where
-    // necessary.
     try {
       Files.move(
           source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-    } catch (NoSuchFileException originalException) {
-      FileNotFoundException newException =
-          new FileNotFoundException(originalException.getMessage() + ERR_NO_SUCH_FILE_OR_DIR);
-      newException.initCause(originalException);
-      throw newException;
-    } catch (AccessDeniedException originalException) {
-      FileAccessException newException =
-          new FileAccessException(originalException.getMessage() + ERR_PERMISSION_DENIED);
-      newException.initCause(originalException);
-      throw newException;
-    } catch (FileSystemException e) {
-      // Rewrite exception messages to be identical to the ones produced by the native Unix
-      // filesystem implementation. Bazel forces the root locale for the JVM, so the error messages
-      // should be stable.
-      String filesPart = sourcePath + " -> " + targetPath;
-      throw switch (e.getReason()) {
-        case "Directory not empty" -> new IOException(filesPart + ERR_DIRECTORY_NOT_EMPTY, e);
-        case "Not a directory" -> new IOException(filesPart + ERR_NOT_A_DIRECTORY, e);
-        case "Is a directory" -> new IOException(filesPart + ERR_IS_DIRECTORY, e);
-        default -> e;
-      };
+    } catch (IOException e) {
+      throw translateNioToIoException(sourcePath, e);
     }
   }
 

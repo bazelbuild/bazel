@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
@@ -30,11 +31,18 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
+import java.nio.file.NotLinkException;
 import java.security.SecureRandom;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** This interface models a file system. */
@@ -44,6 +52,15 @@ public abstract class FileSystem {
   // The maximum number of symbolic links that may be traversed by resolveSymbolicLinks() while
   // canonicalizing a path before it gives up and throws a FileSymlinkLoopException.
   public static final int MAX_SYMLINKS = 32;
+
+  // Standard error message suffixes to be used for consistency across different FileSystem
+  // implementations.
+  protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
+  protected static final String ERR_FILE_EXISTS = " (File exists)";
+  protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
+  protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
+  protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
+  protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
 
   private final DigestHashFunction digestFunction;
 
@@ -795,6 +812,68 @@ public abstract class FileSystem {
   public java.nio.file.Path getNioPath(PathFragment path) {
     throw new UnsupportedOperationException(
         "getNioPath() not supported for " + getClass().getName());
+  }
+
+  // Mapping from FileSystemException reason strings on various platforms to the corresponding Unix
+  // error message that Bazel's own filesystem implementations produce. Bazel forces the root locale
+  // for the JVM, so the error messages should be stable per OS.
+  // This map is best-effort and almost certainly incomplete, especially on Windows.
+  private static final Map<String, String> reasonToUnixError =
+      ImmutableMap.of(
+          // Unix
+          "Is a directory",
+          ERR_IS_DIRECTORY,
+          "Not a directory",
+          ERR_NOT_A_DIRECTORY,
+          "Directory not empty",
+          ERR_DIRECTORY_NOT_EMPTY,
+          // Windows
+          // https://github.com/bazelbuild/bazel/pull/27458#discussion_r2478544279
+          // https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
+          "The directory is not empty.",
+          ERR_DIRECTORY_NOT_EMPTY);
+
+  /**
+   * Translates common java.nio.file IOExceptions into the equivalent java.io IOExceptions with
+   * consistent error messages.
+   */
+  protected static IOException translateNioToIoException(PathFragment path, IOException e) {
+    if (!(e instanceof FileSystemException fileSystemException)) {
+      return e;
+    }
+    String prefix = "";
+    if (fileSystemException.getFile() != null) {
+      prefix = fileSystemException.getFile();
+    }
+    if (fileSystemException.getOtherFile() != null) {
+      prefix += " -> " + fileSystemException.getOtherFile();
+    }
+    return switch (e) {
+      case AccessDeniedException unused -> {
+        FileAccessException newException = new FileAccessException(prefix + ERR_PERMISSION_DENIED);
+        newException.initCause(e);
+        yield newException;
+      }
+      case DirectoryNotEmptyException unused ->
+          new IOException(prefix + ERR_DIRECTORY_NOT_EMPTY, e);
+      case FileAlreadyExistsException unused -> new IOException(prefix + ERR_FILE_EXISTS, e);
+      case NoSuchFileException unused -> {
+        FileNotFoundException newException =
+            new FileNotFoundException(prefix + ERR_NO_SUCH_FILE_OR_DIR);
+        newException.initCause(e);
+        yield newException;
+      }
+      case NotDirectoryException unused -> new IOException(prefix + ERR_NOT_A_DIRECTORY, e);
+      case NotLinkException unused -> new NotASymlinkException(path, e);
+      // Rewrite exception messages to be identical to the ones produced by the native Unix
+      // filesystem implementation. Some of the exceptions caught above can also appear as untyped
+      // FileSystemExceptions and are thus included in reasonToUnixError.
+      case FileSystemException fse -> {
+        String unixError = reasonToUnixError.get(fse.getReason());
+        yield unixError != null ? new IOException(prefix + unixError, e) : fileSystemException;
+      }
+      default -> fileSystemException;
+    };
   }
 
   /**

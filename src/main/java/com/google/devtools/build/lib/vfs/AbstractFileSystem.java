@@ -40,7 +40,6 @@ import java.nio.file.StandardOpenOption;
 @ThreadSafe
 public abstract class AbstractFileSystem extends FileSystem {
 
-  protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
   protected static final Profiler profiler = Profiler.instance();
 
   public AbstractFileSystem(DigestHashFunction digestFunction) {
