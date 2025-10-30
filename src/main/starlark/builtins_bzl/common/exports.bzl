@@ -15,14 +15,12 @@
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/objc/apple_common.bzl", "apple_common")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
-    "apple_common": apple_common,
     "proto_common_do_not_use": struct(
         INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =
             _builtins.toplevel.proto_common_do_not_use.incompatible_enable_proto_toolchain_resolution(),

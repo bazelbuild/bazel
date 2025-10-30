@@ -36,3 +36,17 @@ apple_common = struct(
     dotted_version = lambda version: native_apple_common.dotted_version(version),
     compilation_support = compilation_support,
 )
+
+apple_common_bazel = struct(
+    apple_toolchain = lambda: apple_toolchain,
+    platform_type = PLATFORM_TYPE,
+    platform = PLATFORM,
+    XcodeProperties = XcodeVersionPropertiesInfo,
+    XcodeVersionConfig = XcodeVersionInfo,
+    apple_host_system_env = apple_host_system_env,
+    target_apple_env = target_apple_env,
+    dotted_version = lambda version: native_apple_common.dotted_version(version),
+    # TODO(ilist@): Remove after rules_apple and rules_swift are migrated to rules_cc ObjcInfo.
+    Objc = ObjcInfo,
+    new_objc_provider = ObjcInfo,
+)

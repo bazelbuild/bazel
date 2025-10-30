@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 
 /**
  * Various constants required by the tests.
@@ -48,6 +51,9 @@ public class TestConstants {
    * Default workspace name.
    */
   public static final String WORKSPACE_NAME = "_main";
+
+  public static final BzlLoadValue.Key OBJC_INFO_LOAD_KEY =
+      keyForBuild(Label.parseCanonicalUnchecked("@rules_cc+//cc/private:objc_info.bzl"));
 
   /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.

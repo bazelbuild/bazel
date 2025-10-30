@@ -2207,8 +2207,7 @@ EOF
   expect_log "Hello from main.cpp"
 }
 
-# TODO(ilist@): enable when rules_cc are released and upgraded
-function disabled_test_external_repo_lto() {
+function test_external_repo_lto() {
   add_rules_cc "MODULE.bazel"
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
@@ -2260,9 +2259,9 @@ int main() {
 }
 EOF
 
-  bazel build --features=thin_lto @repo//foo \
+  bazel build --repo_env=CC=clang --features=thin_lto @repo//foo \
     > "$TEST_log" || fail "expected build success"
-  bazel build --features=thin_lto --experimental_sibling_repository_layout @repo//foo \
+  bazel build --repo_env=CC=clang --features=thin_lto --experimental_sibling_repository_layout @repo//foo \
     > "$TEST_log" || fail "expected build success"
 }
 

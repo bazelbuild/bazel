@@ -130,9 +130,10 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     scratch.file(
         "test_starlark/rule/apple_rules.bzl",
         """
+        load("@rules_cc//cc/common:objc_info.bzl", "ObjcInfo")
         def my_rule_impl(ctx):
             dep = ctx.attr.deps[0]
-            objc_provider = dep[apple_common.Objc]  # this is line 3
+            objc_provider = dep[ObjcInfo]  # this is line 4
             return []
 
         my_rule = rule(
@@ -172,7 +173,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "File \"/workspace/test_starlark/rule/apple_rules.bzl\", line 3, column 24, in"
+            "File \"/workspace/test_starlark/rule/apple_rules.bzl\", line 4, column 24, in"
                 + " my_rule_impl");
     assertThat(e)
         .hasMessageThat()
@@ -188,10 +189,11 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "test_starlark/rule/apple_rules.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_cc//cc/common:objc_info.bzl", "ObjcInfo")
 
         def my_rule_impl(ctx):
-            cc_has_provider = apple_common.Objc in ctx.attr.deps[0]
-            objc_has_provider = apple_common.Objc in ctx.attr.deps[1]
+            cc_has_provider = ObjcInfo in ctx.attr.deps[0]
+            objc_has_provider = ObjcInfo in ctx.attr.deps[1]
             return MyInfo(cc_has_provider = cc_has_provider, objc_has_provider = objc_has_provider)
 
         my_rule = rule(
@@ -246,9 +248,11 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "test_starlark/rule/apple_rules.bzl",
         """
         load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+        load("@rules_cc//cc/common:objc_info.bzl", "ObjcInfo")
+
         def my_rule_impl(ctx):
             dep = ctx.attr.deps[0]
-            return [dep[apple_common.Objc], dep[CcInfo]]
+            return [dep[ObjcInfo], dep[CcInfo]]
 
         swift_library = rule(
             implementation = my_rule_impl,
@@ -256,7 +260,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
                 "deps": attr.label_list(
                     allow_files = False,
                     mandatory = False,
-                    providers = [[apple_common.Objc, CcInfo]],
+                    providers = [[ObjcInfo, CcInfo]],
                 ),
             },
         )
@@ -1031,6 +1035,7 @@ swift_binary = rule(
                 new String[] {
                   "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
                   "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+                  "load('@rules_cc//cc/common:objc_info.bzl', 'ObjcInfo')",
                   "def swift_binary_impl(ctx):"
                 },
                 implLines,
@@ -1040,7 +1045,7 @@ swift_binary = rule(
               "implementation = swift_binary_impl,",
               "attrs = {",
               "   'deps': attr.label_list(",
-              "allow_files = False, mandatory = False, providers = [[apple_common.Objc]])",
+              "allow_files = False, mandatory = False, providers = [[ObjcInfo]])",
               "})"
             },
             String.class);
@@ -1075,7 +1080,7 @@ swift_binary = rule(
         createObjcProviderStarlarkTarget(
             "   file = ctx.actions.declare_file('foo.m')",
             "   ctx.actions.run_shell(outputs=[file], command='echo')",
-            "   created_provider = apple_common.new_objc_provider(source=depset([file]))",
+            "   created_provider = ObjcInfo(source=depset([file]))",
             "   return [created_provider]");
 
     StarlarkInfo dependerProvider = getObjcInfo(starlarkTarget);
@@ -1088,7 +1093,7 @@ swift_binary = rule(
     ConfiguredTarget starlarkTarget =
         createObjcProviderStarlarkTarget(
             "   strict_includes = depset(['path'])",
-            "   created_provider = apple_common.new_objc_provider(strict_include=strict_includes)",
+            "   created_provider = ObjcInfo(strict_include=strict_includes)",
             "   return [created_provider, CcInfo()]");
 
     StarlarkInfo starlarkProvider = getObjcInfo(starlarkTarget);
@@ -1115,11 +1120,13 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/rule/objc_rules.bzl",
         """
+        load("@rules_cc//cc/common:objc_info.bzl", "ObjcInfo")
+
         def library_impl(ctx):
             lib = ctx.label.name + ".a"
             file = ctx.actions.declare_file(lib)
             ctx.actions.run_shell(outputs = [file], command = "echo")
-            return [apple_common.new_objc_provider(j2objc_library = depset([file]))]
+            return [ObjcInfo(j2objc_library = depset([file]))]
 
         library = rule(implementation = library_impl)
 
@@ -1128,8 +1135,8 @@ swift_binary = rule(
             lib = ctx.label.name + ".a"
             file = ctx.actions.declare_file(lib)
             ctx.actions.run_shell(outputs = [file], command = "echo")
-            created_provider = apple_common.new_objc_provider(
-                providers = [dep[apple_common.Objc]],
+            created_provider = ObjcInfo(
+                providers = [dep[ObjcInfo]],
                 j2objc_library = depset([file]),
             )
             return [created_provider]
@@ -1140,7 +1147,7 @@ swift_binary = rule(
                 "deps": attr.label_list(
                     allow_files = False,
                     mandatory = False,
-                    providers = [[apple_common.Objc]],
+                    providers = [[ObjcInfo]],
                 ),
             },
         )
@@ -1183,7 +1190,7 @@ swift_binary = rule(
             AssertionError.class,
             () ->
                 createObjcProviderStarlarkTarget(
-                    "   created_provider = apple_common.new_objc_provider(foo=depset(['bar']))",
+                    "   created_provider = ObjcInfo(foo=depset(['bar']))",
                     "   return created_provider"));
     assertThat(e).hasMessageThat().contains("got unexpected keyword argument: foo");
   }
@@ -1195,9 +1202,10 @@ swift_binary = rule(
         "test_starlark/rule/apple_rules.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_cc//cc/common:objc_info.bzl", "ObjcInfo")
 
         def swift_binary_impl(ctx):
-            objc_provider = ctx.attr.deps[0][apple_common.Objc]
+            objc_provider = ctx.attr.deps[0][ObjcInfo]
             return MyInfo(
                 empty_value = objc_provider.j2objc_library,
             )
@@ -1209,7 +1217,7 @@ swift_binary = rule(
                 "deps": attr.label_list(
                     allow_files = False,
                     mandatory = False,
-                    providers = [[apple_common.Objc]],
+                    providers = [[ObjcInfo]],
                 ),
             },
         )
@@ -1341,9 +1349,11 @@ swift_binary = rule(
     scratch.file(
         "test_starlark/rule/apple_rules.bzl",
         """
+        load("@rules_cc//cc/common:objc_info.bzl", "ObjcInfo")
+
         def my_rule_impl(ctx):
             dep = ctx.attr.deps[0]
-            objc_provider = dep[apple_common.Objc]
+            objc_provider = dep[ObjcInfo]
             return objc_provider
 
         my_rule = rule(

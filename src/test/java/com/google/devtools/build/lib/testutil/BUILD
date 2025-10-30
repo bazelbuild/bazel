@@ -299,7 +299,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//third_party:guava",
     ],
 )

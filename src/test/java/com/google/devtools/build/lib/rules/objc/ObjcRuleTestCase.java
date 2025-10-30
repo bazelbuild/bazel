@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -1582,10 +1581,7 @@ cc_toolchain_forwarder = rule(
   protected static StarlarkInfo getObjcInfo(ConfiguredTarget starlarkTarget)
       throws LabelSyntaxException {
     return (StarlarkInfo)
-        starlarkTarget.get(
-            new StarlarkProvider.Key(
-                keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/objc_info.bzl")),
-                "ObjcInfo"));
+        starlarkTarget.get(new StarlarkProvider.Key(TestConstants.OBJC_INFO_LOAD_KEY, "ObjcInfo"));
   }
 
   protected static ImmutableList<Artifact> getDirectSources(StarlarkInfo provider)

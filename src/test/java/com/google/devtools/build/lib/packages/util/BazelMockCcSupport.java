@@ -186,6 +186,12 @@ public final class BazelMockCcSupport extends MockCcSupport {
         cc_common = _cc_common
         """);
     config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/common/objc_info.bzl",
+        """
+        load("//cc/private:objc_info.bzl", _ObjcInfo = "ObjcInfo")
+        ObjcInfo = _ObjcInfo
+        """);
+    config.overwrite(
         "third_party/bazel_rules/rules_cc/cc/toolchains/cc_toolchain_config_info.bzl",
         """
         load("//cc/private/toolchain_config:cc_toolchain_config_info.bzl", _CcToolchainConfigInfo = "CcToolchainConfigInfo")
