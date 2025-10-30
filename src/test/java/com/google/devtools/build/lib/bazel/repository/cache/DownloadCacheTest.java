@@ -32,6 +32,8 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -146,6 +148,39 @@ public class DownloadCacheTest {
   public void testPutCacheValueIdempotent() throws Exception {
     downloadCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
     downloadCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
+
+    Path cacheEntry = keyType.getCachePath(repositoryCachePath).getChild(hash);
+    Path cacheValue = cacheEntry.getChild(DownloadCache.DEFAULT_CACHE_FILENAME);
+
+    assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
+        .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
+  }
+
+  /** Test that the put method is safe to call concurrently. */
+  @Test
+  @SuppressWarnings("AllowVirtualThreads")
+  public void testPutCacheValueConcurrent() throws Exception {
+    var exceptions = new ConcurrentLinkedQueue<Throwable>();
+    try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      for (int i = 0; i < 100; i++) {
+        var unused =
+            executor.submit(
+                () -> {
+                  try {
+                    downloadCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
+                  } catch (Throwable t) {
+                    exceptions.add(t);
+                  }
+                });
+      }
+    }
+    if (!exceptions.isEmpty()) {
+      var combined = new AssertionError("Exceptions occurred during concurrent puts");
+      for (Throwable t : exceptions) {
+        combined.addSuppressed(t);
+      }
+      throw combined;
+    }
 
     Path cacheEntry = keyType.getCachePath(repositoryCachePath).getChild(hash);
     Path cacheValue = cacheEntry.getChild(DownloadCache.DEFAULT_CACHE_FILENAME);
