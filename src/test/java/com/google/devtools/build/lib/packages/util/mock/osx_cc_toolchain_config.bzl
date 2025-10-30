@@ -6175,17 +6175,6 @@ def _impl(ctx):
                           [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
-                        flags = ["%{libopts}"],
-                        iterate_over = "libopts",
-                        expand_if_available = "libopts",
-                    ),
-                ],
-            ),
-            flag_set(
-                actions = _NON_OBJC_LINK_ACTIONS +
-                          [ACTION_NAMES.cpp_link_static_library],
-                flag_groups = [
-                    flag_group(
                         flags = ["-Wl,-force_load,%{whole_archive_linker_params}"],
                         iterate_over = "whole_archive_linker_params",
                         expand_if_available = "whole_archive_linker_params",

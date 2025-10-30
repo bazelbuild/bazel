@@ -171,7 +171,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   }
 
   @Test
-  public void testLibOptsAndLibSrcsAreInCorrectOrder() throws Exception {
+  public void testLinkoptsAndLibSrcsAreInCorrectOrder() throws Exception {
     scratch.file(
         "x/BUILD",
         """
