@@ -89,9 +89,9 @@ public final class GoogleAuthUtils {
               .executor(executor)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
-      if (options.grpcKeepaliveTime != null) {
-        builder.keepAliveTime(options.grpcKeepaliveTime.toSeconds(), TimeUnit.SECONDS);
-        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.toSeconds(), TimeUnit.SECONDS);
+      if (options.grpcKeepaliveTime != null && !options.grpcKeepaliveTime.isZero()) {
+        builder.keepAliveTime(options.grpcKeepaliveTime.toNanos(), TimeUnit.NANOSECONDS);
+        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.toNanos(), TimeUnit.NANOSECONDS);
       }
       if (interceptors != null) {
         builder.intercept(interceptors);
