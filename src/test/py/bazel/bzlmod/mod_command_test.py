@@ -17,6 +17,7 @@
 import json
 import os
 import tempfile
+from typing import Dict, List, Optional, Union
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
@@ -561,6 +562,160 @@ class ModCommandTest(test_base.TestBase):
         'wrong output in the show query for module and extension-generated'
         ' repos',
     )
+
+  def _parseShowRepoOutput(
+      self, stdout: List[str]
+  ) -> Dict[str, Union[str, List[str]]]:
+    key_to_repo: Dict[str, Union[str, List[str]]] = {}
+    current_key: Optional[str] = None
+    for line in stdout:
+      if line.startswith('## '):
+        current_key = line[3:-1]  # Remove '## ' prefix and ':' suffix.
+
+      elif line.startswith('  name = "') or line.startswith(
+          'Builtin or overridden repo located at:'
+      ):
+        if current_key is None:
+          self.fail(f'Found repo without key: {line}')
+
+        if line.startswith('  name = "'):
+          repo_name = line[
+              len('  name = "') : -2
+          ]  # Remove prefix and '",' suffix.
+        else:
+          repo_name = 'builtin or overridden repo'
+
+        if current_key in key_to_repo:
+          if isinstance(key_to_repo[current_key], str):
+            key_to_repo[current_key] = [key_to_repo[current_key], repo_name]
+          else:
+            key_to_repo[current_key].append(repo_name)
+        else:
+          key_to_repo[current_key] = repo_name
+
+    return key_to_repo
+
+  def testShowRepoAllRepos(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_repos'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    # Only has canonical repo names
+    for name in parsed:
+      self.assertTrue(
+          name.startswith('@@'),
+          f'Found non-canonical {name} -> {parsed[name]} in output',
+      )
+      if parsed[name] != 'builtin or overridden repo':
+        self.assertEqual(
+            name,
+            '@@' + parsed[name],
+            f'Found non-canonical {name} -> {parsed[name]} in output',
+        )
+        self.assertIsInstance(
+            parsed[name],
+            str,
+            f'Found duplicate name in output: {name} -> {parsed[name]}',
+        )
+
+    self.assertContainsSubset(
+        [
+            # Built in
+            '@@bazel_tools',
+            # Has both versions of direct dependencies
+            '@@foo+1.0',
+            '@@foo+2.0',
+            # Has transitive dependencies
+            '@@bar+',
+            # Has module repos
+            '@@ext++ext+repo1',
+            '@@ext++ext+repo3',
+        ],
+        parsed.keys(),
+    )
+
+    self.assertNoCommonElements(
+        ['@@', '@@<root>', '@@my_project'],
+        parsed.keys(),
+        'Found main repo in output',
+    )
+    self.assertNoCommonElements(
+        ['@@foo1', '@@foo2', '@@myrepo2'],
+        parsed.keys(),
+        'Found apparent repo names in output',
+    )
+
+  def testShowRepoAllVisibleRepos(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    self.assertDictEqual(
+        {
+            '@bazel_tools': 'builtin or overridden repo',
+            '@foo1': 'foo+1.0',
+            '@foo2': 'foo+2.0',
+            '@ext': 'ext+',
+            '@ext2': 'ext2+',
+            '@myrepo': 'ext++ext+repo1',
+            '@myrepo2': 'ext2++ext+repo1',
+        },
+        parsed,
+    )
+
+  def testShowRepoAllVisibleReposFromBaseModule(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos', '--base_module=foo@2.0'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    self.assertDictEqual(
+        {
+            '@bazel_tools': 'builtin or overridden repo',
+            '@foo': 'foo+2.0',
+            '@bar_from_foo2': 'bar+',
+            '@ext_mod': 'ext+',
+            '@my_repo3': 'ext++ext+repo3',
+            '@my_repo4': 'ext++ext+repo4',
+        },
+        parsed,
+    )
+
+  def testShowRepoThrowsConflictingRepoSpecs(self):
+    expected_msg = (
+        "ERROR: the 'show_repo' command requires exactly one of --all_repos,"
+        " --all_visible_repos, or a list of repo arguments. Type 'bazel help"
+        " mod' for syntax and help."
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--all_repos', '@foo1'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, '--all_repos args')
+    self.assertIn(expected_msg, stderr, '--all_repos args')
+
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@foo1', '--all_visible_repos'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, 'args --all_visible_repos')
+    self.assertIn(expected_msg, stderr, 'args --all_visible_repos')
+
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos', '--all_repos'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, '--all_visible_repos --all_repos')
+    self.assertIn(expected_msg, stderr, '--all_visible_repos --all_repos')
 
   def testShowRepoThrowsUnusedModule(self):
     _, _, stderr = self.RunBazel(
