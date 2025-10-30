@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
@@ -41,6 +42,7 @@ import java.security.SecureRandom;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** This interface models a file system. */
@@ -812,6 +814,25 @@ public abstract class FileSystem {
         "getNioPath() not supported for " + getClass().getName());
   }
 
+  // Mapping from FileSystemException reason strings on various platforms to the corresponding Unix
+  // error message that Bazel's own filesystem implementations produce. Bazel forces the root locale
+  // for the JVM, so the error messages should be stable per OS.
+  // This map is best-effort and almost certainly incomplete, especially on Windows.
+  private static final Map<String, String> reasonToUnixError =
+      ImmutableMap.of(
+          // Unix
+          "Is a directory",
+          ERR_IS_DIRECTORY,
+          "Not a directory",
+          ERR_NOT_A_DIRECTORY,
+          "Directory not empty",
+          ERR_DIRECTORY_NOT_EMPTY,
+          // Windows
+          // https://github.com/bazelbuild/bazel/pull/27458#discussion_r2478544279
+          // https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
+          "The directory is not empty.",
+          ERR_DIRECTORY_NOT_EMPTY);
+
   /**
    * Translates common java.nio.file IOExceptions into the equivalent java.io IOExceptions with
    * consistent error messages.
@@ -845,18 +866,12 @@ public abstract class FileSystem {
       case NotDirectoryException unused -> new IOException(prefix + ERR_NOT_A_DIRECTORY, e);
       case NotLinkException unused -> new NotASymlinkException(path, e);
       // Rewrite exception messages to be identical to the ones produced by the native Unix
-      // filesystem implementation. Bazel forces the root locale for the JVM, so the error messages
-      // should be stable. Some of the exceptions caught above can also appear as untyped
-      // FileSystemExceptions, so we need to catch those as well.
-      case FileSystemException unused
-          when fileSystemException.getReason().equals("Is a directory") ->
-          new IOException(prefix + ERR_IS_DIRECTORY, e);
-      case FileSystemException unused
-          when fileSystemException.getReason().equals("Not a directory") ->
-          new IOException(prefix + ERR_NOT_A_DIRECTORY, e);
-      case FileSystemException unused
-          when fileSystemException.getReason().equals("Directory not empty") ->
-          new IOException(prefix + ERR_DIRECTORY_NOT_EMPTY, e);
+      // filesystem implementation. Some of the exceptions caught above can also appear as untyped
+      // FileSystemExceptions and are thus included in reasonToUnixError.
+      case FileSystemException fse -> {
+        String unixError = reasonToUnixError.get(fse.getReason());
+        yield unixError != null ? new IOException(prefix + unixError, e) : fileSystemException;
+      }
       default -> fileSystemException;
     };
   }
