@@ -144,7 +144,8 @@ public class DownloadCache {
    *     return null.
    */
   @Nullable
-  public Path get(String cacheKey, Path targetPath, KeyType keyType, String canonicalId)
+  public Path get(
+      String cacheKey, Path targetPath, KeyType keyType, String canonicalId, boolean mayHardlink)
       throws IOException, InterruptedException {
     Path cacheValue = findCacheValue(cacheKey, keyType, canonicalId);
     if (cacheValue == null) {
@@ -152,7 +153,7 @@ public class DownloadCache {
     }
 
     targetPath.getParentDirectory().createDirectoryAndParents();
-    if (useHardlinks) {
+    if (useHardlinks && mayHardlink) {
       FileSystemUtils.createHardLink(targetPath, cacheValue);
     } else {
       FileSystemUtils.copyFile(cacheValue, targetPath);
