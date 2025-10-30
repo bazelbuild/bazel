@@ -390,6 +390,8 @@ public class FileSystemUtils {
       return;
     }
     try {
+      // Target may be a symlink, in which case opening a stream below would not actually replace
+      // it.
       to.delete();
     } catch (IOException e) {
       throw new IOException("error copying file: "
@@ -397,7 +399,9 @@ public class FileSystemUtils {
     }
     try (InputStream in = from.getInputStream();
         OutputStream out = to.getOutputStream()) {
-      ByteStreams.copy(in, out);
+      // This may use a faster copy method (such as via an in-kernel buffer) if both streams are
+      // backed by files.
+      in.transferTo(out);
     }
     to.setLastModifiedTime(from.getLastModifiedTime()); // Preserve mtime.
     if (!from.isWritable()) {
@@ -413,25 +417,6 @@ public class FileSystemUtils {
 
     /** The file had to be copied and then deleted because the move failed. */
     FILE_COPIED,
-  }
-
-  /**
-   * copyLargeBuffer is a replacement for ByteStreams.copy which uses a larger buffer. Increasing
-   * the buffer size is a performance improvement when copying from/to FUSE file systems, where
-   * individual requests are more costly, but can also be larger.
-   */
-  private static long copyLargeBuffer(InputStream from, OutputStream to) throws IOException {
-    byte[] buf = new byte[1 * 1024 * 1024]; // Match libfuse3 maximum FUSE request size of 1 MB.
-    long total = 0;
-    while (true) {
-      int r = from.read(buf);
-      if (r == -1) {
-        break;
-      }
-      to.write(buf, 0, r);
-      total += r;
-    }
-    return total;
   }
 
   /**
@@ -464,29 +449,17 @@ public class FileSystemUtils {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
-        // Target may be a symlink, in which case opening a stream below would not actually replace
-        // it.
-        to.delete();
-        try (InputStream in = from.getInputStream();
-            OutputStream out = to.getOutputStream()) {
-          copyLargeBuffer(in, out);
+        try {
+          copyFile(from, to);
         } catch (FileAccessException e) {
           // Rules can accidentally make output non-readable, let's fix that (b/150963503)
           if (!from.isReadable()) {
             from.setReadable(true);
-            try (InputStream in = from.getInputStream();
-                OutputStream out = to.getOutputStream()) {
-              copyLargeBuffer(in, out);
-            }
+            copyFile(from, to);
           } else {
             throw e;
           }
         }
-        to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
-        if (!from.isWritable()) {
-          to.setWritable(false); // Make file read-only if original was read-only.
-        }
-        to.setExecutable(from.isExecutable()); // Copy executable bit.
       } else if (stat.isSymbolicLink()) {
         PathFragment fromTarget = from.readSymbolicLink();
         try {
