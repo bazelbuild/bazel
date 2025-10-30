@@ -784,4 +784,103 @@ public class UploadManifestTest {
 
     return dir;
   }
+
+  @Test
+  public void actionResult_preserveExecutableBit_executableFile() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path file = execRoot.getRelative("file");
+    FileSystemUtils.writeContent(file, new byte[] {1, 2, 3, 4, 5});
+    file.setExecutable(true);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* allowAbsoluteSymlinks= */ false,
+            /* preserveExecutableBit= */ true);
+    um.addFiles(ImmutableList.of(file));
+    Digest digest = digestUtil.compute(file);
+    assertThat(um.getDigestToFile()).containsExactly(digest, file);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("file").setDigest(digest).setIsExecutable(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void actionResult_preserveExecutableBit_nonExecutableFile() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path file = execRoot.getRelative("file");
+    FileSystemUtils.writeContent(file, new byte[] {1, 2, 3, 4, 5});
+    file.setExecutable(false);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* allowAbsoluteSymlinks= */ false,
+            /* preserveExecutableBit= */ true);
+    um.addFiles(ImmutableList.of(file));
+    Digest digest = digestUtil.compute(file);
+    assertThat(um.getDigestToFile()).containsExactly(digest, file);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("file").setDigest(digest).setIsExecutable(false);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void actionResult_preserveExecutableBit_mixedFilesInDirectory() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path executableFile = execRoot.getRelative("dir/executable");
+    FileSystemUtils.writeContent(executableFile, new byte[] {1, 2, 3});
+    executableFile.setExecutable(true);
+    Path nonExecutableFile = execRoot.getRelative("dir/nonexecutable");
+    FileSystemUtils.writeContent(nonExecutableFile, new byte[] {4, 5, 6});
+    nonExecutableFile.setExecutable(false);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /* allowAbsoluteSymlinks= */ false,
+            /* preserveExecutableBit= */ true);
+    um.addFiles(ImmutableList.of(dir));
+
+    Digest executableDigest = digestUtil.compute(executableFile);
+    Digest nonExecutableDigest = digestUtil.compute(nonExecutableFile);
+    assertThat(um.getDigestToFile())
+        .containsExactly(
+            executableDigest, executableFile, nonExecutableDigest, nonExecutableFile);
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("executable")
+                            .setDigest(executableDigest)
+                            .setIsExecutable(true))
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setName("nonexecutable")
+                            .setDigest(nonExecutableDigest)
+                            .setIsExecutable(false)))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
 }

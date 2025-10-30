@@ -531,12 +531,13 @@ public class UploadManifest {
 
     private void visitAsFile(Path path) throws IOException {
       Path parentPath = path.getParentDirectory();
+      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
       Digest digest = digestUtil.compute(path);
       FileNode node =
           FileNode.newBuilder()
               .setName(path.getBaseName())
               .setDigest(digest)
-              .setIsExecutable(true)
+              .setIsExecutable(!preserveExecutableBit || (stat.getPermissions() & 0100) != 0)
               .build();
       digestToFile.put(digest, path);
       dirToFiles.put(parentPath, node);
