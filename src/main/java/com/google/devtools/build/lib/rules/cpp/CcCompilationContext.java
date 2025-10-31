@@ -411,6 +411,26 @@ public final class CcCompilationContext {
     }
   }
 
+  public NestedSet<Artifact> getModuleFiles(boolean usePic) {
+    try {
+      return starlarkInfo
+          .getValue(usePic ? "_module_files" : "_pic_module_files", Depset.class)
+          .getSet(Artifact.class);
+    } catch (EvalException | Depset.TypeException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public NestedSet<Artifact> getModulesInfoFiles(boolean usePic) {
+    try {
+      return starlarkInfo
+          .getValue(usePic ? "_module_info_files" : "_pic_module_info_files", Depset.class)
+          .getSet(Artifact.class);
+    } catch (EvalException | Depset.TypeException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   /** Adds additional transitive inputs needed for compilation to builder. */
   void addAdditionalInputs(NestedSetBuilder<Artifact> builder) {
     builder.addTransitive(getDirectModuleMaps());

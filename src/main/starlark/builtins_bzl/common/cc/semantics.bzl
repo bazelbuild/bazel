@@ -144,6 +144,7 @@ def _cpp_modules_tools():
         "generate_modmap": attr.label(
             executable = True,
             cfg = "exec",
+            default = "@" + _get_repo() + "//tools/cpp:generate-modmap",
         ),
     }
 

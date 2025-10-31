@@ -539,6 +539,55 @@ def create_compilation_context_with_extra_header_tokens(
         _header_info = cc_compilation_context._header_info,
     )
 
+def create_cc_compilation_context_with_cpp20_modules(
+        *,
+        cc_compilation_context,
+        cpp_module_files,
+        pic_cpp_module_files,
+        cpp_modules_info_file,
+        pic_cpp_modules_info_file):
+    """
+    Creates a CcCompilationContextInfo provider with C++20 Modules
+
+    Args:
+        cc_compilation_context: The CcCompilationContextInfo provider to copy.
+        cpp_module_files: C++20 Module files.
+        pic_cpp_module_files: PIC C++20 Module files.
+        cpp_modules_info_file: C++20 Modules info file.
+        pic_cpp_modules_info_file: PIC C++20 Modules info file.
+
+    Returns:
+        A CcCompilationContextInfo provider with the same data as the given one, but with the
+        C++20 Modules info.
+    """
+    return CcCompilationContextInfo(
+        defines = cc_compilation_context.defines,
+        local_defines = cc_compilation_context.local_defines,
+        headers = cc_compilation_context.headers,
+        direct_headers = cc_compilation_context.direct_headers,
+        direct_public_headers = cc_compilation_context.direct_public_headers,
+        direct_private_headers = cc_compilation_context.direct_private_headers,
+        direct_textual_headers = cc_compilation_context.direct_textual_headers,
+        includes = cc_compilation_context.includes,
+        quote_includes = cc_compilation_context.quote_includes,
+        system_includes = cc_compilation_context.system_includes,
+        framework_includes = cc_compilation_context.framework_includes,
+        external_includes = cc_compilation_context.external_includes,
+        validation_artifacts = cc_compilation_context.validation_artifacts,
+        _virtual_to_original_headers = cc_compilation_context._virtual_to_original_headers,
+        _module_map = cc_compilation_context._module_map,
+        _exporting_module_maps = cc_compilation_context._exporting_module_maps,
+        _non_code_inputs = cc_compilation_context._non_code_inputs,
+        _transitive_modules = cc_compilation_context._transitive_modules,
+        _transitive_pic_modules = cc_compilation_context._transitive_pic_modules,
+        _direct_module_maps = cc_compilation_context._direct_module_maps,
+        _header_info = cc_compilation_context._header_info,
+        _module_files = depset(cpp_module_files, transitive = [cc_compilation_context._module_files]),
+        _pic_module_files = depset(pic_cpp_module_files, transitive = [cc_compilation_context._pic_module_files]),
+        _module_info_files = depset(cpp_modules_info_file, transitive = [cc_compilation_context._module_info_files]),
+        _pic_module_info_files = depset(pic_cpp_modules_info_file, transitive = [cc_compilation_context._pic_module_info_files]),
+    )
+
 def merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
     """
     Merges multiple `CcInfo`s into one.

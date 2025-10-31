@@ -52,6 +52,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact outputFile;
+  private Artifact modmapFile;
+  private Artifact modmapInputFile;
+  private NestedSet<Artifact> moduleFiles;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
   private Artifact dotdFile;
@@ -131,6 +134,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.actionName = other.actionName;
     this.additionalOutputs = other.additionalOutputs;
     this.needsIncludeValidation = other.needsIncludeValidation;
+    this.moduleFiles = other.moduleFiles;
+    this.modmapFile = other.modmapFile;
+    this.modmapInputFile = other.modmapInputFile;
   }
 
   @CanIgnoreReturnValue
@@ -323,7 +329,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         needsIncludeValidation,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
-        additionalOutputs);
+        additionalOutputs,
+        moduleFiles,
+        modmapInputFile);
   }
 
   private ImmutableList<Artifact> getBuiltinIncludeFiles() throws EvalException {
@@ -362,6 +370,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     if (!getShouldScanIncludes() && dotdFile == null && !shouldParseShowIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
       realMandatoryInputsBuilder.addTransitive(additionalPrunableHeaders);
+    }
+    if (modmapFile != null) {
+      realMandatoryInputsBuilder.add(modmapFile).add(Preconditions.checkNotNull(modmapInputFile));
     }
     return realMandatoryInputsBuilder.build();
   }
@@ -528,13 +539,17 @@ public final class CppCompileActionBuilder implements StarlarkValue {
       return shouldScanIncludes;
     }
 
+    boolean moduleDepsScanningAction =
+        actionName != null && actionName.equals(CppActionNames.CPP_MODULE_DEPS_SCANNING);
+
     // Three things have to be true to perform #include scanning:
     //  1. The toolchain configuration has to generally enable it.
     //     This is the default unless the --nocc_include_scanning flag was specified.
-    //  2. The rule or package must not disable it via 'features = ["-cc_include_scanning"]'.
+    //  2. The action is not CPP_MODULE_DEPS_SCANNING.
+    //  3. The rule or package must not disable it via 'features = ["-cc_include_scanning"]'.
     //     Normally the scanner is enabled, but rules with precisely specified
     //     dependencies not understood by the scanner can selectively disable it.
-    //  3. The file must not be a not-for-preprocessing assembler source file.
+    //  4. The file must not be a not-for-preprocessing assembler source file.
     //     Assembler without C preprocessing can use the '.include' pseudo-op which is not
     //     understood by the include scanner, so we'll disable scanning, and instead require
     //     the declared sources to state (possibly overapproximate) the dependencies.
@@ -543,6 +558,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     shouldScanIncludes =
         configuration.getFragment(CppConfiguration.class).shouldScanIncludes()
             && featureConfiguration.getRequestedFeatures().contains("cc_include_scanning")
+            && !moduleDepsScanningAction
             && !sourceFile.isFileType(CppFileTypes.ASSEMBLER)
             && !sourceFile.isFileType(CppFileTypes.CPP_MODULE);
     return shouldScanIncludes;
@@ -583,6 +599,24 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   public CppCompileActionBuilder setAdditionalPrunableHeaders(
       NestedSet<Artifact> additionalPrunableHeaders) {
     this.additionalPrunableHeaders = Preconditions.checkNotNull(additionalPrunableHeaders);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModmapFile(Artifact modmapFile) {
+    this.modmapFile = modmapFile;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModmapInputFile(Artifact modmapInputFile) {
+    this.modmapInputFile = modmapInputFile;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModuleFiles(NestedSet<Artifact> moduleFiles) {
+    this.moduleFiles = moduleFiles;
     return this;
   }
 

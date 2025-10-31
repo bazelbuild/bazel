@@ -135,6 +135,18 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   Depset getStarlarkValidationArtifacts();
 
+  @StarlarkMethod(name = "_modules_info_files", structField = true, documented = false)
+  Depset getStarlarkModulesInfoFiles();
+
+  @StarlarkMethod(name = "_pic_modules_info_files", structField = true, documented = false)
+  Depset getStarlarkPicModulesInfoFiles();
+
+  @StarlarkMethod(name = "_module_files", structField = true, documented = false)
+  Depset getStarlarkModuleFiles();
+
+  @StarlarkMethod(name = "_pic_module_files", structField = true, documented = false)
+  Depset getStarlarkPicModuleFiles();
+
   @StarlarkMethod(name = "_transitive_modules", structField = true, documented = false)
   Depset getStarlarkTransitiveModules();
 

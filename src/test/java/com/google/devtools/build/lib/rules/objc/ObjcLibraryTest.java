@@ -241,6 +241,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcPlusPlusCompile() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(mockToolsConfig, MockObjcSupport.ios_arm64());
     useConfiguration(
         "--apple_platform_type=ios",
         "--ios_multi_cpus=arm64",
@@ -252,6 +253,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcPlusPlusCompileDarwin() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(mockToolsConfig, MockObjcSupport.darwinX86_64());
     useConfiguration("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     createLibraryTargetWriter("//objc:lib").setList("srcs", "a.mm").write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");

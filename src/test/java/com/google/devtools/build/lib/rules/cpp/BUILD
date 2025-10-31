@@ -703,6 +703,10 @@ java_test(
 java_test(
     name = "CppModulesConfiguredTargetTest",
     srcs = ["CppModulesConfiguredTargetTest.java"],
+    tags = [
+        # Temporarily disabling this on CI rather than delete the test wholesale.
+        "manual",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

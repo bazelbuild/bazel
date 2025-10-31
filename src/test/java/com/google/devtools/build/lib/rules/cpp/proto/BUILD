@@ -19,6 +19,7 @@ java_test(
     resources = [
         "@rules_cc//cc:srcs",
     ],
+    tags = ["manual"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

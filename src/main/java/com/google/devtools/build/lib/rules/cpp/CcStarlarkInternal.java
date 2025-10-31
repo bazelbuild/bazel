@@ -653,12 +653,16 @@ public class CcStarlarkInternal implements StarlarkValue {
             named = true,
             allowedTypes = {@ParamType(type = Boolean.class), @ParamType(type = NoneType.class)},
             defaultValue = "None"),
+        @Param(name = "module_files", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "modmap_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "modmap_input_file", positional = false, named = true, defaultValue = "None"),
+        @Param(name = "additional_outputs", positional = false, named = true, defaultValue = "[]"),
         @Param(
             name = "needs_include_validation",
             positional = false,
             named = true,
             defaultValue = "False"),
-        @Param(name = "toolchain_type", positional = false, named = true)
+        @Param(name = "toolchain_type", positional = false, named = true),
       })
   public void createCppCompileAction(
       StarlarkRuleContext starlarkRuleContext,
@@ -684,6 +688,10 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object actionName,
       Object shouldScanIncludes,
       Object shareable,
+      Object moduleFiles,
+      Object modmapFile,
+      Object modmapInputFile,
+      Sequence<?> additionalOutputs,
       boolean needsIncludeValidation,
       String toolchainType)
       throws EvalException, TypeException {
@@ -731,6 +739,11 @@ public class CcStarlarkInternal implements StarlarkValue {
     if (shareable instanceof Boolean bool) {
       builder.setShareable(bool);
     }
+    builder.setModuleFiles(Depset.noneableCast(moduleFiles, Artifact.class, "module_files"));
+    builder.setModmapFile(nullIfNone(modmapFile, Artifact.class));
+    builder.setModmapInputFile(nullIfNone(modmapInputFile, Artifact.class));
+    builder.setAdditionalOutputs(
+        Sequence.cast(additionalOutputs, Artifact.class, "additional_outputs").getImmutableList());
     try {
       CppCompileAction compileAction = builder.buildAndVerify();
       starlarkRuleContext.getRuleContext().registerAction(compileAction);
