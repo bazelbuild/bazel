@@ -33,6 +33,7 @@ java_library(
 
 java_test(
     name = "RepositoryCacheTests",
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
