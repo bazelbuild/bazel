@@ -512,15 +512,15 @@ alias(
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:windows": "*.so *.jnilib",
-    "//src/conditions:darwin": "*.so *.dll",
-    "//src/conditions:linux_x86_64": "*.jnilib *.dll",
-    "//src/conditions:linux_s390x": "*.jnilib *.dll",
+    "//src/conditions:darwin": "*.so *.dll *.pyd",
+    "//src/conditions:linux_x86_64": "*.jnilib *.dll *.pyd",
+    "//src/conditions:linux_s390x": "*.jnilib *.dll *.pyd",
     # The .so file is an x86/s390x one, so we can just remove it if the CPU is not x86/s390x
-    "//src/conditions:arm": "*.so *.jnilib *.dll",
-    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
-    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
-    "//src/conditions:freebsd": "*.so *.jnilib *.dll",
-    "//src/conditions:openbsd": "*.so *.jnilib *.dll",
+    "//src/conditions:arm": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:freebsd": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:openbsd": "*.so *.jnilib *.dll *.pyd",
     # Default is to play it safe -- better have a big binary than a slow binary
     #   The empty string means nothing is to be removed from the library;
     #   the rule command tests for the empty string explictly to avoid

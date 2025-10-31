@@ -42,7 +42,7 @@ def _perform_error_checks(
 
     if (shared_library_artifact != None and
         not cc_helper.is_valid_shared_library_artifact(shared_library_artifact)):
-        fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
+        fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib, .dll or .pyd)")
 
 def _create_archive_action(
         ctx,
@@ -340,7 +340,8 @@ binary that depends on it during runtime.
 <p> Permitted file types:
   <code>.so</code>,
   <code>.dll</code>
-  or <code>.dylib</code>
+  <code>.dylib</code>,
+  or <code>.pyd</code>
 </p>"""),
         "interface_library": attr.label(
             allow_single_file = [".ifso", ".tbd", ".lib", ".so", ".dylib"],

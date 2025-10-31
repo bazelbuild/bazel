@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 public enum ArtifactCategory {
   STATIC_LIBRARY("lib", ".a", ".lib"),
   ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
-  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll", ".wasm"),
+  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll", ".pyd", ".wasm"),
   EXECUTABLE("", "", ".exe", ".wasm"),
   INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
   PIC_FILE("", ".pic"),
