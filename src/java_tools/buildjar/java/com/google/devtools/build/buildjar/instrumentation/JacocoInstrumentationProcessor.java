@@ -48,7 +48,7 @@ public final class JacocoInstrumentationProcessor {
               + ": pathsForCoverageFile");
     }
 
-    return new JacocoInstrumentationProcessor(args.getFirst());
+    return new JacocoInstrumentationProcessor(args.get(0));
   }
 
   private Path instrumentedClassesDirectory;
