@@ -41,6 +41,7 @@ public final class SimpleSpawn implements Spawn {
   // If null, all outputs are mandatory.
   @Nullable private final Set<? extends ActionInput> mandatoryOutputs;
   private final PathMapper pathMapper;
+  private final String mnemonic;
   private final LocalResourcesSupplier localResourcesSupplier;
   @Nullable private ResourceSet localResourcesCached;
 
@@ -55,7 +56,8 @@ public final class SimpleSpawn implements Spawn {
       @Nullable final Set<? extends ActionInput> mandatoryOutputs,
       @Nullable ResourceSet localResources,
       @Nullable LocalResourcesSupplier localResourcesSupplier,
-      PathMapper pathMapper) {
+      PathMapper pathMapper,
+      String mnemonic) {
     this.owner = Preconditions.checkNotNull(owner);
     this.arguments = Preconditions.checkNotNull(arguments);
     this.environment = Preconditions.checkNotNull(environment);
@@ -64,6 +66,7 @@ public final class SimpleSpawn implements Spawn {
     this.tools = Preconditions.checkNotNull(tools);
     this.outputs = ImmutableList.copyOf(outputs);
     this.mandatoryOutputs = mandatoryOutputs;
+    this.mnemonic = mnemonic;
     checkState(
         (localResourcesSupplier == null) != (localResources == null),
         "Exactly one must be null: %s %s",
@@ -88,6 +91,33 @@ public final class SimpleSpawn implements Spawn {
       NestedSet<? extends ActionInput> tools,
       Collection<? extends ActionInput> outputs,
       @Nullable Set<? extends ActionInput> mandatoryOutputs,
+      ResourceSet localResources,
+      String mnemonic) {
+    this(
+        owner,
+        arguments,
+        environment,
+        executionInfo,
+        inputs,
+        tools,
+        outputs,
+        mandatoryOutputs,
+        localResources,
+        /* localResourcesSupplier= */ null,
+        PathMapper.NOOP,
+        mnemonic);
+  }
+
+  @SuppressWarnings("TooManyParameters")
+  public SimpleSpawn(
+      ActionExecutionMetadata owner,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
+      NestedSet<? extends ActionInput> inputs,
+      NestedSet<? extends ActionInput> tools,
+      Collection<? extends ActionInput> outputs,
+      @Nullable Set<? extends ActionInput> mandatoryOutputs,
       ResourceSet localResources) {
     this(
         owner,
@@ -100,7 +130,8 @@ public final class SimpleSpawn implements Spawn {
         mandatoryOutputs,
         localResources,
         /* localResourcesSupplier= */ null,
-        PathMapper.NOOP);
+        PathMapper.NOOP,
+        owner.getMnemonic());
   }
 
   @SuppressWarnings("TooManyParameters")
@@ -125,7 +156,8 @@ public final class SimpleSpawn implements Spawn {
         mandatoryOutputs,
         /* localResources= */ null,
         localResourcesSupplier,
-        PathMapper.NOOP);
+        PathMapper.NOOP,
+        owner.getMnemonic());
   }
 
   public SimpleSpawn(
@@ -148,9 +180,10 @@ public final class SimpleSpawn implements Spawn {
         tools,
         outputs,
         mandatoryOutputs,
-        null,
+        /* localResources= */ null,
         localResourcesSupplier,
-        pathMapper);
+        pathMapper,
+        owner.getMnemonic());
   }
 
   public SimpleSpawn(
@@ -174,8 +207,9 @@ public final class SimpleSpawn implements Spawn {
         outputs,
         mandatoryOutputs,
         localResources,
-        null,
-        pathMapper);
+        /* localResourcesSuppliers= */ null,
+        pathMapper,
+        owner.getMnemonic());
   }
 
   public SimpleSpawn(
@@ -276,7 +310,7 @@ public final class SimpleSpawn implements Spawn {
 
   @Override
   public String getMnemonic() {
-    return owner.getMnemonic();
+    return mnemonic;
   }
 
   @Override
