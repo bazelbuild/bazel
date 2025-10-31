@@ -363,7 +363,6 @@ public class DiscoveryTest extends FoundationTestCase {
             InterimModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
-                .addNodepDep(createModuleKey("ccc", "1.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0").setRegistry(registry).buildEntry());
     assertThat(discoveryValue.registryFileHashes().keySet())
