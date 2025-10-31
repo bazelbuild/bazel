@@ -1,3 +1,24 @@
+## Release 9.0.0-pre.20251025.1 (2025-10-31)
+
+```
+Baseline: d4980887951f011448b39b5b973d346ea03aab75
+```
+
+New features:
+
+  - Add support for setting the `.bazelrc` path via a `BAZELRC`
+    environment variable.
+
+Important changes:
+
+  - OSS Bazel permits but ignores type annotations in .bzl files.
+    Type annotations are experimental, and code that uses them may
+    fail in future versions of Bazel.
+  - If a java_import target's srcjar attribute refers to a source
+    file, the file should exist.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alexander Golovlev, Benjamin Peterson, Fabian Meumertzheim, Keith Smiley, Will Stranton.
+
 ## Release 7.7.0 (2025-10-30)
 
 ```
