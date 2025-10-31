@@ -55,7 +55,7 @@ function test_JVMDoesNotExitImmediately() {
   fi
 
   # sleep something longer than the 5 second sleep in the test itself
-  sleep 5
+  sleep 7
   if ps -p ${testbed_pid} > /dev/null; then
     fail "TESTBED process has not exited yet."
   else
