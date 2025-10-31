@@ -33,6 +33,7 @@ public class InterimModuleTest {
             InterimModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar", "2.0"))
+                .addNodepDep(createModuleKey("quux", "3.0"))
                 .build()
                 .withDepsTransformed(
                     depSpec ->
@@ -46,6 +47,7 @@ public class InterimModuleTest {
                 .addOriginalDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
                 .addOriginalDep("dep_bar", createModuleKey("bar", "2.0"))
+                .addNodepDep(createModuleKey("quux_new", "3.0.1"))
                 .build());
   }
 }
