@@ -651,14 +651,54 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("b", "1.0"),
-                "module(name='b', version='1.0');bazel_dep(name='d', version='1.0')")
+                "module(name='b', version='1.0')",
+                "bazel_dep(name='d', version='1.0')")
             .addModule(
                 createModuleKey("c", "1.0"),
-                "module(name='c', version='1.0');bazel_dep(name='d',version='2.0',repo_name=None)")
+                "module(name='c', version='1.0')",
+                "bazel_dep(name='d',version='2.0',repo_name=None)")
             .addModule(createModuleKey("d", "1.0"), "module(name='d', version='1.0')")
             .addModule(
-                createModuleKey("d", "2.0"),
-                "module(name='d', version='2.0', compatibility_level=3)");
+                createModuleKey("d", "2.0"), "module(name='d', version='2.0', compatibility_level=2)");
+    reporter.removeHandler(failFastHandler);
+    invalidatePackages(false);
+
+    EvaluationResult<BazelModuleResolutionValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "c@1.0 depends on d@2.0 with compatibility level 2, but b@1.0 depends on d@1.0 with"
+                + " compatibility level 0 which is different");
+  }
+
+  @Test
+  public void nodep_crossesCompatLevelBoundary_butWithMaxCompatibilityLevel() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        bazel_dep(name='b',version='1.0')
+        bazel_dep(name='c',version='1.0')
+        """);
+
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("b", "1.0"),
+                "module(name='b', version='1.0')",
+                "bazel_dep(name='d', version='1.0', max_compatibility_level=2)")
+            .addModule(
+                createModuleKey("c", "1.0"),
+                "module(name='c', version='1.0')",
+                "bazel_dep(name='d',version='2.0',repo_name=None)")
+            .addModule(createModuleKey("d", "1.0"), "module(name='d', version='1.0')")
+            .addModule(
+                createModuleKey("d", "2.0"), "module(name='d', version='2.0', compatibility_level=2)");
+    invalidatePackages(false);
 
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     EvaluationResult<BazelModuleResolutionValue> result =
@@ -668,9 +708,9 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     var depGraph = result.get(BazelModuleResolutionValue.KEY).getResolvedDepGraph();
-    assertThat(depGraph).doesNotContainKey(createModuleKey("d", "2.0"));
+    assertThat(depGraph).doesNotContainKey(createModuleKey("d", "1.0"));
     assertThat(depGraph.get(createModuleKey("b", "1.0")).getDeps().get("d").version())
-        .isEqualTo(Version.parse("1.0"));
+        .isEqualTo(Version.parse("2.0"));
     assertThat(depGraph.get(createModuleKey("c", "1.0")).getDeps()).doesNotContainKey("d");
   }
 }

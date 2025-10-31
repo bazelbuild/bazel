@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.stream.Collectors.joining;
@@ -112,8 +113,7 @@ final class Discovery {
     @Nullable
     Result run() throws InterruptedException, ExternalDepsException {
       SequencedMap<String, Optional<Checksum>> registryFileHashes = new LinkedHashMap<>();
-      depGraph.put(
-          ModuleKey.ROOT, root.module().withDepsAndNodepDepsTransformed(this::applyOverrides));
+      depGraph.put(ModuleKey.ROOT, root.module().withDepsTransformed(this::applyOverrides));
       ImmutableSet<ModuleKey> horizon = ImmutableSet.of(ModuleKey.ROOT);
       while (!horizon.isEmpty()) {
         ImmutableSet<ModuleFileValue.Key> nextHorizonSkyKeys = advanceHorizon(horizon);
@@ -133,8 +133,7 @@ final class Discovery {
             depGraph.put(depKey, null);
           } else {
             depGraph.put(
-                depKey,
-                moduleFileValue.module().withDepsAndNodepDepsTransformed(this::applyOverrides));
+                depKey, moduleFileValue.module().withDepsTransformed(this::applyOverrides));
             registryFileHashes.putAll(moduleFileValue.registryFileHashes());
             nextHorizon.add(depKey);
           }
@@ -144,7 +143,26 @@ final class Discovery {
       if (env.valuesMissing()) {
         return null;
       }
-      return new Result(ImmutableMap.copyOf(depGraph), ImmutableMap.copyOf(registryFileHashes));
+      // Remove all unfulfilled nodep edges from the dep graph. It should be just as if they never
+      // existed.
+      var result = ImmutableMap.<ModuleKey, InterimModule>builderWithExpectedSize(depGraph.size());
+      for (Map.Entry<ModuleKey, InterimModule> entry : depGraph.entrySet()) {
+        InterimModule module = entry.getValue();
+        if (module.getNodepDeps().stream()
+            .allMatch(depSpec -> depGraph.containsKey(depSpec.toModuleKey()))) {
+          result.put(entry.getKey(), module);
+        } else {
+          result.put(
+              entry.getKey(),
+              module.toBuilder()
+                  .setNodepDeps(
+                      module.getNodepDeps().stream()
+                          .filter(depSpec -> depGraph.containsKey(depSpec.toModuleKey()))
+                          .collect(toImmutableList()))
+                  .build());
+        }
+      }
+      return new Result(result.buildOrThrow(), ImmutableMap.copyOf(registryFileHashes));
     }
 
     /**

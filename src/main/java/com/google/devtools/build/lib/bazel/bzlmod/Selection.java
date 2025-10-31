@@ -25,6 +25,7 @@ import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
@@ -229,7 +230,7 @@ final class Selection {
     // Important that we use a LinkedHashMap here to ensure reproducibility.
     Map<DepSpec, ImmutableList<Version>> results = new LinkedHashMap<>();
     for (InterimModule module : depGraph.values()) {
-      for (DepSpec depSpec : module.getDeps().values()) {
+      for (DepSpec depSpec : Iterables.concat(module.getDeps().values(), module.getNodepDeps())) {
         results.computeIfAbsent(
             depSpec,
             ds ->
@@ -318,9 +319,20 @@ final class Selection {
     for (Function<DepSpec, Version> resolutionStrategy :
         enumerateStrategies(possibleResolutionResults)) {
       try {
+        // Walk the graph taking nodep edges into account. If this call throws, we'll try the next
+        // resolution strategy.
+        var unused = depGraphWalker.walk(resolutionStrategy, /* ignoreNodeps= */ false);
+        // If the call above didn't throw, we have a valid graph. We walk the graph again, this time
+        // ignoring nodep edges, so that we don't end up with modules that are only reachable via
+        // nodep edges. This call _cannot_ throw because the "stricter" walk above already
+        // succeeded.
+        // For example:
+        //     A --> B 1.0 --> D 1.0 --> E 1.0
+        //       `-> C 1.0 --> D 2.0 -nodep-> E 1.0
+        // In this case, E should not show up in the final dep graph because it's only reachable
+        // via a nodep edge (D 1.0 will have been pruned).
         ImmutableMap<ModuleKey, InterimModule> prunedDepGraph =
-            depGraphWalker.walk(resolutionStrategy);
-        // If the call above didn't throw, we have a valid graph. Go ahead and produce a result!
+            depGraphWalker.walk(resolutionStrategy, /* ignoreNodeps= */ true);
         ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
             ImmutableMap.copyOf(
                 Maps.transformValues(
@@ -363,7 +375,8 @@ final class Selection {
      * Walks the old dep graph and builds a new dep graph containing only deps reachable from the
      * root module. The returned map has a guaranteed breadth-first iteration order.
      */
-    ImmutableMap<ModuleKey, InterimModule> walk(Function<DepSpec, Version> resolutionStrategy)
+    ImmutableMap<ModuleKey, InterimModule> walk(
+        Function<DepSpec, Version> resolutionStrategy, boolean ignoreNodeps)
         throws ExternalDepsException {
       HashMap<String, ExistingModule> moduleByName = new HashMap<>();
       ImmutableMap.Builder<ModuleKey, InterimModule> newDepGraph = ImmutableMap.builder();
@@ -381,7 +394,10 @@ final class Selection {
                     depSpec -> depSpec.withVersion(resolutionStrategy.apply(depSpec)));
         visit(key, module, moduleKeyAndDependent.dependent(), moduleByName);
 
-        for (DepSpec depSpec : module.getDeps().values()) {
+        for (DepSpec depSpec :
+            ignoreNodeps
+                ? module.getDeps().values()
+                : Iterables.concat(module.getDeps().values(), module.getNodepDeps())) {
           if (known.add(depSpec.toModuleKey())) {
             toVisit.add(new ModuleKeyAndDependent(depSpec.toModuleKey(), key));
           }
