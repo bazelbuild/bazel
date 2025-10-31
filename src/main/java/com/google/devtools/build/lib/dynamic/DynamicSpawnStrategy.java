@@ -54,6 +54,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future.State;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -708,7 +709,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             // This can happen if the other branch is local under local_lockfree and has returned
             // its result but not yet cancelled this branch, or if the other branch was already
             // cancelled for other reasons. In the latter case, we are good to continue.
-            if (!otherBranch.isCancelled()) {
+            if (otherBranch.future.state() == State.SUCCESS) {
               throw new DynamicInterruptedException(
                   String.format(
                       "Execution of %s strategy stopped because %s strategy could not be cancelled",
