@@ -25,15 +25,12 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import java.util.List;
 import java.util.Map;
@@ -668,200 +665,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
                     keyForBuild(Label.parseCanonical("//test_starlark:extension.bzl")), "result"));
     assertThat(info.getValue("xcode_version").toString()).isEqualTo("1.11");
     assertThat(info.getValue("min_os").toString()).isEqualTo("1.8");
-  }
-
-  @Test
-  public void testConfigAlias_configSetting() throws Exception {
-    scratch.file("test_starlark/BUILD");
-    scratch.file(
-        "test_starlark/version_retriever.bzl",
-        """
-        def _version_retriever_impl(ctx):
-            xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]
-            version = xcode_properties.xcode_version
-            return [config_common.FeatureFlagInfo(value = version)]
-
-        version_retriever = rule(
-            implementation = _version_retriever_impl,
-            attrs = {"dep": attr.label()},
-        )
-        """);
-
-    scratch.file(
-        "xcode/BUILD",
-        """
-        load("//test_starlark:version_retriever.bzl", "version_retriever")
-        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
-        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
-        load("@build_bazel_apple_support//xcode:xcode_config_alias.bzl", "xcode_config_alias")
-
-        version_retriever(
-            name = "flag_propagator",
-            dep = ":alias",
-        )
-
-        xcode_config(
-            name = "config",
-            default = ":version512",
-            versions = [
-                ":version512",
-                ":version64",
-                ":version12",
-            ],
-        )
-
-        xcode_config_alias(
-            name = "alias",
-        )
-
-        xcode_version(
-            name = "version512",
-            aliases = [
-                "5",
-                "5.1",
-            ],
-            version = "5.1.2",
-        )
-
-        xcode_version(
-            name = "version64",
-            aliases = [
-                "6.0",
-                "six",
-                "6",
-            ],
-            version = "6.4",
-        )
-
-        xcode_version(
-            name = "version12",
-            version = "12",
-        )
-
-        config_setting(
-            name = "xcode_5_1_2",
-            flag_values = {":flag_propagator": "5.1.2"},
-        )
-
-        config_setting(
-            name = "xcode_6_4",
-            flag_values = {":flag_propagator": "6.4"},
-        )
-
-        genrule(
-            name = "gen",
-            srcs = [],
-            outs = ["out"],
-            cmd = select({
-                ":xcode_5_1_2": "5.1.2",
-                ":xcode_6_4": "6.4",
-                "//conditions:default": "none",
-            }),
-        )
-        """);
-
-    useConfiguration("--xcode_version_config=//xcode:config");
-    assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("5.1.2");
-
-    useConfiguration("--xcode_version_config=//xcode:config", "--xcode_version=6.4");
-    assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("6.4");
-
-    useConfiguration("--xcode_version_config=//xcode:config", "--xcode_version=6");
-    assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("6.4");
-
-    useConfiguration("--xcode_version_config=//xcode:config", "--xcode_version=12");
-    assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("none");
-  }
-
-  @Test
-  public void testDefaultVersion_configSetting() throws Exception {
-    scratch.file("test_starlark/BUILD");
-    scratch.file(
-        "test_starlark/version_retriever.bzl",
-        """
-        def _version_retriever_impl(ctx):
-            xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]
-            version = xcode_properties.xcode_version
-            return [config_common.FeatureFlagInfo(value = version)]
-
-        version_retriever = rule(
-            implementation = _version_retriever_impl,
-            attrs = {"dep": attr.label()},
-        )
-        """);
-
-    scratch.file(
-        "xcode/BUILD",
-        """
-        load("//test_starlark:version_retriever.bzl", "version_retriever")
-        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
-        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
-        load("@build_bazel_apple_support//xcode:xcode_config_alias.bzl", "xcode_config_alias")
-
-        version_retriever(
-            name = "flag_propagator",
-            dep = ":alias",
-        )
-
-        xcode_config_alias(
-            name = "alias",
-        )
-
-        xcode_config(
-            name = "foo",
-            default = ":version512",
-            versions = [
-                ":version512",
-                ":version64",
-            ],
-        )
-
-        xcode_version(
-            name = "version512",
-            aliases = [
-                "5",
-                "5.1",
-            ],
-            version = "5.1.2",
-        )
-
-        xcode_version(
-            name = "version64",
-            aliases = [
-                "6.0",
-                "foo",
-                "6",
-            ],
-            version = "6.4",
-        )
-
-        config_setting(
-            name = "xcode_5_1_2",
-            flag_values = {":flag_propagator": "5.1.2"},
-        )
-
-        config_setting(
-            name = "xcode_6_4",
-            flag_values = {":flag_propagator": "6.4"},
-        )
-
-        genrule(
-            name = "gen",
-            srcs = [],
-            outs = ["out"],
-            cmd = select({
-                ":xcode_5_1_2": "5.1.2",
-                ":xcode_6_4": "6.4",
-                "//conditions:default": "none",
-            }),
-        )
-        """);
-
-    useConfiguration("--xcode_version_config=//xcode:foo");
-    assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("5.1.2");
-
-    useConfiguration("--xcode_version_config=//xcode:foo", "--xcode_version=6.4");
-    assertThat(getMapper("//xcode:gen").get("cmd", Type.STRING)).isEqualTo("6.4");
   }
 
   @Test
@@ -1951,11 +1754,5 @@ public class XcodeConfigTest extends BuildViewTestCase {
         String.class,
         Object.class,
         "execution_info");
-  }
-
-  /** Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration. */
-  private ConfiguredAttributeMapper getMapper(String label) throws Exception {
-    ConfiguredTargetAndData ctad = getConfiguredTargetAndData(label);
-    return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 }

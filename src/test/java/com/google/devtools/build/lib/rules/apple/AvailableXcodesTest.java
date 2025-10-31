@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -40,7 +39,7 @@ public final class AvailableXcodesTest extends BuildViewTestCase {
 
   private static final Provider.Key XCODE_VERSION_PROPERTIES_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl")),
+          keyForBuild(Label.parseCanonicalUnchecked("@build_bazel_apple_support//xcode:xcode_version.bzl")),
           "XcodeVersionPropertiesInfo");
 
   @Test

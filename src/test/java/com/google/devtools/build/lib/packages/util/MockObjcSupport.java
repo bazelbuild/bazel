@@ -132,7 +132,35 @@ public final class MockObjcSupport {
         "build_bazel_apple_support/xcode/xcode_version.bzl",
         """
         XcodeVersionRuleInfo = provider(fields = ["aliases", "label", "xcode_version_properties"])
-        XcodeVersionPropertiesInfo = apple_common.XcodeProperties
+
+        def _xcode_version_properties_info_init(
+                *,
+                xcode_version,
+                default_ios_sdk_version = "8.4",
+                default_macos_sdk_version = "10.11",
+                default_tvos_sdk_version = "9.0",
+                default_watchos_sdk_version = "2.0",
+                default_visionos_sdk_version = "1.0"):
+            return {
+                "xcode_version": xcode_version,
+                "default_ios_sdk_version": default_ios_sdk_version,
+                "default_macos_sdk_version": default_macos_sdk_version,
+                "default_tvos_sdk_version": default_tvos_sdk_version,
+                "default_watchos_sdk_version": default_watchos_sdk_version,
+                "default_visionos_sdk_version": default_visionos_sdk_version,
+            }
+
+        XcodeVersionPropertiesInfo, _new_xcode_version_properties_info = provider(
+            fields = [
+                "xcode_version",
+                "default_ios_sdk_version",
+                "default_macos_sdk_version",
+                "default_tvos_sdk_version",
+                "default_watchos_sdk_version",
+                "default_visionos_sdk_version",
+            ],
+            init = _xcode_version_properties_info_init,
+        )
 
         def _xcode_version_impl(ctx):
             xcode_version_properties = XcodeVersionPropertiesInfo(
@@ -208,9 +236,8 @@ public final class MockObjcSupport {
         "build_bazel_apple_support/xcode/xcode_config.bzl",
         """
         load(":available_xcodes.bzl", "AvailableXcodesInfo")
-        load(":xcode_version.bzl", "XcodeVersionRuleInfo")
+        load(":xcode_version.bzl", "XcodeVersionRuleInfo", "XcodeVersionPropertiesInfo")
 
-        XcodeVersionPropertiesInfo = apple_common.XcodeProperties
         XcodeVersionInfo = apple_common.XcodeVersionConfig
         unavailable_xcode_message = "'bazel fetch --force --configure' (Bzlmod) or 'bazel sync --configure' (WORKSPACE)"
 
@@ -527,7 +554,8 @@ public final class MockObjcSupport {
     config.create(
         "build_bazel_apple_support/xcode/xcode_config_alias.bzl",
         """
-        XcodeVersionPropertiesInfo = apple_common.XcodeProperties
+        load(":xcode_version.bzl", "XcodeVersionPropertiesInfo")
+
         def _xcode_config_alias_impl(ctx):
             xcode_config = ctx.attr._xcode_config
             return [

@@ -19,7 +19,7 @@ load(":common/objc/apple_platform.bzl", "PLATFORM", "PLATFORM_TYPE")
 load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
-load(":common/xcode/providers.bzl", "XcodeVersionInfo", "XcodeVersionPropertiesInfo")
+load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
 native_apple_common = _builtins.internal.apple_common
 
@@ -27,7 +27,6 @@ apple_common = struct(
     apple_toolchain = lambda: apple_toolchain,
     platform_type = PLATFORM_TYPE,
     platform = PLATFORM,
-    XcodeProperties = XcodeVersionPropertiesInfo,
     XcodeVersionConfig = XcodeVersionInfo,
     Objc = ObjcInfo,
     apple_host_system_env = apple_host_system_env,
@@ -41,7 +40,8 @@ apple_common_bazel = struct(
     apple_toolchain = lambda: apple_toolchain,
     platform_type = PLATFORM_TYPE,
     platform = PLATFORM,
-    XcodeProperties = XcodeVersionPropertiesInfo,
+    # TODO(ilist@): Remove after with_cfg.bzl is migrated away.
+    XcodeProperties = None,
     XcodeVersionConfig = XcodeVersionInfo,
     apple_host_system_env = apple_host_system_env,
     target_apple_env = target_apple_env,
