@@ -191,22 +191,10 @@ namespace {
 // semver.org), this will be the value for each of the variables below.
 constexpr char kNoVersion[] = "no_version";
 // Variables that can be interpolated in .bazelrc when importing files.
-constexpr char kBazelVersion[] =
-    "%bazel.version%"; // The full build label Eg. 8.4.2 or 9.0.0-pre.20251022.1
 constexpr char kBazelVersionMajor[] =
     "%bazel.version.major%"; // Eg. "8" in 8.4.2
-constexpr char kBazelVersionMinor[] =
-    "%bazel.version.minor%"; // Eg. "4" in 8.4.2
-constexpr char kBazelVersionPatch[] =
-    "%bazel.version.patch%"; // Eg. "2" in 8.4.2
-constexpr char kBazelVersionPrerelease[] =
-    "%bazel.version.prerelease%"; // Eg. "pre.20251022" in 9.0.0-pre.20251022
-constexpr char kBazelVersionBuildMetadata[] =
-    "%bazel.version.buildmetadata%"; // Eg. "c0075e8a6b" in 9.0.0+c0075e8a6b
 constexpr char kBazelVersionMajorMinor[] =
     "%bazel.version.major.minor%"; // Eg. "8.4" in 8.4.2
-constexpr char kBazelVersionMajorMinorPatch[] =
-    "%bazel.version.major.minor.patch%"; // Eg. "9.0.0" in 9.0.0-pre.20251022.1
 
 // Semantic version regex copied verbatim from
 // https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
@@ -214,32 +202,20 @@ const std::regex kSemverRe(
     R"(^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$)");
 }  // namespace
 
-std::string ReplaceBuildVars(const std::string& build_label,
+std::string ReplaceBuildVars(const std::string &build_label,
                              absl::string_view import_filename) {
-  std::string version = kNoVersion;
   std::string major = kNoVersion;
   std::string minor = kNoVersion;
-  std::string patch = kNoVersion;
-  std::string prerelease = kNoVersion;
-  std::string buildmetadata = kNoVersion;
-  if (std::smatch m; std::regex_match (build_label, m, kSemverRe)) {
-    version = m[0];
+  if (std::smatch m; std::regex_match(build_label, m, kSemverRe)) {
     major = m[1];
     minor = m[2];
-    patch = m[3];
-    prerelease = m[4];
-    buildmetadata = m[5];
   }
   return absl::StrReplaceAll(
       import_filename,
-      {{kBazelVersion, version},
-       {kBazelVersionMajor, major},
-       {kBazelVersionMinor, minor},
-       {kBazelVersionPatch, patch},
-       {kBazelVersionPrerelease, prerelease},
-       {kBazelVersionBuildMetadata, buildmetadata},
-       {kBazelVersionMajorMinor, absl::StrCat(major, ".", minor)},
-       {kBazelVersionMajorMinorPatch, absl::StrCat(major, ".", minor, "." + patch)}});
+      {
+          {kBazelVersionMajor, major},
+          {kBazelVersionMajorMinor, absl::StrCat(major, ".", minor)},
+      });
 }
 
 }  // namespace blaze

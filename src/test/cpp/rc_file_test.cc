@@ -694,7 +694,7 @@ class BlazercImportTest : public ParseOptionsTest {
   void TestThatDoubleImportWithWorkspaceAndBuildVersionVariablesCauseAWarning(
       const std::string &import_type) {
     const std::string imported_rc_path =
-        blaze_util::JoinPath(workspace_, "bazel8.4.2.bazelrc");
+        blaze_util::JoinPath(workspace_, "bazel8.4.bazelrc");
     ASSERT_TRUE(blaze_util::WriteFile("", imported_rc_path, 0755));
 
     // Import the custom location twice, once with direct path and once with
@@ -702,13 +702,13 @@ class BlazercImportTest : public ParseOptionsTest {
     std::string workspace_rc;
     ASSERT_TRUE(SetUpWorkspaceRcFile(
         import_type + " " + imported_rc_path + "\n" + import_type +
-            " %workspace%/bazel%bazel.version%.bazelrc\n",
+            " %workspace%/bazel%bazel.version.major.minor%.bazelrc\n",
         &workspace_rc));
 
     const std::vector<std::string> args = {"bazel", "build"};
     ParseOptionsAndCheckOutput(
         args, blaze_exit_code::SUCCESS, "",
-        "WARNING: Duplicate rc file: .*bazel8.4.2.bazelrc is imported multiple "
+        "WARNING: Duplicate rc file: .*bazel8.4.bazelrc is imported multiple "
         "times from .*workspace.*bazelrc\n");
   }
 
@@ -855,8 +855,8 @@ TEST_F(BlazercImportTest, BazelRcImportDoesNotFallBackToLiteralPlaceholder) {
 
 TEST_F(BlazercImportTest, IncorrectBazelVersionVariablesPrintsEvaluatedPath) {
   // User uses %bazel.version*% variables incorrectly - (they wanted 8.bazelrc,
-  // but they used %bazel.version% instead of %bazel.version.major%. The error
-  // should show the evaluated path.
+  // but they used the nonexistent %bazel.version% instead of
+  // %bazel.version.major%. The error should show the evaluated path.
 
   const std::string literal_placeholder_rc_path =
       blaze_util::JoinPath(cwd_, "%workspace%/8.bazelrc");
@@ -866,15 +866,15 @@ TEST_F(BlazercImportTest, IncorrectBazelVersionVariablesPrintsEvaluatedPath) {
                                     literal_placeholder_rc_path, 0755));
 
   std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("import %workspace%/%bazel.version%.bazelrc",
-                                   &workspace_rc));
+  ASSERT_TRUE(SetUpWorkspaceRcFile(
+      "import %workspace%/%bazel.version.major.minor%.bazelrc", &workspace_rc));
 
   const std::vector<std::string> args = {"bazel", "build"};
   ParseOptionsAndCheckOutput(args, blaze_exit_code::BAD_ARGV,
                              "Nonexistent path in import declaration in config "
-                             "file.*'import %workspace%/%bazel.version%.bazelrc"
+                             "file.*'import %workspace%/%bazel.version.major.minor%.bazelrc"
                              "' \\(file evaluated to "
-                             "'import %workspace%/8.4.2.bazelrc'",
+                             "'import %workspace%/8.4.bazelrc'",
                              "");
 }
 
@@ -1032,35 +1032,21 @@ TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
 TEST(TestReplaceBuildVars, AllReplacements) {
-  EXPECT_EQ(
-      ReplaceBuildVars(
-          "9.4.2-pre.20251022.1",
-          "bazel.version: %bazel.version%\n"
-          "bazel.version.major: %bazel.version.major%\n"
-          "bazel.version.minor: %bazel.version.minor%\n"
-          "bazel.version.patch: %bazel.version.patch%\n"
-          "bazel.version.prerelease: %bazel.version.prerelease%\n"
-          "bazel.version.buildmetadata: %bazel.version.buildmetadata%\n"
-          "bazel.version.major.minor: %bazel.version.major.minor%\n"
-          "bazel.version.major.minor.patch: %bazel.version.major.minor.patch%"),
-      "bazel.version: 9.4.2-pre.20251022.1\n"
-      "bazel.version.major: 9\n"
-      "bazel.version.minor: 4\n"
-      "bazel.version.patch: 2\n"
-      "bazel.version.prerelease: pre.20251022.1\n"
-      "bazel.version.buildmetadata: \n"
-      "bazel.version.major.minor: 9.4\n"
-      "bazel.version.major.minor.patch: 9.4.2");
+  EXPECT_EQ(ReplaceBuildVars(
+                "9.4.2-pre.20251022.1",
+                "bazel.version.major: %bazel.version.major%\n"
+                "bazel.version.major.minor: %bazel.version.major.minor%\n"),
+            "bazel.version.major: 9\n"
+            "bazel.version.major.minor: 9.4\n");
 }
 
 // Official Build Numbers and standard use case.
 TEST(TestReplaceBuildVars, HandlesStandardReplacements) {
-  EXPECT_EQ(ReplaceBuildVars("8.4.2", "%workspace%/%bazel.version%"),
-            "%workspace%/8.4.2");
+  EXPECT_EQ(ReplaceBuildVars("8.4.2", "%workspace%/%bazel.version.major%"),
+            "%workspace%/8");
   EXPECT_EQ(ReplaceBuildVars("8.4.2", "path/"
-                                      "%bazel.version.major%.%bazel.version."
-                                      "minor%.%bazel.version.patch%/.bazelrc"),
-            "path/8.4.2/.bazelrc");
+                                      "%bazel.version.major.minor%/.bazelrc"),
+            "path/8.4/.bazelrc");
 }
 
 TEST(TestReplaceBuildVars, DoesNothingWhenNoVariablesPresent) {
@@ -1069,41 +1055,35 @@ TEST(TestReplaceBuildVars, DoesNothingWhenNoVariablesPresent) {
             regular_filename);
 
   // Doesn't have any valid variables with %.
-  std::string filename_nopercent = "bazel.version.major.bazel.version."
-                                      "minor.bazel.version.patch/.bazelrc";
-  EXPECT_EQ(ReplaceBuildVars("8.4.2", filename_nopercent),
-            filename_nopercent);
+  std::string filename_nopercent = "bazel.version.major/.bazelrc";
+  EXPECT_EQ(ReplaceBuildVars("8.4.2", filename_nopercent), filename_nopercent);
 }
 
 TEST(TestReplaceBuildVars, HandlesRollingReleaseVersion) {
   EXPECT_EQ(ReplaceBuildVars("9.4.2-pre.20251022.1",
                              "path/"
-                             "%bazel.version.major%.%bazel.version."
-                             "minor%.%bazel.version.patch%/.bazelrc"),
-            "path/9.4.2/.bazelrc");
+                             "%bazel.version.major.minor%/.bazelrc"),
+            "path/9.4/.bazelrc");
 }
 
 TEST(TestReplaceBuildVars, HandlesInvalidOrDevVersions) {
   // The version in dev builds.
   EXPECT_EQ(ReplaceBuildVars("no_version",
                              "path/"
-                             "%bazel.version.major%.%bazel.version."
-                             "minor%.%bazel.version.patch%/.bazelrc"),
-            "path/no_version.no_version.no_version/.bazelrc");
+                             "%bazel.version.major.minor%/.bazelrc"),
+            "path/no_version.no_version/.bazelrc");
 
   // Not a full semantic version number.
   EXPECT_EQ(ReplaceBuildVars("9.0",
                            "path/"
-                           "%bazel.version.major%.%bazel.version."
-                           "minor%.%bazel.version.patch%/.bazelrc"),
-          "path/no_version.no_version.no_version/.bazelrc");
+                           "%bazel.version.major.minor%/.bazelrc"),
+          "path/no_version.no_version/.bazelrc");
 
   // Build label not set.
   EXPECT_EQ(ReplaceBuildVars("",
                          "path/"
-                         "%bazel.version.major%.%bazel.version."
-                         "minor%.%bazel.version.patch%/.bazelrc"),
-        "path/no_version.no_version.no_version/.bazelrc");
+                         "%bazel.version.major.minor%/.bazelrc"),
+        "path/no_version.no_version/.bazelrc");
 }
 
 } // namespace blaze
