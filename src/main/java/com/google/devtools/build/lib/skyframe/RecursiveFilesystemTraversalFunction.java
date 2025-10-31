@@ -175,9 +175,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         if (rootInfo.type.isSymlink()) {
           return RecursiveFilesystemTraversalValue.of(
               ResolvedFileFactory.danglingSymlink(
-                  traversal.root().asRootedPath(),
-                  rootInfo.unresolvedSymlinkTarget,
-                  rootInfo.metadata));
+                  traversal.root().asRootedPath(), rootInfo.unresolvedSymlinkTarget));
         } else {
           return RecursiveFilesystemTraversalValue.EMPTY;
         }

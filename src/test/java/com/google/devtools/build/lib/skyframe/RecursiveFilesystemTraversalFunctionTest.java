@@ -156,8 +156,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             rootDirectory,
             null,
             analysisMock.getProductName());
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
 
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
@@ -192,7 +195,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*bzlLoadFunctionForInlining=*/ null));
+            /* bzlLoadFunctionForInlining= */ null));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -311,16 +314,16 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       boolean emitEmptyDirectoryNodes) {
     return new AutoValue_RecursiveFilesystemTraversalFunctionTest_BasicTraversalRequest(
         DirectTraversalRoot.forFileOrDirectory(file),
-        /*isRootGenerated=*/ !file.isSourceArtifact(),
+        /* isRootGenerated= */ !file.isSourceArtifact(),
         pkgBoundaryMode,
         strictOutput,
-        /*skipTestingForSubpackage=*/ false,
+        /* skipTestingForSubpackage= */ false,
         emitEmptyDirectoryNodes);
   }
 
   private static TraversalRequest fileLikeRoot(
       Artifact file, PackageBoundaryMode pkgBoundaryMode, boolean strictOutput) {
-    return fileLikeRoot(file, pkgBoundaryMode, strictOutput, /*emitEmptyDirectoryNodes=*/ false);
+    return fileLikeRoot(file, pkgBoundaryMode, strictOutput, /* emitEmptyDirectoryNodes= */ false);
   }
 
   private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode) {
@@ -331,11 +334,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       RootedPath pkgDirectory, PackageBoundaryMode pkgBoundaryMode) {
     return new AutoValue_RecursiveFilesystemTraversalFunctionTest_BasicTraversalRequest(
         DirectTraversalRoot.forRootedPath(pkgDirectory),
-        /*isRootGenerated=*/ false,
+        /* isRootGenerated= */ false,
         pkgBoundaryMode,
-        /*strictOutputFiles=*/ false,
-        /*skipTestingForSubpackage=*/ true,
-        /*emitEmptyDirectoryNodes=*/ false);
+        /* strictOutputFiles= */ false,
+        /* skipTestingForSubpackage= */ true,
+        /* emitEmptyDirectoryNodes= */ false);
   }
 
   @AutoValue
@@ -417,7 +420,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       throws Exception {
     Path path = rootedPath.asPath();
     if (path.exists()) {
-      try (OutputStream os = path.getOutputStream(/*append=*/ true)) {
+      try (OutputStream os = path.getOutputStream(/* append= */ true)) {
         os.write(content.getBytes(StandardCharsets.UTF_8));
       }
       differencer.invalidate(ImmutableList.of(toInvalidate));
@@ -545,7 +548,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   public void testTraversalOfGeneratedFileWithStrictOutput() throws Exception {
     assertTraversalOfFile(derivedArtifact("foo/bar.txt"), true);
   }
-
 
   @Test
   public void testTraversalOfSymlinkToFile() throws Exception {
@@ -728,8 +730,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         fileLikeRoot(
             directoryArtifact,
             DONT_CROSS,
-            /*strictOutput=*/ false,
-            /*emitEmptyDirectoryNodes=*/ true);
+            /* strictOutput= */ false,
+            /* emitEmptyDirectoryNodes= */ true);
 
     // Assert that the SkyValue is built and looks right.
     ResolvedFile rootNode =
@@ -862,7 +864,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     parentOf(link).asPath().createDirectory();
     link.asPath().createSymbolicLink(linkTarget);
     traverseAndAssertFiles(
-        fileLikeRoot(linkArtifact, DONT_CROSS), danglingSymlink(link, linkTarget, EMPTY_METADATA));
+        fileLikeRoot(linkArtifact, DONT_CROSS), danglingSymlink(link, linkTarget));
   }
 
   @Test
@@ -876,7 +878,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     traverseAndAssertFiles(
         fileLikeRoot(dirArtifact, DONT_CROSS),
         regularFile(file, EMPTY_METADATA),
-        danglingSymlink(link, linkTarget, EMPTY_METADATA));
+        danglingSymlink(link, linkTarget));
   }
 
   private void assertTraverseSubpackages(PackageBoundaryMode traverseSubpackages) throws Exception {
@@ -1119,7 +1121,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         }
         return FileArtifactValue.createForTesting(((Artifact) skyKey.argument()).getPath());
       } catch (IOException e) {
-        throw new SkyFunctionException(e, Transience.PERSISTENT){};
+        throw new SkyFunctionException(e, Transience.PERSISTENT) {};
       }
     }
 
@@ -1203,7 +1205,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     // FileStateValue will be transformed with fingerprinted digest
     RootedPath rootedPath = rootedPath("bar", "foo");
-    FileStateValue fsv = FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /*tsgm=*/ null);
+    FileStateValue fsv = FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /* tsgm= */ null);
     HasDigest fsvResult =
         RecursiveFilesystemTraversalFunction.withDigest(fsv, null, SyscallCache.NO_CACHE);
     assertThat(fsvResult).isInstanceOf(HasDigest.ByteStringDigest.class);
