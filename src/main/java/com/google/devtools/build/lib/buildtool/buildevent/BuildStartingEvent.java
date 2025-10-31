@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
+import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.UserUtils;
 import com.google.protobuf.util.Timestamps;
 import javax.annotation.Nullable;
 
@@ -116,7 +118,9 @@ public abstract class BuildStartingEvent implements BuildEvent {
             .setOptionsDescription(request().getOptionsDescription())
             .setCommand(request().getCommandName())
             .setServerPid(ProcessHandle.current().pid())
-            .setWorkingDirectory(pwd());
+            .setWorkingDirectory(pwd())
+            .setHost(NetUtil.getCachedShortHostName())
+            .setUser(UserUtils.getUserName());
     if (workspace() != null) {
       started.setWorkspaceDirectory(workspace());
     }
