@@ -2064,19 +2064,8 @@ public abstract class FileSystemTest {
   }
 
   protected java.nio.file.Path getJavaPathOrSkipIfUnsupported(Path path) {
-    java.nio.file.Path javaPath = null;
-    try {
-      javaPath = testFS.getNioPath(path.asFragment());
-    } catch (UnsupportedOperationException e) {
-      // Intentionally ignored.
-    }
-
-    File javaFile = null;
-    try {
-      javaFile = testFS.getIoFile(path.asFragment());
-    } catch (UnsupportedOperationException e) {
-      // Intentionally ignored.
-    }
+    java.nio.file.Path javaPath = testFS.getNioPath(path.asFragment());
+    File javaFile = testFS.getIoFile(path.asFragment());
 
     assertThat(javaPath == null).isEqualTo(javaFile == null);
     assumeTrue(javaPath != null && javaFile != null);
