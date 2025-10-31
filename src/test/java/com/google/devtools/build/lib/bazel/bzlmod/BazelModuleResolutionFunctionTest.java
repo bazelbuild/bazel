@@ -661,11 +661,10 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("d", "2.0"), "module(name='d', version='2.0', compatibility_level=2)");
     reporter.removeHandler(failFastHandler);
-    invalidatePackages(false);
 
-    EvaluationResult<BazelModuleResolutionValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    EvaluationResult<BazelModuleResolutionValue> result = evaluator.evaluate(
+        ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
@@ -698,7 +697,6 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             .addModule(createModuleKey("d", "1.0"), "module(name='d', version='1.0')")
             .addModule(
                 createModuleKey("d", "2.0"), "module(name='d', version='2.0', compatibility_level=2)");
-    invalidatePackages(false);
 
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     EvaluationResult<BazelModuleResolutionValue> result =
