@@ -569,7 +569,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).contains("-fobjc-arc");
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments()).contains("-arch x86_64");
   }
 
@@ -615,7 +614,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).containsAtLeast("-c", "objc/a.m");
 
     assertThat(compileActionNonArc.getArguments()).contains("-fno-objc-arc");
-    assertThat(compileActionA.getArguments()).containsAtLeastElementsIn(FASTBUILD_COPTS);
     assertThat(compileActionA.getArguments()).contains("-arch arm64");
   }
 
@@ -1320,7 +1318,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
                 .add("-arch x86_64")
                 .add("-isysroot", "__BAZEL_XCODE_SDKROOT__")
-                .addAll(FASTBUILD_COPTS)
                 .add("-iquote", ".")
                 .add("-iquote", OUTPUTDIR)
                 .add("-include", "objc/some.pch")
