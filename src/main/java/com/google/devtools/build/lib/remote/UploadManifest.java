@@ -96,11 +96,12 @@ public class UploadManifest {
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
   private final boolean allowAbsoluteSymlinks;
+  private final boolean preserveExecutableBit;
   private final ConcurrentHashMap<Digest, Path> digestToFile = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Digest, ByteString> digestToBlobs = new ConcurrentHashMap<>();
   @Nullable private ActionKey actionKey;
-  private Digest stderrDigest;
-  private Digest stdoutDigest;
+  private Digest stderrDigest = null;
+  private Digest stdoutDigest = null;
 
   public static UploadManifest create(
       CacheCapabilities cacheCapabilities,
@@ -110,10 +111,11 @@ public class UploadManifest {
       Action action,
       Command command,
       Collection<Path> outputFiles,
-      FileOutErr outErr,
+      @Nullable FileOutErr outErr,
       int exitCode,
       Instant startTime,
-      int wallTimeInMs)
+      int wallTimeInMs,
+      boolean preserveExecutableBit)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setExitCode(exitCode);
@@ -125,9 +127,12 @@ public class UploadManifest {
             result,
             /* allowAbsoluteSymlinks= */ cacheCapabilities
                 .getSymlinkAbsolutePathStrategy()
-                .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED));
+                .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED),
+            preserveExecutableBit);
     manifest.addFiles(outputFiles);
-    manifest.setStdoutStderr(outErr);
+    if (outErr != null) {
+      manifest.setStdoutStderr(outErr);
+    }
     manifest.addAction(actionKey, action, command);
     if (manifest.getStderrDigest() != null) {
       result.setStderrDigest(manifest.getStderrDigest());
@@ -170,10 +175,25 @@ public class UploadManifest {
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
       boolean allowAbsoluteSymlinks) {
+    this(
+        digestUtil,
+        remotePathResolver,
+        result,
+        allowAbsoluteSymlinks,
+        /* preserveExecutableBit= */ false);
+  }
+
+  public UploadManifest(
+      DigestUtil digestUtil,
+      RemotePathResolver remotePathResolver,
+      ActionResult.Builder result,
+      boolean allowAbsoluteSymlinks,
+      boolean preserveExecutableBit) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
     this.allowAbsoluteSymlinks = allowAbsoluteSymlinks;
+    this.preserveExecutableBit = preserveExecutableBit;
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
@@ -228,7 +248,7 @@ public class UploadManifest {
       }
       if (statNoFollow.isFile() && !statNoFollow.isSpecialFile()) {
         Digest digest = digestUtil.compute(file, statNoFollow);
-        addFile(digest, file);
+        addFile(digest, file, statNoFollow);
         continue;
       }
       if (statNoFollow.isDirectory()) {
@@ -255,7 +275,7 @@ public class UploadManifest {
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
           if (target.isAbsolute()) {
             // Symlink to file uploaded as a file.
-            addFile(digestUtil.compute(file, statFollow), file);
+            addFile(digestUtil.compute(file, statFollow), file, statNoFollow);
           } else {
             // Symlink to file uploaded as a symlink.
             if (target.isAbsolute()) {
@@ -331,12 +351,12 @@ public class UploadManifest {
     result.addOutputSymlinks(outputSymlink);
   }
 
-  private void addFile(Digest digest, Path file) {
+  private void addFile(Digest digest, Path file, FileStatus statNoFollow) {
     result
         .addOutputFilesBuilder()
         .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
         .setDigest(digest)
-        .setIsExecutable(true);
+        .setIsExecutable(!preserveExecutableBit || (statNoFollow.getPermissions() & 0100) != 0);
 
     digestToFile.put(digest, file);
   }
@@ -511,12 +531,13 @@ public class UploadManifest {
 
     private void visitAsFile(Path path) throws IOException {
       Path parentPath = path.getParentDirectory();
+      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
       Digest digest = digestUtil.compute(path);
       FileNode node =
           FileNode.newBuilder()
               .setName(path.getBaseName())
               .setDigest(digest)
-              .setIsExecutable(true)
+              .setIsExecutable(!preserveExecutableBit || (stat.getPermissions() & 0100) != 0)
               .build();
       digestToFile.put(digest, path);
       dirToFiles.put(parentPath, node);
