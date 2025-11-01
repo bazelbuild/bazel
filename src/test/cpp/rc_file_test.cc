@@ -49,6 +49,7 @@ constexpr const char* kNullDevice = "NUL";
 #else  // Assume POSIX if not Windows.
 constexpr const char* kNullDevice = "/dev/null";
 #endif
+constexpr char kTestBuildLabel[] = "8.4.2";
 
 // Matches an RcFile's canonical source paths list.
 MATCHER_P(CanonicalSourcePathsAre, paths_matcher, "") {
@@ -93,6 +94,7 @@ class RcFileTest : public ::testing::Test {
     option_processor_.reset(new OptionProcessor(
         workspace_layout_.get(), std::make_unique<BazelStartupOptions>(),
         "bazel.bazelrc"));
+    option_processor_->SetBuildLabel(kTestBuildLabel);
   }
 
   void TearDown() override {
@@ -689,6 +691,27 @@ class BlazercImportTest : public ParseOptionsTest {
         "times from .*workspace.*bazelrc\n");
   }
 
+  void TestThatDoubleImportWithWorkspaceAndBuildVersionVariablesCauseAWarning(
+      const std::string &import_type) {
+    const std::string imported_rc_path =
+        blaze_util::JoinPath(workspace_, "bazel8.4.bazelrc");
+    ASSERT_TRUE(blaze_util::WriteFile("", imported_rc_path, 0755));
+
+    // Import the custom location twice, once with direct path and once with
+    // variables.
+    std::string workspace_rc;
+    ASSERT_TRUE(SetUpWorkspaceRcFile(
+        import_type + " " + imported_rc_path + "\n" + import_type +
+            " %workspace%/bazel%bazel.version.major.minor%.bazelrc\n",
+        &workspace_rc));
+
+    const std::vector<std::string> args = {"bazel", "build"};
+    ParseOptionsAndCheckOutput(
+        args, blaze_exit_code::SUCCESS, "",
+        "WARNING: Duplicate rc file: .*bazel8.4.bazelrc is imported multiple "
+        "times from .*workspace.*bazelrc\n");
+  }
+
   void TestThatDoubleImportWithExcessPathSyntaxCauseAWarning(
       const std::string& import_type) {
     const std::string imported_rc_path =
@@ -825,7 +848,33 @@ TEST_F(BlazercImportTest, BazelRcImportDoesNotFallBackToLiteralPlaceholder) {
   const std::vector<std::string> args = {"bazel", "build"};
   ParseOptionsAndCheckOutput(args, blaze_exit_code::BAD_ARGV,
                              "Nonexistent path in import declaration in config "
-                             "file.*'import %workspace%/tryimported.bazelrc'",
+                             "file.*'import %workspace%/tryimported.bazelrc' "
+                             "\\(are you in your source checkout",
+                             "");
+}
+
+TEST_F(BlazercImportTest, IncorrectBazelVersionVariablesPrintsEvaluatedPath) {
+  // User uses %bazel.version*% variables incorrectly - (they wanted 8.bazelrc,
+  // but they used the nonexistent %bazel.version% instead of
+  // %bazel.version.major%. The error should show the evaluated path.
+
+  const std::string literal_placeholder_rc_path =
+      blaze_util::JoinPath(cwd_, "%workspace%/8.bazelrc");
+  ASSERT_TRUE(blaze_util::MakeDirectories(
+      blaze_util::Dirname(literal_placeholder_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("import syntax error",
+                                    literal_placeholder_rc_path, 0755));
+
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile(
+      "import %workspace%/%bazel.version.major.minor%.bazelrc", &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::BAD_ARGV,
+                             "Nonexistent path in import declaration in config "
+                             "file.*'import %workspace%/%bazel.version.major.minor%.bazelrc"
+                             "' \\(file evaluated to "
+                             "'import %workspace%/8.4.bazelrc'",
                              "");
 }
 
@@ -884,6 +933,16 @@ TEST_F(BlazercImportTest,
 TEST_F(BlazercImportTest,
        DoubleTryImportWithWorkspaceRelativeSyntaxCauseAWarning) {
   TestThatDoubleImportWithWorkspaceRelativeSyntaxCauseAWarning("try-import");
+}
+
+TEST_F(BlazercImportTest,
+       DoubleImportWithWorkspaceAndBuildVersionVariablesCauseAWarning) {
+  TestThatDoubleImportWithWorkspaceAndBuildVersionVariablesCauseAWarning("import");
+}
+
+TEST_F(BlazercImportTest,
+       DoubleTryImportWithWorkspaceAndBuildVersionVariablesCauseAWarning) {
+  TestThatDoubleImportWithWorkspaceAndBuildVersionVariablesCauseAWarning("try-import");
 }
 
 TEST_F(BlazercImportTest, DoubleImportWithExcessPathSyntaxCauseAWarning) {
@@ -972,4 +1031,62 @@ TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
-}  // namespace blaze
+TEST(TestParseSemVer, ValidBuildLabels) {
+  auto sem_ver_842 = ParseSemVer("8.4.2");
+  ASSERT_TRUE(sem_ver_842.has_value());
+  EXPECT_EQ("8", sem_ver_842->major);
+  EXPECT_EQ("4", sem_ver_842->minor);
+
+  auto sem_ver_912 = ParseSemVer("9.1.2-pre.20251022.1");
+  ASSERT_TRUE(sem_ver_912.has_value());
+  EXPECT_EQ("9", sem_ver_912->major);
+  EXPECT_EQ("1", sem_ver_912->minor);
+}
+
+TEST(TestParseSemVer, InalidBuildLabels) {
+  auto no_version = ParseSemVer("no_version");
+  ASSERT_FALSE(no_version.has_value());
+
+  auto not_full_sem_ver = ParseSemVer("8.2");
+  ASSERT_FALSE(not_full_sem_ver.has_value());
+}
+
+TEST(TestReplaceBuildVars, AllVersionReplacements) {
+  EXPECT_EQ(ReplaceBuildVars(
+                SemVer({"9", "4"}),
+                "bazel.version.major: %bazel.version.major%\n"
+                "bazel.version.major.minor: %bazel.version.major.minor%\n"),
+            "bazel.version.major: 9\n"
+            "bazel.version.major.minor: 9.4\n");
+}
+
+// Official Build Numbers and standard use case.
+TEST(TestReplaceBuildVars, HandlesStandardReplacements) {
+  EXPECT_EQ(
+      ReplaceBuildVars(SemVer({"8", "4"}), "%workspace%/%bazel.version.major%"),
+      "%workspace%/8");
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"8", "4"}),
+                             "path/"
+                             "%bazel.version.major.minor%/.bazelrc"),
+            "path/8.4/.bazelrc");
+}
+
+TEST(TestReplaceBuildVars, DoesNothingWhenNoVariablesPresent) {
+  std::string regular_filename = ".rcs/my.bazelrc";
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"8", "4"}), regular_filename),
+            regular_filename);
+
+  // Doesn't have any valid variables with %.
+  std::string filename_nopercent = "bazel.version.major/.bazelrc";
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"8", "4"}), filename_nopercent),
+            filename_nopercent);
+}
+
+TEST(TestReplaceBuildVars, SimulateInvalidSemanticVersion) {
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"no_version", "no_version"}),
+                             "path/"
+                             "%bazel.version.major.minor%/.bazelrc"),
+            "path/no_version.no_version/.bazelrc");
+}
+
+} // namespace blaze

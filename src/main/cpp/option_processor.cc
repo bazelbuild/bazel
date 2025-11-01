@@ -447,7 +447,8 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   for (const std::string& top_level_bazelrc_path : rc_files) {
     std::unique_ptr<RcFile> parsed_rc;
     blaze_exit_code::ExitCode parse_rcfile_exit_code = ParseRcFile(
-        workspace_layout, workspace, top_level_bazelrc_path, &parsed_rc, error);
+        workspace_layout, workspace, top_level_bazelrc_path, build_label_,
+        &parsed_rc, error);
     if (parse_rcfile_exit_code != blaze_exit_code::SUCCESS) {
       return parse_rcfile_exit_code;
     }
@@ -485,17 +486,30 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   return blaze_exit_code::SUCCESS;
 }
 
+// When the build label can't be parsed into a proper semantic version (per
+// semver.org), this will be the value for each semantic variable part.
+constexpr char kNoVersion[] = "no_version";
+
 blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& workspace,
                                       const std::string& rc_file_path,
+                                      const std::string& build_label,
                                       std::unique_ptr<RcFile>* result_rc_file,
                                       std::string* error) {
   assert(!rc_file_path.empty());
   assert(result_rc_file != nullptr);
 
+  auto sem_ver = ParseSemVer(build_label);
+  if (!sem_ver.has_value()) {
+    // Couldn't parse a version, provide "no_version" values for a SemVer.
+    SemVer noVersionSemVer = {kNoVersion, kNoVersion};
+    sem_ver.emplace(noVersionSemVer);
+  }
+
   RcFile::ParseError parse_error;
   std::unique_ptr<RcFile> parsed_file = RcFile::Parse(
-      rc_file_path, workspace_layout, workspace, &parse_error, error);
+      rc_file_path, workspace_layout, workspace, &parse_error, error,
+      sem_ver.value());
   if (parsed_file == nullptr) {
     return internal::ParseErrorToExitCode(parse_error);
   }
