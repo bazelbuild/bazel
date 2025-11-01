@@ -30,6 +30,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import net.starlark.java.eval.EvalException;
 
 /** Command-line options for repositories. */
@@ -110,18 +111,24 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
       name = "module_mirrors",
       defaultValue = "null",
-      converter = Converters.CommaSeparatedNonEmptyOptionListConverter.class,
+      converter = Converters.StringToStringListConverter.class,
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           """
-          A comma-separated list of URLs under which the source URLs of Bazel modules can be found,
-          in addition to and taking precedence over any registry-provided mirror URLs. Set this to
-          an empty value to disable the use of any mirrors not specified by the registries. The
-          default set of mirrors may change over time, but all downloads from mirrors are verified
-          by hashes stored in the registry (and thus pinned by the lockfile).
+          Specifies URLs under which the source URLs of Bazel modules can be found, in addition
+          to and taking precedence over any registry-provided mirror URLs. This flag can be
+          specified per-registry using the syntax
+          `--module_mirrors=<registry>=<mirror1>[,<mirror2>,...]` (e.g.,
+          `--module_mirrors=https://bcr.bazel.build=https://mirror.example.com`). It can also
+          be specified as a comma-separated list of mirror URLs that applies to all registries that
+          don't have an explicit list (e.g., `--module_mirrors=https://mirror1,https://mirror2`).
+          Set this to an empty value to disable the use of any mirrors not specified by the
+          registries. The default set of mirrors may change over time, but all downloads from
+          mirrors are verified by hashes stored in the registry (and thus pinned by the lockfile).
           """)
-  public List<String> moduleMirrors;
+  public List<Map.Entry<String, List<String>>> moduleMirrors;
 
   @Option(
       name = "allow_yanked_versions",
