@@ -34,6 +34,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -67,11 +68,15 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Specify how spawn actions are executed by default. Accepts a comma-separated list of"
-              + " strategies from highest to lowest priority. For each action Bazel picks the"
-              + " strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\". See"
-              + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
+          """
+          Specify how spawn actions are executed by default. Accepts a comma-separated list of
+          strategies from highest to lowest priority. For each action Bazel picks the
+          strategy with the highest priority that can execute the action. The default
+          value is `remote,worker,sandboxed,local`.
+          See [Automatic execution strategy selection in Bazel 0.27] for details.
+
+          [Automatic execution strategy selection in Bazel 0.27]: https://blog.bazel.build/2019/06/19/list-strategy.html
+          """)
   public List<String> spawnStrategy;
 
   @Option(
@@ -81,9 +86,11 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Specify how to execute genrules. This flag will be phased out. Instead, use "
-              + "--spawn_strategy=<value> to control all actions or --strategy=Genrule=<value> "
-              + "to control genrules only.")
+          """
+          Specify how to execute genrules. This flag will be phased out. Instead, use
+          `--spawn_strategy=<value>` to control all actions or `--strategy=Genrule=<value>`
+          to control genrules only.
+          """)
   public List<String> genruleStrategy;
 
   @Option(
@@ -94,12 +101,16 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
-              + " list of strategies from highest to lowest priority. For each action Bazel picks"
-              + " the strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\". This flag overrides the values set"
-              + " by --spawn_strategy (and --genrule_strategy if used with mnemonic Genrule). See"
-              + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
+          """
+          Specify how to distribute compilation of other spawn actions. Accepts a comma-separated
+          list of strategies from highest to lowest priority. For each action Bazel picks
+          the strategy with the highest priority that can execute the action. The default
+          value is `remote,worker,sandboxed,local`. This flag overrides the values set
+          by `--spawn_strategy` (and `--genrule_strategy` if used with mnemonic Genrule).
+          See [Automatic execution strategy selection in Bazel 0.27] for details.
+
+          [Automatic execution strategy selection in Bazel 0.27]: https://blog.bazel.build/2019/06/19/list-strategy.html
+          """)
   public List<Map.Entry<String, List<String>>> strategy;
 
   @Option(
@@ -110,16 +121,19 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       defaultValue = "null",
       help =
-          "Override which spawn strategy should be used to execute spawn actions that have "
-              + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
-              + "regex_filter matching. "
-              + "The last regex_filter that matches the description is used. "
-              + "This option overrides other flags for specifying strategy. "
-              + "Example: --strategy_regexp=//foo.*\\.cc,-//foo/bar=local means to run actions "
-              + "using local strategy if their descriptions match //foo.*.cc but not //foo/bar. "
-              + "Example: --strategy_regexp='Compiling.*/bar=local "
-              + " --strategy_regexp=Compiling=sandboxed will run 'Compiling //foo/bar/baz' with "
-              + "the 'local' strategy, but reversing the order would run it with 'sandboxed'. ")
+          """
+          Override which spawn strategy should be used to execute spawn actions that have
+          descriptions matching a certain `regex_filter`. See `--per_file_copt` for details on
+          `regex_filter` matching.
+
+          The last `regex_filter` that matches the description is used.
+
+          This option overrides other flags for specifying strategy. e.g.
+          - `--strategy_regexp=//foo.*\\.cc,-//foo/bar=local` means to run actions
+            using local strategy if their descriptions match //foo.*.cc but not //foo/bar.
+          - `--strategy_regexp=Compiling.*/bar=local --strategy_regexp=Compiling=sandboxed`
+            will run `Compiling //foo/bar/baz` with the `local` strategy, but reversing the order would run it with the `sandboxed` strategy.
+          """)
   public List<Map.Entry<RegexFilter, List<String>>> strategyByRegexp;
 
   @Option(
@@ -153,9 +167,11 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Writes intermediate parameter files to output tree even when using remote action "
-              + "execution or caching. Useful when debugging actions. This is implied by "
-              + "--subcommands and --verbose_failures.")
+          """
+          Writes intermediate parameter files to output tree even when using remote action
+          execution or caching. Useful when debugging actions. This is implied by
+          `--subcommands` and `--verbose_failures`.
+          """)
   public boolean materializeParamFiles;
 
   @Option(
@@ -189,9 +205,12 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Display the subcommands executed during a build. Related flags:"
-              + " --execution_log_json_file, --execution_log_binary_file (for logging subcommands"
-              + " to a file in a tool-friendly format).")
+          """
+          Display the subcommands executed during a build.
+          
+          Related flags: `--execution_log_json_file`, `--execution_log_binary_file` (for logging
+          subcommands to a file in a tool-friendly format).
+          """)
   public ShowSubcommands showSubcommands;
 
   @Option(
@@ -212,10 +231,12 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Don't run tests, just check if they are up-to-date.  If all tests results are "
-              + "up-to-date, the testing completes successfully.  If any test needs to be built or "
-              + "executed, an error is reported and the testing fails.  This option implies "
-              + "--check_up_to_date behavior.")
+          """
+          Don't run tests, just check if they are up-to-date. If all tests results are
+          up-to-date, the testing completes successfully. If any test needs to be built or
+          executed, an error is reported and the testing fails.  This option implies
+          `--check_up_to_date` behavior.
+          """)
   public boolean testCheckUpToDate;
 
   @Option(
@@ -244,19 +265,25 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Each test will be retried up to the specified number of times in case of any test"
-              + " failure. Tests that required more than one attempt to pass are marked as 'FLAKY'"
-              + " in the test summary. Normally the value specified is just an integer or the"
-              + " string 'default'. If an integer, then all tests will be run up to N times. If"
-              + " 'default', then only a single test attempt will be made for regular tests and"
-              + " three for tests marked explicitly as flaky by their rule (flaky=1 attribute)."
-              + " Alternate syntax: regex_filter@flaky_test_attempts. Where flaky_test_attempts is"
-              + " as above and regex_filter stands for a list of include and exclude regular"
-              + " expression patterns (Also see --runs_per_test). Example:"
-              + " --flaky_test_attempts=//foo/.*,-//foo/bar/.*@3 deflakes all tests in //foo/"
-              + " except those under foo/bar three times. This option can be passed multiple"
-              + " times. The most recently passed argument that matches takes precedence. If"
-              + " nothing matches, behavior is as if 'default' above.")
+          """
+          Each test will be retried up to the specified number of times in case of any test
+          failure. Tests that required more than one attempt to pass are marked as 'FLAKY'
+          in the test summary.
+
+          Normally the value specified is just an integer or the string `default`.
+          - If an integer, then all tests will be run up to `N` times.
+          - If `default`, then only a single test attempt will be made for regular tests and
+            three for tests marked explicitly as flaky by their rule (`flaky=1` attribute).
+
+          Alternate syntax: `regex_filter@flaky_test_attempts`. Where `flaky_test_attempts` is
+          as above and `regex_filter` stands for a list of include and exclude regular
+          expression patterns (also see `--runs_per_test`).\\
+          Example: `--flaky_test_attempts=//foo/.*,-//foo/bar/.*@3` deflakes all tests in `//foo/`
+          except those under `//foo/bar` three times.
+
+          This option can be passed multiple times. The most recently passed argument that matches
+          takes precedence. If nothing matches, behavior is as if `default` above.
+          """)
   public List<PerLabelOptions> testAttempts;
 
   @Option(
@@ -279,11 +306,14 @@ public class ExecutionOptions extends OptionsBase {
         OptionEffectTag.EXECUTION
       },
       help =
-          "Specifies desired output mode. Valid values are 'summary' to output only test status "
-              + "summary, 'errors' to also print test logs for failed tests, 'all' to print logs "
-              + "for all tests and 'streamed' to output logs for all tests in real time "
-              + "(this will force tests to be executed locally one at a time regardless of "
-              + "--test_strategy value).")
+          """
+          Specifies desired output mode. Valid values are;
+          - `summary` to output only test status summary,
+          - `errors` to also print test logs for failed tests,
+          - `all` to print logs for all tests and
+          - `streamed` to output logs for all tests in real time (this will force tests to be
+            executed locally one at a time regardless of `--test_strategy` value).
+          """)
   public TestOutputFormat testOutput;
 
   @Option(
@@ -296,10 +326,12 @@ public class ExecutionOptions extends OptionsBase {
         OptionEffectTag.EXECUTION
       },
       help =
-          "Specifies maximum per-test-log size that can be emitted when --test_output is 'errors' "
-              + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
-              + "output. The test header is included in the log size. Negative values imply no "
-              + "limit. Output is all or nothing.")
+          """
+          Specifies maximum per-test-log size that can be emitted when `--test_output` is `errors`
+          or `all`. Useful for avoiding overwhelming the output with excessively noisy test
+          output. The test header is included in the log size. Negative values imply no
+          limit. Output is all or nothing.
+          """)
   public int maxTestOutputBytes;
 
   @Option(
@@ -309,12 +341,15 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Specifies the desired format of the test summary. Valid values are 'short' to print"
-              + " information only about tests executed, 'terse', to print information only about"
-              + " unsuccessful tests that were run, 'detailed' to print detailed information about"
-              + " failed test cases, 'testcase' to print summary in test case resolution, do not"
-              + " print detailed information about failed test cases and 'none' to omit the"
-              + " summary.")
+          """
+          Specifies the desired format of the test summary. Valid values are;
+          - `short` to print information only about tests executed,
+          - `terse` to print information only about unsuccessful tests that were run,
+          - `detailed` to print detailed information about failed test cases,
+          - `testcase` to print summary in test case resolution without detailed information about
+            failed test cases and
+          - `none` to omit the summary.
+          """)
   public TestSummaryFormat testSummary;
 
   @Option(
@@ -325,19 +360,20 @@ public class ExecutionOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "Set the number of resources available to Bazel. "
-              + "Takes in an assignment to a float or "
+              + "Takes in an assignment to a float or `"
               + ResourceConverter.HOST_RAM_KEYWORD
-              + "/"
+              + "`/`"
               + ResourceConverter.HOST_CPUS_KEYWORD
-              + ", optionally "
-              + "followed by [-|*]<float> (eg. memory="
+              + "`, optionally followed by `[-|*]<float>` (eg. `memory="
               + ResourceConverter.HOST_RAM_KEYWORD
-              + "*.5 to use half the available RAM). "
-              + "Can be used multiple times to specify multiple "
-              + "types of resources. Bazel will limit concurrently running actions "
-              + "based on the available resources and the resources required. "
-              + "Tests can declare the amount of resources they need "
-              + "by using a tag of the \"resources:<resource name>:<amount>\" format. ",
+              + "*.5` to use half the available RAM). " +
+          """
+          Can be used multiple times to specify multiple types of resources. Bazel will limit
+          concurrently running actions based on the available resources and the resources required.
+
+          Tests can declare the amount of resources they need by using a tag of the
+          `resources:<resource name>:<amount>` format.
+          """,
       converter = ResourceConverter.AssignmentConverter.class)
   public List<Map.Entry<String, Double>> localResources;
 
@@ -356,10 +392,13 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Enables the experimental local execution scheduling based on CPU load, not estimation of"
-              + " actions one by one.  Experimental scheduling have showed the large benefit on a"
-              + " large local builds on a powerful machines with the large number of cores."
-              + " Reccommended to use with --local_resources=cpu=HOST_CPUS")
+          """
+          Enables the experimental local execution scheduling based on CPU load, not estimation of
+          actions one by one. Experimental scheduling have showed the large benefit on a
+          large local builds on a powerful machines with the large number of cores.
+
+          Reccommended to use with `--local_resources=cpu=HOST_CPUS`.
+          """)
   public boolean experimentalCpuLoadScheduling;
 
   @Option(
@@ -368,8 +407,10 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The size of window during experimental scheduling of action based on CPU load. Make"
-              + " sense to define only when flag --experimental_cpu_load_scheduling is enabled.")
+          """
+          The size of window during experimental scheduling of action based on CPU load. Make
+          sense to define only when flag `--experimental_cpu_load_scheduling` is enabled.
+          """)
   public Duration experimentalCpuLoadSchedulingWindowSize;
 
   @Option(
@@ -382,7 +423,7 @@ public class ExecutionOptions extends OptionsBase {
               + "Takes "
               + ResourceConverter.FLAG_SYNTAX
               + ". 0 means local resources will limit the number of local test jobs to run "
-              + "concurrently instead. Setting this greater than the value for --jobs "
+              + "concurrently instead. Setting this greater than the value for `--jobs` "
               + "is ineffectual.",
       converter = LocalTestJobsConverter.class)
   public int localTestJobs;
@@ -426,53 +467,67 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "execution_log_binary_file",
       defaultValue = "null",
-      category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
-              + " to src/main/protobuf/spawn.proto. Prefer --execution_log_compact_file, which is"
-              + " significantly smaller and cheaper to produce. Related flags:"
-              + " --execution_log_compact_file (compact format; mutually exclusive),"
-              + " --execution_log_json_file (text JSON format; mutually exclusive),"
-              + " --execution_log_sort (whether to sort the execution log),"
-              + " --subcommands (for displaying subcommands in terminal output).")
+          """
+          Log the executed spawns into this file as length-delimited SpawnExec protos, according
+          to [`src/main/protobuf/spawn.proto`]. Prefer `--execution_log_compact_file`, which is
+          significantly smaller and cheaper to produce.
+
+          Related flags:
+          - `--execution_log_compact_file` (compact format; mutually exclusive)
+          - `--execution_log_json_file` (text JSON format; mutually exclusive)
+          - `--execution_log_sort` (whether to sort the execution log)
+          - `--subcommands` (for displaying subcommands in terminal output)
+
+          [`src/main/protobuf/spawn.proto`]: https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/spawn.proto
+          """)
   public PathFragment executionLogBinaryFile;
 
   @Option(
       name = "execution_log_json_file",
       defaultValue = "null",
-      category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as newline-delimited JSON representations of"
-              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Prefer"
-              + " --execution_log_compact_file, which is significantly smaller and cheaper to"
-              + " produce. Related flags:"
-              + " --execution_log_compact_file (compact format; mutually exclusive),"
-              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
-              + " --execution_log_sort (whether to sort the execution log),"
-              + " --subcommands (for displaying subcommands in terminal output).")
+          """
+          Log the executed spawns into this file as newline-delimited JSON representations of
+          `SpawnExec` protos, according to [`src/main/protobuf/spawn.proto`]. Prefer
+          `--execution_log_compact_file`, which is significantly smaller and cheaper to
+          produce.
+
+          Related flags:
+          - `--execution_log_compact_file` (compact format; mutually exclusive)
+          - `--execution_log_binary_file` (binary protobuf format; mutually exclusive)
+          - `--execution_log_sort` (whether to sort the execution log)
+          - `--subcommands` (for displaying subcommands in terminal output)
+
+          [`src/main/protobuf/spawn.proto`]: https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/spawn.proto
+          """)
   public PathFragment executionLogJsonFile;
 
   @Option(
       name = "execution_log_compact_file",
       oldName = "experimental_execution_log_compact_file",
       defaultValue = "null",
-      category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
-              + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
-              + " Related flags:"
-              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
-              + " --execution_log_json_file (text JSON format; mutually exclusive),"
-              + " --subcommands (for displaying subcommands in terminal output).")
+          """
+          Log the executed spawns into this file as length-delimited `ExecLogEntry` protos,
+          according to [`src/main/protobuf/spawn.proto`]. The entire file is zstd compressed.
+
+          Related flags:
+          - `--execution_log_binary_file` (binary protobuf format; mutually exclusive)
+          - `--execution_log_json_file` (text JSON format; mutually exclusive)
+          - `--subcommands` (for displaying subcommands in terminal output)
+
+          [`src/main/protobuf/spawn.proto`]: https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/spawn.proto
+          """)
   public PathFragment executionLogCompactFile;
 
   @Option(

@@ -74,13 +74,15 @@ public class DynamicExecutionOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       help =
-          "The local strategies, in order, to use for the given mnemonic - the first applicable "
-              + "strategy is used. For example, `worker,sandboxed` runs actions that support "
-              + "persistent workers using the worker strategy, and all others using the sandboxed "
-              + "strategy. If no mnemonic is given, the list of strategies is used as the "
-              + "fallback for all mnemonics. The default fallback list is `worker,sandboxed`, or"
-              + "`worker,sandboxed,standalone` if `experimental_local_lockfree_output` is set. "
-              + "Takes [mnemonic=]local_strategy[,local_strategy,...]")
+          """
+          The local strategies, in order, to use for the given mnemonic - the first applicable
+          strategy is used. For example, `worker,sandboxed` runs actions that support
+          persistent workers using the worker strategy, and all others using the sandboxed 
+          strategy. If no mnemonic is given, the list of strategies is used as the
+          fallback for all mnemonics. The default fallback list is `worker,sandboxed`, or
+          `worker,sandboxed,standalone` if `experimental_local_lockfree_output` is set.
+          Takes `[mnemonic=]local_strategy[,local_strategy,...]`.
+          """)
   public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 
   @Option(
@@ -91,11 +93,13 @@ public class DynamicExecutionOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       help =
-          "The remote strategies, in order, to use for the given mnemonic - the first applicable "
-              + "strategy is used. If no mnemonic is given, the list of strategies is used as the "
-              + "fallback for all mnemonics. The default fallback list is `remote`, so this flag "
-              + "usually does not need to be set explicitly. "
-              + "Takes [mnemonic=]remote_strategy[,remote_strategy,...]")
+          """
+          The remote strategies, in order, to use for the given mnemonic - the first applicable
+          strategy is used. If no mnemonic is given, the list of strategies is used as the
+          fallback for all mnemonics. The default fallback list is `remote`, so this flag
+          usually does not need to be set explicitly.
+          Takes `[mnemonic=]remote_strategy[,remote_strategy,...]`.
+          """)
   public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
 
   @Option(
@@ -137,16 +141,19 @@ public class DynamicExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "0",
       help =
-          "Controls how much load from dynamic execution to put on the local machine."
-              + " This flag adjusts how many actions in dynamic execution we will schedule"
-              + " concurrently. It is based on the number of CPUs Blaze thinks is available,"
-              + " which can be controlled with the --local_resources=cpu= flag."
-              + "\nIf this flag is 0, all actions are scheduled locally immediately. If > 0,"
-              + " the amount of actions scheduled locally is limited by the number of CPUs"
-              + " available. If < 1, the load factor is used to reduce the number of locally"
-              + " scheduled actions when the number of actions waiting to schedule is high."
-              + " This lessens the load on the local machine in the clean build case, where"
-              + " the local machine does not contribute much.")
+          """
+          Controls how much load from dynamic execution to put on the local machine.
+          This flag adjusts how many actions in dynamic execution we will schedule
+          concurrently. It is based on the number of CPUs Blaze thinks is available,
+          which can be controlled with the `--local_resources=cpu=` flag.
+
+          If this flag is `0`, all actions are scheduled locally immediately. If > 0,
+          the amount of actions scheduled locally is limited by the number of CPUs
+          available. If < 1, the load factor is used to reduce the number of locally
+          scheduled actions when the number of actions waiting to schedule is high.
+          This lessens the load on the local machine in the clean build case, where
+          the local machine does not contribute much.
+          """)
   public double localLoadFactor;
 
   @Option(
@@ -155,9 +162,11 @@ public class DynamicExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "true",
       help =
-          "When set, targets that are build \"for tool\" are not subject to dynamic execution. Such"
-              + " targets are extremely unlikely to be built incrementally and thus not worth"
-              + " spending local cycles on.")
+          """
+          When set, targets that are build "for tool" are not subject to dynamic execution. Such
+          targets are extremely unlikely to be built incrementally and thus not worth
+          spending local cycles on.
+          """)
   public boolean excludeTools;
 
   @Option(
