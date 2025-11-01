@@ -2221,7 +2221,14 @@ function test_cpp20_modules_with_clang() {
     return 0
   fi
 
-  add_rules_cc "MODULE.bazel"
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "rules_cc")
+git_override(
+    module_name = "rules_cc",
+    remote = "https://github.com/fmeum/rules_cc.git",
+    branch = "c++20-modules",
+)
+EOF
 
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
