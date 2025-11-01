@@ -2292,12 +2292,69 @@ export void f_base() {
 }
 EOF
 
-  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  # TODO: Make it so that --cxxopt applies to module_interfaces as well.
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=/opt/homebrew/opt/llvm/bin/clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
 
   # Verify that the build can hit the cache without action cycles.
   bazel clean || fail "Expected clean success"
-  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=/opt/homebrew/opt/llvm/bin/clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
   expect_log "17 disk cache hit"
+}
+
+function test_cpp20_modules_with_clang_no_cycle() {
+  type -P clang || return 0
+  # Check if clang version is less than 17
+  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  if [[ -n "$clang_version" ]]; then
+    major_version=$(echo "$clang_version" | cut -d. -f1)
+    if [[ "$major_version" -lt 17 ]]; then
+      return 0
+    fi
+  fi
+
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    return 0
+  fi
+
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "rules_cc")
+git_override(
+    module_name = "rules_cc",
+    remote = "https://github.com/fmeum/rules_cc.git",
+    branch = "c++20-modules-no-cycle",
+)
+EOF
+
+
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
+package(features = ["cpp_modules"])
+
+cc_library(
+  name = "lib",
+  module_interfaces = ["foo.cppm", "bar.cppm"],
+)
+EOF
+  cat > foo.cppm <<'EOF'
+export module foo;
+import bar;
+EOF
+  cat > bar.cppm <<'EOF'
+export module bar;
+EOF
+
+  bazel build //:lib --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+
+  cat > foo.cppm <<'EOF'
+export module foo;
+EOF
+  cat > bar.cppm <<'EOF'
+export module bar;
+import foo;
+EOF
+
+  bazel build //:lib --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
 }
 
 function test_external_repo_lto() {
