@@ -950,7 +950,11 @@ public final class MerkleTreeComputer {
       future.cancel(/* mayInterruptIfRunning= */ true);
       throw e;
     } catch (CancellationException e) {
-      throw new InterruptedException();
+      // TODO(b/173153395): Drop the cause when the crashes with dynamic execution have been
+      // diagnosed.
+      var interruptedException = new InterruptedException();
+      interruptedException.initCause(e);
+      throw interruptedException;
     } catch (ExecutionException e) {
       if (e.getCause() instanceof WrappedException wrappedException) {
         wrappedException.unwrapAndThrow();
