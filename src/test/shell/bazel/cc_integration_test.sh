@@ -2207,7 +2207,7 @@ EOF
   expect_log "Hello from main.cpp"
 }
 
-function DISABLED_test_cpp20_modules_with_clang() {
+function test_cpp20_modules_with_clang() {
   type -P clang || return 0
   # Check if clang version is less than 17
   clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
@@ -2221,7 +2221,14 @@ function DISABLED_test_cpp20_modules_with_clang() {
     return 0
   fi
 
-  add_rules_cc "MODULE.bazel"
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "rules_cc")
+git_override(
+    module_name = "rules_cc",
+    remote = "https://github.com/fmeum/rules_cc.git",
+    branch = "c++20-modules",
+)
+EOF
 
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")

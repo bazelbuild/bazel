@@ -1030,6 +1030,7 @@ sh_test(
     shard_count = 10,
     tags = [
         "no_windows",
+        "requires-network",
     ],
 )
 
