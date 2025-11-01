@@ -68,14 +68,31 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "Limit the max number of concurrent connections to remote cache/executor. By default the"
-              + " value is 100. Setting this to 0 means no limitation.\n"
-              + "For HTTP remote cache, one TCP connection could handle one request at one time, so"
-              + " Bazel could make up to --remote_max_connections concurrent requests.\n"
-              + "For gRPC remote cache/executor, one gRPC channel could usually handle 100+"
-              + " concurrent requests, so Bazel could make around `--remote_max_connections * 100`"
-              + " concurrent requests.")
+          """
+          Limit the max number of concurrent connections to remote cache/executor. By default the \
+          value is 100. Setting this to 0 means no limitation.
+          For HTTP remote cache, one TCP connection could handle one request at one time, so \
+          Bazel could make up to --remote_max_connections concurrent requests.
+          For gRPC remote cache/executor, one gRPC channel could usually handle 100+ \
+          concurrent requests (controlled by --remote_max_concurrency_per_connection), so \
+          Bazel could make around `--remote_max_connections * 100` concurrent requests.""")
   public int remoteMaxConnections;
+
+  @Option(
+      name = "remote_max_concurrency_per_connection",
+      // The number of concurrent requests for one connection to a gRPC server is limited by
+      // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+      // each connection should be fairly well. The number of connections opened by one channel is
+      // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+      // max concurrency per connection is 100.
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          """
+          Limit the max number of concurrent requests per gRPC connection. By default the value \
+          is 100.""")
+  public int remoteMaxConcurrencyPerConnection;
 
   @Option(
       name = "remote_executor",
