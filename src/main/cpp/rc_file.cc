@@ -45,12 +45,12 @@ static constexpr absl::string_view kCommandTryImport = "try-import";
 /*static*/ std::unique_ptr<RcFile> RcFile::Parse(
     const std::string& filename, const WorkspaceLayout* workspace_layout,
     const std::string& workspace, ParseError* error, std::string* error_text,
-    const std::string& build_label, ReadFileFn read_file,
+    const SemVer& sem_ver, ReadFileFn read_file,
     CanonicalizePathFn canonicalize_path) {
   auto rcfile = absl::WrapUnique(new RcFile());
   std::vector<std::string> initial_import_stack = {filename};
   *error = rcfile->ParseFile(filename, workspace, *workspace_layout,
-                             build_label, read_file, canonicalize_path,
+                             sem_ver, read_file, canonicalize_path,
                              initial_import_stack, error_text);
   return (*error == ParseError::NONE) ? std::move(rcfile) : nullptr;
 }
@@ -58,7 +58,7 @@ static constexpr absl::string_view kCommandTryImport = "try-import";
 RcFile::ParseError RcFile::ParseFile(const std::string& filename,
                                      const std::string& workspace,
                                      const WorkspaceLayout& workspace_layout,
-                                     const std::string& build_label,
+                                     const SemVer& sem_ver,
                                      ReadFileFn read_file,
                                      CanonicalizePathFn canonicalize_path,
                                      std::vector<std::string>& import_stack,
@@ -113,7 +113,7 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
       return ParseError::INVALID_FORMAT;
     }
 
-    std::string import_filename = ReplaceBuildVars(build_label, words[1]);
+    std::string import_filename = ReplaceBuildVars(sem_ver, words[1]);
     if (absl::StartsWith(import_filename, WorkspaceLayout::kWorkspacePrefix)) {
       const auto resolved_filename =
           workspace_layout.ResolveWorkspaceRelativeRcFilePath(workspace,
@@ -122,7 +122,7 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
         if (command == kCommandImport) {
           // If build variables were replaced in the filename, print out the
           // evaluated path so they know the file lookup that was attempted.
-          std::string evaluated_line = ReplaceBuildVars(build_label, line);
+          std::string evaluated_line = ReplaceBuildVars(sem_ver, line);
           std::string evaluated_warning;
           if (line != evaluated_line) {
             evaluated_warning = absl::StrFormat("file evaluated to '%s' - ", evaluated_line);
@@ -155,7 +155,7 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
 
     import_stack.push_back(import_filename);
     if (ParseError parse_error =
-            ParseFile(import_filename, workspace, workspace_layout, build_label,
+            ParseFile(import_filename, workspace, workspace_layout, sem_ver,
                       read_file, canonicalize_path, import_stack, error_text);
         parse_error != ParseError::NONE) {
       if (parse_error == ParseError::UNREADABLE_FILE &&
@@ -187,9 +187,6 @@ std::string RcFile::CanonicalizePathDefault(const std::string& filename) {
   return blaze_util::MakeCanonical(filename.c_str());
 }
 namespace {
-// When the build label can't be parsed into a proper semantic version (per
-// semver.org), this will be the value for each of the variables below.
-constexpr char kNoVersion[] = "no_version";
 // Variables that can be interpolated in .bazelrc when importing files.
 constexpr char kBazelVersionMajor[] =
     "%bazel.version.major%"; // Eg. "8" in 8.4.2
@@ -202,20 +199,24 @@ const std::regex kSemverRe(
     R"(^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$)");
 }  // namespace
 
-std::string ReplaceBuildVars(const std::string &build_label,
-                             absl::string_view import_filename) {
-  std::string major = kNoVersion;
-  std::string minor = kNoVersion;
+std::optional<SemVer> ParseSemVer(const std::string& build_label) {
   if (std::smatch m; std::regex_match(build_label, m, kSemverRe)) {
-    major = m[1];
-    minor = m[2];
+    SemVer sem_ver;
+    sem_ver.major = m[1];
+    sem_ver.minor = m[2];
+    return sem_ver;
   }
+  return std::nullopt;
+}
+
+std::string ReplaceBuildVars(const SemVer& sem_ver,
+                             absl::string_view import_filename) {
   return absl::StrReplaceAll(
-      import_filename,
-      {
-          {kBazelVersionMajor, major},
-          {kBazelVersionMajorMinor, absl::StrCat(major, ".", minor)},
-      });
+      import_filename, {
+                           {kBazelVersionMajor, sem_ver.major},
+                           {kBazelVersionMajorMinor,
+                            absl::StrCat(sem_ver.major, ".", sem_ver.minor)},
+                       });
 }
 
 }  // namespace blaze

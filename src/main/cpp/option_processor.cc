@@ -486,6 +486,10 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   return blaze_exit_code::SUCCESS;
 }
 
+// When the build label can't be parsed into a proper semantic version (per
+// semver.org), this will be the value for each semantic variable part.
+constexpr char kNoVersion[] = "no_version";
+
 blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& workspace,
                                       const std::string& rc_file_path,
@@ -495,10 +499,17 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
   assert(!rc_file_path.empty());
   assert(result_rc_file != nullptr);
 
+  auto sem_ver = ParseSemVer(build_label);
+  if (!sem_ver.has_value()) {
+    // Couldn't parse a version, provide "no_version" values for a SemVer.
+    SemVer noVersionSemVer = {kNoVersion, kNoVersion};
+    sem_ver.emplace(noVersionSemVer);
+  }
+
   RcFile::ParseError parse_error;
   std::unique_ptr<RcFile> parsed_file = RcFile::Parse(
       rc_file_path, workspace_layout, workspace, &parse_error, error,
-      build_label);
+      sem_ver.value());
   if (parsed_file == nullptr) {
     return internal::ParseErrorToExitCode(parse_error);
   }

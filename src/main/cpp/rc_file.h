@@ -33,6 +33,13 @@ struct RcOption {
   int source_index;
 };
 
+// Represents a semantic version. Only major and minor values are provided since
+// those are the only ones used at the moment.
+struct SemVer {
+  std::string major;  // "8" in the semantic version "8.4.2"
+  std::string minor;  // "4" in the semantic version "8.4.2"
+};
+
 // Reads and parses a single rc file with all its imports.
 class RcFile {
  public:
@@ -45,7 +52,7 @@ class RcFile {
   static std::unique_ptr<RcFile> Parse(
       const std::string& filename, const WorkspaceLayout* workspace_layout,
       const std::string& workspace, ParseError* error, std::string* error_text,
-      const std::string &build_label, ReadFileFn read_file = &ReadFileDefault,
+      const SemVer& build_label, ReadFileFn read_file = &ReadFileDefault,
       CanonicalizePathFn canonicalize_path = &CanonicalizePathDefault);
 
   // Movable and copyable.
@@ -70,7 +77,7 @@ class RcFile {
   ParseError ParseFile(const std::string& filename,
                        const std::string& workspace,
                        const WorkspaceLayout& workspace_layout,
-                       const std::string& build_label,
+                       const SemVer& build_label,
                        ReadFileFn read_file,
                        CanonicalizePathFn canonicalize_path,
                        std::vector<std::string>& import_stack,
@@ -88,7 +95,12 @@ class RcFile {
   OptionMap options_;
 };
 
-std::string ReplaceBuildVars(const std::string& build_label,
+
+// Parses a version string and returns a structured SemVer. If the argument is
+// not a valid semantic version per semver.org, returns nullopt.
+std::optional<SemVer> ParseSemVer(const std::string& build_label);
+
+std::string ReplaceBuildVars(const SemVer& sem_ver,
                                       absl::string_view import_filename);
 }  // namespace blaze
 

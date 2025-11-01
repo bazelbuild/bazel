@@ -49,7 +49,7 @@ constexpr bool kIsWindows = true;
 #else
 constexpr bool kIsWindows = false;
 #endif
-constexpr char kTestBuildLabel[] = "8.4.2";
+const SemVer kTestSemVer = SemVer({"8", "4"});
 
 class RcOptionsTest : public ::testing::Test {
  protected:
@@ -81,7 +81,7 @@ class RcOptionsTest : public ::testing::Test {
         test_file_dir_,
         error,
         error_text,
-        kTestBuildLabel);
+        kTestSemVer);
   }
 
   void SuccessfullyParseRcWithExpectedArgs(
@@ -555,7 +555,7 @@ TEST(RemoteFileTest, ParsingRemoteFiles) {
 
   std::unique_ptr<RcFile> rcfile = RcFile::Parse(
       "the base file", &workspace_layout, "my workspace", &error, &error_text,
-      kTestBuildLabel, read_file.AsStdFunction(), canonicalize_path.AsStdFunction());
+      kTestSemVer, read_file.AsStdFunction(), canonicalize_path.AsStdFunction());
   EXPECT_THAT(error_text, IsEmpty());
   ASSERT_EQ(error, RcFile::ParseError::NONE);
   EXPECT_THAT(rcfile, Pointee(Property(

@@ -1031,9 +1031,29 @@ TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
-TEST(TestReplaceBuildVars, AllReplacements) {
+TEST(TestParseSemVer, ValidBuildLabels) {
+  auto sem_ver_842 = ParseSemVer("8.4.2");
+  ASSERT_TRUE(sem_ver_842.has_value());
+  EXPECT_EQ("8", sem_ver_842->major);
+  EXPECT_EQ("4", sem_ver_842->minor);
+
+  auto sem_ver_912 = ParseSemVer("9.1.2-pre.20251022.1");
+  ASSERT_TRUE(sem_ver_912.has_value());
+  EXPECT_EQ("9", sem_ver_912->major);
+  EXPECT_EQ("1", sem_ver_912->minor);
+}
+
+TEST(TestParseSemVer, InalidBuildLabels) {
+  auto no_version = ParseSemVer("no_version");
+  ASSERT_FALSE(no_version.has_value());
+
+  auto not_full_sem_ver = ParseSemVer("8.2");
+  ASSERT_FALSE(not_full_sem_ver.has_value());
+}
+
+TEST(TestReplaceBuildVars, AllVersionReplacements) {
   EXPECT_EQ(ReplaceBuildVars(
-                "9.4.2-pre.20251022.1",
+                SemVer({"9", "4"}),
                 "bazel.version.major: %bazel.version.major%\n"
                 "bazel.version.major.minor: %bazel.version.major.minor%\n"),
             "bazel.version.major: 9\n"
@@ -1042,48 +1062,31 @@ TEST(TestReplaceBuildVars, AllReplacements) {
 
 // Official Build Numbers and standard use case.
 TEST(TestReplaceBuildVars, HandlesStandardReplacements) {
-  EXPECT_EQ(ReplaceBuildVars("8.4.2", "%workspace%/%bazel.version.major%"),
-            "%workspace%/8");
-  EXPECT_EQ(ReplaceBuildVars("8.4.2", "path/"
-                                      "%bazel.version.major.minor%/.bazelrc"),
+  EXPECT_EQ(
+      ReplaceBuildVars(SemVer({"8", "4"}), "%workspace%/%bazel.version.major%"),
+      "%workspace%/8");
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"8", "4"}),
+                             "path/"
+                             "%bazel.version.major.minor%/.bazelrc"),
             "path/8.4/.bazelrc");
 }
 
 TEST(TestReplaceBuildVars, DoesNothingWhenNoVariablesPresent) {
   std::string regular_filename = ".rcs/my.bazelrc";
-  EXPECT_EQ(ReplaceBuildVars("8.4.2", regular_filename),
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"8", "4"}), regular_filename),
             regular_filename);
 
   // Doesn't have any valid variables with %.
   std::string filename_nopercent = "bazel.version.major/.bazelrc";
-  EXPECT_EQ(ReplaceBuildVars("8.4.2", filename_nopercent), filename_nopercent);
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"8", "4"}), filename_nopercent),
+            filename_nopercent);
 }
 
-TEST(TestReplaceBuildVars, HandlesRollingReleaseVersion) {
-  EXPECT_EQ(ReplaceBuildVars("9.4.2-pre.20251022.1",
-                             "path/"
-                             "%bazel.version.major.minor%/.bazelrc"),
-            "path/9.4/.bazelrc");
-}
-
-TEST(TestReplaceBuildVars, HandlesInvalidOrDevVersions) {
-  // The version in dev builds.
-  EXPECT_EQ(ReplaceBuildVars("no_version",
+TEST(TestReplaceBuildVars, SimulateInvalidSemanticVersion) {
+  EXPECT_EQ(ReplaceBuildVars(SemVer({"no_version", "no_version"}),
                              "path/"
                              "%bazel.version.major.minor%/.bazelrc"),
             "path/no_version.no_version/.bazelrc");
-
-  // Not a full semantic version number.
-  EXPECT_EQ(ReplaceBuildVars("9.0",
-                           "path/"
-                           "%bazel.version.major.minor%/.bazelrc"),
-          "path/no_version.no_version/.bazelrc");
-
-  // Build label not set.
-  EXPECT_EQ(ReplaceBuildVars("",
-                         "path/"
-                         "%bazel.version.major.minor%/.bazelrc"),
-        "path/no_version.no_version/.bazelrc");
 }
 
 } // namespace blaze
