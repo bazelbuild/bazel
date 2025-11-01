@@ -2293,11 +2293,11 @@ export void f_base() {
 EOF
 
   # TODO: Make it so that --cxxopt applies to module_interfaces as well.
-  bazel build //:main --experimental_cpp_modules --repo_env=CC=/opt/homebrew/opt/llvm/bin/clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
 
   # Verify that the build can hit the cache without action cycles.
   bazel clean || fail "Expected clean success"
-  bazel build //:main --experimental_cpp_modules --repo_env=CC=/opt/homebrew/opt/llvm/bin/clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+  bazel build //:main --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 --disk_cache=disk &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
   expect_log "17 disk cache hit"
 }
 
