@@ -164,7 +164,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       }
       RepositoryFetchFunction repositoryFetchFunction =
           new RepositoryFetchFunction(
-              ImmutableMap::of, directories, repositoryCache.getRepoContentsCache());
+              ImmutableMap::of, ImmutableMap::of, directories, repositoryCache.getRepoContentsCache());
       repositoryFetchFunction.setDownloadManager(downloadManager);
 
       RepoSpecFunction repoSpecFunction = new RepoSpecFunction();
