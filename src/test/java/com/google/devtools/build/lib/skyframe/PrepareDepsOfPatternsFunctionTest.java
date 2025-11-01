@@ -273,7 +273,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     return ImmutableList.of(
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-        PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()),
+        PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableMap.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
         PrecomputedValue.injected(
