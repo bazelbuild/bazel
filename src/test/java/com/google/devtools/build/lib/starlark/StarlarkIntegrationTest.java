@@ -960,6 +960,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                         'label_src',
                         'label_list_srcs',
                         'dict_srcs',
+                        'label_list_dict_srcs',
         # Missing attrs are ignored (this allows common configuration for sets of rules where
         # only some define the specified attributes, e.g. *_library/binary).
                         'missing_src_attr',
@@ -968,6 +969,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                         'label_dep',
                         'label_list_deps',
                         'dict_deps',
+                        'label_list_dict_deps',
         # Missing attrs are ignored
                         'missing_dep_attr',
                     ],
@@ -981,6 +983,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                 'label_src': attr.label(allow_files=True),
                 'label_list_srcs': attr.label_list(allow_files=True),
                 'dict_srcs': attr.label_keyed_string_dict(allow_files=True),
+                'label_list_dict_srcs': attr.label_list_dict(allow_files=True),
         # Generally deps don't set allow_files=True, but want to assert that source files in
         # dependency_attributes are ignored, since source files don't provide
         # InstrumentedFilesInfo. (For example, files put directly into data are assumed to not be
@@ -988,6 +991,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                 'label_dep': attr.label(allow_files=True),
                 'label_list_deps': attr.label_list(allow_files=True),
                 'dict_deps': attr.label_keyed_string_dict(allow_files=True),
+                'label_list_dict_deps': attr.label_list_dict(allow_files=True),
             },
         )
 
@@ -1011,16 +1015,19 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         cc_library(name='label_dep', srcs = [':label_dep.cc'])
         cc_library(name='label_list_dep', srcs = [':label_list_dep.cc'])
         cc_library(name='dict_dep', srcs = [':dict_dep.cc'])
+        cc_library(name='label_list_dict_dep', srcs = [':label_list_dict_dep.cc'])
         custom_rule(
             name = 'cr',
             label_src = ':label_src.txt',
         #   Check that srcs with the wrong extension are ignored.
             label_list_srcs = [':label_list_src.txt', ':label_list_src.ignored'],
             dict_srcs = {':dict_src.txt': ''},
+            label_list_dict_srcs = {'': [':label_list_dict_src.txt']},
             label_dep = ':label_dep',
         #   Check that files in dependency attributes are ignored.
             label_list_deps = [':label_list_dep', ':file_in_deps_is_ignored.txt'],
             dict_deps= {':dict_dep': ''},
+            label_list_dict_deps = {'': [':label_list_dict_dep']},
         )
         test_rule(name = 'test', target = ':cr')
         """);
@@ -1036,13 +1043,20 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             "label_src.txt",
             "label_list_src.txt",
             "dict_src.txt",
+            "label_list_dict_src.txt",
             "label_dep.cc",
             "label_list_dep.cc",
-            "dict_dep.cc");
+            "dict_dep.cc",
+            "label_list_dict_dep.cc");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
                 ((Depset) myInfo.getValue("metadata_files")).getSet(Artifact.class)))
-        .containsExactly("label_dep.gcno", "label_list_dep.gcno", "dict_dep.gcno", "cr.metadata");
+        .containsExactly(
+            "label_dep.gcno",
+            "label_list_dep.gcno",
+            "dict_dep.gcno",
+            "label_list_dict_dep.gcno",
+            "cr.metadata");
     ConfiguredTarget customRule = getConfiguredTarget("//test/starlark:cr");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
@@ -1060,9 +1074,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             "label_src.txt",
             "label_list_src.txt",
             "dict_src.txt",
+            "label_list_dict_src.txt",
             "label_dep.cc",
             "label_list_dep.cc",
-            "dict_dep.cc");
+            "dict_dep.cc",
+            "label_list_dict_dep.cc");
   }
 
   /**

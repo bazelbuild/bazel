@@ -2105,10 +2105,10 @@ public class RuleClass implements RuleClassData {
   private static void checkForDuplicateLabels(Rule rule, EventHandler eventHandler) {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     for (Attribute attribute : rule.getAttributeProvider().getAttributes()) {
-      if (attribute.getType() != BuildType.LABEL_LIST) {
+      Set<Label> duplicates = mapper.checkForDuplicateLabels(attribute);
+      if (duplicates.isEmpty()) {
         continue;
       }
-      Set<Label> duplicates = mapper.checkForDuplicateLabels(attribute);
       for (Label label : duplicates) {
         rule.reportError(
             String.format(
