@@ -125,8 +125,9 @@ public class RepositoryOptions extends OptionsBase {
           be specified as a comma-separated list of mirror URLs that applies to all registries that
           don't have an explicit list (e.g., `--module_mirrors=https://mirror1,https://mirror2`).
           Set this to an empty value to disable the use of any mirrors not specified by the
-          registries. The default set of mirrors may change over time, but all downloads from
-          mirrors are verified by hashes stored in the registry (and thus pinned by the lockfile).
+          registries. Later uses of this flag override earlier ones with the same (or no) registry.
+          The default set of mirrors may change over time, but all downloads from mirrors are
+          verified by hashes stored in the registry (and thus pinned by the lockfile).
           """)
   public List<Map.Entry<String, List<String>>> moduleMirrors;
 
