@@ -606,14 +606,18 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         // for cancellation. Assume the latter here because if this was actually a user interrupt,
         // our own get() would have been interrupted as well. It makes no sense to propagate the
         // interrupt status across threads.
-        context
-            .getEventHandler()
-            .handle(
-                Event.info(
-                    String.format(
-                        "Caught InterruptedException from ExecutionException for %s branch of %s,"
-                            + " which may cause a crash.",
-                        mode, getSpawnReadableId(branch.getSpawn()))));
+        if (options.debugSpawnScheduler) {
+          context
+              .getEventHandler()
+              .handle(
+                  Event.info(
+                      String.format(
+                          "Caught InterruptedException from ExecutionException for %s branch of %s,"
+                              + " which may cause a crash:\n%s",
+                          mode,
+                          getSpawnReadableId(branch.getSpawn()),
+                          Throwables.getStackTraceAsString(cause))));
+        }
         return null;
       } else {
         // Even though we cannot enforce this in the future's signature (but we do in Branch#call),
