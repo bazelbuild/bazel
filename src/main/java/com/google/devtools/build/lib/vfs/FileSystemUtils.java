@@ -485,31 +485,6 @@ public class FileSystemUtils {
     }
   }
 
-  /**
-   * Copies a tool binary from one path to another, returning the target path.
-   * The directory of the target path must already exist. The target copy's time
-   * is set to match, as well as its read-only and executable flags. The
-   * operation is skipped if the target file has the same time and size as the
-   * source.
-   */
-  public static Path copyTool(Path source, Path target) throws IOException {
-    FileStatus sourceStat = null;
-    FileStatus targetStat = target.statNullable();
-    if (targetStat != null) {
-      // stat the source file only if we'll need the stat.
-      sourceStat = source.stat(Symlinks.FOLLOW);
-    }
-    if (targetStat == null ||
-        targetStat.getLastModifiedTime() != sourceStat.getLastModifiedTime() ||
-        targetStat.getSize() != sourceStat.getSize()) {
-      copyFile(source, target);
-      target.setWritable(source.isWritable());
-      target.setExecutable(source.isExecutable());
-      target.setLastModifiedTime(source.getLastModifiedTime());
-    }
-    return target;
-  }
-
   /* Directory tree operations. */
 
   /**

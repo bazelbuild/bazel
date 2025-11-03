@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
-import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyTool;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.moveFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.relativePath;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.removeExtension;
@@ -490,21 +489,6 @@ public class FileSystemUtilsTest {
         .hasMessageThat()
         .isEqualTo(
             "error copying file: couldn't delete destination: " + aDir + " (Directory not empty)");
-  }
-
-  @Test
-  public void testCopyTool() throws IOException {
-    createTestDirectoryTree();
-    Path originalFile = file1;
-    byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
-    FileSystemUtils.writeContent(originalFile, content);
-
-    Path copyTarget = copyTool(topDir.getRelative("file-1"), aDir.getRelative("file-1"));
-
-    assertThat(FileSystemUtils.readContent(copyTarget)).isEqualTo(content);
-    assertThat(copyTarget.isWritable()).isEqualTo(file1.isWritable());
-    assertThat(copyTarget.isExecutable()).isEqualTo(file1.isExecutable());
-    assertThat(copyTarget.getLastModifiedTime()).isEqualTo(file1.getLastModifiedTime());
   }
 
   @Test
