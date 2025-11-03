@@ -405,26 +405,6 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testMoveFileFixPermissions() throws Exception {
-    FileSystem fs = new MultipleDeviceFS();
-    Path source = fs.getPath("/fs1/source");
-    source.getParentDirectory().createDirectoryAndParents();
-    Path target = fs.getPath("/fs2/target");
-    target.getParentDirectory().createDirectoryAndParents();
-
-    FileSystemUtils.writeContent(source, UTF_8, "linear-a");
-    source.setLastModifiedTime(142);
-    source.setReadable(false);
-
-    MoveResult moveResult = moveFile(source, target);
-
-    assertThat(moveResult).isEqualTo(MoveResult.FILE_COPIED);
-    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
-    assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
-    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("linear-a");
-  }
-
-  @Test
   public void testReadWithKnownFileSize() throws IOException {
     createTestDirectoryTree();
     String str = "this is a test of readContentWithLimit method";

@@ -432,14 +432,12 @@ public class FileSystemUtils {
    * falls back to copying the file. Note that these two operations have very different performance
    * characteristics and is why this operation reports back to the caller what actually happened.
    *
-   * <p>If no error occurs, the method returns normally. If a parent directory does not exist, a
-   * FileNotFoundException is thrown. {@link IOException} is thrown when other erroneous situations
-   * occur. (e.g. read errors)
-   *
    * @param from location of the file to move
    * @param to destination to where to move the file
    * @return a description of how the move was performed
-   * @throws IOException if the move fails
+   * @throws FileNotFoundException if the source file does not exist, or the parent directory of the
+   *     destination file does not exit
+   * @throws IOException if the move fails for any other reason
    */
   @ThreadSafe // but not atomic
   public static MoveResult moveFile(Path from, Path to) throws IOException {
@@ -451,17 +449,7 @@ public class FileSystemUtils {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
-        try {
-          copyFile(from, to);
-        } catch (FileAccessException e) {
-          // Rules can accidentally make output non-readable, let's fix that (b/150963503)
-          if (!from.isReadable()) {
-            from.setReadable(true);
-            copyFile(from, to);
-          } else {
-            throw e;
-          }
-        }
+        copyFile(from, to);
       } else if (stat.isSymbolicLink()) {
         PathFragment fromTarget = from.readSymbolicLink();
         try {

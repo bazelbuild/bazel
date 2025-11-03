@@ -240,6 +240,7 @@ public final class SandboxHelpers {
         OutputStream out = target.getOutputStream()) {
       ByteStreams.copy(in, out);
     } catch (FileAccessException e) {
+      // Actions may create unreadable output files.
       // Make the source file readable and try again (but only once).
       // Don't check the permissions upfront to optimize for the typical case.
       source.chmod(0644);
