@@ -548,6 +548,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   } else {
     result.push_back("--nowindows_enable_symlinks");
   }
+  if (startup_options.remote_repo_contents_cache) {
+    result.push_back("--experimental_remote_repo_contents_cache");
+    // Don't set the flag to false if it's not set - non-OSS Blaze does not know
+    // about this flag.
+  }
   // We use this syntax so that the logic in AreStartupOptionsDifferent() that
   // decides whether the server needs killing is simpler. This is parsed by
   // the Java code where --noclient_debug and --client_debug=false are

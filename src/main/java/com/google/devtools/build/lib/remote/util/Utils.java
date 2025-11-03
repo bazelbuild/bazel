@@ -85,6 +85,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -94,23 +95,22 @@ public final class Utils {
   private Utils() {}
 
   /**
-   * Returns the result of a {@link ListenableFuture} if successful, or throws any checked {@link
-   * Exception} directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
+   * Returns the result of a {@link Future} if successful, or throws any checked {@link Exception}
+   * directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
    *
    * <p>Cancel the future on {@link InterruptedException}
    */
-  public static <T> T getFromFuture(ListenableFuture<T> f)
-      throws IOException, InterruptedException {
+  public static <T> T getFromFuture(Future<T> f) throws IOException, InterruptedException {
     return getFromFuture(f, /* cancelOnInterrupt */ true);
   }
 
   /**
-   * Returns the result of a {@link ListenableFuture} if successful, or throws any checked {@link
-   * Exception} directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
+   * Returns the result of a {@link Future} if successful, or throws any checked {@link Exception}
+   * directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
    *
    * @param cancelOnInterrupt cancel the future on {@link InterruptedException} if {@code true}.
    */
-  public static <T> T getFromFuture(ListenableFuture<T> f, boolean cancelOnInterrupt)
+  public static <T> T getFromFuture(Future<T> f, boolean cancelOnInterrupt)
       throws IOException, InterruptedException {
     try {
       return f.get();
@@ -593,7 +593,7 @@ public final class Utils {
       try {
         if (interruptedException == null) {
           // Wait for all transfers to finish.
-          getFromFuture(transfer, /* cancelOnInterrupt= */ true);
+          var unused = getFromFuture(transfer, /* cancelOnInterrupt= */ true);
         } else {
           transfer.cancel(true);
         }

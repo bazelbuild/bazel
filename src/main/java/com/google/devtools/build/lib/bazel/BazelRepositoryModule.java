@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteHelpersFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -619,10 +620,13 @@ public class BazelRepositoryModule extends BlazeModule {
       RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory =
           env.getRuntime().getRepositoryHelpersFactory();
       RepositoryRemoteExecutor remoteExecutor = null;
+      RemoteRepoContentsCache remoteRepoContentsCache = null;
       if (repositoryRemoteHelpersFactory != null) {
         remoteExecutor = repositoryRemoteHelpersFactory.createExecutor();
+        remoteRepoContentsCache = repositoryRemoteHelpersFactory.createRepoContentsCache();
       }
       repositoryFetchFunction.setRepositoryRemoteExecutor(remoteExecutor);
+      repositoryFetchFunction.setRemoteRepoContentsCache(remoteRepoContentsCache);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
 
       clock = env.getClock();

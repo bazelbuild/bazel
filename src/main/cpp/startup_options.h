@@ -293,6 +293,10 @@ class StartupOptions {
   // developer mode to be enabled.
   bool windows_enable_symlinks;
 
+  // Whether to use a remote cache to store the contents of reproducible
+  // external repositories.
+  bool remote_repo_contents_cache;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name. The product_name must be capitalized,

@@ -573,6 +573,7 @@ message Filesystem {
         [(metadata) = { exit_code: 2 }];
     FILESYSTEM_JNI_NOT_AVAILABLE = 8 [(metadata) = { exit_code: 36 }];
     FAILED_TO_LOCK_INSTALL_BASE = 12 [(metadata) = { exit_code: 36 }];
+    REMOTE_FILE_EVICTED = 13 [(metadata) = { exit_code: 39 }];
 
     reserved 7, 9, 10; // For internal use
   }

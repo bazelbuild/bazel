@@ -36,12 +36,14 @@ import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
  *
- * <p>This is necessary when a locally executed action consumes outputs produced by a remotely
- * executed action and {@code --experimental_remote_download_outputs=minimal} is specified.
+ * <p>This is used to ensure that the inputs to a local action are present, even when they are
+ * provided by a remote action when building without the bytes, or by an external repository when
+ * building with a remote repository cache enabled.
  */
 public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
@@ -57,7 +59,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
+      @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     super(
         reporter,
@@ -83,7 +85,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected ListenableFuture<Void> doDownloadFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       ActionInput input,
       Path tempPath,
@@ -114,10 +116,14 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
             context,
             input.getExecPathString(),
             input.getExecPath(),
-            tempPath,
+            tempPath.forHostFileSystem(),
             digest,
             new CombinedCache.DownloadProgressReporter(
-                progress -> progress.postTo(reporter, action),
+                progress -> {
+                  if (action != null) {
+                    progress.postTo(reporter, action);
+                  }
+                },
                 input.getExecPathString(),
                 digest.getSizeBytes())),
         IOException.class,

@@ -1286,7 +1286,7 @@ public abstract class PackageFunction implements SkyFunction {
 
     // read BUILD file
     Path inputFile = buildFilePath.asPath();
-    byte[] buildFileBytes = null;
+    byte[] buildFileBytes;
     try {
       buildFileBytes =
           buildFileValue.isSpecialFile()
@@ -1299,14 +1299,31 @@ public abstract class PackageFunction implements SkyFunction {
       if (buildFileBytes == null) {
         // Note that we did the work that led to this IOException, so we should
         // conservatively report this error as transient.
-        throw PackageFunctionException.builder()
-            .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
-            .setTransience(Transience.TRANSIENT)
-            .setPackageIdentifier(packageId)
-            .setMessage(e.getMessage())
-            .setException(e)
-            .setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING)
-            .build();
+        var builder =
+            PackageFunctionException.builder()
+                .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+                .setTransience(Transience.TRANSIENT)
+                .setPackageIdentifier(packageId)
+                .setMessage(e.getMessage())
+                .setException(e);
+        if (e instanceof DetailedIOException detailedIoException
+            && detailedIoException.getDetailedExitCode().getFailureDetail().hasFilesystem()
+            && actionOnFilesystemErrorCodeLoadingBzlFile.shouldTakePrecedenceOverPackageLoadingCode(
+                detailedIoException
+                    .getDetailedExitCode()
+                    .getFailureDetail()
+                    .getFilesystem()
+                    .getCode())) {
+          builder.setFilesystemCode(
+              detailedIoException
+                  .getDetailedExitCode()
+                  .getFailureDetail()
+                  .getFilesystem()
+                  .getCode());
+        } else {
+          builder.setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING);
+        }
+        throw builder.build();
       }
       // If control flow reaches here, we're in territory that is deliberately unsound.
       // See the javadoc for ActionOnIOExceptionReadingBuildFile.

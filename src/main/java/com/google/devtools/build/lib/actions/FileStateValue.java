@@ -149,6 +149,9 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       throws InconsistentFilesystemException {
     checkState(stat.isFile(), path);
 
+    if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {
+      return new RegularFileStateValueWithMetadata(fileStatusWithMetadata.getMetadata());
+    }
     try {
       byte[] digest = tryGetDigest(path, stat, xattrProvider);
       if (digest == null) {
@@ -376,6 +379,77 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
     public String prettyPrint() {
       return String.format(
           "regular file with size of %d and %s", size, contentsProxy.prettyPrint());
+    }
+  }
+
+  /**
+   * Implementation of {@link FileStateValue} for regular files when its metadata is backed by a
+   * {@link FileArtifactValue}.
+   */
+  public static final class RegularFileStateValueWithMetadata extends FileStateValue {
+    private final FileArtifactValue metadata;
+
+    @VisibleForTesting
+    public RegularFileStateValueWithMetadata(FileArtifactValue metadata) {
+      this.metadata = checkNotNull(metadata);
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public long getSize() {
+      return metadata.getSize();
+    }
+
+    @Override
+    @Nullable
+    public byte[] getDigest() {
+      return metadata.getDigest();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      return metadata.getContentsProxy();
+    }
+
+    public FileArtifactValue getMetadata() {
+      return metadata;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
+      }
+      if (!(obj instanceof RegularFileStateValueWithMetadata other)) {
+        return false;
+      }
+      return other.metadata.equals(this.metadata);
+    }
+
+    @Override
+    public int hashCode() {
+      return metadata.hashCode();
+    }
+
+    @Override
+    public byte[] getValueFingerprint() {
+      Fingerprint fp = new Fingerprint().addLong(getSize());
+      fp.addBytes(getDigest());
+      return fp.digestAndReset();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("metadata", metadata).toString();
+    }
+
+    @Override
+    public String prettyPrint() {
+      return String.format("regular file with size of %d and %s", getSize(), metadata);
     }
   }
 
