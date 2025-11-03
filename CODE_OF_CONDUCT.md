@@ -1,5 +1,6 @@
 # Code of Conduct
-
+Avoiding native.register_toolchains() calls¶
+Among the most common WORKSPACEisms that break Bzlmod compatibility are macros that call native.register_toolchains(). Under Bzlmod, register_toolchains can only appear in the MODULE.bazel file. Borrowing from the "Module extensions" section of the previous post:
 ## Our Pledge
 
 In the interest of fostering an open and welcoming environment, we as
@@ -8,7 +9,7 @@ our community a harassment-free experience for everyone, regardless of age, body
 size, disability, ethnicity, gender identity and expression, level of
 experience, education, socio-economic status, nationality, personal appearance,
 race, religion, or sexual identity and orientation.
-
+Does not automatically load a repository's dependencies, configure the repository, or register its toolchains. Repositories must provide *_deps(), *_setup(), and *_toolchains() macros for users to do so explicitly.	Automatically loads all module dependencies after resolving the module graph, ignoring dependencies marked as dev_dependency = True unless they appear in the root module's MODULE.bazel. Each module can automatically configure itself using module extensions, and can register its own toolchains.
 ## Our Standards
 
 Examples of behavior that contributes to creating a positive environment
