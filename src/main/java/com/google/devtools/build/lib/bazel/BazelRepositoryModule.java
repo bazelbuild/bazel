@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteHelpersFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -151,6 +152,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final StarlarkRepositoryFunction starlarkRepositoryFunction;
+  private RepositoryDelegatorFunction repositoryDelegatorFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final MutableSupplier<Map<String, String>> repoEnvironmentSupplier =
       new MutableSupplier<>();
@@ -249,7 +251,7 @@ public class BazelRepositoryModule extends BlazeModule {
     }
 
     // Create the repository function everything flows through.
-    RepositoryDelegatorFunction repositoryDelegatorFunction =
+    repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
             starlarkRepositoryFunction,
@@ -658,10 +660,13 @@ public class BazelRepositoryModule extends BlazeModule {
       RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory =
           env.getRuntime().getRepositoryHelpersFactory();
       RepositoryRemoteExecutor remoteExecutor = null;
+      RemoteRepoContentsCache remoteRepoContentsCache = null;
       if (repositoryRemoteHelpersFactory != null) {
         remoteExecutor = repositoryRemoteHelpersFactory.createExecutor();
+        remoteRepoContentsCache = repositoryRemoteHelpersFactory.createRepoContentsCache();
       }
       starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
+      repositoryDelegatorFunction.setRemoteRepoContentsCache(remoteRepoContentsCache);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
 
       clock = env.getClock();
