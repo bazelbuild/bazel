@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.remote;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -39,8 +41,9 @@ import javax.annotation.Nullable;
 /**
  * Stages output files that are stored remotely to the local filesystem.
  *
- * <p>This is necessary when a locally executed action consumes outputs produced by a remotely
- * executed action and {@code --experimental_remote_download_outputs=minimal} is specified.
+ * <p>This is used to ensure that the inputs to a local action are present, even when they are
+ * provided by a remote action when building without the bytes, or by an external repository when
+ * building with a remote repository cache enabled.
  */
 public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
@@ -54,14 +57,16 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       String buildRequestId,
       String commandId,
       CombinedCache combinedCache,
-      Path execRoot,
+      Supplier<Path> execRootSupplier,
+      Path outputBase,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
+      @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     super(
         reporter,
-        execRoot,
+        execRootSupplier,
+        outputBase,
         tempPathGenerator,
         remoteOutputChecker,
         outputDirectoryHelper,
@@ -78,7 +83,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {
-    input.atomicallyWriteRelativeTo(execRoot);
+    input.atomicallyWriteRelativeTo(execRoot());
   }
 
   @Override
@@ -92,14 +97,23 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected boolean forceRefetch(Path path) {
+    // External repo paths are never rewound action outputs. Check this first (comparing fragments,
+    // since the path may be on the host file system while the output base is on an overlay) to avoid
+    // resolving the exec root during external repo materialization, before it is known.
+    if (path.asFragment()
+        .startsWith(
+            outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())) {
+      return false;
+    }
     // Caches for download operations and output directory creation need to be disregarded for the
     // outputs of rewound actions as they may have been deleted after they were first created.
+    Path execRoot = execRoot();
     return path.startsWith(execRoot) && rewoundActionOutputs.contains(path.relativeTo(execRoot));
   }
 
   @Override
   protected ListenableFuture<Void> doDownloadFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
       PathFragment execPath,
@@ -127,7 +141,11 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
         tempPath,
         digest,
         new CombinedCache.DownloadProgressReporter(
-            progress -> progress.postTo(reporter, action),
+            progress -> {
+              if (action != null) {
+                progress.postTo(reporter, action);
+              }
+            },
             execPath.toString(),
             digest.getSizeBytes()));
   }
@@ -138,7 +156,9 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     // true. While it is true that resetting outputDirectoryHelper isn't necessary to undo the
     // caching of output directory creation during action preparation, we still need to reset here
     // since outputDirectoryHelper is also used by AbstractActionInputPrefetcher.
-    outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
+    if (outputDirectoryHelper != null) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
+    }
     for (Artifact output : outputs) {
       // Action templates have TreeFileArtifacts as outputs, which isn't supported by the trie. We
       // only need to track the tree artifacts themselves.

@@ -282,6 +282,16 @@ java_library(
 )
 
 java_library(
+    name = "runtime/remote_repo_contents_cache",
+    srcs = ["runtime/RemoteRepoContentsCache.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -301,6 +311,7 @@ java_library(
             "runtime/MemoryPressureEvent.java",
             "runtime/MemoryPressureOptions.java",
             "runtime/MemoryPressureStatCollector.java",
+            "runtime/RemoteRepoContentsCache.java",
             "runtime/StarlarkOptionsParser.java",
             "runtime/TestSummaryOptions.java",
         ],
@@ -314,6 +325,7 @@ java_library(
         ":runtime/command_dispatcher",
         ":runtime/command_line_path_factory",
         ":runtime/memory_pressure",
+        ":runtime/remote_repo_contents_cache",
         ":runtime/test_summary_options",
         ":starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",

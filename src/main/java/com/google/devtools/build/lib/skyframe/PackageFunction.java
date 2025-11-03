@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue.InvalidIgnorePathException;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction.RepoPackag
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1217,7 +1219,7 @@ public abstract class PackageFunction implements SkyFunction {
 
     // read BUILD file
     Path inputFile = buildFilePath.asPath();
-    byte[] buildFileBytes = null;
+    byte[] buildFileBytes;
     try {
       buildFileBytes =
           buildFileValue.isSpecialFile()
@@ -1230,14 +1232,24 @@ public abstract class PackageFunction implements SkyFunction {
       if (buildFileBytes == null) {
         // Note that we did the work that led to this IOException, so we should
         // conservatively report this error as transient.
-        throw PackageFunctionException.builder()
-            .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
-            .setTransience(Transience.TRANSIENT)
-            .setPackageIdentifier(packageId)
-            .setMessage(e.getMessage())
-            .setException(e)
-            .setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING)
-            .build();
+        var builder =
+            PackageFunctionException.builder()
+                .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+                .setTransience(Transience.TRANSIENT)
+                .setPackageIdentifier(packageId)
+                .setMessage(e.getMessage())
+                .setException(e);
+        // A DetailedIOException is only thrown for remote cache evictions of repo contents, whose
+        // filesystem failure detail (and the associated exit code) must take precedence over the
+        // generic package loading code so that the build can be retried.
+        if (e instanceof DetailedIOException detailedIoException
+            && detailedIoException.getDetailedExitCode().getFailureDetail().hasFilesystem()) {
+          builder.setFilesystemCode(
+              detailedIoException.getDetailedExitCode().getFailureDetail().getFilesystem().getCode());
+        } else {
+          builder.setPackageLoadingCode(PackageLoading.Code.BUILD_FILE_MISSING);
+        }
+        throw builder.build();
       }
       // If control flow reaches here, we're in territory that is deliberately unsound.
       // See the javadoc for ActionOnIOExceptionReadingBuildFile.
@@ -1584,6 +1596,7 @@ public abstract class PackageFunction implements SkyFunction {
       private Exception exception;
       private String message;
       private PackageLoading.Code packageLoadingCode;
+      private Filesystem.Code filesystemCode;
 
       @CanIgnoreReturnValue
       Builder setType(Type exceptionType) {
@@ -1621,6 +1634,12 @@ public abstract class PackageFunction implements SkyFunction {
         return this;
       }
 
+      @CanIgnoreReturnValue
+      Builder setFilesystemCode(Filesystem.Code filesystemCode) {
+        this.filesystemCode = filesystemCode;
+        return this;
+      }
+
       @Override
       public int hashCode() {
         return Objects.hash(
@@ -1645,8 +1664,16 @@ public abstract class PackageFunction implements SkyFunction {
 
       NoSuchPackageException buildCause() {
         checkNotNull(exceptionType, "The NoSuchPackageException type must be set.");
-        checkNotNull(packageLoadingCode, "The PackageLoading code must be set.");
-        DetailedExitCode detailedExitCode = createDetailedExitCode(message, packageLoadingCode);
+        DetailedExitCode detailedExitCode;
+        if (filesystemCode != null) {
+          detailedExitCode = createDetailedExitCodeWithFilesystemCode(message, filesystemCode);
+        } else {
+          checkNotNull(
+              packageLoadingCode,
+              "Either the Filesystem code or the PackageLoading code must be set.");
+          detailedExitCode =
+              createDetailedExitCodeWithPackageLoadingCode(message, packageLoadingCode);
+        }
         return exceptionType.create(packageIdentifier, message, detailedExitCode, exception);
       }
 
@@ -1655,12 +1682,21 @@ public abstract class PackageFunction implements SkyFunction {
             buildCause(), checkNotNull(transience, "Transience must be set"));
       }
 
-      private static DetailedExitCode createDetailedExitCode(
+      private static DetailedExitCode createDetailedExitCodeWithPackageLoadingCode(
           String message, PackageLoading.Code packageLoadingCode) {
         return DetailedExitCode.of(
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setPackageLoading(PackageLoading.newBuilder().setCode(packageLoadingCode).build())
+                .build());
+      }
+
+      private static DetailedExitCode createDetailedExitCodeWithFilesystemCode(
+          String message, Filesystem.Code filesystemCode) {
+        return DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setFilesystem(Filesystem.newBuilder().setCode(filesystemCode))
                 .build());
       }
     }
