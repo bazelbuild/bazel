@@ -193,6 +193,17 @@ EOF
 ./__init__.py file
 ./test_foo_runfiles regular dir
 ./test_foo_runfiles/__init__.py file
+./test_foo_runfiles/_py.venv regular dir
+./test_foo_runfiles/_py.venv/__init__.py file
+./test_foo_runfiles/_py.venv/lib regular dir
+./test_foo_runfiles/_py.venv/lib/__init__.py file
+./test_foo_runfiles/_py.venv/lib/python3.11 regular dir
+./test_foo_runfiles/_py.venv/lib/python3.11/__init__.py file
+./test_foo_runfiles/_py.venv/lib/python3.11/site-packages regular dir
+./test_foo_runfiles/_py.venv/lib/python3.11/site-packages/__init__.py file
+./test_foo_runfiles/_py.venv/lib/python3.11/site-packages/_bazel_site_init.py file
+./test_foo_runfiles/_py.venv/lib/python3.11/site-packages/bazel.pth file
+./test_foo_runfiles/_py_stage2_bootstrap.py file
 ./test_foo_runfiles/a regular dir
 ./test_foo_runfiles/a/__init__.py file
 ./test_foo_runfiles/a/b regular dir
