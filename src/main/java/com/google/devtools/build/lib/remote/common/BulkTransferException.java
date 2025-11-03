@@ -96,6 +96,11 @@ public class BulkTransferException extends IOException {
         // This can happen if the lost artifact is not an input of the action, but a special output
         // such as stdout/stderr. This can't be solved by the rewinding that LostArtifacts would
         // trigger, but is rather a failure of the current action execution.
+        if (e.getFilename() == null) {
+          throw new IllegalArgumentException(
+              "CacheNotFoundException that may represent a lost artifact should have been annotated with a filename",
+              e);
+        }
         return LostArtifacts.EMPTY;
       }
       var actionInput = actionInputResolver.apply(execPath);
