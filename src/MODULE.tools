@@ -35,7 +35,7 @@ use_repo(buildozer_binary, "buildozer_binary")
 bazel_dep(name = "protobuf", version = "33.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_java", version = "8.16.1")
 bazel_dep(name = "rules_cc", version = "0.2.13")
-bazel_dep(name = "rules_python", version = "1.6.0")
+bazel_dep(name = "rules_python", version = "1.7.0-rc4")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "apple_support", version = "1.24.2") # xcode_configure needs it
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None) # version bump, older versions contribute lockfile entries

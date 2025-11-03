@@ -14,7 +14,7 @@ module(
 # =========================================
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
-bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
@@ -29,7 +29,7 @@ bazel_dep(name = "rules_java", version = "8.16.1")
 bazel_dep(name = "rules_jvm_external", version = "6.6")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
-bazel_dep(name = "rules_python", version = "1.6.0")
+bazel_dep(name = "rules_python", version = "1.7.0-rc4")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
