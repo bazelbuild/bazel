@@ -132,6 +132,9 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "load('@rules_python//tools/build_defs/python/private:py_internal_renamed.bzl',"
             + " 'py_internal_renamed')",
         "py_internal_impl = py_internal_renamed");
+    config.create(
+        "rules_python_internal_workspace/extra_transition_settings.bzl",
+        "EXTRA_TRANSITION_SETTINGS = []");
   }
 
   @Override
