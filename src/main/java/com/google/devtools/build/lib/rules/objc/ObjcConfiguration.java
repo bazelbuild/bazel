@@ -55,6 +55,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
   private final String iosSimulatorDevice;
   private final boolean runMemleaks;
   private final CompilationMode compilationMode;
+  private final ImmutableList<String> fastbuildOptions;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
@@ -72,6 +73,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
     this.runMemleaks = objcOptions.runMemleaks;
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
+    this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
@@ -126,7 +128,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
         }
         return opts.build();
       case FASTBUILD:
-        return ImmutableList.of();
+        return fastbuildOptions;
       case OPT:
         return this.avoidHardcodedCompilationFlags ? ImmutableList.of() : OPT_COPTS;
       default:

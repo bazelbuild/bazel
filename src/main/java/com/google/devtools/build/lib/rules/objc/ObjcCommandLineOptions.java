@@ -17,10 +17,12 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import java.util.List;
 
 /** Command-line options for building Objective-C targets. */
 public class ObjcCommandLineOptions extends FragmentOptions {
@@ -54,6 +56,16 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     help = "Enable checking for memory leaks in ios_test targets."
   )
   public boolean runMemleaks;
+
+  @Option(
+    name = "experimental_objc_fastbuild_options",
+    defaultValue = "-O0,-DDEBUG=1",
+    converter = CommaSeparatedOptionListConverter.class,
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+    help = "Uses these strings as objc fastbuild compiler options."
+  )
+  public List<String> fastbuildOptions;
 
   @Option(
     name = "ios_signing_cert_name",
