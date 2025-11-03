@@ -7,7 +7,7 @@ by the automatic garbage collection built into Bazel.
 Usage (at least one of `--max_age` and `--max_size` must be specified):
 
 ```shell
-$ bazel run //src/tools/diskcache:gc \
+$ bazel run //src/tools/diskcache:gc -- \
     --disk_cache=/path/to/disk/cache \
     --max_age=7d --max_size=2G
 ```
