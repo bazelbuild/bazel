@@ -55,6 +55,10 @@ CcCompilationContextInfo = provider(
         "_transitive_pic_modules": "Internal",
         "_module_map": "Internal",
         "_virtual_to_original_headers": "Internal",
+        "_modules_info_files": "Internal",
+        "_pic_modules_info_files": "Internal",
+        "_module_files": "Internal",
+        "_pic_module_files": "Internal",
         # duplicated HeaderInfo fields
         "direct_headers": "Returns the list of modular headers that are declared by this target. " +
                           "This includes both public headers (such as those listed in \"hdrs\") " +
@@ -124,6 +128,10 @@ EMPTY_COMPILATION_CONTEXT = CcCompilationContextInfo(
     _transitive_pic_modules = depset(),
     _direct_module_maps = depset(),
     _header_info = _cc_internal.create_header_info(),
+    _module_files = depset(),
+    _pic_module_files = depset(),
+    _modules_info_files = depset(),
+    _pic_modules_info_files = depset(),
 )
 
 _EMPTY_LINKING_CONTEXT = CcLinkingContextInfo(
@@ -367,6 +375,10 @@ def create_compilation_context(
         _transitive_pic_modules = depset(),
         _direct_module_maps = depset(),
         _header_info = header_info,
+        _module_files = depset(),
+        _pic_module_files = depset(),
+        _modules_info_files = depset(),
+        _pic_modules_info_files = depset(),
     )
 
     return _merge_compilation_contexts(
@@ -486,6 +498,18 @@ def _merge_compilation_contexts(*, compilation_context = EMPTY_COMPILATION_CONTE
             transitive_pic_modules_artifacts,
             transitive = [dep._transitive_pic_modules for dep in all_deps],
         ),
+        _modules_info_files = depset(
+            transitive = [compilation_context._modules_info_files] + [dep._modules_info_files for dep in all_deps],
+        ),
+        _pic_modules_info_files = depset(
+            transitive = [compilation_context._pic_modules_info_files] + [dep._pic_modules_info_files for dep in all_deps],
+        ),
+        _module_files = depset(
+            transitive = [compilation_context._module_files] + [dep._module_files for dep in all_deps],
+        ),
+        _pic_module_files = depset(
+            transitive = [compilation_context._pic_module_files] + [dep._pic_module_files for dep in all_deps],
+        ),
     )
 
 def merge_compilation_contexts(*, compilation_contexts = []):
@@ -537,6 +561,10 @@ def create_compilation_context_with_extra_header_tokens(
         _transitive_pic_modules = cc_compilation_context._transitive_pic_modules,
         _direct_module_maps = cc_compilation_context._direct_module_maps,
         _header_info = cc_compilation_context._header_info,
+        _modules_info_files = cc_compilation_context._modules_info_files,
+        _pic_modules_info_files = cc_compilation_context._pic_modules_info_files,
+        _module_files = cc_compilation_context._module_files,
+        _pic_module_files = cc_compilation_context._pic_module_files,
     )
 
 def create_cc_compilation_context_with_cpp20_modules(
@@ -584,8 +612,8 @@ def create_cc_compilation_context_with_cpp20_modules(
         _header_info = cc_compilation_context._header_info,
         _module_files = depset(cpp_module_files, transitive = [cc_compilation_context._module_files]),
         _pic_module_files = depset(pic_cpp_module_files, transitive = [cc_compilation_context._pic_module_files]),
-        _module_info_files = depset(cpp_modules_info_file, transitive = [cc_compilation_context._module_info_files]),
-        _pic_module_info_files = depset(pic_cpp_modules_info_file, transitive = [cc_compilation_context._pic_module_info_files]),
+        _modules_info_files = depset([cpp_modules_info_file], transitive = [cc_compilation_context._modules_info_files]),
+        _pic_modules_info_files = depset([pic_cpp_modules_info_file], transitive = [cc_compilation_context._pic_modules_info_files]),
     )
 
 def merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
