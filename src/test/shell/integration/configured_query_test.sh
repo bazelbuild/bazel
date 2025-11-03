@@ -317,11 +317,11 @@ EOF
   assert_not_contains "//$pkg:cclib .*PythonConfiguration" output
 
   assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
-  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+  assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 
   assert_not_contains "//$pkg:pylib .*CppConfiguration" output
 
-  assert_contains "//$pkg:pylib .*PythonConfiguration" output
+  assert_not_contains "//$pkg:pylib .*PythonConfiguration" output
 
   assert_contains "//$pkg:mylib.cc (null) \[\]" output
 }
@@ -393,7 +393,7 @@ EOF
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
-  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+  assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 }
 
 function test_direct_alias_requirements() {
@@ -460,7 +460,7 @@ EOF
   bazel cquery "//$pkg:cclib_with_py_dep" --show_config_fragments=transitive > \
     output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+  assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 }
 
 function test_show_transitive_config_fragments_through_output_file() {
@@ -494,7 +494,7 @@ EOF
   bazel cquery "//$pkg:cclib_with_py_dep" --show_config_fragments=transitive > \
     output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
+  assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 }
 
 function test_show_direct_config_fragments() {
