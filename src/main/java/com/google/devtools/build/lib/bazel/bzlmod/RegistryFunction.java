@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -41,7 +42,7 @@ public class RegistryFunction implements SkyFunction {
   public static final Precomputed<Instant> LAST_INVALIDATION =
       new Precomputed<>("last_registry_invalidation");
 
-  public static final Precomputed<ImmutableSet<String>> MODULE_MIRRORS =
+  public static final Precomputed<ImmutableMap<String, ImmutableSet<String>>> MODULE_MIRRORS =
       new Precomputed<>("module_mirrors");
 
   /**
@@ -81,7 +82,7 @@ public class RegistryFunction implements SkyFunction {
           lockfile.getRegistryFileHashes(),
           lockfile.getSelectedYankedVersions(),
           vendorDir,
-          MODULE_MIRRORS.get(env));
+          MODULE_MIRRORS.get(env).getOrDefault(key.url(), ImmutableSet.of()));
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(
