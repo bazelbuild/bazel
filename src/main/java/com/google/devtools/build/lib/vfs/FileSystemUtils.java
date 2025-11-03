@@ -368,16 +368,29 @@ public class FileSystemUtils {
   }
 
   /**
-   * Copies the file from location "from" to location "to", while overwriting a
-   * potentially existing "to". File's last modified time, executable and
-   * writable bits are also preserved.
+   * Copies a file, potentially overwriting the destination. Preserves the modification time and
+   * permissions.
    *
-   * <p>If no error occurs, the method returns normally. If a parent directory does
-   * not exist, a FileNotFoundException is thrown. An IOException is thrown when
-   * other erroneous situations occur. (e.g. read errors)
+   * <p>If the source is a symbolic link, it will be followed. If the destination is a symbolic
+   * link, it will be replaced.
+   *
+   * <p>Copying directories is not supported.
+   *
+   * @param from the source path
+   * @param to the destination path
+   * @throws FileNotFoundException if the source does not exist, or the parent directory of the
+   *     destination does not exist
+   * @throws IOException if the copy fails for any other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void copyFile(Path from, Path to) throws IOException {
+    copyFile(from, to, from.stat());
+  }
+
+  private static void copyFile(Path from, Path to, FileStatus stat) throws IOException {
+    if (!stat.isFile()) {
+      throw new IOException("don't know how to copy " + from);
+    }
     var fromNio = from.getFileSystem().getNioPath(from.asFragment());
     var toNio = to.getFileSystem().getNioPath(to.asFragment());
     if (fromNio != null && toNio != null) {
@@ -391,25 +404,23 @@ public class FileSystemUtils {
       }
       return;
     }
-    try {
-      // Target may be a symlink, in which case opening a stream below would not actually replace
-      // it.
-      to.delete();
-    } catch (IOException e) {
-      throw new IOException("error copying file: "
-          + "couldn't delete destination: " + e.getMessage());
-    }
+    // Target may be a symlink, in which case we should not follow it.
+    to.delete();
     try (InputStream in = from.getInputStream();
         OutputStream out = to.getOutputStream()) {
       // This may use a faster copy method (such as via an in-kernel buffer) if both streams are
       // backed by files.
       in.transferTo(out);
     }
-    to.setLastModifiedTime(from.getLastModifiedTime()); // Preserve mtime.
-    if (!from.isWritable()) {
-      to.setWritable(false); // Make file read-only if original was read-only.
+    to.setLastModifiedTime(stat.getLastModifiedTime());
+    int perms = stat.getPermissions();
+    if (perms != -1) {
+      to.chmod(perms);
+    } else {
+      to.setReadable(from.isReadable());
+      to.setWritable(from.isWritable());
+      to.setExecutable(from.isExecutable());
     }
-    to.setExecutable(from.isExecutable()); // Copy executable bit.
   }
 
   /** Describes the behavior of a {@link #moveFile(Path, Path)} operation. */
@@ -422,52 +433,57 @@ public class FileSystemUtils {
   }
 
   /**
-   * Moves the file from location "from" to location "to", while overwriting a potentially existing
-   * "to". If "from" is a regular file, its last modified time, executable and writable bits are
-   * also preserved. Symlinks are also supported but not directories or special files.
+   * Moves a file or symbolic link, potentially overwriting the destination. Does not follow
+   * symbolic links.
    *
    * <p>This method is not guaranteed to be atomic. Use {@link Path#renameTo(Path)} instead.
    *
-   * <p>If the move fails (usually because the "from" and "to" live in different file systems), this
-   * falls back to copying the file. Note that these two operations have very different performance
-   * characteristics and is why this operation reports back to the caller what actually happened.
+   * <p>If the move fails (usually because the source and destination are in different filesystems),
+   * falls back to copying the file, preserving its permissions and modification time. Note that the
+   * fallback has very different performance characteristics, which is why this method reports what
+   * actually happened back to the caller.
    *
-   * @param from location of the file to move
-   * @param to destination to where to move the file
+   * @param from the source path
+   * @param to the destination path
    * @return a description of how the move was performed
-   * @throws FileNotFoundException if the source file does not exist, or the parent directory of the
-   *     destination file does not exit
+   * @throws FileNotFoundException if the source does not exist, or the parent directory of the
+   *     destination does not exit
    * @throws IOException if the move fails for any other reason
    */
   @ThreadSafe // but not atomic
   public static MoveResult moveFile(Path from, Path to) throws IOException {
-    // We don't try-catch here for better performance.
     try {
       from.renameTo(to);
       return MoveResult.FILE_MOVED;
-    } catch (IOException unused) {
+    } catch (IOException ignored) {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
-        copyFile(from, to);
+        copyFile(from, to, stat);
       } else if (stat.isSymbolicLink()) {
-        PathFragment fromTarget = from.readSymbolicLink();
+        PathFragment targetPath = from.readSymbolicLink();
         try {
-          to.createSymbolicLink(fromTarget);
-        } catch (IOException unused2) {
+          to.createSymbolicLink(targetPath);
+        } catch (IOException ignored2) {
           // May have failed due the target file existing, but not being a symlink.
           // TODO: Only catch FileAlreadyExistsException once we throw that.
           to.delete();
-          to.createSymbolicLink(fromTarget);
+          to.createSymbolicLink(targetPath);
         }
       } else {
-        throw new IOException("Don't know how to copy " + from);
+        // TODO(tjgq): The move/copy cases should have a consistent result for a directory.
+        throw new IOException("Don't know how to move " + from);
       }
-      if (!from.delete()) {
-        if (!to.delete()) {
-          throw new IOException("Unable to delete " + to);
+      try {
+        from.delete();
+      } catch (IOException e) {
+        // If we fail to delete the source, then delete the destination.
+        try {
+          to.delete();
+        } catch (IOException e2) {
+          e.addSuppressed(e2);
         }
-        throw new IOException("Unable to delete " + from);
+        throw e;
       }
       return MoveResult.FILE_COPIED;
     }
