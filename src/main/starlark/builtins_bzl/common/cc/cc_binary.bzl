@@ -697,7 +697,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     explicit_dwp_file = dwp_file
     if not cc_helper.should_create_per_object_debug_info(feature_configuration, cpp_config):
         explicit_dwp_file = None
-    elif ctx.attr._is_test and linking_mode != linker_mode.LINKING_DYNAMIC and cpp_config.build_test_dwp():
+    elif cc_helper.should_create_test_dwp_for_statically_linked_test(ctx.attr._is_test, linking_mode, cpp_config):
         files_to_build_list.append(dwp_file)
 
     # If the binary is linked dynamically and COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, collect

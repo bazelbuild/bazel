@@ -1117,6 +1117,9 @@ def _has_target_constraints(ctx, constraints):
             return True
     return False
 
+def _should_create_test_dwp_for_statically_linked_test(is_test, linking_mode, cpp_config):
+    return is_test and linking_mode != linker_mode.LINKING_DYNAMIC and cpp_config.build_test_dwp()
+
 # LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:forked_exports)
 
 def _is_stamping_enabled_for_aspect(ctx):
@@ -1204,4 +1207,5 @@ cc_helper = struct(
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
     check_cpp_modules = _check_cpp_modules,
+    should_create_test_dwp_for_statically_linked_test = _should_create_test_dwp_for_statically_linked_test,
 )
