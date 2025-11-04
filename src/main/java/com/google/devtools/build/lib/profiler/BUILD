@@ -37,6 +37,7 @@ java_library(
 java_library(
     name = "profiler",
     srcs = [
+        "AsyncProfiler.java",
         "AutoProfiler.java",
         "CounterSeriesCollector.java",
         "CounterSeriesTask.java",

@@ -1125,22 +1125,23 @@ public final class Profiler {
   }
 
   /**
-   * A profiler that can be used to profile async operations.
+   * Implementation of {@link AsyncProfiler}.
    *
-   * <p>This profiler is thread-compatible but not thread-safe. You should create one profiler per
+   * <p>This class is thread-compatible but not thread-safe. You should create one profiler per
    * task.
    */
-  public class AsyncProfiler implements SilentCloseable {
+  public class AsyncProfilerImpl implements AsyncProfiler {
     @Nullable private final Lane lane;
     private final long startTimeNanos;
     private final String description;
 
-    private AsyncProfiler(String prefix, String description) {
+    private AsyncProfilerImpl(String prefix, String description) {
       this.lane = multiLaneGenerator.acquire(prefix);
       this.startTimeNanos = clock.nanoTime();
       this.description = description;
     }
 
+    @Override
     public SilentCloseable profile(ProfilerTask type, String description) {
       if (!(lane != null && isProfiling(type))) {
         return NOP;
@@ -1149,14 +1150,17 @@ public final class Profiler {
       return () -> completeTask(lane.id, startTimeNanos, type, description);
     }
 
+    @Override
     public SilentCloseable profile(String description) {
       return profile(ProfilerTask.INFO, description);
     }
 
+    @Override
     public <T> ListenableFuture<T> profileFuture(ListenableFuture<T> future, String description) {
       return profileFuture(future, ProfilerTask.INFO, description);
     }
 
+    @Override
     @CanIgnoreReturnValue
     public <T> ListenableFuture<T> profileFuture(
         ListenableFuture<T> future, ProfilerTask type, String description) {
@@ -1165,10 +1169,12 @@ public final class Profiler {
       return future;
     }
 
+    @Override
     public Runnable profileCallback(Runnable runnable, String description) {
       return profileCallback(runnable, ProfilerTask.INFO, description);
     }
 
+    @Override
     public Runnable profileCallback(Runnable runnable, ProfilerTask type, String description) {
       var s = profile(type, description);
       return () -> {
@@ -1177,10 +1183,12 @@ public final class Profiler {
       };
     }
 
+    @Override
     public <T> Consumer<T> profileCallback(Consumer<T> consumer, String description) {
       return profileCallback(consumer, ProfilerTask.INFO, description);
     }
 
+    @Override
     public <T> Consumer<T> profileCallback(
         Consumer<T> consumer, ProfilerTask type, String description) {
       var s = profile(type, description);
@@ -1204,6 +1212,6 @@ public final class Profiler {
    * @param description the description of task.
    */
   public AsyncProfiler profileAsync(String prefix, String description) {
-    return new AsyncProfiler(prefix, description);
+    return new AsyncProfilerImpl(prefix, description);
   }
 }
