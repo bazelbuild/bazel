@@ -408,15 +408,12 @@ public final class Profiler {
   /**
    * Returns the nanoTime of the current profiler instance, or an arbitrary constant if not active.
    */
-  public static long nanoTimeMaybe() {
-    if (instance.isActive()) {
-      return instance.clock.nanoTime();
-    }
-    return -1;
+  public long nanoTimeMaybe() {
+    return isActive() ? clock.nanoTime() : -1;
   }
 
   // Returns the elapsed wall clock time since the profile has been started.
-  public static Duration getProfileElapsedTime() {
+  public Duration getProfileElapsedTime() {
     Duration endTime =
         instance.isActive() ? Duration.ofNanos(instance.clock.nanoTime()) : instance.profileEndTime;
 
@@ -430,7 +427,7 @@ public final class Profiler {
   }
 
   // Returns the CPU time since the profile has been started.
-  public static Duration getServerProcessCpuTime() {
+  public Duration getServerProcessCpuTime() {
     Duration cpuEndTime = instance.isActive() ? getProcessCpuTime() : instance.profileCpuEndTime;
     return cpuEndTime.minus(instance.profileCpuStartTime);
   }

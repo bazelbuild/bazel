@@ -82,7 +82,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     File file = getIoFile(path);
     String[] entries;
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       entries = file.list();
       if (entries == null) {
@@ -100,7 +100,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
   @Override
   public boolean exists(PathFragment path, boolean followSymlinks) {
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       java.nio.file.Path nioPath = getNioPath(path);
       return Files.exists(nioPath, linkOpts(followSymlinks));
@@ -114,7 +114,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   @Override
   public boolean isReadable(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       if (!file.exists()) {
         throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
@@ -128,7 +128,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   @Override
   public boolean isWritable(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       if (!file.exists()) {
         if (linkExists(file)) {
@@ -146,7 +146,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   @Override
   public boolean isExecutable(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       if (!file.exists()) {
         throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
@@ -288,7 +288,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   @Override
   public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       String link = Files.readSymbolicLink(nioPath).toString();
       return PathFragment.create(StringEncoding.platformToInternal(link));
@@ -313,7 +313,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
   @Override
   public long getFileSize(PathFragment path, boolean followSymlinks) throws IOException {
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return stat(path, followSymlinks).getSize();
     } finally {
@@ -324,7 +324,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   @Override
   public boolean delete(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return Files.deleteIfExists(nioPath);
     } catch (java.nio.file.DirectoryNotEmptyException e) {
@@ -365,7 +365,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   @Override
   public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
     File file = getIoFile(path);
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return stat(path, followSymlinks).getLastModifiedTime();
     } finally {
@@ -395,7 +395,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   @Override
   public byte[] getDigest(PathFragment path) throws IOException {
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return super.getDigest(path);
     } finally {

@@ -53,7 +53,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       NativePosixFiles.Dirent[] dirents = NativePosixFiles.readdir(name);
       ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(dirents.length);
@@ -87,7 +87,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       NativePosixFiles.Dirent[] dirents = NativePosixFiles.readdir(name);
       ImmutableList.Builder<Dirent> builder = ImmutableList.builderWithExpectedSize(dirents.length);
@@ -117,7 +117,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -136,7 +136,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Nullable
   public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -163,7 +163,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Nullable
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -312,7 +312,7 @@ public class UnixFileSystem extends AbstractFileSystem {
     // Note that the default implementation of readSymbolicLinkUnchecked calls this method and thus
     // is optimal since we only make one system call in here.
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return PathFragment.create(NativePosixFiles.readlink(name));
@@ -342,7 +342,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   public boolean delete(PathFragment path) throws IOException {
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return NativePosixFiles.remove(name);
@@ -372,7 +372,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
       throws IOException {
     String pathName = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return followSymlinks
@@ -399,7 +399,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   public byte[] getDigest(PathFragment path) throws IOException {
     String name = path.toString();
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return super.getDigest(path);
     } finally {
@@ -421,7 +421,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   public void deleteTreesBelow(PathFragment dir) throws IOException {
     if (isDirectory(dir, /* followSymlinks= */ false)) {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       var comp = Blocker.begin();
       try {
         NativePosixFiles.deleteTreesBelow(dir.toString());
@@ -460,7 +460,7 @@ public class UnixFileSystem extends AbstractFileSystem {
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       var comp = Blocker.begin();
       try {
         return new ProfiledFileOutputStream(name, /* append= */ append);
@@ -488,7 +488,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
     @Override
     public void write(int b) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         super.write(b);
       } finally {
@@ -498,7 +498,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
     @Override
     public void write(byte[] b) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         super.write(b);
       } finally {
@@ -508,7 +508,7 @@ public class UnixFileSystem extends AbstractFileSystem {
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         super.write(b, off, len);
       } finally {

@@ -444,7 +444,7 @@ public final class ProfilerTest {
   public void testSlowestTasks() throws Exception {
     startUnbuffered(getAllProfilerTasks());
     profiler.logSimpleTaskDuration(
-        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.LOCAL_PARSE, "foo");
+        profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.LOCAL_PARSE, "foo");
     Iterable<SlowTask> slowestTasks = profiler.getSlowestTasks();
     assertThat(slowestTasks).hasSize(1);
     SlowTask task = slowestTasks.iterator().next();
@@ -765,7 +765,7 @@ public final class ProfilerTest {
   public void testTaskHistograms() throws Exception {
     startUnbuffered(getAllProfilerTasks());
     profiler.logSimpleTaskDuration(
-        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+        profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     ImmutableList<StatRecorder> histograms = profiler.getTasksHistograms();
     StatRecorder infoStatRecorder = histograms.get(ProfilerTask.INFO.ordinal());
     assertThat(infoStatRecorder.isEmpty()).isFalse();
@@ -813,7 +813,7 @@ public final class ProfilerTest {
             /* collectPressureStallIndicators= */ false,
             /* collectSkyframeCounts= */ false));
     profiler.logSimpleTaskDuration(
-        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+        profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
     assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
   }
@@ -853,7 +853,7 @@ public final class ProfilerTest {
             /* collectPressureStallIndicators= */ false,
             /* collectSkyframeCounts= */ false));
     profiler.logSimpleTaskDuration(
-        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+        profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
     assertThat(expected).hasMessageThat().isEqualTo("Expected failure.");
   }
@@ -1030,7 +1030,7 @@ public final class ProfilerTest {
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
             /* collectSkyframeCounts= */ false));
-    long curTime = Profiler.nanoTimeMaybe();
+    long curTime = profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {
       Duration duration;
       if (i % 100 == 0) {

@@ -299,7 +299,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             long clampTimeNanos; // See comment in logProfileTask.
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-              clampTimeNanos = Profiler.nanoTimeMaybe();
+              clampTimeNanos = Profiler.instance().nanoTimeMaybe();
               result =
                   remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }

@@ -72,7 +72,7 @@ public abstract class AbstractFileSystem extends FileSystem {
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         // Replace default FileInputStream instance with the custom one that does profiling.
         return new ProfiledInputStream(createFileInputStream(path), name);
@@ -92,7 +92,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     boolean shouldProfile = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
 
-    long startTime = Profiler.nanoTimeMaybe();
+    long startTime = Profiler.instance().nanoTimeMaybe();
 
     try {
       // Currently, we do not proxy SeekableByteChannel for profiling reads and writes.
@@ -114,7 +114,7 @@ public abstract class AbstractFileSystem extends FileSystem {
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         return new ProfiledFileOutputStream(getIoFile(path), append);
       } finally {
@@ -153,7 +153,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     @Override
     public int read() throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         return impl.read();
       } finally {
@@ -168,7 +168,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         return impl.read(b, off, len);
       } finally {
@@ -192,7 +192,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = Profiler.instance().nanoTimeMaybe();
       try {
         super.write(b, off, len);
       } finally {

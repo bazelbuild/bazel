@@ -667,7 +667,7 @@ public final class PackageFactory {
         new StarlarkFile.ParseProfiler() {
           @Override
           public long start() {
-            return Profiler.nanoTimeMaybe();
+            return Profiler.instance().nanoTimeMaybe();
           }
 
           @Override
@@ -682,7 +682,7 @@ public final class PackageFactory {
         new StarlarkThread.CallProfiler() {
           @Override
           public long start() {
-            return Profiler.nanoTimeMaybe();
+            return Profiler.instance().nanoTimeMaybe();
           }
 
           @Override
