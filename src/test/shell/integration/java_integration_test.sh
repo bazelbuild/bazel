@@ -911,10 +911,6 @@ function test_class_jar_retains_module_info() {
 }
 
 function test_java_import_srcjar_not_found() {
-  if [ "${PRODUCT_NAME}" == "bazel" ]; then
-    # TODO(hvd): enable after next rules_java release.
-    return 0
-  fi
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/third_party/library || fail "mkdir"
   cat > $pkg/third_party/library/BUILD <<EOF
