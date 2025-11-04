@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static java.util.Comparator.comparing;
-
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +22,8 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -104,19 +104,19 @@ public class SpawnStats {
       }
     }
 
-    // Sort the rest alphabetically
-    ArrayList<Multiset.Entry<String>> list = new ArrayList<>(runners.entrySet());
-    list.sort(comparing(Multiset.Entry::getElement));
-
-    for (Multiset.Entry<String> e : list) {
-      result.put(e.getElement(), e.getCount());
-    }
-
-    // Account for internal actions such as SymlinkTree. Report them last as they are not spawns.
+    // Account for internal actions such as SymlinkTree.
     // This condition is always fulfilled if {@link #incrementActionCount} is called for each
     // action for which {@link #countActionResult} is called eventually.
     if (numNonInternalActions < numAllActions) {
       result.put("internal", numAllActions - numNonInternalActions);
+    }
+
+    // Sort the rest alphabetically
+    ArrayList<Multiset.Entry<String>> list = new ArrayList<>(runners.entrySet());
+    Collections.sort(list, Comparator.comparing(e -> e.getElement()));
+
+    for (Multiset.Entry<String> e : list) {
+      result.put(e.getElement(), e.getCount());
     }
 
     return result.buildOrThrow();
