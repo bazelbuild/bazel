@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
@@ -409,6 +410,15 @@ public class CompactPersistentActionCache implements ActionCache {
       }
     }
 
+    // Delete unrecognized on-disk files left around by previous Bazel versions.
+    // This is required to fix an incrementality bug that occurs when building a runfiles tree
+    // while alternating between two Bazel versions (as might occur during a migration).
+    // See https://github.com/bazelbuild/bazel/issues/26818 for details.
+    // Note that such files can only originate from Bazel 8 and earlier, which embedded the version
+    // number in filenames; Bazel 9 and later use fixed filenames. Thus this can be safely removed
+    // once backcompatibility of the output tree with Bazel 8 and earlier is no longer a concern.
+    deleteUnrecognizedFiles(cacheRoot);
+
     // Populate the map now, so that concurrent updates to the values can happen safely.
     Map<MissReason, AtomicInteger> misses = new EnumMap<>(MissReason.class);
     for (MissReason reason : MissReason.values()) {
@@ -419,6 +429,7 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       misses.put(reason, new AtomicInteger(0));
     }
+
     return new CompactPersistentActionCache(
         cacheRoot,
         corruptedCacheRoot,
@@ -428,6 +439,22 @@ public class CompactPersistentActionCache implements ActionCache {
         actionMap,
         timestampMap,
         Maps.immutableEnumMap(misses));
+  }
+
+  private static void deleteUnrecognizedFiles(Path cacheRoot) throws IOException {
+    ImmutableSet<Path> knownFiles =
+        ImmutableSet.of(
+            cacheFile(cacheRoot),
+            journalFile(cacheRoot),
+            indexFile(cacheRoot),
+            indexJournalFile(cacheRoot),
+            timestampFile(cacheRoot),
+            timestampJournalFile(cacheRoot));
+    for (Path child : cacheRoot.getDirectoryEntries()) {
+      if (!knownFiles.contains(child)) {
+        child.delete();
+      }
+    }
   }
 
   private static CompactPersistentActionCache logAndThrowOrRecurse(
