@@ -2301,7 +2301,7 @@ EOF
   expect_log "17 disk cache hit"
 }
 
-function test_cpp20_modules_with_clang_no_cycle() {
+function test_cpp20_modules_change_ab_to_ba_no_cycle() {
   type -P clang || return 0
   # Check if clang version is less than 17
   clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
@@ -2333,25 +2333,89 @@ package(features = ["cpp_modules"])
 
 cc_library(
   name = "lib",
-  module_interfaces = ["foo.cppm", "bar.cppm"],
+  module_interfaces = ["a.cppm", "b.cppm"],
 )
 EOF
-  cat > foo.cppm <<'EOF'
-export module foo;
-import bar;
+  cat > a.cppm <<'EOF'
+export module a;
+import b;
 EOF
-  cat > bar.cppm <<'EOF'
-export module bar;
+  cat > b.cppm <<'EOF'
+export module b;
 EOF
 
   bazel build //:lib --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
 
-  cat > foo.cppm <<'EOF'
-export module foo;
+  cat > a.cppm <<'EOF'
+export module a;
 EOF
   cat > bar.cppm <<'EOF'
-export module bar;
-import foo;
+export module b;
+import a;
+EOF
+
+  bazel build //:lib --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+}
+
+function test_cpp20_modules_change_abc_to_acb_no_cycle() {
+  type -P clang || return 0
+  # Check if clang version is less than 17
+  clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  if [[ -n "$clang_version" ]]; then
+    major_version=$(echo "$clang_version" | cut -d. -f1)
+    if [[ "$major_version" -lt 17 ]]; then
+      return 0
+    fi
+  fi
+
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    return 0
+  fi
+
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "rules_cc")
+git_override(
+    module_name = "rules_cc",
+    remote = "https://github.com/fmeum/rules_cc.git",
+    branch = "c++20-modules-no-cycle",
+)
+EOF
+
+
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
+
+package(features = ["cpp_modules"])
+
+cc_library(
+  name = "lib",
+  module_interfaces = ["a.cppm", "b.cppm", "c.cppm"],
+)
+EOF
+  cat > a.cppm <<'EOF'
+export module a;
+import b;
+EOF
+  cat > b.cppm <<'EOF'
+export module b;
+import c;
+EOF
+  cat > c.cppm <<'EOF'
+export module c;
+EOF
+
+  bazel build //:lib --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
+
+  cat > a.cppm <<'EOF'
+export module a;
+import c;
+EOF
+  cat > b.cppm <<'EOF'
+export module b;
+EOF
+  cat > c.cppm <<'EOF'
+export module c;
+import b;
 EOF
 
   bazel build //:lib --experimental_cpp_modules --repo_env=CC=clang --copt=-std=c++20 &> $TEST_log || fail "Expected build C++20 Modules success with compiler 'clang'"
