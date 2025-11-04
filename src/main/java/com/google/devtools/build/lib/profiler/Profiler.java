@@ -27,12 +27,11 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
+import com.google.devtools.build.lib.profiler.TaskData.ActionTaskData;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.gson.stream.JsonWriter;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -49,7 +48,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -94,138 +92,6 @@ public final class Profiler {
     JSON_TRACE_FILE_COMPRESSED_FORMAT
   }
 
-  /**
-   * Container for the single task record.
-   *
-   * <p>Class itself is not thread safe, but all access to it from Profiler methods is.
-   */
-  @ThreadCompatible
-  static class TaskData implements TraceData {
-    final long threadId;
-    final long startTimeNanos;
-    final ProfilerTask type;
-    final String description;
-
-    long durationNanos;
-
-    TaskData(
-        long threadId,
-        long startTimeNanos,
-        long durationNanos,
-        ProfilerTask eventType,
-        String description) {
-      this.threadId = threadId;
-      this.startTimeNanos = startTimeNanos;
-      this.durationNanos = durationNanos;
-      this.type = eventType;
-      this.description = checkNotNull(description);
-    }
-
-    TaskData(long threadId, long startTimeNanos, ProfilerTask eventType, String description) {
-      this(threadId, startTimeNanos, /* durationNanos= */ -1, eventType, description);
-    }
-
-    TaskData(long threadId, long startTimeNanos, long durationNanos, String description) {
-      this.type = ProfilerTask.UNKNOWN;
-      this.threadId = threadId;
-      this.startTimeNanos = startTimeNanos;
-      this.durationNanos = durationNanos;
-      this.description = description;
-    }
-
-    @Override
-    public String toString() {
-      return "Thread " + threadId + ", type " + type + ", " + description;
-    }
-
-    @Override
-    public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos)
-        throws IOException {
-      String eventType = durationNanos == 0 ? "i" : "X";
-      jsonWriter.setIndent("  ");
-      jsonWriter.beginObject();
-      jsonWriter.setIndent("");
-      if (type == null) {
-        jsonWriter.setIndent("    ");
-      } else {
-        jsonWriter.name("cat").value(type.description);
-      }
-      jsonWriter.name("name").value(description);
-      jsonWriter.name("ph").value(eventType);
-      jsonWriter
-          .name("ts")
-          .value(TimeUnit.NANOSECONDS.toMicros(startTimeNanos - profileStartTimeNanos));
-      if (durationNanos != 0) {
-        jsonWriter.name("dur").value(TimeUnit.NANOSECONDS.toMicros(durationNanos));
-      }
-      jsonWriter.name("pid").value(1);
-
-      if (this instanceof ActionTaskData actionTaskData) {
-        if (actionTaskData.primaryOutputPath != null) {
-          // Primary outputs are non-mergeable, thus incompatible with slim profiles.
-          jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
-        }
-        if (actionTaskData.targetLabel != null
-            || actionTaskData.mnemonic != null
-            || actionTaskData.configuration != null) {
-          jsonWriter.name("args");
-          jsonWriter.beginObject();
-          if (actionTaskData.targetLabel != null) {
-            jsonWriter.name("target").value(actionTaskData.targetLabel);
-          }
-          if (actionTaskData.mnemonic != null) {
-            jsonWriter.name("mnemonic").value(actionTaskData.mnemonic);
-          }
-          if (actionTaskData.configuration != null) {
-            jsonWriter.name("configuration").value(actionTaskData.configuration);
-          }
-          jsonWriter.endObject();
-        }
-      }
-      if (type == ProfilerTask.CRITICAL_PATH_COMPONENT) {
-        jsonWriter.name("args");
-        jsonWriter.beginObject();
-        jsonWriter.name("tid").value(threadId);
-        jsonWriter.endObject();
-      }
-      jsonWriter
-          .name("tid")
-          .value(
-              type == ProfilerTask.CRITICAL_PATH_COMPONENT
-                  ? ThreadMetadata.CRITICAL_PATH_THREAD_ID
-                  : threadId);
-      jsonWriter.endObject();
-    }
-  }
-
-  /**
-   * Similar to TaskData, specific for profiled actions. Depending on options, adds additional
-   * action specific information such as primary output path and target label. This is only meant to
-   * be used for ProfilerTask.ACTION.
-   */
-  static final class ActionTaskData extends TaskData {
-    @Nullable final String primaryOutputPath;
-    @Nullable final String targetLabel;
-    @Nullable final String mnemonic;
-    @Nullable final String configuration;
-
-    ActionTaskData(
-        long threadId,
-        long startTimeNanos,
-        long durationNanos,
-        ProfilerTask eventType,
-        @Nullable String mnemonic,
-        String description,
-        @Nullable String primaryOutputPath,
-        @Nullable String targetLabel,
-        @Nullable String configuration) {
-      super(threadId, startTimeNanos, durationNanos, eventType, description);
-      this.primaryOutputPath = primaryOutputPath;
-      this.targetLabel = targetLabel;
-      this.mnemonic = mnemonic;
-      this.configuration = configuration;
-    }
-  }
 
   /**
    * Aggregator class that keeps track of the slowest tasks of the specified type.

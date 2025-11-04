@@ -17,7 +17,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.profiler.Profiler.TaskData;
 import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
 import java.io.IOException;

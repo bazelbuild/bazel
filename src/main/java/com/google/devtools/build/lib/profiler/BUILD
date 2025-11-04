@@ -54,6 +54,7 @@ java_library(
         "SingleStatRecorder.java",
         "SlowTask.java",
         "StatRecorder.java",
+        "TaskData.java",
         "ThreadMetadata.java",
         "TimeSeries.java",
         "TimeSeriesImpl.java",
