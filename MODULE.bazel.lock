@@ -325,7 +325,7 @@
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
         "bzlTransitiveDigest": "tOBm53UGL2CPN8w4xlspHirTja5dfRkj1PXyErVU5cc=",
-        "usagesDigest": "fv/Ru+up/1CLlox7G1yNn9y4JOVK1qeU6uQCAkCcMaM=",
+        "usagesDigest": "OtEjntl27qRj/reKm6+KihKPMyBd4tlRLe6Q/xITqWk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
