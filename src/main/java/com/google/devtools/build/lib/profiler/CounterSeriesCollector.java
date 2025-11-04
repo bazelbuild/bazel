@@ -1,4 +1,4 @@
-// Copyright 2024 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,18 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.profiler;
 
-/** Collector used by the profiler to collect local resources. */
-public interface LocalResourceCollector {
+import java.util.function.BiConsumer;
 
-  /** Start collecting. */
-  void start();
-
-  /** Register a counter series collector. */
-  void registerCounterSeriesCollector(CounterSeriesCollector collector);
-
-  /** Stop collecting. */
-  void stop();
+/** Interface for collecting counter series */
+public interface CounterSeriesCollector {
+  void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer);
 }
