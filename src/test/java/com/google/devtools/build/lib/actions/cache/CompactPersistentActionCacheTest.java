@@ -96,6 +96,18 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
+  public void testDeleteUnrecognizedFiles() throws Exception {
+    Path unrecognizedFile = cacheRoot.getRelative("unrecognized");
+    FileSystemUtils.createEmptyFile(unrecognizedFile);
+
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
+
+    assertThat(unrecognizedFile.exists()).isFalse();
+  }
+
+  @Test
   public void testGetInvalidKey() {
     assertThat(cache.get("key")).isNull();
   }
