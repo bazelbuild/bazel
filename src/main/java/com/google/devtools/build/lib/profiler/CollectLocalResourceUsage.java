@@ -232,7 +232,6 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     long startTimeNanos = endTimeNanos - elapsedNanos;
     Duration profileStart = Duration.ofNanos(startTimeNanos);
     int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
-    Profiler profiler = Profiler.instance();
 
     Map<String, List<Map.Entry<CounterSeriesTask, TimeSeries>>> stackedTaskGroups =
         timeSeries.entrySet().stream().collect(groupingBy(e -> e.getKey().laneName()));
@@ -243,7 +242,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
       for (var task : taskGroup) {
         stackedCounters.put(task.getKey(), task.getValue().toDoubleArray(len));
       }
-      profiler.logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
+      Profiler.instance()
+          .logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
     }
 
     collectors.clear();

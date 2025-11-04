@@ -71,9 +71,8 @@ public final class CredentialHelper {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(uri);
 
-    Profiler prof = Profiler.instance();
-
-    try (SilentCloseable c = prof.profile(CREDENTIAL_HELPER, "calling credential helper")) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(CREDENTIAL_HELPER, "calling credential helper")) {
       Subprocess process;
 
       try {
