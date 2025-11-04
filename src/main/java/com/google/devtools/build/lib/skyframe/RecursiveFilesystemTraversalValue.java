@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -574,9 +576,15 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       return new SymlinkToDirectory(targetPath, linkNamePath, linkValue, metadata);
     }
 
-    public static ResolvedFile danglingSymlink(
-        RootedPath linkNamePath, PathFragment linkValue, HasDigest metadata) {
-      return new DanglingSymlink(linkNamePath, linkValue, metadata);
+    public static ResolvedFile danglingSymlink(RootedPath linkNamePath, PathFragment linkValue) {
+      byte[] digest =
+          DigestHashFunction.SHA256
+              .getHashFunction()
+              .hashString(linkValue.getPathString(), ISO_8859_1)
+              .asBytes();
+      // Ensure that the digest does not collide with that of a regular file.
+      digest[0] ^= 1;
+      return new DanglingSymlink(linkNamePath, linkValue, new HasDigest.ByteStringDigest(digest));
     }
   }
 
