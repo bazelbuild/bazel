@@ -39,8 +39,7 @@ public class DigestUtils {
    * <p>The cache keys are derived from many properties of the file metadata in an attempt to be
    * able to detect most file changes.
    */
-  private static record CacheKey(
-      PathFragment path, long nodeId, long changeTime, long lastModifiedTime, long size) {
+  private static record CacheKey(PathFragment path, long nodeId, long lastModifiedTime, long size) {
     /**
      * Constructs a new cache key.
      *
@@ -49,12 +48,7 @@ public class DigestUtils {
      * @throws IOException if reading the file status data fails
      */
     private CacheKey(Path path, FileStatus status) throws IOException {
-      this(
-          path.asFragment(),
-          status.getNodeId(),
-          status.getLastChangeTime(),
-          status.getLastModifiedTime(),
-          status.getSize());
+      this(path.asFragment(), status.getNodeId(), status.getLastModifiedTime(), status.getSize());
     }
   }
 
