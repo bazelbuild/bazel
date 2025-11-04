@@ -50,6 +50,7 @@ java_library(
         "ProfilerTask.java",
         "SilentCloseable.java",
         "SingleStatRecorder.java",
+        "SlowTask.java",
         "StatRecorder.java",
         "ThreadMetadata.java",
         "TimeSeries.java",

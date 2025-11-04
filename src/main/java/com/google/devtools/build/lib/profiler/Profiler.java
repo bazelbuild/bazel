@@ -95,43 +95,6 @@ public final class Profiler {
     JSON_TRACE_FILE_COMPRESSED_FORMAT
   }
 
-  /** A task that was very slow. */
-  public static final class SlowTask implements Comparable<SlowTask> {
-    final long durationNanos;
-    final String description;
-    final ProfilerTask type;
-
-    private SlowTask(TaskData taskData) {
-      this.durationNanos = taskData.durationNanos;
-      this.description = taskData.description;
-      this.type = taskData.type;
-    }
-
-    @Override
-    public int compareTo(SlowTask other) {
-      long delta = durationNanos - other.durationNanos;
-      if (delta < 0) { // Very clumsy
-        return -1;
-      } else if (delta > 0) {
-        return 1;
-      } else {
-        return 0;
-      }
-    }
-
-    public long getDurationNanos() {
-      return durationNanos;
-    }
-
-    public String getDescription() {
-      return description;
-    }
-
-    public ProfilerTask getType() {
-      return type;
-    }
-  }
-
   /**
    * Container for the single task record.
    *
@@ -289,7 +252,8 @@ public final class Profiler {
     void add(TaskData taskData) {
       Extrema<SlowTask> extrema = extremaAggregators[(int) (taskData.threadId % SHARDS)];
       synchronized (extrema) {
-        extrema.aggregate(new SlowTask(taskData));
+        extrema.aggregate(
+            new SlowTask(taskData.durationNanos, taskData.description, taskData.type));
       }
     }
 

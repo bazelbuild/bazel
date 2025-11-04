@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.profiler.Profiler.SlowTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -448,7 +447,7 @@ public final class ProfilerTest {
     Iterable<SlowTask> slowestTasks = profiler.getSlowestTasks();
     assertThat(slowestTasks).hasSize(1);
     SlowTask task = slowestTasks.iterator().next();
-    assertThat(task.type).isEqualTo(ProfilerTask.LOCAL_PARSE);
+    assertThat(task.type()).isEqualTo(ProfilerTask.LOCAL_PARSE);
     profiler.stop();
   }
 
@@ -518,7 +517,7 @@ public final class ProfilerTest {
     assertThat(slowTasks).hasSize(30);
 
     ImmutableList<Long> slowestDurations =
-        slowTasks.stream().map(SlowTask::getDurationNanos).collect(toImmutableList());
+        slowTasks.stream().map(SlowTask::durationNanos).collect(toImmutableList());
     assertThat(slowestDurations).containsExactlyElementsIn(expectedSlowestDurations);
   }
 
