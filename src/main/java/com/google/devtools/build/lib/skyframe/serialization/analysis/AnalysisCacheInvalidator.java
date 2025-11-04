@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -87,7 +86,14 @@ public final class AnalysisCacheInvalidator {
     }
 
     var previousVersion = serverState.version();
-    checkState(previousVersion != null, "Version is null, but there are keys to lookup.");
+    if (previousVersion == null) {
+      // TODO: b/439857268 - it looks like this can happen if the previous build was interrupted,
+      // but the exact way that leads to the previous version being unset is not entirely clear.
+      logger.atWarning().log(
+          "Skycache: no previous version was found during invalidation check. Invalidating"
+              + " everything");
+      return keysToLookup; // invalidate everything
+    }
 
     if (!previousVersion.equals(currentVersion)) {
       logger.atInfo().log(
