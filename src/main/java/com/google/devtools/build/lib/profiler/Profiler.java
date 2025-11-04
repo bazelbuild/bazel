@@ -433,11 +433,11 @@ public final class Profiler {
     this.clock = clock;
     this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
     this.actionCountTimeSeriesRef.set(
-        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+        createTimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
     this.actionCacheCountTimeSeriesRef.set(
-        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+        createTimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
     this.localActionCountTimeSeriesRef.set(
-        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+        createTimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
     this.inflightRpcTimeSeriesMapRef.set(new ConcurrentHashMap<>());
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
@@ -876,7 +876,7 @@ public final class Profiler {
           var timeSeries =
               inflightRpcTimeSerieMap.computeIfAbsent(
                   description,
-                  (unused) -> new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
+                  (unused) -> createTimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION));
           timeSeries.addRange(Duration.ofNanos(startTimeNanos), Duration.ofNanos(endTimeNanos));
         }
       }
@@ -1213,5 +1213,9 @@ public final class Profiler {
    */
   public AsyncProfiler profileAsync(String prefix, String description) {
     return new AsyncProfilerImpl(prefix, description);
+  }
+
+  public TimeSeries createTimeSeries(Duration startTime, Duration bucketDuration) {
+    return new TimeSeriesImpl(startTime, bucketDuration);
   }
 }

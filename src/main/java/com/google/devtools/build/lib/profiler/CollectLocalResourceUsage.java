@@ -260,7 +260,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
         return;
       }
       var series =
-          timeSeries.computeIfAbsent(type, unused -> new TimeSeries(startTime, BUCKET_DURATION));
+          timeSeries.computeIfAbsent(
+              type, unused -> Profiler.instance().createTimeSeries(startTime, BUCKET_DURATION));
       series.addRange(previousElapsed, nextElapsed, value);
     }
   }

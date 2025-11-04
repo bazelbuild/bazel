@@ -56,6 +56,7 @@ java_library(
         "StatRecorder.java",
         "ThreadMetadata.java",
         "TimeSeries.java",
+        "TimeSeriesImpl.java",
         "TraceData.java",
     ],
     deps = [
