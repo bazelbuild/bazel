@@ -89,9 +89,8 @@ public class SpawnStats {
    */
   public ImmutableMap<String, Integer> getSummary(ImmutableList<String> reportFirst) {
     ImmutableMap.Builder<String, Integer> result = ImmutableMap.builder();
-    int numNonInternalActions = nonInternalActionsCount.get();
-    int numAllActions = allActionsCount.get();
-    result.put("total", numAllActions);
+    int numInternalActions = allActionsCount.get() - nonInternalActionsCount.get();
+    result.put("total", runners.size());
 
     // First report cache results.
     if (actionCacheHitCount > 0) {
@@ -113,10 +112,8 @@ public class SpawnStats {
     }
 
     // Account for internal actions such as SymlinkTree. Report them last as they are not spawns.
-    // This condition is always fulfilled if {@link #incrementActionCount} is called for each
-    // action for which {@link #countActionResult} is called eventually.
-    if (numNonInternalActions < numAllActions) {
-      result.put("internal", numAllActions - numNonInternalActions);
+    if (numInternalActions > 0) {
+      result.put("internal", numInternalActions);
     }
 
     return result.buildOrThrow();
@@ -127,16 +124,27 @@ public class SpawnStats {
   }
 
   public static String convertSummaryToString(ImmutableMap<String, Integer> spawnSummary) {
-    Integer total = spawnSummary.get("total");
-    if (total == 0) {
-      return "0 processes.";
-    }
+    int allSpawns = spawnSummary.get("total");
+    int cachedSpawns =
+        spawnSummary.entrySet().stream()
+            .filter(entry -> entry.getKey().endsWith(" cache hit"))
+            .mapToInt(Map.Entry::getValue)
+            .sum();
+    int processes = allSpawns - cachedSpawns;
 
-    StringBuilder stringSummary = new StringBuilder();
-    stringSummary.append(total).append(" process");
-    if (total > 1) {
+    var stringSummary = new StringBuilder();
+    stringSummary.append(cachedSpawns).append(" cache hit");
+    if (cachedSpawns != 1) {
+      stringSummary.append("s");
+    }
+    stringSummary.append(", ").append(processes).append(" process");
+    if (processes != 1) {
       stringSummary.append("es");
     }
+    if (allSpawns == 0) {
+      return stringSummary.append(".").toString();
+    }
+
     String separator = ": ";
 
     for (Map.Entry<String, Integer> runnerStats : spawnSummary.entrySet()) {
