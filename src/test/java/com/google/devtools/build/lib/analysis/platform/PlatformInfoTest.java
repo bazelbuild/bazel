@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
@@ -169,103 +168,6 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void remoteExecutionProperties() throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setRemoteExecutionProperties("properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("properties");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parentPlatform_keep() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("parent properties");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parentPlatform_override() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
-    assertThat(platformInfo.execProperties()).isEmpty();
-  }
-
-  @Test
-  public void remoteExecutionProperties_parentPlatform_merge() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties())
-        .isEqualTo("child parent properties properties");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parentPlatform_merge_noParent() throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parentPlatform_merge_parentNotSet() throws Exception {
-    PlatformInfo parent = PlatformInfo.builder().build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
-    PlatformInfo platformInfo = builder.build();
-
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parentSpecifiesExecProperties_error() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder()
-            .setLabel(Label.parseCanonicalUnchecked("//foo:parent_platform"))
-            .setExecProperties(ImmutableMap.of("elem1", "value1"))
-            .build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setRemoteExecutionProperties("props");
-
-    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
-    assertThat(exception)
-        .hasMessageThat()
-        .contains(
-            "Platform specifies remote_execution_properties but its parent specifies"
-                + " exec_properties. Prefer exec_properties over the deprecated"
-                + " remote_execution_properties.");
-  }
-
-  @Test
   public void execProperties_empty() throws Exception {
     PlatformInfo.Builder builder = PlatformInfo.builder();
     builder.setExecProperties(ImmutableMap.of());
@@ -315,41 +217,6 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
     assertThat(platformInfo).isNotNull();
     assertThat(platformInfo.execProperties()).containsExactly("p1", "keep", "p3", "child");
-  }
-
-  @Test
-  public void execProperties_remoteExecProperties_error() throws Exception {
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
-    builder.setRemoteExecutionProperties("props");
-
-    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
-    assertThat(exception)
-        .hasMessageThat()
-        .contains(
-            "Platform contains both remote_execution_properties and exec_properties. Prefer"
-                + " exec_properties over the deprecated remote_execution_properties.");
-  }
-
-  @Test
-  public void execProperties_parentSpecifiesRemoteExecutionProperties_error() throws Exception {
-    PlatformInfo parent =
-        PlatformInfo.builder()
-            .setLabel(Label.parseCanonicalUnchecked("//foo:parent_platform"))
-            .setRemoteExecutionProperties("props")
-            .build();
-
-    PlatformInfo.Builder builder = PlatformInfo.builder();
-    builder.setParent(parent);
-    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
-
-    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
-    assertThat(exception)
-        .hasMessageThat()
-        .contains(
-            "Platform specifies exec_properties but its parent //foo:parent_platform specifies"
-                + " remote_execution_properties. Prefer exec_properties over the deprecated"
-                + " remote_execution_properties.");
   }
 
   @Test
@@ -493,12 +360,12 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .addConstraint(value1)
                 .build())
         .addEqualityGroup(
-            // Different remote exec properties.
+            // Different exec properties.
             PlatformInfo.builder()
                 .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
                 .addConstraint(value1)
                 .addConstraint(value2)
-                .setRemoteExecutionProperties("foo")
+                .setExecProperties(ImmutableMap.of("key", "value"))
                 .build())
         .addEqualityGroup(
             // Different no toolchain error message.

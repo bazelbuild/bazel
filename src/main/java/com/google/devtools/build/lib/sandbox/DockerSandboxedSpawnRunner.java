@@ -231,8 +231,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           SandboxHelpers.createFailureDetail(
               String.format(
                   "Cannot execute %s mnemonic with Docker, because no image could be found in the"
-                      + " remote_execution_properties of the platform and no default image was set"
-                      + " via --experimental_docker_image",
+                      + " exec_properties of the platform and no default image was set via"
+                      + " --experimental_docker_image",
                   spawn.getMnemonic()),
               Code.NO_DOCKER_IMAGE));
     }

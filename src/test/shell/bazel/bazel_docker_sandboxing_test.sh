@@ -25,11 +25,9 @@ function test_platform_container() {
   cat >t/BUILD <<'EOF'
 platform(
   name = "bad_docker",
-  remote_execution_properties = """
-    properties:{
-      name: "container-image"
-      value: "docker://bad_platform_container"
-    }"""
+  exec_properties = {
+    "container-image": "docker://bad_platform_container",
+  },
 )
 
 genrule(

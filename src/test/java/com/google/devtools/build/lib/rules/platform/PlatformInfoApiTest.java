@@ -45,7 +45,6 @@ public class PlatformInfoApiTest extends PlatformTestCase {
         ConstraintValueInfo.create(
             constraintSetting, Label.parseCanonicalUnchecked("//foo:value1"));
     assertThat(platformInfo.constraints().get(constraintSetting)).isEqualTo(constraintValue);
-    assertThat(platformInfo.remoteExecutionProperties()).isEmpty();
   }
 
   @Test
@@ -163,61 +162,6 @@ public class PlatformInfoApiTest extends PlatformTestCase {
   }
 
   @Test
-  public void remoteExecutionProperties() throws Exception {
-    platformBuilder("//foo:my_platform").setRemoteExecutionProperties("foo: val1").write();
-    assertNoEvents();
-
-    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("foo: val1");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parent_entireOverride() throws Exception {
-    platformBuilder("//foo:parent_platform").setRemoteExecutionProperties("parent props").write();
-    platformBuilder("//foo:my_platform")
-        .setParent("//foo:parent_platform")
-        .setRemoteExecutionProperties("child props")
-        .write();
-    assertNoEvents();
-
-    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child props");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parent_merge() throws Exception {
-    platformBuilder("//foo:parent_platform").setRemoteExecutionProperties("parent props").write();
-    platformBuilder("//foo:my_platform")
-        .setParent("//foo:parent_platform")
-        .setRemoteExecutionProperties("child ({PARENT_REMOTE_EXECUTION_PROPERTIES}) props")
-        .write();
-    assertNoEvents();
-
-    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
-    assertThat(platformInfo).isNotNull();
-    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child (parent props) props");
-  }
-
-  @Test
-  public void remoteExecutionProperties_parentSpecifiesExecProperties_error() throws Exception {
-    ImmutableMap<String, String> propsParent = ImmutableMap.of("k1", "v1", "k2", "v2");
-    platformBuilder("//foo:parent_platform").setExecProperties(propsParent).write();
-    PlatformBuilder builder =
-        platformBuilder("//bar:my_platform")
-            .setParent("//foo:parent_platform")
-            .setRemoteExecutionProperties("properties");
-
-    checkError(
-        "bar",
-        "my_platform",
-        "Platform specifies remote_execution_properties but its parent specifies exec_properties."
-            + " Prefer exec_properties over the deprecated remote_execution_properties.",
-        builder.lines().toArray(new String[] {}));
-  }
-
-  @Test
   public void execProperties() throws Exception {
     ImmutableMap<String, String> props = ImmutableMap.of("k1", "v1", "k2", "v2");
     platformBuilder("//foo:my_platform").setExecProperties(props).write();
@@ -226,22 +170,6 @@ public class PlatformInfoApiTest extends PlatformTestCase {
     PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
     assertThat(platformInfo).isNotNull();
     assertThat(platformInfo.execProperties()).isEqualTo(props);
-  }
-
-  @Test
-  public void execProperties_conflictingProperties_error() throws Exception {
-    ImmutableMap<String, String> props = ImmutableMap.of("k1", "v1", "k2", "v2");
-    PlatformBuilder builder =
-        platformBuilder("//foo:my_platform")
-            .setExecProperties(props)
-            .setRemoteExecutionProperties("child props");
-
-    checkError(
-        "foo",
-        "my_platform",
-        "Platform contains both remote_execution_properties and exec_properties. Prefer"
-            + " exec_properties over the deprecated remote_execution_properties.",
-        builder.lines().toArray(new String[] {}));
   }
 
   @Test
@@ -272,24 +200,6 @@ public class PlatformInfoApiTest extends PlatformTestCase {
     ImmutableMap<String, String> expected =
         ImmutableMap.of("k1", "v1", "k2", "child_v2", "k3", "child_v3");
     assertThat(platformInfo.execProperties()).isEqualTo(expected);
-  }
-
-  @Test
-  public void execProperties_parentSpecifiesRemoteExecutionProperties_error() throws Exception {
-    ImmutableMap<String, String> propsChild = ImmutableMap.of("k2", "child_v2", "k3", "child_v3");
-    platformBuilder("//foo:parent_platform").setRemoteExecutionProperties("properties").write();
-    PlatformBuilder builder =
-        platformBuilder("//bar:my_platform")
-            .setParent("//foo:parent_platform")
-            .setExecProperties(propsChild);
-
-    checkError(
-        "bar",
-        "my_platform",
-        "Platform specifies exec_properties but its parent //foo:parent_platform specifies"
-            + " remote_execution_properties. Prefer exec_properties over the deprecated"
-            + " remote_execution_properties.",
-        builder.lines().toArray(new String[] {}));
   }
 
   @Test

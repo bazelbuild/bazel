@@ -65,10 +65,6 @@ public class Platform implements RuleConfiguredTargetFactory {
         PlatformProviderUtils.constraintValues(
             ruleContext.getPrerequisites(PlatformRule.CONSTRAINT_VALUES_ATTR)));
 
-    String remoteExecutionProperties =
-        ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
-    platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
-
     Map<String, String> execProperties =
         ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Types.STRING_DICT);
     if (execProperties != null && !execProperties.isEmpty()) {

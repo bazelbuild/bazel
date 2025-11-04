@@ -250,9 +250,9 @@ public class SandboxOptions extends OptionsBase {
       help =
           "Specify a Docker image name (e.g. \"ubuntu:latest\") that should be used to execute a"
               + " sandboxed action when using the docker strategy and the action itself doesn't"
-              + " already have a container-image attribute in its remote_execution_properties in"
-              + " the platform description. The value of this flag is passed verbatim to 'docker"
-              + " run', so it supports the same syntax and mechanisms as Docker itself.")
+              + " already have a container-image attribute in its exec_properties in the platform"
+              + " description. The value of this flag is passed verbatim to 'docker run', so it"
+              + " supports the same syntax and mechanisms as Docker itself.")
   public String dockerImage;
 
   @Option(

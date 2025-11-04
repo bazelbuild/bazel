@@ -562,10 +562,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "--remote_default_platform_properties has been deprecated in favor of"
               + " --remote_default_exec_properties.",
       help =
-          "Set the default platform properties to be set for the remote execution API, "
-              + "if the execution platform does not already set remote_execution_properties. "
-              + "This value will also be used if the host platform is selected as the execution "
-              + "platform for remote execution.")
+          "Set the default exec properties to be used as the remote execution platform "
+              + "if an execution platform does not already set exec_properties.")
   public String remoteDefaultPlatformProperties;
 
   @Option(
