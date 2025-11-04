@@ -127,6 +127,16 @@ public class SpawnStats {
   }
 
   public static String convertSummaryToString(ImmutableMap<String, Integer> spawnSummary) {
+    // This summary is misleading in a number of ways:
+    // - The "processes" count is actually the number of actions, not spawns.
+    // - Even if it were the number of spawns, the "* cache hit" runners do not correspond to
+    //   processes executed, but rather to cache hits that avoided process execution.
+    // - The total count does not include action cache hits, so the sum of the parts is greater than
+    //   the total.
+    // TODO: Find a better way to report this information, e.g.:
+    // 15 cache hits (5 action, 5 disk, 5 remote), 10 processes (2 local, 3 remote, 5 sandboxed), 7 internal.
+    // A large number of integration tests rely on the current format, though, so changing it is
+    // non-trivial.
     Integer total = spawnSummary.get("total");
     if (total == 0) {
       return "0 processes.";
