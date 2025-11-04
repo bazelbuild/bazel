@@ -56,6 +56,7 @@ java_library(
         "StarlarkSemantics.java",
         "StarlarkSet.java",
         "StarlarkThread.java",
+        "StarlarkTypeValue.java",
         "StarlarkValue.java",
         "StringModule.java",
         "Structure.java",

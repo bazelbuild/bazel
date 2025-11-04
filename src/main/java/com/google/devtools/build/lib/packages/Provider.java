@@ -35,6 +35,14 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public interface Provider extends ProviderApi {
 
+  @Override
+  public default boolean hasInstance(Object value) {
+    if (value instanceof Info info) {
+      return info.getProvider().equals(this);
+    }
+    return false;
+  }
+
   /**
    * Has this {@link Provider} been exported? All built-in providers are always exported. Starlark
    * providers are exported if they are assigned to top-level name in a Starlark module.

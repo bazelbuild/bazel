@@ -52,8 +52,10 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
@@ -62,12 +64,18 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -77,8 +85,27 @@ import org.junit.runners.JUnit4;
 /** Integration tests for Starlark. */
 @RunWith(JUnit4.class)
 public class StarlarkIntegrationTest extends BuildViewTestCase {
+  private TestStarlarkBuiltin testStarlarkBuiltin; // initialized by createRuleClassProvider()
+
   protected boolean keepGoing() {
     return false;
+  }
+
+  @StarlarkBuiltin(name = "test")
+  private static final class TestStarlarkBuiltin implements StarlarkValue {
+
+    private final Map<String, Object> saved = new HashMap<>();
+
+    @StarlarkMethod(
+        name = "save",
+        parameters = {
+          @Param(name = "name", doc = "Name under which to save the value"),
+          @Param(name = "value", doc = "Value to save")
+        },
+        doc = "Saves a Starlark value for testing from Java")
+    public synchronized void save(String name, Object value) {
+      saved.put(name, value);
+    }
   }
 
   @Override
@@ -86,7 +113,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(DummyTestFragment.class);
+    testStarlarkBuiltin = new TestStarlarkBuiltin();
+    builder.addBzlToplevel("test", testStarlarkBuiltin);
     return builder.build();
+  }
+
+  private Object getSaved(String name) {
+    return testStarlarkBuiltin.saved.get(name);
   }
 
   @Before
@@ -1661,6 +1694,63 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent(
         "My Dep Providers: <target //test/starlark:d, keys:[FooInfo, BarInfo,"
             + " OutputGroupInfo]>");
+  }
+
+  @Test
+  public void testProviderApi_hasInstance() throws Exception {
+    scratch.file(
+        "test/starlark/rules.bzl",
+        """
+        FooInfo = provider()
+        BarInfo = provider()
+        foo_info = FooInfo()  # instance of a Starlark provider
+        bar_info = BarInfo()  # instance of a different Starlark provider
+        default_info = DefaultInfo()  # instance of a native provider
+        struct_instance = struct()  # a struct (and therefore an instance of the struct provider)
+
+        test.save("FooInfo", FooInfo)
+        test.save("BarInfo", BarInfo)
+        test.save("DefaultInfo", DefaultInfo)
+        test.save("struct", struct)
+        test.save("foo_info", foo_info)
+        test.save("bar_info", bar_info)
+        test.save("default_info", default_info)
+        test.save("struct_instance", struct_instance)
+        """);
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:rules.bzl', 'foo_info', 'bar_info', 'struct_instance')
+        """);
+    getConfiguredTarget("//test/starlark:BUILD");
+    Provider fooInfoProvider = (Provider) getSaved("FooInfo");
+    Provider barInfoProvider = (Provider) getSaved("BarInfo");
+    Provider defaultInfoProvider = (Provider) getSaved("DefaultInfo");
+    Provider structProvider = (Provider) getSaved("struct");
+    StarlarkInfo fooInfoInstance = (StarlarkInfo) getSaved("foo_info");
+    StarlarkInfo barInfoInstance = (StarlarkInfo) getSaved("bar_info");
+    NativeInfo defaultInfoInstance = (NativeInfo) getSaved("default_info");
+    StarlarkInfo structInstance = (StarlarkInfo) getSaved("struct_instance");
+
+    assertThat(fooInfoProvider.hasInstance(fooInfoInstance)).isTrue();
+    assertThat(fooInfoProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(fooInfoProvider.hasInstance(structInstance)).isFalse();
+
+    assertThat(barInfoProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(barInfoProvider.hasInstance(barInfoInstance)).isTrue();
+    assertThat(barInfoProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(barInfoProvider.hasInstance(structInstance)).isFalse();
+
+    assertThat(defaultInfoProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(defaultInfoProvider.hasInstance(defaultInfoInstance)).isTrue();
+    assertThat(defaultInfoProvider.hasInstance(structInstance)).isFalse();
+
+    assertThat(structProvider.hasInstance(fooInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(barInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(defaultInfoInstance)).isFalse();
+    assertThat(structProvider.hasInstance(structInstance)).isTrue();
   }
 
   @Test
