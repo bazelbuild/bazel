@@ -165,12 +165,12 @@ public final class SymlinkTreeHelper {
   }
 
   /**
-   * Ensures that the runfiles directory is empty except for the copied MANIFEST and the workspace
-   * subdirectory. This is the expected state with --noenable_runfiles.
+   * Ensures that the runfiles directory is empty except for the symlinked MANIFEST and the
+   * workspace subdirectory. This is the expected state with --noenable_runfiles.
    */
   public void clearRunfilesDirectory() throws ExecException {
     deleteRunfilesDirectory();
-    copyManifest();
+    linkManifest();
     try {
       createWorkspaceSubdirectory();
     } catch (IOException e) {
@@ -187,15 +187,15 @@ public final class SymlinkTreeHelper {
     }
   }
 
-  /** Copies the output manifest to the input manifest. */
-  private void copyManifest() throws ExecException {
-    // Pretend we created the runfiles tree by copying the output manifest to the input manifest.
+  /** Links the output manifest to the input manifest. */
+  private void linkManifest() throws ExecException {
+    // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
     try {
       symlinkTreeRoot.createDirectoryAndParents();
       outputManifest.delete();
-      FileSystemUtils.copyFile(inputManifest, outputManifest);
+      outputManifest.createSymbolicLink(inputManifest);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION);
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
     }
   }
 

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode.SKIP;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Throwables;
@@ -21,10 +20,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -127,19 +127,19 @@ public class RunfilesTreeUpdater {
       // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
       // implying the symlinks exist and are already up to date. If the output manifest is a
       // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
-      // an up-to-date check. Ignoring external interference, this situation can only arise if an
-      // older version of Bazel created the runfiles tree - before 8.4.0, Bazel created a symlink.
-      // A previous run in SKIP mode could have resulted in an output manifest that is an
-      // identical copy of the input manifest, which we must not treat as up to date. Since we also
-      // don't want to unnecessarily rebuild the runfiles directory all the time, instead check for
-      // the presence of the first runfile in the manifest. If it is present, we can be certain that
-      // the previous mode wasn't SKIP.
-      if (tree.getSymlinksMode() != SKIP
+      // an up-to-date check.
+      // On Windows, where symlinks may be silently replaced by copies, a previous run in SKIP mode
+      // could have resulted in an output manifest that is an identical copy of the input manifest,
+      // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
+      // runfiles directory all the time. Instead, check for the presence of the first runfile in
+      // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
+      if (tree.getSymlinksMode() != RunfileSymlinksMode.SKIP
           && !outputManifest.isSymbolicLink()
           && Arrays.equals(
               DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
               DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
-          && isRunfilesDirectoryPopulated(runfilesDir, outputManifest)) {
+          && (OS.getCurrent() != OS.WINDOWS
+              || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
         return;
       }
     } catch (IOException e) {
@@ -164,8 +164,7 @@ public class RunfilesTreeUpdater {
       case EXTERNAL -> helper.createSymlinksUsingCommand(binTools, env, outErr);
       case INTERNAL -> {
         helper.createRunfilesSymlinksDirectly(tree.getMapping());
-        // See SymlinkTreeStrategy#createOutput for why we copy instead of hardlink or symlink.
-      FileSystemUtils.copyFile(inputManifest, outputManifest);
+        outputManifest.createSymbolicLink(inputManifest);
       }
     }
   }
