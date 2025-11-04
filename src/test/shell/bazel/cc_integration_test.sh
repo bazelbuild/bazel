@@ -2207,7 +2207,7 @@ EOF
   expect_log "Hello from main.cpp"
 }
 
-function DISABLED_test_cpp20_modules_with_clang() {
+function test_cpp20_modules_with_clang() {
   type -P clang || return 0
   # Check if clang version is less than 17
   clang_version=$(clang --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
