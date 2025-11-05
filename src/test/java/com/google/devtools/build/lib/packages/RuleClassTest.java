@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.as
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
@@ -523,6 +524,298 @@ public final class RuleClassTest extends PackageLoadingTestCase {
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("list1", selectorList1);
+
+    createRule(depsRuleClass, "depsRule", attributeValues);
+  }
+
+  @Test
+  public void testDuplicatedDepsInLabelListDict() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            SafeImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("dict1", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build(),
+            attr("dict2", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build(),
+            attr("dict3", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build());
+
+    // LinkedHashMap -> predictable iteration order for testing
+    Map<String, Object> attributeValues = new LinkedHashMap<>();
+    // Duplicates within a key's list should error
+    attributeValues.put(
+        "dict1",
+        ImmutableMap.of(
+            "key1", Lists.newArrayList("//testpackage:dup1", ":dup1", ":nodup"),
+            "key2", Lists.newArrayList(":nodup1")));
+    // No duplicates - should pass
+    attributeValues.put("dict2", ImmutableMap.of("key1", Lists.newArrayList(":nodup1", ":nodup2")));
+    // Duplicates within key3's list
+    attributeValues.put(
+        "dict3",
+        ImmutableMap.of(
+            "key3", Lists.newArrayList(":dup1", ":dup1", ":dup2", ":dup2"),
+            "key4", Lists.newArrayList(":nodup3")));
+
+    reporter.removeHandler(failFastHandler);
+    createRule(depsRuleClass, "depsRule", attributeValues);
+
+    assertThat(eventCollector.count()).isSameInstanceAs(3);
+    assertDupError("//testpackage:dup1", "dict1", "depsRule");
+    assertDupError("//testpackage:dup1", "dict3", "depsRule");
+    assertDupError("//testpackage:dup2", "dict3", "depsRule");
+  }
+
+  @Test
+  public void testDuplicatedDepsInLabelListDictWithinSingleSelectConditionError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            SafeImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("dict1", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1 =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableMap.of("key1", ImmutableList.of(":dup1", ":dup1"))),
+                ""));
+
+    // expect errors
+    reporter.removeHandler(failFastHandler);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("dict1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues);
+
+    assertThat(eventCollector.count()).isSameInstanceAs(1);
+    assertDupError("//testpackage:dup1", "dict1", "depsRule");
+  }
+
+  @Test
+  public void testDuplicatedDepsInLabelListDictWithinConditionMultipleSelectsErrors()
+      throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            SafeImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("dict1", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a",
+                    ImmutableMap.of("key1", ImmutableList.of(":dup1", "dup1")),
+                    "//conditions:b",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup1"))),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:c",
+                    ImmutableMap.of("key2", ImmutableList.of(":dup2", "dup2")),
+                    "//conditions:d",
+                    ImmutableMap.of("key2", ImmutableList.of(":nodup1"))),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    // expect errors
+    reporter.removeHandler(failFastHandler);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("dict1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues);
+
+    assertThat(eventCollector.count()).isSameInstanceAs(2);
+    assertDupError("//testpackage:dup1", "dict1", "depsRule");
+    assertDupError("//testpackage:dup2", "dict1", "depsRule");
+  }
+
+  @Test
+  public void testSameDepInLabelListDictAcrossMultipleSelectsNoDuplicateNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            SafeImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("dict1", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build());
+
+    // ignore duplicates across selects where values appear duplicated but are not
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup1")),
+                    "//conditions:b",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup2"))),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup2")),
+                    "//conditions:b",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup1"))),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("dict1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues);
+  }
+
+  @Test
+  public void testSameDepInLabelListDictAcrossMultipleSelectsIsDuplicateNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            SafeImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("dict1", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build());
+
+    // repetition of dup1 is identified at analysis time, not loading time
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a",
+                    ImmutableMap.of("key1", ImmutableList.of(":dup1")),
+                    "//conditions:b",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup1"))),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a",
+                    ImmutableMap.of("key1", ImmutableList.of(":dup1")),
+                    "//conditions:b",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup2"))),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("dict1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues);
+  }
+
+  @Test
+  public void testSameDepInLabelListDictAcrossConditionsInSelectNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            SafeImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("dict1", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1 =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup1")),
+                    "//conditions:b",
+                    ImmutableMap.of("key1", ImmutableList.of(":nodup1"))),
+                ""));
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("dict1", selectorList1);
+
+    createRule(depsRuleClass, "depsRule", attributeValues);
+  }
+
+  @Test
+  public void testDuplicatedDepsInLabelListDictAcrossKeysNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            SafeImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("dict1", LABEL_LIST_DICT).mandatory().legacyAllowAnyFileType().build());
+
+    // LinkedHashMap -> predictable iteration order for testing
+    Map<String, Object> attributeValues = new LinkedHashMap<>();
+    // Same label appearing in different keys is allowed
+    attributeValues.put(
+        "dict1",
+        ImmutableMap.of(
+            "key1", Lists.newArrayList(":dep1", ":dep2"),
+            "key2", Lists.newArrayList(":dep1", ":dep3")));
 
     createRule(depsRuleClass, "depsRule", attributeValues);
   }

@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -1314,6 +1315,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
     assertThat(dictAttr.getDefaultValueUnchecked())
         .isEqualTo(ImmutableMap.of(Label.parseCanonicalUnchecked("//foo:bar"), "my value"));
+
+    Attribute labelListDictAttr =
+        buildAttribute(
+            "a4",
+            "attr.label_list_dict(default = {'my': ['//foo:bar', '//bar:foo'], 'value':"
+                + " ['//bar:foo']})");
+    assertThat(labelListDictAttr.getDefaultValueUnchecked())
+        .isEqualTo(
+            ImmutableMap.of(
+                "my",
+                ImmutableList.of(
+                    Label.parseCanonicalUnchecked("//foo:bar"),
+                    Label.parseCanonicalUnchecked("//bar:foo")),
+                "value",
+                ImmutableList.of(Label.parseCanonicalUnchecked("//bar:foo"))));
   }
 
   @Test
@@ -1332,6 +1348,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "invalid label '/bar:foo' in dict key element: invalid package name '/bar': "
             + "package names may not start with '/'",
         "attr.label_keyed_string_dict(default = {'//foo:bar': 'a', '/bar:foo': 'b'})");
+
+    ev.checkEvalErrorContains(
+        "invalid label '/bar:foo' in element 1 of dict value element: invalid package name"
+            + " '/bar': package names may not start with '/'",
+        "attr.label_list_dict(default = {'my': ['//foo:bar', '/bar:foo']})");
   }
 
   @Test
@@ -1496,6 +1517,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             "label",
             "label_keyed_string_dict",
             "label_list",
+            "label_list_dict",
             "output",
             "output_list",
             "string",
@@ -4014,6 +4036,179 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(((Map<ConfiguredTarget, String>) info.getValue("dict")).keySet())
         .containsExactly(key);
     assertThat(((Map<ConfiguredTarget, String>) info.getValue("dict")).get(key)).isEqualTo("val");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void labelListDict() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": [":foo", ":gen"], "gen_key": [":gen"]})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.attr.dict)]
+
+        a = rule(implementation=_a_impl, attrs={"dict": attr.label_list_dict()})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//a:a.bzl")), "DictInfo"));
+    Map<String, List<ConfiguredTarget>> dict =
+        (Map<String, List<ConfiguredTarget>>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dict.get("foo_key").stream().map(ConfiguredTarget::getLabel))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//a:foo"), Label.parseCanonicalUnchecked("//a:gen"));
+    assertThat(dict.get("gen_key").stream().map(ConfiguredTarget::getLabel))
+        .containsExactly(Label.parseCanonicalUnchecked("//a:gen"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void labelListDictWithSplitConfiguration() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": [":foo", ":gen"], "gen_key": [":gen"]})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.split_attr.dict)]
+
+        def _trans_impl(settings, attr):
+          return {
+            "fastbuild_key": {"//command_line_option:compilation_mode": "fastbuild"},
+            "dbg_key": {"//command_line_option:compilation_mode": "dbg"},
+          }
+
+        trans = transition(
+            implementation = _trans_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"])
+
+        a = rule(
+            implementation=_a_impl,
+            attrs={"dict": attr.label_list_dict(cfg=trans)})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//a:a.bzl")), "DictInfo"));
+    Map<String, Map<String, List<ConfiguredTarget>>> dict =
+        (Map<String, Map<String, List<ConfiguredTarget>>>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("fastbuild_key", "dbg_key");
+    Map<String, List<ConfiguredTarget>> fastbuild = dict.get("fastbuild_key");
+    Map<String, List<ConfiguredTarget>> dbg = dict.get("dbg_key");
+    assertThat(fastbuild.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dbg.keySet()).containsExactly("foo_key", "gen_key");
+
+    var endsWith =
+        Correspondence.from((String first, String second) -> first.endsWith(second), "ends with");
+    assertThat(
+            fastbuild.get("foo_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("a/foo.txt", "-fastbuild/bin/a/gen.txt");
+    assertThat(
+            dbg.get("foo_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("a/foo.txt", "-dbg/bin/a/gen.txt");
+    assertThat(
+            fastbuild.get("gen_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("-fastbuild/bin/a/gen.txt");
+    assertThat(
+            dbg.get("gen_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("-dbg/bin/a/gen.txt");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_labelListDict() throws Exception {
+    scratch.file(
+        "BUILD",
+        """
+        filegroup(name = 'val1')
+        filegroup(name = 'val2')
+        """);
+    scratch.file(
+        "initializer_testing/b.bzl",
+        """
+        def initializer(**kwargs):
+            return {}
+
+        MyInfo = provider()
+
+        def impl(ctx):
+            return [MyInfo(dict = ctx.attr.dict)]
+
+        my_rule = rule(
+            impl,
+            initializer = initializer,
+            attrs = {
+                "dict": attr.label_list_dict(),
+            },
+        )
+        """);
+    scratch.file(
+        "initializer_testing/BUILD",
+        """
+        load(":b.bzl", "my_rule")
+
+        my_rule(
+            name = "my_target",
+            dict = {"key1": ["//:val1", "//:val2"], "key2": ["//:val1"]},
+        )
+        """);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    ConfiguredTarget val1 = getConfiguredTarget("//:val1");
+    ConfiguredTarget val2 = getConfiguredTarget("//:val2");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
+
+    assertThat(((Map<String, List<ConfiguredTarget>>) info.getValue("dict")))
+        .containsExactly(
+            "key1", StarlarkList.immutableOf(val1, val2), "key2", StarlarkList.immutableOf(val1))
+        .inOrder();
   }
 
   @Test
