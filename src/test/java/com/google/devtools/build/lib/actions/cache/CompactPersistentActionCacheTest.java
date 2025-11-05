@@ -58,13 +58,23 @@ public class CompactPersistentActionCacheTest {
 
   @Before
   public final void createFiles() throws Exception  {
-    dataRoot = scratch.resolve("/cache/test.dat");
+    dataRoot = scratch.resolve("/cache");
     cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
     mapFile = CompactPersistentActionCache.cacheFile(dataRoot);
     journalFile = CompactPersistentActionCache.journalFile(dataRoot);
     artifactRoot =
         ArtifactRoot.asDerivedRoot(
             scratch.getFileSystem().getPath("/output"), ArtifactRoot.RootType.Output, "bin");
+  }
+
+  @Test
+  public void testDeleteUnrecognizedFiles() throws Exception {
+    Path unrecognizedFile = dataRoot.getChild("unrecognized");
+    FileSystemUtils.createEmptyFile(unrecognizedFile);
+
+    cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
+
+    assertThat(unrecognizedFile.exists()).isFalse();
   }
 
   @Test
