@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Installing Bazel on Windows
 
+winget install Bazel.Bazel
 {% include "_buttons.html" %}
 
 This page describes the requirements and steps to install Bazel on Windows.
