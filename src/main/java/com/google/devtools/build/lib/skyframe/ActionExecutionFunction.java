@@ -561,7 +561,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     var inputMap = new HashMap<String, FileArtifactValue>();
     for (var artifact : mandatoryInputs) {
       var value = lookupInput(artifact, mandatoryInputsKeys, env);
-      if (value == null) {
+      if (value == null || value instanceof MissingArtifactValue) {
         // This can happen with rewinding and is always an indication to halt the current action
         // execution attempt.
         return null;
