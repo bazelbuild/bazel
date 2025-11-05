@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -194,15 +195,16 @@ public class CompactPersistentActionCache implements ActionCache {
       EventHandler reporterForInitializationErrors,
       boolean alreadyFoundCorruption)
       throws IOException {
-    PersistentMap<Integer, byte[]> map;
+    cacheRoot.createDirectoryAndParents();
+
     Path cacheFile = cacheFile(cacheRoot);
     Path journalFile = journalFile(cacheRoot);
-    Path indexFile = cacheRoot.getChild("filename_index_v" + VERSION + ".blaze");
-    ConcurrentMap<Integer, byte[]> backingMap = new ConcurrentHashMap<>();
+    Path indexFile = indexFile(cacheRoot);
+    Path indexJournalFile = indexJournalFile(cacheRoot);
 
     PersistentStringIndexer indexer;
     try {
-      indexer = PersistentStringIndexer.newPersistentStringIndexer(indexFile, clock);
+      indexer = PersistentStringIndexer.create(indexFile, indexJournalFile, clock);
     } catch (IOException e) {
       return logAndThrowOrRecurse(
           cacheRoot,
@@ -213,6 +215,9 @@ public class CompactPersistentActionCache implements ActionCache {
           alreadyFoundCorruption);
     }
 
+    ConcurrentMap<Integer, byte[]> backingMap = new ConcurrentHashMap<>();
+
+    PersistentMap<Integer, byte[]> map;
     try {
       map = new ActionMap(backingMap, indexer, clock, cacheFile, journalFile);
     } catch (IOException e) {
@@ -235,6 +240,14 @@ public class CompactPersistentActionCache implements ActionCache {
       }
     }
 
+    // Delete unrecognized on-disk files left around by previous or future Bazel versions.
+    // This is required to fix an incrementality bug that occurs when building a runfiles tree
+    // while alternating between two Bazel versions (as might occur during a migration).
+    // See https://github.com/bazelbuild/bazel/issues/26818 for details.
+    // Note that Bazel versions differ in the filenames they use: Bazel 8 and earlier embed the
+    // version number in filenames, while Bazel 9 and later use fixed filenames.
+    deleteUnrecognizedFiles(cacheRoot);
+
     // Populate the map now, so that concurrent updates to the values can happen safely.
     Map<MissReason, AtomicInteger> misses = new EnumMap<>(MissReason.class);
     for (MissReason reason : MissReason.values()) {
@@ -245,7 +258,22 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       misses.put(reason, new AtomicInteger(0));
     }
+
     return new CompactPersistentActionCache(indexer, map, Maps.immutableEnumMap(misses));
+  }
+
+  private static void deleteUnrecognizedFiles(Path cacheRoot) throws IOException {
+    ImmutableSet<Path> knownFiles =
+        ImmutableSet.of(
+            cacheFile(cacheRoot),
+            journalFile(cacheRoot),
+            indexFile(cacheRoot),
+            indexJournalFile(cacheRoot));
+    for (Path child : cacheRoot.getDirectoryEntries()) {
+      if (!knownFiles.contains(child)) {
+        child.delete();
+      }
+    }
   }
 
   private static CompactPersistentActionCache logAndThrowOrRecurse(
@@ -333,6 +361,14 @@ public class CompactPersistentActionCache implements ActionCache {
 
   public static Path journalFile(Path cacheRoot) {
     return cacheRoot.getChild("action_journal_v" + VERSION + ".blaze");
+  }
+
+  public static Path indexFile(Path cacheRoot) {
+    return cacheRoot.getChild("filename_index_v" + VERSION + ".blaze");
+  }
+
+  public static Path indexJournalFile(Path cacheRoot) {
+    return cacheRoot.getChild("filename_index_v" + VERSION + ".journal");
   }
 
   @Override
