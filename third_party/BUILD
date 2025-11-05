@@ -319,7 +319,7 @@ genrule(
     name = "fastutil_stripped_jar",
     srcs = [
         "@maven//:it_unimi_dsi_fastutil_file",
-        "@rules_java//toolchains:platformclasspath",
+        "@rules_java//toolchains:platformclasspath_nostrip",
     ],
     outs = ["fastutil-stripped.jar"],
     # ProGuard output is silenced below because it prints
@@ -331,7 +331,7 @@ genrule(
     $(location :proguard) \
         -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
-        -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
+        -libraryjars $(execpath @rules_java//toolchains:platformclasspath_nostrip) \
         @$(location //tools:fastutil.proguard) > /dev/null
     # Null out the file times stored in the jar to make the output reproducible.
     TMPDIR=$$(mktemp -d)
