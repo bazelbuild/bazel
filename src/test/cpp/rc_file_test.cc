@@ -1043,7 +1043,7 @@ TEST(TestParseSemVer, ValidBuildLabels) {
   EXPECT_EQ("1", sem_ver_912->minor);
 }
 
-TEST(TestParseSemVer, InalidBuildLabels) {
+TEST(TestParseSemVer, InvalidBuildLabels) {
   auto no_version = ParseSemVer("no_version");
   ASSERT_FALSE(no_version.has_value());
 
@@ -1089,4 +1089,4 @@ TEST(TestReplaceBuildVars, SimulateInvalidSemanticVersion) {
             "path/no_version.no_version/.bazelrc");
 }
 
-} // namespace blaze
+}  // namespace blaze
