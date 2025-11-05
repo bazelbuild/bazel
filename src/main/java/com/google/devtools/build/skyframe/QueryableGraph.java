@@ -156,6 +156,13 @@ public interface QueryableGraph {
   }
 
   /**
+   * Cancel all in-flight graph lookups. This may be a no-op for many graph implementations, but is
+   * particularly useful to clean up pending work when graph lookups consist of I/O operations or
+   * RPCs.
+   */
+  default void cancelLookups() {}
+
+  /**
    * The reason that a node is being looked up in the Skyframe graph.
    *
    * <p>Alternate graph implementations may wish to make use of this information.

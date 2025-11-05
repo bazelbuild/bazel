@@ -111,4 +111,11 @@ public interface WalkableGraph {
     EvaluationResult<SkyValue> prepareAndGet(Set<SkyKey> roots, EvaluationContext evaluationContext)
         throws InterruptedException;
   }
+
+  /**
+   * Cancel all in-flight graph reads. This may be a no-op for many graph implementations, but is
+   * particularly useful to clean up pending work when graph lookups consist of I/O operations or
+   * RPCs.
+   */
+  default void cancelLookups() {}
 }
