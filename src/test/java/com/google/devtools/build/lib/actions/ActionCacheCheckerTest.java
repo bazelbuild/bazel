@@ -222,6 +222,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             clientEnv,
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -495,6 +496,7 @@ public final class ActionCacheCheckerTest {
             cacheChecker.getTokenIfNeedToExecute(
                 action,
                 /* resolvedCacheArtifacts= */ null,
+                /* mandatoryInputsDigest= */ null,
                 /* clientEnv= */ ImmutableMap.of(),
                 OutputPermissions.READONLY,
                 /* handler= */ null,
@@ -648,6 +650,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -682,6 +685,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -711,6 +715,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -772,6 +777,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -968,6 +974,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1073,6 +1080,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1133,6 +1141,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1206,6 +1215,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1271,6 +1281,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1315,6 +1326,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1367,6 +1379,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1411,6 +1424,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,

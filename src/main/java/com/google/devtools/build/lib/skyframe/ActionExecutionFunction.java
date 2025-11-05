@@ -536,6 +536,10 @@ public final class ActionExecutionFunction implements SkyFunction {
     return rewindPlanResult.toNullIfMissingDependenciesElseReset();
   }
 
+  /**
+   * Computes the digest of the action's mandatory inputs. Callers should check for missing values
+   * before using the result, which may be null in error cases.
+   */
   @Nullable
   private byte[] computeMandatoryInputsDigest(Action action, Environment env)
       throws InterruptedException {
@@ -558,6 +562,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     for (var artifact : mandatoryInputs) {
       var value = lookupInput(artifact, mandatoryInputsKeys, env);
       if (value == null) {
+        // This can happen with rewinding and is always an indication to halt the current action
+        // execution attempt.
         return null;
       }
       ActionInputMapHelper.addToMap(
@@ -580,6 +586,13 @@ public final class ActionExecutionFunction implements SkyFunction {
       throws InterruptedException, AlreadyReportedActionExecutionException {
     byte[] mandatoryInputsDigest = null;
     if (action.discoversInputs()) {
+      // When the mandatory inputs of an action have changed, it will certainly have to be
+      // reexecuted. It is important that we detect this before requesting the previously discovered
+      // inputs from Skyframe as that could result in cycles that otherwise would not occur.
+      // Note that this approach does not guarantee the absence of such "phantom" cycles in general,
+      // it just happens to work for all current use cases in Bazel. A theoretically sound solution
+      // would require checking the discovered inputs for changes one by one, in the order in which
+      // they were originally discovered.
       mandatoryInputsDigest = computeMandatoryInputsDigest(action, env);
       if (env.valuesMissing()) {
         return null;
@@ -766,6 +779,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               pathResolver,
               actionStartTime,
               state.allInputs.actionCacheInputs,
+              state.allInputs.mandatoryInputsDigest,
               clientEnv);
     }
 

@@ -178,6 +178,7 @@ public class ActionCacheChecker {
    * @param actionInputs the action inputs; usually action.getInputs(), but might be a previously
    *     cached set of discovered inputs for actions that discover them.
    * @param outputMetadataStore metadata provider for action outputs.
+   * @param mandatoryInputsDigest the digest of mandatory inputs, or null if not discovering inputs.
    * @param cachedOutputMetadata cached metadata that should be used instead of {@code
    *     outputMetadataStore}.
    * @param outputChecker used to check whether remote metadata should be trusted.
@@ -194,6 +195,7 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
+      @Nullable byte[] mandatoryInputsDigest,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       ImmutableMap<String, String> effectiveEnvironment,
@@ -203,12 +205,13 @@ public class ActionCacheChecker {
       throws InterruptedException {
     var builder =
         new ActionCache.Entry.Builder(
-            actionKey,
-            action.discoversInputs(),
-            effectiveEnvironment,
-            effectiveExecProperties,
-            outputPermissions,
-            useArchivedTreeArtifacts);
+                actionKey,
+                action.discoversInputs(),
+                effectiveEnvironment,
+                effectiveExecProperties,
+                outputPermissions,
+                useArchivedTreeArtifacts)
+            .setMandatoryInputsDigest(mandatoryInputsDigest);
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
@@ -458,6 +461,7 @@ public class ActionCacheChecker {
   public Token getTokenIfNeedToExecute(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -514,6 +518,7 @@ public class ActionCacheChecker {
         clientEnv,
         outputPermissions,
         remoteDefaultExecProperties,
+        mandatoryInputsDigest,
         cachedOutputMetadata,
         outputChecker,
         useArchivedTreeArtifacts)) {
@@ -547,6 +552,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       ImmutableMap<String, String> remoteDefaultExecProperties,
+      @Nullable byte[] mandatoryInputsDigest,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
@@ -586,6 +592,7 @@ public class ActionCacheChecker {
         actionInputs,
         inputMetadataProvider,
         outputMetadataStore,
+        mandatoryInputsDigest,
         cachedOutputMetadata,
         outputChecker,
         effectiveEnvironment,
@@ -819,6 +826,7 @@ public class ActionCacheChecker {
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -834,6 +842,7 @@ public class ActionCacheChecker {
     return getTokenIfNeedToExecute(
         action,
         resolvedCacheArtifacts,
+        mandatoryInputsDigest,
         clientEnv,
         outputPermissions,
         handler,

@@ -898,16 +898,14 @@ public class CompactPersistentActionCache implements ActionCache {
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
 
+    VarInt.putVarInt(entry.discoversInputs() ? 1 : 0, sink);
     if (entry.discoversInputs()) {
-      VarInt.putVarInt(1, sink);
       MetadataDigestUtils.write(entry.getMandatoryInputsDigest(), sink);
       ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
       VarInt.putVarInt(discoveredInputPaths.size(), sink);
       for (String discoveredInputPath : discoveredInputPaths) {
         VarInt.putVarInt(indexer.getOrCreateIndex(discoveredInputPath), sink);
       }
-    } else {
-      VarInt.putVarInt(0, sink);
     }
 
     VarInt.putVarInt(entry.hasOutputMetadata() ? 1 : 0, sink);

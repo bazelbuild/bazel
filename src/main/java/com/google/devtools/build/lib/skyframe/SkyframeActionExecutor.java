@@ -735,6 +735,7 @@ public final class SkyframeActionExecutor {
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
@@ -766,6 +767,7 @@ public final class SkyframeActionExecutor {
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
               resolvedCacheArtifacts,
+              mandatoryInputsDigest,
               clientEnv,
               getOutputPermissions(),
               handler,
@@ -808,6 +810,7 @@ public final class SkyframeActionExecutor {
                 actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
                     action,
                     resolvedCacheArtifacts,
+                    mandatoryInputsDigest,
                     clientEnv,
                     getOutputPermissions(),
                     handler,

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -78,7 +79,7 @@ public class CompactPersistentActionCacheTest {
   private final EventHandler eventHandler = spy(EventHandler.class);
 
   @Before
-  public final void createFiles() throws Exception  {
+  public final void createFiles() throws Exception {
     execRoot = scratch.resolve("/output");
     cacheRoot = scratch.resolve("/cache_root");
     corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
@@ -765,11 +766,12 @@ public class CompactPersistentActionCacheTest {
 
   private static ActionCache.Entry.Builder builder(String actionKey, boolean discoversInputs) {
     return new ActionCache.Entry.Builder(
-        actionKey,
-        discoversInputs,
-        /* clientEnv= */ ImmutableMap.of(),
-        /* execProperties= */ ImmutableMap.of(),
-        OutputPermissions.READONLY,
-        /* useArchivedTreeArtifacts= */ false);
+            actionKey,
+            discoversInputs,
+            /* clientEnv= */ ImmutableMap.of(),
+            /* execProperties= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* useArchivedTreeArtifacts= */ false)
+        .setMandatoryInputsDigest(discoversInputs ? new byte[DigestUtils.ESTIMATED_SIZE] : null);
   }
 }
