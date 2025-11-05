@@ -163,7 +163,7 @@ public abstract class Facts implements StarlarkIndexable {
   public void debugPrint(Printer printer, StarlarkThread thread) {
     // Print the contents for debugging purposes.
     printer.append("Facts(");
-    value().repr(printer, thread.getSemantics());
+    printer.append(Starlark.repr(value()));
     printer.append(")");
   }
 

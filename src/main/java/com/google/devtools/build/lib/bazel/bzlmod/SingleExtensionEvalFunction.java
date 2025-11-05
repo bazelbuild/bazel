@@ -150,7 +150,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (lockfile == null || hiddenLockfile == null) {
         return null;
       }
-      lockfileFacts = lockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
+      lockfileFacts = lockfile.getFacts().get(extensionId);
+      if (lockfileFacts == null) {
+        lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
+      }
       var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
