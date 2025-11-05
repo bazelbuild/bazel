@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.util.CanonicalStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -117,10 +116,9 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
   /**
    * Instantiates and loads instance of the persistent string indexer.
    */
-  static PersistentStringIndexer newPersistentStringIndexer(Path dataPath,
-                                                            Clock clock) throws IOException {
-    PersistentIndexMap persistentIndexMap = new PersistentIndexMap(dataPath,
-        FileSystemUtils.replaceExtension(dataPath, ".journal"), clock);
+  static PersistentStringIndexer create(
+      Path dataPath, Path journalPath, Clock clock) throws IOException {
+    PersistentIndexMap persistentIndexMap = new PersistentIndexMap(dataPath, journalPath, clock);
     Map<Integer, String> reverseMapping = newConcurrentMap(INITIAL_ENTRIES);
     for (Map.Entry<String, Integer> entry : persistentIndexMap.entrySet()) {
       if (reverseMapping.put(entry.getValue(), entry.getKey()) != null) {

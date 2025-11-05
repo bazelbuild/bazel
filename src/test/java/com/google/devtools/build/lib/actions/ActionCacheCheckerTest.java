@@ -103,7 +103,7 @@ public class ActionCacheCheckerTest {
     Scratch scratch = new Scratch();
     Clock clock = new ManualClock();
 
-    cache = new CorruptibleActionCache(scratch.resolve("/cache/test.dat"), clock);
+    cache = new CorruptibleActionCache(scratch.resolve("/cache"), clock);
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
