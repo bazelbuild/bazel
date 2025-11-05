@@ -165,8 +165,8 @@ public class JavaStarlarkCommon
             JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
             JavaToolchainProvider.wrap(toolchain),
-            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
-                .getImmutableList());
+            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs").getImmutableList(),
+            /* baselineCoverageFile= */ null);
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
     compilationHelper.createHeaderCompilationAction(
         headerJar, headerCompilationJar, headerDepsProto);
@@ -201,7 +201,8 @@ public class JavaStarlarkCommon
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Object baselineCoverageFile)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -255,8 +256,8 @@ public class JavaStarlarkCommon
             JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
             JavaToolchainProvider.wrap(javaToolchain),
-            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
-                .getImmutableList());
+            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs").getImmutableList(),
+            baselineCoverageFile == Starlark.NONE ? null : (Artifact) baselineCoverageFile);
     compilationHelper.javaBuilderJvmFlags(
         Depset.cast(javaBuilderJvmFlags, String.class, "javabuilder_jvm_flags"));
     compilationHelper.enableJspecify(enableJSpecify);

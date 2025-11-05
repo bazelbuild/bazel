@@ -101,12 +101,14 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverageLib",
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//third_party:error_prone",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
+        "//third_party/java/jacoco:report",
     ],
 )
 
