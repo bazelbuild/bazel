@@ -107,7 +107,7 @@ public final class ActionCacheCheckerTest {
 
     execRoot = scratch.resolve("/output");
     cache = new CorruptibleActionCache(cacheRoot, corruptedCacheRoot, tmpDir, clock);
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bin");
@@ -296,7 +296,8 @@ public final class ActionCacheCheckerTest {
           clientEnv,
           OutputPermissions.READONLY,
           platform,
-          useArchivedTreeArtifacts);
+          useArchivedTreeArtifacts,
+          /* mandatoryInputsDigest= */ null);
     }
   }
 
@@ -329,9 +330,7 @@ public final class ActionCacheCheckerTest {
     cache.corruptAllEntries();
     runAction(action);
 
-    assertStatistics(
-        0,
-        new MissDetailsBuilder().set(MissReason.CORRUPTED_CACHE_ENTRY, 1).build());
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.CORRUPTED_CACHE_ENTRY, 1).build());
   }
 
   @Test
@@ -565,7 +564,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteFileMetadataSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
@@ -582,7 +581,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_localFileMetadataNotSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action = new WriteEmptyOutputAction(output);
     output.getPath().delete();
@@ -598,7 +597,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteMetadataInjectedAndLocalFilesStored() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action =
         new WriteEmptyOutputAction(output) {
@@ -638,7 +637,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteFileMetadataLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
@@ -730,7 +729,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_localMetadataIsSameAsRemoteMetadata_cached(
       @TestParameter boolean hasResolvedPath) throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     PathFragment resolvedPath =
@@ -753,7 +752,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_localMetadataIsDifferentFromRemoteMetadata_notCached()
       throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content1 = "content1";
     String content2 = "content2";
@@ -864,7 +863,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_remoteFileMetadataSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
@@ -896,7 +895,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_remoteArchivedArtifactSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
@@ -924,7 +923,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_resolvedPathSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
@@ -993,7 +992,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localFileMetadataNotSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     writeIsoLatin1(fileSystem.getPath("/file2"), "");
@@ -1027,7 +1026,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localArchivedArtifactNotSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     writeIsoLatin1(fileSystem.getPath("/archive"), "");
@@ -1052,7 +1051,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_remoteFileMetadataLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
@@ -1100,7 +1099,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localFileMetadataLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children1 =
@@ -1179,7 +1178,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localArchivedArtifactLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
@@ -1391,7 +1390,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadataWithSameLocalFileMetadata_cached() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
@@ -1447,7 +1446,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadataWithSameLocalArchivedArtifact_cached()
       throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =

@@ -517,12 +517,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         || shouldParseShowIncludes();
   }
 
-  @Nullable
-  @Override
-  public Artifact getInputDiscoveryInvalidationArtifact() {
-    return modmapInputFile;
-  }
-
   @Override
   protected boolean inputsDiscovered() {
     return inputsDiscovered;
