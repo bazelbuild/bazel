@@ -131,6 +131,13 @@ public class BazelLockFileModule extends BlazeModule {
         combinedFacts.put(extensionId, value.facts());
       }
     }
+    var relevantFacts =
+        ImmutableSortedMap.copyOf(
+            Maps.filterEntries(
+                combinedFacts,
+                entry ->
+                    depGraphValue.getExtensionUsagesTable().containsRow(entry.getKey())
+                        && !entry.getValue().equals(Facts.EMPTY)));
 
     Thread updateLockfile =
         Thread.startVirtualThread(
@@ -161,15 +168,7 @@ public class BazelLockFileModule extends BlazeModule {
                       .setRegistryFileHashes(remoteRegistryFileHashes)
                       .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
                       .setModuleExtensions(notReproducibleExtensionInfos)
-                      .setFacts(
-                          ImmutableSortedMap.copyOf(
-                              Maps.filterEntries(
-                                  combinedFacts,
-                                  entry ->
-                                      depGraphValue
-                                              .getExtensionUsagesTable()
-                                              .containsRow(entry.getKey())
-                                          && !entry.getValue().equals(Facts.EMPTY))))
+                      .setFacts(relevantFacts)
                       .build();
 
               // Write the new values to the files, but only if needed. This is not just a
@@ -198,6 +197,7 @@ public class BazelLockFileModule extends BlazeModule {
                   BazelLockFileValue.builder()
                       .setSelectedYankedVersions(ImmutableMap.of())
                       .setModuleExtensions(reproducibleExtensionInfos)
+                      .setFacts(relevantFacts)
                       .build();
 
               if (!newHiddenLockfile.equals(oldHiddenLockfileFinal)) {
