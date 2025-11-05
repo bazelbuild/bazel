@@ -2892,6 +2892,23 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('hello: hash=olleh', stderr)
     self.assertIn('Fetching metadata for world...', stderr)
     self.assertIn('world: hash=dlrow', stderr)
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile_contents = f.read()
+
+    # Delete the lockfile and verify that it is regenerated identically due to
+    # the hidden lockfile without reevaluation.
+    os.remove(self.Path('MODULE.bazel.lock'))
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=update']
+    )
+    stderr = ''.join(stderr)
+    self.assertNotIn('Hello from this side!', stderr)
+    self.assertNotIn('Fetching metadata for hello...', stderr)
+    self.assertNotIn('hello: hash=olleh', stderr)
+    self.assertNotIn('Fetching metadata for world...', stderr)
+    self.assertNotIn('world: hash=dlrow', stderr)
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      self.assertEqual(lockfile_contents, f.read())
 
     # Clean out the hidden lockfile to ensure that the extension is
     # evaluated again and verify that the reevaluation reuses the facts.
