@@ -75,7 +75,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 23;
+  private static final int VERSION = 24;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -848,12 +848,10 @@ public class CompactPersistentActionCache implements ActionCache {
     int maxDiscoveredInputsSize = 1; // presence marker
     if (entry.discoversInputs()) {
       maxDiscoveredInputsSize +=
-          VarInt.MAX_VARINT_SIZE // length
+          (1 + DigestUtils.ESTIMATED_SIZE) // mandatoryInputsDigest
+              + VarInt.MAX_VARINT_SIZE // length
               + (VarInt.MAX_VARINT_SIZE // execPath
                   * entry.getDiscoveredInputPaths().size());
-      if (entry.getInputDiscoveryInvalidationDigest() != null) {
-        maxDiscoveredInputsSize += 1 + DigestUtils.ESTIMATED_SIZE;
-      }
     }
 
     int maxOutputMetadataSize = 1; // presence marker
@@ -901,12 +899,8 @@ public class CompactPersistentActionCache implements ActionCache {
     MetadataDigestUtils.write(entry.getDigest(), sink);
 
     if (entry.discoversInputs()) {
-      if (entry.getInputDiscoveryInvalidationDigest() != null) {
-        VarInt.putVarInt(2, sink);
-        MetadataDigestUtils.write(entry.getInputDiscoveryInvalidationDigest(), sink);
-      } else {
-        VarInt.putVarInt(1, sink);
-      }
+      VarInt.putVarInt(1, sink);
+      MetadataDigestUtils.write(entry.getMandatoryInputsDigest(), sink);
       ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
       VarInt.putVarInt(discoveredInputPaths.size(), sink);
       for (String discoveredInputPath : discoveredInputPaths) {
@@ -984,19 +978,17 @@ public class CompactPersistentActionCache implements ActionCache {
 
       byte[] digest = MetadataDigestUtils.read(source);
 
-      byte[] inputDiscoveryInvalidationDigest = null;
+      byte[] mandatoryInputsDigest = null;
       ImmutableList<String> discoveredInputPaths = null;
       int discoveredInputsPresenceMarker = VarInt.getVarInt(source);
       if (discoveredInputsPresenceMarker != 0) {
-        if (discoveredInputsPresenceMarker != 1 && discoveredInputsPresenceMarker != 2) {
+        if (discoveredInputsPresenceMarker != 1) {
           throw new IOException(
               "Invalid presence marker for discovered inputs: " + discoveredInputsPresenceMarker);
         }
-        if (discoveredInputsPresenceMarker == 2) {
-          inputDiscoveryInvalidationDigest = MetadataDigestUtils.read(source);
-          if (inputDiscoveryInvalidationDigest.length != digest.length) {
-            throw new IOException("Corrupted input discovery invalidation digest");
-          }
+        mandatoryInputsDigest = MetadataDigestUtils.read(source);
+        if (mandatoryInputsDigest.length != digest.length) {
+          throw new IOException("Corrupted mandatory inputs digest");
         }
         int numDiscoveredInputs = VarInt.getVarInt(source);
         if (numDiscoveredInputs < 0) {
@@ -1019,7 +1011,7 @@ public class CompactPersistentActionCache implements ActionCache {
         }
         return new ActionCache.Entry(
             digest,
-            inputDiscoveryInvalidationDigest,
+            mandatoryInputsDigest,
             discoveredInputPaths,
             /* outputFileMetadata= */ ImmutableMap.of(),
             /* outputTreeMetadata= */ ImmutableMap.of(),
@@ -1100,7 +1092,7 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       return new ActionCache.Entry(
           digest,
-          inputDiscoveryInvalidationDigest,
+          mandatoryInputsDigest,
           discoveredInputPaths,
           outputFiles.buildOrThrow(),
           outputTrees.buildOrThrow(),

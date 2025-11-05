@@ -846,6 +846,7 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Token token,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     if (!actionCacheChecker.enabled()) {
@@ -867,7 +868,8 @@ public final class SkyframeActionExecutor {
           clientEnv,
           getOutputPermissions(),
           remoteDefaultProperties,
-          useArchivedTreeArtifacts(action));
+          useArchivedTreeArtifacts(action),
+          mandatoryInputsDigest);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
@@ -879,12 +881,15 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  boolean mandatoryInputsMatch(Action action, byte[] mandatoryInputsDigest) {
+    return actionCacheChecker.mandatoryInputsMatch(action, mandatoryInputsDigest);
+  }
+
   @Nullable
-  List<Artifact> getActionCachedInputs(
-      Action action, PackageRootResolver resolver, byte[] inputDiscoveryInvalidationDigest)
+  List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
       throws AlreadyReportedActionExecutionException, InterruptedException {
     try {
-      return actionCacheChecker.getCachedInputs(action, resolver, inputDiscoveryInvalidationDigest);
+      return actionCacheChecker.getCachedInputs(action, resolver);
     } catch (PackageRootResolver.PackageRootException e) {
       printError(e.getMessage(), action);
       throw new AlreadyReportedActionExecutionException(

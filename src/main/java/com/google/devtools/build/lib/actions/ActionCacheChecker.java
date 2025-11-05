@@ -75,7 +75,6 @@ public class ActionCacheChecker {
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
 
-
   /** Cache config parameters for ActionCacheChecker. */
   @AutoValue
   public abstract static class CacheConfig {
@@ -623,7 +622,7 @@ public class ActionCacheChecker {
   // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
   @Nullable
-  private static FileArtifactValue getInputMetadataMaybe(
+  public static FileArtifactValue getInputMetadataMaybe(
       InputMetadataProvider inputMetadataProvider, Artifact artifact) {
     try {
       return getInputMetadataOrConstant(inputMetadataProvider, artifact);
@@ -665,7 +664,8 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       ImmutableMap<String, String> remoteDefaultExecProperties,
-      boolean useArchivedTreeArtifacts)
+      boolean useArchivedTreeArtifacts,
+      @Nullable byte[] mandatoryInputsDigest)
       throws IOException, InterruptedException {
     checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
     Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
@@ -689,12 +689,13 @@ public class ActionCacheChecker {
 
     var builder =
         new ActionCache.Entry.Builder(
-            actionKey,
-            action.discoversInputs(),
-            effectiveEnvironment,
-            effectiveExecProperties,
-            outputPermissions,
-            useArchivedTreeArtifacts);
+                actionKey,
+                action.discoversInputs(),
+                effectiveEnvironment,
+                effectiveExecProperties,
+                outputPermissions,
+                useArchivedTreeArtifacts)
+            .setMandatoryInputsDigest(mandatoryInputsDigest);
 
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
@@ -737,16 +738,19 @@ public class ActionCacheChecker {
     actionCache.put(key, builder.build());
   }
 
+  public boolean mandatoryInputsMatch(Action action, byte[] mandatoryInputsDigest) {
+    checkArgument(action.discoversInputs());
+    ActionCache.Entry entry = getCacheEntry(action);
+    return entry != null
+        && !entry.isCorrupted()
+        && Arrays.equals(entry.getMandatoryInputsDigest(), mandatoryInputsDigest);
+  }
+
   @Nullable
-  public List<Artifact> getCachedInputs(
-      Action action, PackageRootResolver resolver, byte[] inputDiscoveryInvalidationDigest)
+  public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
       throws PackageRootResolver.PackageRootException, InterruptedException {
     ActionCache.Entry entry = getCacheEntry(action);
-    if (entry == null
-        || entry.isCorrupted()
-        || (entry.discoversInputs()
-            && !Arrays.equals(
-                entry.getInputDiscoveryInvalidationDigest(), inputDiscoveryInvalidationDigest))) {
+    if (entry == null || entry.isCorrupted()) {
       return ImmutableList.of();
     }
 
