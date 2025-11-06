@@ -70,6 +70,7 @@ def _linking_order_test_impl(env, target):
         env.expect.that_collection(user_libs).contains_at_least_predicates([
             matching.contains("foo.pic.o"),
             matching.contains("baz.pic.o"),
+            matching.contains("a_suffix.pic.o"),
         ]).in_order()
 
         env.expect.that_collection(args).contains_at_least([
@@ -79,6 +80,27 @@ def _linking_order_test_impl(env, target):
         env.expect.where(
             detail = "liba_suffix.pic.o should be the last user library linked",
         ).that_str(user_libs[-1]).equals("a_suffix.pic.o")
+
+        all_objects = [
+            paths.basename(arg)
+            for arg in args
+            if arg.endswith(".o")
+        ]
+
+        env.expect.that_collection(all_objects).contains_at_least_predicates([
+            matching.contains("a_suffix.pic.o"),
+        ])
+
+        # We expect a_suffix.pic.o to be the last object linked if and only if this is Bazel,
+        # as runtimes-on-demand is not enabled in Bazel.
+        if env.ctx.attr.is_bazel:
+            env.expect.where(
+                detail = "a_suffix.pic.o should be the last object linked",
+            ).that_str(all_objects[-1]).equals("a_suffix.pic.o")
+        else:
+            env.expect.where(
+                detail = "a_suffix.pic.o should not be the last object linked",
+            ).that_str(all_objects[-1]).not_equals("a_suffix.pic.o")
 
         # qux2 is a LINKABLE_MORE_THAN_ONCE library which is enabled by semantics.
         # It might not be present but if it is we want to test it's in the right
@@ -102,7 +124,14 @@ def _linking_order_test_macro(name, target):
         impl = _linking_order_test_impl,
         target = target,
         attrs = {
+            "is_bazel": attr.bool(),
             "_is_linux": attr.label(default = "@platforms//os:linux"),
+        },
+        attr_values = {
+            "is_bazel": select({
+                ":is_bazel": True,
+                "//conditions:default": False,
+            }),
         },
     )
 
