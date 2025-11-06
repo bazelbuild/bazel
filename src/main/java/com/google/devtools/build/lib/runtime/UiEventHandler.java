@@ -371,10 +371,12 @@ public final class UiEventHandler implements EventHandler {
           } else {
             boolean clearedProgress =
                 writeToStream(stream, event.getKind(), event.getMessageBytes());
-            if (clearedProgress && showProgress && cursorControl) {
-              addProgressBar();
-            }
             terminal.flush();
+            // Schedule a deferred refresh instead of immediately redrawing to reduce flicker
+            // when stdout/stderr arrives frequently.
+            if (clearedProgress && showProgress) {
+              refreshSoon();
+            }
           }
           break;
         case FATAL:
@@ -547,7 +549,9 @@ public final class UiEventHandler implements EventHandler {
     }
 
     clearProgressBar();
-    terminal.flush();
+    // Don't flush terminal here - output stream and terminal share the same underlying stream
+    // (stderr). Flushing here would make the progress bar clearing visible before the output
+    // and redraw, causing flicker. Let the output flush and progress bar redraw happen together.
 
     // Write the buffer so far + the rest of the line (including newline).
     outLineBuffer.writeTo(stream);
@@ -1055,12 +1059,14 @@ public final class UiEventHandler implements EventHandler {
     if (!cursorControl) {
       return;
     }
-    for (int i = 0; i < numLinesProgressBar; i++) {
+    if (numLinesProgressBar > 0) {
+      // Move cursor up to the first line of the progress bar, then clear to end of screen.
+      // This is much more efficient than clearing each line individually and reduces flicker.
+      terminal.cursorUp(numLinesProgressBar);
       terminal.cr();
-      terminal.cursorUp(1);
-      terminal.clearLine();
+      terminal.clearToEndOfScreen();
+      numLinesProgressBar = 0;
     }
-    numLinesProgressBar = 0;
   }
 
   /** Terminate the line in the way appropriate for the operating system. */
