@@ -126,7 +126,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   /** ValidationException indicates an error during attribute validation. */
   public static final class ValidationException extends Exception {
-    private ValidationException(String message) {
+    public ValidationException(String message) {
       super(message);
     }
   }
