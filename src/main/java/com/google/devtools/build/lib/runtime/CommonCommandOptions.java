@@ -615,7 +615,9 @@ public class CommonCommandOptions extends OptionsBase {
           Specifies additional environment variables to be available only for repository rules. \
           Note that repository rules see the full environment anyway, but in this way \
           variables can be set via command-line flags and <code>.bazelrc</code> entries. \
-          The special syntax <code>=NAME</code> can be used to explicitly unset a variable.
+          The special syntax <code>=NAME</code> can be used to explicitly unset a variable. \
+          The string <code>%bazel_workspace%</code> in a value will be replaced with the absolute \
+          path of the workspace as printed by <code>bazel info workspace</code>.
           """)
   public List<Converters.EnvVar> repositoryEnvironment;
 
