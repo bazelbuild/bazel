@@ -511,6 +511,7 @@ functions are available:
 * [`buildfiles`](#buildfiles)
 * [`rbuildfiles`](#rbuildfiles)
 * [`deps`](#deps)
+* [`executables`](#executables)
 * [`filter`](#filter)
 * [`kind`](#kind)
 * [`labels`](#labels)
@@ -1029,6 +1030,20 @@ individual tests that would be executed by `bazel test
 foo:*`: this may include tests belonging to other packages,
 that are referenced directly or indirectly
 via `test_suite` rules.
+
+### Executable targets: executables {:#executables}
+
+```
+expr ::= executables({{ '<var>' }}expr{{ '</var>' }})
+```
+
+The `executables({{ '<var>' }}x{{ '</var>' }})` operator returns the set of all
+executable targets in set {{ '<var>' }}x{{ '</var>' }}. These targets
+are of rule types that can be run with `bazel run`, such as `cc_binary`,
+or any other rule that sets `executable = True` in its definition.
+
+This doesn't include test targets, which can be added to the result with
+the [`tests`](#tests) operator.
 
 ### Package definition files: buildfiles {:#buildfiles}
 
