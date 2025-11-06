@@ -550,7 +550,6 @@ public final class StarlarkRuleContext
                   ruleContext.attributes().get(attr.getName(), BuildType.LABEL_LIST_DICT),
                   prerequisites);
         } else {
-          Preconditions.checkState(attr.getType() == BuildType.LABEL_LIST, attr);
           value =
               StarlarkList.immutableCopyOf(
                   splitPrereq.getValue().stream()
