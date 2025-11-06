@@ -562,8 +562,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     for (var artifact : mandatoryInputs) {
       var value = lookupInput(artifact, mandatoryInputsKeys, env);
       if (value == null || value instanceof MissingArtifactValue) {
-        // This can happen with rewinding and is always an indication to halt the current action
-        // execution attempt.
+        // This can happen with rewinding or in keep-going builds and is always an indication to
+        // halt the current action execution attempt - we do not have to compute a digest.
         return null;
       }
       ActionInputMapHelper.addToMap(
