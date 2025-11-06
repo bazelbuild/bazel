@@ -109,6 +109,7 @@ function test_bootstrap() {
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "fake_java_toolchain",
+    bootclasspath = [":dummy.jar"],
     genclass = [":dummy.jar"],
     header_compiler = [":dummy.jar"],
     header_compiler_direct = [":dummy.jar"],

@@ -209,7 +209,7 @@ create_golden_test(
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryInterface",
-    rt_jar = "@rules_java//toolchains:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath_nostrip",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -224,7 +224,7 @@ create_golden_test(
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",
     replacing_jar = "testdata_lib_Library_no_members",
-    rt_jar = "@rules_java//toolchains:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath_nostrip",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 

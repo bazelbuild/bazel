@@ -3,7 +3,7 @@ load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolcha
 # This toolchain is used to bootstrap Bazel.
 default_java_toolchain(
     name = "bootstrap_toolchain",
-    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+    bootclasspath = ["@rules_java//toolchains:platformclasspath_nostrip"],
     genclass = ["//src/java_tools/buildjar:bootstrap_genclass_deploy.jar"],
     header_compiler = None,  # avoid remote_java_tools dependency
     header_compiler_direct = None,  # ditto
