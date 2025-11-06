@@ -2221,14 +2221,7 @@ function test_cpp20_modules_with_clang() {
     return 0
   fi
 
-  cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "rules_cc")
-git_override(
-    module_name = "rules_cc",
-    remote = "https://github.com/fmeum/rules_cc.git",
-    branch = "c++20-modules",
-)
-EOF
+  add_rules_cc "MODULE.bazel"
 
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
@@ -2316,15 +2309,28 @@ function test_cpp20_modules_change_ab_to_ba_no_cycle() {
     return 0
   fi
 
+  add_rules_cc "MODULE.bazel"
+  # TODO: Drop this after the next rules_cc release.
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "rules_cc")
-git_override(
+single_version_override(
     module_name = "rules_cc",
-    remote = "https://github.com/fmeum/rules_cc.git",
-    branch = "c++20-modules-no-cycle",
+    patches = ["//:rules_cc.patch"],
 )
 EOF
+  cat > rules_cc.patch <<'EOF'
+--- cc/private/compile/compile.bzl
++++ cc/private/compile/compile.bzl
+@@ -244,9 +244,6 @@ def compile(
 
+     if module_interfaces and not feature_configuration.is_enabled("cpp_modules"):
+         fail("to use C++20 Modules, the feature cpp_modules must be enabled")
+-    if module_interfaces and len(module_interfaces) > 1:
+-        fail("module_interfaces must be a list of files with exactly one file " +
+-             "due to implementation limitation. see https://github.com/bazelbuild/bazel/pull/22553")
+
+     language_normalized = "c++" if language == None else language
+     language_normalized = language_normalized.replace("+", "p").upper()
+EOF
 
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
@@ -2372,15 +2378,28 @@ function test_cpp20_modules_change_abc_to_acb_no_cycle() {
     return 0
   fi
 
+  add_rules_cc "MODULE.bazel"
+  # TODO: Drop this after the next rules_cc release.
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "rules_cc")
-git_override(
+single_version_override(
     module_name = "rules_cc",
-    remote = "https://github.com/fmeum/rules_cc.git",
-    branch = "c++20-modules-no-cycle",
+    patches = ["//:rules_cc.patch"],
 )
 EOF
+  cat > rules_cc.patch <<'EOF'
+--- cc/private/compile/compile.bzl
++++ cc/private/compile/compile.bzl
+@@ -244,9 +244,6 @@ def compile(
 
+     if module_interfaces and not feature_configuration.is_enabled("cpp_modules"):
+         fail("to use C++20 Modules, the feature cpp_modules must be enabled")
+-    if module_interfaces and len(module_interfaces) > 1:
+-        fail("module_interfaces must be a list of files with exactly one file " +
+-             "due to implementation limitation. see https://github.com/bazelbuild/bazel/pull/22553")
+
+     language_normalized = "c++" if language == None else language
+     language_normalized = language_normalized.replace("+", "p").upper()
+EOF
 
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_binary")
