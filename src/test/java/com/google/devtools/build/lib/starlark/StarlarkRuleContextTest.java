@@ -1625,6 +1625,138 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelListDictAllowsDuplicatesAcrossKeys() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=True),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key1': ['a.txt'], 'key2': ['a.txt']})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelListDictForbidsDuplicatesWithinSingleKey() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=True),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': ['a.txt', 'a.txt']})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "Label '//:a.txt' is duplicated in the 'label_list_dict' attribute of rule 'r'");
+  }
+
+  @Test
+  public void testLabelListDictAllowsDuplicatesAcrossKeysNonOverlappingSelects() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=True),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        """
+        load('//:my_rule.bzl', 'my_rule')
+        constraint_setting(name = "cpu")
+        constraint_value(name = "arm_cpu", constraint_setting = "cpu")
+        my_rule(
+          name="r",
+          label_list_dict = select({
+            ":arm_cpu": {'key1': [], 'key2': ["a.txt"]},
+            "//conditions:default": {'key1': ["a.txt"], 'key2': []},
+          }),
+        )
+        """);
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelListDictForbidsDuplicatesWithinSingleKeyOverlappingSelects()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=True),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        """
+        load('//:my_rule.bzl', 'my_rule')
+        constraint_setting(name = "cpu")
+        constraint_value(name = "arm_cpu", constraint_setting = "cpu")
+        my_rule(
+          name="r",
+          label_list_dict = select({
+            ":arm_cpu": {'key': ["a.txt"]},
+            "//conditions:default": {'key': ["a.txt", "a.txt"]},
+          }),
+        )
+        """);
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "Label '//:a.txt' is duplicated in the 'label_list_dict' attribute of rule 'r'");
+  }
+
+  @Test
   public void testLabelKeyedStringDictForbidsMissingAttributeWhenMandatoryIsTrue()
       throws Exception {
     reporter.removeHandler(failFastHandler);
@@ -1672,6 +1804,375 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelListDictConvertsToStringToTargetListMap() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "filegroup(name='dep')",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': [':dep']})");
+
+    invalidatePackages();
+    setRuleContext(createRuleContext("//:r"));
+    String keyString = (String) ev.eval("ruleContext.attr.label_list_dict.keys()[0]");
+    assertThat(keyString).isEqualTo("key");
+    Label valueLabel = (Label) ev.eval("ruleContext.attr.label_list_dict.values()[0][0].label");
+    assertThat(valueLabel).isEqualTo(Label.parseCanonical("//:dep"));
+  }
+
+  @Test
+  public void testLabelListDictTranslatesAliases() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "alias(name='myalias', actual=':dep')",
+        "filegroup(name='dep')",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': [':myalias']})");
+
+    invalidatePackages();
+    setRuleContext(createRuleContext("//:r"));
+    String keyString = (String) ev.eval("ruleContext.attr.label_list_dict.keys()[0]");
+    assertThat(keyString).isEqualTo("key");
+    Label valueLabel = (Label) ev.eval("ruleContext.attr.label_list_dict.values()[0][0].label");
+    assertThat(valueLabel).isEqualTo(Label.parseCanonical("//:dep"));
+  }
+
+  @Test
+  public void testLabelListDictAcceptsDefaultValues() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(default={'default': [Label('//:default')]}),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "filegroup(name='default')",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r')");
+
+    invalidatePackages();
+    setRuleContext(createRuleContext("//:r"));
+    String keyString = (String) ev.eval("ruleContext.attr.label_list_dict.keys()[0]");
+    assertThat(keyString).isEqualTo("default");
+    Label valueLabel = (Label) ev.eval("ruleContext.attr.label_list_dict.values()[0][0].label");
+    assertThat(valueLabel).isEqualTo(Label.parseCanonical("//:default"));
+  }
+
+  @Test
+  public void testLabelListDictAllowsFilesWhenAllowFilesIsTrue() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=True),
+          }
+        )
+        """);
+
+    scratch.file("myfile.cc");
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': ['myfile.cc']})");
+
+    invalidatePackages();
+    assertThat(getConfiguredTarget("//:r")).isNotNull();
+  }
+
+  @Test
+  public void testLabelListDictAllowsFilesOfAppropriateTypes() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=['.cc']),
+          }
+        )
+        """);
+
+    scratch.file("myfile.cc");
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': ['myfile.cc']})");
+
+    invalidatePackages();
+    assertThat(getConfiguredTarget("//:r")).isNotNull();
+  }
+
+  @Test
+  public void testLabelListDictForbidsFilesOfIncorrectTypes() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=['.cc']),
+          }
+        )
+        """);
+
+    scratch.file("myfile.cpp");
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': ['myfile.cpp']})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "in label_list_dict attribute of my_rule rule //:r: source file '//:"
+            + "myfile.cpp' is misplaced here (expected .cc)");
+  }
+
+  @Test
+  public void testLabelListDictForbidsFilesWhenAllowFilesIsFalse() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_files=False),
+          }
+        )
+        """);
+
+    scratch.file("myfile.cpp");
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': ['myfile.cpp']})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "in label_list_dict attribute of my_rule rule //:r: source file '//:"
+            + "myfile.cpp' is misplaced here (expected no files)");
+  }
+
+  @Test
+  public void testLabelListDictAllowsRulesWithRequiredProviders() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(providers=[MyInfo]),
+          }
+        )
+        def _dep_impl(ctx):
+          return MyInfo(my_provider=5)
+        my_dep_rule = rule(
+          implementation = _dep_impl,
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule', 'my_dep_rule')",
+        "my_dep_rule(name='dep')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': [':dep']})");
+
+    invalidatePackages();
+    assertThat(getConfiguredTarget("//:r")).isNotNull();
+  }
+
+  @Test
+  public void testLabelListDictForbidsRulesMissingRequiredProviders() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(providers=[[MyInfo]]),
+          }
+        )
+        def _dep_impl(ctx):
+          return
+        my_dep_rule = rule(
+          implementation = _dep_impl,
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule', 'my_dep_rule')",
+        "my_dep_rule(name='dep')",
+        "my_rule(name='r',",
+        "        label_list_dict={'key': [':dep']})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "in label_list_dict attribute of my_rule rule //:r: '//:dep' does not have mandatory"
+            + " providers: 'MyInfo'");
+  }
+
+  @Test
+  public void testLabelListDictForbidsEmptyDictWhenAllowEmptyIsFalse() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_empty=False),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "in label_list_dict attribute of my_rule rule //:r: attribute must be non empty");
+  }
+
+  @Test
+  public void testLabelListDictAllowsEmptyDictWhenAllowEmptyIsTrue() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(allow_empty=True),
+          }
+        )
+        """);
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list_dict={})");
+
+    invalidatePackages();
+    assertThat(getConfiguredTarget("//:r")).isNotNull();
+  }
+
+  @Test
+  public void testLabelListDictForbidsMissingAttributeWhenMandatoryIsTrue() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(mandatory=True),
+          }
+        )
+        """);
+
+    scratch.file("BUILD", "load('//:my_rule.bzl', 'my_rule')", "my_rule(name='r')");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "missing value for mandatory attribute 'label_list_dict' in 'my_rule' rule");
+  }
+
+  @Test
+  public void testLabelListDictAllowsMissingAttributeWhenMandatoryIsFalse() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        """
+        def _impl(ctx):
+          return
+        my_rule = rule(
+          implementation = _impl,
+          attrs = {
+            'label_list_dict': attr.label_list_dict(mandatory=False),
+          }
+        )
+        """);
+
+    scratch.file("BUILD", "load('//:my_rule.bzl', 'my_rule')", "my_rule(name='r')");
+
+    invalidatePackages();
+    createRuleContext("//:r");
+    assertNoEvents();
+  }
+
+  @Test
   public void testLabelAttributeDefault() throws Exception {
     scratch.file(
         "my_rule.bzl",
@@ -1685,6 +2186,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             '_implicit_dep': attr.label(default = Label('//:dep')),
             'explicit_dep_list': attr.label_list(default = [Label('//:dep')]),
             '_implicit_dep_list': attr.label_list(default = [Label('//:dep')]),
+            'explicit_dep_list_dict': attr.label_list_dict(default = {'key': [Label('//:dep')]}),
+            '_implicit_dep_list_dict': attr.label_list_dict(default = {'key': [Label('//:dep')]}),
           }
         )
         """);
@@ -1702,6 +2205,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(explicitDepListLabel).isEqualTo(Label.parseCanonical("//:dep"));
     Label implicitDepListLabel = (Label) ev.eval("ruleContext.attr._implicit_dep_list[0].label");
     assertThat(implicitDepListLabel).isEqualTo(Label.parseCanonical("//:dep"));
+    Label explicitDepListDictLabel =
+        (Label) ev.eval("ruleContext.attr.explicit_dep_list_dict['key'][0].label");
+    assertThat(explicitDepListDictLabel).isEqualTo(Label.parseCanonical("//:dep"));
+    Label implicitDepListDictLabel =
+        (Label) ev.eval("ruleContext.attr._implicit_dep_list_dict['key'][0].label");
+    assertThat(implicitDepListDictLabel).isEqualTo(Label.parseCanonical("//:dep"));
   }
 
   @Test
