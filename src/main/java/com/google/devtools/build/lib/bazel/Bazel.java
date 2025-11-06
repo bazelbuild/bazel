@@ -77,7 +77,6 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class,
           com.google.devtools.build.lib.network.NoOpConnectivityModule.class,
-          com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.runtime.ExecutionGraphModule.class,
@@ -88,6 +87,9 @@ public final class Bazel {
           // This module needs to be registered after any module submitting tasks with its {@code
           // submit} method.
           com.google.devtools.build.lib.runtime.BlockWaitingModule.class,
+          // This module needs to come after BlockWaitingModule so that the BES isn't closed until
+          // the background tasks maintained by the module have completed.
+          com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           // Modules that are involved in the collection of heap-related metrics of a build. They
           // need to be
           // last in the modules order, so when the GCs happen at the end of the build, we mitigate
