@@ -113,6 +113,16 @@ public class BazelLockFileModule extends BlazeModule {
         combineModuleExtensions(
             oldLockfile.getModuleExtensions(), newExtensionInfos, depGraphValue);
 
+    // Bazel may track the hashes of files fetched from local registries for internal
+    // purposes, but those should never show up in the lockfile for two reasons:
+    // - they are not needed for reproducibility, as local registries are assumed to be
+    //   under the user's control, just like CLI flags;
+    // - they would contribute absolute paths and thus aren't portable.
+    var remoteRegistryFileHashes =
+        ImmutableSortedMap.copyOf(
+            Maps.filterKeys(
+                moduleResolutionValue.getRegistryFileHashes(), url -> !url.startsWith("file:")));
+
     // Create an updated version of the lockfile, keeping only the extension results from the old
     // lockfile that are still up-to-date and adding the newly resolved extension results.
     BazelLockFileValue newLockfile =
@@ -129,8 +139,7 @@ public class BazelLockFileModule extends BlazeModule {
                 depGraphValue.getRepoNameSeparator() == '+'
                     ? BazelLockFileValue.LOCK_FILE_VERSION + 1
                     : BazelLockFileValue.LOCK_FILE_VERSION)
-            .setRegistryFileHashes(
-                ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
+            .setRegistryFileHashes(remoteRegistryFileHashes)
             .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
             .setModuleExtensions(combinedExtensionInfos)
             .build();
