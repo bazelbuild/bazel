@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -368,9 +369,20 @@ public class CommandEnvironment {
       }
     }
 
+    String bazelWorkspace = null;
+    if (workspace.getWorkspace() != null) {
+      bazelWorkspace = workspace.getWorkspace().getPathString();
+      // On Windows, convert forward slashes to backslashes for PATH-like variables.
+      if (OS.getCurrent() == OS.WINDOWS) {
+        bazelWorkspace = bazelWorkspace.replace('/', '\\');
+      }
+    }
     for (var envVar : commandOptions.repositoryEnvironment) {
       switch (envVar) {
         case Converters.EnvVar.Set(String name, String value) -> {
+          if (bazelWorkspace != null) {
+            value = value.replace("%bazel_workspace%", bazelWorkspace);
+          }
           repoEnv.put(name, value);
           repoEnvFromOptions.put(name, value);
         }
