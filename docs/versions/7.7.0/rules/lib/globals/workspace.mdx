@@ -1,0 +1,176 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.7.0/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.workspace">WORKSPACE files</h1>
+
+{% dynamic setvar source_file "NONE" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+Methods available in WORKSPACE files.
+
+<h2>Members</h2>
+<ul>
+    <li>
+    <a href="#bind">bind</a>
+  </li>
+      <li>
+    <a href="#register_execution_platforms">register_execution_platforms</a>
+  </li>
+      <li>
+    <a href="#register_toolchains">register_toolchains</a>
+  </li>
+      <li>
+    <a href="#workspace">workspace</a>
+  </li>
+  </ul>
+
+      <h2 id="bind">bind</h2>
+        <p><pre class="rule-signature"><code>None</code> bind(name, actual=None)</pre></p>
+
+    <p>Warning: use of <code>bind()</code> is not recommended. See <a href="https://github.com/bazelbuild/bazel/issues/1952">Consider removing bind</a> for a long discussion of its issues and alternatives.</p> <p>Gives a target an alias in the <code>//external</code> package.</p>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="bind.name">
+              <code>name</code>
+            </td>
+            <td>
+                                     required<br/>
+                          The label under '//external' to serve as the alias name
+            </td>
+          </tr>
+                  <tr>
+            <td id="bind.actual">
+              <code>actual</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/string.html">string</a>; or <code>None</code>;
+                                     default is <code>None</code><br/>
+                          The real label to be aliased
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="register_execution_platforms">register_execution_platforms</h2>
+        <p><pre class="rule-signature"><code>None</code> register_execution_platforms(*platform_labels)</pre></p>
+
+    Register an already-defined platform so that Bazel can use it as an <a href="/versions/7.7.0/docs/toolchains#toolchain-resolution">execution platform</a> during <a href="/versions/7.7.0/docs/toolchains">toolchain resolution</a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="register_execution_platforms.platform_labels">
+              <code>platform_labels</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          The labels of the platforms to register.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="register_toolchains">register_toolchains</h2>
+        <p><pre class="rule-signature"><code>None</code> register_toolchains(*toolchain_labels)</pre></p>
+
+    Register an already-defined toolchain so that Bazel can use it during <a href="/versions/7.7.0/docs/toolchains">toolchain resolution</a>. See examples of <a href="/versions/7.7.0/docs/toolchains#defining-toolchains">defining</a> and <a href="/versions/7.7.0/docs/toolchains#registering-and-building-with-toolchains">registering toolchains</a>.
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="register_toolchains.toolchain_labels">
+              <code>toolchain_labels</code>
+            </td>
+            <td>
+                          <a class="anchor" href="../core/list.html">sequence</a> of <a class="anchor" href="../core/string.html">string</a>s;
+                                     required<br/>
+                          The labels of the toolchains to register. Labels can include <code>:all</code>, in which case, all toolchain-providing targets in the package will be registered in lexicographical order by name.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="workspace">workspace</h2>
+        <p><pre class="rule-signature"><code>None</code> workspace(name)</pre></p>
+
+    <p>This function can only be used in a <code>WORKSPACE</code> file and must be declared before all other functions in the <code>WORKSPACE</code> file. Each <code>WORKSPACE</code> file should have a <code>workspace</code> function.</p><p>Sets the name for this workspace. Workspace names should be a Java-package-style description of the project, using underscores as separators, e.g., github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. <p>This name is used for the directory that the repository's runfiles are stored in. For example, if there is a runfile <code>foo/bar</code> in the local repository and the WORKSPACE file contains <code>workspace(name = 'baz')</code>, then the runfile will be available under <code>mytarget.runfiles/baz/foo/bar</code>.  If no workspace name is specified, then the runfile will be symlinked to <code>bar.runfiles/foo/bar</code>.</p> <p><a href="/versions/7.7.0/docs/external">Remote repository</a> rule names must be  valid workspace names. For example, you could have  <code>maven_jar(name = 'foo')</code>, but not  <code>maven_jar(name = 'foo%bar')</code>, as Bazel would attempt to write a  WORKSPACE file for the <code>maven_jar</code> containing  <code>workspace(name = 'foo%bar')</code>.</p>
+
+          <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="workspace.name">
+              <code>name</code>
+            </td>
+            <td>
+                                     required<br/>
+                          the name of the workspace. Names must start with a letter and can only contain letters, numbers, underscores, dashes, and dots.
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

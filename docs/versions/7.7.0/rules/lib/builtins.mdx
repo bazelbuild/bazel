@@ -1,0 +1,128 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/versions/7.7.0/_book.yaml">
+</head>
+<body>
+<h1 class="page-title">Built-in Types</h1>
+
+{% dynamic setvar source_file "NONE" %}
+{% include "_buttons.html" %}
+This section lists types of Starlark objects. With some exceptions, these type names are not valid Starlark symbols; instances of them may be acquired through different means.
+
+<ul>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Action">Action</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/actions">actions</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/apple_platform">apple_platform</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/apple_platform_type">apple_platform_type</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/apple_toolchain">apple_toolchain</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Args">Args</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Aspect">Aspect</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Attribute">Attribute</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/bazel_module">bazel_module</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/bazel_module_tags">bazel_module_tags</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/BuildSetting">BuildSetting</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/CcCompilationOutputs">CcCompilationOutputs</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/CcLinkingOutputs">CcLinkingOutputs</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/CompilationContext">CompilationContext</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/configuration">configuration</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/ctx">ctx</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/depset">depset</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/DirectoryExpander">DirectoryExpander</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/DottedVersion">DottedVersion</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/exec_result">exec_result</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/ExecGroupCollection">ExecGroupCollection</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/ExecGroupContext">ExecGroupContext</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/ExecTransitionFactory">ExecTransitionFactory</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/extension_metadata">extension_metadata</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/FeatureConfiguration">FeatureConfiguration</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/File">File</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/fragments">fragments</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/java_annotation_processing">java_annotation_processing</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Label">Label</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/LateBoundDefault">LateBoundDefault</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/LibraryToLink">LibraryToLink</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/License">License</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/LinkerInput">LinkerInput</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/LinkingContext">LinkingContext</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/mapped_root">mapped_root</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/module_ctx">module_ctx</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/native_rule_transition">native_rule_transition</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/path">path</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Provider">Provider</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/repository_ctx">repository_ctx</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/repository_os">repository_os</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/repository_rule">repository_rule</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/root">root</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/rule">rule</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/rule_attributes">rule_attributes</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/runfiles">runfiles</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/struct">struct</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Subrule">Subrule</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/subrule_ctx">subrule_ctx</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/SymlinkEntry">SymlinkEntry</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/tag_class">tag_class</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/Target">Target</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/TemplateDict">TemplateDict</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/toolchain_type">toolchain_type</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/ToolchainContext">ToolchainContext</a></li>
+
+<li><a href="/versions/7.7.0/rules/lib/builtins/transition">transition</a></li>
+</ul>
+</body>
+</html>
