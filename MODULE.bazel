@@ -21,7 +21,7 @@ bazel_dep(name = "googleapis-java", version = "1.0.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
 bazel_dep(name = "googletest", version = "1.17.0", repo_name = "com_google_googletest")
 bazel_dep(name = "grpc-java", version = "1.71.0")
-bazel_dep(name = "grpc", version = "1.73.1", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "grpc", version = "1.76.0.bcr.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "protobuf", version = "33.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
@@ -40,7 +40,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "1.24.2")
-bazel_dep(name = "rules_cc", version = "0.2.14-rc1")
+bazel_dep(name = "rules_cc", version = "0.2.14")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -73,25 +73,6 @@ single_version_override(
         "//third_party:rules_graalvm_fix.patch",
         "//third_party:rules_graalvm_unicode.patch",
         "//third_party:rules_graalvm_load_fix.patch",
-    ],
-)
-
-# Address https://github.com/bazelbuild/bazel/issues/26922
-# Enable system_include_paths due to c-ares and grpc
-# TODO(pcloudy): upstream the patches
-single_version_override(
-    module_name = "c-ares",
-    patch_strip = 0,
-    patches = [
-        "//third_party:c-ares.patch",
-    ],
-)
-
-single_version_override(
-    module_name = "grpc",
-    patch_strip = 0,
-    patches = [
-        "//third_party:grpc.patch",
     ],
 )
 
