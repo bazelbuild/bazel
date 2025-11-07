@@ -1,3 +1,59 @@
+## Release 9.0.0-pre.20251029.2 (2025-11-07)
+
+```
+Baseline: 0d890272e6f39cc5ca5c959df5b6981fbfe0bd91
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, David Sanderson, Fabian Meumertzheim, Farid Zakaria, Keith Smiley, Will Stranton.
+
+## Release 9.0.0-pre.20251025.1 (2025-10-31)
+
+```
+Baseline: d4980887951f011448b39b5b973d346ea03aab75
+```
+
+New features:
+
+  - Add support for setting the `.bazelrc` path via a `BAZELRC`
+    environment variable.
+
+Important changes:
+
+  - OSS Bazel permits but ignores type annotations in .bzl files.
+    Type annotations are experimental, and code that uses them may
+    fail in future versions of Bazel.
+  - If a java_import target's srcjar attribute refers to a source
+    file, the file should exist.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alexander Golovlev, Benjamin Peterson, Fabian Meumertzheim, Keith Smiley, Will Stranton.
+
+## Release 7.7.0 (2025-10-30)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20251022.1 (2025-10-28)
+
+```
+Baseline: 760a747eb667e692fdfac5aa4a0e0bf21a6fa75c
+```
+
+New features:
+
+  - Module extensions can store a JSON-like Starlark object in
+    `module_ctx.extension_metadata(facts = ...)` and retrieve it back
+    in future evaluations of the extension via `module_ctx.facts`
+    without any invalidation taking place.
+
+Important changes:
+
+  - `ctx.actions.symlink` now accepts a `target_type` argument.
+
+This release contains contributions from many people at Google, as well as Alan Mond, Alex Eagle, Benjamin Peterson, Bradley Bridges, David Sanderson, Fabian Meumertzheim, Grzegorz Lukasik, Jordan Mele, Keith Smiley, Luis Padron, Ulrik Falklof.
+
 ## Release 9.0.0-pre.20251014.1 (2025-10-24)
 
 ```
