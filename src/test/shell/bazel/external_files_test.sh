@@ -47,8 +47,11 @@ build_def() {
   cat > _.MODULE <<'EOF'
 module(name = "remote")
 EOF
+  add_rules_cc "_.MODULE"
   mkdir src
   cat > _.BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
   name = "hello",
   srcs = ["main.c", "consts/greeting.h"],
@@ -82,6 +85,7 @@ http_archive(
   },
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   bazel build @remote//src:hello || fail "Expected build to succeed"
   bazel run @remote//src:hello | grep 'Hello World' \
@@ -118,6 +122,7 @@ http_archive(
   },
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   bazel build @remote//src:hello || fail "Expected build to succeed"
   bazel run @remote//src:hello | grep 'Hello World' \
@@ -156,6 +161,7 @@ http_archive(
   },
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   bazel build @remote//src:hello || fail "Expected build to succeed"
   bazel run @remote//src:hello | grep 'Hello World' \
