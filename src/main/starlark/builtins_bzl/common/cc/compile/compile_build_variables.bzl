@@ -385,8 +385,14 @@ def get_copts(
         conlyopts,
         copts,
         cxxopts,
-        label):
-    extension = "." + source_file.extension if source_file.extension else ""
+        label,
+        override_extension = None):
+    if override_extension != None:
+        extension = override_extension
+    elif source_file.extension:
+        extension = "." + source_file.extension
+    else:
+        extension = ""
     result = []
     result.extend(_copts_from_options(language, cpp_configuration, extension))
     result.extend(copts)

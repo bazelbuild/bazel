@@ -558,6 +558,8 @@ def _create_scan_deps_action(
             copts = copts,
             cxxopts = cxxopts,
             label = source_label,
+            # Treat C++20 module interfaces as C++ source files regardless of their extension.
+            override_extension = extensions.CC_SOURCE[0],
         ),
     )
     compile_variables = _cc_internal.combine_cc_toolchain_variables(
@@ -1609,6 +1611,8 @@ def _create_compile_source_action(
         conlyopts = conlyopts,
         cxxopts = cxxopts,
         label = source_label,
+        # Treat C++20 module interfaces as C++ source files regardless of their extension.
+        override_extension = extensions.CC_SOURCE[0] if action_name == ACTION_NAMES.cpp20_module_compile else None,
     )
 
     compile_variables = get_specific_compile_build_variables(
