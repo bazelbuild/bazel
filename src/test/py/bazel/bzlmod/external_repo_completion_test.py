@@ -138,7 +138,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
     ]
 
     self.main_registry.createLocalPathModule(
-        'ext', '1.0', 'ext', {'rules_shell': '0.6.0'}
+        'ext', '1.0', 'ext', {'rules_shell': '0.6.0', 'rules_cc': '0.2.13'}
     )
     scratchFile(
         self.projects_dir.joinpath('ext', 'BUILD'),
@@ -149,11 +149,17 @@ class ExternalRepoCompletionTest(test_base.TestBase):
     )
     scratchFile(
         self.projects_dir.joinpath('ext', 'tools', 'BUILD'),
-        ['cc_binary(name="tool")'],
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(name="tool")'
+        ],
     )
     scratchFile(
         self.projects_dir.joinpath('ext', 'tools', 'zip', 'BUILD'),
-        ['cc_binary(name="zipper")'],
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(name="zipper")'
+        ],
     )
     scratchFile(self.projects_dir.joinpath('ext', 'ext.bzl'), ext_src)
     self.main_registry.createLocalPathModule(

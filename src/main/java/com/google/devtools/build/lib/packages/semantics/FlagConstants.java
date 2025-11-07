@@ -27,8 +27,7 @@ class FlagConstants {
 
   // TODO - ilist@: once Java providers are removed, the whole line can be compressed to
   // "@rules_java"
-  public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY =
-      "+@rules_cc";
+  public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY = "";
 
   // Enable annotations, but not actual type checking, with the effect that the parser tolerates
   // arbitrary expressions in annotations for now.
