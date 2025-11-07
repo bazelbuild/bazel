@@ -788,6 +788,11 @@ function run_suite() {
 
   if [[ "${#TESTS[@]}" -ne 0 ]]; then
     for TEST_name in "${TESTS[@]}"; do
+      if [[ "${TESTBRIDGE_TEST_RUNNER_FAIL_FAST:-0}" == "1" && "$TEST_passed" == "false" ]]; then
+        echo "Skipping test '$TEST_name' due to previous failure and --test_runner_fail_fast set." >&2
+        continue
+      fi
+
       >"$TEST_log" # Reset the log.
       TEST_passed="true"
 
