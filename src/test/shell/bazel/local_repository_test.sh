@@ -651,6 +651,8 @@ function test_cc_binary_in_local_repository() {
   mkdir $r
   touch $r/REPO.bazel
   cat > $r/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "bin",
     srcs = ["bin.cc"],
@@ -667,6 +669,7 @@ local_repository(
     path = "$r",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   bazel build @r//:bin || fail "build failed"
 }

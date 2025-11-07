@@ -309,6 +309,9 @@ EOF
   touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
