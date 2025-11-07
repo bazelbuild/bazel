@@ -4935,4 +4935,68 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(buildSettingProvider.getDefaultValue()).isEqualTo(ImmutableSet.copyOf(defaultValue));
     assertThat(buildSettingProvider.getType()).isEqualTo(Types.STRING_SET);
   }
+
+  @Test
+  public void testLabelKeyedStringDictAttrTransitioned() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        MyProvider = provider()
+
+        def _my_transition_impl(settings, attr):
+            return {"//command_line_option:compilation_mode": "opt"}
+
+        my_transition = transition(
+            implementation = _my_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"],
+        )
+
+        def _impl(ctx):
+            result = []
+            for k, v in ctx.attr.dict_attr.items():
+              result.append(k[DefaultInfo].files.to_list()[0].path)
+            return MyProvider(result = result)
+
+        my_rule = rule(
+          implementation = _impl,
+            attrs = {
+                'dict_attr': attr.label_keyed_string_dict(
+                    cfg = my_transition,
+                ),
+            },
+        )
+
+        def _dep_impl(ctx):
+          f = ctx.actions.declare_file(ctx.label.name + ".txt")
+          ctx.actions.write(f, "hello")
+          return DefaultInfo(files = depset([f]))
+
+        my_dep = rule(
+            implementation = _dep_impl,
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule", "my_dep")
+
+        my_rule(
+            name = "my_target",
+            dict_attr = {":d1": "s1", ":d2": "s2"},
+        )
+        my_dep(name = "d1")
+        my_dep(name = "d2")
+        """);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//test:my_target");
+    Provider.Key myProviderKey =
+        new StarlarkProvider.Key(
+            keyForBuild(Label.create(myTarget.getLabel().getPackageIdentifier(), "rules.bzl")),
+            "MyProvider");
+    var result = ((StarlarkInfo) myTarget.get(myProviderKey)).getValue("result");
+    // Dependencies output path should have `-opt` after the transition.
+    ((Iterable<?>) result).forEach(s -> assertThat(s.toString()).contains("-opt/"));
+  }
 }
