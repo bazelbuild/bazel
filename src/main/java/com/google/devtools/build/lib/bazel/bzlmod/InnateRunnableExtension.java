@@ -21,8 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.StarlarkRepoRule;
@@ -211,11 +209,8 @@ final class InnateRunnableExtension implements RunnableExtension {
               "to the %s".formatted(moduleKey.toDisplayString())));
     }
     return new RunModuleExtensionResult(
-        ImmutableSortedMap.of(),
-        ImmutableSortedMap.of(),
-        ImmutableSortedMap.of(),
+        ImmutableList.of(),
         generatedRepoSpecs.buildOrThrow(),
-        ModuleExtensionMetadata.REPRODUCIBLE,
-        ImmutableTable.of());
+        ModuleExtensionMetadata.REPRODUCIBLE);
   }
 }

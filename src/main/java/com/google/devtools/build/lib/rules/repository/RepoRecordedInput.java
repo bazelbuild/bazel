@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSortedMap;
@@ -117,27 +118,80 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
     return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
   }
 
+  /** A recorded input along with its recorded value. */
+  public record WithValue(RepoRecordedInput input, @Nullable String value) {
+    /** Parses a {@link WithValue} from its string representation. */
+    public static Optional<RepoRecordedInput.WithValue> parse(String s) {
+      int sChar = s.indexOf(' ');
+      if (sChar > 0) {
+        var input = RepoRecordedInput.parse(unescape(s.substring(0, sChar)));
+        if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
+          return Optional.of(new WithValue(input, unescape(s.substring(sChar + 1))));
+        }
+      }
+      return Optional.empty();
+    }
+
+    /** Converts this {@link WithValue} to a string in a format compatible with @link{#parse}. */
+    @Override
+    public String toString() {
+      return escape(input.toString()) + " " + escape(value);
+    }
+
+    @VisibleForTesting
+    static String escape(String str) {
+      return str == null
+          ? "\\0"
+          : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
+    }
+
+    @VisibleForTesting
+    @Nullable
+    static String unescape(String str) {
+      if (str.equals("\\0")) {
+        return null; // \0 == null string
+      }
+      StringBuilder result = new StringBuilder();
+      boolean escaped = false;
+      for (int i = 0; i < str.length(); i++) {
+        char c = str.charAt(i);
+        if (escaped) {
+          if (c == 'n') { // n means new line
+            result.append("\n");
+          } else if (c == 's') { // s means space
+            result.append(" ");
+          } else { // Any other escaped characters are just un-escaped
+            result.append(c);
+          }
+          escaped = false;
+        } else if (c == '\\') {
+          escaped = true;
+        } else {
+          result.append(c);
+        }
+      }
+      return result.toString();
+    }
+  }
+
   /**
    * Returns whether all values are still up-to-date for each recorded input. If Skyframe values are
    * missing, the return value should be ignored; callers are responsible for checking {@code
    * env.valuesMissing()} and triggering a Skyframe restart if needed.
    */
   public static Optional<String> isAnyValueOutdated(
-      Environment env,
-      BlazeDirectories directories,
-      Map<? extends RepoRecordedInput, String> recordedInputValues)
+      Environment env, BlazeDirectories directories, List<WithValue> recordedInputs)
       throws InterruptedException {
     env.getValuesAndExceptions(
-        recordedInputValues.keySet().stream()
-            .map(rri -> rri.getSkyKey(directories))
+        recordedInputs.stream()
+            .map(rri -> rri.input().getSkyKey(directories))
             .collect(toImmutableSet()));
     if (env.valuesMissing()) {
       return UNDECIDED;
     }
-    for (Map.Entry<? extends RepoRecordedInput, String> recordedInputValue :
-        recordedInputValues.entrySet()) {
+    for (var recordedInput : recordedInputs) {
       Optional<String> reason =
-          recordedInputValue.getKey().isOutdated(env, directories, recordedInputValue.getValue());
+          recordedInput.input().isOutdated(env, directories, recordedInput.value());
       if (reason.isPresent()) {
         return reason;
       }
@@ -640,6 +694,10 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
     public RecordedRepoMapping(RepositoryName sourceRepo, String apparentName) {
       this.sourceRepo = sourceRepo;
       this.apparentName = apparentName;
+    }
+
+    public String apparentName() {
+      return apparentName;
     }
 
     @Override
