@@ -9,7 +9,10 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["*"]) + [
+    srcs = glob([
+        "*",
+        "repository/*",
+    ]) + [
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
@@ -29,7 +32,10 @@ filegroup(
 
 java_test(
     name = "rules_tests",
-    srcs = glob(["*.java"]),
+    srcs = glob([
+        "*.java",
+        "repository/*.java",
+    ]),
     jvm_flags = [
         "-Djava.lang.Thread.allowVirtualThreads=true",
     ],
@@ -50,6 +56,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",

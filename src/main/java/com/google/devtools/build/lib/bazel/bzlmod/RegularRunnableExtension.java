@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
@@ -268,13 +269,10 @@ final class RegularRunnableExtension implements RunnableExtension {
             mainRepositoryMapping,
             env.getListener());
     ModuleExtensionMetadata moduleExtensionMetadata;
-    var repoMappingRecorder = new Label.RepoMappingRecorder();
-    repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
     try (Mutability mu =
             Mutability.create("module extension", usagesValue.getExtensionUniqueName());
         ModuleExtensionContext moduleContext =
-            createContext(
-                env, usagesValue, starlarkSemantics, extensionId, repoMappingRecorder, facts)) {
+            createContext(env, usagesValue, starlarkSemantics, extensionId, facts, bzlLoadValue)) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu,
@@ -285,7 +283,12 @@ final class RegularRunnableExtension implements RunnableExtension {
       threadContext.storeInThread(thread);
       // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
       // apparent repo names to canonical repo names. See #20721 for why this is necessary.
-      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+      thread.setThreadLocal(
+          Label.RepoMappingRecorder.class,
+          (fromRepo, apparentRepoName, canonicalRepoName) ->
+              moduleContext.recordInput(
+                  new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
+                  canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null));
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
@@ -310,12 +313,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       moduleContext.markSuccessful();
       env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
       return new RunModuleExtensionResult(
-          moduleContext.getRecordedFileInputs(),
-          moduleContext.getRecordedDirentsInputs(),
-          moduleContext.getRecordedEnvVarInputs(),
-          threadContext.createRepos(),
-          moduleExtensionMetadata,
-          repoMappingRecorder.recordedEntries());
+          moduleContext.getRecordedInputs(), threadContext.createRepos(), moduleExtensionMetadata);
     } catch (EvalException e) {
       if (!(e.getCause() instanceof ExternalDepsException)) {
         // ExternalDepsException events should already have been reported.
@@ -338,9 +336,11 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      Label.RepoMappingRecorder repoMappingRecorder,
-      Facts facts)
+      Facts facts,
+      BzlLoadValue bzlLoadValue)
       throws ExternalDepsException {
+    var staticRepoMappingRecorder = new Label.SimpleRepoMappingRecorder();
+    staticRepoMappingRecorder.record(bzlLoadValue.getRecordedRepoMappings());
     Path workingDirectory =
         directories
             .getOutputBase()
@@ -355,24 +355,34 @@ final class RegularRunnableExtension implements RunnableExtension {
               extension,
               usagesValue.getRepoMappings().get(moduleKey),
               usagesValue.getExtensionUsages().get(moduleKey),
-              repoMappingRecorder));
+              staticRepoMappingRecorder));
     }
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =
         rootUsage != null && rootUsage.getHasNonDevUseExtension();
-    return new ModuleExtensionContext(
-        workingDirectory,
-        directories,
-        env,
-        clientEnvironmentSupplier.get(),
-        downloadManager,
-        timeoutScaling,
-        processWrapper,
-        starlarkSemantics,
-        repositoryRemoteExecutor,
-        extensionId,
-        StarlarkList.immutableCopyOf(modules),
-        facts,
-        rootModuleHasNonDevDependency);
+    var context =
+        new ModuleExtensionContext(
+            workingDirectory,
+            directories,
+            env,
+            clientEnvironmentSupplier.get(),
+            downloadManager,
+            timeoutScaling,
+            processWrapper,
+            starlarkSemantics,
+            repositoryRemoteExecutor,
+            extensionId,
+            StarlarkList.immutableCopyOf(modules),
+            facts,
+            rootModuleHasNonDevDependency);
+    // Record inputs to the extension that are known prior to evaluation.
+    for (var cell : staticRepoMappingRecorder.recordedEntries().cellSet()) {
+      context.recordInput(
+          new RepoRecordedInput.RecordedRepoMapping(cell.getRowKey(), cell.getColumnKey()),
+          cell.getValue().getName());
+    }
+    RepoRecordedInput.EnvVar.wrap(getStaticEnvVars())
+        .forEach((input, value) -> context.recordInput(input, value.orElse(null)));
+    return context;
   }
 }
