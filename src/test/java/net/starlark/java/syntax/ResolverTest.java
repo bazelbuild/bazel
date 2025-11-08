@@ -794,6 +794,15 @@ public class ResolverTest {
     assertThat(badFile.ok()).isTrue();
   }
 
+  // TODO(b/350661266): resolve types in isinstance().
+  @Test
+  public void testIsInstanceExpression_notYetSupported() throws Exception {
+    options.allowTypeSyntax(true);
+    StarlarkFile badFile = resolveFile("isinstance(x, list)");
+    assertThat(badFile.ok()).isFalse();
+    assertContainsError(badFile.errors(), "isinstance() is not yet supported");
+  }
+
   // checkBindings verifies the binding (scope and index) of each identifier.
   // Every variable must be followed by a superscript letter (its scope)
   // and a subscript numeral (its index). They are replaced by spaces, the

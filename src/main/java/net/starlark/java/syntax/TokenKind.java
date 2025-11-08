@@ -68,6 +68,8 @@ public enum TokenKind {
   INDENT("indent"),
   INT("integer literal"),
   IS("is"),
+  /** Emitted only if --experimental_starlark_type_syntax is enabled. */
+  ISINSTANCE("isinstance"),
   LAMBDA("lambda"),
   LBRACE("{"),
   LBRACKET("["),
