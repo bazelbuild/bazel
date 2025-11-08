@@ -1803,6 +1803,66 @@ public final class ParserTest {
   }
 
   @Test
+  public void testIsInstanceExpression_basicFunctionality() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    IsInstanceExpression cast =
+        (IsInstanceExpression) parseExpression("isinstance(foo(), list | tuple)");
+    assertThat(cast.getType()).isInstanceOf(BinaryOperatorExpression.class);
+    assertThat(cast.getValue()).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testIsInstanceExpression_isExpression() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseStatement("if isinstance(isinstance(y, list), bool): isinstance(z, str)");
+  }
+
+  @Test
+  public void testIsInstance_isKeyword() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("something.isinstance(x, list)"))
+        .contains("syntax error at 'isinstance': expected identifier after dot");
+    assertThat(parseExpressionError("(isinstance)(x, list)")).contains("expected (");
+  }
+
+  @Test
+  public void testIsInstanceExpression_requiresTypeSyntax() throws Exception {
+    // If type syntax is disabled, `isinstance` is treated as an ordinary identifier.
+    setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
+    assertThat(parseExpression("isinstance(x, T)")).isInstanceOf(CallExpression.class);
+  }
+
+  @Test
+  public void testIsInstanceExpression_goodSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    parseExpression(
+        """
+        isinstance(
+            x,
+            T | U[V]
+        )\
+        """);
+    parseExpression("isinstance(x, tuple,)");
+  }
+
+  @Test
+  public void testIsInstanceExpression_badSyntax() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    setFailFast(false);
+    assertThat(parseExpressionError("isinstance x, int"))
+        .contains("syntax error at 'x': expected (");
+    assertThat(parseExpressionError("isinstance(x, y, int)"))
+        .contains("syntax error at 'int': expected )");
+    assertThat(parseExpressionError("isinstance(x, int"))
+        .contains("syntax error at 'newline': expected )");
+    assertThat(parseExpressionError("isinstance(*args)"))
+        .contains("syntax error at '*': expected expression");
+    assertThat(parseExpressionError("isinstance(value=x, type=int)"))
+        .contains("syntax error at '=': expected ,");
+  }
+
+  @Test
   public void testLambda() throws Exception {
     parseExpression("lambda a, b=1, *args, **kwargs: a+b");
     parseExpression("lambda *, a, *b: 0");
