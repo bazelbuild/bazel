@@ -2175,9 +2175,9 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(f.read().strip())
       self.assertIn('//:ext.bzl%ext', lockfile['moduleExtensions'])
       extension = lockfile['moduleExtensions']['//:ext.bzl%ext']['general']
-      self.assertIn('recordedRepoMappingEntries', extension)
-      extension['recordedRepoMappingEntries'].append(
-          ['_unknown_source_repo', 'other_name', 'bar+']
+      self.assertIn('recordedInputs', extension)
+      extension['recordedInputs'].append(
+          'REPO_MAPPING:_unknown_source_repo,other_name bar+'
       )
 
     with open(self.Path('MODULE.bazel.lock'), 'w') as f:

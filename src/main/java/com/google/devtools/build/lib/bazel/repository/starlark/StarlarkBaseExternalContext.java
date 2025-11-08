@@ -14,15 +14,18 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
@@ -53,12 +56,10 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
-import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -84,12 +85,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -165,9 +165,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
   protected final String identifyingStringForLogging;
-  private final HashMap<RepoRecordedInput.File, String> recordedFileInputs = new HashMap<>();
-  private final HashMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs = new HashMap<>();
-  private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
+  private final LinkedHashMap<RepoRecordedInput, String> recordedInputs = new LinkedHashMap<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
@@ -238,6 +236,15 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
   }
 
+  public void recordInput(RepoRecordedInput input, @Nullable String value) {
+    if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
+      throw new IllegalStateException(
+          "Conflicting values recorded for input %s: '%s' vs. '%s'"
+              .formatted(input, recordedInputs.get(input), value));
+    }
+    recordedInputs.put(input, value);
+  }
+
   private boolean cancelPendingAsyncTasks() {
     boolean hadPendingItems = false;
     for (AsyncTask task : asyncTasks) {
@@ -267,20 +274,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @ForOverride
   protected abstract boolean shouldDeleteWorkingDirectoryOnClose(boolean successful);
 
-  /** Returns the file digests used by this context object so far. */
-  public ImmutableSortedMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
-    return ImmutableSortedMap.copyOf(recordedFileInputs);
-  }
-
-  public ImmutableSortedMap<Dirents, String> getRecordedDirentsInputs() {
-    return ImmutableSortedMap.copyOf(recordedDirentsInputs);
-  }
-
-  public ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
-      throws InterruptedException {
-    // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
-    // established by getenv calls.
-    return RepoRecordedInput.EnvVar.wrap(RepositoryUtils.getEnvVarValues(env, accumulatedEnvKeys));
+  /** Returns all recorded inputs in the order they were recorded. */
+  public ImmutableList<RepoRecordedInput.WithValue> getRecordedInputs() {
+    return recordedInputs.entrySet().stream()
+        .map(e -> new RepoRecordedInput.WithValue(e.getKey(), e.getValue()))
+        .collect(toImmutableList());
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -1430,17 +1428,15 @@ the same path on case-insensitive filesystems.
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    // Must look up via AEF, rather than solely copy from `this.envVariables`, in order to
+    // Must look up via Skyframe, rather than solely copy from `this.envVariables`, in order to
     // establish a SkyKey dependency relationship.
-    if (env.getValue(ActionEnvironmentFunction.key(name)) == null) {
-      throw new NeedsSkyframeRestartException();
+    var nameAndValue = RepositoryUtils.getEnvVarValues(env, ImmutableSet.of(name));
+    if (nameAndValue == null) {
+      return null;
     }
-
-    // However, to account for --repo_env we take the value from `this.envVariables`.
-    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
-    String envVarValue = envVariables.get(name);
-    accumulatedEnvKeys.add(name);
-    return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
+    var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
+    recordInput(entry.getKey(), entry.getValue().orElse(null));
+    return entry.getValue().orElseGet(() -> nullIfNone(defaultValue, String.class));
   }
 
   @StarlarkMethod(
@@ -1612,7 +1608,7 @@ the same path on case-insensitive filesystems.
         throw new NeedsSkyframeRestartException();
       }
 
-      recordedFileInputs.put(
+      recordInput(
           recordedInput,
           RepoRecordedInput.File.fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
     } catch (IOException e) {
@@ -1631,8 +1627,7 @@ the same path on case-insensitive filesystems.
       throw new NeedsSkyframeRestartException();
     }
     try {
-      recordedDirentsInputs.put(
-          recordedInput, RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
+      recordInput(recordedInput, RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1766,7 +1761,7 @@ the same path on case-insensitive filesystems.
       boolean quiet,
       String workingDirectory)
       throws EvalException, InterruptedException {
-    Preconditions.checkState(canExecuteRemote());
+    checkState(canExecuteRemote());
 
     ImmutableSortedMap.Builder<PathFragment, Path> inputsBuilder =
         ImmutableSortedMap.naturalOrder();

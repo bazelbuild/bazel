@@ -34,26 +34,6 @@ import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
 public class DigestWriterTest extends BuildViewTestCase {
-
-  private static void assertMarkerFileEscaping(String testCase) {
-    String escaped = DigestWriter.escape(testCase);
-    assertThat(DigestWriter.unescape(escaped)).isEqualTo(testCase);
-  }
-
-  @Test
-  public void testMarkerFileEscaping() throws Exception {
-    assertMarkerFileEscaping(null);
-    assertMarkerFileEscaping("\\0");
-    assertMarkerFileEscaping("a\\0");
-    assertMarkerFileEscaping("a b");
-    assertMarkerFileEscaping("a b c");
-    assertMarkerFileEscaping("a \\b");
-    assertMarkerFileEscaping("a \\nb");
-    assertMarkerFileEscaping("a \\\\nb");
-    assertMarkerFileEscaping("a \\\nb");
-    assertMarkerFileEscaping("a \nb");
-  }
-
   @Test
   public void testFileValueToMarkerValue() throws Exception {
     RootedPath path =
