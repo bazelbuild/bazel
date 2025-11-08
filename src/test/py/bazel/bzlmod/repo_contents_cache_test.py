@@ -443,14 +443,7 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.RunBazel(['clean', '--expunge'])
     self.ScratchFile('foo_deps.txt', [''])
     self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
-    exit_code, stdout, stderr = self.RunBazel(
-        ['build', '@foo//:output.txt'], allow_failure=True
-    )
-    # TODO: b/xxxxxxx - This is NOT the intended behavior.
-    self.AssertNotExitCode(exit_code, 0, stderr, stdout)
-    self.assertIn('.-> @@+repo+foo', stderr)
-    self.assertIn('|   @@+repo+bar', stderr)
-    self.assertIn('`-- @@+repo+foo', stderr)
+    self.RunBazel(['build', '@foo//:output.txt'])
 
 
 if __name__ == '__main__':
