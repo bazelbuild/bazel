@@ -23,13 +23,10 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
@@ -212,7 +209,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // apparent repo names to canonical repo names. See #20721 for why this is necessary.
     this.repoMappingRecorder =
         (fromRepo, apparentRepoName, canonicalRepoName) ->
-            recordInput(
+            manuallyRecordInput(
                 new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
                 canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null);
   }
@@ -251,13 +248,22 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     repoMappingRecorder.storeInThread(thread);
   }
 
-  protected void recordInput(RepoRecordedInput input, @Nullable String value) {
+  protected void manuallyRecordInput(RepoRecordedInput input, @Nullable String value) {
     if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
       throw new IllegalStateException(
           "Conflicting values recorded for input %s: '%s' vs. '%s'"
               .formatted(input, recordedInputs.get(input), value));
     }
     recordedInputs.put(input, value);
+  }
+
+  protected void recordInput(RepoRecordedInput input)
+      throws InterruptedException, NeedsSkyframeRestartException, IOException {
+    var maybeValue = input.getValue(env, directories);
+    if (env.valuesMissing()) {
+      throw new NeedsSkyframeRestartException();
+    }
+    manuallyRecordInput(input, maybeValue.unwrap());
   }
 
   private boolean cancelPendingAsyncTasks() {
@@ -1477,15 +1483,14 @@ the same path on case-insensitive filesystems.
       throws InterruptedException, NeedsSkyframeRestartException {
     // Must look up via Skyframe, rather than solely copy from `this.repoEnvVariables`, in order to
     // establish a SkyKey dependency relationship.
-    var nameAndValue = RepositoryUtils.getEnvVarValues(env, ImmutableSet.of(name));
-    if (nameAndValue == null) {
-      return null;
+    try {
+      recordInput(new RepoRecordedInput.EnvVar(name));
+    } catch (IOException e) {
+      throw new IllegalStateException("getting EnvVar never throws IOException", e);
     }
     // However, to account for --repo_env we take the value from `this.repoEnvVariables`.
-    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
-    var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
+    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248.
     String envVarValue = repoEnvVariables.get(name);
-    recordInput(entry.getKey(), envVarValue);
     return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
   }
 
@@ -1650,17 +1655,8 @@ the same path on case-insensitive filesystems.
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
-    var skyKey = recordedInput.getSkyKey(directories);
     try {
-      FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
-      if (fileValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-
-      recordInput(
-          recordedInput,
-          RepoRecordedInput.File.fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
+      recordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1672,12 +1668,8 @@ the same path on case-insensitive filesystems.
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.Dirents(repoCacheFriendlyPath);
-    if (env.getValue(recordedInput.getSkyKey(directories)) == null) {
-      throw new NeedsSkyframeRestartException();
-    }
     try {
-      recordInput(recordedInput, RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
+      recordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

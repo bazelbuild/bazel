@@ -146,6 +146,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
     @Nullable FetchResult result;
+    @Nullable RemoteRepoContentsCache.State remoteRepoContentsCacheState;
   }
 
   @Nullable
@@ -251,11 +252,22 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
 
         if (remoteRepoContentsCache != null) {
+          var state = env.getState(State::new);
+          if (state.remoteRepoContentsCacheState == null) {
+            state.remoteRepoContentsCacheState = remoteRepoContentsCache.newState();
+          }
           try {
             if (remoteRepoContentsCache.lookupCache(
-                repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+                env,
+                repositoryName,
+                repoRoot,
+                digestWriter.predeclaredInputHash,
+                state.remoteRepoContentsCacheState)) {
               return new RepositoryDirectoryValue.Success(
                   Root.fromPath(repoRoot), excludeRepoFromVendoring);
+            }
+            if (env.valuesMissing()) {
+              return null;
             }
           } catch (IOException e) {
             throw new RepositoryFunctionException(
