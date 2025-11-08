@@ -40,6 +40,7 @@ java_library(
         "IfStatement.java",
         "IndexExpression.java",
         "IntLiteral.java",
+        "IsInstanceExpression.java",
         "LambdaExpression.java",
         "Lexer.java",
         "ListExpression.java",

@@ -408,9 +408,9 @@ final class NodePrinter {
         {
           CastExpression cast = (CastExpression) expr;
           buf.append("cast(");
-          printExpr(cast.getType());
+          printExpr(cast.getType(), /* canSkipParenthesis= */ true);
           buf.append(", ");
-          printExpr(cast.getValue());
+          printExpr(cast.getValue(), /* canSkipParenthesis= */ true);
           buf.append(')');
           break;
         }
@@ -438,6 +438,17 @@ final class NodePrinter {
       case INT_LITERAL:
         {
           buf.append(((IntLiteral) expr).getValue());
+          break;
+        }
+
+      case ISINSTANCE:
+        {
+          IsInstanceExpression isinstance = (IsInstanceExpression) expr;
+          buf.append("isinstance(");
+          printExpr(isinstance.getValue(), /* canSkipParenthesis= */ true);
+          buf.append(", ");
+          printExpr(isinstance.getType(), /* canSkipParenthesis= */ true);
+          buf.append(')');
           break;
         }
 

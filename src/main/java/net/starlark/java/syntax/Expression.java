@@ -41,6 +41,7 @@ public abstract class Expression extends Node {
     IDENTIFIER,
     INDEX,
     INT_LITERAL,
+    ISINSTANCE,
     LAMBDA,
     LIST_EXPR,
     SLICE,

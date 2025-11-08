@@ -907,4 +907,11 @@ public final class EvaluationTest {
         .testEval("y", "\"this is not an int\"")
         .testEval("z", "42");
   }
+
+  // TODO(b/350661266): resolve types in isinstance().
+  @Test
+  public void isinstanceExpression_notYetSupported() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario().testIfExactError("isinstance() is not yet supported", "isinstance(x, list)");
+  }
 }
