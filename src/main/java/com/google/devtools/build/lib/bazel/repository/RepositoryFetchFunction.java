@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -234,14 +235,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
             state.candidateRepos =
                 repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash);
           }
+          var skyKeys = ImmutableSet.<SkyKey>builder();
           for (CandidateRepo candidate : state.candidateRepos) {
-            repoState =
-                digestWriter.areRepositoryAndMarkerFileConsistent(
-                    env, candidate.recordedInputsFile());
-            if (repoState == null) {
-              return null;
-            }
-            if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
+            if (candidate.recordedInputs().size() <= state.currentRecordedInputIndex) {
               if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
                   == null) {
                 return null;
@@ -250,7 +246,27 @@ public final class RepositoryFetchFunction implements SkyFunction {
               return new RepositoryDirectoryValue.Success(
                   Root.fromPath(repoRoot), excludeRepoFromVendoring);
             }
+            skyKeys.add(
+                candidate
+                    .recordedInputs()
+                    .get(state.currentRecordedInputIndex)
+                    .input()
+                    .getSkyKey(directories));
           }
+          env.getValuesAndExceptions(skyKeys.build());
+          if (env.valuesMissing()) {
+            return null;
+          }
+          var remainingCandidateRepos = ImmutableList.<CandidateRepo>builder();
+          for (CandidateRepo candidate : state.candidateRepos) {
+            var input = candidate.recordedInputs().get(state.currentRecordedInputIndex);
+            if (RepoRecordedInput.isAnyValueOutdated(env, directories, ImmutableList.of(input))
+                .isEmpty()) {
+              remainingCandidateRepos.add(candidate);
+            }
+          }
+          state.candidateRepos = remainingCandidateRepos.build();
+          state.currentRecordedInputIndex++;
         }
 
         if (remoteRepoContentsCache != null) {
