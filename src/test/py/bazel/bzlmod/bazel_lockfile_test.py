@@ -2958,7 +2958,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('Fetching metadata for world...', stderr)
     self.assertIn('world: hash=drw', stderr)
     self.assertIn(
-        'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
+        'ERROR: MODULE.bazel.lock is no longer up-to-date because the'
         " extension '@@//:extension.bzl%lockfile_ext' has changed its facts:"
         ' {"hello": {"hash": "olh"}, "world": {"hash": "drw"}} != {"hello":'
         ' {"hash": "olleh"}, "world": {"hash": "dlrow"}}',

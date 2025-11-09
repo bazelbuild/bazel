@@ -240,7 +240,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     var newFacts = moduleExtensionMetadata.getFacts();
     if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
       String reason =
-          "The extension '%s' has changed its facts: %s != %s"
+          "the extension '%s' has changed its facts: %s != %s"
               .formatted(
                   extensionId,
                   Starlark.repr(newFacts.value()),
