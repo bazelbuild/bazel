@@ -30,11 +30,10 @@ load(
 )
 
 def _clone_or_update_repo(ctx):
-    if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
-        (ctx.attr.tag and ctx.attr.commit) or
+    if ((ctx.attr.tag and ctx.attr.commit) or
         (ctx.attr.tag and ctx.attr.branch) or
         (ctx.attr.commit and ctx.attr.branch)):
-        fail("Exactly one of commit, tag, or branch must be provided")
+        fail("At most one of commit, tag, or branch may be provided")
 
     root = ctx.path(".")
     directory = str(root)
@@ -225,11 +224,12 @@ git_repository = repository_rule(
     attrs = _common_attrs,
     doc = """Clone an external git repository.
 
-Clones a Git repository, checks out the specified tag, or commit, and
-makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with parameters
-that provide a reproducible version of this rule (which a tag not necessarily
-is).
+Clones a Git repository, checks out the specified branch, tag, or commit, and
+makes its targets available for binding. If no branch, tag or commit is
+specified, check out the repository's default branch. Also determine the id
+and date of the commit that was checked out, and return a dict with
+parameters that provide a reproducible version of this rule (which a tag or
+branch not necessarily is).
 
 Bazel will first try to perform a shallow fetch of only the specified commit.
 If that fails (usually due to missing server support), it will fall back to a
