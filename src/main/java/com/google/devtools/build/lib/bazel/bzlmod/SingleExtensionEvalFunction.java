@@ -310,7 +310,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (!Arrays.equals(
           extension.getBzlTransitiveDigest(), lockedExtension.getBzlTransitiveDigest())) {
         diffRecorder.record(
-            "The implementation of the extension '"
+            "the implementation of the extension '"
                 + extensionId
                 + "' or one of its transitive .bzl files has changed");
       }
@@ -320,13 +320,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           SingleExtensionUsagesValue.hashForEvaluation(
               GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue),
           lockedExtension.getUsagesDigest())) {
-        diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
+        diffRecorder.record("the usages of the extension '" + extensionId + "' have changed");
       }
       Optional<String> reason =
           didRecordedInputsChange(env, directories, lockedExtension.getRecordedInputs());
       if (reason.isPresent()) {
         diffRecorder.record(
-            "An input to the extension '" + extensionId + "' changed: " + reason.get());
+            "an input to the extension '" + extensionId + "' changed: " + reason.get());
       }
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
