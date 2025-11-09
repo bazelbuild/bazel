@@ -726,10 +726,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The '
-            "implementation of the extension '@@//:extension.bzl%lockfile_ext' "
-            'or one of its transitive .bzl files has changed. Please run'
-            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+            "ERROR: MODULE.bazel.lock is no longer up-to-date because the implementation of the extension '@@//:extension.bzl%lockfile_ext' or one of its transitive .bzl files has changed. Please run `bazel mod deps --lockfile_mode=update` to update your lockfile."
         ),
         stderr,
     )
@@ -914,7 +911,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            "ERROR: MODULE.bazel.lock is no longer up-to-date because: an input to the extension '@@//:extension.bzl%lockfile_ext' changed: environment variable SET_ME changed: 'High in sky' -> 'Down to earth'. Please run `bazel mod deps --lockfile_mode=update` to update your lockfile."
+            "ERROR: MODULE.bazel.lock is no longer up-to-date because an input to the extension '@@//:extension.bzl%lockfile_ext' changed: environment variable SET_ME changed: 'High in sky' -> 'Down to earth'. Please run `bazel mod deps --lockfile_mode=update` to update your lockfile."
         ),
         stderr,
     )
