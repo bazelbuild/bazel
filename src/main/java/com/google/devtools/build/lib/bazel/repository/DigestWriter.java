@@ -229,10 +229,21 @@ class DigestWriter {
             .addString(repoDefinition.name())
             .addString(
                 GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
-                    repoDefinition.attrValues()))
-            .addInt(environ.size());
+                    repoDefinition.attrValues()));
+    fp.addInt(environ.size());
     environ.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
+    fp.addInt(repoDefinition.repoRule().recordedRepoMappingEntries().cellSet().size());
+    repoDefinition
+        .repoRule()
+        .recordedRepoMappingEntries()
+        .cellSet()
+        .forEach(
+            entry -> {
+              fp.addString(entry.getRowKey().getName());
+              fp.addString(entry.getColumnKey());
+              fp.addString(entry.getValue().getName());
+            });
     return fp.hexDigestAndReset();
   }
 
