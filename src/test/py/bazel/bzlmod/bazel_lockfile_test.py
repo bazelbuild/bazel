@@ -914,11 +914,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
-            ' environment variables the extension'
-            " '@@//:extension.bzl%lockfile_ext' depends"
-            ' on (or their values) have changed. Please run'
-            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+            "ERROR: MODULE.bazel.lock is no longer up-to-date because: an input to the extension '@@//:extension.bzl%lockfile_ext' changed: environment variable SET_ME changed: 'High in sky' -> 'Down to earth'. Please run `bazel mod deps --lockfile_mode=update` to update your lockfile."
         ),
         stderr,
     )
