@@ -18,21 +18,17 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -44,10 +40,6 @@ class DigestWriter {
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 7;
-  // Input value map to force repo invalidation upon an invalid marker file.
-  private static final ImmutableList<RepoRecordedInput.WithValue> PARSE_FAILURE =
-      ImmutableList.of(
-          new RepoRecordedInput.WithValue(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, ""));
 
   private final BlazeDirectories directories;
   final String predeclaredInputHash;
@@ -158,9 +150,14 @@ class DigestWriter {
     try {
       String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
       var recordedInputValues =
-          readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
+          RepoRecordedInput.readMarkerFile(
+              content, Preconditions.checkNotNull(predeclaredInputHash));
+      if (recordedInputValues.isEmpty()) {
+        return new RepoDirectoryState.OutOfDate(
+            "Bazel version, flags, or repo rule definition changed");
+      }
       Optional<String> outdatedReason =
-          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
+          RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues.get());
       if (env.valuesMissing()) {
         return null;
       }
@@ -171,43 +168,6 @@ class DigestWriter {
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-  }
-
-  public static List<RepoRecordedInput.WithValue> readMarkerFile(
-      String content, String predeclaredInputHash) {
-    Iterable<String> lines = Splitter.on('\n').split(content);
-
-    @Nullable List<RepoRecordedInput.WithValue> recordedInputValues = null;
-    boolean firstLineVerified = false;
-    for (String line : lines) {
-      if (line.isEmpty()) {
-        continue;
-      }
-      if (!firstLineVerified) {
-        if (!line.equals(predeclaredInputHash)) {
-          // Break early, need to reload anyway. This also detects marker file version changes
-          // so that unknown formats are not parsed.
-          return ImmutableList.of(
-              new RepoRecordedInput.WithValue(
-                  new NeverUpToDateRepoRecordedInput(
-                      "Bazel version, flags, repo rule definition or attributes changed"),
-                  ""));
-        }
-        firstLineVerified = true;
-        recordedInputValues = new ArrayList<>();
-      } else {
-        var inputAndValue = RepoRecordedInput.WithValue.parse(line);
-        if (inputAndValue.isEmpty()) {
-          // On parse failure, just forget everything else and mark the whole input out of date.
-          return PARSE_FAILURE;
-        }
-        recordedInputValues.add(inputAndValue.get());
-      }
-    }
-    if (!firstLineVerified) {
-      return PARSE_FAILURE;
-    }
-    return Preconditions.checkNotNull(recordedInputValues);
   }
 
   @Nullable

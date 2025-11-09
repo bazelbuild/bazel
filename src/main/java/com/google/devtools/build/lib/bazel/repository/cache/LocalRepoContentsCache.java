@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Comparator.comparingLong;
 
 import com.google.common.base.Preconditions;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -104,18 +106,16 @@ public final class LocalRepoContentsCache {
     @Nullable
     private static CandidateRepo fromRecordedInputsFile(
         Path recordedInputsFile, String predeclaredInputHash) {
-      String recordedInputsFileBaseName = recordedInputsFile.getBaseName();
       try {
         var recordedInputs =
-            FileSystemUtils.readLinesAsLatin1(recordedInputsFile).stream()
-                .map(RepoRecordedInput.WithValue::parse)
-                .collect(toImmutableList());
-        if (recordedInputs.stream().anyMatch(Optional::isEmpty)) {
+            RepoRecordedInput.readMarkerFile(
+                FileSystemUtils.readContent(recordedInputsFile, ISO_8859_1), predeclaredInputHash);
+        if (recordedInputs.isEmpty()) {
           // If any recorded input is malformed, return null.
           return null;
         }
         return new CandidateRepo(
-            recordedInputs.stream().map(Optional::get).collect(toImmutableList()),
+            recordedInputs.get(),
             recordedInputsFile,
             getContentsDirFromRecordedInputsFile(recordedInputsFile));
       } catch (IOException e) {

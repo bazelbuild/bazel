@@ -23,6 +23,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -163,6 +165,39 @@ public abstract sealed class RepoRecordedInput {
       }
       return result.toString();
     }
+  }
+
+  public static Optional<ImmutableList<RepoRecordedInput.WithValue>> readMarkerFile(
+      String content, String predeclaredInputHash) {
+    Iterable<String> lines = Splitter.on('\n').split(content);
+
+    @Nullable List<RepoRecordedInput.WithValue> recordedInputValues = null;
+    boolean firstLineVerified = false;
+    for (String line : lines) {
+      if (line.isEmpty()) {
+        continue;
+      }
+      if (!firstLineVerified) {
+        if (!line.equals(predeclaredInputHash)) {
+          // Break early, need to reload anyway. This also detects marker file version changes
+          // so that unknown formats are not parsed.
+          return Optional.empty();
+        }
+        firstLineVerified = true;
+        recordedInputValues = new ArrayList<>();
+      } else {
+        var inputAndValue = RepoRecordedInput.WithValue.parse(line);
+        if (inputAndValue.isEmpty()) {
+          // On parse failure, just forget everything else and mark the whole input out of date.
+          return Optional.empty();
+        }
+        recordedInputValues.add(inputAndValue.get());
+      }
+    }
+    if (!firstLineVerified) {
+      return Optional.empty();
+    }
+    return Optional.of(ImmutableList.copyOf(Preconditions.checkNotNull(recordedInputValues)));
   }
 
   /**
