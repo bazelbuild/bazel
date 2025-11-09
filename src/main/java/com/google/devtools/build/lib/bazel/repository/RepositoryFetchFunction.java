@@ -143,6 +143,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
   private static class State extends WorkerSkyKeyComputeState<FetchResult> {
     @Nullable FetchResult result;
+    @Nullable ImmutableList<CandidateRepo> candidateRepos;
+    int currentRecordedInputIndex = 0;
   }
 
   @Nullable
@@ -227,8 +229,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
-          for (CandidateRepo candidate :
-              repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash)) {
+          var state = env.getState(State::new);
+          if (state.candidateRepos == null) {
+            state.candidateRepos =
+                repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash);
+          }
+          for (CandidateRepo candidate : state.candidateRepos) {
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     env, candidate.recordedInputsFile());

@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.util.FileSystemLock;
@@ -36,6 +37,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -94,14 +96,40 @@ public final class LocalRepoContentsCache {
   }
 
   /** A candidate repo in the repo contents cache for one predeclared input hash. */
-  public record CandidateRepo(Path recordedInputsFile, Path contentsDir) {
-    private static CandidateRepo fromRecordedInputsFile(Path recordedInputsFile) {
+  public record CandidateRepo(
+      ImmutableList<RepoRecordedInput.WithValue> recordedInputs,
+      Path recordedInputsFile,
+      Path contentsDir) {
+
+    @Nullable
+    private static CandidateRepo fromRecordedInputsFile(
+        Path recordedInputsFile, String predeclaredInputHash) {
+      String recordedInputsFileBaseName = recordedInputsFile.getBaseName();
+      try {
+        var recordedInputs =
+            FileSystemUtils.readLinesAsLatin1(recordedInputsFile).stream()
+                .map(RepoRecordedInput.WithValue::parse)
+                .collect(toImmutableList());
+        if (recordedInputs.stream().anyMatch(Optional::isEmpty)) {
+          // If any recorded input is malformed, return null.
+          return null;
+        }
+        return new CandidateRepo(
+            recordedInputs.stream().map(Optional::get).collect(toImmutableList()),
+            recordedInputsFile,
+            getContentsDirFromRecordedInputsFile(recordedInputsFile));
+      } catch (IOException e) {
+        // If we can't read the recorded inputs file, return null.
+        return null;
+      }
+    }
+
+    private static Path getContentsDirFromRecordedInputsFile(Path recordedInputsFile) {
       String recordedInputsFileBaseName = recordedInputsFile.getBaseName();
       String contentsDirBaseName =
           recordedInputsFileBaseName.substring(
               0, recordedInputsFileBaseName.length() - RECORDED_INPUTS_SUFFIX.length());
-      return new CandidateRepo(
-          recordedInputsFile, recordedInputsFile.replaceName(contentsDirBaseName));
+      return recordedInputsFile.replaceName(contentsDirBaseName);
     }
 
     /** Updates the mtime of the recorded inputs file, to delay GC for this entry. */
@@ -133,7 +161,12 @@ public final class LocalRepoContentsCache {
                           mtimes.computeIfAbsent(
                               path, LocalRepoContentsCache::getLastModifiedTimeOrZero))
                   .reversed())
-          .map(CandidateRepo::fromRecordedInputsFile)
+          // Limit the number of candidate repos to avoid excessive memory usage in case of a
+          // pathological number of entries.
+          .limit(100)
+          .map(
+              recordedInputsFile ->
+                  CandidateRepo.fromRecordedInputsFile(recordedInputsFile, predeclaredInputHash))
           .collect(toImmutableList());
     } catch (IOException e) {
       // This should only happen if `entryDir` doesn't exist yet or is not a directory. Either way,
@@ -268,7 +301,7 @@ public final class LocalRepoContentsCache {
         if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)
             || !seen.add(sha256.hashBytes(FileSystemUtils.readContent(recordedInputsFile)))) {
           recordedInputsFile.delete();
-          var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
+          var repoDir = CandidateRepo.getContentsDirFromRecordedInputsFile(recordedInputsFile);
           // Use a UUID to avoid clashes.
           repoDir.renameTo(trashDir.getChild(UUID.randomUUID().toString()));
         }

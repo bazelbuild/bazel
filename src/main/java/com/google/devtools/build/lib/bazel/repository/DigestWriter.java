@@ -173,7 +173,7 @@ class DigestWriter {
     }
   }
 
-  private static List<RepoRecordedInput.WithValue> readMarkerFile(
+  public static List<RepoRecordedInput.WithValue> readMarkerFile(
       String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
