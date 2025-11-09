@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
@@ -181,11 +182,14 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
   public static Optional<String> isAnyValueOutdated(
       Environment env, BlazeDirectories directories, List<WithValue> recordedInputs)
       throws InterruptedException {
+    env.getValuesAndExceptions(
+        recordedInputs.stream()
+            .map(rri -> rri.input().getSkyKey(directories))
+            .collect(toImmutableSet()));
+    if (env.valuesMissing()) {
+      return UNDECIDED;
+    }
     for (var recordedInput : recordedInputs) {
-      var skyValue = env.getValue(recordedInput.input().getSkyKey(directories));
-      if (skyValue == null) {
-        return UNDECIDED;
-      }
       Optional<String> reason =
           recordedInput.input().isOutdated(env, directories, recordedInput.value());
       if (reason.isPresent()) {
