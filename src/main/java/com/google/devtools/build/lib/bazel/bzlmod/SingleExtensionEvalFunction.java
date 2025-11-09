@@ -476,7 +476,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return new SingleExtensionEvalFunctionException(
         ExternalDepsException.withMessage(
             Code.BAD_LOCKFILE,
-            "MODULE.bazel.lock is no longer up-to-date because: %s. Please run `bazel mod deps"
+            "MODULE.bazel.lock is no longer up-to-date because %s. Please run `bazel mod deps"
                 + " --lockfile_mode=update` to update your lockfile.",
             reason));
   }
