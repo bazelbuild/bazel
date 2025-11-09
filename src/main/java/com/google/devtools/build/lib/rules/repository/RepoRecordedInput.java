@@ -15,15 +15,15 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
-import static java.util.Comparator.naturalOrder;
+import static java.util.Map.Entry.comparingByKey;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,7 +69,7 @@ import javax.annotation.Nullable;
  * input is stored as a string, with a prefix denoting its type, followed by a colon, and then the
  * information identifying that specific input.
  */
-public abstract sealed class RepoRecordedInput implements Comparable<RepoRecordedInput> {
+public abstract sealed class RepoRecordedInput {
   /** Represents a parser for a specific type of recorded inputs. */
   public abstract static class Parser {
     /**
@@ -86,14 +85,6 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
      */
     public abstract RepoRecordedInput parse(String s);
   }
-
-  private static final Comparator<RepoRecordedInput> COMPARATOR =
-      (o1, o2) ->
-          o1 == o2
-              ? 0
-              : Comparator.comparing((RepoRecordedInput rri) -> rri.getParser().getPrefix())
-                  .thenComparing(RepoRecordedInput::toStringInternal)
-                  .compare(o1, o2);
 
   /**
    * Parses a recorded input from its string representation.
@@ -208,11 +199,6 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
   @Override
   public final String toString() {
     return getParser().getPrefix() + ":" + toStringInternal();
-  }
-
-  @Override
-  public int compareTo(RepoRecordedInput o) {
-    return COMPARATOR.compare(this, o);
   }
 
   /**
@@ -603,12 +589,11 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
 
     final String name;
 
-    public static ImmutableSortedMap<EnvVar, Optional<String>> wrap(
+    public static ImmutableMap<EnvVar, Optional<String>> wrap(
         Map<String, Optional<String>> envVars) {
       return envVars.entrySet().stream()
-          .collect(
-              toImmutableSortedMap(
-                  naturalOrder(), e -> new EnvVar(e.getKey()), Map.Entry::getValue));
+          .sorted(comparingByKey())
+          .collect(toImmutableMap(e -> new EnvVar(e.getKey()), Map.Entry::getValue));
     }
 
     private EnvVar(String name) {
@@ -657,7 +642,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
       // Note that `oldValue` can be null if the env var was not set.
       if (!Objects.equals(oldValue, v)) {
         return Optional.of(
-            "value of %s changed: %s -> %s"
+            "environment variable %s changed: %s -> %s"
                 .formatted(
                     name,
                     oldValue == null ? "" : "'%s'".formatted(oldValue),
