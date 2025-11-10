@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -66,7 +65,7 @@ public class StreamedTestOutput implements Closeable {
     // It's unclear if writing this after interrupt is desirable, but it's been this way forever.
     if (!headerFilter.foundHeader()) {
       try (InputStream input = testLogPath.getInputStream()) {
-        ByteStreams.copy(input, outErr.getOutputStream());
+        input.transferTo(outErr.getOutputStream());
       }
     }
   }

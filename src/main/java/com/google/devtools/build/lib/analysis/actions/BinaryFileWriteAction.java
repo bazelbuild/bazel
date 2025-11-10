@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -72,7 +71,7 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     return out -> {
       try (InputStream in = source.openStream()) {
-        ByteStreams.copy(in, out);
+        in.transferTo(out);
       }
       out.flush();
     };

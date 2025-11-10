@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -480,7 +479,7 @@ public class FileOutErr extends OutErr {
     void dumpOut(OutputStream out) {
       synchronized (this) {
         try (InputStream in = outputFile.getInputStream()) {
-          ByteStreams.copy(in, out);
+          in.transferTo(out);
           out.flush();
         } catch (FileNotFoundException e) {
           cachedSize = 0L;

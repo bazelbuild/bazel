@@ -24,7 +24,6 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -149,7 +148,7 @@ public class DiskCacheClient {
             throw new CacheNotFoundException(digest);
           }
           try (InputStream in = path.getInputStream()) {
-            ByteStreams.copy(in, out);
+            in.transferTo(out);
           }
           return null;
         });
@@ -317,7 +316,7 @@ public class DiskCacheClient {
 
     try {
       try (OutputStream out = temp.getOutputStream()) {
-        ByteStreams.copy(in, out);
+        in.transferTo(out);
         // Fsync temp before we rename it to avoid data loss in the case of machine
         // crashes (the OS may reorder the writes and the rename).
         if (out instanceof FileOutputStream fos) {
