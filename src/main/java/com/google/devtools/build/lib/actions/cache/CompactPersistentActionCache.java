@@ -268,7 +268,11 @@ public class CompactPersistentActionCache implements ActionCache {
             cacheFile(cacheRoot),
             journalFile(cacheRoot),
             indexFile(cacheRoot),
-            indexJournalFile(cacheRoot));
+            indexJournalFile(cacheRoot),
+            corruptedPath(cacheFile(cacheRoot)),
+            corruptedPath(journalFile(cacheRoot)),
+            corruptedPath(indexFile(cacheRoot)),
+            corruptedPath(indexJournalFile(cacheRoot)));
     for (Path child : cacheRoot.getDirectoryEntries()) {
       if (!knownFiles.contains(child)) {
         child.delete();
@@ -314,19 +318,23 @@ public class CompactPersistentActionCache implements ActionCache {
           new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
               .addPattern("action_*_v" + VERSION + ".*")
               .glob()) {
-        path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
+        path.renameTo(corruptedPath(path));
       }
       for (Path path :
           new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
               .addPattern("filename_*_v" + VERSION + ".*")
               .glob()) {
-        path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
+        path.renameTo(corruptedPath(path));
       }
     } catch (UnixGlob.BadPattern ex) {
       throw new IllegalStateException(ex); // can't happen
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Unable to rename corrupted action cache files");
     }
+  }
+
+  public static Path corruptedPath(Path path) {
+    return path.getParentDirectory().getChild(path.getBaseName() + ".bad");
   }
 
   private static final String FAILURE_PREFIX = "Failed action cache referential integrity check: ";

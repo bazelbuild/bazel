@@ -52,6 +52,8 @@ public class CompactPersistentActionCacheTest {
   private Path dataRoot;
   private Path mapFile;
   private Path journalFile;
+  private Path indexFile;
+  private Path indexJournalFile;
   private final ManualClock clock = new ManualClock();
   private CompactPersistentActionCache cache;
   private ArtifactRoot artifactRoot;
@@ -62,6 +64,8 @@ public class CompactPersistentActionCacheTest {
     cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
     mapFile = CompactPersistentActionCache.cacheFile(dataRoot);
     journalFile = CompactPersistentActionCache.journalFile(dataRoot);
+    indexFile = CompactPersistentActionCache.indexFile(dataRoot);
+    indexJournalFile = CompactPersistentActionCache.indexJournalFile(dataRoot);
     artifactRoot =
         ArtifactRoot.asDerivedRoot(
             scratch.getFileSystem().getPath("/output"), ArtifactRoot.RootType.Output, "bin");
@@ -75,6 +79,21 @@ public class CompactPersistentActionCacheTest {
     cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
 
     assertThat(unrecognizedFile.exists()).isFalse();
+  }
+
+  @Test
+  public void testRenameCorruptedFiles() throws Exception {
+    FileSystemUtils.writeContentAsLatin1(mapFile, "corrupted data");
+    FileSystemUtils.writeContentAsLatin1(journalFile, "corrupted data");
+    FileSystemUtils.writeContentAsLatin1(indexFile, "corrupted data");
+    FileSystemUtils.writeContentAsLatin1(indexJournalFile, "corrupted data");
+
+    cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
+
+    assertThat(CompactPersistentActionCache.corruptedPath(mapFile).exists()).isTrue();
+    assertThat(CompactPersistentActionCache.corruptedPath(journalFile).exists()).isTrue();
+    assertThat(CompactPersistentActionCache.corruptedPath(indexFile).exists()).isTrue();
+    assertThat(CompactPersistentActionCache.corruptedPath(indexJournalFile).exists()).isTrue();
   }
 
   @Test
