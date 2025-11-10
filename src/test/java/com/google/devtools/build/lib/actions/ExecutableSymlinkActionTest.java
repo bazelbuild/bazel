@@ -136,9 +136,7 @@ public class ExecutableSymlinkActionTest {
             () -> action.execute(createContext(inputMetadataProvider)));
     String want = "'in/some-file' is not executable";
       String got = e.getMessage();
-    assertWithMessage(String.format("got %s, want %s", got, want))
-        .that(got.contains(want))
-        .isTrue();
+    assertWithMessage("got %s, want %s", got, want).that(got.contains(want)).isTrue();
   }
 
   @Test

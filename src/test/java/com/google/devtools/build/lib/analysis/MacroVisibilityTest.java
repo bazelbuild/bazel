@@ -81,11 +81,10 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
     // visibility error event in a traceback.
     assertDoesNotContainEvent(visibilityErrorMessage(consumer, dependency));
     assertWithMessage(
-            String.format(
-                "%s had an error (other than a visibility violation on %s)", consumer, dependency))
+            "%s had an error (other than a visibility violation on %s)", consumer, dependency)
         .that(consumerTarget)
         .isNotNull();
-    assertWithMessage(String.format("%s does not have a dependency on %s", consumer, dependency))
+    assertWithMessage("%s does not have a dependency on %s", consumer, dependency)
         .that(getDirectPrerequisite(consumerTarget, dependency))
         .isNotNull();
   }
@@ -102,9 +101,8 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget consumerTarget = getConfiguredTarget(consumer);
     assertWithMessage(
-            String.format(
-                "%s unexpectedly did not have an error (no visibility violation due to %s)",
-                consumer, dependency))
+            "%s unexpectedly did not have an error (no visibility violation due to %s)",
+            consumer, dependency)
         .that(consumerTarget)
         .isNull();
     assertContainsEvent(visibilityErrorMessage(consumer, dependency, dependencyIsAlias));

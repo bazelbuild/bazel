@@ -855,8 +855,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   private static void assertMatches(
       String description, String expectedPattern, String computedValue) {
     assertWithMessage(
-            String.format(
-                "%s '%s' did not match pattern '%s'", description, computedValue, expectedPattern))
+            "%s '%s' did not match pattern '%s'", description, computedValue, expectedPattern)
         .that(Pattern.matches(expectedPattern, computedValue))
         .isTrue();
   }

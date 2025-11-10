@@ -286,9 +286,9 @@ public class BlazeCommandDispatcherRcoptionsTest {
 
       dispatch.exec(cmdLine, "test", outErr);
       String out = outErr.outAsLatin1();
-      assertWithMessage(String.format(
+      assertWithMessage(
               "The more specific option should override, irrespective of source file or order. %s",
-              orderedOpts))
+              orderedOpts)
           .that(out)
           .isEqualTo("42 reportallinherited");
     }

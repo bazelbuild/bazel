@@ -105,7 +105,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
       String targetName, PythonVersion version, String[]... configs) throws Exception {
     for (String[] config : configs) {
       useConfiguration(config);
-      assertWithMessage(String.format("Under config '%s'", Joiner.on(" ").join(config)))
+      assertWithMessage("Under config '%s'", Joiner.on(" ").join(config))
           .that(getPythonVersion(getOkPyTarget(targetName)))
           .isEqualTo(version);
     }

@@ -287,7 +287,7 @@ public class AspectCollectionTest {
   private static void collectAndValidateAspectDeps(AspectDeps aspectDeps,
       HashMap<AspectDescriptor, AspectDeps> allDeps) {
     if (allDeps.containsKey(aspectDeps.aspect())) {
-      assertWithMessage(String.format("Two different deps for aspect %s", aspectDeps.aspect()))
+      assertWithMessage("Two different deps for aspect %s", aspectDeps.aspect())
           .that(allDeps.get(aspectDeps.aspect()))
           .isSameInstanceAs(aspectDeps);
       return;
