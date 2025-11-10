@@ -3732,7 +3732,7 @@ EOF
     >& $TEST_log || fail "Expected bazel to succeed"
 
   # Verify that the patch was applied.
-  external_repo_dir="$(bazel info output_base)/external/+http_archive+rules_license"
+  external_repo_dir="$(bazel info output_base)/external/+_repo_rules+rules_license"
   grep -q 'bazel_dep(name = "rules_python", version = "0.35.0")' \
     "$external_repo_dir/MODULE.bazel" || fail "Patch was not applied"
 }
