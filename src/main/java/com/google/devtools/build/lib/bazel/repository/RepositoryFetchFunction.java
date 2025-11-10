@@ -16,6 +16,8 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -238,6 +240,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
           var skyKeys = ImmutableSet.<SkyKey>builder();
           for (CandidateRepo candidate : state.candidateRepos) {
             if (candidate.recordedInputs().size() <= state.currentRecordedInputIndex) {
+              state.candidateRepos = ImmutableList.of(candidate);
               if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
                   == null) {
                 return null;
@@ -262,6 +265,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
             var input = candidate.recordedInputs().get(state.currentRecordedInputIndex);
             if (RepoRecordedInput.isAnyValueOutdated(env, directories, ImmutableList.of(input))
                 .isEmpty()) {
+              checkState(!env.valuesMissing());
               remainingCandidateRepos.add(candidate);
             }
           }
