@@ -130,7 +130,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     private void setWritable(Path dir, DirectoryState newState) throws IOException {
-      if (!dir.startsWith(execRoot)) {
+      // Compare as fragments since execRoot may be located on a file system overlaying the host
+      // file system where downloads are written to.
+      if (!dir.asFragment().startsWith(execRoot.asFragment())) {
         return;
       }
       AtomicReference<IOException> caughtException = new AtomicReference<>();
