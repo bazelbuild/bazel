@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hasher;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -179,7 +178,7 @@ public final class BinTools {
     @Override
     public void writeTo(OutputStream out) throws IOException {
       try (InputStream in = path.getInputStream()) {
-        ByteStreams.copy(in, out);
+        in.transferTo(out);
       }
     }
 

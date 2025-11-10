@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
@@ -64,7 +63,7 @@ public final class WindowsSandboxUtil {
 
     ByteArrayOutputStream outErrBytes = new ByteArrayOutputStream();
     try {
-      ByteStreams.copy(process.getInputStream(), outErrBytes);
+      process.getInputStream().transferTo(outErrBytes);
     } catch (IOException e) {
       try {
         outErrBytes.write(("Failed to read stdout: " + e).getBytes(StandardCharsets.UTF_8));
