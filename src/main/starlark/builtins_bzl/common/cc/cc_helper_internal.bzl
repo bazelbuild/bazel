@@ -61,7 +61,9 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     # Apple rules
     ("", "third_party/bazel_rules/rules_apple"),
     ("apple_support", ""),
+    ("build_bazel_apple_support", ""),
     ("rules_apple", ""),
+    ("build_bazel_rules_apple", ""),
     # C++ rules
     ("", "bazel_internal/test_rules/cc"),
     ("", "third_party/bazel_rules/rules_cc"),
