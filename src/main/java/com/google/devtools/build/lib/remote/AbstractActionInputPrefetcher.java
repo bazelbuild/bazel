@@ -134,15 +134,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     private void setWritable(Path dir, DirectoryState newState) throws IOException {
-      // External repo paths (which live directly under the output base) are not build outputs and
-      // don't need output permission management. Check this first (comparing fragments, since the
-      // dir may be on the host file system while the output base is on an overlay) so that the exec
-      // root, which is only resolvable during the loading phase and later, is not resolved during
-      // external repo materialization.
-      if (dir.asFragment()
-              .startsWith(
-                  outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())
-          || !dir.startsWith(execRoot())) {
+      // Compare as fragments since execRoot may be located on a file system overlaying the host
+      // file system where downloads are written to.
+      if (!dir.asFragment().startsWith(execRoot.asFragment())) {
         return;
       }
       AtomicReference<IOException> caughtException = new AtomicReference<>();
