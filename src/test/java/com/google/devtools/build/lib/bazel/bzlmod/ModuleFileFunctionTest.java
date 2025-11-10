@@ -210,7 +210,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
     RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, true);
-    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableSet.of());
+    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());

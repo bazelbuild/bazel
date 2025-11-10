@@ -230,7 +230,7 @@ public class DiscoveryTest extends FoundationTestCase {
         differencer, Optional.empty());
     RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, true);
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
-    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableSet.of());
+    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());

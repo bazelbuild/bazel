@@ -240,7 +240,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 ImmutableList.of(
                     PrecomputedValue.injected(
                         ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-                    PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()),
+                    PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableMap.of()),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
                         ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
@@ -303,7 +303,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
                 ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-            PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()),
+            PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableMap.of()),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
             PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
