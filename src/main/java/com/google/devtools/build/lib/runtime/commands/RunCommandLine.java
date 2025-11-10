@@ -109,7 +109,7 @@ class RunCommandLine {
   }
 
   boolean requiresShExecutable() {
-    return OS.getCurrent() != OS.WINDOWS || runUnderPrefix != null;
+    return OS.getCurrent() == OS.WINDOWS || runUnderPrefix != null;
   }
 
   /** Returns the command arguments including residue. */
