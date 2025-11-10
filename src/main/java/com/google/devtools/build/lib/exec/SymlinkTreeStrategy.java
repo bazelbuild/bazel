@@ -135,7 +135,9 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     // large. Note that this step has to come last because the OutputService may delete any
     // pre-existing symlink tree before creating a new one.
     try {
+      outputManifest.getParentDirectory().setWritable(true);
       outputManifest.createSymbolicLink(inputManifest);
+      outputManifest.getParentDirectory().setWritable(false);
     } catch (IOException e) {
       throw createLinkFailureException(outputManifest, e);
     }
