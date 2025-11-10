@@ -597,7 +597,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
     // failure/stack trace.
-    if (Thread.currentThread().isInterrupted()) {
+    if (Thread.interrupted()) {
       throw new InterruptedException();
     }
     // If the failure is caused by eviction of inputs to the current action that are only available
