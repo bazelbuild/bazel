@@ -317,8 +317,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // Source artifacts in the main repo don't need to be fetched.
       if (input instanceof Artifact artifact
           && artifact.isSourceArtifact()
-          && (artifact.getArtifactOwner() == null
-              || artifact.getArtifactOwner().getLabel().getRepository().isMain())) {
+          && (artifact.getOwner() == null || artifact.getOwner().getRepository().isMain())) {
         continue;
       }
 
