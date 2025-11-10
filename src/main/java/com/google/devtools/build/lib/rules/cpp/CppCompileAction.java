@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -1605,14 +1604,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       tempOutErr.close();
       if (tempOutErr.hasRecordedStdout()) {
         try (InputStream in = tempOutErr.getOutputPath().getInputStream()) {
-          ByteStreams.copy(
-              in, showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
+          in.transferTo(
+              showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
         }
       }
       if (tempOutErr.hasRecordedStderr()) {
         try (InputStream in = tempOutErr.getErrorPath().getInputStream()) {
-          ByteStreams.copy(
-              in, showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
+          in.transferTo(
+              showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
         }
       }
     } catch (IOException e) {

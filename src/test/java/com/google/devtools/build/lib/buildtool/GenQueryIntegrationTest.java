@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -916,7 +915,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
 
     ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
     try (GZIPInputStream gzipIn = new GZIPInputStream(compressedContent.newInput())) {
-      ByteStreams.copy(gzipIn, decompressedOut);
+      gzipIn.transferTo(decompressedOut);
     }
 
     assertThat(decompressedOut.toString(UTF_8)).isEqualTo("//fruits:melon\n//fruits:papaya\n");

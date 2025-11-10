@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.zip.ZipFileEntry.Compression;
 import com.google.devtools.build.zip.ZipFileEntry.Feature;
 import java.io.BufferedInputStream;
@@ -525,7 +524,9 @@ public class ZipReaderTest {
       bigEntry.setCrc(0);
       bigEntry.setTime(ZipUtil.DOS_EPOCH);
       writer.putNextEntry(bigEntry);
-      ByteStreams.copy(new BufferedInputStream(new FileInputStream(bigFile)), writer);
+      try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(bigFile))) {
+        in.transferTo(writer);
+      }
     }
     try (ZipReader reader = new ZipReader(test, UTF_8)) {
       Collection<ZipFileEntry> entries = reader.entries();
@@ -547,7 +548,9 @@ public class ZipReaderTest {
       bigEntry.setCrc(0);
       bigEntry.setTime(ZipUtil.DOS_EPOCH);
       writer.putNextEntry(bigEntry);
-      ByteStreams.copy(new BufferedInputStream(new FileInputStream(biggerFile)), writer);
+      try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(biggerFile))) {
+        in.transferTo(writer);
+      }
     }
     try (ZipReader reader = new ZipReader(test, UTF_8)) {
       Collection<ZipFileEntry> entries = reader.entries();

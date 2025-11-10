@@ -15,7 +15,6 @@
 package com.google.devtools.build.buildjar;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
@@ -29,6 +28,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -209,7 +209,9 @@ public class SimpleJavaLibraryBuilder implements Closeable {
             Files.copy(jarFile.getInputStream(entry), to);
             build.getSourceFiles().add(to);
           } else if (fileName.equals(PROTOBUF_META_NAME)) {
-            ByteStreams.copy(jarFile.getInputStream(entry), protobufMetadataBuffer);
+            try (InputStream in = jarFile.getInputStream(entry)) {
+              in.transferTo(protobufMetadataBuffer);
+            }
           }
         }
       } catch (IOException e) {
