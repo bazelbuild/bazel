@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
@@ -37,6 +38,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.DigestWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -55,6 +57,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.time.Instant;
@@ -62,8 +65,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * A cache for the contents of external repositories that is backed by an ordinary remote cache.
@@ -101,6 +104,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final ByteString COMMAND_BYTES = COMMAND.toByteString();
   private static final Directory INPUT_ROOT = Directory.getDefaultInstance();
 
+  private final BlazeDirectories directories;
   private final CombinedCache cache;
   private final String buildRequestId;
   private final String commandId;
@@ -111,14 +115,16 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private final Digest commandDigest;
 
   public RemoteRepoContentsCacheImpl(
+      BlazeDirectories directories,
       CombinedCache cache,
       String buildRequestId,
       String commandId,
       boolean acceptCached,
       boolean uploadLocalResults) {
+    this.directories = directories;
+    this.cache = cache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.cache = cache;
     this.acceptCached = acceptCached;
     this.uploadLocalResults = uploadLocalResults;
     this.digestUtil = cache.digestUtil;
@@ -248,14 +254,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
             (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
             directExecutor());
     waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
-    String markerFileContent;
-    Tree repoDirectoryContent;
-    try {
-      markerFileContent = new String(markerFileContentFuture.get(), ISO_8859_1);
-      repoDirectoryContent = repoDirectoryContentFuture.get();
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("waitForBulkTransfer should have thrown", e);
-    }
+    String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
+    Tree repoDirectoryContent = repoDirectoryContentFuture.resultNow();
     var markerFileLines =
         Splitter.on('\n')
             .splitToStream(markerFileContent)
@@ -326,11 +326,10 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, COMMAND_BYTES)));
 
     String rollingHash = predeclaredInputHash;
-    var fp = new Fingerprint();
     var futures = new ArrayList<ListenableFuture<Void>>(1 + recordedInputs.size());
-    for (var inputAndValue : recordedInputs) {
-      futures.add(addToActionResult(context, buildAction(rollingHash), inputAndValue.input()));
-      rollingHash = fp.addString(rollingHash).addString(inputAndValue.value()).hexDigestAndReset();
+    for (var inputWithValue : recordedInputs) {
+      futures.add(addToActionResult(context, buildAction(rollingHash), inputWithValue.input()));
+      rollingHash = rollForwardHash(rollingHash, inputWithValue);
     }
     waitForBulkTransfer(futures);
     return rollingHash;
@@ -348,14 +347,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   || currentResult.actionResult().getStdoutDigest().getSizeBytes() == 0) {
                 return immediateFuture("");
               }
-              if (!currentResult.actionResult().getStdoutRaw().isEmpty()) {
-                return immediateFuture(
-                    currentResult.actionResult().getStdoutRaw().toString(ISO_8859_1));
-              }
-              return Futures.transform(
-                  cache.downloadBlob(context, currentResult.actionResult().getStdoutDigest()),
-                  stdout -> new String(stdout, ISO_8859_1),
-                  directExecutor());
+              return fetchStdout(context, currentResult.actionResult());
             },
             directExecutor());
     return Futures.transformAsync(
@@ -379,6 +371,82 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
               unused -> cache.uploadActionResult(context, actionKey, actionResult),
               directExecutor());
         },
+        directExecutor());
+  }
+
+  @Nullable
+  private ActionResult followActionResultChain(
+      SkyFunction.Environment env,
+      RemoteActionExecutionContext context,
+      RepositoryName repoName,
+      String inputHash)
+      throws IOException, InterruptedException {
+    var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
+    // The marker file is read right after and thus requested to be inlined. If the action result is
+    // an intermediate node, the full result will be contained in the stdout, which should thus also
+    // be inlined.
+    var cachedActionResult =
+        cache.downloadActionResult(
+            context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+    if (cachedActionResult == null) {
+      return null;
+    }
+    var actionResult = cachedActionResult.actionResult();
+
+    if (actionResult.getExitCode() != 0) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "Unexpected exit code in action result for cached repo %s:\n%s"
+                      .formatted(repoName, actionResult)));
+      return null;
+    }
+    if (actionResult.getOutputFilesCount() == 1
+        && actionResult.getOutputDirectoriesCount() == 1
+        && actionResult.getOutputSymlinksCount() == 0) {
+      // This is the final action result that contains the repo contents.
+      return actionResult;
+    }
+    if (!(actionResult.getOutputFilesCount() == 0
+        && actionResult.getOutputDirectoriesCount() == 0
+        && actionResult.getOutputSymlinksCount() == 0
+        && actionResult.getStdoutDigest().getSizeBytes() > 0)) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "Unexpected intermediate action result for cached repo %s:\n%s"
+                      .formatted(repoName, actionResult)));
+      return null;
+    }
+    var stdoutFuture = fetchStdout(context, actionResult);
+    waitForBulkTransfer(ImmutableList.of(stdoutFuture));
+    var nextInputs =
+        stdoutFuture.resultNow().lines().map(RepoRecordedInput::parse).collect(toImmutableSet());
+    RepoRecordedInput.prefetch(env, directories, nextInputs);
+    for (var input : nextInputs) {
+      var value = input.getValue(env, directories);
+      if (env.valuesMissing()) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  private String rollForwardHash(String hash, RepoRecordedInput.WithValue inputWithValue) {
+    return new Fingerprint()
+        .addString(hash)
+        .addString(inputWithValue.toString())
+        .hexDigestAndReset();
+  }
+
+  private ListenableFuture<String> fetchStdout(
+      RemoteActionExecutionContext context, ActionResult actionResult) {
+    if (!actionResult.getStdoutRaw().isEmpty()) {
+      return immediateFuture(actionResult.getStdoutRaw().toString(ISO_8859_1));
+    }
+    return Futures.transform(
+        cache.downloadBlob(context, actionResult.getStdoutDigest()),
+        stdout -> new String(stdout, ISO_8859_1),
         directExecutor());
   }
 
