@@ -1,0 +1,4 @@
+build --experimental_enable_skyfocus
+build --genrule_strategy=local
+test --test_strategy=standalone
+test --strategy=TestRunner=local

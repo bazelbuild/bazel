@@ -749,16 +749,6 @@ public final class FunctionTransitionUtil {
       convertedAffectedOptions.add("//command_line_option:evaluating for analysis test");
       toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
     }
-
-    CoreOptions coreOptions = toOptions.get(CoreOptions.class);
-    boolean isExecTransition = starlarkTransition != null && starlarkTransition.isExecTransition();
-
-    if (!isExecTransition
-        && coreOptions.outputDirectoryNamingScheme.equals(
-            CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
-      // The exec transition uses its own logic in ExecutionTransitionFactory.
-      updateAffectedByStarlarkTransition(coreOptions, convertedAffectedOptions);
-    }
     return toOptions;
   }
 

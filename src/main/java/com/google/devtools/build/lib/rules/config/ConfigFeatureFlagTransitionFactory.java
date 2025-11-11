@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -90,18 +89,7 @@ public class ConfigFeatureFlagTransitionFactory
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options.underlying();
       }
-      BuildOptions toOptions = FeatureFlagValue.replaceFlagValues(options.underlying(), flagValues);
-      // In legacy mode, need to update `affected by Starlark transition` to include changed flags.
-      if (toOptions
-          .get(CoreOptions.class)
-          .outputDirectoryNamingScheme
-          .equals(CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
-        FunctionTransitionUtil.updateAffectedByStarlarkTransition(
-            toOptions.get(CoreOptions.class),
-            FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
-                toOptions, options.underlying()));
-      }
-      return toOptions;
+      return FeatureFlagValue.replaceFlagValues(options.underlying(), flagValues);
     }
 
     @Override
