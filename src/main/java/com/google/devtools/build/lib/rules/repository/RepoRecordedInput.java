@@ -23,6 +23,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -33,20 +34,20 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
-import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -173,10 +174,7 @@ public abstract sealed class RepoRecordedInput {
   public static Optional<String> isAnyValueOutdated(
       Environment env, BlazeDirectories directories, List<WithValue> recordedInputs)
       throws InterruptedException {
-    env.getValuesAndExceptions(
-        recordedInputs.stream()
-            .map(rri -> rri.input().getSkyKey(directories))
-            .collect(toImmutableSet()));
+    prefetch(env, directories, Collections2.transform(recordedInputs, WithValue::input));
     if (env.valuesMissing()) {
       return UNDECIDED;
     }
@@ -188,6 +186,37 @@ public abstract sealed class RepoRecordedInput {
       }
     }
     return Optional.empty();
+  }
+
+  public static void prefetch(
+      Environment env, BlazeDirectories directories, Collection<RepoRecordedInput> recordedInputs)
+      throws InterruptedException {
+    env.getValuesAndExceptions(
+        recordedInputs.stream().map(rri -> rri.getSkyKey(directories)).collect(toImmutableSet()));
+  }
+
+  /**
+   * Returns a human-readable reason for why the given {@code oldValue} is no longer up-to-date for
+   * this recorded input, or an empty Optional if it is still up-to-date.
+   *
+   * <p>The method can request Skyframe evaluations, and if any values are missing, this method can
+   * return any value (doesn't matter what, although {@link #UNDECIDED} is recommended for clarity)
+   * and will be reinvoked after a Skyframe restart.
+   */
+  public final Optional<String> isOutdated(
+      Environment env, BlazeDirectories directories, @Nullable String oldValue)
+      throws InterruptedException {
+    MaybeValue wrappedNewValue = getValue(env, directories);
+    if (env.valuesMissing()) {
+      return UNDECIDED;
+    }
+    if (wrappedNewValue instanceof MaybeValue.Invalid(String reason)) {
+      return Optional.of(reason);
+    }
+    String newValue = ((MaybeValue.Valid) wrappedNewValue).value();
+    return Objects.equals(oldValue, newValue)
+        ? Optional.empty()
+        : Optional.of(reasonForChange(oldValue, newValue));
   }
 
   @Override
@@ -202,28 +231,58 @@ public abstract sealed class RepoRecordedInput {
   }
 
   /**
+   * Represents the possible values returned by {@link #getValue}: either a valid value (which may
+   * be null), or an invalid value with a reason (e.g. due to I/O failure).
+   */
+  public sealed interface MaybeValue {
+    MaybeValue UNDECIDED = new MaybeValue.Invalid("values missing");
+
+    record Valid(@Nullable String value) implements MaybeValue {
+      @Nullable
+      @Override
+      public String unwrap() {
+        return value;
+      }
+    }
+
+    record Invalid(String reason) implements MaybeValue {
+      @Override
+      public String unwrap() throws IOException {
+        throw new IOException(reason);
+      }
+    }
+
+    @Nullable
+    String unwrap() throws IOException;
+  }
+
+  /**
+   * Returns the current value of this input, which may be null, or an empty Optional if the value
+   * is known to be invalid.
+   *
+   * <p>The method can request Skyframe evaluations, and if any values are missing, this method can
+   * return any value and will be reinvoked after a Skyframe restart.
+   */
+  public abstract MaybeValue getValue(Environment env, BlazeDirectories directories)
+      throws InterruptedException;
+
+  /**
+   * Returns a human-readable reason for why the value changed from {@code oldValue} to {@code
+   * newValue}.
+   */
+  protected abstract String reasonForChange(String oldValue, String newValue);
+
+  /**
    * Returns the post-colon substring that identifies the specific input: for example, the {@code
    * MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}.
    */
-  public abstract String toStringInternal();
+  protected abstract String toStringInternal();
 
   /** Returns the parser object for this type of recorded inputs. */
-  public abstract Parser getParser();
+  protected abstract Parser getParser();
 
   /** Returns the {@link SkyKey} that is necessary to determine {@link #isOutdated}. */
-  public abstract SkyKey getSkyKey(BlazeDirectories directories);
-
-  /**
-   * Returns a human-readable reason for why the given {@code oldValue} is no longer up-to-date for
-   * this recorded input, or an empty Optional if it is still up-to-date. This method can assume
-   * that {@link #getSkyKey(BlazeDirectories)} is already evaluated; it can request further Skyframe
-   * evaluations, and if any values are missing, this method can return any value (doesn't matter
-   * what, although {@link #UNDECIDED} is recommended for clarity) and will be reinvoked after a
-   * Skyframe restart.
-   */
-  public abstract Optional<String> isOutdated(
-      Environment env, BlazeDirectories directories, @Nullable String oldValue)
-      throws InterruptedException;
+  protected abstract SkyKey getSkyKey(BlazeDirectories directories);
 
   private static final Optional<String> UNDECIDED = Optional.of("values missing");
 
@@ -366,7 +425,8 @@ public abstract sealed class RepoRecordedInput {
      * for placing in a repository marker file. The file need not exist, and can be a file or a
      * directory.
      */
-    public static String fileValueToMarkerValue(RootedPath rootedPath, FileValue fileValue)
+    @VisibleForTesting
+    static String fileValueToMarkerValue(RootedPath rootedPath, FileValue fileValue)
         throws IOException {
       if (fileValue.isDirectory()) {
         return "DIR";
@@ -389,22 +449,24 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public Optional<String> isOutdated(
-        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+    public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
       try {
-        FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
+        var fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
         if (fileValue == null) {
-          return UNDECIDED;
+          return MaybeValue.UNDECIDED;
         }
-        if (!oldValue.equals(fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue))) {
-          return Optional.of("file info or contents of %s changed".formatted(path));
-        }
-        return Optional.empty();
+        return new MaybeValue.Valid(
+            fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
       } catch (IOException e) {
-        return Optional.of("failed to stat %s: %s".formatted(path, e.getMessage()));
+        return new MaybeValue.Invalid("failed to stat %s: %s".formatted(path, e.getMessage()));
       }
+    }
+
+    @Override
+    public String reasonForChange(String oldValue, String newValue) {
+      return "file info or contents of %s changed".formatted(path);
     }
   }
 
@@ -460,38 +522,35 @@ public abstract sealed class RepoRecordedInput {
       return PARSER;
     }
 
+    private String directoryListingValueToMarkerValue(DirectoryListingValue directoryListingValue) {
+      var fp = new Fingerprint();
+      fp.addStrings(
+          directoryListingValue.getDirents().stream()
+              .map(Dirent::getName)
+              .sorted()
+              .collect(toImmutableList()));
+      return fp.hexDigestAndReset();
+    }
+
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return DirectoryListingValue.key(path.getRootedPath(directories));
     }
 
     @Override
-    public Optional<String> isOutdated(
-        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+    public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
-      SkyKey skyKey = getSkyKey(directories);
-      if (env.getValue(skyKey) == null) {
-        return UNDECIDED;
+      var skyKey = getSkyKey(directories);
+      var directoryListingValue = (DirectoryListingValue) env.getValue(skyKey);
+      if (directoryListingValue == null) {
+        return MaybeValue.UNDECIDED;
       }
-      try {
-        if (!oldValue.equals(
-            getDirentsMarkerValue(((DirectoryListingKey) skyKey).argument().asPath()))) {
-          return Optional.of("directory entries of %s changed".formatted(path));
-        }
-        return Optional.empty();
-      } catch (IOException e) {
-        return Optional.of("failed to readdir %s: %s".formatted(path, e.getMessage()));
-      }
+      return new MaybeValue.Valid(directoryListingValueToMarkerValue(directoryListingValue));
     }
 
-    public static String getDirentsMarkerValue(Path path) throws IOException {
-      Fingerprint fp = new Fingerprint();
-      fp.addStrings(
-          path.getDirectoryEntries().stream()
-              .map(Path::getBaseName)
-              .sorted()
-              .collect(toImmutableList()));
-      return fp.hexDigestAndReset();
+    @Override
+    public String reasonForChange(String oldValue, String newValue) {
+      return "directory entries of %s changed".formatted(path);
     }
   }
 
@@ -557,18 +616,25 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public Optional<String> isOutdated(
-        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+    public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
-      DirectoryTreeDigestValue value =
-          (DirectoryTreeDigestValue) env.getValue(getSkyKey(directories));
-      if (value == null) {
-        return UNDECIDED;
+      var skyKey = getSkyKey(directories);
+      try {
+        var directoryTreeDigestValue =
+            (DirectoryTreeDigestValue) env.getValueOrThrow(skyKey, IOException.class);
+        if (directoryTreeDigestValue == null) {
+          return MaybeValue.UNDECIDED;
+        }
+        return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
+      } catch (IOException e) {
+        return new MaybeValue.Invalid(
+            "failed to digest directory tree at %s: %s".formatted(path, e.getMessage()));
       }
-      if (!oldValue.equals(value.hexDigest())) {
-        return Optional.of("directory tree at %s changed".formatted(path));
-      }
-      return Optional.empty();
+    }
+
+    @Override
+    public String reasonForChange(String oldValue, String newValue) {
+      return "directory tree at %s changed".formatted(path);
     }
   }
 
@@ -596,7 +662,7 @@ public abstract sealed class RepoRecordedInput {
           .collect(toImmutableMap(e -> new EnvVar(e.getKey()), Map.Entry::getValue));
     }
 
-    private EnvVar(String name) {
+    public EnvVar(String name) {
       this.name = name;
     }
 
@@ -632,23 +698,26 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public Optional<String> isOutdated(
-        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+    public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
-      String v = PrecomputedValue.REPO_ENV.get(env).get(name);
-      if (v == null) {
-        v = ((ClientEnvironmentValue) env.getValue(getSkyKey(directories))).getValue();
+      String value = PrecomputedValue.REPO_ENV.get(env).get(name);
+      if (value != null) {
+        return new MaybeValue.Valid(value);
       }
-      // Note that `oldValue` can be null if the env var was not set.
-      if (!Objects.equals(oldValue, v)) {
-        return Optional.of(
-            "environment variable %s changed: %s -> %s"
-                .formatted(
-                    name,
-                    oldValue == null ? "" : "'%s'".formatted(oldValue),
-                    v == null ? "" : "'%s'".formatted(v)));
+      var clientEnvironmentValue = (ClientEnvironmentValue) env.getValue(getSkyKey(directories));
+      if (clientEnvironmentValue == null) {
+        return MaybeValue.UNDECIDED;
       }
-      return Optional.empty();
+      return new MaybeValue.Valid(clientEnvironmentValue.getValue());
+    }
+
+    @Override
+    public String reasonForChange(String oldValue, String newValue) {
+      return "environment variable %s changed: %s -> %s"
+          .formatted(
+              name,
+              oldValue == null ? "" : "'%s'".formatted(oldValue),
+              newValue == null ? "" : "'%s'".formatted(newValue));
     }
   }
 
@@ -718,32 +787,24 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public Optional<String> isOutdated(
-        Environment env, BlazeDirectories directories, @Nullable String oldValue)
+    public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
-      RepositoryMappingValue repoMappingValue =
-          (RepositoryMappingValue) env.getValue(getSkyKey(directories));
+      var repoMappingValue = (RepositoryMappingValue) env.getValue(getSkyKey(directories));
       if (Objects.equals(repoMappingValue, RepositoryMappingValue.NOT_FOUND_VALUE)) {
-        return Optional.of("source repo %s doesn't exist anymore".formatted(sourceRepo));
+        return new MaybeValue.Invalid("source repo %s doesn't exist anymore".formatted(sourceRepo));
       }
-      RepositoryName oldCanonicalName;
-      try {
-        oldCanonicalName = RepositoryName.create(oldValue);
-      } catch (LabelSyntaxException e) {
-        // malformed old value causes refetch
-        return Optional.of("invalid recorded repo name: %s".formatted(e.getMessage()));
-      }
-      RepositoryName newCanonicalName = repoMappingValue.repositoryMapping().get(apparentName);
-      if (!oldCanonicalName.equals(newCanonicalName)) {
-        return Optional.of(
-            "canonical name for @%s in %s changed: %s -> %s"
-                .formatted(
-                    apparentName,
-                    sourceRepo,
-                    oldCanonicalName,
-                    newCanonicalName == null ? "<doesn't exist>" : newCanonicalName));
-      }
-      return Optional.empty();
+      RepositoryName canonicalName = repoMappingValue.repositoryMapping().get(apparentName);
+      return new MaybeValue.Valid(canonicalName != null ? canonicalName.getName() : null);
+    }
+
+    @Override
+    public String reasonForChange(String oldValue, String newValue) {
+      return "canonical name for @%s in %s changed: %s -> %s"
+          .formatted(
+              apparentName,
+              sourceRepo,
+              oldValue == null ? "<doesn't exist>" : oldValue,
+              newValue == null ? "<doesn't exist>" : newValue);
     }
   }
 
@@ -786,9 +847,15 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    public Optional<String> isOutdated(
-        Environment env, BlazeDirectories directories, @Nullable String oldValue) {
-      return Optional.of(reason);
+    public MaybeValue getValue(Environment env, BlazeDirectories directories)
+        throws InterruptedException {
+      return new MaybeValue.Invalid(reason);
+    }
+
+    @Override
+    public String reasonForChange(String oldValue, String newValue) {
+      throw new UnsupportedOperationException(
+          "the value for this sentinel input is always invalid");
     }
   }
 }

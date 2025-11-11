@@ -23,13 +23,10 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
@@ -236,13 +233,22 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
   }
 
-  public void recordInput(RepoRecordedInput input, @Nullable String value) {
+  public void manuallyRecordInput(RepoRecordedInput input, @Nullable String value) {
     if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
       throw new IllegalStateException(
           "Conflicting values recorded for input %s: '%s' vs. '%s'"
               .formatted(input, recordedInputs.get(input), value));
     }
     recordedInputs.put(input, value);
+  }
+
+  protected void recordInput(RepoRecordedInput input)
+      throws InterruptedException, NeedsSkyframeRestartException, IOException {
+    var maybeValue = input.getValue(env, directories);
+    if (env.valuesMissing()) {
+      throw new NeedsSkyframeRestartException();
+    }
+    manuallyRecordInput(input, maybeValue.unwrap());
   }
 
   private boolean cancelPendingAsyncTasks() {
@@ -1430,13 +1436,12 @@ the same path on case-insensitive filesystems.
       throws InterruptedException, NeedsSkyframeRestartException {
     // Must look up via Skyframe, rather than solely copy from `this.envVariables`, in order to
     // establish a SkyKey dependency relationship.
-    var nameAndValue = RepositoryUtils.getEnvVarValues(env, ImmutableSet.of(name));
-    if (nameAndValue == null) {
-      return null;
+    try {
+      recordInput(new RepoRecordedInput.EnvVar(name));
+    } catch (IOException e) {
+      throw new IllegalStateException("getting EnvVar never throws IOException", e);
     }
-    var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
-    recordInput(entry.getKey(), entry.getValue().orElse(null));
-    return entry.getValue().orElseGet(() -> nullIfNone(defaultValue, String.class));
+    return envVariables.getOrDefault(name, nullIfNone(defaultValue, String.class));
   }
 
   @StarlarkMethod(
@@ -1600,17 +1605,8 @@ the same path on case-insensitive filesystems.
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
-    var skyKey = recordedInput.getSkyKey(directories);
     try {
-      FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
-      if (fileValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-
-      recordInput(
-          recordedInput,
-          RepoRecordedInput.File.fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
+      recordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1622,12 +1618,8 @@ the same path on case-insensitive filesystems.
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.Dirents(repoCacheFriendlyPath);
-    if (env.getValue(recordedInput.getSkyKey(directories)) == null) {
-      throw new NeedsSkyframeRestartException();
-    }
     try {
-      recordInput(recordedInput, RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
+      recordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
