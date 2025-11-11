@@ -2,15 +2,28 @@ commit b448d5aa1773405550db2777eb788b43f90c2f44
 Author: Yun Peng <pcloudy@google.com>
 Date:   Tue Sep 23 15:58:11 2025 +0000
 
-    Add load statements for JavaInfo
+    Add load statements for JavaInfo and CcInfo
 
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 4d0e3d6..c901a94 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -53,7 +53,6 @@ bazel_dep(
+ bazel_dep(
+     name = "rules_cc",
+     version = "0.0.9",
+-    dev_dependency = True,
+ )
+ bazel_dep(
+     name = "rules_python",
 diff --git a/internal/native_image/common.bzl b/internal/native_image/common.bzl
-index dc6e3f7..c9a66bd 100644
+index dc6e3f7..6801ad2 100644
 --- a/internal/native_image/common.bzl
 +++ b/internal/native_image/common.bzl
-@@ -1,5 +1,6 @@
+@@ -1,5 +1,7 @@
  "Defines common properties shared by modern and legacy Native Image rules."
- 
+
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 +load("@rules_java//java/common:java_info.bzl", "JavaInfo")
  load(
      "//internal/native_image:builder.bzl",
@@ -27,3 +40,4 @@ index fb3c772..2b79234 100644
  load(
      "//internal/native_image:common.bzl",
      _BAZEL_CPP_TOOLCHAIN_TYPE = "BAZEL_CPP_TOOLCHAIN_TYPE",
+
