@@ -182,6 +182,16 @@ public class RunCommand implements BlazeCommand {
                 + " be used multiple times; for options given for the same variable, the latest"
                 + " wins, options for different variables accumulate.")
     public List<Map.Entry<String, String>> runEnvironment;
+
+    @Option(
+        name = "run_in_cwd",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "If true, runs the target in the current working directory instead of the runfile"
+                + " tree.")
+    public boolean runInCwd;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -271,8 +281,7 @@ public class RunCommand implements BlazeCommand {
     RunCommandLine runCommandLine;
     try {
       runCommandLine =
-          getCommandLineInfo(
-              env, builtTargets, options, argsFromResidue, runOptions.runEnvironment, testPolicy);
+          getCommandLineInfo(env, builtTargets, options, argsFromResidue, runOptions, testPolicy);
     } catch (RunCommandException e) {
       return e.result;
     }
@@ -637,7 +646,7 @@ public class RunCommand implements BlazeCommand {
       BuiltTargets builtTargets,
       OptionsParsingResult options,
       ImmutableList<String> argsFromResidue,
-      List<Map.Entry<String, String>> extraRunEnvironment,
+      RunOptions runOptions,
       TestPolicy testPolicy)
       throws RunCommandException {
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
@@ -658,7 +667,7 @@ public class RunCommand implements BlazeCommand {
     }
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     actionEnvironment.resolve(runEnvironment, env.getClientEnv());
-    for (var entry : extraRunEnvironment) {
+    for (var entry : runOptions.runEnvironment) {
       runEnvironment.put(entry.getKey(), entry.getValue());
     }
 
@@ -683,7 +692,8 @@ public class RunCommand implements BlazeCommand {
         builtTargets,
         ImmutableSortedMap.copyOf(runEnvironment),
         argsFromBinary,
-        argsFromResidue);
+        argsFromResidue,
+        runOptions);
   }
 
   /**
@@ -802,7 +812,8 @@ public class RunCommand implements BlazeCommand {
       BuiltTargets builtTargets,
       ImmutableSortedMap<String, String> runEnvironment,
       ImmutableList<String> argsFromBinary,
-      ImmutableList<String> argsFromResidue) {
+      ImmutableList<String> argsFromResidue,
+      RunOptions runOptions) {
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     PathPrettyPrinter prettyPrinter =
         new PathPrettyPrinter(
@@ -812,7 +823,7 @@ public class RunCommand implements BlazeCommand {
     RunCommandLine.Builder runCommandLine =
         new RunCommandLine.Builder(
             runEnvironment,
-            /* workingDir= */ builtTargets.targetToRunRunfilesDir != null
+            /* workingDir= */ !runOptions.runInCwd && builtTargets.targetToRunRunfilesDir != null
                 ? builtTargets.targetToRunRunfilesDir
                 : env.getWorkingDirectory(),
             /* isTestTarget= */ false);

@@ -784,6 +784,39 @@ EOF
   expect_log "RUN_ENV_ONLY: 'BAR'"
 }
 
+function test_run_in_cwd() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "Running in $(pwd)"
+if [ -f "bar.txt" ]; then
+  echo "BAR_TXT"
+fi
+EOF
+
+  cd "$pkg" || fail "cd $pkg failed"
+  chmod +x "foo.sh"
+  touch "bar.txt"
+
+  bazel run "//$pkg:foo" >& "$TEST_log" || fail "bazel run without --run_in_cwd failed"
+  expect_not_log "BAR_TXT"
+  expect_not_log "Running in $(pwd)"
+
+  bazel run --run_in_cwd "//$pkg:foo" >& "$TEST_log" || fail "bazel run with --run_in_cwd failed"
+  expect_log "BAR_TXT"
+  expect_log "Running in $(pwd)"
+}
+
 # Usage: assert_starts_with PREFIX STRING_TO_CHECK.
 # Asserts that `$1` is a prefix of `$2`.
 function assert_starts_with() {
