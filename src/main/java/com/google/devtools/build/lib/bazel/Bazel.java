@@ -103,7 +103,8 @@ public final class Bazel {
           com.google.devtools.build.lib.metrics.MetricsModule.class);
 
   @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
-  public static final ImmutableList<BlazeService> BAZEL_SERVICES = ImmutableList.of();
+  public static final ImmutableList<BlazeService> BAZEL_SERVICES =
+      ImmutableList.of(new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl());
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());

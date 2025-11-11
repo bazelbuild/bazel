@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -114,6 +116,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
   @Before
   public final void initializeRuntime() throws Exception {
     String productName = TestConstants.PRODUCT_NAME;
+    Profiler.forceSetInstanceForTestingOnly(new TraceProfilerServiceImpl());
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install_base"),

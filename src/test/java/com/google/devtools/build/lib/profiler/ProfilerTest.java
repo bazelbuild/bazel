@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.profiler;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.profiler.Profiler.Format.JSON_TRACE_FILE_FORMAT;
+import static com.google.devtools.build.lib.profiler.TraceProfilerService.Format.JSON_TRACE_FILE_FORMAT;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -61,11 +61,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ProfilerTest {
 
-  private final Profiler profiler = Profiler.instance();
+  private TraceProfilerService profiler = new TraceProfilerServiceImpl();
   private final ManualClock clock = new ManualClock();
 
   @Before
   public void setManualClock() {
+    Profiler.forceSetInstanceForTestingOnly(profiler);
     BlazeClock.setClock(clock);
     profiler.clear();
   }
@@ -100,8 +101,8 @@ public final class ProfilerTest {
     return profiledTasksBuilder.build();
   }
 
-  private ByteArrayOutputStream start(ImmutableSet<ProfilerTask> tasks, Profiler.Format format)
-      throws IOException {
+  private ByteArrayOutputStream start(
+      ImmutableSet<ProfilerTask> tasks, TraceProfilerService.Format format) throws IOException {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     profiler.start(
         tasks,
@@ -162,7 +163,7 @@ public final class ProfilerTest {
   @Test
   public void testProfilerActivation() throws Exception {
     assertThat(profiler.isActive()).isFalse();
-    start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+    var unused = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
     assertThat(profiler.isActive()).isTrue();
 
     profiler.stop();
@@ -765,7 +766,7 @@ public final class ProfilerTest {
     startUnbuffered(getAllProfilerTasks());
     profiler.logSimpleTaskDuration(
         profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
-    ImmutableList<StatRecorder> histograms = profiler.getTasksHistograms();
+    List<StatRecorder> histograms = profiler.getTasksHistograms();
     StatRecorder infoStatRecorder = histograms.get(ProfilerTask.INFO.ordinal());
     assertThat(infoStatRecorder.isEmpty()).isFalse();
     // This is the only provided API to get the contents of the StatRecorder.

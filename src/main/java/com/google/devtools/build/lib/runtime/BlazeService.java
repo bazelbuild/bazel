@@ -44,4 +44,7 @@ public interface BlazeService extends OptionsSupplier {
   default Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
     return ImmutableList.of();
   }
+
+  /** Called at the beginning of Bazel startup, right before {@link BlazeModule#globalInit}. */
+  default void globalInit() {}
 }

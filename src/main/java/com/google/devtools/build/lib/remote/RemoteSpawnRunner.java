@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.profiler.TraceProfilerService;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
@@ -203,7 +204,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     spawnMetrics.setParseTime(totalTime.elapsed());
 
-    Profiler prof = Profiler.instance();
+    TraceProfilerService prof = Profiler.instance();
     try {
       context.report(SPAWN_CHECKING_CACHE_EVENT);
 

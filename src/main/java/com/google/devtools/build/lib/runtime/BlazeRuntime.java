@@ -64,9 +64,9 @@ import com.google.devtools.build.lib.profiler.CollectLocalResourceUsage;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.Profiler.Format;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.profiler.TraceProfilerService.Format;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
@@ -370,7 +370,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     OutputStream out = null;
     boolean recordFullProfilerData = commandOptions.recordFullProfilerData;
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
-    Profiler.Format format = Format.JSON_TRACE_FILE_FORMAT;
+    Format format = Format.JSON_TRACE_FILE_FORMAT;
     InstrumentationOutput profile = null;
     try {
       if (tracerEnabled) {
@@ -449,72 +449,81 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                       + " --experimental_profile_include_primary_output: the \"out\" field"
                       + " will be omitted in merged actions."));
         }
-        Profiler profiler = Profiler.instance();
         WorkerProcessMetricsCollector workerProcessMetricsCollector =
             WorkerProcessMetricsCollector.instance();
         workerProcessMetricsCollector.setClock(clock);
 
-        profiler.start(
-            profiledTasks,
-            out,
-            format,
-            workspace.getOutputBase().toString(),
-            env.getCommandId(),
-            recordFullProfilerData,
-            clock,
-            execStartTimeNanos,
-            commandOptions.slimProfile,
-            commandOptions.includePrimaryOutput,
-            commandOptions.profileIncludeTargetLabel,
-            commandOptions.profileIncludeTargetConfiguration,
-            commandOptions.alwaysProfileSlowOperations,
-            new CollectLocalResourceUsage(
-                bugReporter,
-                workerProcessMetricsCollector,
-                env.getLocalResourceManager(),
-                commandOptions.collectSkyframeCounts
-                    ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
-                    : null,
-                commandOptions.collectWorkerDataInProfiler,
-                commandOptions.collectLoadAverageInProfiler,
-                commandOptions.collectSystemNetworkUsage,
-                commandOptions.collectResourceEstimation,
-                commandOptions.collectPressureStallIndicators,
-                commandOptions.collectSkyframeCounts));
+        // TODO(b/457644247): Encapsulate the start params into a config object.
+        Profiler.instance()
+            .start(
+                profiledTasks,
+                out,
+                format,
+                workspace.getOutputBase().toString(),
+                env.getCommandId(),
+                recordFullProfilerData,
+                clock,
+                execStartTimeNanos,
+                commandOptions.slimProfile,
+                commandOptions.includePrimaryOutput,
+                commandOptions.profileIncludeTargetLabel,
+                commandOptions.profileIncludeTargetConfiguration,
+                commandOptions.alwaysProfileSlowOperations,
+                new CollectLocalResourceUsage(
+                    bugReporter,
+                    workerProcessMetricsCollector,
+                    env.getLocalResourceManager(),
+                    commandOptions.collectSkyframeCounts
+                        ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
+                        : null,
+                    commandOptions.collectWorkerDataInProfiler,
+                    commandOptions.collectLoadAverageInProfiler,
+                    commandOptions.collectSystemNetworkUsage,
+                    commandOptions.collectResourceEstimation,
+                    commandOptions.collectPressureStallIndicators,
+                    commandOptions.collectSkyframeCounts));
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
         long startupTimeNanos = commandOptions.startupTime * 1000000L;
         long waitTimeNanos = waitTimeInMs * 1000000L;
         long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
-        profiler.logSimpleTaskDuration(
-            clientStartTimeNanos,
-            Duration.ofNanos(startupTimeNanos),
-            ProfilerTask.PHASE,
-            ProfilePhase.LAUNCH.description);
+        Profiler.instance()
+            .logSimpleTaskDuration(
+                clientStartTimeNanos,
+                Duration.ofNanos(startupTimeNanos),
+                ProfilerTask.PHASE,
+                ProfilePhase.LAUNCH.description);
         if (commandOptions.extractDataTime > 0) {
-          profiler.logSimpleTaskDuration(
-              clientStartTimeNanos,
-              Duration.ofMillis(commandOptions.extractDataTime),
-              ProfilerTask.PHASE,
-              "Extracting Bazel binary");
+          Profiler.instance()
+              .logSimpleTaskDuration(
+                  clientStartTimeNanos,
+                  Duration.ofMillis(commandOptions.extractDataTime),
+                  ProfilerTask.PHASE,
+                  "Extracting Bazel binary");
         }
         if (commandOptions.waitTime > 0) {
-          profiler.logSimpleTaskDuration(
-              clientStartTimeNanos,
-              Duration.ofMillis(commandOptions.waitTime),
-              ProfilerTask.PHASE,
-              "Blocking on busy Bazel server (in client)");
+          Profiler.instance()
+              .logSimpleTaskDuration(
+                  clientStartTimeNanos,
+                  Duration.ofMillis(commandOptions.waitTime),
+                  ProfilerTask.PHASE,
+                  "Blocking on busy Bazel server (in client)");
         }
         if (waitTimeInMs > 0) {
-          profiler.logSimpleTaskDuration(
-              clientStartTimeNanos + startupTimeNanos,
-              Duration.ofMillis(waitTimeInMs),
-              ProfilerTask.PHASE,
-              "Blocking on busy Bazel server (in server)");
+          Profiler.instance()
+              .logSimpleTaskDuration(
+                  clientStartTimeNanos + startupTimeNanos,
+                  Duration.ofMillis(waitTimeInMs),
+                  ProfilerTask.PHASE,
+                  "Blocking on busy Bazel server (in server)");
         }
-        profiler.logSimpleTaskDuration(
-            execStartTimeNanos, Duration.ZERO, ProfilerTask.PHASE, ProfilePhase.INIT.description);
+        Profiler.instance()
+            .logSimpleTaskDuration(
+                execStartTimeNanos,
+                Duration.ZERO,
+                ProfilerTask.PHASE,
+                ProfilePhase.INIT.description);
       }
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
@@ -1328,6 +1337,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           "Bad --failure_detail_out option specified: '" + failureDetailOut + "'");
     }
     CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
+
+    for (BlazeService service : blazeServices) {
+      service.globalInit();
+    }
 
     for (BlazeModule module : blazeModules) {
       module.globalInit(options);

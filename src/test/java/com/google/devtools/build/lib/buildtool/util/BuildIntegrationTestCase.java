@@ -90,6 +90,9 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.TraceProfilerService;
+import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -221,6 +224,7 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
+  private static final TraceProfilerService profilerService = new TraceProfilerServiceImpl();
 
   @Nullable private UncaughtExceptionHandler oldExceptionHandler;
 
@@ -240,6 +244,7 @@ public abstract class BuildIntegrationTestCase {
   public final void createFilesAndMocks() throws Exception {
     runPriorToBeforeMethods();
     events.setFailFast(false);
+    Profiler.forceSetInstanceForTestingOnly(profilerService);
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
     // consider something better.
     FileSystem nativeFileSystem = createFileSystem();
@@ -617,7 +622,8 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
-            .addBlazeModule(new CredentialModule());
+            .addBlazeModule(new CredentialModule())
+            .addBlazeService(profilerService);
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
         .addBlazeModule(getBuildInfoModule())

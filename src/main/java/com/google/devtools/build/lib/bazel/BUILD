@@ -188,6 +188,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/platform:sleep_prevention_module",
         "//src/main/java/com/google/devtools/build/lib/platform:system_suspension_module",
         "//src/main/java/com/google/devtools/build/lib/profiler:command_profiler_module",
+        "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall",
