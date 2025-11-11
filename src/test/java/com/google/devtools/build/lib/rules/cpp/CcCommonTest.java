@@ -826,6 +826,9 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryExternalIncludesNotWarned() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     eventCollector.clear();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("MODULE.bazel"),

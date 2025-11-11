@@ -417,6 +417,9 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
   @Test
   public void testExternalIncludePathsVariable() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(

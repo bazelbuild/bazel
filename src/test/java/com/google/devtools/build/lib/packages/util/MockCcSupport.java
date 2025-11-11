@@ -484,6 +484,7 @@ public abstract class MockCcSupport {
         "runtimes/BUILD",
         """
         load("//runtimes:toolchain.bzl", "bool_flag", "cc_runtimes_toolchain")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
         bool_flag(
             name = "include_runtimes",

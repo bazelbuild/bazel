@@ -87,6 +87,7 @@ public final class MockProtoSupport {
         "third_party/protobuf/bazel/flags/BUILD",
         """
         load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
         cc_binary(
             name = "empty",
@@ -234,6 +235,7 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/compiler/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(default_visibility = ["//visibility:public"])
 
         cc_binary(
@@ -250,6 +252,8 @@ public final class MockProtoSupport {
     config.create(
         "net/grpc/compiler/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_binary(
@@ -262,6 +266,8 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/public/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -278,6 +284,8 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/bridge/public/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -288,6 +296,7 @@ public final class MockProtoSupport {
     config.create(
         "net/proto/BUILD",
         getPyLoad("py_library"),
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'proto',",
         "           srcs = [ 'proto.cc' ])",
@@ -302,6 +311,8 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(name = "stubby12_proto_rpc_libs")
@@ -309,6 +320,8 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc4/public/core/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(name = "stubby4_rpc_libs")
@@ -316,6 +329,8 @@ public final class MockProtoSupport {
     config.create(
         "net/grpc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(

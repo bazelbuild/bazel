@@ -34,6 +34,9 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
   is available.*/
   @Test
   public void dynamicLink_siblingLayout_externalBinary_rpath() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'src')",
@@ -143,6 +146,9 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
 
   @Test
   public void dynamicLink_siblingLayout_externalToolchain_rpath() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'toolchain')",
