@@ -16,39 +16,49 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.transformAsync;
+import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.devtools.build.lib.unsafe.StringUnsafe.getInternalStringBytes;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.bazel.repository.DigestWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -86,6 +96,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           .addOutputFiles(MARKER_FILE_PATH)
           .addOutputDirectories(REPO_DIRECTORY_PATH)
           .build();
+  private static final ByteString COMMAND_BYTES = COMMAND.toByteString();
   private static final Directory INPUT_ROOT = Directory.getDefaultInstance();
 
   private final CombinedCache cache;
@@ -95,6 +106,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private final boolean uploadLocalResults;
   private final DigestUtil digestUtil;
   private final Action baseAction;
+  private final Digest commandDigest;
 
   public RemoteRepoContentsCacheImpl(
       CombinedCache cache,
@@ -113,6 +125,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
             .setCommandDigest(digestUtil.compute(COMMAND))
             .setInputRootDigest(digestUtil.compute(INPUT_ROOT))
             .build();
+    this.commandDigest = digestUtil.compute(COMMAND);
   }
 
   @Override
@@ -123,28 +136,37 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       String predeclaredInputHash,
       ExtendedEventHandler reporter)
       throws InterruptedException {
-    var context = buildContext(repoName);
+    var context = buildContext(repoName, CacheOp.UPLOAD);
     if (!context.getWriteCachePolicy().allowRemoteCache()) {
       return;
     }
+    List<RepoRecordedInput.WithValue> recordedInputs;
     try {
-      if (FileSystemUtils.readLinesAsLatin1(fetchedRepoMarkerFile).stream()
-              .filter(line -> !line.isEmpty())
-              .count()
-          != 1) {
-        // This cache currently only supports marker files that contain nothing but the predeclared
-        // inputs hash. Repo rules with dependencies expressed only at runtime would require a
-        // two-stage cache lookup. Among the rules that are supported are http_archive and
-        // git_repository without patches.
+      var maybeRecordedInputs =
+          DigestWriter.readMarkerFile(
+              FileSystemUtils.readContent(fetchedRepoMarkerFile, ISO_8859_1), predeclaredInputHash);
+      if (maybeRecordedInputs.isEmpty()) {
         return;
       }
+      recordedInputs = maybeRecordedInputs.get();
     } catch (IOException e) {
       reporter.handle(
           Event.warn(
-              "Failed to read marker file repo %s, skipping: %s"
+              "Failed to read marker file for repo %s, skipping: %s"
                   .formatted(repoName, e.getMessage())));
+      return;
     }
-    var action = buildAction(predeclaredInputHash);
+    String finalHash;
+    try {
+      finalHash = uploadIntermediateActionResults(predeclaredInputHash, recordedInputs, context);
+    } catch (BulkTransferException e) {
+      reporter.handle(
+          Event.warn(
+              "Failed to upload repo contents to remote cache for repo %s: %s"
+                  .formatted(repoName, e.getMessage())));
+      return;
+    }
+    var action = buildAction(finalHash);
     var actionKey = new ActionKey(digestUtil.compute(action));
     var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
     try {
@@ -183,15 +205,17 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       return false;
     }
 
-    var context = buildContext(repoName);
+    var context = buildContext(repoName, CacheOp.DOWNLOAD);
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
     var actionKey = new ActionKey(digestUtil.compute(buildAction(predeclaredInputHash)));
-    // The marker file is read right after and thus requested to be inlined.
+    // The marker file is read right after and thus requested to be inlined. If the action result is
+    // an intermediate node, the full result will be contained in the stdout, which should thus also
+    // be inlined.
     var cachedActionResult =
         cache.downloadActionResult(
-            context, actionKey, /* inlineOutErr= */ false, ImmutableSet.of(MARKER_FILE_PATH));
+            context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
     if (cachedActionResult == null) {
       return false;
     }
@@ -224,7 +248,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
     var repoDirectory = actionResult.getOutputDirectories(0);
     var repoDirectoryContentFuture =
-        Futures.transformAsync(
+        transformAsync(
             cache.downloadBlob(
                 context, REPO_DIRECTORY_PATH, /* execPath= */ null, repoDirectory.getTreeDigest()),
             (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
@@ -233,7 +257,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     String markerFileContent;
     Tree repoDirectoryContent;
     try {
-      markerFileContent = new String(markerFileContentFuture.get(), StandardCharsets.ISO_8859_1);
+      markerFileContent = new String(markerFileContentFuture.get(), ISO_8859_1);
       repoDirectoryContent = repoDirectoryContentFuture.get();
     } catch (ExecutionException e) {
       throw new IllegalStateException("waitForBulkTransfer should have thrown", e);
@@ -264,25 +288,69 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     return true;
   }
 
-  private RemoteActionExecutionContext buildContext(RepositoryName repoName) {
+  private enum CacheOp {
+    DOWNLOAD,
+    UPLOAD,
+  }
+
+  private RemoteActionExecutionContext buildContext(RepositoryName repoName, CacheOp cacheOp) {
     var metadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, repoName.getName(), /* actionMetadata= */ null);
-    // Don't use the disk cache as `--repo_contents_cache` is a strictly better alternative for
-    // local caching.
+    // Don't upload local repo contents to the disk cache as the (local) `--repo_contents_cache` is
+    // a better alternative for local caching. Do write through the disk cache for downloads from
+    // the remote cache to speed up future usage.
     return RemoteActionExecutionContext.create(metadata)
-        .withReadCachePolicy(acceptCached ? CachePolicy.REMOTE_CACHE_ONLY : CachePolicy.NO_CACHE)
+        .withReadCachePolicy(acceptCached ? CachePolicy.ANY_CACHE : CachePolicy.NO_CACHE)
         .withWriteCachePolicy(
-            uploadLocalResults ? CachePolicy.REMOTE_CACHE_ONLY : CachePolicy.NO_CACHE);
+            switch (cacheOp) {
+              case DOWNLOAD -> CachePolicy.ANY_CACHE;
+              case UPLOAD ->
+                  uploadLocalResults ? CachePolicy.REMOTE_CACHE_ONLY : CachePolicy.NO_CACHE;
+            });
   }
 
-  private Action buildAction(String predeclaredInputHash) {
-    // The predeclared input hash uniquely identifies the repo rule and all its attributes, but not
-    // dependencies established at runtime. We choose to embed it into the salt simply because that
-    // results in a constant Command message.
+  private Action buildAction(String inputHash) {
+    // We choose to embed the hash into the salt simply because that results in a constant Command
+    // message.
     return baseAction.toBuilder()
-        .setSalt(ByteString.copyFrom(StringUnsafe.getByteArray(predeclaredInputHash)))
+        .setSalt(ByteString.copyFrom(StringUnsafe.getByteArray(inputHash)))
         .build();
+  }
+
+  /**
+   * Uploads the intermediate action results representing the inputs recorded at runtime and returns
+   * the input hash to use for the final action result.
+   */
+  private String uploadIntermediateActionResults(
+      String predeclaredInputHash,
+      List<RepoRecordedInput.WithValue> recordedInputs,
+      RemoteActionExecutionContext context)
+      throws BulkTransferException, InterruptedException {
+    String rollingHash = predeclaredInputHash;
+    var fp = new Fingerprint();
+    var futures = new ArrayList<ListenableFuture<Void>>(1 + recordedInputs.size());
+    futures.add(cache.uploadBlob(context, commandDigest, COMMAND_BYTES));
+    for (var inputAndValue : recordedInputs) {
+      var action = buildAction(rollingHash);
+      var actionKey = digestUtil.computeActionKey(action);
+      var stdoutBytes = getInternalStringBytes(inputAndValue.input().toString());
+      var stdoutDigest = digestUtil.compute(stdoutBytes);
+      var actionResult =
+          ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
+      var uploadFuture =
+          transformAsync(
+              whenAllSucceed(
+                      cache.uploadBlob(context, actionKey.digest(), action.toByteString()),
+                      cache.uploadBlob(context, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
+                  .run(() -> {}, directExecutor()),
+              unused -> cache.uploadActionResult(context, actionKey, actionResult),
+              directExecutor());
+      futures.add(uploadFuture);
+      rollingHash = fp.addString(rollingHash).addString(inputAndValue.value()).hexDigestAndReset();
+    }
+    waitForBulkTransfer(futures);
+    return rollingHash;
   }
 
   private record RepoRemotePathResolver(Path fetchedRepoMarkerFile, Path fetchedRepoDir)
