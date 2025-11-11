@@ -22,6 +22,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.unsafe.StringUnsafe.getInternalStringBytes;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -32,6 +33,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -40,7 +42,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -62,6 +63,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Stream;
 
 /**
  * A cache for the contents of external repositories that is backed by an ordinary remote cache.
@@ -156,21 +158,13 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   .formatted(repoName, e.getMessage())));
       return;
     }
-    String finalHash;
-    try {
-      finalHash = uploadIntermediateActionResults(predeclaredInputHash, recordedInputs, context);
-    } catch (BulkTransferException e) {
-      reporter.handle(
-          Event.warn(
-              "Failed to upload repo contents to remote cache for repo %s: %s"
-                  .formatted(repoName, e.getMessage())));
-      return;
-    }
-    var action = buildAction(finalHash);
-    var actionKey = new ActionKey(digestUtil.compute(action));
-    var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
     try {
       // TODO: Consider uploading asynchronously.
+      var finalHash =
+          uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputs);
+      var action = buildAction(finalHash);
+      var actionKey = new ActionKey(digestUtil.compute(action));
+      var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
       var unused =
           UploadManifest.create(
                   cache.getRemoteCacheCapabilities(),
@@ -323,34 +317,69 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
    * the input hash to use for the final action result.
    */
   private String uploadIntermediateActionResults(
+      RemoteActionExecutionContext context,
       String predeclaredInputHash,
-      List<RepoRecordedInput.WithValue> recordedInputs,
-      RemoteActionExecutionContext context)
-      throws BulkTransferException, InterruptedException {
+      List<RepoRecordedInput.WithValue> recordedInputs)
+      throws IOException, InterruptedException {
+    // The command is shared by all action results and small enough that FindMissingBlobs is not
+    // worthwhile.
+    waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, COMMAND_BYTES)));
+
     String rollingHash = predeclaredInputHash;
     var fp = new Fingerprint();
     var futures = new ArrayList<ListenableFuture<Void>>(1 + recordedInputs.size());
-    futures.add(cache.uploadBlob(context, commandDigest, COMMAND_BYTES));
     for (var inputAndValue : recordedInputs) {
-      var action = buildAction(rollingHash);
-      var actionKey = digestUtil.computeActionKey(action);
-      var stdoutBytes = getInternalStringBytes(inputAndValue.input().toString());
-      var stdoutDigest = digestUtil.compute(stdoutBytes);
-      var actionResult =
-          ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
-      var uploadFuture =
-          transformAsync(
+      futures.add(addToActionResult(context, buildAction(rollingHash), inputAndValue.input()));
+      rollingHash = fp.addString(rollingHash).addString(inputAndValue.value()).hexDigestAndReset();
+    }
+    waitForBulkTransfer(futures);
+    return rollingHash;
+  }
+
+  private ListenableFuture<Void> addToActionResult(
+      RemoteActionExecutionContext context, Action action, RepoRecordedInput input) {
+    var actionKey = digestUtil.computeActionKey(action);
+    var currentInputsFuture =
+        Futures.transformAsync(
+            cache.downloadActionResultAsync(
+                context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of()),
+            (currentResult) -> {
+              if (currentResult == null
+                  || currentResult.actionResult().getStdoutDigest().getSizeBytes() == 0) {
+                return immediateFuture("");
+              }
+              if (!currentResult.actionResult().getStdoutRaw().isEmpty()) {
+                return immediateFuture(
+                    currentResult.actionResult().getStdoutRaw().toString(ISO_8859_1));
+              }
+              return Futures.transform(
+                  cache.downloadBlob(context, currentResult.actionResult().getStdoutDigest()),
+                  stdout -> new String(stdout, ISO_8859_1),
+                  directExecutor());
+            },
+            directExecutor());
+    return Futures.transformAsync(
+        currentInputsFuture,
+        currentInputsString -> {
+          var newInputsString =
+              Stream.concat(Stream.of(input.toString()), currentInputsString.lines())
+                  .filter(line -> !line.isEmpty())
+                  .sorted()
+                  .distinct()
+                  .collect(joining("\n"));
+          var stdoutBytes = getInternalStringBytes(newInputsString);
+          var stdoutDigest = digestUtil.compute(stdoutBytes);
+          var actionResult =
+              ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
+          return transformAsync(
               whenAllSucceed(
                       cache.uploadBlob(context, actionKey.digest(), action.toByteString()),
                       cache.uploadBlob(context, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
                   .run(() -> {}, directExecutor()),
               unused -> cache.uploadActionResult(context, actionKey, actionResult),
               directExecutor());
-      futures.add(uploadFuture);
-      rollingHash = fp.addString(rollingHash).addString(inputAndValue.value()).hexDigestAndReset();
-    }
-    waitForBulkTransfer(futures);
-    return rollingHash;
+        },
+        directExecutor());
   }
 
   private record RepoRemotePathResolver(Path fetchedRepoMarkerFile, Path fetchedRepoDir)
