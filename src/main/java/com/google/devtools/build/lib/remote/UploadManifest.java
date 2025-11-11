@@ -90,8 +90,6 @@ import javax.annotation.Nullable;
 
 /** UploadManifest adds output metadata to a {@link ActionResult}. */
 public class UploadManifest {
-  private static final Profiler profiler = Profiler.instance();
-
   private final DigestUtil digestUtil;
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
@@ -612,14 +610,15 @@ public class UploadManifest {
     ActionExecutionMetadata action = context.getSpawnOwner();
     var allDigests = Sets.union(digestToBlobs.keySet(), digestToFile.keySet()).immutableCopy();
     ImmutableSet<Digest> missingDigests;
-    try (var s = profiler.profile(ProfilerTask.INFO, "findMissingDigests")) {
+    try (var s = Profiler.instance().profile(ProfilerTask.INFO, "findMissingDigests")) {
       missingDigests = getFromFuture(combinedCache.findMissingDigests(context, allDigests));
     }
 
     try (var s =
-        profiler.profile(
-            ProfilerTask.UPLOAD_TIME,
-            () -> "upload %d missing blobs".formatted(missingDigests.size()))) {
+        Profiler.instance()
+            .profile(
+                ProfilerTask.UPLOAD_TIME,
+                () -> "upload %d missing blobs".formatted(missingDigests.size()))) {
       var uploadFutures = new ArrayList<ListenableFuture<Void>>(missingDigests.size());
       for (var digest : missingDigests) {
         uploadFutures.add(
@@ -639,7 +638,7 @@ public class UploadManifest {
     // blobs they refer to are present.
     var actionResult = result.build();
     if (actionResult.getExitCode() == 0 && actionKey != null) {
-      try (var s = profiler.profile(ProfilerTask.UPLOAD_TIME, "upload action result")) {
+      try (var s = Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload action result")) {
         getFromFuture(
             decorateUploadFuture(
                 combinedCache.uploadActionResult(context, actionKey, actionResult),

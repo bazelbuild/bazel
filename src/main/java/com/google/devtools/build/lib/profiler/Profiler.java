@@ -230,6 +230,12 @@ public final class Profiler {
     return ImmutableList.copyOf(tasksHistograms);
   }
 
+  /**
+   * Returns the profiler instance.
+   *
+   * <p>Do not store the returned instance as a field in your class. Instead, access the profiler
+   * through this method when needed.
+   */
   public static Profiler instance() {
     return instance;
   }

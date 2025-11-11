@@ -198,7 +198,6 @@ public final class SkyframeActionExecutor {
   private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
-  private final Profiler profiler = Profiler.instance();
 
   // We keep track of actions already executed this build in order to avoid executing a shared
   // action twice. Note that we may still unnecessarily re-execute the action on a subsequent
@@ -745,13 +744,15 @@ public final class SkyframeActionExecutor {
 
     if (cacheHitSemaphore != null) {
       Stopwatch stopwatch = Stopwatch.createStarted();
-      try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
         cacheHitSemaphore.acquire();
       }
       stopwatch.stop();
       actionCacheChecker.addCacheCheckSemaphoreWaitTime(stopwatch.elapsed().toMillis());
     }
-    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =
           remoteOptions != null
@@ -1087,13 +1088,14 @@ public final class SkyframeActionExecutor {
       // It is also unclear why we are posting anything directly to reporter. That probably
       // shouldn't happen.
       try (SilentCloseable c =
-          profiler.profileAction(
-              ProfilerTask.ACTION,
-              action.getMnemonic(),
-              action.describe(),
-              action.getPrimaryOutput().getExecPathString(),
-              getOwnerLabelAsString(action),
-              getOwnerConfigurationAsString(action))) {
+          Profiler.instance()
+              .profileAction(
+                  ProfilerTask.ACTION,
+                  action.getMnemonic(),
+                  action.describe(),
+                  action.getPrimaryOutput().getExecPathString(),
+                  getOwnerLabelAsString(action),
+                  getOwnerConfigurationAsString(action))) {
         String message = action.getProgressMessage();
         if (message != null) {
           reporter.startTask(null, prependExecPhaseStats(message));
@@ -1108,7 +1110,8 @@ public final class SkyframeActionExecutor {
           }
           env.getListener().post(event);
           if (actionFileSystemType().shouldDoEagerActionPrep()) {
-            try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
+            try (SilentCloseable d =
+                Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
               // keep previous outputs in place.
@@ -1230,7 +1233,7 @@ public final class SkyframeActionExecutor {
     private ActionStepOrResult executeAction(ExtendedEventHandler eventHandler, Action action)
         throws LostInputsActionExecutionException, InterruptedException {
       ActionResult result;
-      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
+      try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "Action.execute")) {
         checkForUnsoundDirectoryInputs(action, actionExecutionContext.getInputMetadataProvider());
 
         result = action.execute(actionExecutionContext);
@@ -1258,7 +1261,7 @@ public final class SkyframeActionExecutor {
       try {
         ActionExecutionValue actionExecutionValue;
         try (SilentCloseable c =
-            profiler.profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
+            Profiler.instance().profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
           actionExecutionValue = actuallyCompleteAction(eventHandler, result);
         }
         return new ActionPostprocessingStep(actionExecutionValue);
@@ -1313,7 +1316,7 @@ public final class SkyframeActionExecutor {
 
         if (finalizeActions) {
           try (SilentCloseable c =
-              profiler.profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
+              Profiler.instance().profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
             outputService.finalizeAction(action, outputMetadataStore);
           } catch (EnvironmentalExecException | IOException e) {
             logger.atWarning().withCause(e).log("unable to finalize action: '%s'", action);
@@ -1389,7 +1392,8 @@ public final class SkyframeActionExecutor {
 
       @Override
       public ActionStepOrResult run(Environment env) {
-        try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "postprocessing.run")) {
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.INFO, "postprocessing.run")) {
           postprocessing.run(
               env,
               action,
@@ -1600,7 +1604,7 @@ public final class SkyframeActionExecutor {
       boolean isActionCacheHitForMetrics)
       throws InterruptedException {
     boolean success = true;
-    try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
+    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
         // getOutputMetadata() has the side effect of adding the artifact to the cache if it's not
         // there already (e.g., due to a previous call to OutputMetadataStore.injectFile()),

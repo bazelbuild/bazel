@@ -93,7 +93,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
         }
       }
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
     }
     return Lists.transform(Arrays.asList(entries), StringEncoding::platformToInternal);
   }
@@ -107,7 +107,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     } catch (InvalidPathException e) {
       return false;
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
     }
   }
 
@@ -121,7 +121,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
       }
       return file.canRead();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
@@ -139,7 +139,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
       }
       return file.canWrite();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
@@ -153,7 +153,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
       }
       return file.canExecute();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
@@ -295,7 +295,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     } catch (IOException e) {
       throw translateNioToIoException(path, e);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, path.getPathString());
     }
   }
 
@@ -317,7 +317,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     try {
       return stat(path, followSymlinks).getSize();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.getPathString());
     }
   }
 
@@ -358,7 +358,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
         throw new IOException(path.getPathString() + ": unexpected FileSystemException", e);
       }
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
     }
   }
 
@@ -369,7 +369,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     try {
       return stat(path, followSymlinks).getLastModifiedTime();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
   }
 
@@ -399,7 +399,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     try {
       return super.getDigest(path);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }
   }
 

@@ -41,8 +41,6 @@ import java.nio.file.StandardOpenOption;
 @ThreadSafe
 public abstract class AbstractFileSystem extends FileSystem {
 
-  protected static final Profiler profiler = Profiler.instance();
-
   public AbstractFileSystem(DigestHashFunction digestFunction) {
     super(digestFunction);
   }
@@ -69,6 +67,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   /** Returns either normal or profiled FileInputStream. */
   private InputStream createMaybeProfiledInputStream(PathFragment path) throws IOException {
     final String name = path.toString();
+    var profiler = Profiler.instance();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
@@ -90,6 +89,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   @Override
   public SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+    var profiler = Profiler.instance();
     boolean shouldProfile = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
 
     long startTime = Profiler.instance().nanoTimeMaybe();
@@ -110,6 +110,7 @@ public abstract class AbstractFileSystem extends FileSystem {
    */
   protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
+    var profiler = Profiler.instance();
     if (!internal
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
@@ -157,7 +158,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       try {
         return impl.read();
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
       }
     }
 
@@ -172,7 +173,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       try {
         return impl.read(b, off, len);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
       }
     }
   }
@@ -196,7 +197,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       try {
         super.write(b, off, len);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, file.toString());
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, file.toString());
       }
     }
   }

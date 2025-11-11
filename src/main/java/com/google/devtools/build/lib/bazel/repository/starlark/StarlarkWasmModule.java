@@ -59,9 +59,9 @@ final class StarlarkWasmModule implements StarlarkValue {
       StarlarkPath path, Object origPath, byte[] moduleContent, String allocFnName)
       throws EvalException {
     WasmModule wasmModule;
-    Profiler prof = Profiler.instance();
-    try (SilentCloseable c1 = prof.profile(WASM_LOAD, () -> "load " + path.toString())) {
-      try (SilentCloseable c2 = prof.profile(WASM_LOAD, "parse")) {
+    try (SilentCloseable c1 =
+        Profiler.instance().profile(WASM_LOAD, () -> "load " + path.toString())) {
+      try (SilentCloseable c2 = Profiler.instance().profile(WASM_LOAD, "parse")) {
         try {
           wasmModule = com.dylibso.chicory.wasm.Parser.parse(moduleContent);
         } catch (ChicoryException e) {
@@ -118,8 +118,8 @@ final class StarlarkWasmModule implements StarlarkValue {
   public StarlarkWasmExecutionResult execute(
       String execFnName, byte[] input, Duration timeout, long memLimitBytes)
       throws EvalException, InterruptedException {
-    Profiler prof = Profiler.instance();
-    try (SilentCloseable c = prof.profile(WASM_EXEC, () -> "execute " + execFnName)) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(WASM_EXEC, () -> "execute " + execFnName)) {
       var memLimits = getMemLimits(memLimitBytes);
       // Perform initialization and execution in a separate thread so it can be interrupted
       // in case of timeout.
@@ -144,7 +144,6 @@ final class StarlarkWasmModule implements StarlarkValue {
   private StarlarkWasmExecutionResult run(String execFnName, byte[] input, MemoryLimits memLimits)
       throws EvalException, InterruptedException {
     Instance instance;
-    Profiler prof = Profiler.instance();
     try {
       instance =
           Instance.builder(wasmModule)
@@ -169,7 +168,7 @@ final class StarlarkWasmModule implements StarlarkValue {
       // - https://reviews.llvm.org/D40559
       // - https://github.com/WebAssembly/design/issues/1160
       if (hasInitializeFn) {
-        try (SilentCloseable c = prof.profile(WASM_EXEC, "initialize")) {
+        try (SilentCloseable c = Profiler.instance().profile(WASM_EXEC, "initialize")) {
           instance.export("_initialize").apply();
         }
       }
@@ -191,7 +190,7 @@ final class StarlarkWasmModule implements StarlarkValue {
 
     int inputLen = Math.toIntExact(input.length);
     int inputPtr = alloc(allocFnName, allocFn, inputLen, 1);
-    try (SilentCloseable c = prof.profile(WASM_EXEC, "copy input")) {
+    try (SilentCloseable c = Profiler.instance().profile(WASM_EXEC, "copy input")) {
       memory.write(inputPtr, input);
     }
 
@@ -203,7 +202,7 @@ final class StarlarkWasmModule implements StarlarkValue {
     memory.writeI32(outputLenPtr, 0);
 
     long[] execResult;
-    try (SilentCloseable c = prof.profile(WASM_EXEC, "execute")) {
+    try (SilentCloseable c = Profiler.instance().profile(WASM_EXEC, "execute")) {
       execResult = execFn.apply(inputPtr, inputLen, outputPtrPtr, outputLenPtr);
     }
 
@@ -220,7 +219,7 @@ final class StarlarkWasmModule implements StarlarkValue {
 
     String output = "";
     if (outputLen > 0) {
-      try (SilentCloseable c = prof.profile(WASM_EXEC, "copy output")) {
+      try (SilentCloseable c = Profiler.instance().profile(WASM_EXEC, "copy output")) {
         byte[] outputBytes = memory.readBytes(outputPtr, outputLen);
         output = new String(outputBytes, ISO_8859_1);
       }

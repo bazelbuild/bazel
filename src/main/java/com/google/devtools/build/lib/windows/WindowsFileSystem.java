@@ -63,7 +63,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     } catch (java.nio.file.AccessDeniedException e) {
       throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED, e);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
     }
   }
 

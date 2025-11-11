@@ -62,7 +62,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       }
       return builder.build();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }
   }
 
@@ -110,7 +110,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       }
       return builder.build();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }
   }
 
@@ -125,7 +125,7 @@ public class UnixFileSystem extends AbstractFileSystem {
           : NativePosixFiles.lstat(name, StatErrorHandling.ALWAYS_THROW);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
   }
 
@@ -146,7 +146,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       throw new IllegalStateException("unexpected exception", e);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
   }
 
@@ -171,7 +171,7 @@ public class UnixFileSystem extends AbstractFileSystem {
           : NativePosixFiles.lstat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
   }
 
@@ -320,7 +320,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       throw new NotASymlinkException(path, e);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
     }
   }
 
@@ -348,7 +348,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       return NativePosixFiles.remove(name);
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, name);
     }
   }
 
@@ -384,7 +384,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       return null;
     } finally {
       Blocker.end(comp);
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_XATTR, pathName);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_XATTR, pathName);
     }
   }
 
@@ -403,7 +403,7 @@ public class UnixFileSystem extends AbstractFileSystem {
     try {
       return super.getDigest(path);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }
   }
 
@@ -427,7 +427,7 @@ public class UnixFileSystem extends AbstractFileSystem {
         NativePosixFiles.deleteTreesBelow(dir.toString());
       } finally {
         Blocker.end(comp);
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
       }
     }
   }
@@ -456,6 +456,7 @@ public class UnixFileSystem extends AbstractFileSystem {
   protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
     String name = path.getPathString();
+    var profiler = Profiler.instance();
     if (!internal
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
@@ -492,7 +493,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       try {
         super.write(b);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
     }
 
@@ -502,7 +503,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       try {
         super.write(b);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
     }
 
@@ -512,7 +513,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       try {
         super.write(b, off, len);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+        Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
     }
   }
