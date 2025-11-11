@@ -906,6 +906,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testIncludesDirs_inExternalRepo_resolvesSiblingLayout() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name='lib_external')",

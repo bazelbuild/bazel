@@ -5026,12 +5026,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "extend_rule_testing/child.bzl",
         """
+        load("@rules_cc//cc/private/rules_impl:cc_binary.bzl", "cc_binary")
+
         def _impl(ctx):
             return ctx.super()
 
         my_binary = rule(
             implementation = _impl,
-            parent = native.cc_binary,
+            parent = cc_binary,
         )
         """);
     scratch.file(

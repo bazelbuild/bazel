@@ -180,6 +180,7 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile(
         "missingdep/BUILD",
         """
+        load('@rules_cc//cc:cc_library.bzl', 'cc_library')
         cc_library(
             name = "missingdep",
             deps = ["//i/do/not/exist"],
