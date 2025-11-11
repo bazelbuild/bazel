@@ -291,7 +291,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       thread.setThreadLocal(
           Label.RepoMappingRecorder.class,
           (fromRepo, apparentRepoName, canonicalRepoName) ->
-              moduleContext.recordInput(
+              moduleContext.manuallyRecordInput(
                   new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
                   canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null));
       try (SilentCloseable c =
@@ -382,12 +382,12 @@ final class RegularRunnableExtension implements RunnableExtension {
             rootModuleHasNonDevDependency);
     // Record inputs to the extension that are known prior to evaluation.
     for (var cell : staticRepoMappingRecorder.recordedEntries().cellSet()) {
-      context.recordInput(
+      context.manuallyRecordInput(
           new RepoRecordedInput.RecordedRepoMapping(cell.getRowKey(), cell.getColumnKey()),
           cell.getValue().getName());
     }
     RepoRecordedInput.EnvVar.wrap(getStaticEnvVars())
-        .forEach((input, value) -> context.recordInput(input, value.orElse(null)));
+        .forEach((input, value) -> context.manuallyRecordInput(input, value.orElse(null)));
     return context;
   }
 }
