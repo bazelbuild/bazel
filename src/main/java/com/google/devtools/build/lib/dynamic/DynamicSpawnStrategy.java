@@ -615,13 +615,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     // value of "cancellingStrategy", we do not expect concurrent calls to this method. (If there
     // are, we are in big trouble.)
     DynamicMode current = strategyThatCancelled.get();
-    if (cancellingStrategy.equals(current)) {
-      throw new AssertionError(
-          "stopBranch called more than once by "
-              + cancellingStrategy
-              + " on "
-              + getSpawnReadableId(cancellingBranch.getSpawn()));
-    } else {
+    if (!cancellingStrategy.equals(current)) {
       // Protect against the two branches from cancelling each other. The first branch to set the
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
       // branch just has to give up execution.
