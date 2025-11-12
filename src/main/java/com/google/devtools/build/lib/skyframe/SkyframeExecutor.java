@@ -3278,7 +3278,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-
     // TODO: b/453809359 - Remove special Python flag handling when Bazel 9+ can read Python flag
     // alias definitions straight fromrules_python's MODULE.bazel.
     com.google.devtools.build.lib.bazel.bzlmod.Version minBazelVersionForPythonAliases = null;
@@ -3320,10 +3319,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
       if (ensureBazelPyAliases) {
-        // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
-        BAZEL_PY_FLAG_ALIASES.entrySet().stream()
-            .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+          // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
+          BAZEL_PY_FLAG_ALIASES.entrySet().stream()
+                  .filter(e -> !flagAliases.containsKey(e.getKey()))
+                  .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
     }
     return ImmutableMap.copyOf(aliasesMap);
