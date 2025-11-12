@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.VendorFileGlobals;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.lib.json.Json;
+import net.starlark.java.lib.toml.TomlParser;
 
 /**
  * Sole implementation of {@link StarlarkGlobals}.
@@ -52,6 +53,7 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
     Starlark.addMethods(env, Depset.DepsetLibrary.INSTANCE);
     env.put("json", Json.INSTANCE);
     env.put("proto", Proto.INSTANCE);
+    env.put("toml", TomlParser.INSTANCE);
   }
 
   @Override
