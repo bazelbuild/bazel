@@ -87,6 +87,79 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testHasHash() throws Exception {
+    writeAllowlistFile();
+    writeBuildSettingsBzl();
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _foo_impl(settings, attr):
+            return {"//test:foo": "transitioned"}
+
+        foo_transition = transition(
+            implementation = _foo_impl,
+            inputs = [],
+            outputs = ["//test:foo"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//test:transitions.bzl", "foo_transition")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = foo_transition),
+            },
+        )
+
+        def _basic_impl(ctx):
+            return []
+
+        simple = rule(_basic_impl)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        load("//test:rules.bzl", "my_rule", "simple")
+
+        string_flag(
+            name = "foo",
+            build_setting_default = "default",
+        )
+
+        my_rule(
+            name = "test",
+            dep = ":dep",
+        )
+
+        simple(name = "dep")
+        """);
+
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
+    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    assertThat(getMnemonic(dep))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:foo=transitioned")));
+    assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
+  }
+
+  @Test
   public void avoidHashForInExplicitOutputPath()
       throws Exception {
     writeAllowlistFile();
