@@ -1905,6 +1905,28 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testOutputDirHash_multipleNativeOptionTransitions() throws Exception {
+    writeFilesWithMultipleNativeOptionTransitions();
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    assertThat(getMnemonic(test))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of("//command_line_option:foo=foosball")));
+
+    assertThat(getMnemonic(dep))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of(
+                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball")));
+  }
+
+  @Test
   public void testOutputDirHash_onlyExec() throws Exception {
     scratch.file(
         "test/rules.bzl",
@@ -1940,7 +1962,6 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         """);
 
     ConfiguredTarget test = getConfiguredTarget("//test");
-
     ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
@@ -2454,6 +2475,26 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         """);
   }
 
+  @Test
+  public void testOutputDirHash_multipleStarlarkTransitions() throws Exception {
+    writeFilesWithMultipleStarlarkTransitions();
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    assertThat(getMnemonic(test))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:foo=foosball")));
+    assertThat(getMnemonic(dep))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:bar=barsball", "//test:foo=foosball")));
+  }
+
   private void writeFilesWithMultipleMixedTransitions() throws Exception {
     scratch.file(
         "test/transitions.bzl",
@@ -2566,6 +2607,54 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             build_setting_default = "",
         )
         """);
+  }
+
+  @Test
+  public void testOutputDirHash_multipleMixedTransitions() throws Exception {
+    writeFilesWithMultipleMixedTransitions();
+
+    // test:top (foo_transition)
+    ConfiguredTarget top = getConfiguredTarget("//test:top");
+
+    assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
+    assertThat(getMnemonic(top))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of("//command_line_option:foo=foosball")));
+
+    // test:middle (foo_transition, zee_transition, bar_transition)
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget middle =
+        Iterables.getOnlyElement((List<ConfiguredTarget>) getMyInfoFromTarget(top).getValue("dep"));
+
+    assertThat(getConfiguration(middle).getOptions().getStarlarkOptions().entrySet())
+        .containsExactly(
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"));
+
+    assertThat(getMnemonic(middle))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of(
+                    "//command_line_option:bar=barsball",
+                    "//command_line_option:foo=foosball",
+                    "//test:zee=zeesball")));
+
+    // test:bottom (foo_transition, zee_transition, bar_transition, xan_transition)
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget bottom =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(middle).getValue("dep"));
+
+    assertThat(getConfiguration(bottom).getOptions().getStarlarkOptions().entrySet())
+        .containsExactly(
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"),
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:xan"), "xansball"));
+    assertThat(getMnemonic(bottom))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
+                ImmutableList.of(
+                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball",
+                    "//test:xan=xansball", "//test:zee=zeesball")));
   }
 
   @Test
