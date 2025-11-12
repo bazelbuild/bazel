@@ -1557,6 +1557,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     if (getDotdFile() == null) {
+      if (discoversInputs() && isCpp20ModuleCompilationAction(actionName) && usedCpp20Modules != null) {
+        NestedSet<Artifact> discoveredInputs = NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(usedCpp20Modules)
+            .build();
+        updateActionInputs(discoveredInputs);
+      }
       return ActionResult.create(spawnResults);
     }
 

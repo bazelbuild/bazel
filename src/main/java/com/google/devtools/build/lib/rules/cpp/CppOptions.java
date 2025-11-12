@@ -994,6 +994,22 @@ public class CppOptions extends FragmentOptions {
               + " there are no guarantees about incompatible changes to it or even keeping the"
               + " support in the future. Consider those risks when using it.")
   public boolean experimentalCppModules;
+  @Option(
+      name = "experimental_cpp_modules_with_two_phase_compilation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables experimental compile C++20 modules with 2-phase compilation. Only clang supported"
+              + "While the support is behind the experimental flag, "
+              + "there are no guarantees about incompatible changes to it or even keeping the support in the future. "
+              + "Consider those risks when using it.")
+  public boolean experimentalCppModulesWithTwoPhaseCompilation;
 
   @Option(
       name = "experimental_link_static_libraries_once",
