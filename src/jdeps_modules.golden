@@ -1,4 +1,5 @@
 java.base
+java.desktop
 java.instrument
 java.logging
 java.management
