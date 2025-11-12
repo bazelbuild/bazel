@@ -229,7 +229,6 @@ def _core_options(settings):
 
 bazel_fragments["CoreOptions"] = fragment(
     propagate = [
-        "//command_line_option:experimental_output_directory_naming_scheme",
         "//command_line_option:host_compilation_mode",
         "//command_line_option:experimental_exec_configuration_distinguisher",
         "//command_line_option:experimental_output_paths",
