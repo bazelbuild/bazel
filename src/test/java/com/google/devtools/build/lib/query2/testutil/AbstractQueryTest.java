@@ -1417,8 +1417,6 @@ public abstract class AbstractQueryTest<T> {
         "donut/BUILD",
         """
         load('//test_defs:foo_binary.bzl', 'foo_binary')
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
         foo_binary(
             name = "bin",
