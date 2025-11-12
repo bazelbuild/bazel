@@ -51,8 +51,8 @@ public class FakeAttributeMapper implements AttributeMap {
   @Override
   @Nullable
   public <T> T get(String attributeName, Type<T> type) {
-      // Not specified in attributes or defaults
-      assertWithMessage("Attribute " + attributeName + " not in attributes!").fail();
+    // Not specified in attributes or defaults
+    assertWithMessage("Attribute %s not in attributes!", attributeName).fail();
       return null;
   }
 

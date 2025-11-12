@@ -926,7 +926,7 @@ public abstract class MemoizingEvaluatorTest {
       result = tester.eval(/* keepGoing= */ false, values);
       for (int i = 0; i < values.length; i++) {
         SkyValue actual = result.get(skyKey(values[i]));
-        assertWithMessage("Run " + j + ", value " + i)
+        assertWithMessage("Run %s, value %s", j, i)
             .that(actual)
             .isEqualTo(new StringValue("other" + j));
       }
@@ -3664,7 +3664,7 @@ public abstract class MemoizingEvaluatorTest {
     result = tester.eval(/*keepGoing=*/ false, motherKey, fatherKey);
     assertThat(result.hasError()).isTrue();
     // Only one of mother or father should be in the graph.
-    assertWithMessage(result.getError(motherKey) + ", " + result.getError(fatherKey))
+    assertWithMessage("%s, %s", result.getError(motherKey), result.getError(fatherKey))
         .that((result.getError(motherKey) == null) != (result.getError(fatherKey) == null))
         .isTrue();
     SkyKey parentKey =

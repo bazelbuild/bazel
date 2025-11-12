@@ -133,13 +133,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   private static void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) {
     assertWithMessage(
-            "Rule class '"
-                + ruleClass.getName()
-                + "' should have attribute '"
-                + attrName
-                + "' of type '"
-                + type
-                + "'")
+            "Rule class '%s' should have attribute '%s' of type '%s'",
+            ruleClass.getName(), attrName, type)
         .that(ruleClass.getAttributeProvider().hasAttr(attrName, type))
         .isTrue();
   }

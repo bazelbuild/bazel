@@ -1689,7 +1689,7 @@ public class ParallelEvaluatorTest {
         foundSelfEdge = true;
       }
     }
-    assertWithMessage(errorInfo + ", " + topKey).that(foundSelfEdge).isEqualTo(selfEdge);
+    assertWithMessage("%s, %s", errorInfo, topKey).that(foundSelfEdge).isEqualTo(selfEdge);
   }
 
   @Test
@@ -2697,7 +2697,7 @@ public class ParallelEvaluatorTest {
                   // On the first invocation, either the child error should already be cached and
                   // not propagated, or it should be computed freshly and not propagated. On the
                   // second build (error bubbling), the child error should be propagated.
-                  assertWithMessage("bogus non-null value " + value).that(value == null).isTrue();
+                  assertWithMessage("bogus non-null value %s", value).that(value == null).isTrue();
                   assertWithMessage("parent incorrectly re-computed during normal evaluation")
                       .that(invocations)
                       .isEqualTo(1);
@@ -2783,7 +2783,7 @@ public class ParallelEvaluatorTest {
               int invocations = numErrorParentInvocations.incrementAndGet();
               try {
                 SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
-                assertWithMessage("bogus non-null value " + value).that(value == null).isTrue();
+                assertWithMessage("bogus non-null value %s", value).that(value == null).isTrue();
                 if (invocations == 1) {
                   return null;
                 } else {

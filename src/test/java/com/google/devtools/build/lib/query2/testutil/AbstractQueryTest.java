@@ -187,8 +187,7 @@ public abstract class AbstractQueryTest<T> {
   // Evaluate the query, assert that it is successful, and return its results.
   protected Set<T> eval(String query) throws Exception {
     ResultAndTargets<T> result = helper.evaluateQuery(query);
-    assertWithMessage(
-            "evaluateQuery failed: " + query + "\n" + Iterables.toString(helper.getEvents()))
+    assertWithMessage("evaluateQuery failed: %s\n%s", query, Iterables.toString(helper.getEvents()))
         .that(result.getQueryEvalResult().getSuccess())
         .isTrue();
     return result.getResultSet();

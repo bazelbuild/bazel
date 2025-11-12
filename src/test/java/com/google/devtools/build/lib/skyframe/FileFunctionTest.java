@@ -1701,7 +1701,7 @@ public class FileFunctionTest {
     EvaluationResult<FileValue> result;
     result = evaluator.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
     assertWithMessage(
-            "Did not expect error while evaluating " + pathString + ", got " + result.get(key))
+            "Did not expect error while evaluating %s, got %s", pathString, result.get(key))
         .that(result.hasError())
         .isFalse();
   }
@@ -1715,7 +1715,7 @@ public class FileFunctionTest {
     SkyKey key = skyKey(pathString);
     EvaluationResult<FileValue> result;
     result = evaluator.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
-    assertWithMessage("Expected error while evaluating " + pathString + ", got " + result.get(key))
+    assertWithMessage("Expected error while evaluating %s, got %s", pathString, result.get(key))
         .that(result.hasError())
         .isTrue();
     assertThat(

@@ -355,7 +355,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       Map<PathFragment, ResolvedFile> nameToActualResolvedFiles,
       ResolvedFile... expectedFilesIgnoringMetadata)
       throws Exception {
-    assertWithMessage("Expected files " + Arrays.toString(expectedFilesIgnoringMetadata))
+    assertWithMessage("Expected files %s", Arrays.toString(expectedFilesIgnoringMetadata))
         .that(nameToActualResolvedFiles)
         .hasSize(expectedFilesIgnoringMetadata.length);
     assertEquals(

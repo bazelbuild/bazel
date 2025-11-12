@@ -1027,7 +1027,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             .map(path -> TreeFileArtifact.createTreeOutput(parent, path))
             .collect(toImmutableSet());
     for (TreeFileArtifact child : expectedChildren) {
-      assertWithMessage(child + " does not exist").that(child.getPath().exists()).isTrue();
+      assertWithMessage("%s does not exist", child).that(child.getPath().exists()).isTrue();
     }
     assertThat(result.getChildren()).isEqualTo(expectedChildren);
   }

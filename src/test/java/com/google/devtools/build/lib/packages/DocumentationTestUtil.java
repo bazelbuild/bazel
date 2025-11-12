@@ -115,10 +115,10 @@ abstract class DocumentationTestUtil {
         found = validOptions.contains(flag.substring(4));
       }
 
-      assertWithMessage("flag '" + flag + "' is not a bazel option (anymore)").that(found).isTrue();
+      assertWithMessage("flag '%s' is not a bazel option (anymore)", flag).that(found).isTrue();
     }
 
     String unclosedTag = DocCheckerUtils.getFirstUnclosedTagAndPrintHelp(documentationSource);
-    assertWithMessage("Unclosed tag found: " + unclosedTag).that(unclosedTag).isNull();
+    assertWithMessage("Unclosed tag found: %s", unclosedTag).that(unclosedTag).isNull();
   }
 }
