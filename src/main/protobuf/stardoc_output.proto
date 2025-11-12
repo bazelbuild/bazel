@@ -171,7 +171,7 @@ message AttributeInfo {
 
   // If non-empty, the string representations of the allowed values for this
   // attribute.
-  repeated string allowed_values = 9;
+  repeated string values = 9;
 }
 
 // Representation of a set of providers.
