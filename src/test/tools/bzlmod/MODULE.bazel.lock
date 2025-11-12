@@ -138,7 +138,7 @@
   "moduleExtensions": {
     "@@pybind11_bazel+//:python_configure.bzl%extension": {
       "general": {
-        "bzlTransitiveDigest": "IxPUITv3BpVuVvTM/ivfwT0GvAKWwIv6WUh87P1zELc=",
+        "bzlTransitiveDigest": "JStzGC5mTeOxU3CYSVC7JFNQDOJPRvRluQj9T3zzbJE=",
         "usagesDigest": "fycyB39YnXIJkfWCIXLUKJMZzANcuLy9ZE73hRucjFk=",
         "recordedFileInputs": {
           "@@pybind11_bazel+//MODULE.bazel": "88af1c246226d87e65be78ed49ecd1e6f5e98648558c14ce99176da041dc378e"
@@ -172,7 +172,7 @@
     },
     "@@rules_fuzzing+//fuzzing/private:extensions.bzl%non_module_dependencies": {
       "general": {
-        "bzlTransitiveDigest": "3ZPQpcWr+dKH5EpHApjclXv9VlULkwM/gfRmXuuPMXc=",
+        "bzlTransitiveDigest": "q4j4PbXmNBUUXcJHnIO0Bc9wfjLh1Tkn1gviufSW00A=",
         "usagesDigest": "wy6ISK6UOcBEjj/mvJ/S3WeXoO67X+1llb9yPyFtPgc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -255,7 +255,7 @@
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "JIZeWQopFAuTLswK0lroGL1UJYSmB/cUTzZNHRv0MMw=",
+        "bzlTransitiveDigest": "FE420o7085bBVK/VtX8crvcIxuf+h/+EaUi5YwD9zHk=",
         "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -319,7 +319,7 @@
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "W1DbuIfxQtfqbgIm5/3loVPhuUoRx3+niOvvZcOEyYE=",
+        "bzlTransitiveDigest": "Nv+eokOdSKDFYm8Hz1Y7s+Ue11NSt0rBXQp/n5qJSoc=",
         "usagesDigest": "OLoIStnzNObNalKEMRq99FqenhPGLFZ5utVLV4sz7OI=",
         "recordedFileInputs": {
           "@@rules_python+//tools/publish/requirements_darwin.txt": "2994136eab7e57b083c3de76faf46f70fad130bc8e7360a7fed2b288b69e79dc",

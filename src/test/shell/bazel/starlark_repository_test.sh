@@ -3693,4 +3693,56 @@ EOF
   expect_log 'result_err.error_message: ""'
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/27446.
+function do_test_local_module_file_patch() {
+  cat > $(setup_module_dot_bazel) <<'EOF'
+http_archive = use_repo_rule('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')
+# The MODULE.bazel file in this archive is not writeable.
+http_archive(
+  name = "rules_license",
+  urls = ["https://github.com/bazelbuild/rules_license/releases/download/1.0.0/rules_license-1.0.0.tar.gz"],
+  integrity = "sha256-JtQCH2iY4juC75UweDid1JrCtWGKxWSt5O+HzO0Uezg=",
+  patches = ["//:rules_license-rules_python-is-required-currently.patch"],
+  remote_module_file_urls = ["https://bcr.bazel.build/modules/rules_license/1.0.0/MODULE.bazel"],
+  remote_module_file_integrity = "sha256-p/2mDu/fPYyCcmK6SZlX5N8G9lkzC75s29uXW3aLtlw=",
+  patch_args = ["-p1"],
+)
+EOF
+
+  touch BUILD
+  cat > rules_license-rules_python-is-required-currently.patch <<'EOF'
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 639c7c3..a880bbf 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -11,8 +11,9 @@ module(
+ # That will require rules_python, which we do not want to force on people who
+ # do not need //tools.
+
++bazel_dep(name = "rules_python", version = "0.35.0")
++
+ # Only for development
+ bazel_dep(name = "bazel_skylib", version = "1.7.1", dev_dependency = True)
+ bazel_dep(name = "rules_pkg", version = "1.0.1", dev_dependency = True)
+-bazel_dep(name = "rules_python", version = "0.35.0", dev_dependency = True)
+ bazel_dep(name = "stardoc", version = "0.6.2", dev_dependency = True)
+EOF
+
+  bazel query "$1" @rules_license//:all \
+    >& $TEST_log || fail "Expected bazel to succeed"
+
+  # Verify that the patch was applied.
+  external_repo_dir="$(bazel info output_base)/external/+_repo_rules+rules_license"
+  grep -q 'bazel_dep(name = "rules_python", version = "0.35.0")' \
+    "$external_repo_dir/MODULE.bazel" || fail "Patch was not applied"
+}
+
+function test_local_module_file_patch_with_hardlinks() {
+  do_test_local_module_file_patch "--experimental_repository_cache_hardlinks"
+}
+
+function test_local_module_file_patch_with_copy() {
+  do_test_local_module_file_patch "--noexperimental_repository_cache_hardlinks"
+}
+
 run_suite "local repository tests"

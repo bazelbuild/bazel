@@ -135,10 +135,10 @@ def _update_http_archive_integrity_attrs(ctx, attrs, integrity):
     integrity_override = {}
 
     # We don't need to override the integrity attribute if sha256 is already specified.
+    # remote_module_file_integrity is for internal use by Bazel only and always
+    # set correctly.
     if not ctx.attr.sha256 and not ctx.attr.integrity:
         integrity_override["integrity"] = integrity.archive
-    if ctx.attr.remote_module_file_urls and not ctx.attr.remote_module_file_integrity:
-        integrity_override["remote_module_file_integrity"] = integrity.remote_module_file
     if ctx.attr.remote_file_integrity != integrity.remote_files:
         integrity_override["remote_file_integrity"] = integrity.remote_files
     if ctx.attr.remote_patches != integrity.remote_patches:
@@ -169,23 +169,10 @@ def _http_archive_impl(ctx):
     remote_patches_info = patch(ctx)
     symlink_files(ctx)
 
-    # Download the module file after applying patches since modules may decide
-    # to patch their packaged module and the patch may not apply to the file
-    # checked in to the registry. This overrides the file if it exists.
-    remote_module_file_integrity = ""
-    if ctx.attr.remote_module_file_urls:
-        remote_module_file_integrity = ctx.download(
-            ctx.attr.remote_module_file_urls,
-            "MODULE.bazel",
-            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
-            integrity = ctx.attr.remote_module_file_integrity,
-        ).integrity
-
     integrity = struct(
         archive = download_info.integrity,
         remote_files = {path: info.integrity for path, info in remote_files_info.items()},
         remote_patches = {url: info.integrity for url, info in remote_patches_info.items()},
-        remote_module_file = remote_module_file_integrity,
     )
 
     return _update_http_archive_integrity_attrs(ctx, _http_archive_attrs, integrity)
