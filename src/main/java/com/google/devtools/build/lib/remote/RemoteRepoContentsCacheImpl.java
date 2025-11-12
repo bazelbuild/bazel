@@ -30,6 +30,8 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.OutputDirectory;
+import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -374,8 +376,15 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         directExecutor());
   }
 
-  @Nullable
-  private ActionResult followActionResultChain(
+  private sealed interface CacheEntry {
+    record Intermediate(ImmutableList<String> nextInputHashes) implements CacheEntry {}
+
+    record Final(OutputDirectory repoDirectory, OutputFile markerFile) implements CacheEntry {}
+
+    record Invalid(String reason) implements CacheEntry {}
+  }
+
+  private CacheEntry followActionResultChain(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
       RepositoryName repoName,
@@ -389,47 +398,48 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         cache.downloadActionResult(
             context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
     if (cachedActionResult == null) {
-      return null;
+      return new CacheEntry.Intermediate(ImmutableList.of());
     }
     var actionResult = cachedActionResult.actionResult();
 
     if (actionResult.getExitCode() != 0) {
-      env.getListener()
-          .handle(
-              Event.warn(
-                  "Unexpected exit code in action result for cached repo %s:\n%s"
-                      .formatted(repoName, actionResult)));
-      return null;
+      return new CacheEntry.Invalid(
+          "Unexpected exit code in action result for cached repo %s:\n%s"
+              .formatted(repoName, actionResult));
     }
     if (actionResult.getOutputFilesCount() == 1
         && actionResult.getOutputDirectoriesCount() == 1
         && actionResult.getOutputSymlinksCount() == 0) {
       // This is the final action result that contains the repo contents.
-      return actionResult;
+      return new CacheEntry.Final(
+          actionResult.getOutputDirectories(0), actionResult.getOutputFiles(0));
     }
     if (!(actionResult.getOutputFilesCount() == 0
         && actionResult.getOutputDirectoriesCount() == 0
         && actionResult.getOutputSymlinksCount() == 0
         && actionResult.getStdoutDigest().getSizeBytes() > 0)) {
-      env.getListener()
-          .handle(
-              Event.warn(
-                  "Unexpected intermediate action result for cached repo %s:\n%s"
-                      .formatted(repoName, actionResult)));
-      return null;
+      return new CacheEntry.Invalid(
+          "Unexpected intermediate action result for cached repo %s:\n%s"
+              .formatted(repoName, actionResult));
     }
     var stdoutFuture = fetchStdout(context, actionResult);
     waitForBulkTransfer(ImmutableList.of(stdoutFuture));
     var nextInputs =
         stdoutFuture.resultNow().lines().map(RepoRecordedInput::parse).collect(toImmutableSet());
     RepoRecordedInput.prefetch(env, directories, nextInputs);
+    var nextHashes = ImmutableList.<String>builder();
     for (var input : nextInputs) {
       var value = input.getValue(env, directories);
       if (env.valuesMissing()) {
         return null;
       }
+      if (!(value instanceof RepoRecordedInput.MaybeValue.Valid(String valueString))) {
+        continue;
+      }
+      nextHashes.add(
+          rollForwardHash(inputHash, new RepoRecordedInput.WithValue(input, valueString)));
     }
-    return null;
+    return new CacheEntry.Intermediate(nextHashes.build());
   }
 
   private String rollForwardHash(String hash, RepoRecordedInput.WithValue inputWithValue) {
