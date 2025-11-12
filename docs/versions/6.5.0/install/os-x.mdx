@@ -2,24 +2,25 @@
 title: 'Installing Bazel on macOS'
 ---
 
+
 This page describes how to install Bazel on macOS and set up your environment.
 
 You can install Bazel on macOS using one of the following methods:
 
-*   *Recommended*: [Use Bazelisk](/versions/6.5.0/install/bazelisk)
+*   *Recommended*: [Use Bazelisk](/install/bazelisk)
 *   [Use the binary installer](#install-with-installer-mac-os-x)
 *   [Use Homebrew](#install-on-mac-os-x-homebrew)
-*   [Compile Bazel from source](/versions/6.5.0/install/compile-source)
+*   [Compile Bazel from source](/install/compile-source)
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
-*   Access the [bash completion script](/versions/6.5.0/install/completion#bash)
-*   Install the [zsh completion script](/versions/6.5.0/install/completion#zsh)
+*   Access the [bash completion script](/install/completion#bash)
+*   Install the [zsh completion script](/install/completion#zsh)
 
 <h2 id="install-with-installer-mac-os-x">Installing using the binary installer</h2>
 
 The binary installers are on Bazel's
-[GitHub releases page](https://github.com/bazelbuild/bazel/releases){: .external}.
+[GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
 The installer contains the Bazel binary. Some additional libraries
 must also be installed for Bazel to work.
@@ -37,8 +38,8 @@ Otherwise, for `ios_*` rule support, you must have Xcode 6.1 or later with iOS
 SDK 8.1 installed on your system.
 
 Download Xcode from the
-[App Store](https://apps.apple.com/us/app/xcode/id497799835){: .external} or the
-[Apple Developer site](https://developer.apple.com/download/more/?=xcode){: .external}.
+[App Store](https://apps.apple.com/us/app/xcode/id497799835) or the
+[Apple Developer site](https://developer.apple.com/download/more/?=xcode).
 
 Once Xcode is installed, accept the license agreement for all users with the
 following command:
@@ -51,7 +52,7 @@ sudo xcodebuild -license accept
 
 Next, download the Bazel binary installer named
 `bazel-<version>-installer-darwin-x86_64.sh` from the
-[Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases){: .external}.
+[Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
 **On macOS Catalina or newer (macOS >= 11)**, due to Apple's new app signing requirements,
 you need to download the installer from the terminal using `curl`, replacing
@@ -64,7 +65,7 @@ curl -fLO "https://github.com/bazelbuild/bazel/releases/download/{{ '<var>' }}$B
 ```
 
 This is a temporary workaround until the macOS release flow supports
-signing ([#9304](https://github.com/bazelbuild/bazel/issues/9304){: .external}).
+signing ([#9304](https://github.com/bazelbuild/bazel/issues/9304)).
 
 ### Step 3: Run the installer
 

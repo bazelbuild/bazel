@@ -2,6 +2,8 @@
 title: 'Bazel modules'
 ---
 
+
+
 A Bazel **module** is a Bazel project that can have multiple versions, each of
 which publishes metadata about other modules that it depends on. This is
 analogous to familiar concepts in other dependency management systems, such as a
@@ -30,12 +32,12 @@ By default, Bazel then [selects](#version-selection) one version of each module
 to use. Bazel represents each module with a repo, and consults the registry
 again to learn how to define each of the repos.
 
-## Version format {:#version-format}
+## Version format
 
 Bazel has a diverse ecosystem and projects use various versioning schemes. The
-most popular by far is [SemVer](https://semver.org){: .external}, but there are
+most popular by far is [SemVer](https://semver.org), but there are
 also prominent projects using different schemes such as
-[Abseil](https://github.com/abseil/abseil-cpp/releases){: .external}, whose
+[Abseil](https://github.com/abseil/abseil-cpp/releases), whose
 versions are date-based, for example `20210324.2`).
 
 For this reason, Bazel adopts a more relaxed version of the SemVer spec. The
@@ -58,7 +60,7 @@ they're compared as Bazel module versions.
 Finally, to learn more about module versioning, [see the `MODULE.bazel`
 FAQ](faq#module-versioning-best-practices).
 
-## Version selection {:#version-selection}
+## Version selection
 
 Consider the diamond dependency problem, a staple in the versioned dependency
 management space. Suppose you have the dependency graph:
@@ -72,7 +74,7 @@ management space. Suppose you have the dependency graph:
 ```
 
 Which version of `D` should be used? To resolve this question, Bazel uses the
-[Minimal Version Selection](https://research.swtch.com/vgo-mvs){: .external}
+[Minimal Version Selection](https://research.swtch.com/vgo-mvs)
 (MVS) algorithm introduced in the Go module system. MVS assumes that all new
 versions of a module are backwards compatible, and so picks the highest version
 specified by any dependent (`D 1.1` in our example). It's called "minimal"
@@ -183,7 +185,7 @@ downsides when the module is being overridden with a non-registry override. To
 learn more about this [see the `MODULE.bazel`
 FAQ](faq#module-versioning-best-practices).
 
-## Define repos that don't represent Bazel modules {:#use_repo_rule}
+## Define repos that don't represent Bazel modules
 
 With `bazel_dep`, you can define repos that represent other Bazel modules.
 Sometimes there is a need to define a repo that does _not_ represent a Bazel
@@ -208,8 +210,8 @@ dependencies. This helps prevent accidental breakages due to changes in
 transitive dependencies.
 
 The [canonical name](/external/overview#canonical-repo-name) of a repo backing a
-module is either `{{ "<var>" }}module_name{{ "</var>" }}+{{ "<var>" }}version{{
-"</var>" }}` (for example, `bazel_skylib+1.0.3`) or `{{ "<var>" }}module_name{{
+module is either `<var>module_name</var>+<var>version{{
+"</var>" }}` (for example, `bazel_skylib+1.0.3`) or `<var>module_name{{
 "</var>" }}+` (for example, `bazel_features+`), depending on whether there are
 multiple versions of the module in the entire dependency graph (see
 [`multiple_version_override`](/rules/lib/globals/module#multiple_version_override)).

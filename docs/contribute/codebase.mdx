@@ -2,10 +2,12 @@
 title: 'The Bazel codebase'
 ---
 
+
+
 This document is a description of the codebase and how Bazel is structured. It
 is intended for people willing to contribute to Bazel, not for end-users.
 
-## Introduction {:#introduction}
+## Introduction
 
 The codebase of Bazel is large (~350KLOC production code and ~260 KLOC test
 code) and no one is familiar with the whole landscape: everyone knows their
@@ -27,7 +29,7 @@ Contributions are accepted through the regular GitHub pull request mechanism,
 and manually imported by a Googler into the internal source tree, then
 re-exported back out to GitHub.
 
-## Client/server architecture {:#client-architecture}
+## Client/server architecture
 
 The bulk of Bazel resides in a server process that stays in RAM between builds.
 This allows Bazel to maintain state between builds.
@@ -88,7 +90,7 @@ communicate with the server is in `src/main/protobuf/command_server.proto` .
 The main entry point of the server is `BlazeRuntime.main()` and the gRPC calls
 from the client are handled by `GrpcServerImpl.run()`.
 
-## Directory layout {:#directory-layout}
+## Directory layout
 
 Bazel creates a somewhat complicated set of directories during a build. A full
 description is available in [Output directory layout](/remote/output-directories).
@@ -123,7 +125,7 @@ The output directory contains, among other things:
     long term plan because it's a very incompatible change.
 *   Files built during the build.
 
-## The process of executing a command {:#command-process}
+## The process of executing a command
 
 Once the Bazel server gets control and is informed about a command it needs to
 execute, the following sequence of events happens:
@@ -161,7 +163,7 @@ execute, the following sequence of events happens:
 8.  The execution phase is run. This means running every action required to
     build the top-level targets that are requested are run.
 
-## Command line options {:#command-options}
+## Command line options
 
 The command line options for a Bazel invocation are described in an
 `OptionsParsingResult` object, which in turn contains a map from "option
@@ -208,14 +210,14 @@ options of more complicated types; in this case, the job of converting from the
 command line string to the data type falls to an implementation of
 `com.google.devtools.common.options.Converter`.
 
-## The source tree, as seen by Bazel {:#source-tree}
+## The source tree, as seen by Bazel
 
 Bazel is in the business of building software, which happens by reading and
 interpreting the source code. The totality of the source code Bazel operates on
 is called "the workspace" and it is structured into repositories, packages and
 rules.
 
-### Repositories {:#repositories}
+### Repositories
 
 A "repository" is a source tree on which a developer works; it usually
 represents a single project. Bazel's ancestor, Blaze, operated on a monorepo,
@@ -238,7 +240,7 @@ is done by `SymlinkForest`, which symlinks every package in the main repository
 to `$EXECROOT` and every external repository to either `$EXECROOT/external` or
 `$EXECROOT/..`.
 
-### Packages {:#packages}
+### Packages
 
 Every repository is composed of packages, a collection of related files and
 a specification of the dependencies. These are specified by a file called
@@ -286,7 +288,7 @@ from parsing regular packages so that `Package` does not need to cater for the
 needs of both. This is unfortunately difficult to do because the two are
 intertwined quite deeply.
 
-### Labels, Targets, and Rules {:#labels-targets-rules}
+### Labels, Targets, and Rules
 
 Packages are composed of targets, which have the following types:
 
@@ -338,7 +340,7 @@ is just a "target". Also note that despite `RuleClass` having "class" in its
 name, there is no Java inheritance relationship between a rule class and targets
 of that type.
 
-## Skyframe {:#skyframe}
+## Skyframe
 
 The evaluation framework underlying Bazel is called Skyframe. Its model is that
 everything that needs to be built during a build is organized into a directed
@@ -410,7 +412,7 @@ lightweight threads [does not outperform][virtual_threads] the
 
 [virtual_threads]: /contribute/statemachine-guide#epilogue_eventually_removing_callbacks
 
-## Starlark {:#starlark}
+## Starlark
 
 Starlark is the domain-specific language people use to configure and extend
 Bazel. It's conceived as a restricted subset of Python that has far fewer types,
@@ -421,7 +423,7 @@ programming tasks within the language.
 
 Starlark is implemented in the `net.starlark.java` package.
 It also has an independent Go implementation
-[here](https://github.com/google/starlark-go){: .external}. The Java
+[here](https://github.com/google/starlark-go). The Java
 implementation used in Bazel is currently an interpreter.
 
 Starlark is used in several contexts, including:
@@ -442,7 +444,7 @@ because they express different things. A list of differences is available
 
 More information about Starlark is available [here](/rules/language).
 
-## The loading/analysis phase {:#loading-phase}
+## The loading/analysis phase
 
 The loading/analysis phase is where Bazel determines what actions are needed to
 build a particular rule. Its basic unit is a "configured target", which is,
@@ -492,7 +494,7 @@ Java exception or to violate invariants (such as by inadvertently modifying an
 The algorithm that determines the direct dependencies of a configured target
 lives in `DependencyResolver.dependentNodeMap()`.
 
-### Configurations {:#configurations}
+### Configurations
 
 Configurations are the "how" of building a target: for what platform, with what
 command line options, etc.
@@ -546,7 +548,7 @@ _split transition._
 Configuration transitions can also be implemented in Starlark (documentation
 [here](/extending/config))
 
-### Transitive info providers {:#transitive-info-providers}
+### Transitive info providers
 
 Transitive info providers are a way (and the _only _way) for configured targets
 to learn things about other configured targets that they depend on, and the only
@@ -574,7 +576,7 @@ New providers implemented in Java should be implemented using `BuiltinProvider`.
 `NativeProvider` is deprecated (we haven't had time to remove it yet) and
 `TransitiveInfoProvider` subclasses cannot be accessed from Starlark.
 
-### Configured targets {:#configured-targets}
+### Configured targets
 
 Configured targets are implemented as `RuleConfiguredTargetFactory`. There is a
 subclass for each rule class implemented in Java. Starlark configured targets
@@ -591,7 +593,7 @@ construct their return value. It consists of the following things:
     build. They can be accessed using the output\_group attribute of the
     filegroup rule in BUILD and using the `OutputGroupInfo` provider in Java.
 
-### Runfiles {:#runfiles}
+### Runfiles
 
 Some binaries need data files to run. A prominent example is tests that need
 input files. This is represented in Bazel by the concept of "runfiles". A
@@ -636,7 +638,7 @@ necessitates the following additional components:
 *   **Command line arguments** for running the binary whose runfiles the
     `RunfilesSupport` object represents.
 
-### Aspects {:#aspects}
+### Aspects
 
 Aspects are a way to "propagate computation down the dependency graph". They are
 described for users of Bazel
@@ -685,7 +687,7 @@ protocol buffers. In that case, the IDE aspect will want to attach to the
 The complexity of aspects on aspects is captured in the class
 `AspectCollection`.
 
-### Platforms and toolchains {:#platforms-toolchains}
+### Platforms and toolchains
 
 Bazel supports multi-platform builds, that is, builds where there may be
 multiple architectures where build actions run and multiple architectures for
@@ -759,12 +761,12 @@ configuration and target configurations being represented by various
 configuration flags, such as `--cpu` . We are gradually transitioning to the above
 system. In order to handle cases where people rely on the legacy configuration
 values, we have implemented
-[platform mappings](https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls){: .external}
+[platform mappings](https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls)
 to translate between the legacy flags and the new-style platform constraints.
 Their code is in `PlatformMappingFunction` and uses a non-Starlark "little
 language".
 
-### Constraints {:#constraints}
+### Constraints
 
 Sometimes one wants to designate a target as being compatible with only a few
 platforms. Bazel has (unfortunately) multiple mechanisms to achieve this end:
@@ -778,7 +780,7 @@ on their way out and they are not available in Bazel, but the source code may
 contain references to it. The attribute that governs this is called
 `constraints=` .
 
-#### environment_group() and environment() {:#environment-rule}
+#### environment_group() and environment()
 
 These rules are a legacy mechanism and are not widely used.
 
@@ -820,18 +822,18 @@ A build can be restricted to a certain environment with the
 The implementation of the constraint check is in
 `RuleContextConstraintSemantics` and `TopLevelConstraintSemantics`.
 
-#### Platform constraints {:#platform-constraints}
+#### Platform constraints
 
 The current "official" way to describe what platforms a target is compatible
 with is by using the same constraints used to describe toolchains and platforms.
 It was implemented in pull request
-[#10945](https://github.com/bazelbuild/bazel/pull/10945){: .external}.
+[#10945](https://github.com/bazelbuild/bazel/pull/10945).
 
-### Visibility {:#visibility}
+### Visibility
 
 If you work on a large codebase with a lot of developers (like at Google), you
 want to take care to prevent everyone else from arbitrarily depending on your
-code. Otherwise, as per [Hyrum's law](https://www.hyrumslaw.com/){: .external},
+code. Otherwise, as per [Hyrum's law](https://www.hyrumslaw.com/),
 people _will_ come to rely on behaviors that you considered to be implementation
 details.
 
@@ -864,7 +866,7 @@ This is implemented in the following places:
 *   The actual check is done in
     `CommonPrerequisiteValidator.validateDirectPrerequisiteVisibility()`
 
-### Nested sets {:#nested-sets}
+### Nested sets
 
 Oftentimes, a configured target aggregates a set of files from its dependencies,
 adds its own, and wraps the aggregate set into a transitive info provider so
@@ -890,7 +892,7 @@ same each time".
 
 The same data structure is called `depset` in Starlark.
 
-### Artifacts and Actions {:#artifacts}
+### Artifacts and Actions
 
 The actual build consists of a set of commands that need to be run to produce
 the output the user wants. The commands are represented as instances of the
@@ -954,7 +956,7 @@ optimizations in order to keep the number of Skyframe edges low:
     action that generates it
 *   Nested sets have their own Skyframe key.
 
-### Shared actions {:#shared-actions}
+### Shared actions
 
 Some actions are generated by multiple configured targets; Starlark rules are
 more limited since they are only allowed to put their derived actions into a
@@ -976,7 +978,7 @@ This is implemented in `SkyframeActionExecutor.findAndStoreArtifactConflicts()`
 and is one of the few places in Bazel that requires a "global" view of the
 build.
 
-## The execution phase {:#execution-phase}
+## The execution phase
 
 This is when Bazel actually starts running build actions, such as commands that
 produce outputs.
@@ -1019,7 +1021,7 @@ be hit behind Skyframe:
 *   The local action cache contains data about the state of the file system
 *   Remote execution systems usually also contain their own cache
 
-### The local action cache {:#cache}
+### The local action cache
 
 This cache is another layer that sits behind Skyframe; even if an action is
 re-executed in Skyframe, it can still be a hit in the local action cache. It
@@ -1043,7 +1045,7 @@ There is also a highly experimental "top-down action cache" that is still under
 development, which uses transitive hashes to avoid going to the cache as many
 times.
 
-### Input discovery and input pruning {:#input-discovery}
+### Input discovery and input pruning
 
 Some actions are more complicated than just having a set of inputs. Changes to
 the set of inputs of an action come in two forms:
@@ -1084,7 +1086,7 @@ Starlark actions can make use of the facility to declare some inputs as unused
 using the `unused_inputs_list=` argument of
 `ctx.actions.run()`.
 
-### Various ways to run actions: Strategies/ActionContexts {:#options-run-actions}
+### Various ways to run actions: Strategies/ActionContexts
 
 Some actions can be run in different ways. For example, a command line can be
 executed locally, locally but in various kinds of sandboxes, or remotely. The
@@ -1132,7 +1134,7 @@ More information about strategies (or action contexts!):
 *   Information about the intricacies of executing actions locally is available
     [here](https://jmmv.dev/2019/11/bazel-process-wrapper.html).
 
-### The local resource manager {:#resource-manager}
+### The local resource manager
 
 Bazel _can_ run many actions in parallel. The number of local actions that
 _should_ be run in parallel differs from action to action: the more resources an
@@ -1148,7 +1150,7 @@ and are blocked until the required resources are available.
 A more detailed description of local resource management is available
 [here](https://jmmv.dev/2019/12/bazel-local-resources.html).
 
-### The structure of the output directory {:#output-directory}
+### The structure of the output directory
 
 Each action requires a separate place in the output directory where it places
 its outputs. The location of derived artifacts is usually as follows:
@@ -1173,7 +1175,7 @@ configuration determined? There are two conflicting desirable properties:
 So far, we have not come up with a principled way of solving this problem, which
 has similarities to the problem of configuration trimming. A longer discussion
 of options is available
-[here](https://docs.google.com/document/d/1fZI7wHoaS-vJvZy9SBxaHPitIzXE_nL9v4sS4mErrG4/edit){: .external}.
+[here](https://docs.google.com/document/d/1fZI7wHoaS-vJvZy9SBxaHPitIzXE_nL9v4sS4mErrG4/edit).
 The main problematic areas are Starlark rules (whose authors usually aren't
 intimately familiar with Bazel) and aspects, which add another dimension to the
 space of things that can produce the "same" output file.
@@ -1186,7 +1188,7 @@ can't cause action conflicts. It is far from perfect. This is implemented in
 `OutputDirectories.buildMnemonic()` and relies on each configuration fragment
 adding its own part to the name of the output directory.
 
-## Tests {:#tests}
+## Tests
 
 Bazel has rich support for running tests. It supports:
 
@@ -1207,7 +1209,7 @@ how the test should be run:
 *   The number of shards the test should be split into
 *   Some parameters about how the test should be run (such as the test timeout)
 
-### Determining which tests to run {:#determine-test-run}
+### Determining which tests to run
 
 Determining which tests are run is an elaborate process.
 
@@ -1236,7 +1238,7 @@ are run when a particular target is specified on the command line. It's
 unfortunately a reimplementation, so it probably deviates from the above in
 multiple subtle ways.
 
-### Running tests {:#run-tests}
+### Running tests
 
 The way the tests are run is by requesting cache status artifacts. This then
 results in the execution of a `TestRunnerAction`, which eventually calls the
@@ -1285,7 +1287,7 @@ various events (such as `TestAttempt`, `TestResult` or `TestingCompleteEvent`).
 They are dumped to the Build Event Protocol and they are emitted to the console
 by `AggregatingTestListener`.
 
-### Coverage collection {:#coverage-collection}
+### Coverage collection
 
 Coverage is reported by the tests in LCOV format in the files
 `bazel-testlogs/$PACKAGE/$TARGET/coverage.dat` .
@@ -1354,7 +1356,7 @@ every test in a Bazel invocation. This is handled by
 gets access to the tools it needs by looking at the `:coverage_report_generator`
 attribute of the first test that is executed.
 
-## The query engine {:#query-engine}
+## The query engine
 
 Bazel has a
 [little language](/query/guide)
@@ -1384,7 +1386,7 @@ values. The usual workaround is to use a label, and attach the complex
 information to the rule with that label. It's not a very satisfying workaround
 and it would be very nice to lift this requirement.
 
-## The module system {:#module-system}
+## The module system
 
 Bazel can be extended by adding modules to it. Each module must subclass
 `BlazeModule` (the name is a relic of the history of Bazel when it used to be
@@ -1400,7 +1402,7 @@ that only some versions of Bazel (such as the one we use at Google) need:
 The set of extension points `BlazeModule` offers is somewhat haphazard. Don't
 use it as an example of good design principles.
 
-## The event bus {:#event-bus}
+## The event bus
 
 The main way BlazeModules communicate with the rest of Bazel is by an event bus
 (`EventBus`): a new instance is created for every build, various parts of Bazel
@@ -1424,7 +1426,7 @@ the Build Event Service) to stream events.
 This is implemented in the `build.lib.buildeventservice` and
 `build.lib.buildeventstream` Java packages.
 
-## External repositories {:#external-repos}
+## External repositories
 
 Note: The information in this section is out of date, as code in this area has
 undergone extensive change in the past couple of years. Please refer to
@@ -1437,7 +1439,7 @@ this is not necessarily true. "External repositories" are an abstraction used to
 bridge these two worlds: they represent code that is necessary for the build but
 is not in the main source tree.
 
-### The WORKSPACE file {:#workspace-file}
+### The WORKSPACE file
 
 The set of external repositories is determined by parsing the WORKSPACE file.
 For example, a declaration like this:
@@ -1457,7 +1459,7 @@ statements. The chunk index is indicated by `WorkspaceFileKey.getIndex()` and
 computing `WorkspaceFileFunction` until index X means evaluating it until the
 Xth `load()` statement.
 
-### Fetching repositories {:#fetch-repos}
+### Fetching repositories
 
 Before the code of the repository is available to Bazel, it needs to be
 _fetched_. This results in Bazel creating a directory under
@@ -1502,7 +1504,7 @@ invalidated when the definition of the repository they are in changes. Thus,
 `FileStateValue`s for an artifact in an external repository need to depend on
 their external repository. This is handled by `ExternalFilesHelper`.
 
-### Repository mappings {:#repo-mappings}
+### Repository mappings
 
 It can happen that multiple repositories want to depend on the same repository,
 but in different versions (this is an instance of the "diamond dependency
@@ -1531,7 +1533,7 @@ of individual repository definitions. It then appears in Skyframe as a member of
     phase)
 *   `BzlLoadFunction` for resolving labels in load() statements
 
-## JNI bits {:#jni-bits}
+## JNI bits
 
 The server of Bazel is _mostly_ written in Java. The exception is the parts that
 Java cannot do by itself or couldn't do by itself when we implemented it. This
@@ -1546,7 +1548,7 @@ methods are:
 *   `WindowsFileOperations` and `WindowsFileProcesses`
 *   `com.google.devtools.build.lib.platform`
 
-## Console output {:#console-output}
+## Console output
 
 Emitting console output seems like a simple thing, but the confluence of running
 multiple processes (sometimes remotely), fine-grained caching, the desire to
@@ -1599,7 +1601,7 @@ Bazel) has to the RPC stream to the client is through `Reporter.getOutErr()`,
 which allows direct access to these streams. It's only used when a command needs
 to dump large amounts of possible binary data (such as `bazel query`).
 
-## Profiling Bazel {:#profile-bazel}
+## Profiling Bazel
 
 Bazel is fast. Bazel is also slow, because builds tend to grow until just the
 edge of what's bearable. For this reason, Bazel includes a profiler which can be
@@ -1624,7 +1626,7 @@ statements.
 We also do rudimentary memory profiling in `MemoryProfiler`. It's also always on
 and it mostly records maximum heap sizes and GC behavior.
 
-## Testing Bazel {:#bazel-tests}
+## Testing Bazel
 
 Bazel has two main kinds of tests: ones that observe Bazel as a "black box" and
 ones that only run the analysis phase. We call the former "integration tests"

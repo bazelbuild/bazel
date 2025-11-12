@@ -2,6 +2,8 @@
 title: 'Common C++ Build Use Cases'
 ---
 
+
+
 Here you will find some of the most common use cases for building C++ projects
 with Bazel. If you have not done so already, get started with building C++
 projects with Bazel by completing the tutorial
@@ -10,7 +12,7 @@ projects with Bazel by completing the tutorial
 For information on cc_library and hdrs header files, see
 <a href="/reference/be/c-cpp#cc_library">cc_library</a>.
 
-## Including multiple files in a target {:#multiple-files-target}
+## Including multiple files in a target
 
 You can include multiple files in a single target with
 <a href="/reference/be/functions#glob">glob</a>.
@@ -28,7 +30,7 @@ With this target, Bazel will build all the `.cc` and `.h` files it finds in the
 same directory as the `BUILD` file that contains this target (excluding
 subdirectories).
 
-## Using transitive includes {:#transitive-includes}
+## Using transitive includes
 
 If a file includes a header, then any rule with that file as a source (that is,
 having that file in the `srcs`, `hdrs`, or `textual_hdrs` attribute) should
@@ -63,7 +65,7 @@ cc_library(
 Here, the `sandwich` library depends on the `bread` library, which depends
 on the `flour` library.
 
-## Adding include paths {:#add-include-paths}
+## Adding include paths
 
 Sometimes you cannot (or do not want to) root include paths at the workspace
 root. Existing libraries might already have an include directory that doesn't
@@ -99,10 +101,10 @@ cc_library(
 This is especially useful for external dependencies, as their header files
 must otherwise be included with a `/` prefix.
 
-## Include external libraries {:#include-external-libraries}
+## Include external libraries
 
 Suppose you are using [Google Test](https://github.com/google/googletest)
-{: .external}.
+.
 You can add a dependency on it in the `MODULE.bazel` file to
 download Google Test and make it available in your repository:
 
@@ -110,7 +112,7 @@ download Google Test and make it available in your repository:
 bazel_dep(name = "googletest", version = "1.15.2")
 ```
 
-## Writing and running C++ tests {:#run-c-tests}
+## Writing and running C++ tests
 
 For example, you could create a test `./test/hello-test.cc`, such as:
 
@@ -161,7 +163,8 @@ INFO: Elapsed time: 4.497s, Critical Path: 2.53s
 Executed 1 out of 1 tests: 1 test passes.
 ```
 
-## Adding dependencies on precompiled libraries {:#precompiled-libraries}
+
+## Adding dependencies on precompiled libraries
 
 If you want to use a library of which you only have a compiled version (for
 example, headers and a `.so` file) wrap it in a `cc_library` rule:

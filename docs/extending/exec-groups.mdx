@@ -2,18 +2,20 @@
 title: 'Execution Groups'
 ---
 
+
+
 Execution groups allow for multiple execution platforms within a single target.
 Each execution group has its own [toolchain](/extending/toolchains) dependencies and
 performs its own [toolchain resolution](/extending/toolchains#toolchain-resolution).
 
-## Current status {:#current-status}
+## Current status
 
 Execution groups for certain natively declared actions, like `CppLink`, can be
 used inside `exec_properties` to set per-action, per-target execution
 requirements. For more details, see the
 [Default execution groups](#exec-groups-for-native-rules) section.
 
-## Background {:#background}
+## Background
 
 Execution groups allow the rule author to define sets of actions, each with a
 potentially different execution platform. Multiple execution platforms can allow
@@ -26,7 +28,7 @@ unique and can only reference a single action. This is especially helpful in
 allocating extra resources to specific memory and processing intensive actions
 like linking in C++ builds without over-allocating to less demanding tasks.
 
-## Defining execution groups {:#defining-exec-groups}
+## Defining execution groups
 
 During rule definition, rule authors can
 [declare](/rules/lib/globals/bzl#exec_group)
@@ -66,7 +68,7 @@ built.
 As on native rules, the `test` execution group is present by default on Starlark
 test rules.
 
-## Accessing execution groups {:#accessing-exec-groups}
+## Accessing execution groups
 
 In the rule implementation, you can declare that actions should be run on the
 execution platform of an execution group. You can do this by using the `exec_group`
@@ -104,7 +106,7 @@ that execution group in the action declaration, that may potentially cause
 issues. A mismatch like this may not immediately cause failures, but is a latent
 problem.
 
-### Default execution groups {:#exec-groups-for-native-rules}
+### Default execution groups
 
 The following execution groups are predefined:
 
@@ -112,7 +114,7 @@ The following execution groups are predefined:
   the [execution platform section of the Test Encylopedia](/reference/test-encyclopedia#execution-platform)).
 * `cpp_link`: C++ linking actions.
 
-## Using execution groups to set execution properties {:#using-exec-groups-for-exec-properties}
+## Using execution groups to set execution properties
 
 Execution groups are integrated with the
 [`exec_properties`](/reference/be/common-definitions#common-attributes)
@@ -138,7 +140,7 @@ All actions with `exec_group = "link"` would see the exec properties
 dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 
-## Using execution groups to set platform constraints {:#using-exec-groups-for-platform-constraints}
+## Using execution groups to set platform constraints
 
 Execution groups are also integrated with the
 [`exec_compatible_with`](/reference/be/common-definitions#common-attributes) and
@@ -176,7 +178,7 @@ my_test(
 )
 ```
 
-### Execution groups for native rules {:#execution-groups-for-native-rules}
+### Execution groups for native rules
 
 The following execution groups are available for actions defined by native
 rules:
@@ -184,7 +186,7 @@ rules:
 * `test`: Test runner actions.
 * `cpp_link`: C++ linking actions.
 
-### Execution groups and platform execution properties {:#platform-execution-properties}
+### Execution groups and platform execution properties
 
 It is possible to define `exec_properties` for arbitrary execution groups on
 platform targets (unlike `exec_properties` set directly on a target, where

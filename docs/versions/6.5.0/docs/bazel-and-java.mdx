@@ -2,25 +2,26 @@
 title: 'Java and Bazel'
 ---
 
+
 This page contains resources that help you use Bazel with Java projects. It
 links to a tutorial, build rules, and other information specific to building
 Java projects with Bazel.
 
-## Working with Bazel {:#working-with-bazel}
+## Working with Bazel
 
 The following resources will help you work with Bazel on Java projects:
 
-*   [Tutorial: Building a Java Project](/versions/6.5.0/tutorials/java)
-*   [Java rules](/versions/6.5.0/reference/be/java)
+*   [Tutorial: Building a Java Project](/tutorials/java)
+*   [Java rules](/reference/be/java)
 
-## Migrating to Bazel {:#migrating-to-bazel}
+## Migrating to Bazel
 
 If you currently build your Java projects with Maven, follow the steps in the
 migration guide to start building your Maven projects with Bazel:
 
-*   [Migrating from Maven to Bazel](/versions/6.5.0/migrate/maven)
+*   [Migrating from Maven to Bazel](/migrate/maven)
 
-## Java versions {:#java-versions}
+## Java versions
 
 There are two relevant versions of Java that are set with configuration flags:
 
@@ -28,7 +29,7 @@ There are two relevant versions of Java that are set with configuration flags:
 *   the version of the Java runtime that is used to execute the code and to test
     it
 
-### Configuring the version of the source code in your repository {:#config-source-code}
+### Configuring the version of the source code in your repository
 
 Without an additional configuration, Bazel assumes all Java source files in the
 repository are written in a single Java version. To specify the version of the
@@ -36,9 +37,9 @@ sources in the repository add `build --java_language_version={ver}` to
 `.bazelrc` file, where `{ver}` is for example `11`. Bazel repository owners
 should set this flag so that Bazel and its users can reference the source code's
 Java version number. For more details, see
-[Java language version flag](/versions/6.5.0/docs/user-manual#java-language-version).
+[Java language version flag](/docs/user-manual#java-language-version).
 
-### Configuring the JVM used to execute and test the code {:#config-jvm}
+### Configuring the JVM used to execute and test the code
 
 Bazel uses one JDK for compilation and another JVM to execute and test the code.
 
@@ -53,14 +54,14 @@ machine.
 To configure the JVM used for execution and testing use `--java_runtime_version`
 flag. The default value is `local_jdk`.
 
-### Hermetic testing and compilation {:#hermetic-testing}
+### Hermetic testing and compilation
 
 To create a hermetic compile, you can use command line flag
 `--java_runtime_version=remotejdk_11`. The code is compiled for, executed, and
 tested on the JVM downloaded from a remote repository. For more details, see
-[Java runtime version flag](/versions/6.5.0/docs/user-manual#java_runtime_version).
+[Java runtime version flag](/docs/user-manual#java_runtime_version).
 
-### Configuring compilation and execution of build tools in Java {:#config-build-tools-java}
+### Configuring compilation and execution of build tools in Java
 
 There is a second pair of JDK and JVM used to build and execute tools, which are
 used in the build process, but are not in the build results. That JDK and JVM
@@ -68,7 +69,7 @@ are controlled using `--tool_java_language_version` and
 `--tool_java_runtime_version`. Default values are `11` and `remotejdk_11`,
 respectively.
 
-#### Compiling using locally installed JDK {:#compile-using-jdk}
+#### Compiling using locally installed JDK
 
 Bazel by default compiles using remote JDK, because it is overriding JDK's
 internals. The compilation toolchains using locally installed JDK are configured,
@@ -81,17 +82,17 @@ however, mind that this may not work on JDK of arbitrary vendors.
 For more details, see
 [configuring Java toolchains](#config-java-toolchains).
 
-## Best practices {:#best-practices}
+## Best practices
 
-In addition to [general Bazel best practices](/versions/6.5.0/docs/best-practices), below are
+In addition to [general Bazel best practices](/docs/best-practices), below are
 best practices specific to Java projects.
 
-### Directory structure {:#directory-structure}
+### Directory structure
 
 Prefer Maven's standard directory layout (sources under `src/main/java`, tests
 under `src/test/java`).
 
-### BUILD files {:#build-files}
+### BUILD files
 
 Follow these guidelines when creating your `BUILD` files:
 
@@ -113,34 +114,34 @@ Follow these guidelines when creating your `BUILD` files:
     `BUILD` file. This makes the label of the library shorter, that is use
     `"//package"` instead of `"//package:package"`.
 
-*   The sources should be a non-recursive [`glob`](/versions/6.5.0/reference/be/functions#glob) of
+*   The sources should be a non-recursive [`glob`](/reference/be/functions#glob) of
     all Java files in the directory.
 
 *   Tests should be in a matching directory under `src/test` and depend on this
     library.
 
-## Creating new rules for advanced Java builds {:#rules-advanced-java-builds}
+## Creating new rules for advanced Java builds
 
 **Note**: Creating new rules is for advanced build and test scenarios. You do
 not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](/versions/6.5.0/rules/concepts) when building your Java
+[extend Bazel's capabilities](/rules/concepts) when building your Java
 projects:
 
-*   Main Java provider: [`java_common`](/versions/6.5.0/rules/lib/java_common)
-*   Main Java module: [`JavaInfo`](/versions/6.5.0/rules/lib/JavaInfo)
-*   Configuration fragment: [`java`](/versions/6.5.0/rules/lib/java)
+*   Main Java provider: [`java_common`](/rules/lib/java_common)
+*   Main Java module: [`JavaInfo`](/rules/lib/JavaInfo)
+*   Configuration fragment: [`java`](/rules/lib/java)
 *   Other modules:
 
-    *   [`java_annotation_processing`](/versions/6.5.0/rules/lib/java_annotation_processing)
-    *   [`java_compilation_info`](/versions/6.5.0/rules/lib/java_compilation_info)
-    *   [`java_output`](/versions/6.5.0/rules/lib/java_output)
-    *   [`java_output_jars`](/versions/6.5.0/rules/lib/java_output_jars)
-    *   [`JavaRuntimeInfo`](/versions/6.5.0/rules/lib/JavaRuntimeInfo)
-    *   [`JavaToolchainInfo`](/versions/6.5.0/rules/lib/JavaToolchainInfo)
+    *   [`java_annotation_processing`](/rules/lib/java_annotation_processing)
+    *   [`java_compilation_info`](/rules/lib/java_compilation_info)
+    *   [`java_output`](/rules/lib/java_output)
+    *   [`java_output_jars`](/rules/lib/java_output_jars)
+    *   [`JavaRuntimeInfo`](/rules/lib/JavaRuntimeInfo)
+    *   [`JavaToolchainInfo`](/rules/lib/JavaToolchainInfo)
 
-## Configuring the Java toolchains {:#config-java-toolchains}
+## Configuring the Java toolchains
 
 Bazel uses two types of Java toolchains:
 - execution, used to execute and test Java binaries, controlled with
@@ -148,7 +149,7 @@ Bazel uses two types of Java toolchains:
 - compilation, used to compile Java sources, controlled with
   `--java_language_version` flag
 
-### Configuring additional execution toolchains {:#config-execution-toolchains}
+### Configuring additional execution toolchains
 
 Execution toolchain is the JVM, either local or from a repository, with some
 additional information about its version, operating system, and CPU
@@ -189,7 +190,7 @@ remote_java_repository(
 )
 ```
 
-### Configuring additional compilation toolchains {:#config-compilation-toolchains}
+### Configuring additional compilation toolchains
 
 Compilation toolchain is composed of JDK and multiple tools that Bazel uses
 during the compilation and that provides additional features, such as: Error
@@ -232,7 +233,7 @@ The `TestRunner` tool executes JUnit 4 tests in a controlled environment.
 You can reconfigure the compilation by adding `default_java_toolchain` macro to
 a `BUILD` file and registering it either by adding `register_toolchains` rule to
 the `WORKSPACE` file or by using
-[`--extra_toolchains`](/versions/6.5.0/docs/user-manual#extra-toolchains) flag.
+[`--extra_toolchains`](/docs/user-manual#extra-toolchains) flag.
 
 The toolchain is only used when the `source_version` attribute matches the
 value specified by `--java_language_version` flag.
@@ -271,7 +272,7 @@ Predefined configurations:
     built from sources (this may be useful on operating system with different
     libc)
 
-#### Configuring JVM and Java compiler flags {:#config-jvm}
+#### Configuring JVM and Java compiler flags
 
 You may configure JVM and javac flags either with flags or with
  `default_java_toolchain` attributes.
@@ -282,7 +283,7 @@ The relevant flags are `--jvmopt`, `--host_jvmopt`, `--javacopt`,  and
 The relevant `default_java_toolchain` attributes are `javacopts`, `jvm_opts`,
 `javabuilder_jvm_opts`, and `turbine_jvm_opts`.
 
-#### Package specific Java compiler flags configuration {:#package-java-compiler-flags}
+#### Package specific Java compiler flags configuration
 
 You can configure different Java compiler flags for specific source
 files using `package_configuration` attribute of `default_java_toolchain`.
@@ -319,7 +320,7 @@ package_group(
 )
 ```
 
-#### Multiple versions of Java source code in a single repository {:#java-source-single-repo}
+#### Multiple versions of Java source code in a single repository
 
 Bazel only supports compiling a single version of Java sources in a build.
 build. This means that when building a Java test or an application, all

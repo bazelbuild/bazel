@@ -2,22 +2,23 @@
 title: 'Maintaining Bazel Chocolatey package on Windows'
 ---
 
+
 Note: The Chocolatey package is experimental; please provide feedback
 (`@petemounce` in issue tracker).
 
-## Prerequisites {:#prerequisites}
+## Prerequisites
 
 You need:
 
 *    [chocolatey package manager](https://chocolatey.org) installed
 *    (to publish) a chocolatey API key granting you permission to publish the
      `bazel` package
-     * [@petemounce](https://github.com/petemounce){: .external} currently
+     * [@petemounce](https://github.com/petemounce) currently
      maintains this unofficial package.
 *    (to publish) to have set up that API key for the chocolatey source locally
      via `choco apikey -k <your key here> -s https://chocolatey.org/`
 
-## Build {:#build}
+## Build
 
 Compile bazel with msys2 shell and `compile.sh`.
 
@@ -32,7 +33,7 @@ created.
 
 The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
 
-## Test {:#test}
+## Test
 
 0. Build the package (with `-mode local`)
 
@@ -54,7 +55,7 @@ The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
 
 Chocolatey's moderation process automates checks here as well.
 
-## Release {:#release}
+## Release
 
 Modify `tools/parameters.json` for the new release's URI and checksum once the
 release has been published to github releases.

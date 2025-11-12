@@ -2,7 +2,8 @@
 title: 'Creating Persistent Workers'
 ---
 
-[Persistent workers](/versions/6.5.0/docs/persistent-workers) can make your build faster. If
+
+[Persistent workers](/docs/persistent-workers) can make your build faster. If
 you have repeated actions in your build that have a high startup cost or would
 benefit from cross-action caching, you may want to implement your own persistent
 worker to perform these actions.
@@ -15,15 +16,15 @@ The worker implementation has two parts:
 *   The [worker](#making-worker).
 *   The [rule that uses the worker](#rule-uses-worker).
 
-## Making the worker {:#making-worker}
+## Making the worker
 
 A persistent worker upholds a few requirements:
 
 *   It reads
-    [WorkRequests](https://github.com/bazelbuild/bazel/blob/54a547f30fd582933889b961df1d6e37a3e33d85/src/main/protobuf/worker_protocol.proto#L36){: .external}
+    [WorkRequests](https://github.com/bazelbuild/bazel/blob/54a547f30fd582933889b961df1d6e37a3e33d85/src/main/protobuf/worker_protocol.proto#L36)
     from its `stdin`.
 *   It writes
-    [WorkResponses](https://github.com/bazelbuild/bazel/blob/54a547f30fd582933889b961df1d6e37a3e33d85/src/main/protobuf/worker_protocol.proto#L77){: .external}
+    [WorkResponses](https://github.com/bazelbuild/bazel/blob/54a547f30fd582933889b961df1d6e37a3e33d85/src/main/protobuf/worker_protocol.proto#L77)
     (and only `WorkResponse`s) to its `stdout`.
 *   It accepts the `--persistent_worker` flag. The wrapper must recognize the
     `--persistent_worker` command-line flag and only make itself persistent if
@@ -32,7 +33,7 @@ A persistent worker upholds a few requirements:
 If your program upholds these requirements, it can be used as a persistent
 worker!
 
-### Work requests {:#work-requests}
+### Work requests
 
 A `WorkRequest` contains a list of arguments to the worker, a list of
 path-digest pairs representing the inputs the worker can access (this isn’t
@@ -62,9 +63,9 @@ Bazel sets the `verbosity` field to 10, but smaller or larger values can be used
 manually for different amounts of output.
 
 The optional `sandbox_dir` field is used only by workers that support
-[multiplex sandboxing](/versions/6.5.0/docs/multiplex-worker).
+[multiplex sandboxing](/docs/multiplex-worker).
 
-### Work responses {:#work-responses}
+### Work responses
 
 A `WorkResponse` contains a request id, a zero or nonzero exit code, and an
 output string that describes any errors encountered in processing or executing
@@ -103,7 +104,7 @@ response (except for cancel requests, see below).
 **Notes**
 
 *   Each protocol buffer is preceded by its length in `varint` format (see
-    [`MessageLite.writeDelimitedTo()`](https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/MessageLite.html#writeDelimitedTo-java.io.OutputStream-){: .external}.
+    [`MessageLite.writeDelimitedTo()`](https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/MessageLite.html#writeDelimitedTo-java.io.OutputStream-).
 *   JSON requests and responses are not preceded by a size indicator.
 *   JSON requests uphold the same structure as the protobuf, but use standard
     JSON and use camel case for all field names.
@@ -113,7 +114,7 @@ response (except for cancel requests, see below).
 *   Bazel stores requests as protobufs and converts them to JSON using
     [protobuf's JSON format](https://cs.opensource.google/protobuf/protobuf/+/master:java/util/src/main/java/com/google/protobuf/util/JsonFormat.java)
 
-### Cancellation {:#cancellation}
+### Cancellation
 
 Workers can optionally allow work requests to be cancelled before they finish.
 This is particularly useful in connection with dynamic execution, where local
@@ -141,11 +142,11 @@ Once a response has been sent for a `WorkRequest`, the worker must not touch the
 files in its working directory. The server is free to clean up the files,
 including temporary files.
 
-## Making the rule that uses the worker {:#rule-uses-worker}
+## Making the rule that uses the worker
 
 You'll also need to create a rule that generates actions to be performed by the
 worker. Making a Starlark rule that uses a worker is just like
-[creating any other rule](https://github.com/bazelbuild/examples/tree/master/rules){: .external}.
+[creating any other rule](https://github.com/bazelbuild/examples/tree/master/rules).
 
 In addition, the rule needs to contain a reference to the worker itself, and
 there are some requirements for the actions it produces.
@@ -183,7 +184,7 @@ level of the build, this might be the attribute definition:
 execution platform rather than on the target platform (i.e., the worker is used
 as tool during the build).
 
-### Work action requirements {:#work-action-requirements}
+### Work action requirements
 
 The rule that uses the worker creates actions for the worker to perform. These
 actions have a couple of requirements.
@@ -234,25 +235,25 @@ ctx.actions.run(
 ```
 
 For another example, see
-[Implementing persistent workers](/versions/6.5.0/docs/persistent-workers#implementation).
+[Implementing persistent workers](/docs/persistent-workers#implementation).
 
-## Examples {:#examples}
+## Examples
 
 The Bazel code base uses
-[Java compiler workers](https://github.com/bazelbuild/bazel/blob/a4251eab6988d6cf4f5e35681fbe2c1b0abe48ef/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/BazelJavaBuilder.java){: .external},
+[Java compiler workers](https://github.com/bazelbuild/bazel/blob/a4251eab6988d6cf4f5e35681fbe2c1b0abe48ef/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/BazelJavaBuilder.java),
 in addition to an
-[example JSON worker](https://github.com/bazelbuild/bazel/blob/c65f768fec9889bbf1ee934c61d0dc061ea54ca2/src/test/java/com/google/devtools/build/lib/worker/ExampleWorker.java){: .external}
+[example JSON worker](https://github.com/bazelbuild/bazel/blob/c65f768fec9889bbf1ee934c61d0dc061ea54ca2/src/test/java/com/google/devtools/build/lib/worker/ExampleWorker.java)
 that is used in our integration tests.
 
 You can use their
-[scaffolding](https://github.com/bazelbuild/bazel/blob/a4251eab6988d6cf4f5e35681fbe2c1b0abe48ef/src/main/java/com/google/devtools/build/lib/worker/WorkRequestHandler.java){: .external}
+[scaffolding](https://github.com/bazelbuild/bazel/blob/a4251eab6988d6cf4f5e35681fbe2c1b0abe48ef/src/main/java/com/google/devtools/build/lib/worker/WorkRequestHandler.java)
 to make any Java-based tool into a worker by passing in the correct callback.
 
 For an example of a rule that uses a worker, take a look at Bazel's
-[worker integration test](https://github.com/bazelbuild/bazel/blob/22b4dbcaf05756d506de346728db3846da56b775/src/test/shell/integration/bazel_worker_test.sh#L106){: .external}.
+[worker integration test](https://github.com/bazelbuild/bazel/blob/22b4dbcaf05756d506de346728db3846da56b775/src/test/shell/integration/bazel_worker_test.sh#L106).
 
 External contributors have implemented workers in a variety of languages; take a
 look at
-[Polyglot implementations of Bazel persistent workers](https://github.com/Ubehebe/bazel-worker-examples){: .external}.
+[Polyglot implementations of Bazel persistent workers](https://github.com/Ubehebe/bazel-worker-examples).
 You can
-[find many more examples on GitHub](https://github.com/search?q=bazel+workrequest&type=Code){: .external}!
+[find many more examples on GitHub](https://github.com/search?q=bazel+workrequest&type=Code)!

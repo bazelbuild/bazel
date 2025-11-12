@@ -1,13 +1,14 @@
 ---
-title: ' Calling Bazel from scripts'
+title: 'Calling Bazel from scripts'
 ---
+
 
 You can call Bazel from scripts to perform a build, run tests, or query
 the dependency graph. Bazel has been designed to enable effective scripting, but
 this section lists some details to bear in mind to make your scripts more
 robust.
 
-### Choosing the output base {:#output-base-option}
+### Choosing the output base
 
 The `--output_base` option controls where the Bazel process should write the
 outputs of a build to, as well as various working files used internally by
@@ -26,14 +27,14 @@ lock used by the user's interactive Bazel commands. If the user issues
 long-running commands such as builds, your script will have to wait for those
 commands to complete before it can continue.
 
-### Notes about server mode {:#server-mode}
+### Notes about server mode
 
-By default, Bazel uses a long-running [server process](/versions/6.5.0/docs/client-server) as an
+By default, Bazel uses a long-running [server process](/docs/client-server) as an
 optimization. When running Bazel in a script, don't forget to call `shutdown`
 when you're finished with the server, or, specify `--max_idle_secs=5` so that
 idle servers shut themselves down promptly.
 
-### What exit code will I get? {:#exit-codes}
+### What exit code will I get?
 
 Bazel attempts to differentiate failures due to the source code under
 consideration from external errors that prevent Bazel from executing properly.
@@ -66,6 +67,7 @@ Bazel execution can result in following exit codes:
 -   `4` - Build successful but no tests were found even though testing was
     requested.
 
+
 **For `bazel run`:**
 
 -   `1` - Build failed.
@@ -83,16 +85,17 @@ Future Bazel versions may add additional exit codes, replacing generic failure
 exit code `1` with a different non-zero value with a particular meaning.
 However, all non-zero exit values will always constitute an error.
 
-### Reading the .bazelrc file {:#reading-bazelrc}
 
-By default, Bazel reads the [`.bazelrc` file](/versions/6.5.0/docs/bazelrc) from the base
+### Reading the .bazelrc file
+
+By default, Bazel reads the [`.bazelrc` file](/docs/bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (such as when doing release builds), you should disable reading the
 .bazelrc file by using the option `--bazelrc=/dev/null`. If you want to perform
 a build using the user's preferred settings, the default behavior is better.
 
-### Command log {:#command-log}
+### Command log
 
 The Bazel output is also available in a command log file which you can find with
 the following command:
@@ -107,7 +110,7 @@ contents of this file, since it then becomes the most recent Bazel command.
 However, the location of the command log file will not change unless you change
 the setting of the `--output_base` or `--output_user_root` options.
 
-### Parsing output {:#parsing-output}
+### Parsing output
 
 The Bazel output is quite easy to parse for many purposes. Two options that may
 be helpful for your script are `--noshow_progress` which suppresses progress
@@ -117,6 +120,6 @@ discover which targets were successfully built, and the location of the output
 files they created. Be sure to specify a very large value of _n_ if you rely on
 these messages.
 
-## Troubleshooting performance by profiling {:#performance-profiling}
+## Troubleshooting performance by profiling
 
-See the [Performance Profiling](/versions/6.5.0/rules/performance#performance-profiling) section.
+See the [Performance Profiling](/rules/performance#performance-profiling) section.

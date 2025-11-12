@@ -2,6 +2,7 @@
 title: 'Bazel Vision'
 ---
 
+
 Any software developer can efficiently build, test, and package
 any project, of any size or complexity, with tooling that's easy to adopt and
 extend.
@@ -43,7 +44,7 @@ Bazel's abstraction layer — instructions specific to languages, platforms, and
 toolchains implemented in a simple extensibility language — allows it to be
 easily applied to any context.
 
-## Bazel core competencies {:#bazel-core-competencies}
+## Bazel core competencies
 
 1.  Bazel supports **multi-language, multi-platform** builds and tests. You can
     run a single command to build and test your entire source tree, no matter
@@ -60,7 +61,7 @@ easily applied to any context.
     possible. Bazel interfaces with de-facto standard tools for a given
     language/platform.
 
-## Serving language communities {:#language-communities}
+## Serving language communities
 
 Software engineering evolves in the context of language communities — typically,
 self-organizing groups of people who use common tools and practices.
@@ -71,7 +72,7 @@ available that integrate with the workflows and conventions of that community.
 Bazel is committed to be extensible and open, and to support good rulesets for
 any language.
 
-###  Requirements of a good ruleset {:#ruleset-requirements}
+###  Requirements of a good ruleset
 
 1.  The rules need to support efficient **building and testing** for the
     language, including code coverage.
@@ -82,7 +83,7 @@ any language.
     ["Bazel sandwich"](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-08-04-extensibility-for-native-rules.md)
     principles.
 1.  The rules need to be **remote-execution ready**. In practice, this means
-    **configurable using the [toolchains](/versions/6.5.0/docs/toolchains) mechanism**.
+    **configurable using the [toolchains](/docs/toolchains) mechanism**.
 1.  The rules (and Bazel) need to interface with a **widely-used IDE** for the
     language, if there is one.
 1.  The rules need to have **thorough, usable documentation,** with introductory

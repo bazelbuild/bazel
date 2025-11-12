@@ -2,6 +2,7 @@
 title: 'Bazel Tutorial: Build a Java Project'
 ---
 
+
 This tutorial covers the basics of building Java applications with
 Bazel. You will set up your workspace and build a simple Java project that
 illustrates key Bazel concepts, such as targets and `BUILD` files.
@@ -23,7 +24,7 @@ In this tutorial you learn how to:
 
 ### Install Bazel
 
-To prepare for the tutorial, first [Install Bazel](/versions/6.5.0/install) if
+To prepare for the tutorial, first [Install Bazel](/install) if
 you don't have it installed already.
 
 ### Install the JDK
@@ -111,7 +112,7 @@ java_binary(
 ```
 
 In our example, the `ProjectRunner` target instantiates Bazel's built-in
-[`java_binary` rule](/versions/6.5.0/reference/be/java#java_binary). The rule tells Bazel to
+[`java_binary` rule](/reference/be/java#java_binary). The rule tells Bazel to
 build a `.jar` file and a wrapper shell script (both named after the target).
 
 The attributes in the target explicitly state its dependencies and options.
@@ -119,7 +120,7 @@ While the `name` attribute is mandatory, many are optional. For example, in the
 `ProjectRunner` rule target, `name` is the name of the target, `srcs` specifies
 the source files that Bazel uses to build the target, and `main_class` specifies
 the class that contains the main method. (You may have noticed that our example
-uses [glob](/versions/6.5.0/reference/be/functions#glob) to pass a set of source files to Bazel
+uses [glob](/reference/be/functions#glob) to pass a set of source files to Bazel
 instead of listing them one by one.)
 
 ### Build the project
@@ -178,7 +179,7 @@ Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
 As you can see, the project has a single target that build two source files with
 no additional dependencies:
 
-![Dependency graph of the target 'ProjectRunner'](/versions/6.5.0/docs/images/tutorial_java_01.svg)
+![Dependency graph of the target 'ProjectRunner'](/docs/images/tutorial_java_01.svg)
 
 After you set up your workspace, build your project, and examine its
 dependencies, then you can add some complexity.
@@ -271,7 +272,7 @@ The `runner` target depends on the `greeter` target in the `//` package (hence
 the target label `//:greeter`) - Bazel knows this through the `deps` attribute.
 Take a look at the dependency graph:
 
-![Dependency graph of the target 'runner'](/versions/6.5.0/docs/images/tutorial_java_03.svg)
+![Dependency graph of the target 'runner'](/docs/images/tutorial_java_03.svg)
 
 However, for the build to succeed, you must explicitly give the `runner` target
 in `//src/main/java/com/example/cmdline/BUILD` visibility to targets in
@@ -317,6 +318,7 @@ Now test your freshly built binary:
 You've now modified the project to build as two packages, each containing one
 target, and understand the dependencies between them.
 
+
 ## Use labels to reference targets
 
 In `BUILD` files and at the command line, Bazel uses target labels to reference
@@ -352,7 +354,7 @@ Let’s now package a Java target for deployment by building the binary with all
 of its runtime dependencies. This lets you run the binary outside of your
 development environment.
 
-As you remember, the [java_binary](/versions/6.5.0/reference/be/java#java_binary) build rule
+As you remember, the [java_binary](/reference/be/java#java_binary) build rule
 produces a `.jar` and a wrapper shell script. Take a look at the contents of
 `runner.jar` using this command:
 
@@ -418,16 +420,16 @@ For more details, see:
 *  [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) for
    rules to manage transitive Maven dependencies.
 
-*  [External Dependencies](/versions/6.5.0/docs/external) to learn more about working with
+*  [External Dependencies](/docs/external) to learn more about working with
    local and remote repositories.
 
-*  The [other rules](/versions/6.5.0/rules) to learn more about Bazel.
+*  The [other rules](/rules) to learn more about Bazel.
 
-*  The [C++ build tutorial](/versions/6.5.0/tutorials/cpp) to get started with building
+*  The [C++ build tutorial](/tutorials/cpp) to get started with building
    C++ projects with Bazel.
 
-*  The [Android application tutorial](/versions/6.5.0/tutorials/android-app) and
-   [iOS application tutorial](/versions/6.5.0/tutorials/ios-app) to get started with
+*  The [Android application tutorial](/tutorials/android-app) and
+   [iOS application tutorial](/tutorials/ios-app) to get started with
    building mobile applications for Android and iOS with Bazel.
 
 Happy building!

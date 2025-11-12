@@ -2,10 +2,11 @@
 title: 'Using the Android Native Development Kit with Bazel'
 ---
 
+
 _If you're new to Bazel, please start with the [Building Android with
 Bazel](/tutorials/android-app) tutorial._
 
-## Overview {:#overview}
+## Overview
 
 Bazel can run in many different build configurations, including several that use
 the Android Native Development Kit (NDK) toolchain. This means that normal
@@ -13,7 +14,7 @@ the Android Native Development Kit (NDK) toolchain. This means that normal
 Bazel. Bazel accomplishes this by using the `android_ndk_repository` repository
 rule.
 
-## Prerequisites {:#prerequisites}
+## Prerequisites
 
 Please ensure that you have installed the Android SDK and NDK.
 
@@ -34,7 +35,7 @@ android_ndk_repository(
 For more information on the `android_ndk_repository` rule, see the [Build
 Encyclopedia entry](/reference/be/android#android_ndk_repository).
 
-## Quick start {:#quick-start}
+## Quick start
 
 To build C++ for Android, simply add `cc_library` dependencies to your
 `android_binary` or `android_library` rules.
@@ -67,7 +68,7 @@ android_binary(
 
 This `BUILD` file results in the following target graph:
 
-![Example results](/versions/6.5.0/docs/images/android_ndk.png "Build graph results")
+![Example results](/docs/images/android_ndk.png "Build graph results")
 
 **Figure 1.** Build graph of Android project with cc_library dependencies.
 
@@ -99,10 +100,10 @@ targeted for the `armeabi-v7a` ABI by default. To change this or build for
 multiple ABIs at the same time, see the section on [configuring the target
 ABI](#configuring-target-abi).
 
-## Example setup {:#example-setup}
+## Example setup
 
 This example is available in the [Bazel examples
-repository](https://github.com/bazelbuild/examples/tree/master/android/ndk){: .external}.
+repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
 
 In the `BUILD.bazel` file, three targets are defined with the `android_binary`,
 `android_library`, and `cc_library` rules.
@@ -153,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
 Note: The name of the native library is derived from the name of the top
 level `android_binary` target. In this example, it is `app`.
 
-## Configuring the STL {:#configuring-stl}
+## Configuring the STL
 
 To configure the C++ STL, use the flag `--android_crosstool_top`.
 
@@ -174,14 +175,14 @@ For r16 and below, the default STL is `gnustl`. For r17 and above, it is
 aliased to the respective default STLs.
 
 Please note that from r18 onwards, [STLport and gnustl will be
-removed](https://android.googlesource.com/platform/ndk/+/master/docs/Roadmap.md#ndk-r18){: .external},
+removed](https://android.googlesource.com/platform/ndk/+/master/docs/Roadmap.md#ndk-r18),
 making `libc++` the only STL in the NDK.
 
 See the [NDK
-documentation](https://developer.android.com/ndk/guides/cpp-support){: .external}
+documentation](https://developer.android.com/ndk/guides/cpp-support)
 for more information on these STLs.
 
-## Configuring the target ABI {:#configuring-target-abi}
+## Configuring the target ABI
 
 To configure the target ABI, use the `--fat_apk_cpu` flag as follows:
 
@@ -204,13 +205,13 @@ available:
 | 16 and lower | armeabi, armeabi-v7a, arm64-v8a, mips, mips64, x86, x86\_64 |
 | 17 and above | armeabi-v7a, arm64-v8a, x86, x86\_64                        |
 
-See [the NDK docs](https://developer.android.com/ndk/guides/abis.html){: .external}
+See [the NDK docs](https://developer.android.com/ndk/guides/abis.html)
 for more information on these ABIs.
 
 Multi-ABI Fat APKs are not recommended for release builds since they increase
 the size of the APK, but can be useful for development and QA builds.
 
-## Selecting a C++ standard {:#selecting-c-standard}
+## Selecting a C++ standard
 
 Use the following flags to build according to a C++ standard:
 
@@ -227,7 +228,7 @@ bazel build //:app --cxxopt=-std=c++11
 ```
 
 Read more about passing compiler and linker flags with `--cxxopt`, `--copt`, and
-`--linkopt` in the [User Manual](/versions/6.5.0/docs/user-manual#cxxopt).
+`--linkopt` in the [User Manual](/docs/user-manual#cxxopt).
 
 Compiler and linker flags can also be specified as attributes in `cc_library`
 using `copts` and `linkopts`. For example:
@@ -241,11 +242,11 @@ cc_library(
 )
 ```
 
-## Integration with platforms and toolchains {:#integration-platforms}
+## Integration with platforms and toolchains
 
 Bazel's configuration model is moving towards
-[platforms](/versions/6.5.0/docs/platforms) and
-[toolchains](/versions/6.5.0/docs/toolchains). If your
+[platforms](/docs/platforms) and
+[toolchains](/docs/toolchains). If your
 build uses the `--platforms` flag to select for the architecture or operating system
 to build for, you will need to pass the `--extra_toolchains` flag to Bazel in
 order to use the NDK.
@@ -312,7 +313,7 @@ toolchain(
 )
 ```
 
-## How it works: introducing Android configuration transitions {:#intro-android-config}
+## How it works: introducing Android configuration transitions
 
 The `android_binary` rule can explicitly ask Bazel to build its dependencies in
 an Android-compatible configuration so that the Bazel build *just works* without
@@ -359,7 +360,7 @@ majority of cases. However, if the target on the Bazel command-line is already
 below any of these transition rules, such as C++ developers testing a specific
 `cc_library`, then a custom `--crosstool_top` must be used.
 
-## Building a `cc_library` for Android without using `android_binary` {:#cclibrary-android}
+## Building a `cc_library` for Android without using `android_binary`
 
 To build a standalone `cc_binary` or `cc_library` for Android without using an
 `android_binary`, use the `--crosstool_top`, `--cpu` and `--host_crosstool_top`
@@ -385,7 +386,7 @@ With this approach, the entire build tree is affected.
 
 Note: All of the targets on the command line must be compatible with
 building for Android when specifying these flags, which may make it difficult to
-use [Bazel wild-cards](/versions/6.5.0/docs/build#specifying-build-targets) like
+use [Bazel wild-cards](/docs/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in

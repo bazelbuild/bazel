@@ -2,9 +2,11 @@
 title: 'Output Directory Layout'
 ---
 
+
+
 This page covers requirements and layout for output directories.
 
-## Requirements {:#requirements}
+## Requirements
 
 Requirements for an output directory layout:
 
@@ -19,7 +21,7 @@ Requirements for an output directory layout:
 * All the build state per user should be underneath one directory ("I'd like to
   clean all the .o files from all my clients.")
 
-## Current layout {:#layout}
+## Current layout
 
 The solution that's currently implemented:
 
@@ -60,11 +62,11 @@ directories inside a target-specific directory inside the output directory.
 These symlinks are only for the user's convenience, as Bazel itself does not
 use them. Also, this is done only if the workspace root is writable.
 
-## Layout diagram {:#layout-diagram}
+## Layout diagram
 
 The directories are laid out as follows:
 
-<pre>
+```
 &lt;workspace-name&gt;/                         <== The workspace root
   bazel-my-project => <..._main>          <== Symlink to execRoot
   bazel-out => <...bazel-out>             <== Convenience symlink to outputPath
@@ -129,7 +131,7 @@ The directories are laid out as follows:
                                               building prerequisite tools, that will be used in later stages
                                               of the build (ex: Protocol Compiler)
         &lt;packages&gt;/                       <== Packages referenced in the build appear as if under a regular workspace
-</pre>
+```
 
 The layout of the \*.runfiles directories is documented in more detail in the places pointed to by RunfilesSupport.
 

@@ -2,6 +2,8 @@
 title: 'Best Practices'
 ---
 
+
+
 This page assumes you are familiar with Bazel and provides guidelines and
 advice on structuring your projects to take full advantage of Bazel's features.
 
@@ -19,9 +21,9 @@ strict checking." However, incorporating as many of these principles as possible
 should make a project more readable, less error-prone, and faster to build.
 
 This page uses the requirement levels described in
-[this RFC](https://www.ietf.org/rfc/rfc2119.txt){: .external}.
+[this RFC](https://www.ietf.org/rfc/rfc2119.txt).
 
-## Running builds and tests {:#running-builds-tests}
+## Running builds and tests
 
 A project should always be able to run `bazel build //...` and
 `bazel test //...` successfully on its stable branch. Targets that are necessary
@@ -32,14 +34,14 @@ tagging allows targets to be filtered at a more fine-grained level than the
 "manual" tag and allows someone inspecting the `BUILD` file to understand what
 a target's restrictions are.
 
-## Third-party dependencies {:#third-party-dependencies}
+## Third-party dependencies
 
 You may declare third-party dependencies:
 
 *   Either declare them as remote repositories in the `MODULE.bazel` file.
 *   Or put them in a directory called `third_party/` under your workspace directory.
 
-## Depending on binaries {:#binaries}
+## Depending on binaries
 
 Everything should be built from source whenever possible. Generally this means
 that, instead of depending on a library `some-library.so`, you'd create a
@@ -51,7 +53,7 @@ was built with incompatible flags or a different architecture. There are also
 some features like coverage, static analysis, or dynamic analysis that only
 work on the source.
 
-## Versioning {:#versioning}
+## Versioning
 
 Prefer building all code from head whenever possible. When versions must be
 used, avoid including the version in the target name (for example, `//guava`,
@@ -62,10 +64,10 @@ you could end up with a library that tries to depend on two different versions.
 If you created a misleading alias to point both targets to one `guava` library,
 then the `BUILD` files are misleading.
 
-## Using the `.bazelrc` file {:#bazelrc-file}
+## Using the `.bazelrc` file
 
 For project-specific options, use the configuration file your
-`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/run/bazelrc)).
+`<var>workspace</var>/.bazelrc` (see [bazelrc format](/run/bazelrc)).
 
 If you want to support per-user options for your project that you **do not**
 want to check into source control, include the line:
@@ -73,16 +75,16 @@ want to check into source control, include the line:
 ```
 try-import %workspace%/user.bazelrc
 ```
-(or any other file name) in your `{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc`
+(or any other file name) in your `<var>workspace</var>/.bazelrc`
 and add `user.bazelrc` to your `.gitignore`.
 
 The open-source
 [bazelrc-preset.bzl](https://github.com/bazel-contrib/bazelrc-preset.bzl)
-{: .external}
+
 generates a custom bazelrc file that matches your Bazel version and provides a
 preset of recommended flags.
 
-## Packages {:#packages}
+## Packages
 
 Every directory that contains buildable files should be a package. If a `BUILD`
 file refers to files in subdirectories (such as, `srcs = ["a/b/C.java"]`) it's

@@ -2,34 +2,36 @@
 title: 'Release Model'
 ---
 
+
+
 As announced in [the original blog
 post](https://blog.bazel.build/2020/11/10/long-term-support-release.html), Bazel
 4.0 and higher versions provides support for two release tracks: rolling
 releases and long term support (LTS) releases. This page covers the latest
 information about Bazel's release model.
 
-## Support matrix {:#support-matrix}
+## Support matrix
 
 | LTS release | Support stage | Latest version | End of support |
 | ----------- | ------------- | -------------- | -------------- |
 | Bazel 9 | Rolling| [Check rolling release page](/release/rolling) | N/A |
-| Bazel 8 | Active| [8.4.2](https://github.com/bazelbuild/bazel/releases/tag/8.4.2){: .external} | December 2027 |
-| Bazel 7 | Maintenance| [7.6.2](https://github.com/bazelbuild/bazel/releases/tag/7.6.2){: .external} | Dec 2026 |
-| Bazel 6 | Maintenance | [6.5.0](https://github.com/bazelbuild/bazel/releases/tag/6.5.0){: .external} | Dec 2025 |
-| Bazel 5 | Deprecated | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1){: .external} | Jan 2025 |
-| Bazel 4 | Deprecated | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4){: .external} | Jan 2024 |
+| Bazel 8 | Active| [8.4.2](https://github.com/bazelbuild/bazel/releases/tag/8.4.2) | December 2027 |
+| Bazel 7 | Maintenance| [7.7.0](https://github.com/bazelbuild/bazel/releases/tag/7.7.0) | Dec 2026 |
+| Bazel 6 | Maintenance | [6.5.0](https://github.com/bazelbuild/bazel/releases/tag/6.5.0) | Dec 2025 |
+| Bazel 5 | Deprecated | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1) | Jan 2025 |
+| Bazel 4 | Deprecated | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4) | Jan 2024 |
 
 All Bazel LTS releases can be found on the [release
-page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub.
+page](https://github.com/bazelbuild/bazel/releases) on GitHub.
 
 Note: Bazel version older than Bazel 5 are no longer supported, Bazel users are
 recommended to upgrade to the latest LTS release or use rolling releases if you
 want to keep up with the latest changes at HEAD.
 
-## Release versioning {:#bazel-versioning}
+## Release versioning
 
 Bazel uses a _major.minor.patch_ [Semantic
-Versioning](https://semver.org/){: .external} scheme.
+Versioning](https://semver.org/) scheme.
 
 *   A _major release_ contains features that are not backward compatible with
     the previous release. Each major Bazel version is an LTS release.
@@ -47,7 +49,7 @@ For example, a new release of each type would result in these version numbers:
 *   Patch: 6.1.2
 *   Pre-release: 7.0.0-pre.20230502.1
 
-## Support stages {:#support-stages}
+## Support stages
 
 For each major Bazel version, there are four support stages:
 
@@ -61,11 +63,11 @@ For each major Bazel version, there are four support stages:
 *   **Deprecated**: The Bazel team no longer provides support for this major
     version, all users should migrate to newer Bazel LTS releases.
 
-## Release cadence {:#release-cadence}
+## Release cadence
 
 Bazel regularly publish releases for two release tracks.
 
-### Rolling releases {:#rolling-releases}
+### Rolling releases
 
 *   Rolling releases are coordinated with Google Blaze release and are released
   from HEAD around every two weeks. It is a preview of the next Bazel LTS
@@ -75,7 +77,7 @@ Bazel regularly publish releases for two release tracks.
     should follow our [backward compatibility
     policy](/release/backward-compatibility).
 
-### LTS releases {:#lts-releases}
+### LTS releases
 
 *   _Major release_: A new LTS release is expected to be cut from HEAD roughly
     every
@@ -90,10 +92,10 @@ Bazel regularly publish releases for two release tracks.
     Maintenance stage for 2 years.
 
 For planned releases, please check our [release
-issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Arelease){: .external}
+issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Arelease)
 on Github.
 
-## Release procedure & policies {:#release-procedure-policies}
+## Release procedure & policies
 
 For rolling releases, the process is straightforward: about every two weeks, a
 new release is created, aligning with the same baseline as the Google internal
@@ -120,7 +122,7 @@ For LTS releases, the procedure and policies below are followed:
     *   Bazel maintainers can request to cherry-pick specific commit(s)
         to a release branch. This process is initiated by creating a
         cherry-pick request on GitHub. Here's how to do it.
-        1.  Open the [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml){: .external}
+        1.  Open the [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml)
         2.  Fill in the request details
             *   Title: Provide a concise and descriptive title for the request.
             *   Commit ID(s): Enter the ID(s) of the commit(s) you want to
@@ -147,20 +149,20 @@ For LTS releases, the procedure and policies below are followed:
         commits are cherry-picked and merged to the release branch.
         For a visual example of a completed cherry-pick request,
         refer to this
-        [example](https://github.com/bazelbuild/bazel/issues/20230){: .external}
+        [example](https://github.com/bazelbuild/bazel/issues/20230)
         .
 
 1.  Identify release blockers and fix issues found on the release branch.
     *   The release branch is tested with the same test suite in
-        [postsubmit](https://buildkite.com/bazel/bazel-bazel){: .external} and
+        [postsubmit](https://buildkite.com/bazel/bazel-bazel) and
         [downstream test pipeline]
-        (https://buildkite.com/bazel/bazel-at-head-plus-downstream){: .external}
+        (https://buildkite.com/bazel/bazel-at-head-plus-downstream)
         on Bazel CI. The Bazel team monitors testing results of the release
         branch and fixes any regressions found.
 1.  Create a new release candidate from the release branch when all known
     release blockers are resolved.
     *   The release candidate is announced on
-        [bazel-discuss](https://groups.google.com/g/bazel-discuss){: .external},
+        [bazel-discuss](https://groups.google.com/g/bazel-discuss),
         the Bazel team monitors community bug reports for the candidate.
     *   If new release blockers are identified, go back to the last step and
         create a new release candidate after resolving all the issues.
@@ -180,15 +182,15 @@ For LTS releases, the procedure and policies below are followed:
     *   The release is only pushed on a day where the next day is a business
         day.
     *   The release is announced on
-        [bazel-discuss](https://groups.google.com/g/bazel-discuss){: .external},
+        [bazel-discuss](https://groups.google.com/g/bazel-discuss),
         the Bazel team monitors and addresses community bug reports for the new
      release.
 
-## Report regressions {:#report-regressions}
+## Report regressions
 
 If a user finds a regression in a new Bazel release, release candidate or even
 Bazel at HEAD, please file a bug on
-[GitHub](https://github.com/bazelbuild/bazel/issues){: .external}. You can use
+[GitHub](https://github.com/bazelbuild/bazel/issues). You can use
 Bazelisk to bisect the culprit commit and include this information in the bug
 report.
 
@@ -202,12 +204,12 @@ bazelisk --bisect=6.1.0..release-6.2.0rc2 build //foo:bar
 You can set `BAZELISK_SHUTDOWN` or `BAZELISK_CLEAN` environment variable to run
 corresponding bazel commands to reset the build state if it's needed to
 reproduce the issue. For more details, check out documentation about Bazelisk
-[bisect feature] (https://github.com/bazelbuild/bazelisk#--bisect){: .external}.
+[bisect feature] (https://github.com/bazelbuild/bazelisk#--bisect).
 
 Remember to upgrade Bazelisk to the latest version to use the bisect
 feature.
 
-## Rule compatibility {:#rule-compatibility}
+## Rule compatibility
 
 If you are a rule authors and want to maintain compatibility with different
 Bazel versions, please check out the [Rule

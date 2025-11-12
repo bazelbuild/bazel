@@ -2,13 +2,15 @@
 title: 'Workspaces, packages, and targets'
 ---
 
+
 Bazel builds software from source code organized in a directory tree called a
 workspace. Source files in the workspace are organized in a nested hierarchy of
 packages, where each package is a directory that contains a set of related
 source files and one `BUILD` file. The `BUILD` file specifies what software
 outputs can be built from the source.
 
-## Workspace {:#workspace}
+
+## Workspace
 
 A _workspace_ is a directory tree on your filesystem that contains the source
 files for the software you want to build. Each workspace has a text file named
@@ -22,7 +24,7 @@ a subdirectory containing a `WORKSPACE` file, as they form another workspace.
 Bazel also supports `WORKSPACE.bazel` file as an alias of `WORKSPACE` file. If
 both files exist, `WORKSPACE.bazel` is used.
 
-### Repositories {:#repositories}
+### Repositories
 
 Code is organized in _repositories_. The directory containing the `WORKSPACE`
 file is the root of the main repository, also called `@`. Other, (external)
@@ -40,7 +42,7 @@ As external repositories are repositories themselves, they often contain a
 ignored by Bazel. In particular, repositories depended upon transitively are not
 added automatically.
 
-## Packages {:#packages}
+## Packages
 
 The primary unit of code organization in a repository is the _package_. A
 package is a collection of related files and a specification of how they can be
@@ -64,7 +66,7 @@ src/my/app/tests/BUILD
 src/my/app/tests/test.cc
 ```
 
-## Targets {:#targets}
+## Targets
 
 A package is a container of _targets_, which are defined in the package's
 `BUILD` file. Most targets are one of two principal kinds, _files_ and _rules_.
@@ -108,6 +110,6 @@ the `package` function; they do not generate or consume files. For more
 information, refer to the [`package_group`
 documentation](/reference/be/functions#package_group).
 
-<a class="button button-with-icon button-primary" href="/versions/6.5.0/concepts/labels">
+<a class="button button-with-icon button-primary" href="/concepts/labels">
   Labels<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>
 </a>

@@ -2,6 +2,7 @@
 title: 'Sandboxing'
 ---
 
+
 This article covers sandboxing in Bazel, installing `sandboxfs`, and debugging
 your sandboxing environment.
 
@@ -26,7 +27,7 @@ generated outputs. Bazel then uses an operating-system-provided technique,
 containers on Linux and `sandbox-exec` on macOS, to constrain the action within
 `execroot/`.
 
-## Reasons for sandboxing {:#sandboxing-reasons}
+## Reasons for sandboxing
 
 -   Without action sandboxing, Bazel doesn't know if a tool uses undeclared
     input files (files that are not explicitly listed in the dependencies of an
@@ -45,7 +46,7 @@ containers on Linux and `sandbox-exec` on macOS, to constrain the action within
     having to install the tools on every machine in the cluster every time you
     want to try out a new compiler or make a change to an existing tool.
 
-## What sandbox strategy to use {:#sandboxing-strategies}
+## What sandbox strategy to use
 
 You can choose which kind of sandboxing to use, if any, with the
 [strategy flags](user-manual.html#strategy-options). Using the `sandboxed`
@@ -98,7 +99,7 @@ Dynamic execution usually requires sandboxing for local execution. To opt out,
 pass the `--experimental_local_lockfree_output` flag. Dynamic execution silently
 sandboxes [persistent workers](persistent-workers.md).
 
-## Downsides to sandboxing {:#sandboxing_downsides}
+## Downsides to sandboxing
 
 -   Sandboxing incurs extra setup and teardown cost. How big this cost is
     depends on many factors, including the shape of the build and the
@@ -114,7 +115,7 @@ sandboxes [persistent workers](persistent-workers.md).
     to be sandboxed. Workers that do not support multiplex sandboxing run as
     singleplex workers under dynamic execution, which can cost extra memory.
 
-## sandboxfs {:#sandboxfs}
+## sandboxfs
 
 `sandboxfs` is a FUSE file system that exposes an arbitrary view of the
 underlying file system without time penalties. Bazel uses `sandboxfs` to
@@ -122,19 +123,19 @@ generate `execroot/` instantaneously for each action, avoiding the cost of
 issuing thousands of system calls. Note that further I/O within `execroot/` may
 be slower due to FUSE overhead.
 
-### Install sandboxfs {:#install-sandboxfs}
+### Install sandboxfs
 
 Use the following steps to install `sandboxfs` and perform a Bazel build with
 it:
 
 **Download**
 
-[Download and install](https://github.com/bazelbuild/sandboxfs/blob/master/INSTALL.md){: .external}
+[Download and install](https://github.com/bazelbuild/sandboxfs/blob/master/INSTALL.md)
 `sandboxfs` so that the `sandboxfs` binary ends up in your `PATH`.
 
 **Run `sandboxfs`**
 
-1.  (macOS-only) [Install OSXFUSE](https://osxfuse.github.io/){: .external}.
+1.  (macOS-only) [Install OSXFUSE](https://osxfuse.github.io/).
 2.  (macOS-only) Run:
 
     ```posix-terminal
@@ -157,14 +158,14 @@ annotation for the actions that are executed, this may mean that sandboxing is
 disabled. Pass `--genrule_strategy=sandboxed --spawn_strategy=sandboxed` to
 enable it.
 
-## Debugging {:#debugging}
+## Debugging
 
 Follow the strategies below to debug issues with sandboxing.
 
-### Deactivated namespaces {:#deactivated-namespaces}
+### Deactivated namespaces
 
 On some platforms, such as
-[Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/){: .external}
+[Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/)
 cluster nodes or Debian, user namespaces are deactivated by default due to
 security concerns. If the `/proc/sys/kernel/unprivileged_userns_clone` file
 exists and contains a 0, you can activate user namespaces by running:
@@ -173,14 +174,14 @@ exists and contains a 0, you can activate user namespaces by running:
    sudo sysctl kernel.unprivileged_userns_clone=1
 ```
 
-### Rule execution failures {:#rule-failures}
+### Rule execution failures
 
 The sandbox may fail to execute rules because of the system setup. If you see a
 message like `namespace-sandbox.c:633: execvp(argv[0], argv): No such file or
 directory`, try to deactivate the sandbox with `--strategy=Genrule=local` for
 genrules, and `--spawn_strategy=local` for other rules.
 
-### Detailed debugging for build failures {:#debugging-build-failures}
+### Detailed debugging for build failures
 
 If your build failed, use `--verbose_failures` and `--sandbox_debug` to make
 Bazel show the exact command it ran when your build failed, including the part

@@ -2,6 +2,7 @@
 title: 'Optimizing Performance'
 ---
 
+
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
 build, these operations can easily take O(N^2) time or space. To avoid this, it
@@ -12,7 +13,7 @@ assists you in finding spots where you might have made a mistake. Be warned:
 The cost of writing an inefficient rule may not be evident until it is in
 widespread use.
 
-## Use depsets {:#use-depsets}
+## Use depsets
 
 Whenever you are rolling up information from rule dependencies you should use
 [depsets](lib/depset). Only use plain lists or dicts to publish information
@@ -68,9 +69,9 @@ def _impl(ctx):
   )]
 ```
 
-See the [depset overview](/versions/6.5.0/rules/depsets) page for more information.
+See the [depset overview](/rules/depsets) page for more information.
 
-### Avoid calling `depset.to_list()` {:#avoid-depset-to-list}
+### Avoid calling `depset.to_list()`
 
 You can coerce a depset to a flat list using
 [`to_list()`](lib/depset#to_list), but doing so usually results in O(N^2)
@@ -83,7 +84,7 @@ accumulated over each level of the build graph. But this is *still* O(N^2) when
 you build a set of targets with overlapping dependencies. This happens when
 building your tests `//foo/tests/...`, or when importing an IDE project.
 
-### Reduce the number of calls to `depset` {:#reduce-calls-depset}
+### Reduce the number of calls to `depset`
 
 Calling `depset` inside a loop is often a mistake. It can lead to depsets with
 very deep nesting, which perform poorly. For example:
@@ -113,7 +114,7 @@ This can sometimes be reduced using a list comprehension:
 x = depset(transitive = [i.deps for i in inputs])
 ```
 
-## Use ctx.actions.args() for command lines {:#ctx-actions-args}
+## Use ctx.actions.args() for command lines
 
 When building command lines you should use [ctx.actions.args()](lib/Args).
 This defers expansion of any depsets to the execution phase.
@@ -174,7 +175,7 @@ def _to_short_path(f):
   return f.short_path
 ```
 
-## Transitive action inputs should be depsets {:#transitive-action-inputs}
+## Transitive action inputs should be depsets
 
 When building an action using [ctx.actions.run](lib/actions?#run), do not
 forget that the `inputs` field accepts a depset. Use this whenever inputs are
@@ -188,7 +189,7 @@ ctx.actions.run(
 )
 ```
 
-## Hanging {:#hanging}
+## Hanging
 
 If Bazel appears to be hung, you can hit <kbd>Ctrl-&#92;</kbd> or send
 Bazel a `SIGQUIT` signal (`kill -3 $(bazel info server_pid)`) to get a thread
@@ -198,11 +199,11 @@ Since you may not be able to run `bazel info` if bazel is hung, the
 `output_base` directory is usually the parent of the `bazel-<workspace>`
 symlink in your workspace directory.
 
-## Performance profiling {:#performance-profiling}
+## Performance profiling
 
 Bazel writes a JSON profile to `command.profile.gz` in the output base by
 default. You can configure the location with the
-[`--profile`](/versions/6.5.0/docs/user-manual#profile) flag, for example
+[`--profile`](/docs/user-manual#profile) flag, for example
 `--profile=/tmp/profile.gz`. Location ending with `.gz` are compressed with
 GZIP.
 
@@ -223,11 +224,11 @@ You can use these keyboard controls to navigate:
     between two events.
 *   Press `?` to learn about all controls.
 
-### Profile information {:#profile-information}
+### Profile information
 
 Example profile:
 
-![Example profile](/versions/6.5.0/rules/profile.png "Example profile")
+![Example profile](/rules/profile.png "Example profile")
 
 **Figure 1.** Example profile.
 
@@ -246,7 +247,7 @@ There are some special rows:
 
 Other rows represent Bazel threads and show all events on that thread.
 
-### Common performance issues {:#common-performance-issues}
+### Common performance issues
 
 When analyzing performance profiles, look for:
 
@@ -264,7 +265,7 @@ When analyzing performance profiles, look for:
     or Bazel itself to introduce more parallelism. This can also happen when
     there is an unusual amount of GC.
 
-### Profile file format {:#profile-file-format}
+### Profile file format
 
 The top-level object contains metadata (`otherData`) and the actual tracing data
 (`traceEvents`). The metadata contains extra info, for example the invocation ID
@@ -304,9 +305,9 @@ each other; pass `--noslim_json_profile` if you would like to
 prevent event merging.
 
 See also the
-[Chrome Trace Event Format Specification](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview){: .external}.
+[Chrome Trace Event Format Specification](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
 
-### analyze-profile {:#analyze-profile}
+### analyze-profile
 
 This profiling method consists of two steps, first you have to execute your
 build/test with the `--profile` flag, for example
@@ -354,13 +355,13 @@ Critical path (4.245 s):
     0.96 ms    0.02%   runfiles for //tools/aquery_differ aquery_differ
 ```
 
-## Memory profiling {:#memory-profiling}
+## Memory profiling
 
 Bazel comes with a built-in memory profiler that can help you check your rule's
 memory use. If there is a problem you can dump the heap to find the
 exact line of code that is causing the problem.
 
-### Enabling memory tracking {:#enabling-memory-tracking}
+### Enabling memory tracking
 
 You must pass these two startup flags to *every* Bazel invocation:
 
@@ -375,7 +376,7 @@ Make sure to adjust `$(BAZEL)` for your repository location.
 These start the server in memory tracking mode. If you forget these for even
 one Bazel invocation the server will restart and you will have to start over.
 
-### Using the Memory Tracker {:#memory-tracker}
+### Using the Memory Tracker
 
 As an example, look at the target `foo` and see what it does. To only
 run the analysis and not run the build execution phase, add the
@@ -422,7 +423,7 @@ $ bazel $(STARTUP_FLAGS) dump --skylark_memory=$HOME/prof.gz
 Use the `pprof` tool to investigate the heap. A good starting point is
 getting a flame graph by using `pprof -flame $HOME/prof.gz`.
 
-Get `pprof` from [https://github.com/google/pprof](https://github.com/google/pprof){: .external}.
+Get `pprof` from [https://github.com/google/pprof](https://github.com/google/pprof).
 
 Get a text dump of the hottest call sites annotated with lines:
 
