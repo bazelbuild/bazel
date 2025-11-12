@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
@@ -3324,8 +3325,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .filter(e -> !flagAliases.containsKey(e.getKey()))
             .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       }
-
-      return ImmutableMap.copyOf(aliasesMap);
     }
 
     return ImmutableMap.copyOf(aliasesMap);
