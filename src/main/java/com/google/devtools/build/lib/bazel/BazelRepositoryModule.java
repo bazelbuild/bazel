@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -141,7 +143,8 @@ public class BazelRepositoryModule extends BlazeModule {
   // Default list of registries.
   public static final ImmutableSet<String> DEFAULT_REGISTRIES =
       ImmutableSet.of("https://bcr.bazel.build/");
-  public static final ImmutableSet<String> DEFAULT_MODULE_MIRRORS = ImmutableSet.of();
+  public static final ImmutableMap<String, ImmutableSet<String>> DEFAULT_MODULE_MIRRORS =
+      ImmutableMap.of();
 
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
@@ -156,7 +159,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private FileSystem filesystem;
   private ImmutableSet<String> registries;
-  private ImmutableSet<String> moduleMirrors;
+  private ImmutableMap<String, ImmutableSet<String>> moduleMirrors;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -600,7 +603,32 @@ public class BazelRepositoryModule extends BlazeModule {
         registries = DEFAULT_REGISTRIES;
       }
       if (repoOptions.moduleMirrors != null && !repoOptions.moduleMirrors.isEmpty()) {
-        moduleMirrors = normalizeBaseUrls(repoOptions.moduleMirrors);
+        var registryToMirrors =
+            repoOptions.moduleMirrors.stream()
+                .collect(
+                    toImmutableMap(
+                        entry -> normalizeBaseUrl(entry.getKey()),
+                        entry -> normalizeBaseUrls(entry.getValue()),
+                        // Last wins semantics allow previous settings to be overridden.
+                        (a, b) -> b));
+        // The key "" returned by the option conversion defines mirrors for all registries that
+        // don't have their own explicitly defined.
+        var knownRegistries = Sets.union(registries, ImmutableSet.of(""));
+        var unknownRegistries = Sets.difference(registryToMirrors.keySet(), knownRegistries);
+        if (!unknownRegistries.isEmpty()) {
+          throw new AbruptExitException(
+              detailedExitCode(
+                  "--module_mirrors references registries not listed in --registries: "
+                      + String.join(", ", unknownRegistries),
+                  Code.UNKNOWN_REGISTRY));
+        }
+        var moduleMirrorsBuilder = ImmutableMap.<String, ImmutableSet<String>>builder();
+        var defaultMirrors = registryToMirrors.getOrDefault("", ImmutableSet.of());
+        for (String registry : registries) {
+          moduleMirrorsBuilder.put(
+              registry, registryToMirrors.getOrDefault(registry, defaultMirrors));
+        }
+        moduleMirrors = moduleMirrorsBuilder.buildOrThrow();
       } else {
         moduleMirrors = DEFAULT_MODULE_MIRRORS;
       }
@@ -644,12 +672,14 @@ public class BazelRepositoryModule extends BlazeModule {
     }
   }
 
-  private static ImmutableSet<String> normalizeBaseUrls(List<String> baseUrls) {
+  private static String normalizeBaseUrl(String baseUrl) {
     // Ensure that base URLs aren't duplicated even after /-delimited segments are appended to
     // them.
-    return baseUrls.stream()
-        .map(url -> CharMatcher.is('/').trimTrailingFrom(url))
-        .collect(toImmutableSet());
+    return CharMatcher.is('/').trimTrailingFrom(baseUrl);
+  }
+
+  private static ImmutableSet<String> normalizeBaseUrls(List<String> baseUrls) {
+    return baseUrls.stream().map(BazelRepositoryModule::normalizeBaseUrl).collect(toImmutableSet());
   }
 
   /**

@@ -266,7 +266,7 @@ public abstract class AnalysisMock extends LoadingMock {
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
         PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableSet.of()),
-        PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableSet.of()),
+        PrecomputedValue.injected(RegistryFunction.MODULE_MIRRORS, ImmutableMap.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),

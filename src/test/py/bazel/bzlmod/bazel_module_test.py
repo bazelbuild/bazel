@@ -1406,6 +1406,139 @@ class BazelModuleTest(test_base.TestBase):
         '--noincompatible_disable_native_repo_rules',
         '@local_config_platform//:host',
     ])
+  def testDefaultModuleMirrors(self):
+    """Tests that default module mirrors are applied to all registries."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    _, stdout, _ = self.RunBazel([
+        'mod',
+        'show_repo',
+        '@@aaa+',
+        '--registry=' + self.main_registry.getURL(),
+        '--registry=https://bcr.bazel.build',
+        '--module_mirrors=https://default-mirror1.example.com,https://default-mirror2.example.com',
+    ])
+    stdout = '\n'.join(stdout)
+    self.assertIn('https://default-mirror1.example.com', stdout)
+    self.assertIn('https://default-mirror2.example.com', stdout)
+
+  def testPerRegistryModuleMirrors(self):
+    """Tests that per-registry module mirrors are applied only to the specified registry."""
+    second_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'second')
+    )
+    second_registry.start()
+    second_registry.createShModule('ddd', '2.0')
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "2.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+
+    _, stdout, _ = self.RunBazel([
+        'mod',
+        'show_repo',
+        '@@aaa+',
+        '--registry=' + self.main_registry.getURL(),
+        '--registry=' + second_registry.getURL(),
+        '--registry=https://bcr.bazel.build',
+        '--module_mirrors=%s=https://main-mirror.example.com'
+        % self.main_registry.getURL(),
+        '--module_mirrors=%s=https://second-mirror.example.com'
+        % second_registry.getURL(),
+    ])
+    stdout = '\n'.join(stdout)
+    self.assertIn('https://main-mirror.example.com', stdout)
+    self.assertNotIn('https://second-mirror.example.com', stdout)
+
+    second_registry.stop()
+
+  def testPerRegistryModuleMirrorsWithDefault(self):
+    """Tests that per-registry mirrors override default mirrors for that registry."""
+    second_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'second')
+    )
+    second_registry.start()
+    second_registry.createShModule('ddd', '2.0')
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "2.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+
+    _, stdout_aaa, _ = self.RunBazel([
+        'mod',
+        'show_repo',
+        '@@aaa+',
+        '--registry=' + self.main_registry.getURL(),
+        '--registry=' + second_registry.getURL(),
+        '--registry=https://bcr.bazel.build',
+        '--module_mirrors=https://default-mirror.example.com',
+        '--module_mirrors=%s=https://main-specific-mirror.example.com'
+        % self.main_registry.getURL(),
+    ])
+    stdout_aaa = '\n'.join(stdout_aaa)
+    self.assertIn('https://main-specific-mirror.example.com', stdout_aaa)
+    self.assertNotIn('https://default-mirror.example.com', stdout_aaa)
+
+    _, stdout_ddd, _ = self.RunBazel([
+        'mod',
+        'show_repo',
+        '@@ddd+',
+        '--registry=' + self.main_registry.getURL(),
+        '--registry=' + second_registry.getURL(),
+        '--registry=https://bcr.bazel.build',
+        '--module_mirrors=https://default-mirror.example.com',
+        '--module_mirrors=%s=https://main-specific-mirror.example.com'
+        % self.main_registry.getURL(),
+    ])
+    stdout_ddd = '\n'.join(stdout_ddd)
+    self.assertIn('https://default-mirror.example.com', stdout_ddd)
+    self.assertNotIn('https://main-specific-mirror.example.com', stdout_ddd)
+
+    second_registry.stop()
+
+  def testUnknownRegistryInModuleMirrors(self):
+    """Tests that specifying an unknown registry in module_mirrors results in an error."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'mod',
+            'show_repo',
+            '@@aaa+',
+            '--registry=' + self.main_registry.getURL(),
+            '--registry=https://bcr.bazel.build',
+            '--module_mirrors=https://unknown-registry.example.com=https://mirror.example.com',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr = '\n'.join(stderr)
+    self.assertIn(
+        '--module_mirrors references registries not listed in --registries',
+        stderr,
+    )
+    self.assertIn('https://unknown-registry.example.com', stderr)
 
 
 if __name__ == '__main__':
