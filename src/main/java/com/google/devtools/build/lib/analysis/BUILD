@@ -323,6 +323,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/lib/json",
+        "//src/main/java/net/starlark/java/lib/toml",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",

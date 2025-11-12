@@ -59,6 +59,30 @@
       },
       "version": "1.5.2"
     },
+    "com.fasterxml.jackson.core:jackson-annotations": {
+      "shasums": {
+        "jar": "581bd61000ef7648943f781ca05689e56d03f6052748365a8e2b3a9b5d3fa32f"
+      },
+      "version": "2.18.2"
+    },
+    "com.fasterxml.jackson.core:jackson-core": {
+      "shasums": {
+        "jar": "d8054ae7c0d1c2d2f55d28e46026ebe5892881f3fab5f439233184381c3b4a1f"
+      },
+      "version": "2.18.2"
+    },
+    "com.fasterxml.jackson.core:jackson-databind": {
+      "shasums": {
+        "jar": "4b364e6850dc89172fcf1d4dd26b8ff5488eda44ff4657e22dd265203dd5ab3c"
+      },
+      "version": "2.18.2"
+    },
+    "com.fasterxml.jackson.dataformat:jackson-dataformat-toml": {
+      "shasums": {
+        "jar": "df2c89a381daeaaf1491b2892ff2c0bfdb0b60716d2c0caf94b0775da1db5e27"
+      },
+      "version": "2.18.2"
+    },
     "com.github.ben-manes.caffeine:caffeine": {
       "shasums": {
         "jar": "7dd15f9df1be238ffaa367ce6f556737a88031de4294dad18eef57c474ddf1d3"
@@ -885,6 +909,14 @@
     "com.dylibso.chicory:runtime": [
       "com.dylibso.chicory:wasm"
     ],
+    "com.fasterxml.jackson.core:jackson-databind": [
+      "com.fasterxml.jackson.core:jackson-annotations",
+      "com.fasterxml.jackson.core:jackson-core"
+    ],
+    "com.fasterxml.jackson.dataformat:jackson-dataformat-toml": [
+      "com.fasterxml.jackson.core:jackson-core",
+      "com.fasterxml.jackson.core:jackson-databind"
+    ],
     "com.github.ben-manes.caffeine:caffeine": [
       "com.google.errorprone:error_prone_annotations",
       "org.checkerframework:checker-qual"
@@ -1420,6 +1452,53 @@
       "com.dylibso.chicory.wasm",
       "com.dylibso.chicory.wasm.io",
       "com.dylibso.chicory.wasm.types"
+    ],
+    "com.fasterxml.jackson.core:jackson-annotations": [
+      "com.fasterxml.jackson.annotation"
+    ],
+    "com.fasterxml.jackson.core:jackson-core": [
+      "com.fasterxml.jackson.core",
+      "com.fasterxml.jackson.core.async",
+      "com.fasterxml.jackson.core.base",
+      "com.fasterxml.jackson.core.exc",
+      "com.fasterxml.jackson.core.filter",
+      "com.fasterxml.jackson.core.format",
+      "com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2",
+      "com.fasterxml.jackson.core.io",
+      "com.fasterxml.jackson.core.io.schubfach",
+      "com.fasterxml.jackson.core.json",
+      "com.fasterxml.jackson.core.json.async",
+      "com.fasterxml.jackson.core.sym",
+      "com.fasterxml.jackson.core.type",
+      "com.fasterxml.jackson.core.util"
+    ],
+    "com.fasterxml.jackson.core:jackson-databind": [
+      "com.fasterxml.jackson.databind",
+      "com.fasterxml.jackson.databind.annotation",
+      "com.fasterxml.jackson.databind.cfg",
+      "com.fasterxml.jackson.databind.deser",
+      "com.fasterxml.jackson.databind.deser.impl",
+      "com.fasterxml.jackson.databind.deser.std",
+      "com.fasterxml.jackson.databind.exc",
+      "com.fasterxml.jackson.databind.ext",
+      "com.fasterxml.jackson.databind.introspect",
+      "com.fasterxml.jackson.databind.jdk14",
+      "com.fasterxml.jackson.databind.json",
+      "com.fasterxml.jackson.databind.jsonFormatVisitors",
+      "com.fasterxml.jackson.databind.jsonschema",
+      "com.fasterxml.jackson.databind.jsontype",
+      "com.fasterxml.jackson.databind.jsontype.impl",
+      "com.fasterxml.jackson.databind.module",
+      "com.fasterxml.jackson.databind.node",
+      "com.fasterxml.jackson.databind.ser",
+      "com.fasterxml.jackson.databind.ser.impl",
+      "com.fasterxml.jackson.databind.ser.std",
+      "com.fasterxml.jackson.databind.type",
+      "com.fasterxml.jackson.databind.util",
+      "com.fasterxml.jackson.databind.util.internal"
+    ],
+    "com.fasterxml.jackson.dataformat:jackson-dataformat-toml": [
+      "com.fasterxml.jackson.dataformat.toml"
     ],
     "com.github.ben-manes.caffeine:caffeine": [
       "com.github.benmanes.caffeine.cache",
@@ -2918,6 +2997,10 @@
       "com.dylibso.chicory:log",
       "com.dylibso.chicory:runtime",
       "com.dylibso.chicory:wasm",
+      "com.fasterxml.jackson.core:jackson-annotations",
+      "com.fasterxml.jackson.core:jackson-core",
+      "com.fasterxml.jackson.core:jackson-databind",
+      "com.fasterxml.jackson.dataformat:jackson-dataformat-toml",
       "com.github.ben-manes.caffeine:caffeine",
       "com.github.kevinstern:software-and-algorithms",
       "com.github.stephenc.jcip:jcip-annotations",
@@ -3067,6 +3150,16 @@
     ]
   },
   "services": {
+    "com.fasterxml.jackson.core:jackson-core": {
+      "com.fasterxml.jackson.core.JsonFactory": [
+        "com.fasterxml.jackson.core.JsonFactory"
+      ]
+    },
+    "com.fasterxml.jackson.core:jackson-databind": {
+      "com.fasterxml.jackson.core.ObjectCodec": [
+        "com.fasterxml.jackson.databind.ObjectMapper"
+      ]
+    },
     "com.google.auto.service:auto-service": {
       "javax.annotation.processing.Processor": [
         "com.google.auto.service.processor.AutoServiceProcessor"
