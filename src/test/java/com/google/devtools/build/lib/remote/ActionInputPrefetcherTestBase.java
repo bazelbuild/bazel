@@ -924,9 +924,9 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {
-    assertWithMessage(path + " should be readable").that(path.isReadable()).isTrue();
-    assertWithMessage(path + " should not be writable").that(path.isWritable()).isFalse();
-    assertWithMessage(path + " should be executable").that(path.isExecutable()).isTrue();
+    assertWithMessage("%s should be readable", path).that(path.isReadable()).isTrue();
+    assertWithMessage("%s should not be writable", path).that(path.isWritable()).isFalse();
+    assertWithMessage("%s should be executable", path).that(path.isExecutable()).isTrue();
   }
 
   private void assertTreeReadableNonWritableAndExecutable(Path path) throws IOException {
@@ -940,9 +940,9 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   private void assertReadableWritableAndExecutable(Path path) throws IOException {
-    assertWithMessage(path + " should be readable").that(path.isReadable()).isTrue();
-    assertWithMessage(path + " should be writable").that(path.isWritable()).isTrue();
-    assertWithMessage(path + " should be executable").that(path.isExecutable()).isTrue();
+    assertWithMessage("%s should be readable", path).that(path.isReadable()).isTrue();
+    assertWithMessage("%s should be writable", path).that(path.isWritable()).isTrue();
+    assertWithMessage("%s should be executable", path).that(path.isExecutable()).isTrue();
   }
 
   private void assertTreeReadableWritableAndExecutable(Path path) throws IOException {

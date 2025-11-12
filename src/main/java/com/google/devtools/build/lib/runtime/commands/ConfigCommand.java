@@ -319,14 +319,11 @@ public class ConfigCommand implements BlazeCommand {
       throw new InvalidConfigurationException(
           String.format(
               "Configuration identifier '%s' is ambiguous.\n"
-                  + "'%s' is a prefix of multiple configurations:\n "
-                  + matches.stream()
-                      .map(ConfigurationForOutput::getConfigHash)
-                      .collect(joining("\n "))
-                  + "\n\n"
+                  + "'%s' is a prefix of multiple configurations:\n %s\n\n"
                   + "Use a sufficient prefix to uniquely identify one configuration.",
               configPrefix,
-              configPrefix));
+              configPrefix,
+              matches.stream().map(ConfigurationForOutput::getConfigHash).collect(joining("\n "))));
     }
     return Iterables.getOnlyElement(matches);
   }

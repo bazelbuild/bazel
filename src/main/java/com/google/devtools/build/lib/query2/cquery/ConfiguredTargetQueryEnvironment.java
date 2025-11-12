@@ -442,12 +442,9 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
               throw new QueryException(
                   String.format(
                       "Configuration ID '%s' is ambiguous.\n"
-                          + "'%s' is a prefix of multiple configurations:\n "
-                          + Joiner.on("\n ").join(matchingConfigs)
-                          + "\n\n"
+                          + "'%s' is a prefix of multiple configurations:\n %s\n\n"
                           + "Use a longer prefix to uniquely identify one configuration.",
-                      configPrefix,
-                      configPrefix),
+                      configPrefix, configPrefix, Joiner.on("\n ").join(matchingConfigs)),
                   ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
             } else {
               throw new QueryException(

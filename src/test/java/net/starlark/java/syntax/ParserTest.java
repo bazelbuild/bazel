@@ -1091,7 +1091,7 @@ public final class ParserTest {
       // Comments start and end on the same line
       Location start = comment.getStartLocation();
       Location end = comment.getEndLocation();
-      assertWithMessage(start.line() + " ends on " + end.line())
+      assertWithMessage("%s ends on %s", start.line(), end.line())
           .that(end.line())
           .isEqualTo(start.line());
       commentLines.append('(');
@@ -1100,8 +1100,9 @@ public final class ParserTest {
       commentLines.append(start.column());
       commentLines.append(") ");
     }
-    assertWithMessage("Found: " + commentLines)
-        .that(result.getComments().size()).isEqualTo(10); // One per '#'
+    assertWithMessage("Found: %s", commentLines)
+        .that(result.getComments().size())
+        .isEqualTo(10); // One per '#'
   }
 
   @Test

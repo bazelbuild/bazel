@@ -1316,8 +1316,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     if (target != null) {
-      assertWithMessage(
-              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+      assertWithMessage("Rule '" + "//%s:%s' did not contain an error", packageName, ruleName)
           .that(view.hasErrors(target))
           .isTrue();
     }
@@ -1341,8 +1340,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     if (target != null) {
-      assertWithMessage(
-              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+      assertWithMessage("Rule '" + "//%s:%s' did not contain an error", packageName, ruleName)
           .that(view.hasErrors(target))
           .isTrue();
     }
@@ -1362,7 +1360,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = getConfiguredTarget(label);
     if (target != null) {
-      assertWithMessage("Rule '" + label + "' did not contain an error")
+      assertWithMessage("Rule '%s' did not contain an error", label)
           .that(view.hasErrors(target))
           .isTrue();
     }
@@ -1397,7 +1395,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     eventCollector.clear();
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
-    assertWithMessage("Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error")
+    assertWithMessage("Rule '" + "//%s:%s' did contain an error", packageName, ruleName)
         .that(view.hasErrors(target))
         .isFalse();
     return assertContainsEvent(expectedWarningMessage);

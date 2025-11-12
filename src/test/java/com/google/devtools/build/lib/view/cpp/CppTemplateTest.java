@@ -160,7 +160,7 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
         .getDoneValues()
         .forEach(
             (k, v) ->
-                assertWithMessage("Node " + k + " warnings")
+                assertWithMessage("Node %s warnings", k)
                     .that(ValueWithMetadata.getEvents(v).toList())
                     .isEmpty());
 

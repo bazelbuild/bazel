@@ -139,29 +139,26 @@ public final class ConverterTester {
         }
 
         assertWithMessage(
-                "Input \""
-                    + input
-                    + "\" was not equal to itself when converted twice by the same Converter")
+                "Input \"%s\" was not equal to itself when converted twice by the same Converter",
+                input)
             .that(convertedAgain)
             .isEqualTo(converted);
         assertWithMessage(
-                "Input \""
-                    + input
-                    + "\" did not have a consistent hashCode when converted twice "
-                    + "by the same Converter")
+                "Input \"%s\" did not have a consistent hashCode when converted twice "
+                    + "by the same Converter",
+                input)
             .that(convertedAgain.hashCode())
             .isEqualTo(converted.hashCode());
         assertWithMessage(
-            "Input \""
-                + input
-                + "\" was not equal to itself when converted twice by a different Converter")
+                "Input \"%s\" was not equal to itself when converted twice by a different"
+                    + " Converter",
+                input)
             .that(convertedDifferentConverterInstance)
             .isEqualTo(converted);
         assertWithMessage(
-            "Input \""
-                + input
-                + "\" did not have a consistent hashCode when converted twice "
-                + "by a different Converter")
+                "Input \"%s\" did not have a consistent hashCode when converted twice "
+                    + "by a different Converter",
+                input)
             .that(convertedDifferentConverterInstance.hashCode())
             .isEqualTo(converted.hashCode());
       }

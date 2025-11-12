@@ -522,7 +522,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
 
     assertWithMessage(
-            "Event does not contain expected number of file conflicts:\n" + event.getMessage())
+            "Event does not contain expected number of file conflicts:\n%s", event.getMessage())
         .that(matchCount)
         .isEqualTo(5);
   }
